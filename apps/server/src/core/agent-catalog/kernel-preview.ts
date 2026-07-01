@@ -98,6 +98,21 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
                   },
                 ],
               },
+              tool_hits: [
+                {
+                  tool_id: "opseq",
+                  source_id: "opseq_similarity",
+                  symbol: "ftDemo_KernelViewerSample",
+                  unit: "GALE01:kernel-viewer",
+                  analog_symbol: "ftDemo_KernelViewerSolvedNeighbor",
+                  analog_unit: "GALE01:kernel-viewer",
+                  analog_source_path: "src/melee/ft/chara/ftDemo.c",
+                  score: 0.97,
+                  exact_match: true,
+                  matched: true,
+                  evidence_ref: "kernel-viewer:opseq-sample",
+                },
+              ],
             },
             path_facts: {
               facts: [

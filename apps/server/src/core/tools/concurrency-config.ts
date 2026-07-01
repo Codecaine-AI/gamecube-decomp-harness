@@ -11,12 +11,12 @@ export interface ToolConcurrencySettings {
 }
 
 export const TOOL_CONCURRENCY_DEFAULTS: ToolConcurrencySettings = {
-  checkdiff: 12,
+  checkdiff: 20,
   compile: 12,
-  m2cDecomp: 8,
-  mwccDebug: 2,
-  other: 16,
-  sourcePermuter: 1,
+  m2cDecomp: 15,
+  mwccDebug: 6,
+  other: 20,
+  sourcePermuter: 3,
   sourcePermuterJobs: 1,
 };
 

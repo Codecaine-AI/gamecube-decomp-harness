@@ -21,6 +21,7 @@ export interface SessionsApiRouteDeps {
   requestPaths: (url: URL, options: { useDefaultProject?: boolean }) => { project?: unknown; stateDir: string };
   runDashboard: (paths: unknown) => Promise<unknown>;
   runDetails: (stateDir: string, runId: string, project: unknown) => unknown;
+  workerStateTrace: (stateDir: string, runId: string, workerStateId: string) => unknown;
   syncGitForPrepare: (body: Record<string, unknown>) => Promise<unknown>;
   syncProjectIntake: (body: Record<string, unknown>) => Promise<unknown>;
 }
@@ -56,6 +57,10 @@ export async function handleSessionsApiRoute(req: Request, url: URL, deps: Sessi
   if (url.pathname === "/api/run/details") {
     const paths = deps.requestPaths(url, { useDefaultProject: true });
     return deps.json(deps.runDetails(paths.stateDir, url.searchParams.get("runId") || "", paths.project ?? null));
+  }
+  if (url.pathname === "/api/run/worker-state-trace") {
+    const paths = deps.requestPaths(url, { useDefaultProject: true });
+    return deps.json(deps.workerStateTrace(paths.stateDir, url.searchParams.get("runId") || "", url.searchParams.get("workerStateId") || ""));
   }
   if (url.pathname === "/api/project/sync" && req.method === "POST") {
     return deps.json(await deps.syncProjectIntake(await requestBody(req)));

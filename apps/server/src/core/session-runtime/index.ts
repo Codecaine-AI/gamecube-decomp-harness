@@ -298,6 +298,7 @@ export function handleProjectSessionCommand(
         projectId,
         updateRunningSubphase(db, selector, text(body.subphase) as RunningPhaseState["subphase"], {
           detail: text(body.subphaseDetail, text(body.subphase_detail)),
+          data: objectValue(body.data) as Partial<RunningPhaseState>,
         }),
       );
     case "stop-running":

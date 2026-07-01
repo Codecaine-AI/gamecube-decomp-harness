@@ -338,6 +338,28 @@ function stateDirRelativeToRepo(repoRoot: string, stateDir: string): string | nu
   return rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : null;
 }
 
+function epochProgress(
+  store: StateStore,
+  runId: string,
+  params: {
+    label: string | null;
+    message: string;
+    phase: string;
+    status: "started" | "finished" | "skipped" | "warning";
+  } & Record<string, unknown>,
+): void {
+  const { label, message, phase, status, ...extra } = params;
+  console.error(`[epoch] ${label ?? runId.slice(0, 8)} ${phase} ${status}: ${message}`);
+  addEvent(store, runId, "epoch_checkpoint_progress", "epoch-cycle", {
+    label,
+    message,
+    phase,
+    status,
+    ...extra,
+    created_by: "epoch-cycle",
+  });
+}
+
 /**
  * One epoch checkpoint: commit validated work (excluding in-flight worker
  * files), rebuild the full objdiff report in the trailing worktree, publish
@@ -375,6 +397,12 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const reportRelPath = options.reportRelPath ?? "build/GALE01/report.json";
   const reportChangesRelPath = options.reportChangesRelPath ?? "build/GALE01/report_changes.json";
   const baselineRelPath = options.baselineRelPath ?? "build/GALE01/baseline.json";
+  epochProgress(store, runId, {
+    label,
+    phase: "integration_drain",
+    status: "started",
+    message: "checking worker integration queue before checkpoint build",
+  });
   const integrationDrain = await processWorkerOutputIntegrationQueue({
     dryRun: false,
     limit: 64,
@@ -389,9 +417,23 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       `epoch checkpoint blocked by ${blockingIntegrations} unresolved worker output integration item(s): ${JSON.stringify(integrationDrain.queueSummary)}`,
     );
   }
+  epochProgress(store, runId, {
+    label,
+    phase: "integration_drain",
+    status: "finished",
+    message: "worker integration queue drained",
+    queue_summary: integrationDrain.queueSummary,
+  });
   const lockedPaths = [...activeLockedSourcePaths(store)].sort();
   const stateDirRelative = options.stateDirRelative !== undefined ? options.stateDirRelative : stateDirRelativeToRepo(repoRoot, stateDir);
 
+  epochProgress(store, runId, {
+    label,
+    phase: "snapshot_commit",
+    status: "started",
+    message: `committing epoch snapshot with ${lockedPaths.length} locked path(s) excluded`,
+    locked_path_count: lockedPaths.length,
+  });
   const snapshot = await commitEpochSnapshot({
     repoRoot,
     excludePaths: lockedPaths,
@@ -400,7 +442,22 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   });
   if (snapshot.warning) console.error(`[epoch] ${snapshot.warning}`);
   if (!snapshot.commitSha) throw new Error("epoch commit failed: could not resolve HEAD");
+  epochProgress(store, runId, {
+    label,
+    phase: "snapshot_commit",
+    status: "finished",
+    message: snapshot.committed ? `snapshot committed at ${snapshot.commitSha.slice(0, 10)}` : `using existing HEAD ${snapshot.commitSha.slice(0, 10)}`,
+    commit_sha: snapshot.commitSha,
+    committed: snapshot.committed,
+  });
 
+  epochProgress(store, runId, {
+    label,
+    phase: "worktree_prepare",
+    status: "started",
+    message: `preparing epoch worktree at ${options.worktreeDir}`,
+    worktree_dir: options.worktreeDir,
+  });
   await ensureEpochWorktree({
     repoRoot,
     worktreeDir: options.worktreeDir,
@@ -411,17 +468,65 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const configureCommand = hasLocalWibo
     ? configureCommandWithLocalWrapper(options.configureCommand ?? "python3 configure.py --require-protos", "build/tools/wibo")
     : (options.configureCommand ?? "python3 configure.py --require-protos");
+  epochProgress(store, runId, {
+    label,
+    phase: "configure",
+    status: configureCommand.trim() ? "started" : "skipped",
+    message: configureCommand.trim() ? `running configure command: ${configureCommand}` : "configure command is empty",
+    worktree_dir: options.worktreeDir,
+  });
   await runConfigure(options.worktreeDir, configureCommand);
+  if (configureCommand.trim()) {
+    epochProgress(store, runId, {
+      label,
+      phase: "configure",
+      status: "finished",
+      message: "configure command finished",
+      worktree_dir: options.worktreeDir,
+    });
+  }
 
   const worktreeBaselinePath = resolve(options.worktreeDir, baselineRelPath);
+  epochProgress(store, runId, {
+    label,
+    phase: "report_build",
+    status: "started",
+    message: `building objdiff report in epoch worktree${existsSync(worktreeBaselinePath) ? "" : " with baseline reset"}`,
+    reset_baseline: !existsSync(worktreeBaselinePath),
+    worktree_dir: options.worktreeDir,
+  });
   const buildResult = await forceReportRun(options.worktreeDir, { resetBaseline: !existsSync(worktreeBaselinePath) });
+  epochProgress(store, runId, {
+    label,
+    phase: "report_build",
+    status: "finished",
+    message: `report build finished with ${buildResult.steps.length} step(s)`,
+    step_count: buildResult.steps.length,
+    failed_step_count: buildResult.steps.filter((step) => step.exitCode !== 0).length,
+  });
 
   const worktreeReportPath = resolve(options.worktreeDir, reportRelPath);
   const worktreeChangesPath = resolve(options.worktreeDir, reportChangesRelPath);
+  epochProgress(store, runId, {
+    label,
+    phase: "report_read",
+    status: "started",
+    message: "reading epoch report and regression summary",
+    report_path: worktreeReportPath,
+    report_changes_path: worktreeChangesPath,
+  });
   const regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint for run ${runId}`, 50);
   const measures = reportMeasures(worktreeReportPath);
   const matchedCodeValue = Number(measures.matched_code_percent);
   const matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
+  epochProgress(store, runId, {
+    label,
+    phase: "report_read",
+    status: "finished",
+    message: `report read finished at matched_code ${matchedCodePercent ?? "?"}%`,
+    matched_code_percent: matchedCodePercent,
+    regressed_functions: regressionReport.brokenMatches.length + regressionReport.fuzzyRegressions.length,
+  });
 
   const artifactDir = resolve(stateDir, "epochs", artifactTimestamp());
   await mkdir(artifactDir, { recursive: true });
@@ -435,6 +540,13 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   let qaGate: EpochQaGateSummary | null = null;
   if (options.qaScan) {
     try {
+      epochProgress(store, runId, {
+        label,
+        phase: "qa_scan",
+        status: "started",
+        message: "running epoch diff QA scan",
+        worktree_dir: options.worktreeDir,
+      });
       const qaInvocation = await runQaScanDiff({
         repoRoot: options.worktreeDir,
         orchestratorRoot: options.qaScan.orchestratorRoot,
@@ -455,10 +567,32 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       );
       if (qaInvocation.stderr) await writeFile(resolve(artifactDir, "qa_scan.txt"), qaInvocation.stderr);
       if (qaInvocation.toolError !== null) console.error(`[epoch] qa scan tool error: ${qaInvocation.toolError}`);
+      epochProgress(store, runId, {
+        label,
+        phase: "qa_scan",
+        status: "finished",
+        message: `QA scan ${qaGate.status} (${qaGate.errors} errors, ${qaGate.warnings} warnings)`,
+        qa_status: qaGate.status,
+        qa_errors: qaGate.errors,
+        qa_warnings: qaGate.warnings,
+      });
     } catch (error) {
       console.error(`[epoch] qa scan failed: ${error instanceof Error ? error.message : String(error)}`);
       qaGate = { exitCode: -1, status: "tool_error", errors: 0, warnings: 0, findings: [] };
+      epochProgress(store, runId, {
+        label,
+        phase: "qa_scan",
+        status: "warning",
+        message: `QA scan failed: ${error instanceof Error ? error.message : String(error)}`,
+      });
     }
+  } else {
+    epochProgress(store, runId, {
+      label,
+      phase: "qa_scan",
+      status: "skipped",
+      message: "epoch diff QA scan is not configured",
+    });
   }
 
   // Publish the fresh report so board scoring, refill, and the dashboard all
@@ -467,17 +601,44 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const repoReportPath = resolve(repoRoot, reportRelPath);
   const repoChangesPath = resolve(repoRoot, reportChangesRelPath);
   try {
+    epochProgress(store, runId, {
+      label,
+      phase: "report_publish",
+      status: "started",
+      message: "publishing epoch report back to the live repo",
+      report_path: repoReportPath,
+    });
     await copyFile(worktreeReportPath, repoReportPath);
     await copyFile(worktreeChangesPath, repoChangesPath);
     reportCopiedToRepo = true;
+    epochProgress(store, runId, {
+      label,
+      phase: "report_publish",
+      status: "finished",
+      message: "epoch report published to live repo",
+      report_path: repoReportPath,
+    });
   } catch (error) {
     console.error(`[epoch] failed to publish report to repo: ${error instanceof Error ? error.message : String(error)}`);
+    epochProgress(store, runId, {
+      label,
+      phase: "report_publish",
+      status: "warning",
+      message: `failed to publish report to repo: ${error instanceof Error ? error.message : String(error)}`,
+      report_path: repoReportPath,
+    });
   }
 
   // Advance the baseline so the next epoch diffs epoch-over-epoch. A regression
   // is flagged (and readmitted) exactly once, then tracked through epoch targets.
   await copyFile(worktreeReportPath, worktreeBaselinePath);
 
+  epochProgress(store, runId, {
+    label,
+    phase: "regression_repair",
+    status: "started",
+    message: "planning epoch regression repairs",
+  });
   const plan = planRegressionRepair(regressionReport, {
     pauseThreshold: options.regressionPauseThreshold ?? 12,
     repairPriorityBase: options.repairPriorityBase ?? 400,
@@ -494,9 +655,28 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     reasons: plan.reasons,
     requeued,
   };
+  epochProgress(store, runId, {
+    label,
+    phase: "regression_repair",
+    status: "finished",
+    message: plan.paused
+      ? `repair planning paused on ${plan.summary.regressedFunctions} regressed function(s)`
+      : `repair planning finished: ${plan.repairCandidates.length} planned, ${requeued} requeued`,
+    paused: plan.paused,
+    planned: plan.repairCandidates.length,
+    requeued,
+    regressions: plan.summary,
+  });
 
   let savePoint: SavePointRecord | null = null;
   try {
+    epochProgress(store, runId, {
+      label,
+      phase: "save_point",
+      status: "started",
+      message: "recording epoch save point and dashboard artifacts",
+      artifact_dir: artifactDir,
+    });
     const branch = await git(repoRoot, ["rev-parse", "--abbrev-ref", "HEAD"]);
     const campaign = ensureCampaign(store, {
       projectId: options.projectId ?? null,
@@ -561,8 +741,23 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       ) as unknown as Record<string, unknown>,
       createdAt: savePoint.createdAt,
     });
+    epochProgress(store, runId, {
+      label,
+      phase: "save_point",
+      status: "finished",
+      message: `epoch save point recorded${savePoint.id ? `: ${savePoint.id}` : ""}`,
+      save_point_id: savePoint.id,
+      artifact_dir: artifactDir,
+    });
   } catch (error) {
     console.error(`[epoch] failed to record save point: ${error instanceof Error ? error.message : String(error)}`);
+    epochProgress(store, runId, {
+      label,
+      phase: "save_point",
+      status: "warning",
+      message: `failed to record save point: ${error instanceof Error ? error.message : String(error)}`,
+      artifact_dir: artifactDir,
+    });
   }
 
   const result: EpochCycleResult = {

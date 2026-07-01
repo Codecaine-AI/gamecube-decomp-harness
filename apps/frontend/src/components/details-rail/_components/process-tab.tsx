@@ -1,9 +1,21 @@
 import { useEffect, useState } from "react";
 
-import { Archive, Pause, RefreshCw } from "@/icons";
-import { Button, EmptyState, InfoRows, Pill } from "@/components/primitives";
+import { Archive, Hammer, Pause, Play, RefreshCw } from "@/icons";
+import { Button, EmptyState, Field, InfoRows, Pill, SelectField } from "@/components/primitives";
 import { asArray, asObject, clock, numberValue, shortId, text, type JsonObject } from "@/lib/format";
 import { processView } from "@/lib/processView";
+import { normalizeToolConcurrency, suggestedToolConcurrency, toolConcurrencyRows, workerTimeoutMinutes, workerTimeoutSecondsFromMinutes } from "@/lib/workerConfig";
+import {
+  candidateRerankOptions,
+  candidateRerankTooltip,
+  candidateWindowOptions,
+  candidateWindowTooltip,
+  epochSizeOptions,
+  resolverConcurrencyOptions,
+  resolverConcurrencyTooltip,
+  schedulingForWorkers,
+  workerCountOptions,
+} from "@/pages/workspace/_lib/model";
 
 import { formatElapsed } from "../_lib/time";
 import type { ProcessTabProps } from "../_lib/types";
@@ -94,7 +106,7 @@ function ProcessRecord({ current, record }: { current?: boolean; record: JsonObj
   );
 }
 
-export function ProcessTab({ busy, dashboard, onAction }: ProcessTabProps) {
+export function ProcessTab({ busy, dashboard, form, onAction, setForm }: ProcessTabProps) {
   const [, setTick] = useState(0);
   const selectedName = processName(dashboard);
   const view = processView(dashboard, selectedName);
@@ -109,8 +121,23 @@ export function ProcessTab({ busy, dashboard, onAction }: ProcessTabProps) {
   const session = asObject(dashboard?.projectSession);
   const run = asObject(status.run);
   const checkpoint = asObject(dashboard?.checkpointProgress);
+  const schedulerEpoch = asObject(status.schedulerEpoch);
   const activeClaims = numberValue(status.activeClaims, 0);
   const saved = view.saved.slice(0, 5);
+  const hasRun = Boolean(text(run.id));
+  const hasActiveEpoch = Boolean(text(schedulerEpoch.epochId));
+  const checkpointBuilding = checkpoint.building === true;
+  const timeoutMinutes = workerTimeoutMinutes(form.agentTimeoutSeconds);
+  const toolConcurrency = normalizeToolConcurrency(form.toolConcurrency);
+  const setToolConcurrency = (key: keyof typeof toolConcurrency, value: unknown, max: number) => {
+    const parsed = Math.trunc(Number(value));
+    setForm({
+      toolConcurrency: {
+        ...toolConcurrency,
+        [key]: Math.max(1, Math.min(max, Number.isFinite(parsed) ? parsed : toolConcurrency[key])),
+      },
+    });
+  };
 
   useEffect(() => {
     if (!running) return;
@@ -130,11 +157,21 @@ export function ProcessTab({ busy, dashboard, onAction }: ProcessTabProps) {
         </div>
         <div className="mt-3 grid grid-cols-3 gap-1.5">
           <Button disabled={busy || !running || draining} icon={draining ? <RefreshCw size={13} /> : <Pause size={13} />} onClick={() => onAction("stop")} title={running ? "Stop scheduling and exit after in-flight workers finish." : "No process is running."} tone="warning" type="button">
-            {draining ? "Draining" : "Finish Epoch"}
+            {draining ? "Draining" : "Drain"}
           </Button>
-          <Button disabled={busy || !running} icon={<Archive size={13} />} onClick={() => onAction("forceStop")} title={running ? "Kill workers and recover active claims." : "No process is running."} tone="danger" type="button">
+          <Button disabled={busy || !running} icon={<Archive size={13} />} onClick={() => onAction("forceStop")} title={running ? "Kill workers immediately and recover active claims for rescheduling." : "No process is running."} tone="danger" type="button">
             Kill
           </Button>
+          <Button disabled={busy || running || !hasRun} icon={<Play size={13} />} onClick={() => onAction("start")} title={!hasRun ? "No active run to start." : running ? "Workers are already running." : "Start workers with the current run config."} tone={!running && hasRun ? "primary" : undefined} type="button">
+            Start
+          </Button>
+        </div>
+        <div className="mt-1.5">
+          <Button disabled={busy || !running || !hasActiveEpoch || checkpointBuilding} icon={<Hammer size={13} />} onClick={() => onAction("finishEpoch")} title={!running ? "No process is running." : !hasActiveEpoch ? "No active epoch to finish." : checkpointBuilding ? "An epoch checkpoint is already building." : "Treat the current epoch as drained and run the baseline/rebuild checkpoint now."} tone="warning" type="button">
+            Finish Epoch
+          </Button>
+        </div>
+        <div className="mt-1.5">
           <Button disabled={busy} icon={<RefreshCw size={13} />} onClick={() => onAction("refresh")} type="button">
             Refresh
           </Button>
@@ -153,6 +190,44 @@ export function ProcessTab({ busy, dashboard, onAction }: ProcessTabProps) {
           ["Checkpoint", checkpoint.building === true ? "building" : text(checkpoint.status, text(checkpoint.nextCheckpoint, "-"))],
         ]}
       />
+
+      <div className="border border-line bg-card p-3">
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Start Config</div>
+        <div className="grid grid-cols-2 gap-2">
+          <SelectField className="mb-0" label="Workers" onChange={(event) => setForm(schedulingForWorkers(Number(event.currentTarget.value)))} options={[...workerCountOptions]} value={form.maxWorkers} />
+          <SelectField className="mb-0" label="Epoch" onChange={(event) => setForm({ epochSize: event.currentTarget.value })} options={[...epochSizeOptions]} value={form.epochSize} />
+          <SelectField className="mb-0" label="Window" onChange={(event) => setForm({ candidateWindow: event.currentTarget.value })} options={[...candidateWindowOptions]} title={candidateWindowTooltip} value={form.candidateWindow} />
+          <SelectField className="mb-0" label="Rerank" onChange={(event) => setForm({ candidateRerank: event.currentTarget.value })} options={[...candidateRerankOptions]} title={candidateRerankTooltip} value={form.candidateRerank} />
+          <SelectField className="mb-0" label="Resolvers" onChange={(event) => setForm({ integrationResolverConcurrency: Number(event.currentTarget.value) })} options={[...resolverConcurrencyOptions]} title={resolverConcurrencyTooltip} value={form.integrationResolverConcurrency} />
+          <Field className="mb-0" label="Timeout min" min={1} onChange={(event) => setForm({ agentTimeoutSeconds: workerTimeoutSecondsFromMinutes(event.currentTarget.value) })} step={1} type="number" value={timeoutMinutes} />
+          <SelectField className="mb-0" label="Thinking" onChange={(event) => setForm({ thinkingLevel: event.currentTarget.value })} options={["xhigh", "high", "medium", "low"]} value={form.thinkingLevel} />
+          <Field className="mb-0" label="Provider" onChange={(event) => setForm({ provider: event.currentTarget.value })} spellCheck={false} value={form.provider} />
+          <Field className="mb-0" label="Model" onChange={(event) => setForm({ model: event.currentTarget.value })} spellCheck={false} value={form.model} />
+        </div>
+        <details className="control-disclosure mt-3">
+          <summary>Tool slots</summary>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {toolConcurrencyRows.map((row) => (
+              <Field
+                className="mb-0"
+                key={row.key}
+                label={row.label}
+                max={row.max}
+                min={1}
+                onChange={(event) => setToolConcurrency(row.key, event.currentTarget.value, row.max)}
+                step={1}
+                type="number"
+                value={toolConcurrency[row.key]}
+              />
+            ))}
+          </div>
+          <div className="mt-2">
+            <Button icon={<RefreshCw size={13} />} onClick={() => setForm({ toolConcurrency: suggestedToolConcurrency(form.maxWorkers) })} title="Fit tool slots to the selected worker count." type="button">
+              Fit Tools
+            </Button>
+          </div>
+        </details>
+      </div>
 
       {command ? (
         <div className="border border-line bg-inset p-2">

@@ -4,7 +4,7 @@ import {
   type KernelTraceSessionListResponse,
 } from "@agent-kernel/viewer-core";
 import type { AgentViewerDefinition } from "@agent-kernel/viewer-ui";
-import type { Dashboard, FormState, JsonObject, RunDetails, StandardsPayload, UiConfig } from "./api-types";
+import type { Dashboard, FormState, JsonObject, RunDetails, StandardsPayload, UiConfig, WorkerStateTrace } from "./api-types";
 
 export interface KernelAgentsPayload {
   generatedAt: string;
@@ -73,6 +73,14 @@ export function fetchProjectSessionState(
 
 export function fetchRunDetails(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, runId: string): Promise<RunDetails> {
   return fetchJson<RunDetails>(`/api/run/details?${new URLSearchParams({ ...Object.fromEntries(dashboardParams(form)), runId })}`);
+}
+
+export function fetchWorkerStateTrace(
+  form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  runId: string,
+  workerStateId: string,
+): Promise<WorkerStateTrace> {
+  return fetchJson<WorkerStateTrace>(`/api/run/worker-state-trace?${new URLSearchParams({ ...Object.fromEntries(dashboardParams(form)), runId, workerStateId })}`);
 }
 
 export function postJson<T>(url: string, body: JsonObject): Promise<T> {

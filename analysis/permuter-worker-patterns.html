@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Source Permuter Worker Pattern Map</title>
+<style>
+  :root {
+    --bg: #f6f7f2;
+    --ink: #172026;
+    --muted: #5d6871;
+    --line: #cfd7d2;
+    --panel: #ffffff;
+    --blue: #315fbd;
+    --green: #197b55;
+    --amber: #9c6615;
+    --red: #a63f3f;
+    --violet: #6b55b5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); letter-spacing: 0; }
+  header { padding: 34px 32px 18px; background: #18242b; color: #fff; }
+  header h1 { margin: 0 0 8px; font-size: 30px; font-weight: 760; letter-spacing: 0; }
+  header p { max-width: 980px; margin: 0; color: #d9e2df; line-height: 1.5; }
+  main { padding: 24px 32px 44px; max-width: 1280px; margin: 0 auto; }
+  section { margin: 0 0 26px; }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  h3 { font-size: 15px; margin: 0 0 8px; }
+  .stats { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-height: 96px; }
+  .stat b { display: block; font-size: 28px; line-height: 1.1; }
+  .stat span { display: block; color: var(--muted); margin-top: 8px; font-size: 13px; line-height: 1.35; }
+  .grid-2 { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 18px; align-items: start; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .flow { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 12px; align-items: stretch; }
+  .step { position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #fff; min-height: 142px; }
+  .step strong { display: block; font-size: 15px; margin-bottom: 8px; }
+  .step p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .step:after { content: '->'; position: absolute; top: 50%; right: -15px; transform: translateY(-50%); color: var(--muted); font-weight: 700; }
+  .step:last-child:after { content: ''; }
+  .svg-wrap { overflow-x: auto; }
+  svg { width: 100%; min-width: 680px; height: auto; display: block; }
+  .svg-label { font-size: 13px; fill: #22303a; }
+  .svg-value { font-size: 13px; fill: #45515a; }
+  .bar-row { display: grid; grid-template-columns: 155px minmax(130px, 1fr) 58px; align-items: center; gap: 10px; margin: 8px 0; }
+  .bar-label { font-size: 13px; color: #27343c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { height: 14px; background: #e9eeeb; border-radius: 4px; overflow: hidden; border: 1px solid #d7dfdb; }
+  .bar-fill { height: 100%; background: var(--blue); }
+  .bar-value { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+  .note { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 8px 0 0; }
+  .learn-list { display: grid; gap: 10px; }
+  .learn-item { display: grid; grid-template-columns: 12px 1fr; gap: 10px; align-items: start; }
+  .dot { width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--green); }
+  .learn-item strong { display: block; font-size: 14px; }
+  .learn-item span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+  .examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .example { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 14px; }
+  .example h3 { margin-bottom: 6px; }
+  .example p { margin: 0 0 8px; color: var(--muted); line-height: 1.45; font-size: 13px; }
+  .example code { font-size: 12px; white-space: normal; overflow-wrap: anywhere; color: #26333b; background: #edf1ef; padding: 2px 4px; border-radius: 4px; }
+  .quote { margin-top: 10px; padding-left: 10px; border-left: 3px solid #b8c3be; color: #35424a; font-size: 13px; line-height: 1.4; }
+  .tagrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .tag { border-radius: 999px; border: 1px solid #cbd6d1; padding: 4px 8px; font-size: 12px; color: #33424a; background: #f8faf8; }
+  .sweep-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .sweep-card { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 14px; min-height: 132px; }
+  .sweep-card b { display: block; font-size: 15px; margin-bottom: 8px; }
+  .sweep-card span { display: block; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .signal-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+  .signal { border-left: 4px solid var(--green); background: #f8faf8; padding: 12px 14px; border-radius: 6px; }
+  .signal:nth-child(2) { border-left-color: var(--amber); }
+  .signal:nth-child(3) { border-left-color: var(--red); }
+  .signal strong { display: block; font-size: 14px; margin-bottom: 5px; }
+  .signal span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+  footer { color: var(--muted); font-size: 12px; line-height: 1.45; padding-top: 14px; border-top: 1px solid var(--line); }
+  @media (max-width: 980px) {
+    header, main { padding-left: 18px; padding-right: 18px; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-2, .grid-3, .examples, .flow, .sweep-grid, .signal-grid { grid-template-columns: 1fr; }
+    .step:after { content: ''; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Source Permuter Worker Pattern Map</h1>
+  <p>A local visualization of how Melee workers use the source permuter: what they send, what they learn, what they keep, and what they reject. Built from <code>projects/melee/state/runs/**/tool_events.jsonl</code> and nearby worker summaries.</p>
+</header>
+<main>
+  <section class="stats">
+    <div class="stat"><b>5,995</b><span>permuter-related tool events</span></div>
+    <div class="stat"><b>5,680</b><span><code>source_permuter_run</code> calls</span></div>
+    <div class="stat"><b>315</b><span><code>source_permuter_replay</code> calls</span></div>
+    <div class="stat"><b>929</b><span>unique run target functions</span></div>
+    <div class="stat"><b>1,715</b><span>worker event files with permuter usage</span></div>
+  </section>
+
+  <section>
+    <h2>The Worker Loop</h2>
+    <div class="flow">
+      <div class="step"><strong>1. Establish baseline</strong><p>Use checkdiff, direct compile, m2c, objdump, similar functions, and local source reading to name the remaining mismatch.</p></div>
+      <div class="step"><strong>2. Ask permuter</strong><p>Run non-applying search with bounded iterations, usually <code>jobs=4</code>, often saving a replay recipe.</p></div>
+      <div class="step"><strong>3. Interpret candidate</strong><p>Read the diff as a source-shape clue: declaration order, helper boundary, lifetime, stack pressure, or expression scheduling.</p></div>
+      <div class="step"><strong>4. Humanize or reject</strong><p>Keep only reviewable source. Reject fake helpers, pragmas, volatile tricks, relocation regressions, and broad generated-looking edits.</p></div>
+      <div class="step"><strong>5. Validate and record</strong><p>Rerun target checkdiff, neighbor summary, direct compile as needed, and review lint. Record facts and rejected hypotheses.</p></div>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="panel">
+      <h2>What The Summaries Say</h2>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 650 320" role="img" aria-label="Summary pattern counts">
+          <text x="0" y="44" class="svg-label">Queue busy, no retry</text><rect x="170" y="28" width="420.0" height="22" rx="3" fill="#4d7cfe"/><text x="598.0" y="44" class="svg-value">2,745</text><text x="0" y="82" class="svg-label">Found useful shape</text><rect x="170" y="66" width="165.4" height="22" rx="3" fill="#27a269"/><text x="343.4" y="82" class="svg-value">1,081</text><text x="0" y="120" class="svg-label">No improvement</text><rect x="170" y="104" width="79.9" height="22" rx="3" fill="#d99422"/><text x="257.9" y="120" class="svg-value">522</text><text x="0" y="158" class="svg-label">Rejected literal output</text><rect x="170" y="142" width="97.5" height="22" rx="3" fill="#c85050"/><text x="275.5" y="158" class="svg-value">637</text><text x="0" y="196" class="svg-label">Replay inspected</text><rect x="170" y="180" width="33.7" height="22" rx="3" fill="#7f65d9"/><text x="211.7" y="196" class="svg-value">220</text><text x="0" y="234" class="svg-label">Baseline already matched</text><rect x="170" y="218" width="1.2" height="22" rx="3" fill="#607d8b"/><text x="179.2" y="234" class="svg-value">8</text><text x="0" y="272" class="svg-label">Last-resort use</text><rect x="170" y="256" width="104.0" height="22" rx="3" fill="#0097a7"/><text x="282.0" y="272" class="svg-value">680</text>
+        </svg>
+      </div>
+      <p class="note">These are overlapping heuristic counts from 4,584 worker summary files that mention the permuter. One file can count in multiple rows.</p>
+    </div>
+    <div class="panel">
+      <h2>Run Configuration Shape</h2>
+      <h3>Jobs requested</h3>
+
+          <div class="bar-row">
+            <div class="bar-label">4</div>
+            <div class="bar-track"><div class="bar-fill" style="width:100.00%"></div></div>
+            <div class="bar-value">5,338</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">2</div>
+            <div class="bar-track"><div class="bar-fill" style="width:4.57%"></div></div>
+            <div class="bar-value">244</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">1</div>
+            <div class="bar-track"><div class="bar-fill" style="width:1.11%"></div></div>
+            <div class="bar-value">59</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">6</div>
+            <div class="bar-track"><div class="bar-fill" style="width:0.36%"></div></div>
+            <div class="bar-value">19</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">8</div>
+            <div class="bar-track"><div class="bar-fill" style="width:0.32%"></div></div>
+            <div class="bar-value">17</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">3</div>
+            <div class="bar-track"><div class="bar-fill" style="width:0.06%"></div></div>
+            <div class="bar-value">3</div>
+          </div>
+      <h3 style="margin-top:16px">Top max-iters values</h3>
+
+          <div class="bar-row">
+            <div class="bar-label">200</div>
+            <div class="bar-track"><div class="bar-fill" style="width:100.00%"></div></div>
+            <div class="bar-value">2,211</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">80</div>
+            <div class="bar-track"><div class="bar-fill" style="width:45.50%"></div></div>
+            <div class="bar-value">1,006</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">100</div>
+            <div class="bar-track"><div class="bar-fill" style="width:43.60%"></div></div>
+            <div class="bar-value">964</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">300</div>
+            <div class="bar-track"><div class="bar-fill" style="width:17.28%"></div></div>
+            <div class="bar-value">382</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">500</div>
+            <div class="bar-track"><div class="bar-fill" style="width:8.05%"></div></div>
+            <div class="bar-value">178</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">50</div>
+            <div class="bar-track"><div class="bar-fill" style="width:7.78%"></div></div>
+            <div class="bar-value">172</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">1000</div>
+            <div class="bar-track"><div class="bar-fill" style="width:5.47%"></div></div>
+            <div class="bar-value">121</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">120</div>
+            <div class="bar-track"><div class="bar-fill" style="width:5.25%"></div></div>
+            <div class="bar-value">116</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">60</div>
+            <div class="bar-track"><div class="bar-fill" style="width:3.53%"></div></div>
+            <div class="bar-value">78</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">150</div>
+            <div class="bar-track"><div class="bar-fill" style="width:2.80%"></div></div>
+            <div class="bar-value">62</div>
+          </div>
+      <div class="tagrow">
+        <span class="tag">save_replay: 3,071</span>
+        <span class="tag">no_narrow: 1,866</span>
+        <span class="tag">mutate_functions: 259</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid-3">
+    <div class="panel">
+      <h2>Duration Profile</h2>
+
+          <div class="bar-row">
+            <div class="bar-label">&lt;1s</div>
+            <div class="bar-track"><div class="bar-fill" style="width:100.00%"></div></div>
+            <div class="bar-value">2,716</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">1-30s</div>
+            <div class="bar-track"><div class="bar-fill" style="width:8.54%"></div></div>
+            <div class="bar-value">232</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">30s-2m</div>
+            <div class="bar-track"><div class="bar-fill" style="width:34.20%"></div></div>
+            <div class="bar-value">929</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">2m-5m</div>
+            <div class="bar-track"><div class="bar-fill" style="width:40.28%"></div></div>
+            <div class="bar-value">1,094</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">5m-10m</div>
+            <div class="bar-track"><div class="bar-fill" style="width:24.08%"></div></div>
+            <div class="bar-value">654</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">&gt;10m</div>
+            <div class="bar-track"><div class="bar-fill" style="width:2.03%"></div></div>
+            <div class="bar-value">55</div>
+          </div>
+      <p class="note">Very fast calls usually mean baseline already matched, failed early, no candidate work happened, or the local source state made the run short. Long calls consume the scarce slot.</p>
+    </div>
+    <div class="panel">
+      <h2>Status Mix</h2>
+
+          <div class="bar-row">
+            <div class="bar-label">run / ok / exit 0</div>
+            <div class="bar-track"><div class="bar-fill" style="width:100.00%"></div></div>
+            <div class="bar-value">3,738</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">run / ok</div>
+            <div class="bar-track"><div class="bar-fill" style="width:50.03%"></div></div>
+            <div class="bar-value">1,870</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">replay / ok / exit 0</div>
+            <div class="bar-track"><div class="bar-fill" style="width:8.37%"></div></div>
+            <div class="bar-value">313</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">run / tool_error / exit 143</div>
+            <div class="bar-track"><div class="bar-fill" style="width:1.90%"></div></div>
+            <div class="bar-value">71</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">replay / tool_error / exit 143</div>
+            <div class="bar-track"><div class="bar-fill" style="width:0.05%"></div></div>
+            <div class="bar-value">2</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">run / tool_error / exit 1</div>
+            <div class="bar-track"><div class="bar-fill" style="width:0.03%"></div></div>
+            <div class="bar-value">1</div>
+          </div>
+      <p class="note"><code>ok</code> here means the tool command completed, not that it found a useful candidate.</p>
+    </div>
+    <div class="panel">
+      <h2>Repeated Targets</h2>
+
+          <div class="bar-row">
+            <div class="bar-label">fn_803AC7DC</div>
+            <div class="bar-track"><div class="bar-fill" style="width:100.00%"></div></div>
+            <div class="bar-value">33</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">fn_803B1338</div>
+            <div class="bar-track"><div class="bar-fill" style="width:87.88%"></div></div>
+            <div class="bar-value">29</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">fn_801891F4</div>
+            <div class="bar-track"><div class="bar-fill" style="width:75.76%"></div></div>
+            <div class="bar-value">25</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">mnDiagram_80240D94</div>
+            <div class="bar-track"><div class="bar-fill" style="width:75.76%"></div></div>
+            <div class="bar-value">25</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">fn_803AD16C</div>
+            <div class="bar-track"><div class="bar-fill" style="width:75.76%"></div></div>
+            <div class="bar-value">25</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">hsd_8039254C</div>
+            <div class="bar-track"><div class="bar-fill" style="width:75.76%"></div></div>
+            <div class="bar-value">25</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">hsd_80393844</div>
+            <div class="bar-track"><div class="bar-fill" style="width:72.73%"></div></div>
+            <div class="bar-value">24</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">mnNameNew_8023E32C</div>
+            <div class="bar-track"><div class="bar-fill" style="width:72.73%"></div></div>
+            <div class="bar-value">24</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">ftColl_8007BE3C</div>
+            <div class="bar-track"><div class="bar-fill" style="width:72.73%"></div></div>
+            <div class="bar-value">24</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">Camera_80029CF8</div>
+            <div class="bar-track"><div class="bar-fill" style="width:69.70%"></div></div>
+            <div class="bar-value">23</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">fn_8023DBE8</div>
+            <div class="bar-track"><div class="bar-fill" style="width:69.70%"></div></div>
+            <div class="bar-value">23</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">fn_801851C0</div>
+            <div class="bar-track"><div class="bar-fill" style="width:69.70%"></div></div>
+            <div class="bar-value">23</div>
+          </div>
+      <p class="note">Repeated functions often show iterative source-shape search, retries after local source changes, or repeated short no-improvement checks.</p>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="panel">
+      <h2>What Workers Learn</h2>
+      <div class="learn-list">
+        <div class="learn-item"><span class="dot"></span><div><strong>Source-shape direction</strong><span>Declaration order, temp lifetime, helper boundaries, pointer-base scopes, and stack layout are the common useful lessons.</span></div></div>
+        <div class="learn-item"><span class="dot"></span><div><strong>Register-pressure hints</strong><span>A non-reviewable candidate can still prove that the issue is allocator pressure or scheduling, not semantics.</span></div></div>
+        <div class="learn-item"><span class="dot"></span><div><strong>Negative evidence</strong><span>No-improvement runs tell workers to stop blind mutation and write a sharper next hypothesis.</span></div></div>
+        <div class="learn-item"><span class="dot"></span><div><strong>Review gates</strong><span>Literal permuter output is only accepted after it becomes readable source and passes target, neighbor, and lint checks.</span></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Learning Vocabulary</h2>
+
+          <div class="bar-row">
+            <div class="bar-label">Declaration and local order</div>
+            <div class="bar-track"><div class="bar-fill" style="width:26.82%"></div></div>
+            <div class="bar-value">129</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">Helper extraction</div>
+            <div class="bar-track"><div class="bar-fill" style="width:77.55%"></div></div>
+            <div class="bar-value">373</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">Lifetime and register pressure</div>
+            <div class="bar-track"><div class="bar-fill" style="width:100.00%"></div></div>
+            <div class="bar-value">481</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">Stack and PAD shape</div>
+            <div class="bar-track"><div class="bar-fill" style="width:43.45%"></div></div>
+            <div class="bar-value">209</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">Pointer base scope</div>
+            <div class="bar-track"><div class="bar-fill" style="width:6.65%"></div></div>
+            <div class="bar-value">32</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">Expression scheduling</div>
+            <div class="bar-track"><div class="bar-fill" style="width:13.31%"></div></div>
+            <div class="bar-value">64</div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-label">Relocation/data caveat</div>
+            <div class="bar-track"><div class="bar-fill" style="width:6.86%"></div></div>
+            <div class="bar-value">33</div>
+          </div>
+      <p class="note">Also overlapping heuristic counts. The vocabulary shows what workers say the permuter taught them.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Concrete Examples</h2>
+    <div class="examples">
+
+      <div class="example">
+        <h3>Useful declaration order clue</h3>
+        <p>Permuter found a local declaration-order improvement; worker applied it manually, then validated with checkdiff and lint.</p>
+        <p><code>projects/melee/state/runs/53d5b342-c066-48fc-aa49-dd78b69dc2ac/worker_state/157fd587-46be-42f7-8ce0-f589324927ea/worker_019f1646-5036-7263-94f3-407a10392462.txt</code></p>
+        <div class="quote">source_permuter_run ftCo_800A6A98 max_iters=80 found an additional local-declaration-order improvement (moving line_id before floor_normal), applied manually</div>
+      </div>
+
+      <div class="example">
+        <h3>Helper boundary becomes exact</h3>
+        <p>Permuter suggested extracting a GObj_Create helper; worker made a clean helper and reached a target PASS.</p>
+        <p><code>projects/melee/state/runs/302fb981-45d8-43e5-94e1-462b52668ded/worker_logs/27e8e6a0-98c0-4e25-a145-d5d2157bd614/worker_793efb06-4640-4dab-b5ad-8c9a31bc4616.txt</code></p>
+        <div class="quote">Bounded source_permuter evidence found that extracting the first `GObj_Create(6, 7, 0x80)` call into a small inline helper improved score/register coalescing; applying this reviewably as `mnCount_CreateMenuGObj` helped produce the target r29 userdata shape.</div>
+      </div>
+
+      <div class="example">
+        <h3>Non-applied helper evidence</h3>
+        <p>Permuter pointed at helper-shaped blocks; worker cleaned them into reviewable static inline helpers and verified exactness.</p>
+        <p><code>projects/melee/state/runs/53d5b342-c066-48fc-aa49-dd78b69dc2ac/worker_state/7ac8ea40-9a03-4924-8f16-5cb1acbc52b5/worker_019f18d3-a2f4-74fd-808a-482c8b0c1362.txt</code></p>
+        <div class="quote">source_permuter_run provided non-applied evidence that extracting the same helper-shaped blocks improved fn_80249A1C, then manual reviewable helpers were applied and validated</div>
+      </div>
+
+      <div class="example">
+        <h3>Review-hostile exact-ish candidate</h3>
+        <p>Permuter found an exact-instruction helper plus pragma, but relocation and neighbor risks made the literal candidate unacceptable.</p>
+        <p><code>projects/melee/state/runs/53d5b342-c066-48fc-aa49-dd78b69dc2ac/worker_state/c15826bc-8080-4902-aed6-b69445433135/worker_019f18d4-ff1e-76dc-8263-9d8fb6b59f14.txt</code></p>
+        <div class="quote">source_permuter_run found an exact-instruction candidate using an extracted inline helper plus #pragma global_optimizer off, but checkdiff_run reported only 99.86607 official because relocation/data references differed.</div>
+      </div>
+
+      <div class="example">
+        <h3>Replay as controlled source-shape mining</h3>
+        <p>Replay gave two improvements; worker retained readable lifetime and pointer-base changes, rejected regressions, then ran neighbor summary.</p>
+        <p><code>projects/melee/state/runs/6a0281a8-4147-4c18-9fce-048154304637/worker_logs/97c4b66a-121c-42ce-8cc6-16ed4ac85fe2/worker_544dd5fd-2705-46f1-94e4-b921c375bad9.txt</code></p>
+        <div class="quote">source_permuter_replay /tmp/grv_perm_8020362C.json produced a validated 91.75% candidate; its useful retained changes were local declaration/lifetime adjustments, an inner combined scope, a flags temporary, and an x2C pointer-base lifetime tweak.</div>
+      </div>
+
+      <div class="example">
+        <h3>Useful negative result</h3>
+        <p>Permuter found no improvement, which the worker used as evidence to stop blind source-shape search and name a more specific next hypothesis.</p>
+        <p><code>projects/melee/state/runs/53d5b342-c066-48fc-aa49-dd78b69dc2ac/worker_state/ac8efad9-418d-44ca-82ff-1c8d27973233/worker_019f16ab-2b6e-756b-926a-8958b7b7851c.txt</code></p>
+        <div class="quote">source_permuter_run gm_801B5624 seed 2 max_iters 80 found no improvement over baseline.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Near-Exact Random Sweep Pattern</h2>
+    <div class="sweep-grid">
+      <div class="sweep-card">
+        <b>1. Gate the request</b>
+        <span>Spend scarce permuter slots when the worker already has a stable high-99 baseline, a small mismatch, and a named source-shape suspicion.</span>
+      </div>
+      <div class="sweep-card">
+        <b>2. Fan out seeds</b>
+        <span>Run many bounded, independent recipes against the same packet: same function, same patch/base, varied seed, capped workers, saved replay.</span>
+      </div>
+      <div class="sweep-card">
+        <b>3. Cluster the hints</b>
+        <span>Sort by score delta, then look for repeated shapes across candidates: local order, lifetime, helper split, pointer base, or scheduling pressure.</span>
+      </div>
+      <div class="sweep-card">
+        <b>4. Carry back evidence</b>
+        <span>Return top diffs, scores, recipes, and logs. The worker brings back the idea, writes readable source, and validates target plus neighbors.</span>
+      </div>
+    </div>
+    <div class="signal-grid">
+      <div class="signal"><strong>Useful hit</strong><span>Multiple seeds converge on the same source-shape move, or one candidate makes a narrow high-99 jump that explains the known mismatch.</span></div>
+      <div class="signal"><strong>Useful miss</strong><span>Flat no-improvement across random seeds says the worker should stop blind search and sharpen the hypothesis before spending another slot.</span></div>
+      <div class="signal"><strong>Reject</strong><span>Exact-ish output that requires pragmas, fake helpers, relocation churn, or broad unreadable edits stays evidence only, not source to land.</span></div>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="panel">
+      <h2>Operational Reading</h2>
+      <p class="note">The dominant pattern is not "permuter solves and worker applies." It is "worker asks the permuter for evidence, turns the evidence into a human source hypothesis, then validates." For a capped remote runner, the sweet spot is near-exact work where randomized sweeps can expose tiny compiler-shape clues without tying up local workers.</p>
+    </div>
+    <div class="panel">
+      <h2>Remote Runner Implication</h2>
+      <p class="note">A useful remote packet should include function, optional mutate functions, seed or seed range, max iters, timeout, jobs, base commit or patch, baseline score, and whether to save replay. The response should include ranked candidate diffs, score deltas, replay recipes, stdout/stderr, and enough metadata to explain whether it was useful evidence, no improvement, or rejected output.</p>
+    </div>
+  </section>
+
+  <footer>
+    Generated from local run state. Pattern labels are heuristic and overlapping. Created by scanning tool event JSONL plus worker summaries under <code>projects/melee/state/runs</code>.
+  </footer>
+</main>
+</body>
+</html>

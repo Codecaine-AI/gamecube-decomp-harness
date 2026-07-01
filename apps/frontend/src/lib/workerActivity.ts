@@ -49,6 +49,23 @@ export function activityScoreCompact(score: JsonObject): {
   };
 }
 
+export function baselineScoreCompact(baseline: JsonObject, fallbackScore?: unknown): {
+  after: string;
+  before: string;
+  improved: boolean;
+  text: string;
+} {
+  const score = compactScoreNumber(baseline.score ?? fallbackScore);
+  if (score === null) return { after: "", before: "", improved: false, text: "" };
+  const beforeText = compactScoreValue(score);
+  return {
+    after: "N/A",
+    before: beforeText,
+    improved: false,
+    text: `baseline ${beforeText} to N/A`,
+  };
+}
+
 // Compact live status for an active claim: operators mainly need the attempt
 // number plus the latest deterministic score check. Detailed state and tool
 // traces stay in the hover title and the report's Trace section.
@@ -61,7 +78,7 @@ export function activityAttemptLabel(
   const attemptIndex = Number.isFinite(activityAttempt)
     ? activityAttempt
     : eventAttempt;
-  return `attempt ${Number.isFinite(attemptIndex) ? attemptIndex + 1 : 1}`;
+  return String(Number.isFinite(attemptIndex) ? attemptIndex + 1 : 1);
 }
 
 export function latestActivity(file: JsonObject): {

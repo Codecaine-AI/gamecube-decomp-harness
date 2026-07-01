@@ -8,26 +8,33 @@ import {
   activeClaimsForSession,
   admitEpochTargets,
   bestCheckpointForWorkerState,
-  claimNextEpochTarget,
+  claimNextEpochTarget as claimNextEpochTargetRaw,
   closeSchedulerEpoch,
   closeWorkerState,
   enqueueWorkerOutputIntegration,
+  nextWorkerOutputIntegrationConflictForResolver,
   parseEpochSize,
   recordWorkerCheckpoint,
   refreshEpochTargetAvailability,
   schedulerEpochProgress,
   selectEpochAdmissionCandidates,
   startSchedulerEpoch,
+  updateWorkerStateBaselineScore,
 } from "./index.js";
 import { createRun } from "./runs.js";
 import { processWorkerOutputIntegrationQueue } from "@server/core/session-runtime/phases/running/integration/worker-output-queue.js";
 
 const tempDirs: string[] = [];
+const TEST_WORKER_TIMEOUT_SECONDS = 1800;
 
 function tempState(): { dir: string; store: StateStore } {
   const dir = mkdtempSync(join(tmpdir(), "scheduler-epoch-state-"));
   tempDirs.push(dir);
   return { dir, store: openState(dir) };
+}
+
+function claimNextEpochTarget(params: Omit<Parameters<typeof claimNextEpochTargetRaw>[0], "ttlSeconds"> & { ttlSeconds?: number }) {
+  return claimNextEpochTargetRaw({ ...params, ttlSeconds: params.ttlSeconds ?? TEST_WORKER_TIMEOUT_SECONDS });
 }
 
 afterAll(() => {
@@ -177,6 +184,23 @@ describe("scheduler epoch and worker state lifecycle", () => {
         summary: { source: "test" },
       });
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 3, available: 2, claimed: 0, finished: 1, remaining: 2 });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("availability refresh retires admitted targets that are already exact in the fresh board", () => {
+    const { store } = tempState();
+    try {
+      const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c"), candidate(2, "src/b.c")]);
+
+      const refresh = refreshEpochTargetAvailability(store, epoch.id, { exactTargetKeys: new Set(["unit_1::fn_1"]) });
+
+      expect(refresh).toMatchObject({ retiredExact: 1, availableBefore: 2, availableAfter: 1 });
+      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 2, available: 1, finished: 1, remaining: 1 });
+
+      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      expect(claim?.target.symbol).toBe("fn_2");
     } finally {
       store.db.close();
     }
@@ -547,6 +571,77 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
+  test("recomputed worker baseline updates the comparison floor without creating an attempt", () => {
+    const { store } = tempState();
+    try {
+      const { run } = setupEpoch(store, [candidate(1, "src/a.c")]);
+      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      expect(claim).not.toBeNull();
+
+      updateWorkerStateBaselineScore(store, claim?.workerStateId ?? "", 87.25);
+
+      const row = store.db.query("SELECT baseline_score, best_score FROM worker_state WHERE id = ?").get(claim?.workerStateId ?? "") as
+        | Record<string, unknown>
+        | undefined;
+      expect(Number(row?.baseline_score)).toBe(87.25);
+      expect(Number(row?.best_score)).toBe(87.25);
+      expect(count(store, "SELECT COUNT(*) AS count FROM worker_checkpoints WHERE worker_state_id = ?", claim?.workerStateId ?? "")).toBe(0);
+
+      const checkpoint = recordWorkerCheckpoint(store, {
+        workerStateId: claim?.workerStateId ?? "",
+        sessionId: run.id,
+        epochId: claim?.epochId ?? "",
+        epochTargetId: claim?.epochTargetId ?? "",
+        targetClaimId: claim?.claimId ?? "",
+        attemptIndex: 0,
+        oldScore: 87.25,
+        newScore: 87.3,
+        exactMatch: false,
+        hardGatesPassed: true,
+        validationStatus: "passed",
+      });
+
+      expect(checkpoint.improvedOverBaseline).toBe(true);
+      expect(checkpoint.selectable).toBe(true);
+      expect(bestCheckpointForWorkerState(store, claim?.workerStateId ?? "")?.id).toBe(checkpoint.id);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("selects clean exact checkpoints when validation baseline was already exact", () => {
+    const { store } = tempState();
+    try {
+      const { run } = setupEpoch(store, [candidate(1, "src/a.c")]);
+      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      expect(claim).not.toBeNull();
+
+      const checkpoint = recordWorkerCheckpoint(store, {
+        workerStateId: claim?.workerStateId ?? "",
+        sessionId: run.id,
+        epochId: claim?.epochId ?? "",
+        epochTargetId: claim?.epochTargetId ?? "",
+        targetClaimId: claim?.claimId ?? "",
+        attemptIndex: 0,
+        oldScore: 100,
+        newScore: 100,
+        exactMatch: true,
+        hardGatesPassed: true,
+        buildStatus: "compiled",
+        qaStatus: "clean",
+        objdiffStatus: "available",
+        validationStatus: "passed",
+      });
+
+      expect(checkpoint.delta).toBe(0);
+      expect(checkpoint.improvedOverBaseline).toBe(true);
+      expect(checkpoint.selectable).toBe(true);
+      expect(bestCheckpointForWorkerState(store, claim?.workerStateId ?? "")?.id).toBe(checkpoint.id);
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("error close preserves a prior selectable best checkpoint", () => {
     const { store } = tempState();
     try {
@@ -693,6 +788,8 @@ describe("scheduler epoch and worker state lifecycle", () => {
       expect(typeof row.item_path).toBe("string");
       expect(existsSync(String(row.item_path))).toBe(true);
       expect(readFileSync(String(row.item_path), "utf8")).toContain("\"schema_version\": \"integration_conflict_item_v1\"");
+      expect(nextWorkerOutputIntegrationConflictForResolver(store, run.id)?.id).toBe(item.id);
+      expect(nextWorkerOutputIntegrationConflictForResolver(store, run.id, [item.id])).toBeNull();
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 2;\n");
       expect(count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'worker_integration_conflict'", run.id)).toBe(1);
     } finally {

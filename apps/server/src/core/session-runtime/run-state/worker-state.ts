@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { immediateTransaction, now, withBusyRetry, writeSetHash, type StateStore } from "@server/core/orchestrator-state";
 
-export const DEFAULT_WORKER_TTL_SECONDS = 50 * 60;
-
 export type EpochTargetStatus = "admitted" | "claimed" | "finished";
 export type TargetClaimStatus = "active" | "closed";
 export type WorkerLifecycleStatus = "running" | "exact" | "timeout" | "error" | "cancelled" | "finished";
@@ -221,9 +219,12 @@ export function claimNextEpochTarget(params: {
   sessionId: string;
   workerId: string;
   baseRev?: string;
-  ttlSeconds?: number;
+  ttlSeconds: number;
   artifactDir?: string | null;
 }): ClaimedTarget | null {
+  if (!Number.isFinite(params.ttlSeconds) || params.ttlSeconds <= 0) {
+    throw new Error("claimNextEpochTarget requires a positive ttlSeconds value");
+  }
   return immediateTransaction(params.store.db, () => {
     const target = params.store.db
       .query(
@@ -263,7 +264,7 @@ export function claimNextEpochTarget(params: {
     const claimId = randomUUID();
     const workerStateId = randomUUID();
     const writeSet = [sourcePath];
-    const ttl = new Date(Date.now() + (params.ttlSeconds ?? DEFAULT_WORKER_TTL_SECONDS) * 1000).toISOString();
+    const ttl = new Date(Date.now() + Math.trunc(params.ttlSeconds) * 1000).toISOString();
     const claimedAt = now();
     const key = targetKey(String(target.unit), String(target.symbol));
     const reusable = params.store.db
@@ -406,6 +407,23 @@ export function appendWorkerSessionId(store: StateStore, workerStateId: string, 
   });
 }
 
+export function updateWorkerStateBaselineScore(store: StateStore, workerStateId: string, score: number | null): void {
+  const baseline = finiteOrNull(score);
+  if (baseline === null) return;
+  withBusyRetry(() => {
+    store.db
+      .query(
+        `
+          UPDATE worker_state
+          SET baseline_score = ?,
+              best_score = CASE WHEN best_checkpoint_id IS NULL THEN ? ELSE best_score END
+          WHERE id = ?
+        `,
+      )
+      .run(baseline, baseline, workerStateId);
+  });
+}
+
 function baselineScore(store: StateStore, workerStateId: string): number | null {
   const row = store.db.query("SELECT baseline_score FROM worker_state WHERE id = ?").get(workerStateId) as Record<string, unknown> | undefined;
   return finiteOrNull(row?.baseline_score);
@@ -482,7 +500,8 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
   const delta = oldScore !== null && newScore !== null ? newScore - oldScore : null;
   const improvedOverStoredBaseline = baseline !== null && newScore !== null && newScore > baseline;
   const improvedOverValidationBaseline = delta === null ? improvedOverStoredBaseline : delta > 0;
-  const improvedOverBaseline = improvedOverStoredBaseline && improvedOverValidationBaseline;
+  const exactAgainstStaleBaseline = input.exactMatch && improvedOverStoredBaseline;
+  const improvedOverBaseline = improvedOverStoredBaseline && (improvedOverValidationBaseline || exactAgainstStaleBaseline);
   const selectable = input.hardGatesPassed && improvedOverBaseline;
 
   immediateTransaction(store.db, () => {

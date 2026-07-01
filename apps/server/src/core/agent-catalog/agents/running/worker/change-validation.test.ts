@@ -7,6 +7,7 @@ import type { QaScanFinding, QaScanInvocation, QaScanResult, RunQaScanDiffOption
 import {
   applyQaLintToValidation,
   captureWorkerChangeBaseline,
+  compareWorkerUnitSnapshots,
   QA_LINT_REPAIR_INSTRUCTION,
   qaLintFromInvocation,
   qaLintRepairReasons,
@@ -14,6 +15,7 @@ import {
   validateWorkerChange,
   type WorkerChangeBaseline,
   type WorkerQaLint,
+  type WorkerUnitScoreSnapshot,
 } from "./change-validation.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
 
@@ -67,6 +69,21 @@ function passedValidation(): WorkerRunnerValidation {
   };
 }
 
+function scoreSnapshot(score: number): WorkerUnitScoreSnapshot {
+  return {
+    schemaVersion: 1,
+    capturedAt: "2026-06-30T00:00:00.000Z",
+    unit: "main/melee/gm/gm_1601",
+    symbol: "gm_8016247C",
+    sourcePath: "src/melee/gm/gm_1601.c",
+    objectTarget: "build/GALE01/src/melee/gm/gm_1601.o",
+    metrics: [{ name: "main/melee/gm/gm_1601", score }],
+    functions: [{ name: "gm_8016247C", score }],
+    sections: [],
+    targetScore: score,
+  };
+}
+
 describe("rewriteNoIndexDiffPaths", () => {
   test("rewrites absolute --no-index headers to repo-relative a/ b/ paths", () => {
     const diff = [
@@ -93,6 +110,20 @@ describe("rewriteNoIndexDiffPaths", () => {
   test("returns empty string when the diff has no hunks (identical or binary)", () => {
     expect(rewriteNoIndexDiffPaths("", "src/melee/ft/ftcoll.c")).toBe("");
     expect(rewriteNoIndexDiffPaths("Binary files a/x and b/x differ\n", "src/melee/ft/ftcoll.c")).toBe("");
+  });
+});
+
+describe("compareWorkerUnitSnapshots", () => {
+  test("accepts an exact target that was already exact in the pre-worker snapshot", () => {
+    const validation = compareWorkerUnitSnapshots({
+      before: scoreSnapshot(100),
+      after: scoreSnapshot(100),
+      claimedExact: true,
+    });
+
+    expect(validation.status).toBe("passed");
+    expect(validation.reasons).toEqual([]);
+    expect(validation.target).toMatchObject({ before: 100, after: 100, improved: false, exact: true });
   });
 });
 
@@ -217,6 +248,31 @@ describe("qaLintRepairReasons", () => {
     expect(reasons[0]).toBe(
       "qa_lint_finding: warning type_erasing_cast at src/melee/ft/ftcoll.c:42 — Added type-erasing cast. [standard: global_standard:literals-and-data-ownership] excerpt: (u8*) obj",
     );
+    expect(reasons[1]).toBe(QA_LINT_REPAIR_INSTRUCTION);
+  });
+
+  test("includes structured repair hints and suggested data-ordering tools", () => {
+    const lintFinding = finding({
+      rule_id: "numeric_literal_to_symbol",
+      message: "Numeric literal replaced by address-style data symbol `ftCo_804D8840`.",
+      excerpt: "return ftCo_804D8840;",
+      detail: {
+        repair_hint: "Restore the numeric literal in ordinary logic.",
+        data_ordering_repair: {
+          kind: "sdata2_order_helper",
+          when: "after restoring inline numeric literals",
+          tool: "review_lint_sdata2_order_helper",
+          command: "python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/sdata2_order_helper.py --repo-root <melee-root> --source src/melee/ft/ftcoll.c --apply --validate --json",
+        },
+      },
+    });
+    const qaLint = qaLintFromInvocation(invocation({ exitCode: 1, result: scanResult([lintFinding], "failed") }), "/tmp/scan.patch");
+    const reasons = qaLintRepairReasons(qaLint);
+
+    expect(reasons).toHaveLength(2);
+    expect(reasons[0]).toContain("repair_hint: Restore the numeric literal in ordinary logic.");
+    expect(reasons[0]).toContain("tool=review_lint_sdata2_order_helper");
+    expect(reasons[0]).toContain("--apply --validate --json");
     expect(reasons[1]).toBe(QA_LINT_REPAIR_INSTRUCTION);
   });
 

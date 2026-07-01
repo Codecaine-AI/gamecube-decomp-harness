@@ -2,12 +2,90 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { createRun, openState } from "@server/core/session-runtime/run-state";
+import { admitEpochTargets, createRun, openState, startSchedulerEpoch } from "@server/core/session-runtime/run-state";
 import type { ResolvedProject } from "@server/core/project-registry";
 import type { ManagedProcessController, StartManagedInput } from "@server/infrastructure/process-control/managed-process-controller";
 import { createProcessControlRuntime } from "./runtime.js";
 
 describe("process control runtime", () => {
+  test("requests active epoch finish by adding a scheduler-owned event", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
+    const store = openState(stateDir);
+    const run = createRun(store, "matched_code_percent", 100, 2);
+    const epoch = startSchedulerEpoch(store, run.id, {
+      size: { mode: "fixed", value: 2 },
+      workerPoolSize: 2,
+      candidateWindow: 2,
+    });
+    admitEpochTargets(store, {
+      epochId: epoch.id,
+      runId: run.id,
+      candidates: [
+        { unit: "unit", symbol: "fn_a", sourcePath: "src/a.c", size: 64, fuzzy: 91, priority: 2, reason: "test" },
+        { unit: "unit", symbol: "fn_b", sourcePath: "src/b.c", size: 64, fuzzy: 90, priority: 1, reason: "test" },
+      ],
+      size: { mode: "fixed", value: 2 },
+      workerPoolSize: 2,
+    });
+    store.db.close();
+
+    const logs: string[] = [];
+    const project = {
+      projectId: "melee",
+      processName: "melee-live",
+      dashboard: {},
+      repoRoot: "/tmp/melee-checkout",
+      stateDir,
+      graphDbPath: "/tmp/melee-graph.sqlite",
+    } as unknown as ResolvedProject;
+    const runtime = createProcessControlRuntime({
+      appendLog: (_stream, text) => logs.push(text),
+      json: (data, init) => new Response(JSON.stringify(data), init),
+      processController: {} as ManagedProcessController,
+      processStatus: () => ({ state: "running" }),
+      projectToSummary: () => ({
+        id: "melee",
+        displayName: "Melee",
+        kind: "doldecomp-melee",
+        repoRoot: project.repoRoot,
+        stateDir,
+        graphDbPath: project.graphDbPath,
+        processName: "melee-live",
+        baseRef: "origin/master",
+        descriptorPath: "/tmp/melee/project.json",
+        repoRootExists: true,
+        stateDirExists: true,
+        graphDbExists: true,
+      }),
+      resolveDashboardProject: () => ({
+        project,
+        repoRoot: project.repoRoot,
+        stateDir,
+        graphDbPath: project.graphDbPath,
+        usePathOverrides: false,
+      }),
+      runCli: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+      serverJobPath: "/tmp/orchestrator/apps/server/src/job-runner.ts",
+    });
+
+    const result = await runtime.finishEpochNow({ projectId: "melee", runId: run.id, reason: "test_finish_epoch" });
+
+    expect(result).toMatchObject({ requested: true, runId: run.id, epochId: epoch.id, ordinal: epoch.ordinal });
+    expect(logs[0]).toContain(`finish epoch requested for epoch ${epoch.ordinal}`);
+
+    const verifyStore = openState(stateDir);
+    try {
+      const event = verifyStore.db
+        .query("SELECT event_type, producer, payload_json, handled_at FROM events WHERE id = ?")
+        .get(String(result.eventId)) as Record<string, unknown> | undefined;
+      expect(event).toMatchObject({ event_type: "epoch_force_finish_requested", producer: "dashboard", handled_at: null });
+      const payload = JSON.parse(String(event?.payload_json ?? "{}")) as Record<string, unknown>;
+      expect(payload).toMatchObject({ epoch_id: epoch.id, ordinal: epoch.ordinal, reason: "test_finish_epoch" });
+    } finally {
+      verifyStore.db.close();
+    }
+  });
+
   test("starts a run from the run's recorded session worktree", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
     const sessionRepoRoot = "/tmp/melee-session-worktree/source";

@@ -16,6 +16,7 @@ export type DashboardAction =
   | "start"
   | "startWork"
   | "stop"
+  | "finishEpoch"
   | "forceStop"
   | "pausePr"
   | "resumePr"

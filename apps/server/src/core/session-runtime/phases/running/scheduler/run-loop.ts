@@ -2,15 +2,19 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, packageRoot, resourceGraphDbPath } from "@server/core/knowledge";
+import { loadExactTargetKeys } from "@server/core/session-runtime/phases/running/board/snapshot.js";
 import {
+  activeClaimsForSession,
   activeWorkerCount,
   activeSchedulerEpoch,
   addEvent,
+  blockingWorkerOutputIntegrationCount,
   blockedAdmittedTargetCount,
+  closeWorkerState,
   closeSchedulerEpoch,
-  DEFAULT_WORKER_TTL_SECONDS,
   getLatestRun,
   getRun,
+  markEventHandled,
   nextUnhandledEvent,
   openState,
   admittedTargetCount,
@@ -20,11 +24,15 @@ import {
   schedulerEpochProgress,
   schedulableTargetCount,
   unhandledEventCount,
+  workerOutputIntegrationConflictsForResolver,
+  type WorkerOutputIntegrationRecord,
   type EpochProgressSummary,
   type StateStore,
 } from "@server/core/session-runtime/run-state";
-import { withBusyRetry } from "@server/core/orchestrator-state";
+import { immediateTransaction, withBusyRetry } from "@server/core/orchestrator-state";
 import { runEpochCycle, type EpochCycleResult } from "@server/core/session-runtime/phases/running/epochs";
+import { publishSessionDraftPr } from "@server/core/session-runtime/phases/running/epochs/session-draft-pr.js";
+import { integrationResolve } from "@server/core/session-runtime/phases/running/integration";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
@@ -38,8 +46,9 @@ import {
   type SchedulerTickResult,
 } from "@server/core/session-runtime/phases/running/scheduler/tick.js";
 import type { WorkerCycleResult } from "@server/core/session-runtime/phases/running/workers/worker-cycle.js";
-import { runKnowledgeMaintenance } from "@server/core/knowledge/jobs/kg.js";
+import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
 import { recoverActiveClaims } from "@server/core/session-runtime/phases/running/jobs/recover-claims.js";
+import { workerTtlSeconds } from "@server/core/session-runtime/phases/running/worker-ttl.js";
 
 interface WorkerError {
   workerId: string;
@@ -51,6 +60,11 @@ interface KnowledgeMaintenanceError {
 }
 
 interface EpochError {
+  error: string;
+}
+
+interface IntegrationResolverError {
+  itemId: string;
   error: string;
 }
 
@@ -72,6 +86,20 @@ interface BoundaryErrorEpoch {
   ordinal: number;
   admitted: number;
   finished: number;
+}
+
+export interface ForceFinishEpochEvent {
+  id: string;
+  payload: Record<string, unknown>;
+}
+
+export interface ForceFinishEpochResult {
+  epochId: string | null;
+  ordinal: number | null;
+  activeClaimsClosed: number;
+  openTargetsFinished: number;
+  before: EpochProgressSummary | null;
+  after: EpochProgressSummary | null;
 }
 
 export type FastKnowledgeMaintenanceAction = "defer" | "none" | "skip_no_new_reports" | "start";
@@ -114,6 +142,8 @@ export interface RunLoopResult {
   knowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
   fastKnowledgeMaintenanceRuns: Record<string, unknown>[];
   fastKnowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
+  integrationResolverRuns: Record<string, unknown>[];
+  integrationResolverErrors: IntegrationResolverError[];
   dryRun: boolean;
   finalStatus: {
     activeWorkers: number;
@@ -272,6 +302,212 @@ function boundaryErrorEpoch(store: StateStore, runId: string): BoundaryErrorEpoc
         finished: Number(row.finished_count ?? 0),
       }
     : null;
+}
+
+export function epochBoundaryWorkPending(store: StateStore, runId: string): boolean {
+  const activeEpoch = activeSchedulerEpoch(store, runId);
+  if (activeEpoch) {
+    const progress = schedulerEpochProgress(store, activeEpoch.id);
+    return progress.admitted > 0 && progress.remaining === 0 && progress.claimed === 0;
+  }
+  const failedBoundary = boundaryErrorEpoch(store, runId);
+  return failedBoundary !== null && failedBoundary.finished >= failedBoundary.admitted;
+}
+
+function autoIntegrationResolverEnabled(args: Map<string, string | true>): boolean {
+  return !booleanArg(args, "--no-integration-resolver");
+}
+
+function integrationResolverArgs(args: Map<string, string | true>, runId: string, record: WorkerOutputIntegrationRecord): Map<string, string | true> {
+  const itemPath = record.itemPath ?? "";
+  const queueSummaryPath = typeof record.metadata.queue_summary_path === "string" ? record.metadata.queue_summary_path : "";
+  const entries: [string, string | true][] = [
+    ["--run-id", runId],
+    ["--item-file", itemPath],
+  ];
+  if (queueSummaryPath && existsSync(queueSummaryPath)) entries.push(["--queue-summary-file", queueSummaryPath]);
+  return cloneArgs(args, entries);
+}
+
+function looksLikePath(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "patch failed") return false;
+  return trimmed.includes("/") || /\.[A-Za-z0-9_+-]+$/.test(trimmed);
+}
+
+export function integrationResolverLockPaths(record: Pick<WorkerOutputIntegrationRecord, "conflictPaths" | "id" | "targetKey" | "writeSet">): string[] {
+  const paths = [...record.writeSet, ...record.conflictPaths]
+    .map((path) => path.trim())
+    .filter(looksLikePath);
+  const unique = [...new Set(paths)];
+  return unique.length > 0 ? unique : [record.targetKey ?? record.id];
+}
+
+interface IntegrationResolverSelectionRecord extends Pick<WorkerOutputIntegrationRecord, "conflictPaths" | "id" | "targetKey" | "writeSet"> {}
+
+export function selectIntegrationResolverBatch<T extends IntegrationResolverSelectionRecord>(params: {
+  candidates: T[];
+  activeLockPaths?: Iterable<string>;
+  concurrency: number;
+  runningCount?: number;
+}): { record: T; lockPaths: string[] }[] {
+  const concurrency = Math.max(1, Math.floor(params.concurrency));
+  const runningCount = Math.max(0, Math.floor(params.runningCount ?? 0));
+  const slots = Math.max(0, concurrency - runningCount);
+  if (slots === 0) return [];
+  const activeLockPaths = new Set(params.activeLockPaths ?? []);
+  const selected: { record: T; lockPaths: string[] }[] = [];
+  for (const candidate of params.candidates) {
+    if (selected.length >= slots) break;
+    const lockPaths = integrationResolverLockPaths(candidate);
+    if (lockPaths.some((path) => activeLockPaths.has(path))) continue;
+    selected.push({ record: candidate, lockPaths });
+    for (const path of lockPaths) activeLockPaths.add(path);
+  }
+  return selected;
+}
+
+function jsonObjectValue(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value !== "string" || !value.trim()) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function stringPayloadValue(payload: Record<string, unknown>, key: string, fallbackKey = key): string {
+  const value = payload[key] ?? payload[fallbackKey];
+  return typeof value === "string" ? value : "";
+}
+
+function nextForceFinishEpochEvent(store: StateStore, runId: string): ForceFinishEpochEvent | null {
+  const row = withBusyRetry(
+    () =>
+      store.db
+        .query(
+          `
+            SELECT id, payload_json
+            FROM events
+            WHERE run_id = ?
+              AND event_type = 'epoch_force_finish_requested'
+              AND handled_at IS NULL
+            ORDER BY created_at ASC
+            LIMIT 1
+          `,
+        )
+        .get(runId) as Record<string, unknown> | undefined,
+  );
+  return row ? { id: String(row.id), payload: jsonObjectValue(row.payload_json) } : null;
+}
+
+function knowledgeProgressReporter(
+  store: StateStore,
+  runId: string,
+  params: { lane: string; mode?: string; epochId?: string | null; epochOrdinal?: number | null; repoRoot?: string },
+): (event: KnowledgeMaintenanceProgressEvent) => void {
+  return (event) => {
+    try {
+      addEvent(store, runId, "knowledge_maintenance_progress", "run-loop", {
+        lane: params.lane,
+        mode: params.mode ?? null,
+        epoch_id: params.epochId ?? null,
+        epoch_ordinal: params.epochOrdinal ?? null,
+        repo_root: params.repoRoot ?? event.repo_root ?? null,
+        stage: event.stage,
+        status: event.status,
+        tool: event.tool ?? null,
+        command: event.command ?? null,
+        reason: event.reason ?? null,
+        exit_code: event.exit_code ?? null,
+        duration_ms: event.duration_ms ?? null,
+        summary: event.summary ?? null,
+        error: event.error ?? null,
+        progress_created_at: event.created_at,
+        created_by: "run-loop",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[run-loop] knowledge progress event failed: ${message}`);
+    }
+  };
+}
+
+function finishOpenEpochTargets(store: StateStore, epochId: string): number {
+  return immediateTransaction(store.db, () => {
+    const finishedAt = new Date().toISOString();
+    const result = store.db
+      .query(
+        `
+          UPDATE epoch_targets
+          SET status = 'finished',
+              finished_at = ?
+          WHERE epoch_id = ?
+            AND status IN ('admitted', 'claimed')
+        `,
+      )
+      .run(finishedAt, epochId);
+    store.db
+      .query(
+        `
+          UPDATE epochs
+          SET finished_count = (
+            SELECT COUNT(*)
+            FROM epoch_targets
+            WHERE epoch_targets.epoch_id = epochs.id
+              AND epoch_targets.status = 'finished'
+          )
+          WHERE id = ?
+        `,
+      )
+      .run(epochId);
+    return Number(result.changes ?? 0);
+  });
+}
+
+export function forceFinishActiveEpoch(store: StateStore, runId: string, event: ForceFinishEpochEvent): ForceFinishEpochResult {
+  const epoch = activeSchedulerEpoch(store, runId);
+  if (!epoch) {
+    markEventHandled(store, event.id);
+    return { epochId: null, ordinal: null, activeClaimsClosed: 0, openTargetsFinished: 0, before: null, after: null };
+  }
+  const requestedEpochId = stringPayloadValue(event.payload, "epoch_id", "epochId");
+  if (requestedEpochId && requestedEpochId !== epoch.id) {
+    markEventHandled(store, event.id);
+    return { epochId: null, ordinal: null, activeClaimsClosed: 0, openTargetsFinished: 0, before: null, after: null };
+  }
+
+  const before = schedulerEpochProgress(store, epoch.id);
+  const activeClaims = activeClaimsForSession(store, runId).filter((claim) => claim.epochId === epoch.id);
+  for (const claim of activeClaims) {
+    closeWorkerState(store, {
+      workerStateId: claim.workerStateId,
+      lifecycleStatus: "cancelled",
+      epochTargetStatus: "finished",
+      summary: {
+        forced_by: "dashboard",
+        force_finish_event_id: event.id,
+        recovery_reason: "manual epoch finish requested; treating current epoch as drained",
+      },
+      errorSummary: "Manual epoch finish requested; worker claim cancelled and retained as epoch-finished.",
+    });
+  }
+  const openTargetsFinished = finishOpenEpochTargets(store, epoch.id);
+  const after = schedulerEpochProgress(store, epoch.id);
+  markEventHandled(store, event.id);
+  addEvent(store, runId, "epoch_force_finished", "run-loop", {
+    epoch_id: epoch.id,
+    ordinal: epoch.ordinal,
+    request: event.payload,
+    active_claims_closed: activeClaims.length,
+    open_targets_finished: openTargetsFinished,
+    before,
+    after,
+    created_by: "run-loop",
+  });
+  return { epochId: epoch.id, ordinal: epoch.ordinal, activeClaimsClosed: activeClaims.length, openTargetsFinished, before, after };
 }
 
 
@@ -479,8 +715,6 @@ function workerCommand(
     params.workerId,
     "--base-rev",
     params.baseRev,
-    "--ttl-seconds",
-    String(params.ttlSeconds),
   );
   if (params.postReturnCheckCommand) command.push("--post-return-check-command", params.postReturnCheckCommand);
   if (params.workerConfigureCommand) command.push("--worker-configure-command", params.workerConfigureCommand);
@@ -512,7 +746,7 @@ async function runWorkerProcess(
   });
   procRegistry?.add(proc);
   void proc.exited.finally(() => procRegistry?.delete(proc));
-  const timeoutMs = Math.max(60_000, Math.floor(params.ttlSeconds * 1000) + 120_000);
+  const timeoutMs = Math.max(60_000, Math.floor(params.ttlSeconds * 1000));
   const timeout = setTimeout(() => {
     timedOut = true;
     proc.kill(9);
@@ -543,9 +777,13 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
   const knowledgeMaintenanceErrors: KnowledgeMaintenanceError[] = [];
   const fastKnowledgeMaintenanceRuns: Record<string, unknown>[] = [];
   const fastKnowledgeMaintenanceErrors: KnowledgeMaintenanceError[] = [];
+  const integrationResolverRuns: Record<string, unknown>[] = [];
+  const integrationResolverErrors: IntegrationResolverError[] = [];
   const runningWorkers = new Set<Promise<void>>();
   const runningWorkerIds = new Set<string>();
   const runningWorkerProcs = new Set<{ kill: (signal?: number) => void; exited: Promise<number> }>();
+  const runningIntegrationResolvers = new Map<string, Promise<void>>();
+  const runningIntegrationResolverPaths = new Map<string, string[]>();
   let runningScheduler: Promise<void> | null = null;
   let runningKnowledgeMaintenance: Promise<void> | null = null;
   let stoppedReason = "running";
@@ -586,6 +824,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     const idleSleepMs = numberArg(args, "--idle-sleep-ms", 5_000);
     const requestedMaxWorkers = numberArg(args, "--max-workers", run.desiredWorkers);
     const maxWorkers = Math.max(0, Math.min(run.desiredWorkers, requestedMaxWorkers));
+    const integrationResolverConcurrency = Math.max(1, Math.floor(numberArg(args, "--integration-resolver-concurrency", 4)));
     if (requestedMaxWorkers > run.desiredWorkers) {
       console.error(
         `[run-loop] --max-workers ${requestedMaxWorkers} exceeds run desired_workers ${run.desiredWorkers}; clamping to ${maxWorkers}. ` +
@@ -596,7 +835,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     const admissionTargetSize = maxWorkers;
     const candidateWindow = derivedSchedulerCandidateWindow(globals, args, maxWorkers);
     const baseRev = stringArg(args, "--base-rev", "unknown");
-    const ttlSeconds = numberArg(args, "--ttl-seconds", DEFAULT_WORKER_TTL_SECONDS);
+    const ttlSeconds = workerTtlSeconds(globals, args);
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
@@ -615,6 +854,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     const epochPauseThreshold = nonNegativeInt(numberArg(args, "--epoch-regression-pause-threshold", 12));
     const epochRequeueLimit = nonNegativeInt(numberArg(args, "--epoch-regression-requeue-limit", 32));
     const epochRetryMs = nonNegativeInt(numberArg(args, "--epoch-retry-ms", 10 * 60_000));
+    const sessionDraftPrEnabled = !booleanArg(args, "--no-session-draft-pr");
     const fullKgMaintenanceMode = stringArg(args, "--full-kg-maintenance-mode", "full").trim().toLowerCase();
     let runningEpoch: Promise<void> | null = null;
     let nextEpochAllowedMs = 0;
@@ -635,14 +875,100 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     let lastFastMaintenanceReportIso = latestFastRefreshFinishedAt(store, runId, run.createdAt);
     let runningFastKnowledgeMaintenance: Promise<void> | null = null;
     let pendingFastKnowledgeMaintenance = false;
+    const launchIntegrationResolver = (record: WorkerOutputIntegrationRecord, lockPaths: string[]): void => {
+      if (!record.itemPath || runningIntegrationResolvers.has(record.id)) return;
+      console.error(`[run-loop] resolving worker integration conflict ${record.id} (${record.targetKey ?? "unknown target"})`);
+      addEvent(store, runId, "worker_integration_resolver_started", "run-loop", {
+        id: record.id,
+        item_id: record.id,
+        item_path: record.itemPath,
+        lock_paths: lockPaths,
+        target_key: record.targetKey,
+        phase: "integration_resolver",
+        status: "started",
+        message: `integration resolver started for ${record.targetKey ?? record.id}`,
+        created_by: "run-loop",
+      });
+      let task: Promise<void>;
+      runningIntegrationResolverPaths.set(record.id, lockPaths);
+      task = integrationResolve(globals, integrationResolverArgs(args, runId, record))
+        .then(() => {
+          integrationResolverRuns.push({
+            item_id: record.id,
+            lock_paths: lockPaths,
+            target_key: record.targetKey,
+            item_path: record.itemPath,
+          });
+          nextEpochAllowedMs = 0;
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          integrationResolverErrors.push({ itemId: record.id, error: message });
+          console.error(`[run-loop] integration resolver ${record.id} failed: ${message}`);
+          addEvent(store, runId, "worker_integration_resolver_failed", "run-loop", {
+            id: record.id,
+            item_id: record.id,
+            item_path: record.itemPath,
+            lock_paths: lockPaths,
+            target_key: record.targetKey,
+            phase: "integration_resolver",
+            status: "error",
+            message: `integration resolver failed for ${record.targetKey ?? record.id}: ${message.slice(0, 500)}`,
+            error: message.slice(0, 2000),
+            created_by: "run-loop",
+          });
+        })
+        .finally(() => {
+          runningIntegrationResolvers.delete(record.id);
+          runningIntegrationResolverPaths.delete(record.id);
+        });
+      runningIntegrationResolvers.set(record.id, task);
+    };
 
     while (!stopRequested) {
       let didWork = false;
+      const boundaryWorkPendingBeforeMaintenance = epochBoundaryWorkPending(store, runId);
+      const blockingIntegrationsBeforeMaintenance = blockingWorkerOutputIntegrationCount(store, runId);
 
-      if (!drainRequested && !runningKnowledgeMaintenance && maintenanceIntervalMs > 0 && Date.now() - lastKnowledgeMaintenanceMs >= maintenanceIntervalMs) {
+      if (
+        !drainRequested &&
+        autoIntegrationResolverEnabled(args) &&
+        !runningEpoch &&
+        runningIntegrationResolvers.size < integrationResolverConcurrency &&
+        activeWorkerCount(store, runId) === 0 &&
+        runningWorkers.size === 0
+      ) {
+        const activeLockPaths = new Set([...runningIntegrationResolverPaths.values()].flat());
+        const resolverItems = workerOutputIntegrationConflictsForResolver(store, runId, {
+          excludedIds: runningIntegrationResolvers.keys(),
+          limit: integrationResolverConcurrency * 4,
+        });
+        const resolverBatch = selectIntegrationResolverBatch({
+          candidates: resolverItems,
+          activeLockPaths,
+          concurrency: integrationResolverConcurrency,
+          runningCount: runningIntegrationResolvers.size,
+        });
+        for (const { record: resolverItem, lockPaths } of resolverBatch) {
+          launchIntegrationResolver(resolverItem, lockPaths);
+          didWork = true;
+        }
+      }
+
+      if (
+        !drainRequested &&
+        !runningKnowledgeMaintenance &&
+        runningIntegrationResolvers.size === 0 &&
+        !boundaryWorkPendingBeforeMaintenance &&
+        blockingIntegrationsBeforeMaintenance === 0 &&
+        maintenanceIntervalMs > 0 &&
+        Date.now() - lastKnowledgeMaintenanceMs >= maintenanceIntervalMs
+      ) {
         lastKnowledgeMaintenanceMs = Date.now();
         let task: Promise<void>;
-        task = runKnowledgeMaintenance(globals, knowledgeMaintenanceArgs(args, runId, !globals.dryRunAgents))
+        task = runKnowledgeMaintenance(globals, knowledgeMaintenanceArgs(args, runId, !globals.dryRunAgents), {
+          progress: knowledgeProgressReporter(store, runId, { lane: "scheduled", mode: globals.dryRunAgents ? "dry_run" : "full", repoRoot: globals.repoRoot }),
+        })
           .then((result) => {
             knowledgeMaintenanceRuns.push(result);
           })
@@ -696,6 +1022,26 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 epochCycles += 1;
                 lastEpoch = result;
                 epochPaused = result.repair.paused;
+                if (sessionDraftPrEnabled) {
+                  const publish = await publishSessionDraftPr({
+                    baseRef: globals.project?.baseRef,
+                    commitSha: result.commitSha,
+                    epochLabel: result.label,
+                    matchedCodePercent: result.matchedCodePercent,
+                    projectId: globals.project?.projectId ?? globals.projectId ?? null,
+                    qaGate: result.qaGate as unknown as Record<string, unknown> | null,
+                    regressions: result.regressions as unknown as Record<string, unknown>,
+                    repoRoot: globals.repoRoot,
+                    runId,
+                    savePointId: result.savePointId,
+                    stateDir: globals.stateDir,
+                    store,
+                  });
+                  console.error(
+                    `[run-loop] epoch ${epochOrdinal}: session draft PR ${publish.status}` +
+                      `${publish.url ? ` ${publish.url}` : publish.reason ? ` (${publish.reason})` : publish.error ? ` (${publish.error})` : ""}`,
+                  );
+                }
                 console.error(
                   `[run-loop] epoch ${epochOrdinal}: matched_code ${result.matchedCodePercent ?? "?"}%, ` +
                     `${result.regressions.regressedFunctions} regressed functions, ${result.repair.requeued} repairs readmitted, ` +
@@ -732,6 +1078,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
 
               if (!globals.dryRunAgents && fullKgMaintenanceMode !== "skip" && fullKgMaintenanceMode !== "none" && fullKgMaintenanceMode !== "off") {
                 const maintenanceGlobals = boundaryResult?.worktreeDir ? { ...globals, repoRoot: boundaryResult.worktreeDir } : globals;
+                console.error(`[run-loop] epoch ${epochOrdinal}: full knowledge refresh started (${fullKgMaintenanceMode})`);
                 addEvent(store, runId, "epoch_full_refresh_started", "run-loop", {
                   epoch: epochOrdinal,
                   lane: "full_boundary",
@@ -739,8 +1086,17 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                   repo_root: maintenanceGlobals.repoRoot,
                   created_by: "run-loop",
                 });
-                const maintenance = await runKnowledgeMaintenance(maintenanceGlobals, fullBoundaryKnowledgeMaintenanceArgs(args, runId, fullKgMaintenanceMode));
+                const maintenance = await runKnowledgeMaintenance(maintenanceGlobals, fullBoundaryKnowledgeMaintenanceArgs(args, runId, fullKgMaintenanceMode), {
+                  progress: knowledgeProgressReporter(store, runId, {
+                    lane: "full_boundary",
+                    mode: fullKgMaintenanceMode,
+                    epochId: schedulerEpochId,
+                    epochOrdinal,
+                    repoRoot: maintenanceGlobals.repoRoot,
+                  }),
+                });
                 knowledgeMaintenanceRuns.push({ ...maintenance, lane: "full_boundary", mode: fullKgMaintenanceMode, repo_root: maintenanceGlobals.repoRoot });
+                console.error(`[run-loop] epoch ${epochOrdinal}: full knowledge refresh finished`);
                 addEvent(store, runId, "epoch_full_refresh_finished", "run-loop", {
                   epoch: epochOrdinal,
                   lane: "full_boundary",
@@ -773,6 +1129,11 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 runId,
                 store,
               });
+              console.error(
+                `[run-loop] epoch ${nextEpoch.progress.ordinal}: admitted ${nextEpoch.progress.admitted}/${nextEpoch.progress.size.mode === "full" ? "full" : nextEpoch.progress.size.value} ` +
+                  `targets from candidate window ${schedulerEpochConfig.candidateWindow} (${schedulerEpochConfig.candidateRerank ?? "priority"}), ` +
+                  `${nextEpoch.progress.available} available, ${nextEpoch.priorityRefreshes} refreshed`,
+              );
               lastSchedulerEpoch = nextEpoch.progress;
               epochAdmissions += (nextEpoch.admission?.admitted ?? 0) + (nextEpoch.existingAdmission?.admitted ?? 0);
               epochAvailabilityRefreshes += nextEpoch.availabilityRefresh.inserted > 0 ? 1 : 0;
@@ -798,6 +1159,8 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                   ordinal: nextEpoch.progress.ordinal,
                   admitted: nextEpoch.progress.admitted,
                   available: nextEpoch.progress.available,
+                  candidate_rerank: schedulerEpochConfig.candidateRerank ?? "priority",
+                  candidate_window: schedulerEpochConfig.candidateWindow,
                   size: nextEpoch.progress.size,
                   created_by: "run-loop",
                 });
@@ -829,7 +1192,32 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         runningEpoch = task;
       };
 
-      if (!drainRequested && epochCycleEnabled && fastMaintenanceIntervalMs > 0 && !runningEpoch) {
+      const forceFinishEvent = nextForceFinishEpochEvent(store, runId);
+      if (forceFinishEvent) {
+        const result = forceFinishActiveEpoch(store, runId, forceFinishEvent);
+        if (result.epochId) {
+          console.error(
+            `[run-loop] epoch ${result.ordinal}: manual finish requested; ` +
+              `closed ${result.activeClaimsClosed} active claim(s), marked ${result.openTargetsFinished} open target(s) finished`,
+          );
+        }
+        if (runningWorkerProcs.size > 0) {
+          for (const proc of runningWorkerProcs) proc.kill(9);
+          await Promise.allSettled([...runningWorkers]);
+        }
+        if (result.after) lastSchedulerEpoch = result.after;
+        didWork = true;
+      }
+
+      if (
+        !drainRequested &&
+        epochCycleEnabled &&
+        fastMaintenanceIntervalMs > 0 &&
+        !runningEpoch &&
+        runningIntegrationResolvers.size === 0 &&
+        !epochBoundaryWorkPending(store, runId) &&
+        blockingWorkerOutputIntegrationCount(store, runId) === 0
+      ) {
         const reportsSinceFast = workerStateCloseCountSince(store, runId, lastFastMaintenanceReportIso);
         const fastDecision = evaluateFastKnowledgeMaintenanceDecision({
           intervalMs: fastMaintenanceIntervalMs,
@@ -859,6 +1247,10 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             pendingFastKnowledgeMaintenance = false;
             lastFastMaintenanceMs = nowMs;
             const activeEpoch = activeSchedulerEpoch(store, runId);
+            console.error(
+              `[run-loop] epoch ${activeEpoch?.ordinal ?? "?"}: fast knowledge refresh started ` +
+                `(${fastDecision.reason}, ${fastDecision.reportsSinceRefresh} report(s) since refresh)`,
+            );
             addEvent(store, runId, "epoch_fast_refresh_started", "run-loop", {
               epoch_id: activeEpoch?.id ?? null,
               reports_since_refresh: fastDecision.reportsSinceRefresh,
@@ -866,7 +1258,15 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
               created_by: "run-loop",
             });
             let task: Promise<void>;
-            task = runKnowledgeMaintenance(globals, fastKnowledgeMaintenanceArgs(args, runId))
+            task = runKnowledgeMaintenance(globals, fastKnowledgeMaintenanceArgs(args, runId), {
+              progress: knowledgeProgressReporter(store, runId, {
+                lane: "fast_run_evidence",
+                mode: "fast",
+                epochId: activeEpoch?.id ?? null,
+                epochOrdinal: activeEpoch?.ordinal ?? null,
+                repoRoot: globals.repoRoot,
+              }),
+            })
               .then((result) => {
                 const completedAt = new Date().toISOString();
                 fastKnowledgeMaintenanceRuns.push({ ...result, lane: "fast_run_evidence" });
@@ -878,6 +1278,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 if (epoch) {
                   recordSchedulerEpochFastRefresh(store, epoch.id);
                   const board = loadKnowledgeBoardSnapshot(globals.repoRoot, schedulerEpochConfig.candidateWindow, {
+                    candidateRerank: schedulerEpochConfig.candidateRerank,
                     graphDbPath,
                   });
                   priorityRefreshes = refreshEpochTargetPriorities(store, {
@@ -885,7 +1286,9 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                     runId,
                     candidates: board.candidates,
                   }).refreshed;
-                  const availabilityRefresh = refreshEpochTargetAvailability(store, epoch.id);
+                  const availabilityRefresh = refreshEpochTargetAvailability(store, epoch.id, {
+                    exactTargetKeys: loadExactTargetKeys(globals.repoRoot),
+                  });
                   availabilityRefreshInserted = availabilityRefresh.inserted;
                   if (availabilityRefreshInserted > 0) {
                     epochAvailabilityRefreshes += 1;
@@ -903,10 +1306,15 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                   progress,
                   created_by: "run-loop",
                 });
+                console.error(
+                  `[run-loop] epoch ${epoch?.ordinal ?? "?"}: fast knowledge refresh finished; ` +
+                    `${priorityRefreshes} priorities refreshed, ${availabilityRefreshInserted} ready target(s) inserted`,
+                );
               })
               .catch((error) => {
                 const message = error instanceof Error ? error.message : String(error);
                 fastKnowledgeMaintenanceErrors.push({ error: message });
+                console.error(`[run-loop] fast knowledge refresh failed: ${message}`);
                 addEvent(store, runId, "epoch_fast_refresh_finished", "run-loop", {
                   status: "error",
                   error: message.slice(0, 2000),
@@ -922,7 +1330,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         }
       }
 
-      if (!drainRequested && epochCycleEnabled) {
+      if (!drainRequested && epochCycleEnabled && runningIntegrationResolvers.size === 0) {
         if (!runningEpoch && nowMs >= nextEpochAllowedMs && !epochPaused) {
           const boundaryError = boundaryErrorEpoch(store, runId);
           if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
@@ -962,12 +1370,19 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             epochTargetsMadeAvailable += madeAvailableNow;
 
             if (admittedNow > 0) {
+              console.error(
+                `[run-loop] epoch ${epochResult.progress.ordinal}: admitted ${admittedNow} new target(s); ` +
+                  `${epochResult.progress.admitted}/${epochResult.progress.size.mode === "full" ? "full" : epochResult.progress.size.value} admitted, ` +
+                  `${epochResult.progress.available} available, candidate window ${schedulerEpochConfig.candidateWindow}`,
+              );
               addEvent(store, runId, "epoch_admitted", "run-loop", {
                 epoch_id: epochResult.epoch.id,
                 ordinal: epochResult.progress.ordinal,
                 admitted: epochResult.progress.admitted,
                 admitted_now: admittedNow,
                 available: epochResult.progress.available,
+                candidate_rerank: schedulerEpochConfig.candidateRerank ?? "priority",
+                candidate_window: schedulerEpochConfig.candidateWindow,
                 size: epochResult.progress.size,
                 created_by: "run-loop",
               });
@@ -1121,7 +1536,9 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         runningWorkerIds.add(workerId);
       }
 
-      if (!drainRequested && !runningScheduler && nextUnhandledEvent(store, runId)) {
+      const schedulerEvent = nextUnhandledEvent(store, runId);
+      const schedulerEventType = schedulerEvent ? String(schedulerEvent.eventType ?? schedulerEvent.event_type ?? "") : "";
+      if (!drainRequested && !runningScheduler && schedulerEvent && schedulerEventType !== "epoch_force_finish_requested") {
         const tickArgs = schedulerTickArgs(args, { runId });
         let task: Promise<void>;
         task = runSchedulerTick(globals, tickArgs)
@@ -1152,14 +1569,14 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       }
 
       if (didWork || runningWorkers.size === 0) iterations += 1;
-      if (didWork || runningWorkers.size > 0 || runningEpoch || runningFastKnowledgeMaintenance) idleIterations = 0;
+      if (didWork || runningWorkers.size > 0 || runningEpoch || runningFastKnowledgeMaintenance || runningIntegrationResolvers.size > 0) idleIterations = 0;
       else idleIterations += 1;
 
       if (maxIdleIterations > 0 && idleIterations >= maxIdleIterations && unhandledEventCount(store, runId) === 0) {
         stoppedReason = "idle";
         break;
       }
-      if (maxIterations > 0 && iterations >= maxIterations && runningWorkers.size === 0 && !runningEpoch) {
+      if (maxIterations > 0 && iterations >= maxIterations && runningWorkers.size === 0 && !runningEpoch && runningIntegrationResolvers.size === 0) {
         stoppedReason = "max_iterations";
         break;
       }
@@ -1168,6 +1585,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         runningWorkers.size === 0 &&
         !runningEpoch &&
         !runningScheduler &&
+        runningIntegrationResolvers.size === 0 &&
         !runningFastKnowledgeMaintenance &&
         !runningKnowledgeMaintenance &&
         !runningProviderProbe
@@ -1176,7 +1594,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         break;
       }
 
-      await waitForRestingTrigger(runningWorkers, idleSleepMs, [runningEpoch, runningFastKnowledgeMaintenance]);
+      await waitForRestingTrigger(runningWorkers, idleSleepMs, [runningEpoch, runningFastKnowledgeMaintenance, ...runningIntegrationResolvers.values()]);
     }
 
     if (runningWorkers.size > 0) {
@@ -1195,6 +1613,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     }
     if (runningEpoch) await runningEpoch;
     if (runningScheduler) await runningScheduler;
+    if (runningIntegrationResolvers.size > 0) await Promise.allSettled([...runningIntegrationResolvers.values()]);
     if (runningFastKnowledgeMaintenance) await runningFastKnowledgeMaintenance;
     if (runningKnowledgeMaintenance) await runningKnowledgeMaintenance;
     if (runningProviderProbe) await runningProviderProbe;
@@ -1232,6 +1651,8 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       knowledgeMaintenanceErrors,
       fastKnowledgeMaintenanceRuns,
       fastKnowledgeMaintenanceErrors,
+      integrationResolverRuns,
+      integrationResolverErrors,
       dryRun: globals.dryRunAgents,
       finalStatus: {
         activeWorkers: activeWorkerCount(store, runId),

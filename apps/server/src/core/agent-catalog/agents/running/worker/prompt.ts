@@ -34,7 +34,10 @@ export const prompt = definePrompt({
   archetype: "workflow",
   nodes: [
     section("goal", [
-      bulletList(["Decompile the claimed target/symbol to a 100% match."]),
+      bulletList([
+        "Decompile the claimed target/symbol to a 100% match.",
+        "A single worker turn may end before 100%; useful, runner-checkable progress is a valid turn outcome.",
+      ]),
     ]),
     section("definition_of_done", [
       bulletList([
@@ -49,6 +52,7 @@ export const prompt = definePrompt({
           bulletList([
             "Treat the target as code likely written by a small number of programmers.",
             "Look for high-signal personal preference patterns and company-standard patterns used across nearby and related code.",
+            "Assume a small original author pool left repeatable idioms.",
             "Style, abstractions, types, macros, data ownership, compiler constraints, etc.",
           ]),
         ]),
@@ -106,8 +110,7 @@ export const prompt = definePrompt({
           bulletList([
             "Based on that file understanding, look around the codebase for 100% matched functions/files that resemble this target.",
             "Use the injected target graph file card as a first-pass map of solved neighbors and follow-up leads.",
-            "Search graph/history for 100% matched functions/files that resemble this target before broad exploration.",
-            "Assume a small original author pool left repeatable idioms; let solved references suggest structure, helpers, types, and control flow.",
+            "Use opseq similarity leads to find instruction-shape analogs before adapting duplicates or broad rewrites.",
           ]),
         ],
         { attrs: { id: "2", name: "solved_reference_pass" } },
@@ -149,18 +152,19 @@ export const prompt = definePrompt({
             "Evaluate attempts with the available validation/review tools or narrow local checks.",
             "Keep verified improvements.",
             "Revert your own regressing/no-op hunks.",
-            "Keep iterating while the evidence suggests a next move.",
+            "Keep iterating while the evidence suggests a next move and there is enough turn budget to evaluate it.",
+            "If you have a buildable improvement, a falsified attempt that should be checkpointed, or you are stalled after targeted probes, hand back the current evidence instead of spending the rest of the turn looking for certainty.",
           ]),
         ],
         { attrs: { id: "5", name: "edit_and_evaluate" } },
       ),
     ]),
     section("runner_validation_handoff", [
-      "When ready for the runner to check your work, return a handoff JSON.",
+      "When ready for the runner to check your work (when matched, improved, or meaningfully attempted but stalled), return a handoff JSON.",
       "This handoff is not a worker report; it is a validation handoff for runner review.",
-      "This is just a quick pass — hand off your current work for runner validation.",
-      "Use plain fields such as `summary`, `evidence`, `facts`, `rejected_hypotheses`, `blockers`, and `next_exact_hypothesis`; `summary` can start from: Here is what I tried.",
-      "The runner will either confirm success or provide guidance on what still needs to be improved.",
+      "Do not treat non-100% progress as failure. The runner can build, score, checkpoint, and send a repair request for the next turn.",
+      "Use plain fields such as `summary`: Here is what I tried.",
+      "After a handoff, the runner owns the follow-up decision and will tell you whether to stop, repair, or keep going.",
     ]),
     section("contracted_in_rules", [
       orderedList([

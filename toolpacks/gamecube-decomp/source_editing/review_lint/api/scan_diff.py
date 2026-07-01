@@ -332,7 +332,14 @@ def evaluate_extern_findings(
                 'data ordering". '
                 f"{_qa_rules.STANDARD_TITLES[standard]}."
             )
-            finding["detail"] = {**detail, "verdict": "new_data_anchor"}
+            finding["detail"] = _qa_rules.data_ordering_repair_detail(
+                {**detail, "verdict": "new_data_anchor"},
+                source_ref=rel_path,
+                source_shape="new_data_anchor",
+                hint=_qa_rules.ADDRESS_DATA_REPAIR_HINT,
+                include_sdata2_tool=_qa_rules.symbol_may_be_sdata2(symbol),
+                symbols=[symbol],
+            )
             result.append(finding)
             continue
         address = _qa_rules.address_from_name(symbol)
@@ -349,11 +356,30 @@ def evaluate_extern_findings(
                 "in binary order instead. "
                 f"{_qa_rules.STANDARD_TITLES['global_standard:literals-and-data-ownership']}."
             )
-            finding["detail"] = {**detail, "verdict": "confirmed_self_tu"}
+            finding["detail"] = _qa_rules.data_ordering_repair_detail(
+                {**detail, "verdict": "confirmed_self_tu"},
+                source_ref=rel_path,
+                source_shape="self_tu_extern",
+                hint=_qa_rules.NUMERIC_DATA_REPAIR_HINT,
+                include_sdata2_tool=_qa_rules.symbol_may_be_sdata2(symbol),
+                symbols=[symbol],
+            )
             result.append(finding)
         else:
             finding = dict(finding)
-            finding["detail"] = {**detail, "verdict": "cross_tu_ok"}
+            finding["detail"] = _qa_rules.data_ordering_repair_detail(
+                {**detail, "verdict": "cross_tu_ok"},
+                source_ref=rel_path,
+                source_shape="extern_literal_anchor:cross_tu",
+                hint=(
+                    "Keep this extern only with real cross-TU ownership evidence. "
+                    "If it is just preserving a numeric literal match, restore the "
+                    "inline literal and use an isolated .sdata2 order helper only "
+                    "for a pure ordering gap."
+                ),
+                include_sdata2_tool=_qa_rules.symbol_may_be_sdata2(symbol),
+                symbols=[symbol],
+            )
             result.append(finding)
     return result
 

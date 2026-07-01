@@ -17,13 +17,49 @@ import {
   renderTemplate,
   stableJson,
 } from "@server/infrastructure/agent-runtime/runtime";
-import { availableToolsPromptXml } from "@server/core/tools/index.js";
+import { availableToolsPromptXml, defaultWorkerToolProfile } from "@server/core/tools/index.js";
 import {
   createInlineAgentContextResolver,
   defaultKernelTurnPrompt,
+  promptKernelContext,
   rootContextLoaderDeclaration,
 } from "@server/core/agent-catalog/kernel-context.js";
 import { workerCanonicalToolPathsXml } from "./tool-paths.js";
+
+export type WorkerPromptContextBudget = "full" | "compact" | "minimal";
+
+export const WORKER_TARGET_FILE_INLINE_CHAR_LIMIT = 32_000;
+export const WORKER_COMPACT_TARGET_FILE_INLINE_CHAR_LIMIT = 12_000;
+export const WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT = 3_000;
+
+const WORKER_CONTEXT_BUDGETS = {
+  full: {
+    sourceLimit: WORKER_TARGET_FILE_INLINE_CHAR_LIMIT,
+    tools: "full",
+    standards: "full",
+    graph: "full",
+  },
+  compact: {
+    sourceLimit: WORKER_COMPACT_TARGET_FILE_INLINE_CHAR_LIMIT,
+    tools: "summary",
+    standards: "summary",
+    graph: "summary",
+  },
+  minimal: {
+    sourceLimit: WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT,
+    tools: "summary",
+    standards: "minimal",
+    graph: "minimal",
+  },
+} as const satisfies Record<
+  WorkerPromptContextBudget,
+  {
+    sourceLimit: number;
+    tools: "full" | "summary";
+    standards: "full" | "summary" | "minimal";
+    graph: "full" | "summary" | "minimal";
+  }
+>;
 
 const loaders = [
   rootContextLoaderDeclaration,
@@ -46,12 +82,14 @@ export interface WorkerPromptOptions {
   project?: RunProjectMetadata;
   initialBoardPath: string;
   workerLogDir: string;
+  contextBudget?: WorkerPromptContextBudget;
 }
 
 export interface WorkerPromptInputXmlOptions {
   packet: Record<string, unknown>;
   repoRoot: string;
   project?: RunProjectMetadata;
+  contextBudget?: WorkerPromptContextBudget;
 }
 
 export interface WorkerPromptInputXml {
@@ -176,8 +214,18 @@ function targetFileXml(
   baseline: Record<string, unknown>,
   primarySourcePath: string,
   primarySourceAbs: string,
+  contextBudget: WorkerPromptContextBudget,
   indent = "    ",
 ): string {
+  const budget = WORKER_CONTEXT_BUDGETS[contextBudget];
+  const fileText = primarySourceAbs && existsSync(primarySourceAbs) ? readFileSync(primarySourceAbs, "utf8") : null;
+  const originalChars = fileText?.length ?? null;
+  const truncated = fileText != null && fileText.length > budget.sourceLimit;
+  const inlineText = fileText == null
+    ? null
+    : truncated
+      ? truncateTargetSourceForPrompt(fileText, budget.sourceLimit)
+      : fileText;
   const attrs = [
     optionalAttribute("path", primarySourcePath),
     optionalAttribute("unit", optionalString(target.unit)),
@@ -188,8 +236,12 @@ function targetFileXml(
       optionalNumber(baseline.fuzzy_match_percent) ??
         optionalNumber(target.fuzzy_match_percent),
     ),
+    optionalAttribute("context_budget", contextBudget),
+    truncated ? optionalAttribute("truncated", "true") : "",
+    truncated ? optionalAttribute("original_chars", originalChars) : "",
+    truncated ? optionalAttribute("inline_char_limit", budget.sourceLimit) : "",
   ].join("");
-  if (!primarySourceAbs || !existsSync(primarySourceAbs)) {
+  if (fileText == null) {
     return [
       `${indent}<target_file${attrs}>`,
       `${indent}    <content unavailable="true">${xmlText(primarySourceAbs ? `File not found: ${primarySourceAbs}` : "No target source path provided.")}</content>`,
@@ -198,8 +250,24 @@ function targetFileXml(
   }
   return [
     `${indent}<target_file${attrs}>`,
-    cdata(readFileSync(primarySourceAbs, "utf8")),
+    cdata(inlineText ?? ""),
     `${indent}</target_file>`,
+  ].join("\n");
+}
+
+function truncateTargetSourceForPrompt(source: string, limit: number): string {
+  if (source.length <= limit) return source;
+  const markerBudget = 512;
+  const sliceBudget = Math.max(1_000, limit - markerBudget);
+  const headChars = Math.floor(sliceBudget * 0.55);
+  const tailChars = sliceBudget - headChars;
+  const omitted = source.length - headChars - tailChars;
+  return [
+    source.slice(0, headChars).trimEnd(),
+    "",
+    `[target source truncated after ${limit} characters; ${omitted} characters omitted. The full file is available at the target_file path in the worker checkout. Read the local file before editing code outside this excerpt.]`,
+    "",
+    source.slice(-tailChars).trimStart(),
   ].join("\n");
 }
 
@@ -208,15 +276,17 @@ function targetXml(
   baseline: Record<string, unknown>,
   primarySourcePath: string,
   primarySourceAbs: string,
+  contextBudget: WorkerPromptContextBudget,
 ): string {
   return [
-    "    <target>",
+    `    <target context_budget="${contextBudget}">`,
     jsonBlockXml("details_json", target),
     targetFileXml(
       target,
       baseline,
       primarySourcePath,
       primarySourceAbs,
+      contextBudget,
       "        ",
     ),
     "    </target>",
@@ -318,6 +388,24 @@ function compactResourceHit(
   });
 }
 
+function compactToolHit(
+  hit: Record<string, unknown>,
+): Record<string, unknown> {
+  return compactObject({
+    tool_id: optionalString(hit.tool_id),
+    source_id: optionalString(hit.source_id),
+    unit: optionalString(hit.unit),
+    symbol: optionalString(hit.symbol),
+    analog_unit: optionalString(hit.analog_unit),
+    analog_symbol: optionalString(hit.analog_symbol),
+    analog_source_path: optionalString(hit.analog_source_path),
+    score: optionalNumber(hit.score),
+    exact_match: hit.exact_match ?? null,
+    matched: hit.matched ?? null,
+    evidence_ref: optionalString(hit.evidence_ref),
+  });
+}
+
 function compactPathFact(
   fact: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -404,6 +492,7 @@ function fileCardFromGraph(
 function compactTargetGraphFileCard(
   packet: Record<string, unknown>,
   project?: RunProjectMetadata,
+  contextBudget: WorkerPromptContextBudget = "full",
 ): Record<string, unknown> {
   const target = asRecord(packet.target);
   const sourcePath = String(target.source_path ?? "");
@@ -430,6 +519,10 @@ function compactTargetGraphFileCard(
             source_path: sourcePath,
           }),
           compactObject({ tool: "code_graph_search", query: sourcePath }),
+          compactObject({
+            tool: "opseq_similar_functions",
+            query: [sourcePath, optionalString(target.symbol)].filter(Boolean).join(" "),
+          }),
         ],
       },
       no_context_note:
@@ -450,19 +543,23 @@ function compactTargetGraphFileCard(
     ) ?? null;
   const sameFileFunctions = functions
     .filter((fn) => fn !== targetFunction)
-    .slice(0, 10);
+    .slice(0, contextBudget === "full" ? 10 : contextBudget === "compact" ? 5 : 0);
   const prHistory = asRecord(card.pr_history);
   const mismatchPatterns = asRecordArray(card.mismatch_patterns)
-    .slice(0, 6)
+    .slice(0, contextBudget === "full" ? 6 : contextBudget === "compact" ? 3 : 0)
     .map(compactMismatchPattern);
   const touchingPrs = asRecordArray(prHistory.touching_prs)
-    .slice(0, 6)
+    .slice(0, contextBudget === "full" ? 6 : contextBudget === "compact" ? 2 : 0)
     .map(compactTouchingPr);
   const resourceHits = asRecordArray(card.resource_hits)
-    .slice(0, 8)
+    .slice(0, contextBudget === "full" ? 8 : contextBudget === "compact" ? 3 : 0)
     .map(compactResourceHit);
+  const toolHits = asRecordArray(card.tool_hits)
+    .filter((hit) => optionalString(hit.tool_id) === "opseq")
+    .slice(0, contextBudget === "full" ? 8 : contextBudget === "compact" ? 4 : 2)
+    .map(compactToolHit);
   const pathFacts = asRecordArray(fromPacket.pathFacts.facts)
-    .slice(0, 5)
+    .slice(0, contextBudget === "full" ? 5 : contextBudget === "compact" ? 3 : 1)
     .map(compactPathFact);
   const unitNames = asRecordArray(card.units)
     .map((unit) => optionalString(unit.unit) ?? optionalString(unit.name))
@@ -482,6 +579,10 @@ function compactTargetGraphFileCard(
       query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
     }),
     compactObject({
+      tool: "opseq_similar_functions",
+      query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
+    }),
+    compactObject({
       tool: "past_prs_search",
       query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
     }),
@@ -495,9 +596,32 @@ function compactTargetGraphFileCard(
       : []),
   ];
 
+  if (contextBudget === "minimal") {
+    return compactObject({
+      status: "ready",
+      source: "code_graph_file_card",
+      context_budget: contextBudget,
+      source_path: optionalString(card.source_path) ?? sourcePath,
+      has_graph_context: Boolean(targetFunction || toolHits.length > 0 || pathFacts.length > 0),
+      search_leads: {
+        symbols: {
+          source_path: optionalString(card.source_path) ?? sourcePath,
+          target_symbol: targetSymbol,
+        },
+        target_function: targetFunction,
+        opseq_analogs: toolHits,
+        path_facts: pathFacts,
+        follow_up_queries: followUpQueries.slice(0, 3),
+      },
+      compaction_note:
+        "Minimal context budget after provider context-window rejection. Use local source and graph/search tools for additional context.",
+    });
+  }
+
   return compactObject({
     status: "ready",
     source: "code_graph_file_card",
+    context_budget: contextBudget,
     authority:
       "Graph-derived context. Current source, headers, objdiff, and validation output outrank this summary.",
     graph_db: loaded.graphDb,
@@ -507,6 +631,7 @@ function compactTargetGraphFileCard(
       mismatchPatterns.length > 0 ||
       touchingPrs.length > 0 ||
       resourceHits.length > 0 ||
+      toolHits.length > 0 ||
       pathFacts.length > 0,
     ),
     editability: asRecord(card.editability),
@@ -527,9 +652,10 @@ function compactTargetGraphFileCard(
           .slice(0, 8),
       },
       resources: resourceHits,
+      opseq_analogs: toolHits,
       path_facts: pathFacts,
-      review_risks: asRecordArray(prHistory.review_risks).slice(0, 6),
-      tactics: asRecordArray(prHistory.tactics).slice(0, 6),
+      review_risks: asRecordArray(prHistory.review_risks).slice(0, contextBudget === "full" ? 6 : 2),
+      tactics: asRecordArray(prHistory.tactics).slice(0, contextBudget === "full" ? 6 : 2),
       follow_up_queries: followUpQueries,
     },
     no_context_note:
@@ -537,8 +663,9 @@ function compactTargetGraphFileCard(
       mismatchPatterns.length === 0 &&
       touchingPrs.length === 0 &&
       resourceHits.length === 0 &&
+      toolHits.length === 0 &&
       pathFacts.length === 0
-        ? "Graph file card had no attached functions, patterns, PRs, resources, or path facts for this source path."
+        ? "Graph file card had no attached functions, patterns, PRs, resources, opseq analogs, or path facts for this source path."
         : null,
   });
 }
@@ -546,20 +673,71 @@ function compactTargetGraphFileCard(
 function targetGraphFileCardXml(
   packet: Record<string, unknown>,
   project?: RunProjectMetadata,
+  contextBudget: WorkerPromptContextBudget = "full",
 ): string {
-  const compactCard = compactTargetGraphFileCard(packet, project);
+  const compactCard = compactTargetGraphFileCard(packet, project, contextBudget);
   const status = optionalString(compactCard.status);
   const unavailable = status && status !== "ready" ? ' unavailable="true"' : "";
   return [
-    `    <target_graph_file_card${unavailable}>`,
+    `    <target_graph_file_card context_budget="${contextBudget}"${unavailable}>`,
     jsonBlockXml("details_json", compactCard),
     "    </target_graph_file_card>",
+  ].join("\n");
+}
+
+function contextBudgetXml(contextBudget: WorkerPromptContextBudget): string {
+  const budget = WORKER_CONTEXT_BUDGETS[contextBudget];
+  return [
+    `    <context_budget mode="${contextBudget}" target_file_inline_char_limit="${budget.sourceLimit}">`,
+    contextBudget === "full"
+      ? "        Normal worker context budget. Large target files are still excerpted; read the local file for complete source before editing."
+      : contextBudget === "compact"
+        ? "        Compact retry budget after a context-window rejection. Big source/tool/standards/graph blocks are reduced; use local files and tools for details."
+        : "        Minimal retry budget after repeated context-window rejection. Treat injected context as task coordinates only; read local files and query tools for needed detail.",
+    "    </context_budget>",
+  ].join("\n");
+}
+
+function availableToolsBudgetXml(
+  contextBudget: WorkerPromptContextBudget,
+  toolContext: Parameters<typeof availableToolsPromptXml>[0],
+): string {
+  if (WORKER_CONTEXT_BUDGETS[contextBudget].tools === "full") return availableToolsPromptXml(toolContext);
+  return [
+    `    <available_tools context_budget="${contextBudget}" compacted="true">`,
+    `        <summary>${xmlText("Worker tools are registered in the runtime. Use the tool schema shown by the agent shell/runtime; this compact block avoids duplicating every tool description in the model prompt.")}</summary>`,
+    `        <tool_names>${xmlText(defaultWorkerToolProfile.join(", "))}</tool_names>`,
+    "    </available_tools>",
+  ].join("\n");
+}
+
+function decompStandardsBudgetXml(contextBudget: WorkerPromptContextBudget): string {
+  const mode = WORKER_CONTEXT_BUDGETS[contextBudget].standards;
+  if (mode === "full") return globalStandardsPromptXml();
+  const rules =
+    mode === "summary"
+      ? [
+          "Preserve local style and original-author source shapes.",
+          "Prefer nearby solved source evidence over broad rewrites.",
+          "Avoid destructive resets and preserve pre-existing dirty work.",
+          "Validate retained edits with runner/checkdiff/build/review evidence.",
+          "Do not hand-pack strings/data when normal source ownership is available.",
+        ]
+      : [
+          "Preserve local style, pre-existing dirty work, and runner evidence.",
+          "Read local standards/source if a choice is ambiguous.",
+        ];
+  return [
+    `    <decomp_standards context_budget="${contextBudget}" compacted="true">`,
+    ...rules.map((rule) => `        <rule>${xmlText(rule)}</rule>`),
+    "    </decomp_standards>",
   ].join("\n");
 }
 
 export function workerPromptInputXml(
   options: WorkerPromptInputXmlOptions,
 ): WorkerPromptInputXml {
+  const contextBudget = options.contextBudget ?? "full";
   const target = (options.packet.target ?? {}) as Record<string, unknown>;
   const baseline = asRecord(options.packet.baseline);
   const primarySourcePath = String(target.source_path ?? "");
@@ -567,11 +745,12 @@ export function workerPromptInputXml(
     ? resolve(options.repoRoot, primarySourcePath)
     : "";
   return {
-    targetXml: targetXml(target, baseline, primarySourcePath, primarySourceAbs),
+    targetXml: targetXml(target, baseline, primarySourcePath, primarySourceAbs, contextBudget),
     baselineXml: baselineXml(baseline),
     targetGraphFileCardXml: targetGraphFileCardXml(
       options.packet,
       options.project,
+      contextBudget,
     ),
   };
 }
@@ -579,10 +758,12 @@ export function workerPromptInputXml(
 export function buildWorkerKernelContext(
   options: WorkerPromptOptions,
 ): NonNullable<PiPromptBundle["kernelContext"]> {
+  const contextBudget = options.contextBudget ?? "full";
   const inputXml = workerPromptInputXml({
     packet: options.packet,
     repoRoot: options.repoRoot,
     project: options.project,
+    contextBudget,
   });
   const toolContext = {
     role: "worker" as const,
@@ -595,16 +776,17 @@ export function buildWorkerKernelContext(
     workerLogDir: options.workerLogDir,
   };
   const values = {
-    AVAILABLE_TOOLS_XML: availableToolsPromptXml(toolContext),
+    AVAILABLE_TOOLS_XML: availableToolsBudgetXml(contextBudget, toolContext),
     BASELINE_XML: inputXml.baselineXml,
     CANONICAL_TOOL_PATHS_XML: workerCanonicalToolPathsXml(options.repoRoot),
-    DECOMP_STANDARDS_XML: globalStandardsPromptXml(),
+    CONTEXT_BUDGET_XML: contextBudgetXml(contextBudget),
+    DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget),
     REPAIR_REQUEST_XML: repairRequestXml(options.packet),
     TARGET_GRAPH_FILE_CARD_XML: inputXml.targetGraphFileCardXml,
     TARGET_XML: inputXml.targetXml,
   };
   const workerPacketContext = renderTemplate(
-    WORKER_PACKET_CONTEXT_TEMPLATE,
+    `{{CONTEXT_BUDGET_XML}}\n\n${WORKER_PACKET_CONTEXT_TEMPLATE}`,
     values,
   ).trim();
   const renderedContext = [
@@ -613,9 +795,9 @@ export function buildWorkerKernelContext(
   ]
     .filter(Boolean)
     .join("\n\n");
-  return {
+  return promptKernelContext(
     renderedContext,
-    inputs: [
+    [
       {
         loaderKind: "worker-packet",
         inputRef: "worker-packet",
@@ -627,7 +809,8 @@ export function buildWorkerKernelContext(
         content: values.TARGET_GRAPH_FILE_CARD_XML,
       },
     ],
-  };
+    defaultKernelTurnPrompt("worker"),
+  );
 }
 
 export default context;

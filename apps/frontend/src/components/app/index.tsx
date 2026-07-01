@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { dashboardParams, fetchJson, fetchRunDetails, formBody, loadConfig, postJson } from "@/lib/api";
 import { asObject, numberValue, type Dashboard, type FormState, type JsonObject, type RunDetails, type UiConfig } from "@/lib/format";
 import { useDashboardStream } from "@/hooks/useDashboardStream";
@@ -15,11 +15,13 @@ import { initialForm, saveRunSettings, schedulingForWorkers } from "@/components
 import { useHotReload } from "@/components/app/_lib/useHotReload";
 
 type Action = DashboardAction;
+const PROCESS_CONFIG_VERSION = 2;
+const DEFAULT_THINKING_LEVEL = "xhigh";
 
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["sync", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["sync", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "forceStop", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
 
 function newSessionBody(body: JsonObject): JsonObject {
   const next = { ...body };
@@ -47,6 +49,23 @@ function sessionScopedBody(body: JsonObject, projectSession: JsonObject): JsonOb
   return sessionUuid ? { ...body, sessionUuid, sessionId: sessionUuid } : body;
 }
 
+function workerConfigBody(body: JsonObject): JsonObject {
+  return {
+    configVersion: PROCESS_CONFIG_VERSION,
+    maxWorkers: body.maxWorkers,
+    workerCount: body.maxWorkers,
+    epochSize: body.epochSize,
+    candidateWindow: body.candidateWindow,
+    candidateRerank: body.candidateRerank,
+    integrationResolverConcurrency: body.integrationResolverConcurrency,
+    agentTimeoutSeconds: body.agentTimeoutSeconds,
+    provider: body.provider,
+    model: body.model,
+    thinkingLevel: body.thinkingLevel,
+    toolConcurrency: body.toolConcurrency,
+  };
+}
+
 function positiveInteger(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null;
@@ -61,8 +80,10 @@ function stringConfigValue(value: unknown): string | null {
 function projectSessionRunConfigPatch(projectSession: JsonObject): Partial<FormState> | null {
   const phases = asObject(projectSession.phases);
   const preparing = asObject(phases.preparing);
+  const running = asObject(phases.running);
+  const runningWorkers = asObject(running.workers);
   const completion = asObject(preparing.completion);
-  const workerConfig = asObject(completion.workerConfig);
+  const workerConfig = Object.keys(asObject(runningWorkers.workerConfig)).length > 0 ? asObject(runningWorkers.workerConfig) : asObject(completion.workerConfig);
   if (Object.keys(workerConfig).length === 0) return null;
 
   const patch: Partial<FormState> = {};
@@ -72,8 +93,28 @@ function projectSessionRunConfigPatch(projectSession: JsonObject): Partial<FormS
   const epochSize = stringConfigValue(workerConfig.epochSize);
   if (epochSize !== null) patch.epochSize = epochSize;
 
+  const candidateWindow = stringConfigValue(workerConfig.candidateWindow);
+  if (candidateWindow !== null) patch.candidateWindow = candidateWindow;
+
+  const candidateRerank = stringConfigValue(workerConfig.candidateRerank);
+  if (candidateRerank !== null) patch.candidateRerank = candidateRerank;
+
+  const integrationResolverConcurrency = positiveInteger(workerConfig.integrationResolverConcurrency);
+  if (integrationResolverConcurrency !== null) patch.integrationResolverConcurrency = integrationResolverConcurrency;
+
   const agentTimeoutSeconds = positiveInteger(workerConfig.agentTimeoutSeconds);
   if (agentTimeoutSeconds !== null) patch.agentTimeoutSeconds = agentTimeoutSeconds;
+
+  const provider = stringConfigValue(workerConfig.provider);
+  if (provider !== null) patch.provider = provider;
+
+  const model = stringConfigValue(workerConfig.model);
+  if (model !== null) patch.model = model;
+
+  const thinkingLevel = stringConfigValue(workerConfig.thinkingLevel);
+  if (thinkingLevel !== null) {
+    patch.thinkingLevel = thinkingLevel === "medium" && Number(workerConfig.configVersion) !== PROCESS_CONFIG_VERSION ? DEFAULT_THINKING_LEVEL : thinkingLevel;
+  }
 
   if (Object.keys(asObject(workerConfig.toolConcurrency)).length > 0) {
     patch.toolConcurrency = normalizeToolConcurrency(workerConfig.toolConcurrency);
@@ -151,6 +192,7 @@ export function App() {
   const [detailsTabRequest, setDetailsTabRequest] = useState<{ nonce: number; tab: DetailsTab } | null>(null);
   const [route, setRouteState] = useState<AppRoute>(routeFromUrl);
   const [grainSettings, setGrainSettingsState] = useState<GrainSettings>(loadGrainSettings);
+  const appliedSessionConfigSignatureRef = useRef("");
 
   const setForm = useCallback((updates: Partial<FormState>) => {
     setFormState((current) => ({ ...current, ...updates }));
@@ -208,6 +250,9 @@ export function App() {
           processName: String(projectDefaults.processName || current.processName),
           goalValue: Number(dashboardDefaults.goalValue || current.goalValue),
           epochSize: String(dashboardDefaults.epochSize || current.epochSize),
+          candidateWindow: String(dashboardDefaults.candidateWindow || current.candidateWindow),
+          candidateRerank: String(dashboardDefaults.candidateRerank || current.candidateRerank),
+          integrationResolverConcurrency: numberValue(dashboardDefaults.integrationResolverConcurrency, current.integrationResolverConcurrency),
           agentTimeoutSeconds: numberValue(dashboardDefaults.agentTimeoutSeconds, current.agentTimeoutSeconds),
           toolConcurrency: normalizeToolConcurrency(toolConcurrencyDefaults.configured, current.toolConcurrency),
         }));
@@ -258,6 +303,9 @@ export function App() {
     const projectSession = asObject(currentDashboard?.projectSession);
     const patch = projectSessionRunConfigPatch(projectSession);
     if (!patch) return;
+    const sessionUuid = String(projectSession.sessionUuid || projectSession.id || "");
+    const signature = `${sessionUuid}:${JSON.stringify(patch)}`;
+    if (appliedSessionConfigSignatureRef.current === signature) return;
     setFormState((current) => {
       let changed = false;
       const next = { ...current };
@@ -269,6 +317,7 @@ export function App() {
       }
       return changed ? next : current;
     });
+    appliedSessionConfigSignatureRef.current = signature;
   }, [currentDashboard?.projectSession]);
 
   const loadRunDetails = useCallback(async () => {
@@ -293,7 +342,13 @@ export function App() {
 
   const runAction = useCallback(
     async (nextAction: Action, payload?: Record<string, unknown>) => {
-      if (nextAction === "forceStop" && !window.confirm("Kill all workers immediately?\n\nIn-flight worker output is discarded and active claims are recovered. Committed work is not affected.")) return;
+      if (nextAction === "forceStop" && !window.confirm("Kill all workers immediately?\n\nActive claims will be recovered so they can be rescheduled. No run checkpoint or report will be generated, and committed work is not affected.")) return;
+      if (
+        nextAction === "finishEpoch" &&
+        !window.confirm("Finish the current epoch now?\n\nThis cancels active workers in the current epoch, treats remaining epoch work as finished, and lets the scheduler run the normal baseline/rebuild checkpoint path.")
+      ) {
+        return;
+      }
       if (
         nextAction === "completeRun" &&
         !window.confirm("Close this legacy session?\n\nThis records a save point and marks the run complete. Use this when PR work is already shipped, closed, or intentionally carried forward. Stale ship/QA blockers will be overridden.")
@@ -307,6 +362,22 @@ export function App() {
         const body = { ...formBody(form, currentDashboard), ...payload };
         const projectSession = asObject(currentDashboard?.projectSession);
         const projectSessionPhase = String(projectSession.phase || "");
+        const markWorkersActive = async () => {
+          if (projectSessionPhase !== "running") return;
+          await postJson(projectSessionUrl("/api/project-session/running/subphase", form), {
+            ...sessionScopedBody(body, projectSession),
+            subphase: "workers",
+            data: {
+              workers: {
+                workerConfig: workerConfigBody(body),
+              },
+            },
+          });
+        };
+        const hardStopAndRecover = async () => {
+          await postJson("/api/process/stop", { ...body, recoverClaims: true });
+          if (projectSessionPhase === "running") await postJson(projectSessionUrl("/api/project-session/running/stop", form), { ...body, stopReason: "manual_stop", manualStopMode: "hard_stop" });
+        };
         if (nextAction === "refresh") {
           await manualRefresh();
         } else if (nextAction === "sync") {
@@ -323,6 +394,7 @@ export function App() {
           await manualRefresh();
         } else if (nextAction === "start") {
           await postJson("/api/process/start", body);
+          await markWorkersActive();
           await manualRefresh();
         } else if (nextAction === "startWork") {
           const sessionBody = sessionScopedBody(body, projectSession);
@@ -338,12 +410,7 @@ export function App() {
                 activeRunId,
                 completion: {
                   initRun: initialized,
-                  workerConfig: {
-                    maxWorkers: body.maxWorkers,
-                    epochSize: body.epochSize,
-                    agentTimeoutSeconds: body.agentTimeoutSeconds,
-                    toolConcurrency: body.toolConcurrency,
-                  },
+                  workerConfig: workerConfigBody(body),
                 },
               });
               await postJson(projectSessionUrl("/api/project-session/start-running", form), {
@@ -354,6 +421,7 @@ export function App() {
             if (activeRunId) body.runId = activeRunId;
           }
           await postJson("/api/process/start", body);
+          await markWorkersActive();
           if (projectSessionPhase === "preparing") {
             const sessionUuid = String(projectSession.sessionUuid || projectSession.id || "");
             navigate({ kind: "workspace", section: "sessions", session: sessionUuid || "active", sessionSub: "run", projectId: form.projectId || String(projectSession.projectId || "") || undefined });
@@ -363,9 +431,11 @@ export function App() {
           await postJson("/api/process/drain", body);
           if (projectSessionPhase === "running") await postJson(projectSessionUrl("/api/project-session/running/stop", form), { ...body, stopReason: "manual_stop", manualStopMode: "finish_epoch" });
           await manualRefresh();
+        } else if (nextAction === "finishEpoch") {
+          await postJson("/api/process/finish-epoch", { ...body, reason: "dashboard_finish_epoch" });
+          await manualRefresh();
         } else if (nextAction === "forceStop") {
-          await postJson("/api/process/stop", { ...body, recoverClaims: true });
-          if (projectSessionPhase === "running") await postJson(projectSessionUrl("/api/project-session/running/stop", form), { ...body, stopReason: "manual_stop", manualStopMode: "hard_stop" });
+          await hardStopAndRecover();
           await manualRefresh();
         } else if (nextAction === "init") {
           await postJson("/api/run/init", body);
@@ -539,6 +609,7 @@ export function App() {
         busy={busy}
         collapsed={detailsCollapsed}
         dashboard={currentDashboard}
+        form={form}
         loadRunDetails={() => void loadRunDetails()}
         loadingRunDetails={loadingRunDetails}
         onAction={(nextAction) => void runAction(nextAction)}
@@ -547,6 +618,7 @@ export function App() {
         onResizeStart={() => setDetailsResizing(true)}
         onWidthChange={setDetailsWidth}
         runDetails={runDetails}
+        setForm={setForm}
         tabRequest={detailsTabRequest}
       />
       <GrainOverlay settings={grainSettings} />

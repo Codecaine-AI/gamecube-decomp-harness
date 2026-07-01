@@ -13,12 +13,12 @@ import {
   workerPrompt,
   WORKER_CANONICAL_TOOL_PATHS,
   workerPacket,
+  type WorkerPromptContextBudget,
   type WorkerChangeBaseline,
   type WorkerReviewLint,
   type WorkerRunnerValidation,
 } from "@server/core/agent-catalog/agents/running/worker";
 import { qaLintRepairReasons, type WorkerChangeValidation } from "@server/core/agent-catalog/agents/running/worker/change-validation";
-import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import {
   fileGraphCard,
@@ -37,13 +37,13 @@ import {
   bestCheckpointForWorkerState,
   claimNextEpochTarget,
   closeWorkerState,
-  DEFAULT_WORKER_TTL_SECONDS,
   enqueueWorkerOutputIntegration,
   getLatestRun,
   getRun,
   openState,
   recordWorkerCheckpoint,
   setClaimWorktreePath,
+  updateWorkerStateBaselineScore,
   workerCheckpointsForWorkerState,
   type StateStore,
   type WorkerCheckpointRecord,
@@ -53,8 +53,9 @@ import {
   type WorkerOutputIntegrationApplyResult,
 } from "@server/core/session-runtime/phases/running/integration/worker-output-queue.js";
 import type { PiRunResult } from "@server/core/shared/types";
-import { numberArg, projectMetadata, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { projectMetadata, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/session-runtime/phases/running/jobs/shared.js";
+import { workerTtlSeconds } from "@server/core/session-runtime/phases/running/worker-ttl.js";
 
 export interface WorkerCycleResult {
   runId: string;
@@ -109,6 +110,15 @@ function shellQuote(value: string): string {
 
 function recordString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function finiteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
 }
 
 function stringValuesFromObject(value: unknown): string[] {
@@ -184,19 +194,19 @@ export function classifyWorkerError(params: {
   agentNote: Record<string, unknown> | null;
   runnerValidation: WorkerChangeValidation;
 }): WorkerErrorClassification | null {
+  if (params.result.providerError) {
+    return {
+      kind: "provider_error",
+      summary: `LLM provider failed before the worker produced a validation note: ${params.result.providerError}`,
+      reasons: [params.result.providerError, ...(params.parsedError ? [params.parsedError] : [])],
+    };
+  }
   if (params.result.failed) {
     const message = params.result.error ?? "unknown Pi session error";
     return {
       kind: "worker_session_failed",
       summary: `Worker Pi session failed before producing a validation note: ${message}`,
       reasons: [message],
-    };
-  }
-  if (params.parsedError && params.result.providerError) {
-    return {
-      kind: "provider_error",
-      summary: `LLM provider failed before the worker produced a validation note: ${params.result.providerError}`,
-      reasons: [params.result.providerError, params.parsedError],
     };
   }
   const agentToolErrors = agentNoteSignalsToolError(params.agentNote);
@@ -254,9 +264,6 @@ export function workerAttemptRepairReasons(params: {
   if (params.reviewLint?.status === "failed") {
     reasons.push(...params.reviewLint.reasons.map((reason) => `review lint: ${reason}`));
   }
-  if (params.writeSetDiffChanged && params.runnerValidation.status === "skipped") {
-    reasons.push("write_set diff changed but runner validation was skipped");
-  }
   reasons.push(...qaLintRepairReasons(params.runnerValidation.qaLint));
   return reasons;
 }
@@ -270,6 +277,169 @@ export function shouldRequestWorkerRepairAfterAttempt(params: {
   if (params.repairReasons.length === 0 || params.dryRun) return false;
   if (params.claimDeadlineMs != null && Number.isFinite(params.claimDeadlineMs) && params.claimDeadlineMs <= (params.nowMs ?? Date.now())) return false;
   return true;
+}
+
+export const WORKER_PI_SESSION_RETRY_POLICY = {
+  mode: "worker_pi_transient_session_retry_v1",
+  maxTransientRetries: 1,
+} as const;
+
+export const WORKER_PI_CONTEXT_RETRY_POLICY = {
+  mode: "worker_pi_context_budget_retry_v1",
+  budgets: ["full", "compact", "minimal"] as const satisfies readonly WorkerPromptContextBudget[],
+} as const;
+
+const WORKER_PI_SESSION_NON_RETRYABLE_PATTERNS = [
+  /context[_ -]?length[_ -]?exceeded/i,
+  /input exceeds? the context window/i,
+  /maximum context length/i,
+  /prompt is too long/i,
+  /too many input tokens/i,
+  /token limit/i,
+] as const;
+
+const WORKER_PI_SESSION_RETRYABLE_PATTERNS = [
+  /stream[_ -]?incomplete/i,
+  /upstream websocket closed/i,
+  /websocket closed before response\.completed/i,
+  /no close frame received or sent/i,
+  /\b(?:ECONNRESET|ECONNABORTED|ETIMEDOUT|EPIPE|UND_ERR_SOCKET)\b/i,
+  /socket hang up/i,
+  /(?:connection|stream|socket|websocket)\s+(?:reset|closed|aborted|terminated)/i,
+  /fetch failed/i,
+  /network error/i,
+  /temporarily unavailable/i,
+  /\b50[234]\b/,
+] as const;
+
+export interface WorkerPiContextRetryDecision {
+  policy: typeof WORKER_PI_CONTEXT_RETRY_POLICY.mode;
+  shouldRetry: boolean;
+  retryable: boolean;
+  exhausted: boolean;
+  stoppedByDeadline: boolean;
+  reason: string;
+  contextRetryIndex: number;
+  currentBudget: WorkerPromptContextBudget;
+  nextRetryIndex: number | null;
+  nextBudget: WorkerPromptContextBudget | null;
+  budgets: readonly WorkerPromptContextBudget[];
+}
+
+export interface WorkerPiSessionRetryDecision {
+  policy: typeof WORKER_PI_SESSION_RETRY_POLICY.mode;
+  shouldRetry: boolean;
+  retryable: boolean;
+  exhausted: boolean;
+  stoppedByDeadline: boolean;
+  reason: string;
+  transientRetryCount: number;
+  nextRetryIndex: number | null;
+  maxTransientRetries: number;
+}
+
+function workerPiSessionFailureText(result: Pick<PiRunResult, "failed" | "providerError" | "error">): string {
+  return [result.providerError, result.error].filter((value): value is string => typeof value === "string" && value.trim().length > 0).join("\n");
+}
+
+export function isWorkerSessionTimeoutFailure(result: Pick<PiRunResult, "failed" | "providerError" | "error">): boolean {
+  if (!result.failed || result.providerError) return false;
+  return /\bPi session timed out after\b|\btimed out\b/i.test(workerPiSessionFailureText(result));
+}
+
+export function shouldRunRunnerValidationForWorkerSession(result: Pick<PiRunResult, "failed" | "providerError" | "error">): boolean {
+  if (!result.failed && !result.providerError) return true;
+  return isWorkerSessionTimeoutFailure(result);
+}
+
+export function isWorkerPiContextLengthFailure(result: Pick<PiRunResult, "failed" | "providerError" | "error">): boolean {
+  if (!result.failed && !result.providerError) return false;
+  const text = workerPiSessionFailureText(result);
+  if (!text) return false;
+  return WORKER_PI_SESSION_NON_RETRYABLE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+export function isRetryableWorkerPiSessionFailure(result: Pick<PiRunResult, "failed" | "providerError" | "error">): boolean {
+  if (!result.failed && !result.providerError) return false;
+  const text = workerPiSessionFailureText(result);
+  if (!text) return false;
+  if (isWorkerPiContextLengthFailure(result)) return false;
+  return WORKER_PI_SESSION_RETRYABLE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function workerPromptContextBudget(index: number): WorkerPromptContextBudget {
+  const budgets = WORKER_PI_CONTEXT_RETRY_POLICY.budgets;
+  return budgets[Math.min(Math.max(0, Math.trunc(index)), budgets.length - 1)] ?? "minimal";
+}
+
+export function workerPiContextRetryDecision(params: {
+  result: Pick<PiRunResult, "failed" | "providerError" | "error">;
+  contextRetryIndex: number;
+  dryRun: boolean;
+  claimDeadlineMs?: number | null;
+  nowMs?: number;
+}): WorkerPiContextRetryDecision {
+  const contextRetryIndex = Math.max(0, Math.trunc(params.contextRetryIndex));
+  const currentBudget = workerPromptContextBudget(contextRetryIndex);
+  const retryable = isWorkerPiContextLengthFailure(params.result);
+  const nextRetryIndex = contextRetryIndex + 1;
+  const nextBudget = WORKER_PI_CONTEXT_RETRY_POLICY.budgets[nextRetryIndex] ?? null;
+  const exhausted = nextBudget === null;
+  const stoppedByDeadline =
+    params.claimDeadlineMs != null &&
+    Number.isFinite(params.claimDeadlineMs) &&
+    params.claimDeadlineMs <= (params.nowMs ?? Date.now());
+  const base = {
+    policy: WORKER_PI_CONTEXT_RETRY_POLICY.mode,
+    retryable,
+    exhausted,
+    stoppedByDeadline,
+    contextRetryIndex,
+    currentBudget,
+    nextRetryIndex: nextBudget ? nextRetryIndex : null,
+    nextBudget,
+    budgets: WORKER_PI_CONTEXT_RETRY_POLICY.budgets,
+  };
+  if (!retryable) return { ...base, shouldRetry: false, reason: "non_context_length_failure" };
+  if (params.dryRun) return { ...base, shouldRetry: false, reason: "dry_run" };
+  if (stoppedByDeadline) return { ...base, shouldRetry: false, reason: "claim_deadline" };
+  if (exhausted) return { ...base, shouldRetry: false, reason: "context_budget_exhausted" };
+  return { ...base, shouldRetry: true, reason: "context_length_retry_with_smaller_prompt" };
+}
+
+export function workerPiSessionRetryDecision(params: {
+  result: Pick<PiRunResult, "failed" | "providerError" | "error">;
+  transientRetryCount: number;
+  dryRun: boolean;
+  claimDeadlineMs?: number | null;
+  nowMs?: number;
+}): WorkerPiSessionRetryDecision {
+  const transientRetryCount = Math.max(0, Math.trunc(params.transientRetryCount));
+  const retryable = isRetryableWorkerPiSessionFailure(params.result);
+  const exhausted = transientRetryCount >= WORKER_PI_SESSION_RETRY_POLICY.maxTransientRetries;
+  const stoppedByDeadline =
+    params.claimDeadlineMs != null &&
+    Number.isFinite(params.claimDeadlineMs) &&
+    params.claimDeadlineMs <= (params.nowMs ?? Date.now());
+  const base = {
+    policy: WORKER_PI_SESSION_RETRY_POLICY.mode,
+    retryable,
+    exhausted,
+    stoppedByDeadline,
+    transientRetryCount,
+    nextRetryIndex: null,
+    maxTransientRetries: WORKER_PI_SESSION_RETRY_POLICY.maxTransientRetries,
+  };
+  if (!retryable) return { ...base, shouldRetry: false, reason: "non_retryable_failure" };
+  if (params.dryRun) return { ...base, shouldRetry: false, reason: "dry_run" };
+  if (stoppedByDeadline) return { ...base, shouldRetry: false, reason: "claim_deadline" };
+  if (exhausted) return { ...base, shouldRetry: false, reason: "transient_retry_budget_exhausted" };
+  return {
+    ...base,
+    shouldRetry: true,
+    reason: "transient_transport_failure",
+    nextRetryIndex: transientRetryCount + 1,
+  };
 }
 
 export const WORKER_ATTEMPT_TAIL_POLICY = {
@@ -406,6 +576,39 @@ export function workerContinuationDecision(params: {
     return stop("cold_attempt_budget_exhausted", true);
   }
   return resume("cold_attempt_budget_available");
+}
+
+function terminalWorkerSessionErrorDecision(params: {
+  attemptIndex: number;
+  stopReason: string;
+  reasons: string[];
+  claimDeadlineMs?: number | null;
+  nowMs?: number;
+}): WorkerContinuationDecision {
+  const attemptIndex = Math.max(0, Math.trunc(params.attemptIndex));
+  return {
+    policy: WORKER_ATTEMPT_TAIL_POLICY.mode,
+    shouldContinue: false,
+    exhausted: false,
+    stopReason: params.stopReason,
+    continueReason: null,
+    attemptIndex,
+    humanAttempt: attemptIndex + 1,
+    maxColdAttempts: WORKER_ATTEMPT_TAIL_POLICY.maxColdAttempts,
+    followUpAttemptsAfterBest: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterBest,
+    followUpAttemptsAfterGateFailedExact: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterGateFailedExact,
+    latestBestAttemptIndex: null,
+    latestBestScore: null,
+    failedGateExactAttemptIndex: null,
+    followUpsSinceBest: null,
+    followUpsSinceFailedGateExact: null,
+    stoppedByDeadline:
+      params.claimDeadlineMs != null &&
+      Number.isFinite(params.claimDeadlineMs) &&
+      params.claimDeadlineMs <= (params.nowMs ?? Date.now()),
+    unresolvedRepairReasons: false,
+    latestReasons: params.reasons,
+  };
 }
 
 function renderPostReturnCheckCommand(
@@ -1256,7 +1459,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
 
     const workerId = stringArg(args, "--worker-id", `worker-${process.pid}-${Date.now()}-${randomUUID().slice(0, 8)}`);
     const baseRev = await resolveBaseRev(globals.repoRoot, stringArg(args, "--base-rev", "unknown"));
-    const ttlSeconds = numberArg(args, "--ttl-seconds", DEFAULT_WORKER_TTL_SECONDS);
+    const ttlSeconds = workerTtlSeconds(globals, args);
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const workerConfigureCommand = stringArg(args, "--worker-configure-command", "python3 configure.py --require-protos");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
@@ -1283,13 +1486,6 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, 12, { graphDbPath });
     const target = targetPacketTarget(claimed.target);
     const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""), graphDbPath);
-    const packet = workerPacket({
-      run,
-      claim: claimWithWorktree,
-      target,
-      baselineMeasures: snapshot.measures,
-      knowledgeContext,
-    });
     const initialBoardPath = resolve(globals.stateDir, "runs", runId, "snapshots", "initial_board.json");
     const reportDir = resolve(outputDir, "state");
     await mkdir(reportDir, { recursive: true });
@@ -1307,6 +1503,18 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       target,
       dryRun: globals.dryRunAgents,
     });
+    const measuredBaselineScore = finiteNumber(workerChangeBaseline.snapshot?.targetScore);
+    if (measuredBaselineScore !== null) {
+      updateWorkerStateBaselineScore(store, claimed.workerStateId, measuredBaselineScore);
+      target.fuzzy_match_percent = measuredBaselineScore;
+    }
+    const packet = workerPacket({
+      run,
+      claim: claimWithWorktree,
+      target,
+      baselineMeasures: snapshot.measures,
+      knowledgeContext,
+    });
     await writeFile(resolve(validationDir, "pre_worker_baseline.summary.json"), JSON.stringify(workerChangeBaseline, null, 2));
     const targetUnit = String(target.unit ?? "");
     const targetSymbol = String(target.symbol ?? "");
@@ -1316,16 +1524,20 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       event_type: "claim_started",
       unit: targetUnit,
       symbol: targetSymbol,
-      summary: `worker ${claimed.workerId} claimed ${targetSymbol} (${targetUnit}); baseline ${workerChangeBaseline.status}`,
-      score:
-        workerChangeBaseline.snapshot?.targetScore != null
-          ? { before: workerChangeBaseline.snapshot.targetScore, after: null, exact: false }
-          : undefined,
+      summary: `worker ${claimed.workerId} claimed ${targetSymbol} (${targetUnit}); baseline ${workerChangeBaseline.status}${
+        measuredBaselineScore !== null ? ` ${measuredBaselineScore.toFixed(5)}` : ""
+      }`,
+      baseline: {
+        status: workerChangeBaseline.status,
+        score: measuredBaselineScore,
+      },
       artifact_path: workerChangeBaseline.snapshotPath,
     });
     let repairRequest: Record<string, unknown> | null = null;
     let finalEvaluation: WorkerAttemptEvaluation | null = null;
     let attemptIndex = 0;
+    let transientSessionRetryCount = 0;
+    let contextRetryIndex = 0;
     const claimDeadlineMs = Date.parse(claimed.ttl);
     while (true) {
       const attemptPacket = repairRequest
@@ -1334,20 +1546,30 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             repair_request: repairRequest,
           }
         : packet;
+      const sessionRetryIndex = transientSessionRetryCount;
+      const contextBudget = workerPromptContextBudget(contextRetryIndex);
       appendWorkerActivityEvent(outputDir, {
         claim_id: claimed.claimId,
         attempt_index: attemptIndex,
+        session_retry_index: sessionRetryIndex,
+        context_retry_index: contextRetryIndex,
+        context_budget: contextBudget,
         phase: repairRequest ? "repair" : "attempt",
-        event_type: "attempt_started",
+        event_type: "worker_session_started",
         unit: targetUnit,
         symbol: targetSymbol,
         summary: repairRequest
-          ? clampSummary(`repair attempt ${attemptIndex} in flight: ${(repairRequest.reasons as string[]).join("; ")}`)
-          : `worker attempt ${attemptIndex} started`,
+          ? clampSummary(
+              `${sessionRetryIndex > 0 ? `repair worker session ${attemptIndex} retry ${sessionRetryIndex}/${WORKER_PI_SESSION_RETRY_POLICY.maxTransientRetries}` : `repair worker session ${attemptIndex}`} in flight with ${contextBudget} context: ${(repairRequest.reasons as string[]).join("; ")}`,
+            )
+          : sessionRetryIndex > 0
+            ? `worker session ${attemptIndex} retry ${sessionRetryIndex}/${WORKER_PI_SESSION_RETRY_POLICY.maxTransientRetries} started with ${contextBudget} context`
+            : `worker session ${attemptIndex} started with ${contextBudget} context`,
       });
       let result: PiRunResult;
       try {
-        result = await runPiAgent({
+        const { runMeleeKernelPiAgent } = await import("@server/infrastructure/agent-runtime/kernel-pi-runner");
+        result = await runMeleeKernelPiAgent({
           role: "worker",
           cwd: workerRepoRoot,
           prompt: workerPrompt({
@@ -1357,6 +1579,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             project,
             initialBoardPath,
             workerLogDir: outputDir,
+            contextBudget,
           }),
           outputDir,
           dryRun: globals.dryRunAgents,
@@ -1392,6 +1615,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             metadata: {
               workerId,
               attemptIndex,
+              sessionRetryIndex,
+              contextRetryIndex,
+              contextBudget,
               attemptPhase: repairRequest ? "repair" : "attempt",
               targetUnit,
               targetSymbol,
@@ -1403,11 +1629,15 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        const launchFailureSuffix = [
+          contextRetryIndex > 0 ? `.context-${contextRetryIndex}` : "",
+          sessionRetryIndex > 0 ? `.retry-${sessionRetryIndex}` : "",
+        ].join("");
         result = {
           sessionId: `worker-launch-failed-${randomUUID()}`,
-          outputPath: resolve(outputDir, `worker_launch_failed_${attemptIndex}.txt`),
-          systemPromptPath: resolve(outputDir, `worker_launch_failed_${attemptIndex}.system.md`),
-          userPromptPath: resolve(outputDir, `worker_launch_failed_${attemptIndex}.user.md`),
+          outputPath: resolve(outputDir, `worker_launch_failed_${attemptIndex}${launchFailureSuffix}.txt`),
+          systemPromptPath: resolve(outputDir, `worker_launch_failed_${attemptIndex}${launchFailureSuffix}.system.md`),
+          userPromptPath: resolve(outputDir, `worker_launch_failed_${attemptIndex}${launchFailureSuffix}.user.md`),
           rawText: `[worker launch failed]\n${message}\n`,
           dryRun: globals.dryRunAgents,
           failed: true,
@@ -1436,23 +1666,189 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         claim_id: claimed.claimId,
         session_id: result.sessionId,
         attempt_index: attemptIndex,
+        session_retry_index: sessionRetryIndex,
+        context_retry_index: contextRetryIndex,
+        context_budget: contextBudget,
         phase: repairRequest ? "repair" : "attempt",
         event_type: "pi_session_finished",
         unit: targetUnit,
         symbol: targetSymbol,
-        summary: result.failed ? clampSummary(`Pi session failed: ${result.error ?? "unknown error"}`) : "Pi session returned; evaluating worker note",
+        summary: result.providerError
+          ? clampSummary(`Pi provider error: ${result.providerError}`)
+          : result.failed
+            ? clampSummary(`Pi session failed: ${result.error ?? "unknown error"}`)
+            : "Pi session returned; evaluating worker note",
         artifact_path: result.outputPath,
       });
 
       const parsedAgentNote =
-        result.dryRun || result.failed ? { note: null as Record<string, unknown> | null, error: result.error } : parseWorkerCheckpointNote(result.rawText);
+        result.dryRun || result.failed || result.providerError
+          ? { note: null as Record<string, unknown> | null, error: result.error ?? result.providerError }
+          : parseWorkerCheckpointNote(result.rawText);
       const agentNote = parsedAgentNote.note;
-      const agentToolErrors = agentNoteSignalsToolError(agentNote);
+      const workerSessionTimedOut = isWorkerSessionTimeoutFailure(result);
       const postAttemptDiffPath = resolve(validationDir, `attempt-${attemptIndex}.write_set.diff`);
       const postAttemptDiff = await captureWriteSetDiff(workerRepoRoot, claimed.writeSet, postAttemptDiffPath);
       const writeSetDiffChanged = postAttemptDiff.stdout !== preAttemptDiff.stdout;
       const reviewLint = lintWorkerReviewDiff(postAttemptDiff.stdout);
-      const shouldRunRunnerValidation = !result.failed && !result.providerError && agentToolErrors.fatal.length === 0;
+
+      if (!shouldRunRunnerValidationForWorkerSession(result)) {
+        const contextRetryDecision = workerPiContextRetryDecision({
+          result,
+          contextRetryIndex,
+          dryRun: globals.dryRunAgents,
+          claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
+        });
+        if (contextRetryDecision.shouldRetry) {
+          const nextRetryIndex = contextRetryDecision.nextRetryIndex ?? contextRetryIndex + 1;
+          const nextBudget = contextRetryDecision.nextBudget ?? workerPromptContextBudget(nextRetryIndex);
+          const retrySummaryPath = resolve(validationDir, `attempt-${attemptIndex}.worker_context_retry-${nextRetryIndex}.summary.json`);
+          const retryReason = result.providerError ?? result.error ?? "unknown context-window failure";
+          await writeFile(
+            retrySummaryPath,
+            JSON.stringify(
+              {
+                attempt_index: attemptIndex,
+                session_retry_index: sessionRetryIndex,
+                context_retry_index: contextRetryIndex,
+                next_context_retry_index: nextRetryIndex,
+                context_budget: contextBudget,
+                next_context_budget: nextBudget,
+                previous_session_id: result.sessionId,
+                previous_agent_output_path: result.outputPath,
+                failure: {
+                  provider_error: result.providerError ?? null,
+                  error: result.error ?? null,
+                },
+                retry_policy: contextRetryDecision,
+                write_set_diff: {
+                  baseline_path: preAttemptDiffPath,
+                  post_attempt_path: postAttemptDiffPath,
+                  changed_from_pre_worker: writeSetDiffChanged,
+                },
+              },
+              null,
+              2,
+            ),
+          );
+          appendWorkerActivityEvent(outputDir, {
+            claim_id: claimed.claimId,
+            session_id: result.sessionId,
+            attempt_index: attemptIndex,
+            session_retry_index: sessionRetryIndex,
+            context_retry_index: contextRetryIndex,
+            next_context_retry_index: nextRetryIndex,
+            context_budget: contextBudget,
+            next_context_budget: nextBudget,
+            phase: "agent_retry",
+            event_type: "worker_context_retry_requested",
+            unit: targetUnit,
+            symbol: targetSymbol,
+            summary: clampSummary(`context window rejected ${contextBudget} prompt; retrying with ${nextBudget} context: ${retryReason}`),
+            artifact_path: retrySummaryPath,
+          });
+          contextRetryIndex = nextRetryIndex;
+          transientSessionRetryCount = 0;
+          continue;
+        }
+        const retryDecision = workerPiSessionRetryDecision({
+          result,
+          transientRetryCount: transientSessionRetryCount,
+          dryRun: globals.dryRunAgents,
+          claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
+        });
+        if (retryDecision.shouldRetry) {
+          const nextRetryIndex = retryDecision.nextRetryIndex ?? transientSessionRetryCount + 1;
+          const retrySummaryPath = resolve(validationDir, `attempt-${attemptIndex}.worker_session_retry-${nextRetryIndex}.summary.json`);
+          const retryReason = result.providerError ?? result.error ?? "unknown Pi session failure";
+          await writeFile(
+            retrySummaryPath,
+            JSON.stringify(
+              {
+                attempt_index: attemptIndex,
+                session_retry_index: sessionRetryIndex,
+                next_session_retry_index: nextRetryIndex,
+                previous_session_id: result.sessionId,
+                previous_agent_output_path: result.outputPath,
+                failure: {
+                  provider_error: result.providerError ?? null,
+                  error: result.error ?? null,
+                },
+                retry_policy: retryDecision,
+                write_set_diff: {
+                  baseline_path: preAttemptDiffPath,
+                  post_attempt_path: postAttemptDiffPath,
+                  changed_from_pre_worker: writeSetDiffChanged,
+                },
+              },
+              null,
+              2,
+            ),
+          );
+          appendWorkerActivityEvent(outputDir, {
+            claim_id: claimed.claimId,
+            session_id: result.sessionId,
+            attempt_index: attemptIndex,
+            session_retry_index: sessionRetryIndex,
+            context_retry_index: contextRetryIndex,
+            context_budget: contextBudget,
+            next_session_retry_index: nextRetryIndex,
+            phase: "agent_retry",
+            event_type: "worker_session_retry_requested",
+            unit: targetUnit,
+            symbol: targetSymbol,
+            summary: clampSummary(
+              `transient Pi session failure; retry ${nextRetryIndex}/${WORKER_PI_SESSION_RETRY_POLICY.maxTransientRetries}: ${retryReason}`,
+            ),
+            artifact_path: retrySummaryPath,
+          });
+          transientSessionRetryCount = nextRetryIndex;
+          continue;
+        }
+        const reason = result.providerError
+          ? `LLM provider failed before producing a validation-ready worker response: ${result.providerError}`
+          : `Worker Pi session failed before producing a validation-ready worker response: ${result.error ?? "unknown error"}`;
+        const errorValidationPath = resolve(validationDir, `attempt-${attemptIndex}.worker_session_error.summary.json`);
+        const runnerValidation: WorkerChangeValidation = {
+          status: "skipped",
+          reasons: [reason],
+          summaryPath: errorValidationPath,
+          qaLint: null,
+        };
+        await writeFile(errorValidationPath, JSON.stringify(runnerValidation, null, 2));
+        appendWorkerActivityEvent(outputDir, {
+          claim_id: claimed.claimId,
+          session_id: result.sessionId,
+          attempt_index: attemptIndex,
+          session_retry_index: sessionRetryIndex,
+          context_retry_index: contextRetryIndex,
+          context_budget: contextBudget,
+          phase: "agent_error",
+          event_type: result.providerError ? "provider_error" : "worker_session_failed",
+          unit: targetUnit,
+          symbol: targetSymbol,
+          summary: clampSummary(reason),
+          artifact_path: result.outputPath,
+        });
+        finalEvaluation = {
+          result,
+          agentNote,
+          parsedError: parsedAgentNote.error,
+          runnerValidation,
+          repairReasons: [],
+          continuationDecision: terminalWorkerSessionErrorDecision({
+            attemptIndex,
+            stopReason: result.providerError ? "provider_error" : "worker_session_failed",
+            reasons: [reason],
+            claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
+          }),
+          writeSetDiffChanged,
+          postAttemptDiffPath,
+        };
+        break;
+      }
+
+      const shouldRunRunnerValidation = shouldRunRunnerValidationForWorkerSession(result);
       const changeValidation = await validateWorkerChange({
         repoRoot: workerRepoRoot,
         outputDir: validationDir,
@@ -1503,6 +1899,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
           agent_note_parse_error: parsedAgentNote.error ?? null,
           review_lint: reviewLint,
           post_return_check: runnerValidation.postReturnCheck ?? null,
+          worker_session_timed_out: workerSessionTimedOut,
           write_set_diff_changed: writeSetDiffChanged,
         },
       });
@@ -1510,6 +1907,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         claim_id: claimed.claimId,
         session_id: result.sessionId,
         attempt_index: attemptIndex,
+        session_retry_index: sessionRetryIndex,
+        context_retry_index: contextRetryIndex,
+        context_budget: contextBudget,
         phase: repairRequest ? "repair_validation" : "validation",
         event_type: "worker_note",
         unit: targetUnit,
@@ -1522,6 +1922,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         claim_id: claimed.claimId,
         session_id: result.sessionId,
         attempt_index: attemptIndex,
+        session_retry_index: sessionRetryIndex,
+        context_retry_index: contextRetryIndex,
+        context_budget: contextBudget,
         phase: repairRequest ? "repair_validation" : "validation",
         event_type: runnerValidation.status === "passed" ? "runner_validation_passed" : runnerValidation.status === "skipped" ? "runner_validation_skipped" : "runner_validation_rejected",
         unit: targetUnit,
@@ -1533,7 +1936,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         artifact_path: runnerValidation.summaryPath,
       });
       const repairReasons = workerAttemptRepairReasons({ writeSetDiffChanged, runnerValidation, reviewLint });
-      if (!result.failed && !result.providerError && runnerValidation.status === "passed" && !runnerValidation.target?.exact) {
+      if (!result.providerError && runnerValidation.status === "passed" && !runnerValidation.target?.exact) {
         const before = runnerValidation.target?.before;
         const after = runnerValidation.target?.after;
         repairReasons.push(
@@ -1572,6 +1975,8 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
               decision: continuationDecision,
             },
             agent_output_path: result.outputPath,
+            context_budget: contextBudget,
+            context_retry_index: contextRetryIndex,
             agent_note_parse_error: parsedAgentNote.error ?? null,
             agent_note_status: recordString(agentNote?.status) || null,
             runner_validation: runnerValidation,
@@ -1589,9 +1994,6 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       );
 
       finalEvaluation = evaluation;
-      // A dead provider can't repair anything — retrying just burns ~20 minutes of
-      // timeout-retries per attempt while the endpoint is down.
-      if (result.providerError && !agentNote) break;
       if (!continuationDecision.shouldContinue) break;
 
       const repairFeedbackPath = resolve(validationDir, `attempt-${attemptIndex}.repair_request.json`);
@@ -1614,6 +2016,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         claim_id: claimed.claimId,
         session_id: result.sessionId,
         attempt_index: attemptIndex,
+        session_retry_index: sessionRetryIndex,
+        context_retry_index: contextRetryIndex,
+        context_budget: contextBudget,
         phase: "repair_request",
         event_type: "repair_requested",
         unit: targetUnit,
@@ -1622,6 +2027,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         artifact_path: repairFeedbackPath,
       });
       attemptIndex += 1;
+      transientSessionRetryCount = 0;
     }
 
     if (!finalEvaluation) throw new Error("Worker loop ended without an attempt evaluation");
@@ -1638,7 +2044,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             summary: `LLM provider failed before the runner could continue the worker: ${result.providerError}`,
             reasons: [result.providerError],
           }
-        : result.failed
+        : result.failed && !isWorkerSessionTimeoutFailure(result)
           ? {
               kind: "worker_session_failed",
               summary: `Worker Pi session failed before producing a validation-ready state: ${result.error ?? "unknown error"}`,
@@ -1672,6 +2078,13 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       worker_id: claimed.workerId,
       target,
       write_set: claimed.writeSet,
+      baseline: {
+        kind: "worker_baseline",
+        status: workerChangeBaseline.status,
+        score: measuredBaselineScore,
+        summary_path: resolve(validationDir, "pre_worker_baseline.summary.json"),
+        artifact_path: workerChangeBaseline.snapshotPath ?? null,
+      },
       worker_worktree_path: workerRepoRoot,
       lifecycle_status: lifecycleStatus,
       selected_checkpoint_id: bestCheckpoint?.id ?? null,

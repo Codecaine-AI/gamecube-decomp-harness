@@ -22,8 +22,7 @@ import {
   addEvent,
   admitEpochTargets,
   createRun,
-  DEFAULT_WORKER_TTL_SECONDS,
-  claimNextEpochTarget,
+  claimNextEpochTarget as claimNextEpochTargetRaw,
   closeWorkerState,
   openState,
   admittedTargetCount,
@@ -53,9 +52,14 @@ interface AssertionRecord {
 
 const packageRoot = resolve(import.meta.dir, "../../..");
 const fixtureRoot = resolve(packageRoot, "apps/server/testdata/smoke_repo");
+const TEST_WORKER_TIMEOUT_SECONDS = 1800;
 let stateDir = "";
 const commands: CommandResult[] = [];
 const assertions: AssertionRecord[] = [];
+
+function claimNextEpochTarget(params: Omit<Parameters<typeof claimNextEpochTargetRaw>[0], "ttlSeconds"> & { ttlSeconds?: number }) {
+  return claimNextEpochTargetRaw({ ...params, ttlSeconds: params.ttlSeconds ?? TEST_WORKER_TIMEOUT_SECONDS });
+}
 
 function assertSmoke(name: string, condition: unknown): void {
   const passed = Boolean(condition);
@@ -579,10 +583,10 @@ async function main(): Promise<void> {
       baseRev: "smoke-base",
     });
     assertSmoke("worker-state smoke created an active claim", Boolean(firstClaim));
-    const defaultLeaseMs = new Date(firstClaim?.ttl ?? "").getTime() - Date.now();
+    const leaseMs = new Date(firstClaim?.ttl ?? "").getTime() - Date.now();
     assertSmoke(
-      "worker claim default ttl is 50 minutes",
-      defaultLeaseMs > (DEFAULT_WORKER_TTL_SECONDS - 5) * 1000 && defaultLeaseMs <= DEFAULT_WORKER_TTL_SECONDS * 1000,
+      "worker claim ttl follows configured worker timeout",
+      leaseMs > (TEST_WORKER_TIMEOUT_SECONDS - 5) * 1000 && leaseMs <= TEST_WORKER_TIMEOUT_SECONDS * 1000,
     );
     const secondClaim = claimNextEpochTarget({
       store: workerStateStore,
@@ -951,7 +955,6 @@ async function main(): Promise<void> {
         sessionId: init.run.id,
         workerId: `${params.key}-worker`,
         baseRev: "smoke-base",
-        ttlSeconds: DEFAULT_WORKER_TTL_SECONDS,
         artifactDir: workerArtifactDir,
       });
       if (!claimed) throw new Error(`Could not claim synthetic checkpoint target ${params.key}`);
@@ -1209,7 +1212,6 @@ async function main(): Promise<void> {
       sessionId: recoveryInit.run.id,
       workerId: "interrupted-smoke-worker",
       baseRev: "smoke-base",
-      ttlSeconds: 3600,
     });
     assertSmoke("recovery smoke created an active claim", Boolean(claimed));
     recoveryClaimId = claimed?.claimId ?? "";
@@ -1261,7 +1263,6 @@ async function main(): Promise<void> {
       sessionId: recoveryInit.run.id,
       workerId: "reused-claim-smoke-worker",
       baseRev: "smoke-base",
-      ttlSeconds: 3600,
     });
     assertSmoke("closed worker claim does not block a later same-path claim", Boolean(released));
   } finally {
@@ -1413,6 +1414,8 @@ async function main(): Promise<void> {
   assertSmoke("worker system prompt includes Sudoku board metaphor", workerSystemPrompt.includes("Think like Sudoku"));
   assertSmoke("worker system prompt does not embed standards section", !workerSystemPrompt.includes("<source_standardization_rules>"));
   assertSmoke("worker system prompt forbids unresolved local regressions", workerSystemPrompt.includes("unresolved local regression"));
+  assertSmoke("worker system prompt allows runner-checkable non-exact progress", workerSystemPrompt.includes("Do not treat non-100% progress as failure"));
+  assertSmoke("worker system prompt leaves follow-up decisions to runner", workerSystemPrompt.includes("the runner owns the follow-up decision"));
   assertSmoke(
     "worker user prompt includes complete target and baseline JSON instead of current state JSON",
     workerUserPrompt.includes("<target>") &&

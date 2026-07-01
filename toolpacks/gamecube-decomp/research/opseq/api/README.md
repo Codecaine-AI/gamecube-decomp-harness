@@ -7,3 +7,8 @@ CLI-style worker access:
 
 Queries should be small and concrete: a function name, source path, symbol, or
 opcode-sequence fingerprint.
+
+`similar_functions.py` returns separate `exact_lookup` and
+`similar_neighbors` arrays. Symbol/path/address/hash queries that resolve to a
+function use precomputed `indexes/opcode_neighbors.jsonl` evidence; raw opcode
+sequence queries are scored on demand against `indexes/opcode_sequences.jsonl`.

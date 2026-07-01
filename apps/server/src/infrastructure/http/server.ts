@@ -33,6 +33,7 @@ import { createProjectSessionProcessMirror } from "@server/core/project-session/
 import { getActiveProjectSession, getProjectSessionByUuid, updateProjectSession } from "@server/core/project-session/store";
 import { openState } from "@server/core/orchestrator-state";
 import { createUiCommandRunner } from "@server/infrastructure/shell/ui-command-runner";
+import { localFontResponse } from "@server/infrastructure/http/local-fonts";
 import type { ProjectRuntimeContext, ProjectSummary, ResolvedProject } from "@server/core/project-registry";
 import { loadKernelAgentsPayload } from "@server/core/agent-catalog/kernel-preview";
 
@@ -435,6 +436,9 @@ function dashboardEvents(url: URL): Response {
 }
 
 async function handleApi(req: Request, url: URL): Promise<Response> {
+  const localFont = localFontResponse(req, url);
+  if (localFont) return localFont;
+
   const sessions = await handleSessionsApiRoute(req, url, {
     availableProjects: projectContext.availableProjects,
     dashboardEvents,
@@ -456,6 +460,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     requestPaths: projectContext.requestPaths,
     runDashboard: (paths) => dashboardReadModel.runDashboard(paths as ProjectRuntimeContext),
     runDetails: (stateDir, runId, project) => dashboardReadModel.runDetails(stateDir, runId, project as ResolvedProject | null),
+    workerStateTrace: (stateDir, runId, workerStateId) => dashboardReadModel.workerStateTrace(stateDir, runId, workerStateId),
     syncGitForPrepare: preparingRuntime.syncGitForPrepare,
     syncProjectIntake: preparingRuntime.syncProjectIntake,
   });
@@ -507,6 +512,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
 
   const processControl = await handleProcessControlApiRoute(req, url, {
     drainManaged: processControlRuntime.drainManaged,
+    finishEpochNow: processControlRuntime.finishEpochNow,
     json,
     processStatus: (stateDir, project) => processStatusService.processStatus(stateDir, project as ResolvedProject | null),
     requestPaths: projectContext.requestPaths,

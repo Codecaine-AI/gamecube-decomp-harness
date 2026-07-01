@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { runEpochCycle } from "@server/core/session-runtime/phases/running/epochs";
 import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { publishSessionDraftPr } from "./session-draft-pr.js";
 
 /**
  * Run one epoch checkpoint cycle by hand: commit validated work (excluding
@@ -30,7 +31,23 @@ export async function epochRun(globals: GlobalArgs, args: Map<string, string | t
       requeueRegressions: !booleanArg(args, "--no-requeue"),
       worktreeDir: stringArg(args, "--worktree", resolve(globals.stateDir, "epoch_worktree")),
     });
-    console.log(JSON.stringify(result, null, 2));
+    const publish = booleanArg(args, "--no-session-draft-pr")
+      ? null
+      : await publishSessionDraftPr({
+          baseRef: globals.project?.baseRef,
+          commitSha: result.commitSha,
+          epochLabel: result.label,
+          matchedCodePercent: result.matchedCodePercent,
+          projectId: globals.project?.projectId ?? globals.projectId ?? null,
+          qaGate: result.qaGate as unknown as Record<string, unknown> | null,
+          regressions: result.regressions as unknown as Record<string, unknown>,
+          repoRoot: globals.repoRoot,
+          runId,
+          savePointId: result.savePointId,
+          stateDir: globals.stateDir,
+          store,
+        });
+    console.log(JSON.stringify({ ...result, sessionDraftPr: publish }, null, 2));
   } finally {
     store.db.close();
   }

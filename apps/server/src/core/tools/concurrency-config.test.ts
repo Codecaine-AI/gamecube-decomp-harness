@@ -21,15 +21,15 @@ describe("tool concurrency config", () => {
     const config = projectToolConcurrencyDefaults(localEnvPath, {});
 
     expect(config.configured).toMatchObject({
-      checkdiff: 12,
+      checkdiff: 20,
       compile: 32,
-      m2cDecomp: 8,
+      m2cDecomp: 15,
       mwccDebug: 6,
-      other: 16,
+      other: 20,
       sourcePermuter: 2,
       sourcePermuterJobs: 1,
     });
-    expect(config.defaults.mwccDebug).toBe(2);
+    expect(config.defaults.mwccDebug).toBe(6);
     expect(config.env.sourcePermuter).toBe("ORCH_WORKER_TOOL_CONCURRENCY_SOURCE_PERMUTER");
   });
 

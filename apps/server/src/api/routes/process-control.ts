@@ -3,6 +3,7 @@ type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
 
 export interface ProcessControlApiRouteDeps {
   drainManaged: (body: JsonObject) => Promise<unknown>;
+  finishEpochNow: (body: JsonObject) => Promise<unknown>;
   json: JsonResponder;
   processStatus: (stateDir?: string, project?: unknown) => unknown;
   requestPaths: (url: URL, options: { useDefaultProject?: boolean }) => { project?: unknown; stateDir: string };
@@ -23,5 +24,6 @@ export async function handleProcessControlApiRoute(req: Request, url: URL, deps:
   if (url.pathname === "/api/process/start") return deps.startManagedProcess(await requestBody(req));
   if (url.pathname === "/api/process/stop") return deps.json(await deps.stopManaged(await requestBody(req)));
   if (url.pathname === "/api/process/drain") return deps.json(await deps.drainManaged(await requestBody(req)));
+  if (url.pathname === "/api/process/finish-epoch") return deps.json(await deps.finishEpochNow(await requestBody(req)));
   return null;
 }

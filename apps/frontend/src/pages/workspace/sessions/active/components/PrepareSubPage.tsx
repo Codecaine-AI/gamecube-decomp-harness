@@ -28,8 +28,14 @@ import {
   StatCard,
 } from "@/components/primitives";
 import {
+  candidateRerankOptions,
+  candidateRerankTooltip,
+  candidateWindowOptions,
+  candidateWindowTooltip,
   epochSizeOptions,
   prettyStatus,
+  resolverConcurrencyOptions,
+  resolverConcurrencyTooltip,
   schedulingForWorkers,
   statusClass,
   workerCountOptions,
@@ -642,6 +648,40 @@ export function PrepareSubPage({
                   }
                   options={[...epochSizeOptions]}
                   value={form.epochSize}
+                />
+                <SelectField
+                  className="mb-0"
+                  label="Candidate window"
+                  onChange={(event) =>
+                    setForm({ candidateWindow: event.currentTarget.value })
+                  }
+                  options={[...candidateWindowOptions]}
+                  title={candidateWindowTooltip}
+                  value={form.candidateWindow}
+                />
+                <SelectField
+                  className="mb-0"
+                  label="Rerank"
+                  onChange={(event) =>
+                    setForm({ candidateRerank: event.currentTarget.value })
+                  }
+                  options={[...candidateRerankOptions]}
+                  title={candidateRerankTooltip}
+                  value={form.candidateRerank}
+                />
+                <SelectField
+                  className="mb-0"
+                  label="Resolvers"
+                  onChange={(event) =>
+                    setForm({
+                      integrationResolverConcurrency: Number(
+                        event.currentTarget.value,
+                      ),
+                    })
+                  }
+                  options={[...resolverConcurrencyOptions]}
+                  title={resolverConcurrencyTooltip}
+                  value={form.integrationResolverConcurrency}
                 />
                 <Field
                   className="mb-0"

@@ -6,7 +6,7 @@ import type { GlobalArgs } from "@server/core/project-registry/runtime-options.j
 import {
   activeClaimsForSession,
   admitEpochTargets,
-  claimNextEpochTarget,
+  claimNextEpochTarget as claimNextEpochTargetRaw,
   createRun,
   openState,
   schedulerEpochProgress,
@@ -16,6 +16,7 @@ import {
 import { recoverActiveClaims } from "./recover-claims.js";
 
 const tempDirs: string[] = [];
+const TEST_WORKER_TIMEOUT_SECONDS = 1800;
 
 function tempState(): { dir: string; store: StateStore } {
   const dir = mkdtempSync(join(tmpdir(), "recover-claims-state-"));
@@ -32,6 +33,10 @@ function globalsFor(dir: string): GlobalArgs {
     model: "test",
     thinkingLevel: "low",
   };
+}
+
+function claimNextEpochTarget(params: Omit<Parameters<typeof claimNextEpochTargetRaw>[0], "ttlSeconds"> & { ttlSeconds?: number }) {
+  return claimNextEpochTargetRaw({ ...params, ttlSeconds: params.ttlSeconds ?? TEST_WORKER_TIMEOUT_SECONDS });
 }
 
 afterAll(() => {

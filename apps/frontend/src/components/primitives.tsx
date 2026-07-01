@@ -4,7 +4,8 @@ import { Fragment } from "react";
 type ButtonTone = "default" | "primary" | "warning" | "danger";
 type ButtonProps = Omit<ComponentProps<"button">, "ref"> & { icon?: ReactNode; tone?: ButtonTone };
 type FieldProps = Omit<ComponentProps<"input">, "ref"> & { label: string };
-type SelectFieldProps = Omit<ComponentProps<"select">, "ref"> & { label: string; options: Array<string | number> };
+type SelectFieldOption = string | number | { label: string; value: string | number };
+type SelectFieldProps = Omit<ComponentProps<"select">, "ref"> & { label: string; options: ReadonlyArray<SelectFieldOption> };
 type CheckboxFieldProps = Omit<ComponentProps<"input">, "ref" | "type"> & { label: string };
 
 const buttonTone: Record<ButtonTone, string> = {
@@ -13,6 +14,14 @@ const buttonTone: Record<ButtonTone, string> = {
   warning: "border-warn/50 bg-warn/10 text-warn hover:bg-warn/20",
   danger: "border-down/50 bg-down/10 text-down hover:bg-down/20",
 };
+
+function selectOptionValue(option: SelectFieldOption): string | number {
+  return typeof option === "object" ? option.value : option;
+}
+
+function selectOptionLabel(option: SelectFieldOption): string | number {
+  return typeof option === "object" ? option.label : option;
+}
 
 export function Button({
   children,
@@ -77,8 +86,8 @@ export function SelectField({
       <span>{label}</span>
       <select className="mt-1.5 text-[13px] normal-case tracking-normal" {...props}>
         {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
+          <option key={selectOptionValue(option)} value={selectOptionValue(option)}>
+            {selectOptionLabel(option)}
           </option>
         ))}
       </select>

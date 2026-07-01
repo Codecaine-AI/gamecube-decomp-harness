@@ -1,34 +1,67 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "@/icons";
 
+import { fetchWorkerStateTrace } from "@/lib/api";
 import { asObject, ago, num, pct, shortId, text, type JsonObject } from "@/lib/format";
+import type { FormState } from "@/lib/api-types";
 import { activeRuntime, activityAttemptLabel, activityScoreText, latestActivity } from "@/lib/workerActivity";
 
 import {
   reportBorderClass,
   reportCountsForReports,
-  reportFilters,
   reportFinishLabel,
   reportMatchesFilter,
   reportOutcomeDescription,
   traceEventLabel,
+  visibleReportFilters,
   type WorkerStateFilter,
 } from "../../_lib/worker-reports";
-import { MetaItem, TraceSection } from "./shared";
+import { MetaItem, ToolTraceSection, TraceSection } from "./shared";
 
-export function ActiveWorkerStates({ activeReports }: { activeReports: JsonObject[] }) {
+export function ActiveWorkerStates({ activeReports, form, runId }: { activeReports: JsonObject[]; form: FormState; runId: string }) {
   const [filter, setFilter] = useState<WorkerStateFilter>("all");
   const [expandedWorkerStateId, setExpandedWorkerStateId] = useState<string | null>(null);
+  const [traceByWorkerStateId, setTraceByWorkerStateId] = useState<Record<string, JsonObject>>({});
+  const [traceErrorByWorkerStateId, setTraceErrorByWorkerStateId] = useState<Record<string, string>>({});
+  const [loadingTraceId, setLoadingTraceId] = useState<string | null>(null);
   const counts = reportCountsForReports(activeReports.filter((report) => report.activeReportLoaded === true));
   counts.all = activeReports.length;
   const filteredActiveReports =
     filter === "all"
       ? activeReports
       : activeReports.filter((report) => report.activeReportLoaded === true && reportMatchesFilter(report, filter));
+  const visibleFilters = visibleReportFilters(counts, filter);
 
   function selectFilter(nextFilter: WorkerStateFilter) {
     setFilter(nextFilter);
     setExpandedWorkerStateId(null);
+  }
+
+  function loadTrace(workerStateId: string) {
+    if (!runId || !workerStateId || traceByWorkerStateId[workerStateId] || loadingTraceId === workerStateId) return;
+    setLoadingTraceId(workerStateId);
+    setTraceErrorByWorkerStateId((current) => {
+      const next = { ...current };
+      delete next[workerStateId];
+      return next;
+    });
+    fetchWorkerStateTrace(form, runId, workerStateId)
+      .then((trace) => {
+        setTraceByWorkerStateId((current) => ({ ...current, [workerStateId]: trace }));
+      })
+      .catch((error) => {
+        setTraceErrorByWorkerStateId((current) => ({
+          ...current,
+          [workerStateId]: error instanceof Error ? error.message : String(error),
+        }));
+      })
+      .finally(() => setLoadingTraceId((current) => (current === workerStateId ? null : current)));
+  }
+
+  function toggleExpanded(reportId: string, workerStateId: string) {
+    const nextExpanded = expandedWorkerStateId === reportId ? null : reportId;
+    setExpandedWorkerStateId(nextExpanded);
+    if (nextExpanded) loadTrace(workerStateId);
   }
 
   if (activeReports.length === 0) {
@@ -38,7 +71,7 @@ export function ActiveWorkerStates({ activeReports }: { activeReports: JsonObjec
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Active worker state filters">
-        {reportFilters.map((option) => {
+        {visibleFilters.map((option) => {
           const active = filter === option.id;
           return (
             <button
@@ -60,11 +93,14 @@ export function ActiveWorkerStates({ activeReports }: { activeReports: JsonObjec
         {filteredActiveReports.map((claim) => {
           const target = asObject(claim.target);
           const claimId = text(claim.claimId) || text(claim.workerStateId) || `${text(target.symbol)}-${text(claim.createdAt)}`;
+          const workerStateId = text(claim.workerStateId);
+          const loadedTrace = asObject(traceByWorkerStateId[workerStateId]);
+          const claimWithTrace = Object.keys(loadedTrace).length > 0 ? { ...claim, activity: loadedTrace } : claim;
           const reportId = `active:${claimId}`;
           const expanded = expandedWorkerStateId === reportId;
           const title = text(target.symbol) || text(claim.symbol) || text(target.sourcePath) || text(claim.sourcePath) || "active worker state";
           const runtime = activeRuntime(claim.claimedAt || claim.heartbeatAt, claim.ttl);
-          const { activity, lastEvent } = latestActivity(claim);
+          const { activity, lastEvent } = latestActivity(claimWithTrace);
           const lastEventType = text(lastEvent.eventType);
           const lastSummary = text(lastEvent.summary, text(claim.summary, text(claim.reason, "Waiting for runner activity.")));
           const attemptLabel = lastEventType ? activityAttemptLabel(activity, lastEvent) : "waiting";
@@ -77,7 +113,7 @@ export function ActiveWorkerStates({ activeReports }: { activeReports: JsonObjec
               <button
                 aria-expanded={expanded}
                 className="grid w-full grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-2 px-2.5 py-2 text-left"
-                onClick={() => setExpandedWorkerStateId(expanded ? null : reportId)}
+                onClick={() => toggleExpanded(reportId, workerStateId)}
                 title={expanded ? "Collapse active worker state" : "Expand active worker state"}
                 type="button"
               >
@@ -121,7 +157,10 @@ export function ActiveWorkerStates({ activeReports }: { activeReports: JsonObjec
                   {scoreText ? <div className="mt-2 rounded-none border border-line bg-inset p-2 text-xs leading-5 text-soft">latest score: {scoreText}</div> : null}
                   {text(claim.worktreePath) ? <div className="mt-2 rounded-none border border-line bg-inset p-2 text-xs leading-5 text-path [overflow-wrap:anywhere]">worktree: {text(claim.worktreePath)}</div> : null}
                   {text(claim.reason) ? <div className="mt-2 rounded-none border border-line bg-inset p-2 text-xs leading-5 text-soft">reason: {text(claim.reason)}</div> : null}
+                  {loadingTraceId === workerStateId ? <div className="mt-2 border-t border-line pt-2 text-[11px] text-faint">Loading worker trace...</div> : null}
+                  {text(traceErrorByWorkerStateId[workerStateId]) ? <div className="mt-2 border-t border-line pt-2 text-[11px] text-warn">Trace unavailable: {text(traceErrorByWorkerStateId[workerStateId])}</div> : null}
                   <TraceSection activity={activity} emptyText="Waiting for runner activity for this active claim." />
+                  <ToolTraceSection activity={activity} emptyText="No Pi/tool JSONL lines for this active claim yet." />
                 </div>
               ) : null}
             </article>

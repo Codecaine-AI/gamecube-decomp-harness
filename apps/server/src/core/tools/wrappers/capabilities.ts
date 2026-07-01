@@ -763,6 +763,45 @@ export const reviewLintScanToolRegistration = knowledgeApiTool({
   },
 });
 
+/** Tool for previewing or applying an isolated .sdata2 ordering helper. */
+export const reviewLintSdata2OrderHelperToolRegistration = knowledgeApiTool({
+  id: "review_lint_sdata2_order_helper",
+  toolId: "review_lint",
+  scriptName: "sdata2_order_helper.py",
+  label: "Sdata2 Order Helper",
+  purpose: "Generate or explicitly apply an isolated helper that forces .sdata2 float/double ordering from the reference object.",
+  description: "Preview or install a narrow sdata2_order helper for pure .sdata2 data-ordering QA repairs.",
+  guidance: "Use only after restoring inline numeric literals and confirming the remaining mismatch is .sdata2 float/double order. Preview first; pass apply=true only when this helper is the intended source edit.",
+  parameters: {
+    type: "object",
+    properties: {
+      source: { type: "string", description: "Project-relative or absolute source file path." },
+      unit: { type: "string", description: "Unit path without src/ prefix or .c suffix." },
+      symbols: { type: "array", items: { type: "string" }, description: "Reference .sdata2 symbol names to include. Defaults to all entries." },
+      name: { type: "string", description: "Generated helper function name." },
+      apply: { type: "boolean", description: "Write or replace the helper in source. Defaults to false preview mode." },
+      validate: { type: "boolean", description: "After apply, direct-compile the TU and compare .sdata2 order." },
+      prefer_named_macros: { type: "boolean", description: "Emit known project macros such as S32_TO_F32 instead of raw double literals." },
+    },
+    additionalProperties: false,
+  },
+  args(params, context) {
+    const source = stringParam(params, "source");
+    const unit = stringParam(params, "unit");
+    if (!source && !unit) return { status: "missing_source_or_unit" };
+    const args = ["--repo-root", context.repoRoot];
+    if (source) args.push("--source", projectPath(context, source));
+    else args.push("--unit", unit);
+    for (const symbol of stringListParam(params.symbols)) args.push("--symbol", symbol);
+    const name = stringParam(params, "name");
+    if (name) args.push("--name", name);
+    if (boolParam(params, "apply")) args.push("--apply");
+    if (boolParam(params, "validate")) args.push("--validate");
+    if (boolParam(params, "prefer_named_macros")) args.push("--prefer-named-macros");
+    return args;
+  },
+});
+
 /** All callable decomp capability wrappers, reusable across profiles. */
 export const capabilityToolRegistrations = [
   ghidraLookupToolRegistration,
@@ -787,4 +826,5 @@ export const capabilityToolRegistrations = [
   includeFixerPreviewToolRegistration,
   itemStateTablePreviewToolRegistration,
   reviewLintScanToolRegistration,
+  reviewLintSdata2OrderHelperToolRegistration,
 ] as const;

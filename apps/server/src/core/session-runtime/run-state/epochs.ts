@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { TargetCandidate } from "@server/core/shared/types/index.js";
+import type { CandidateRerankMode, TargetCandidate } from "@server/core/shared/types/index.js";
 import { immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
 
 export type EpochSizeMode = "fixed" | "full";
@@ -14,6 +14,7 @@ export interface SchedulerEpochConfig {
   size: EpochSizeSpec;
   workerPoolSize: number;
   candidateWindow: number;
+  candidateRerank?: CandidateRerankMode;
 }
 
 export interface SchedulerEpochRecord {
@@ -60,6 +61,7 @@ export interface EpochAvailabilityRefreshResult {
   availableBefore: number;
   availableAfter: number;
   inserted: number;
+  retiredExact: number;
   workerPoolSize: number;
   skippedLockedSource: number;
 }
@@ -434,14 +436,54 @@ export function recordSchedulerEpochFastRefresh(store: StateStore, epochId: stri
   return Number(row?.fast_refresh_count ?? 0);
 }
 
-export function refreshEpochTargetAvailability(store: StateStore, epochId: string): EpochAvailabilityRefreshResult {
+function refreshEpochFinishedCount(store: StateStore, epochId: string): void {
+  store.db
+    .query(
+      `
+        UPDATE epochs
+        SET finished_count = (
+          SELECT COUNT(*)
+          FROM epoch_targets
+          WHERE epoch_targets.epoch_id = epochs.id
+            AND epoch_targets.status = 'finished'
+        )
+        WHERE id = ?
+      `,
+    )
+    .run(epochId);
+}
+
+export function refreshEpochTargetAvailability(
+  store: StateStore,
+  epochId: string,
+  params: { exactTargetKeys?: Set<string> } = {},
+): EpochAvailabilityRefreshResult {
   const before = availableCountForEpoch(store, epochId);
+  let retiredExact = 0;
+  const exactTargetKeys = params.exactTargetKeys ?? new Set<string>();
+  if (exactTargetKeys.size > 0) {
+    const rows = store.db
+      .query("SELECT id, target_key FROM epoch_targets WHERE epoch_id = ? AND status = 'admitted'")
+      .all(epochId) as Record<string, unknown>[];
+    const retiredAt = now();
+    const retireTarget = store.db.query("UPDATE epoch_targets SET status = 'finished', finished_at = ? WHERE id = ?");
+    immediateTransaction(store.db, () => {
+      for (const row of rows) {
+        if (!exactTargetKeys.has(String(row.target_key))) continue;
+        retireTarget.run(retiredAt, String(row.id));
+        retiredExact += 1;
+      }
+      if (retiredExact > 0) refreshEpochFinishedCount(store, epochId);
+    });
+  }
+  const after = availableCountForEpoch(store, epochId);
   return {
     epochId,
     availableBefore: before,
-    availableAfter: before,
+    availableAfter: after,
     inserted: 0,
-    workerPoolSize: before,
+    retiredExact,
+    workerPoolSize: after,
     skippedLockedSource: 0,
   };
 }

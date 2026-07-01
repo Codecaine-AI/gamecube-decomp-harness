@@ -6,8 +6,8 @@ current attempt-tail and Pi worker tool-contribution work.
 ## Layout
 
 - `scripts/` contains the runnable analysis and report generators.
-- `reports/` contains the generated HTML reports and companion `.stats.json`
-  files.
+- `reports/` contains generated reports and companion `.stats.json` files.
+  Some analyses also write row-level `.dataset.csv` audit tables.
 
 ## Data Sources
 
@@ -30,6 +30,11 @@ current attempt-tail and Pi worker tool-contribution work.
 - `reports/fresh-tool-distribution-15-epoch-2026-06-30.html`: fresh session-flow
   tool distribution for the closed 15-epoch run, excluding the active follow-on
   epoch.
+- `reports/fresh-tool-distribution-xhigh-epochs20-21-snapshot-2026-07-01.html`:
+  xhigh-only tool distribution plus exact-match and fuzzy-improvement timing
+  for the new epoch 20/21 sweep, including early-kill threshold tables by
+  no-win attempt count and elapsed time. The epoch 21 rows are an active-run
+  snapshot.
 - `reports/legacy-tool-contribution-2026-06-30.html`: all replayable legacy
   worker transcript runs, analyzed with the newer contribution framing at lease
   level.
@@ -37,6 +42,9 @@ current attempt-tail and Pi worker tool-contribution work.
   original June 10-12 two-run Pi worker report. These runs predate
   checkpoint-level target-claim wiring, so the report is lease-level rather than
   checkpoint-level.
+- `reports/q-priority-outcome-analysis-2026-06-30.md`: queue/epoch priority
+  score versus confirmed outcome analysis, including row-level model scores in
+  the companion `.dataset.csv`.
 
 ## Commands
 
@@ -50,6 +58,18 @@ Refresh the fresh closed-epoch tool distribution report:
 
 ```bash
 bun analysis/scripts/analyze-fresh-tool-distribution.mjs --max-epoch 15
+```
+
+Refresh the xhigh-only epoch 20/21 tool and timing snapshot:
+
+```bash
+bun analysis/scripts/analyze-fresh-tool-distribution.mjs \
+  --run 53d5b342-c066-48fc-aa49-dd78b69dc2ac \
+  --min-epoch 20 \
+  --max-epoch 21 \
+  --include-active \
+  --thinking-level xhigh \
+  --out analysis/reports/fresh-tool-distribution-xhigh-epochs20-21-snapshot-$(date +%F).html
 ```
 
 Refresh the legacy Pi worker replay:
@@ -71,6 +91,12 @@ Refresh the attempt-tail / follow-up gain report:
 
 ```bash
 bun analysis/scripts/generate-attempt-tail-followup-report.mjs
+```
+
+Refresh the queue/epoch priority outcome analysis:
+
+```bash
+python3 analysis/scripts/analyze-q-priority-outcomes.py
 ```
 
 Validate generated artifacts:

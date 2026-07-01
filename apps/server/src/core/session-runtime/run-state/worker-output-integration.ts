@@ -226,6 +226,43 @@ export function claimNextWorkerOutputIntegration(store: StateStore, sessionId: s
   });
 }
 
+export function nextWorkerOutputIntegrationConflictForResolver(
+  store: StateStore,
+  sessionId: string,
+  excludedIds: Iterable<string> = [],
+): WorkerOutputIntegrationRecord | null {
+  return workerOutputIntegrationConflictsForResolver(store, sessionId, { excludedIds, limit: 1 })[0] ?? null;
+}
+
+export function workerOutputIntegrationConflictsForResolver(
+  store: StateStore,
+  sessionId: string,
+  options: { excludedIds?: Iterable<string>; limit?: number } = {},
+): WorkerOutputIntegrationRecord[] {
+  const excluded = [...new Set([...(options.excludedIds ?? [])].filter(Boolean))];
+  const exclusionSql = excluded.length > 0 ? `AND id NOT IN (${excluded.map(() => "?").join(", ")})` : "";
+  const limit = Math.max(1, Math.floor(options.limit ?? 16));
+  const rows = withBusyRetry(
+    () =>
+      store.db
+        .query(
+          `
+            SELECT *
+            FROM worker_output_integrations
+            WHERE session_id = ?
+              AND status = 'conflict'
+              AND item_path IS NOT NULL
+              AND item_path != ''
+              ${exclusionSql}
+            ORDER BY updated_at ASC, created_at ASC
+            LIMIT ?
+          `,
+        )
+        .all(sessionId, ...excluded, limit) as Record<string, unknown>[],
+  );
+  return rows.map((row) => integrationFromRow(row));
+}
+
 export function updateWorkerOutputIntegration(store: StateStore, id: string, patch: WorkerOutputIntegrationUpdate): WorkerOutputIntegrationRecord {
   return immediateTransaction(store.db, () => {
     const current = store.db.query("SELECT * FROM worker_output_integrations WHERE id = ?").get(id) as Record<string, unknown> | undefined;

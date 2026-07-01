@@ -47,6 +47,7 @@ import { createMeleeKernelSpawnContext } from "./spawn-context.js";
 import {
   createMeleeKernelPiAgentRunner,
   MELEE_AGENT_SPAWN_COMPLETED_EVENT,
+  MELEE_AGENT_SPAWN_FAILED_EVENT,
   MELEE_AGENT_SPAWN_STARTED_EVENT,
   type MeleeKernelPiRunOptions,
 } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
@@ -1467,6 +1468,89 @@ describe("kernel Pi runtime bridge", () => {
     expect(submittedTraceEvents).toHaveLength(0);
   });
 
+  test("surfaces kernel assistant error stop reasons as provider failures", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-provider-error-"));
+    const outputDir = join(tempDir, "out");
+    const traceInputs: unknown[] = [];
+    const runner = createMeleeKernelPiAgentRunner({
+      runPiAgent: async () => {
+        throw new Error("direct Pi runner should not be called for kernel strategy");
+      },
+      createKernelSpawnAgent: () => {
+        return async () => ({
+          responseText: "",
+          aborted: false,
+          session: {
+            sessionId: "33333333-3333-5333-8333-333333333333",
+            messages: [
+              {
+                role: "assistant",
+                content: [],
+                stopReason: "error",
+                errorMessage: "context_length_exceeded: Your input exceeds the context window of this model",
+              },
+            ],
+            dispose() {},
+          } as any,
+        });
+      },
+    });
+
+    const result = await runner({
+      role: "worker",
+      cwd: tempDir,
+      outputDir,
+      dryRun: false,
+      prompt: {
+        systemPrompt: "worker system prompt",
+        userPrompt: "worker user prompt",
+        systemTemplatePath: "apps/server/src/core/agent-catalog/agents/running/worker/agent.ts",
+        userTemplatePath: "apps/server/src/core/agent-catalog/agents/running/worker/prompt.ts",
+      },
+      kernelSpawnStrategy: "kernel",
+      kernelContext: {
+        appSessionId: "11111111-1111-5111-8111-111111111111",
+        containerId: "melee:worker",
+        phase: "worker",
+        workingDir: tempDir,
+      },
+      kernelRuntime: {
+        db: {},
+        config: {
+          markerConfig: createMeleeKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
+          piSessionsDir: join(tempDir, ".pi-sessions"),
+        },
+        traceWriter: {
+          submitAppEvent: async (input) => {
+            traceInputs.push(input);
+            return {
+              eventId: `event-${traceInputs.length}`,
+              appSessionId: input.appSessionId,
+              userId: "00000000-0000-0000-0000-000000000001",
+              type: input.type as any,
+              source: TraceSource.APP,
+              traceLevel: input.traceLevel ?? TraceLevel.PROCESSING,
+              eventData: input.eventData,
+              timestamp: "2026-06-24T18:00:00.000Z",
+            };
+          },
+        },
+      },
+    });
+
+    expect(result.providerError).toBe("context_length_exceeded: Your input exceeds the context window of this model");
+    expect(result.failed).toBeUndefined();
+    expect(await Bun.file(result.outputPath).text()).toContain("[Pi provider error]");
+    expect(traceInputs).toHaveLength(2);
+    expect(traceInputs[1]).toMatchObject({
+      type: MELEE_AGENT_SPAWN_FAILED_EVENT,
+      eventData: {
+        status: "failed",
+      },
+    });
+    expect(((traceInputs[1] as Record<string, any>).eventData.error as string)).toContain("context_length_exceeded");
+  });
+
   test("passes converted prompt-bundle context resolver into kernel createSpawnAgent", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-context-"));
     const outputDir = join(tempDir, "out");
@@ -1529,6 +1613,17 @@ describe("kernel Pi runtime bridge", () => {
         userPrompt: "full original worker user prompt",
         systemTemplatePath: "apps/server/src/core/agent-catalog/agents/running/worker/agent.ts",
         userTemplatePath: "apps/server/src/core/agent-catalog/agents/running/worker/prompt.ts",
+        kernelContext: {
+          renderedContext: "full rendered worker context",
+          turnPrompt: "Use the injected worker context.",
+          inputs: [
+            {
+              loaderKind: "worker-packet",
+              inputRef: "worker-packet",
+              content: "<task>Use the packet.</task>",
+            },
+          ],
+        },
       },
       kernelSpawnStrategy: "kernel",
       kernelContext: {
@@ -1550,7 +1645,7 @@ describe("kernel Pi runtime bridge", () => {
     expect(loadedResolvers).toHaveLength(1);
     expect(loadedResolvers[0]).toBe(contextResolver);
     expect(await Bun.file(result.systemPromptPath).text()).toBe("worker system prompt");
-    expect(await Bun.file(result.userPromptPath).text()).toBe("full original worker user prompt");
+    expect(await Bun.file(result.userPromptPath).text()).toBe("Use the injected worker context.");
   });
 });
 

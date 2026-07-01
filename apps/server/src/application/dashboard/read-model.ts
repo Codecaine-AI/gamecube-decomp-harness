@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import { latestCheckpointSummary } from "@server/core/session-runtime/phases/pr/checkpoint";
 import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/core/session-runtime/phases/running/epochs";
 import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
@@ -11,7 +11,33 @@ import { projectToSummary as defaultProjectToSummary, type ProjectRuntimeContext
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/session-runtime/phases/pr/artifacts";
 
 export type JsonObject = Record<string, unknown>;
-type WorkerStateOutcome = "exact" | "improved" | "no_progress" | "validation_failed" | "tool_error" | "provider_error";
+type WorkerStateOutcome =
+  | "running"
+  | "exact"
+  | "timeout_selected_checkpoint"
+  | "timeout_baseline"
+  | "claim_deadline"
+  | "cold_attempt_budget_exhausted"
+  | "improvement_followup_budget_exhausted"
+  | "gate_failed_exact_followup_budget_exhausted"
+  | "accepted_or_no_repair_reasons"
+  | "dry_run"
+  | "recovered_requeued"
+  | "recovered_finished"
+  | "provider_error"
+  | "worker_session_failed"
+  | "agent_tool_error"
+  | "validation_qa_lint_failed"
+  | "validation_build_failed"
+  | "validation_snapshot_unavailable"
+  | "validation_no_official_score_change"
+  | "validation_target_regressed"
+  | "validation_same_unit_regression"
+  | "validation_failed"
+  | "validation_skipped"
+  | "cancelled"
+  | "finished"
+  | "unknown_error";
 type WorkerStateResult = "exact" | "improved" | "no_progress";
 type StopReason = "target_complete" | "stalled";
 
@@ -45,9 +71,10 @@ export function createDashboardReadModel(dependencies: DashboardReadModelDepende
   dashboardTick: (dashboard: JsonObject) => JsonObject;
   runDashboard: (paths: DashboardProjectContext) => Promise<JsonObject>;
   runDetails: (stateDir: string, explicitRunId?: string, project?: ResolvedProject | null) => JsonObject;
+  workerStateTrace: (stateDir: string, runId: string, workerStateId: string) => JsonObject;
 } {
   readModelDependencies = dependencies;
-  return { dashboardStableSignature, dashboardTick, runDashboard, runDetails };
+  return { dashboardStableSignature, dashboardTick, runDashboard, runDetails, workerStateTrace };
 }
 
 function asObject(value: unknown): JsonObject {
@@ -366,6 +393,7 @@ function runnerAttemptsByWorkerState(stateDir: string, runId: string): Map<strin
       const workerStateId = stringValue(row.worker_state_id);
       const list = byWorkerState.get(workerStateId) ?? [];
       list.push({
+        kind: "runner_validation_attempt",
         attemptIndex: numberValue(row.attempt_index, NaN),
         compiled: stringValue(row.build_status) === "compiled",
         oldScore: numberValue(row.old_score, NaN),
@@ -378,7 +406,7 @@ function runnerAttemptsByWorkerState(stateDir: string, runId: string): Map<strin
         hardGatesPassed: numberValue(row.hard_gates_passed) === 1,
         selectable: numberValue(row.selectable) === 1,
         selected: numberValue(row.selected) === 1,
-        source: "runner",
+        source: "worker_checkpoint",
       });
       byWorkerState.set(workerStateId, list);
     }
@@ -399,13 +427,14 @@ function syntheticRunnerAttempts(runnerValidation: JsonObject): JsonObject[] {
   return [
     {
       attemptIndex: NaN,
+      kind: "runner_validation_attempt",
       compiled: status !== "build_failed" && (Object.keys(target).length > 0 || numberValue(runnerValidation.exitCode, NaN) === 0),
       oldScore: before,
       newScore: after,
       delta: Number.isFinite(before) && Number.isFinite(after) ? after - before : NaN,
       status,
       artifactPath: stringValue(runnerValidation.summaryPath),
-      source: "runner",
+      source: "runner_validation_summary",
     },
   ];
 }
@@ -558,9 +587,10 @@ function workerStatesForRun(stateDir: string, runId: string, limit = 100): JsonO
       const scoreDelta = runnerDelta !== null ? Math.max(0, runnerDelta) : attemptScoreDelta;
       const workerStateId = stringValue(row.worker_state_id);
       const workerRunnerAttempts = runnerAttempts.get(workerStateId) ?? syntheticRunnerAttempts(runnerValidation);
+      const baselineScore = numberValue(row.baseline_score, numberValue(row.fuzzy, NaN));
       // Per-worker-state trace files are only read on the explicit full-details load,
       // not on the 2.5s dashboard poll.
-      const activity = limit === 0 ? activeClaimActivity(stateDir, runId, workerStateId) : null;
+      const activity = limit === 0 ? activeClaimActivity(stateDir, runId, workerStateId, row.started_at) : null;
       const result = workerResultForState(row, runnerValidation);
       const bestCheckpoint = checkpointRef(row, "best");
       const latestCheckpoint = checkpointRef(row, "latest");
@@ -576,6 +606,8 @@ function workerStatesForRun(stateDir: string, runId: string, limit = 100): JsonO
         targetClaimId: row.target_claim_id,
         workerId: row.worker_id,
         lifecycleStatus: row.lifecycle_status,
+        timeoutSummary: stringValue(row.timeout_summary),
+        errorSummary: stringValue(row.error_summary),
         validationStatus,
         result,
         stopReason: result === "exact" ? "target_complete" : "stalled",
@@ -587,7 +619,12 @@ function workerStatesForRun(stateDir: string, runId: string, limit = 100): JsonO
           symbol: stringValue(target.symbol),
           sourcePath: stringValue(target.source_path),
           size: numberValue(target.size),
-          fuzzy: numberValue(target.fuzzy, numberValue(target.fuzzy_match_percent)),
+          fuzzy: baselineScore,
+        },
+        baseline: {
+          kind: "worker_baseline",
+          score: baselineScore,
+          source: Number.isFinite(numberValue(row.baseline_score, NaN)) ? "worker_state" : "epoch_target",
         },
         writeSet: [...new Set(writeSet)],
         attempts: attempts.map((attempt) => ({
@@ -607,6 +644,13 @@ function workerStatesForRun(stateDir: string, runId: string, limit = 100): JsonO
         runnerValidation,
         repairAttempts: asObject(summary.continuation_attempts),
         error: asObject(summary.error),
+        recovery: {
+          by: stringValue(summary.recovered_by),
+          reason: stringValue(summary.recovery_reason),
+          requeued: summary.requeued === true,
+          executionEvidence: summary.execution_evidence === true,
+          epochTargetStatus: stringValue(summary.epoch_target_status),
+        },
         nextRecommendation: stringValue(agentNote.next_recommendation),
         epochTargetStatus: row.epoch_target_status,
         selectedCheckpoint: bestCheckpoint,
@@ -623,6 +667,15 @@ function touchedFilesFromWorkerStates(workerStates: JsonObject[]): JsonObject[] 
   const touched = new Map<string, JsonObject>();
   for (const workerState of workerStates) {
     const outcome = workerStateOutcome(workerState);
+    const result = workerStateResult(workerState);
+    const timeoutEndstate =
+      outcome.startsWith("timeout_") ||
+      outcome === "claim_deadline" ||
+      outcome === "cold_attempt_budget_exhausted" ||
+      outcome === "improvement_followup_budget_exhausted" ||
+      outcome === "gate_failed_exact_followup_budget_exhausted" ||
+      outcome === "accepted_or_no_repair_reasons" ||
+      outcome === "dry_run";
     const files = asArray(workerState.writeSet).map((item) => stringValue(item)).filter(Boolean);
     for (const path of files) {
       const current = touched.get(path) ?? {
@@ -630,18 +683,26 @@ function touchedFilesFromWorkerStates(workerStates: JsonObject[]): JsonObject[] 
         workerStates: 0,
         improvedStates: 0,
         noProgressStates: 0,
+        timeoutStates: 0,
+        recoveredStates: 0,
         validationFailedStates: 0,
+        sessionFailedStates: 0,
         toolErrorStates: 0,
         providerErrorStates: 0,
+        cancelledStates: 0,
         scoreDelta: 0,
         lastAt: "",
       };
       current.workerStates = numberValue(current.workerStates) + 1;
-      current.improvedStates = numberValue(current.improvedStates) + (outcome === "exact" || outcome === "improved" ? 1 : 0);
-      current.noProgressStates = numberValue(current.noProgressStates) + (outcome === "no_progress" ? 1 : 0);
-      current.validationFailedStates = numberValue(current.validationFailedStates) + (outcome === "validation_failed" ? 1 : 0);
-      current.toolErrorStates = numberValue(current.toolErrorStates) + (outcome === "tool_error" ? 1 : 0);
+      current.improvedStates = numberValue(current.improvedStates) + (result === "exact" || result === "improved" ? 1 : 0);
+      current.noProgressStates = numberValue(current.noProgressStates) + (result === "no_progress" ? 1 : 0);
+      current.timeoutStates = numberValue(current.timeoutStates) + (timeoutEndstate ? 1 : 0);
+      current.recoveredStates = numberValue(current.recoveredStates) + (outcome.startsWith("recovered_") ? 1 : 0);
+      current.validationFailedStates = numberValue(current.validationFailedStates) + (outcome.startsWith("validation_") ? 1 : 0);
+      current.sessionFailedStates = numberValue(current.sessionFailedStates) + (outcome === "worker_session_failed" ? 1 : 0);
+      current.toolErrorStates = numberValue(current.toolErrorStates) + (outcome === "agent_tool_error" || outcome === "unknown_error" ? 1 : 0);
       current.providerErrorStates = numberValue(current.providerErrorStates) + (outcome === "provider_error" ? 1 : 0);
+      current.cancelledStates = numberValue(current.cancelledStates) + (outcome === "cancelled" ? 1 : 0);
       current.scoreDelta = numberValue(current.scoreDelta) + numberValue(workerState.scoreDelta);
       current.lastAt = stringValue(workerState.createdAt, stringValue(current.lastAt));
       touched.set(path, current);
@@ -664,8 +725,39 @@ function readJsonLines(path: string, maxLines: number): JsonObject[] {
   }
 }
 
+function boundedJsonText(value: unknown, maxChars = 4000): string {
+  let output = "";
+  try {
+    output = JSON.stringify(value);
+  } catch {
+    output = String(value);
+  }
+  if (output.length <= maxChars) return output;
+  return `${output.slice(0, maxChars)}...<truncated ${output.length - maxChars} chars>`;
+}
+
+function boundedJsonValue(value: unknown, maxChars = 2000): unknown {
+  if (value === undefined) return null;
+  const output = boundedJsonText(value, maxChars);
+  try {
+    return JSON.parse(output);
+  } catch {
+    return output;
+  }
+}
+
+function activityEventsSince(events: JsonObject[], since: unknown): JsonObject[] {
+  const sinceMs = timeMs(since);
+  if (!sinceMs) return events;
+  return events.filter((event) => {
+    const eventMs = timeMs(event.created_at);
+    return eventMs > 0 && eventMs >= sinceMs;
+  });
+}
+
 function compactActivityEvent(event: JsonObject): JsonObject {
   const score = asObject(event.score);
+  const baseline = asObject(event.baseline);
   return {
     createdAt: stringValue(event.created_at),
     attemptIndex: numberValue(event.attempt_index, NaN),
@@ -673,8 +765,25 @@ function compactActivityEvent(event: JsonObject): JsonObject {
     eventType: stringValue(event.event_type),
     summary: stringValue(event.summary),
     score: Object.keys(score).length > 0 ? { before: score.before ?? null, after: score.after ?? null, exact: score.exact === true } : null,
+    baseline: Object.keys(baseline).length > 0 ? { kind: "worker_baseline", status: stringValue(baseline.status), score: numberValue(baseline.score, NaN) } : null,
     artifactPath: stringValue(event.artifact_path),
     sessionId: stringValue(event.session_id),
+  };
+}
+
+function compactToolEvent(event: JsonObject): JsonObject {
+  const exitCode = numberValue(event.exit_code, NaN);
+  return {
+    createdAt: stringValue(event.created_at),
+    attemptIndex: numberValue(event.attempt_index, NaN),
+    tool: stringValue(event.tool),
+    status: stringValue(event.status),
+    exitCode: Number.isFinite(exitCode) ? exitCode : null,
+    errorKind: stringValue(event.error_kind),
+    errorSummary: stringValue(event.error_summary),
+    durationMs: numberValue(event.duration_ms, NaN),
+    params: boundedJsonValue(event.params),
+    raw: boundedJsonText(event),
   };
 }
 
@@ -721,20 +830,56 @@ function activityFromReturnGates(workerLogDir: string): JsonObject[] {
   });
 }
 
-function activeClaimActivity(stateDir: string, runId: string, workerStateId: string): JsonObject {
-  const workerLogDir = resolve(stateDir, "runs", runId, "worker_state", workerStateId);
+function pathIsInside(parent: string, child: string): boolean {
+  const rel = relative(parent, child);
+  return rel === "" || (!!rel && !rel.startsWith("..") && !rel.startsWith("/") && !rel.startsWith("\\"));
+}
+
+function workerLogDirForRun(stateDir: string, runId: string, workerStateId: string): string {
+  if (!runId || !workerStateId) return "";
+  const runsRoot = resolve(stateDir, "runs");
+  const workerStateRoot = resolve(runsRoot, runId, "worker_state");
+  const workerLogDir = resolve(workerStateRoot, workerStateId);
+  if (!pathIsInside(runsRoot, workerStateRoot) || !pathIsInside(workerStateRoot, workerLogDir)) return "";
+  return workerLogDir;
+}
+
+function activeClaimActivity(
+  stateDir: string,
+  runId: string,
+  workerStateId: string,
+  since: unknown = "",
+  options: { includeToolEvents?: boolean } = {},
+): JsonObject {
+  const workerLogDir = workerLogDirForRun(stateDir, runId, workerStateId);
+  if (!workerLogDir) {
+    return {
+      source: "none",
+      workerLogDir: "",
+      attemptIndex: null,
+      phase: "",
+      lastEvent: null,
+      lastTool: null,
+      lastScore: null,
+      lastRepairSummary: "",
+      recentEvents: [],
+      recentToolEvents: [],
+      toolEventCount: 0,
+    };
+  }
   let source = "activity_log";
-  let events = readJsonLines(resolve(workerLogDir, "activity.jsonl"), 60);
+  let events = activityEventsSince(readJsonLines(resolve(workerLogDir, "activity.jsonl"), 60), since);
   if (events.length === 0) {
-    events = activityFromReturnGates(workerLogDir);
+    events = activityEventsSince(activityFromReturnGates(workerLogDir), since);
     source = events.length > 0 ? "return_gates" : "none";
   }
-  const toolEvents = readJsonLines(resolve(workerLogDir, "tool_events.jsonl"), 30);
+  const includeToolEvents = options.includeToolEvents ?? true;
+  const toolEvents = includeToolEvents ? activityEventsSince(readJsonLines(resolve(workerLogDir, "tool_events.jsonl"), 30), since) : [];
   const lastEvent = events.length > 0 ? events[events.length - 1] : null;
   const lastTool = toolEvents.length > 0 ? toolEvents[toolEvents.length - 1] : null;
   const lastScoreEvent = [...events].reverse().find((event) => {
     const score = asObject(event.score);
-    return Number.isFinite(numberValue(score.after, NaN)) || Number.isFinite(numberValue(score.before, NaN));
+    return Number.isFinite(numberValue(score.after, NaN));
   });
   const lastRepair = [...events].reverse().find((event) => stringValue(event.event_type) === "repair_requested" || stringValue(event.event_type) === "runner_validation_rejected");
   const attemptIndex = events.reduce((max, event) => Math.max(max, numberValue(event.attempt_index, -1)), -1);
@@ -757,8 +902,50 @@ function activeClaimActivity(stateDir: string, runId: string, workerStateId: str
     lastScore: lastScoreEvent ? asObject(lastScoreEvent.score) : null,
     lastRepairSummary: lastRepair ? stringValue(lastRepair.summary) : "",
     recentEvents: events.slice(-12).map(compactActivityEvent),
+    recentToolEvents: includeToolEvents ? toolEvents.slice(-10).map(compactToolEvent) : [],
     toolEventCount: toolEvents.length,
   };
+}
+
+function workerStateTrace(stateDir: string, runId: string, workerStateId: string): JsonObject {
+  if (!runId || !workerStateId) {
+    return {
+      runId,
+      workerStateId,
+      error: "Missing runId or workerStateId.",
+      ...activeClaimActivity(stateDir, runId, workerStateId),
+    };
+  }
+  const store = openState(stateDir);
+  try {
+    const row = store.db
+      .query(
+        `
+          SELECT worker_state.started_at, target_claims.claimed_at
+          FROM worker_state
+          LEFT JOIN target_claims ON target_claims.id = worker_state.target_claim_id
+          WHERE worker_state.session_id = ?
+            AND worker_state.id = ?
+          LIMIT 1
+        `,
+      )
+      .get(runId, workerStateId) as JsonObject | undefined;
+    if (!row) {
+      return {
+        runId,
+        workerStateId,
+        error: "Worker state was not found for this run.",
+        ...activeClaimActivity(stateDir, runId, ""),
+      };
+    }
+    return {
+      runId,
+      workerStateId,
+      ...activeClaimActivity(stateDir, runId, workerStateId, row.claimed_at || row.started_at),
+    };
+  } finally {
+    store.db.close();
+  }
 }
 
 function activeFilesForRun(stateDir: string, runId: string): JsonObject[] {
@@ -778,6 +965,7 @@ function activeFilesForRun(stateDir: string, runId: string): JsonObject[] {
             target_claims.heartbeat_at,
             target_claims.claimed_at,
             worker_state.id AS worker_state_id,
+            worker_state.baseline_score AS worker_baseline_score,
             epochs.ordinal AS epoch_ordinal,
             epoch_targets.id AS target_id,
             epoch_targets.unit,
@@ -797,30 +985,38 @@ function activeFilesForRun(stateDir: string, runId: string): JsonObject[] {
         `,
       )
       .all(runId) as JsonObject[];
-    return rows.map((row) => ({
-      claimId: row.claim_id,
-      workerStateId: row.worker_state_id,
-      epochId: row.epoch_id,
-      epochOrdinal: numberValue(row.epoch_ordinal, NaN),
-      epochTargetId: row.epoch_target_id,
-      workerId: row.worker_id,
-      baseRev: row.base_rev,
-      worktreePath: row.worktree_path,
-      ttl: row.ttl,
-      heartbeatAt: row.heartbeat_at,
-      claimedAt: row.claimed_at,
-      activity: activeClaimActivity(stateDir, runId, stringValue(row.worker_state_id)),
-      targetId: row.target_id,
-      unit: stringValue(row.unit),
-      symbol: stringValue(row.symbol),
-      sourcePath: stringValue(row.source_path),
-      size: numberValue(row.size),
-      fuzzy: numberValue(row.baseline_score, NaN),
-      matched: NaN,
-      complete: NaN,
-      priority: numberValue(row.priority, NaN),
-      reason: stringValue(row.reason),
-    }));
+    return rows.map((row) => {
+      const baselineScore = numberValue(row.worker_baseline_score, numberValue(row.baseline_score, NaN));
+      return {
+        claimId: row.claim_id,
+        workerStateId: row.worker_state_id,
+        epochId: row.epoch_id,
+        epochOrdinal: numberValue(row.epoch_ordinal, NaN),
+        epochTargetId: row.epoch_target_id,
+        workerId: row.worker_id,
+        baseRev: row.base_rev,
+        worktreePath: row.worktree_path,
+        ttl: row.ttl,
+        heartbeatAt: row.heartbeat_at,
+        claimedAt: row.claimed_at,
+        activity: activeClaimActivity(stateDir, runId, stringValue(row.worker_state_id), row.claimed_at, { includeToolEvents: false }),
+        targetId: row.target_id,
+        unit: stringValue(row.unit),
+        symbol: stringValue(row.symbol),
+        sourcePath: stringValue(row.source_path),
+        size: numberValue(row.size),
+        fuzzy: baselineScore,
+        baseline: {
+          kind: "worker_baseline",
+          score: baselineScore,
+          source: Number.isFinite(numberValue(row.worker_baseline_score, NaN)) ? "worker_state" : "epoch_target",
+        },
+        matched: NaN,
+        complete: NaN,
+        priority: numberValue(row.priority, NaN),
+        reason: stringValue(row.reason),
+      };
+    });
   } finally {
     store.db.close();
   }
@@ -866,6 +1062,96 @@ function runnerValidationRejected(workerState: JsonObject): boolean {
   return status !== "" && status !== "passed" && status !== "skipped";
 }
 
+function joinedDiagnosticText(values: unknown[]): string {
+  return values
+    .flatMap((value) => {
+      if (typeof value === "string") return [value];
+      if (Array.isArray(value)) return value.map((item) => stringValue(item)).filter(Boolean);
+      if (value && typeof value === "object") {
+        return Object.values(value as JsonObject)
+          .map((item) => (typeof item === "string" ? item : ""))
+          .filter(Boolean);
+      }
+      return [];
+    })
+    .join("\n");
+}
+
+function workerStateErrorText(workerState: JsonObject): string {
+  const error = asObject(workerState.error);
+  const recovery = asObject(workerState.recovery);
+  return joinedDiagnosticText([
+    workerState.summary,
+    workerState.timeoutSummary,
+    workerState.errorSummary,
+    error.kind,
+    error.summary,
+    error.reasons,
+    recovery.by,
+    recovery.reason,
+  ]);
+}
+
+function workerStateRecovered(workerState: JsonObject): boolean {
+  const recovery = asObject(workerState.recovery);
+  return (
+    stringValue(recovery.by) === "recover-claims" ||
+    stringValue(recovery.reason) !== "" ||
+    /\bRecovered interrupted active worker\b/i.test(workerStateErrorText(workerState))
+  );
+}
+
+function workerStateSessionFailed(workerState: JsonObject): boolean {
+  const errorKind = stringValue(asObject(workerState.error).kind);
+  return errorKind === "worker_session_failed" || /\bWorker Pi session failed before producing\b/i.test(workerStateErrorText(workerState));
+}
+
+function workerStateAgentToolError(workerState: JsonObject): boolean {
+  const errorKind = stringValue(asObject(workerState.error).kind);
+  return errorKind === "agent_noted_tool_error" || errorKind === "agent_noted_tool_error_advisory";
+}
+
+function workerStateStopReasonCode(workerState: JsonObject): string {
+  const repairAttempts = asObject(workerState.repairAttempts);
+  const decision = asObject(repairAttempts.decision);
+  return stringValue(repairAttempts.stop_reason) || stringValue(decision.stopReason) || stringValue(workerState.stopReason);
+}
+
+function workerStateHasSelectedCheckpoint(workerState: JsonObject): boolean {
+  return Boolean(stringValue(asObject(workerState.selectedCheckpoint).id));
+}
+
+function workerStateValidationEndstate(workerState: JsonObject): WorkerStateOutcome | null {
+  const validation = asObject(workerState.runnerValidation);
+  const qaLintStatus = stringValue(asObject(validation.qaLint).status);
+  const status = stringValue(workerState.validationStatus, stringValue(validation.status));
+  const errorKind = stringValue(asObject(workerState.error).kind);
+  if (errorKind === "runner_validation_qa_lint_failed" || qaLintStatus === "violations" || qaLintStatus === "warnings") return "validation_qa_lint_failed";
+  if (status === "build_failed") return "validation_build_failed";
+  if (status === "snapshot_unavailable") return "validation_snapshot_unavailable";
+  if (status === "no_official_score_change") return "validation_no_official_score_change";
+  if (status === "target_regressed") return "validation_target_regressed";
+  if (status === "same_unit_regression") return "validation_same_unit_regression";
+  if (status === "failed") return "validation_failed";
+  if (status === "skipped") return "validation_skipped";
+  if (/^runner_validation_/.test(errorKind)) return "validation_failed";
+  return null;
+}
+
+function workerStateStopReasonEndstate(workerState: JsonObject): WorkerStateOutcome | null {
+  const stopReason = workerStateStopReasonCode(workerState);
+  if (stopReason === "accepted_exact") return "exact";
+  if (stopReason === "claim_deadline") return "claim_deadline";
+  if (stopReason === "cold_attempt_budget_exhausted") return "cold_attempt_budget_exhausted";
+  if (stopReason === "improvement_followup_budget_exhausted") return "improvement_followup_budget_exhausted";
+  if (stopReason === "gate_failed_exact_followup_budget_exhausted") return "gate_failed_exact_followup_budget_exhausted";
+  if (stopReason === "accepted_or_no_repair_reasons") return "accepted_or_no_repair_reasons";
+  if (stopReason === "dry_run") return "dry_run";
+  if (stopReason === "provider_error") return "provider_error";
+  if (stopReason === "worker_session_failed") return "worker_session_failed";
+  return null;
+}
+
 function workerStateResult(workerState: JsonObject): WorkerStateResult {
   const runnerTarget = workerStateRunnerTarget(workerState);
   if (runnerTarget) {
@@ -892,24 +1178,52 @@ function workerStateStopReason(workerState: JsonObject, result = workerStateResu
 function workerStateOutcome(workerState: JsonObject): WorkerStateOutcome {
   const lifecycle = stringValue(workerState.lifecycleStatus);
   const errorKind = stringValue(asObject(workerState.error).kind);
+  if (lifecycle === "running") return "running";
+  if (workerStateRecovered(workerState)) return asObject(workerState.recovery).requeued === true ? "recovered_requeued" : "recovered_finished";
   if (errorKind === "provider_error") return "provider_error";
-  if (lifecycle === "error" || Object.keys(asObject(workerState.error)).length > 0) return "tool_error";
-  if (workerStateValidationFailed(workerState)) return "validation_failed";
-  const result = workerStateResult(workerState);
-  if (result === "exact") return "exact";
-  if (result === "improved") return "improved";
-  return "no_progress";
+  if (workerStateSessionFailed(workerState)) return "worker_session_failed";
+  if (workerStateAgentToolError(workerState)) return "agent_tool_error";
+  const stopReasonEndstate = workerStateStopReasonEndstate(workerState);
+  if (stopReasonEndstate) return stopReasonEndstate;
+  if (lifecycle === "exact") return "exact";
+  if (lifecycle === "cancelled") return "cancelled";
+  if (lifecycle === "timeout") return workerStateHasSelectedCheckpoint(workerState) ? "timeout_selected_checkpoint" : "timeout_baseline";
+  const validationEndstate = workerStateValidationEndstate(workerState);
+  if (validationEndstate && workerStateValidationFailed(workerState)) return validationEndstate;
+  if (lifecycle === "finished") return "finished";
+  if (lifecycle === "error" || Object.keys(asObject(workerState.error)).length > 0) return "unknown_error";
+  return "finished";
 }
 
 function workerStateOutcomeCounts(workerStates: JsonObject[]): JsonObject {
   const counts: Record<WorkerStateOutcome | "all", number> = {
     all: workerStates.length,
+    running: 0,
     exact: 0,
-    improved: 0,
-    no_progress: 0,
-    validation_failed: 0,
-    tool_error: 0,
+    timeout_selected_checkpoint: 0,
+    timeout_baseline: 0,
+    claim_deadline: 0,
+    cold_attempt_budget_exhausted: 0,
+    improvement_followup_budget_exhausted: 0,
+    gate_failed_exact_followup_budget_exhausted: 0,
+    accepted_or_no_repair_reasons: 0,
+    dry_run: 0,
+    recovered_requeued: 0,
+    recovered_finished: 0,
     provider_error: 0,
+    worker_session_failed: 0,
+    agent_tool_error: 0,
+    validation_qa_lint_failed: 0,
+    validation_build_failed: 0,
+    validation_snapshot_unavailable: 0,
+    validation_no_official_score_change: 0,
+    validation_target_regressed: 0,
+    validation_same_unit_regression: 0,
+    validation_failed: 0,
+    validation_skipped: 0,
+    cancelled: 0,
+    finished: 0,
+    unknown_error: 0,
   };
   for (const workerState of workerStates) counts[workerStateOutcome(workerState)] += 1;
   return counts;
@@ -919,6 +1233,7 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
   const rows: JsonObject[] = [];
   for (const workerState of workerStates) {
     const target = asObject(workerState.target);
+    const admissionBaselineScore = numberValue(target.fuzzy, NaN);
     const base = {
       workerStateId: workerState.id,
       workerCheckpointId: workerState.workerCheckpointId,
@@ -931,6 +1246,7 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
       sourcePath: stringValue(target.sourcePath, asArray(workerState.writeSet).map((item) => stringValue(item)).find(Boolean) ?? ""),
       summary: stringValue(workerState.summary),
       patchPath: stringValue(workerState.patchPath),
+      baselineScore: admissionBaselineScore,
     };
 
     // Runner-validated progress is canonical even when the compact checkpoint
@@ -941,14 +1257,24 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
     if (runnerTarget && runnerDelta !== null && (runnerDelta > 0 || runnerTarget.exact === true)) {
       const before = numberValue(runnerTarget.before, NaN);
       const after = numberValue(runnerTarget.after, NaN);
+      const staleExactBaseline =
+        runnerTarget.exact === true &&
+        Number.isFinite(before) &&
+        Number.isFinite(after) &&
+        Number.isFinite(admissionBaselineScore) &&
+        before >= 99.99999 &&
+        after >= 99.99999 &&
+        admissionBaselineScore < 99.99999;
+      const displayedBefore = staleExactBaseline ? admissionBaselineScore : before;
+      const displayedDelta = staleExactBaseline ? after - admissionBaselineScore : runnerDelta;
       rows.push({
         ...base,
-        totalDelta: Math.max(0, runnerDelta),
-        bestDelta: Math.max(0, runnerDelta),
-        oldScore: before,
+        totalDelta: Math.max(0, displayedDelta),
+        bestDelta: Math.max(0, displayedDelta),
+        oldScore: displayedBefore,
         newScore: after,
         attempts: Math.max(1, workerStatePositiveAttempts(workerState).length),
-        exactMatches: runnerTarget.exact === true && before < 99.99999 ? 1 : 0,
+        exactMatches: runnerTarget.exact === true && displayedBefore < 99.99999 ? 1 : 0,
         source: "runner",
       });
       continue;
@@ -1027,10 +1353,30 @@ function runSummary(
   const createdAtMs = timeMs(run.createdAt);
   const lastWorkerStateAtMs = workerStates.reduce((latest, workerState) => Math.max(latest, timeMs(workerState.createdAt)), 0);
   const outcomeCounts = workerStateOutcomeCounts(workerStates);
+  const workerResultCounts: Record<WorkerStateResult, number> = { exact: 0, improved: 0, no_progress: 0 };
+  for (const workerState of workerStates) workerResultCounts[workerStateResult(workerState)] += 1;
   const positiveAttempts = improvements.reduce((sum, improvement) => sum + numberValue(improvement.attempts), 0);
   const targetExactMatches = improvements.reduce((sum, improvement) => sum + numberValue(improvement.exactMatches), 0);
   const trustedCounts = asObject(trustedReport.counts);
   const reportReady = stringValue(trustedReport.status) === "ready";
+  const timeoutWorkerStates =
+    numberValue(outcomeCounts.timeout_selected_checkpoint) +
+    numberValue(outcomeCounts.timeout_baseline) +
+    numberValue(outcomeCounts.claim_deadline) +
+    numberValue(outcomeCounts.cold_attempt_budget_exhausted) +
+    numberValue(outcomeCounts.improvement_followup_budget_exhausted) +
+    numberValue(outcomeCounts.gate_failed_exact_followup_budget_exhausted) +
+    numberValue(outcomeCounts.accepted_or_no_repair_reasons) +
+    numberValue(outcomeCounts.dry_run);
+  const validationFailedWorkerStates =
+    numberValue(outcomeCounts.validation_qa_lint_failed) +
+    numberValue(outcomeCounts.validation_build_failed) +
+    numberValue(outcomeCounts.validation_snapshot_unavailable) +
+    numberValue(outcomeCounts.validation_no_official_score_change) +
+    numberValue(outcomeCounts.validation_target_regressed) +
+    numberValue(outcomeCounts.validation_same_unit_regression) +
+    numberValue(outcomeCounts.validation_failed) +
+    numberValue(outcomeCounts.validation_skipped);
   return {
     createdAt: stringValue(run.createdAt),
     elapsedMs: createdAtMs ? Math.max(0, Date.now() - createdAtMs) : 0,
@@ -1038,11 +1384,15 @@ function runSummary(
     lastWorkerStateAgeMs: lastWorkerStateAtMs ? Math.max(0, Date.now() - lastWorkerStateAtMs) : null,
     totalWorkerStates: workerStates.length,
     workerStateOutcomeCounts: outcomeCounts,
-    improvedWorkerStates: numberValue(outcomeCounts.exact) + numberValue(outcomeCounts.improved),
-    noProgressWorkerStates: numberValue(outcomeCounts.no_progress),
-    validationFailedWorkerStates: numberValue(outcomeCounts.validation_failed),
-    toolErrorWorkerStates: numberValue(outcomeCounts.tool_error),
+    improvedWorkerStates: workerResultCounts.exact + workerResultCounts.improved,
+    noProgressWorkerStates: workerResultCounts.no_progress,
+    timeoutWorkerStates,
+    recoveredWorkerStates: numberValue(outcomeCounts.recovered_requeued) + numberValue(outcomeCounts.recovered_finished),
+    validationFailedWorkerStates,
+    sessionFailedWorkerStates: numberValue(outcomeCounts.worker_session_failed),
+    toolErrorWorkerStates: numberValue(outcomeCounts.agent_tool_error) + numberValue(outcomeCounts.unknown_error),
     providerErrorWorkerStates: numberValue(outcomeCounts.provider_error),
+    cancelledWorkerStates: numberValue(outcomeCounts.cancelled),
     positiveAttempts,
     improvedSymbols: improvements.length,
     improvedFiles: new Set(improvements.map((improvement) => stringValue(improvement.sourcePath)).filter(Boolean)).size,
@@ -1083,10 +1433,20 @@ function eventsForRun(stateDir: string, runId: string, limit = 40): JsonObject[]
         producer: row.producer,
         handledAt: row.handled_at,
         createdAt: row.created_at,
+        candidateRerank: payload.candidate_rerank,
+        candidateWindow: payload.candidate_window,
         claimId: payload.claim_id,
+        epoch: payload.epoch,
+        itemId: payload.item_id,
+        label: payload.label,
+        message: payload.message,
+        ordinal: payload.ordinal,
+        phase: payload.phase,
         reason: payload.reason,
+        status: payload.status,
         symbol: target.symbol,
         sourcePath: target.source_path,
+        targetKey: payload.target_key,
       };
     });
   } finally {
@@ -1250,7 +1610,8 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
               epoch_targets.priority AS target_priority,
               epoch_targets.reason AS target_reason,
               epoch_targets.admitted_at AS target_created_at,
-              epochs.ordinal AS epoch_ordinal
+              epochs.ordinal AS epoch_ordinal,
+              epochs.status AS epoch_status
             FROM epoch_targets
             LEFT JOIN epochs ON epochs.id = epoch_targets.epoch_id
             WHERE epoch_targets.session_id = ?
@@ -1262,6 +1623,7 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
       epochTargetId: row.epoch_target_id,
       epochId: row.epoch_id,
       epochOrdinal: numberValue(row.epoch_ordinal, NaN),
+      epochStatus: row.epoch_status,
       targetId: row.target_id,
       epochTargetStatus: row.epoch_target_status,
       targetStatus: row.target_status,
@@ -1783,8 +2145,8 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   const workerStates = runId ? workerStatesForRun(stateDir, runId, 100) : [];
   const allWorkerStates = runId ? workerStatesForRun(stateDir, runId, 0) : [];
   const progressWorkerStates = workerStates.filter((workerState) => {
-    const outcome = workerStateOutcome(workerState);
-    return outcome === "exact" || outcome === "improved";
+    const result = workerStateResult(workerState);
+    return result === "exact" || result === "improved";
   });
   const improvements = improvementRowsFromWorkerStates(allWorkerStates);
   const improvedFiles = fileImprovementRows(improvements);

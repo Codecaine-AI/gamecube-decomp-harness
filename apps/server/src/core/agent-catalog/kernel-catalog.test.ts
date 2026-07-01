@@ -27,6 +27,7 @@ import {
   type KernelAgentId,
 } from "./kernel-catalog.js";
 import { loadKernelAgentsPayload } from "./kernel-preview.js";
+import { defaultKernelTurnPrompt } from "./kernel-context.js";
 import { resolveAgentToolIds } from "@server/core/tools/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
@@ -235,7 +236,9 @@ describe("meleeKernelAgentCatalog", () => {
       expect(converted.parsed.body).toBe(bundle.systemPrompt);
       expect(bundle.systemTemplatePath.endsWith("/agent.ts")).toBeTrue();
       expect(converted.userPrompt).toBe(
-        bundle.kernelContext?.turnPrompt ?? bundle.kernelContext?.renderedContext ?? bundle.userPrompt,
+        bundle.kernelContext
+          ? bundle.kernelContext.turnPrompt ?? defaultKernelTurnPrompt(entry.name)
+          : bundle.userPrompt,
       );
       expect(converted.contextResolver).not.toBeNull();
       expect(converted.contextResolver?.loaders.map((loader) => loader.kind)).toEqual(entry.contextLoaderKinds);
@@ -280,7 +283,9 @@ describe("meleeKernelAgentCatalog", () => {
     const rendered = `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
 
     expect(worker).toBeDefined();
-    expect(rendered).toContain("validation handoff");
+    expect(rendered).toContain("return a handoff JSON");
+    expect(rendered).toContain("Do not treat non-100% progress as failure");
+    expect(rendered).toContain("the runner owns the follow-up decision");
     expect(rendered).not.toContain("for this claimed target");
     expect(rendered).toContain('"mismatch_patterns"');
     expect(rendered).not.toMatch(unresolvedPlaceholderPattern);

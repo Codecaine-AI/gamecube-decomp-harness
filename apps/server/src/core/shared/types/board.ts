@@ -1,3 +1,5 @@
+export type CandidateRerankMode = "priority" | "opseq_hot_lane";
+
 export interface BoardMeasures {
   fuzzy_match_percent?: number;
   matched_code_percent?: number;
@@ -18,6 +20,13 @@ export interface BoardRankBreakdown {
   completion_readiness_score: number;
   information_value_score: number;
   information_priority_score: number;
+  opseq_best_analog_score: number;
+  opseq_best_matched_analog_score: number;
+  opseq_analog_count: number;
+  opseq_exact_analog_count: number;
+  opseq_matched_analog_count: number;
+  opseq_rerank_bonus: number;
+  candidate_rerank_mode: CandidateRerankMode;
   high_accuracy_bonus: number;
   accuracy_readiness_bonus: number;
   closeness_fallback_score: number;

@@ -82,6 +82,7 @@ export {
   workerPacket,
   workerPrompt,
   workerPromptInputXml,
+  type WorkerPromptContextBudget,
   type WorkerPromptInputXml,
   type WorkerPromptInputXmlOptions,
   type WorkerPromptOptions,

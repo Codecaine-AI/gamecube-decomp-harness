@@ -21,6 +21,14 @@ const RESOURCE_EDGE_TYPES: GraphEdgeType[] = [
 const HISTORICAL_EDGE_TYPES: GraphEdgeType[] = ["HAS_HISTORICAL_FUNCTION_HINT", "HAS_HISTORICAL_TOOL_LESSON", "MENTIONED_IN_HISTORICAL_TOOL_ISSUE"];
 const CURATED_EDGE_TYPES: GraphEdgeType[] = ["HAS_CURATED_WORKER_LESSON", "HAS_CURATED_PR_LESSON", "HAS_SOURCE_UPDATE_PROPOSAL", "HAS_CURATED_KNOWLEDGE"];
 
+interface OpseqAnalogStats {
+  bestScore: number;
+  bestMatchedScore: number;
+  analogCount: number;
+  exactAnalogCount: number;
+  matchedAnalogCount: number;
+}
+
 export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath: string, target?: GraphRankFeature["target"]): GraphRankFeature {
   const entityId = fileEntityId(sourcePath);
   const functionEntity =
@@ -39,6 +47,7 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
   const functionGraphDegree = functionEntity ? edgeDegree(store, [functionEntity]) : 0;
   const relevantPrCount = edgeTypeCount(store, [entityId], ["TOUCHED_BY_PR"]);
   const duplicateReferenceCount = edgeTypeCount(store, targetIds, ["ANALOGOUS_TO"]);
+  const opseqAnalogStats = opseqAnalogStatsFor(store, targetIds);
   const acceptedEdgeCount = statusEdgeCount(store, targetIds, "accepted");
   const pathFactCount = edgeTypeCount(store, [entityId], ["HAS_PATH_FACT"]);
   const resourceEvidenceCount = Math.max(
@@ -67,11 +76,13 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
   const contextQualityScore = roundScore(
     Math.min(20, connectedMatchedReferenceCount * 2) +
       Math.min(18, relevantPrCount * 1.3) +
-      Math.min(22, pathFactCount * 4 + historicalLessonCount * 2),
+      Math.min(22, pathFactCount * 4 + historicalLessonCount * 2) +
+      Math.min(8, opseqAnalogStats.bestMatchedScore * 4 + opseqAnalogStats.bestScore + opseqAnalogStats.matchedAnalogCount * 1.5),
   );
   const completionReadinessScore = roundScore(
     Math.min(32, pathFactCount * 3 + historicalLessonCount * 4 + curatedSignalCount * 4 + proposalFactCount * 2) +
       Math.min(24, duplicateReferenceCount * 6 + connectedMatchedReferenceCount * 2.5) +
+      Math.min(10, opseqAnalogStats.exactAnalogCount * 2 + opseqAnalogStats.matchedAnalogCount * 1.5) +
       Math.min(14, relevantPrCount * 1.4) +
       Math.min(8, functionGraphDegree * 0.25),
   );
@@ -88,6 +99,11 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
     pathFactCount ? `path_facts=${pathFactCount}` : "",
     historicalLessonCount ? `historical_lessons=${historicalLessonCount}` : "",
     curatedSignalCount ? `curated_signals=${curatedSignalCount}` : "",
+    opseqAnalogStats.analogCount ? `opseq_analogs=${opseqAnalogStats.analogCount}` : "",
+    opseqAnalogStats.bestScore ? `opseq_best=${opseqAnalogStats.bestScore.toFixed(3)}` : "",
+    opseqAnalogStats.bestMatchedScore ? `opseq_best_matched=${opseqAnalogStats.bestMatchedScore.toFixed(3)}` : "",
+    opseqAnalogStats.exactAnalogCount ? `opseq_exact=${opseqAnalogStats.exactAnalogCount}` : "",
+    opseqAnalogStats.matchedAnalogCount ? `opseq_matched=${opseqAnalogStats.matchedAnalogCount}` : "",
     connectedIncompleteFunctionCount ? `linked_incomplete_functions=${connectedIncompleteFunctionCount}` : "",
     connectedMatchedReferenceCount ? `matched_references=${connectedMatchedReferenceCount}` : "",
     proposalFactCount ? `proposal_facts=${proposalFactCount}` : "",
@@ -107,6 +123,11 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
     relevant_pr_count: relevantPrCount,
     review_risk_count: reviewRiskCount,
     duplicate_reference_count: duplicateReferenceCount,
+    opseq_best_analog_score: opseqAnalogStats.bestScore,
+    opseq_best_matched_analog_score: opseqAnalogStats.bestMatchedScore,
+    opseq_analog_count: opseqAnalogStats.analogCount,
+    opseq_exact_analog_count: opseqAnalogStats.exactAnalogCount,
+    opseq_matched_analog_count: opseqAnalogStats.matchedAnalogCount,
     linked_unlock_potential: linkedUnlockPotential,
     connected_incomplete_function_count: connectedIncompleteFunctionCount,
     connected_matched_reference_count: connectedMatchedReferenceCount,
@@ -224,6 +245,55 @@ function nonCodeSearchChunkCount(store: KnowledgeGraphStore, entityIds: string[]
   return countRows(store, searchChunks, and(sql`${searchChunks.sourceId} != ${"code_graph"}`, inArray(searchChunks.entityId, entityIds)));
 }
 
+function opseqAnalogStatsFor(store: KnowledgeGraphStore, entityIds: string[]): OpseqAnalogStats {
+  const empty = { bestScore: 0, bestMatchedScore: 0, analogCount: 0, exactAnalogCount: 0, matchedAnalogCount: 0 };
+  if (entityIds.length === 0) return empty;
+  const rows = store.orm
+    .select({ payload: graphFacts.payloadJson, factType: graphFacts.factType })
+    .from(graphFacts)
+    .where(and(eq(graphFacts.status, "accepted"), eq(graphFacts.factType, "opseq_analog_profile"), inArray(graphFacts.entityId, entityIds)))
+    .all();
+  if (rows.length === 0) return empty;
+
+  let bestScore = 0;
+  let bestMatchedScore = 0;
+  let analogCount = 0;
+  let exactAnalogCount = 0;
+  let matchedAnalogCount = 0;
+  const seenAnalogs = new Set<string>();
+  for (const row of rows) {
+    const payload = objectValue(graphFactPayload(row.factType, row.payload));
+    bestScore = Math.max(bestScore, numberValue(payload.best_score));
+    bestMatchedScore = Math.max(bestMatchedScore, numberValue(payload.best_matched_score, numberValue(payload.best_matched_analog_score)));
+    const payloadAnalogCount = numberValue(payload.analog_count, Number.NaN);
+    if (Number.isFinite(payloadAnalogCount)) analogCount += payloadAnalogCount;
+    const payloadExactCount = numberValue(payload.exact_analog_count, Number.NaN);
+    if (Number.isFinite(payloadExactCount)) exactAnalogCount += payloadExactCount;
+    const payloadMatchedCount = numberValue(payload.matched_analog_count, Number.NaN);
+    if (Number.isFinite(payloadMatchedCount)) matchedAnalogCount += payloadMatchedCount;
+
+    for (const analog of arrayValue(payload.top_analogs).map(objectValue)) {
+      const identity = analogIdentity(analog);
+      if (identity) seenAnalogs.add(identity);
+      const analogScore = numberValue(analog.score);
+      bestScore = Math.max(bestScore, analogScore);
+      if (!Number.isFinite(payloadExactCount) && booleanValue(analog.exact_match)) exactAnalogCount += 1;
+      if (booleanValue(analog.matched)) {
+        bestMatchedScore = Math.max(bestMatchedScore, analogScore);
+        if (!Number.isFinite(payloadMatchedCount)) matchedAnalogCount += 1;
+      }
+    }
+  }
+
+  return {
+    bestScore: roundScore(bestScore),
+    bestMatchedScore: roundScore(bestMatchedScore),
+    analogCount: Math.max(analogCount, seenAnalogs.size),
+    exactAnalogCount,
+    matchedAnalogCount,
+  };
+}
+
 function reviewRiskCountFor(store: KnowledgeGraphStore, entityIds: string[], matchStatus: Record<string, unknown>): number {
   if (entityIds.length === 0) return 0;
   const typedFacts = countRows(store, graphFacts, and(inArray(graphFacts.entityId, entityIds), like(graphFacts.factType, "%review%")));
@@ -261,6 +331,20 @@ function dataRiskPenalty(sourcePath: string): number {
 
 function compactExplanation(values: string[]): string[] {
   return values.filter((value) => value.length > 0);
+}
+
+function analogIdentity(analog: Record<string, unknown>): string {
+  const entityId = stringValue(analog.entity_id);
+  if (entityId) return entityId;
+  const unit = stringValue(analog.unit);
+  const symbol = stringValue(analog.symbol);
+  return unit && symbol ? `${unit}:${symbol}` : "";
+}
+
+function booleanValue(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  return typeof value === "string" && /^(?:true|yes|1)$/i.test(value);
 }
 
 function roundScore(value: number): number {

@@ -21,6 +21,7 @@ export const agent = defineAgent({
       "source_mutation_preview",
       "type_oracle_lookup",
       "review_lint_scan",
+      "review_lint_sdata2_order_helper",
   ],
   disallowedTools: [],
   extensions: false,

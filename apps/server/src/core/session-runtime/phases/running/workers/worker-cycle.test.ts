@@ -10,13 +10,21 @@ import {
   classifyWorkerError,
   configureCommandWithWorkerToolPaths,
   isReworkErrorKind,
+  isRetryableWorkerPiSessionFailure,
+  isWorkerPiContextLengthFailure,
+  isWorkerSessionTimeoutFailure,
   seedWorkerToolArtifacts,
   shouldRequestWorkerRepairAfterAttempt,
+  shouldRunRunnerValidationForWorkerSession,
   WORKER_ATTEMPT_TAIL_POLICY,
+  WORKER_PI_CONTEXT_RETRY_POLICY,
+  WORKER_PI_SESSION_RETRY_POLICY,
   workerContinuationDecision,
   workerAgentToolEnvironment,
   workerBuildNinjaNeedsToolReconfigure,
   workerAttemptRepairReasons,
+  workerPiContextRetryDecision,
+  workerPiSessionRetryDecision,
   writeWorkerShellGuardBin,
   workerToolArtifactSourceRoots,
   workerWorktreeLockDir,
@@ -350,6 +358,15 @@ describe("workerAttemptRepairReasons", () => {
     const qaLint: WorkerQaLint = { status: "clean", exitCode: 0, findings: [], scanPath: null, toolError: null };
     expect(workerAttemptRepairReasons({ writeSetDiffChanged: true, runnerValidation: passedValidation(qaLint) })).toEqual([]);
   });
+
+  test("skipped runner validation does not request repair for a changed diff", () => {
+    const validation: WorkerChangeValidation = {
+      status: "skipped",
+      reasons: ["worker session failed before runner validation"],
+      qaLint: null,
+    };
+    expect(workerAttemptRepairReasons({ writeSetDiffChanged: true, runnerValidation: validation })).toEqual([]);
+  });
 });
 
 describe("shouldRequestWorkerRepairAfterAttempt", () => {
@@ -374,6 +391,147 @@ describe("shouldRequestWorkerRepairAfterAttempt", () => {
         claimDeadlineMs: Date.now() + 60_000,
       }),
     ).toBe(true);
+  });
+});
+
+describe("shouldRunRunnerValidationForWorkerSession", () => {
+  test("runs validation for returned worker sessions regardless of agent-authored tool notes", () => {
+    const agentToolErrors = classifyWorkerError({
+      result: piResult(),
+      agentNote: { status: "tool_error", blockers: [{ kind: "validation_tool_error" }] },
+      runnerValidation: { status: "skipped", reasons: ["not evaluated yet"], qaLint: null },
+    });
+
+    expect(agentToolErrors?.kind).toBe("agent_noted_tool_error");
+    expect(shouldRunRunnerValidationForWorkerSession(piResult())).toBe(true);
+  });
+
+  test("builds and validates the checkout after a Pi session timeout", () => {
+    const timeoutResult = { ...piResult(), failed: true, error: "worker Pi session timed out after 1800s" };
+
+    expect(isWorkerSessionTimeoutFailure(timeoutResult)).toBe(true);
+    expect(shouldRunRunnerValidationForWorkerSession(timeoutResult)).toBe(true);
+  });
+
+  test("skips validation when non-timeout Pi failures or provider failures prevent a usable return", () => {
+    expect(shouldRunRunnerValidationForWorkerSession({ ...piResult(), failed: true })).toBe(false);
+    expect(shouldRunRunnerValidationForWorkerSession({ ...piResult(), providerError: "context_length_exceeded" })).toBe(false);
+  });
+});
+
+describe("workerPiSessionRetryDecision", () => {
+  const streamIncompleteResult = {
+    ...piResult(),
+    failed: true,
+    error: "stream_incomplete: Upstream websocket closed before response.completed: no close frame received or sent",
+  };
+
+  test("retries a transient websocket stream failure inside the same worker attempt", () => {
+    const decision = workerPiSessionRetryDecision({
+      result: streamIncompleteResult,
+      transientRetryCount: 0,
+      dryRun: false,
+      claimDeadlineMs: Date.now() + 60_000,
+    });
+
+    expect(isRetryableWorkerPiSessionFailure(streamIncompleteResult)).toBe(true);
+    expect(decision.shouldRetry).toBe(true);
+    expect(decision.reason).toBe("transient_transport_failure");
+    expect(decision.nextRetryIndex).toBe(1);
+    expect(decision.maxTransientRetries).toBe(WORKER_PI_SESSION_RETRY_POLICY.maxTransientRetries);
+  });
+
+  test("does not retry context-window provider failures", () => {
+    const result = {
+      ...piResult(),
+      providerError: "context_length_exceeded: Your input exceeds the context window of this model",
+    };
+    const decision = workerPiSessionRetryDecision({
+      result,
+      transientRetryCount: 0,
+      dryRun: false,
+      claimDeadlineMs: Date.now() + 60_000,
+    });
+
+    expect(isRetryableWorkerPiSessionFailure(result)).toBe(false);
+    expect(decision.shouldRetry).toBe(false);
+    expect(decision.reason).toBe("non_retryable_failure");
+  });
+
+  test("stops retrying after the transient retry budget is spent", () => {
+    const decision = workerPiSessionRetryDecision({
+      result: streamIncompleteResult,
+      transientRetryCount: WORKER_PI_SESSION_RETRY_POLICY.maxTransientRetries,
+      dryRun: false,
+      claimDeadlineMs: Date.now() + 60_000,
+    });
+
+    expect(decision.retryable).toBe(true);
+    expect(decision.shouldRetry).toBe(false);
+    expect(decision.reason).toBe("transient_retry_budget_exhausted");
+  });
+
+  test("does not start a retry after the claim deadline expires", () => {
+    const decision = workerPiSessionRetryDecision({
+      result: streamIncompleteResult,
+      transientRetryCount: 0,
+      dryRun: false,
+      claimDeadlineMs: Date.now() - 1,
+    });
+
+    expect(decision.retryable).toBe(true);
+    expect(decision.shouldRetry).toBe(false);
+    expect(decision.reason).toBe("claim_deadline");
+  });
+});
+
+describe("workerPiContextRetryDecision", () => {
+  const contextLengthResult = {
+    ...piResult(),
+    failed: true,
+    error: "context_length_exceeded: Your input exceeds the context window of this model",
+  };
+
+  test("retries context-window failures with the next smaller prompt budget", () => {
+    const decision = workerPiContextRetryDecision({
+      result: contextLengthResult,
+      contextRetryIndex: 0,
+      dryRun: false,
+      claimDeadlineMs: Date.now() + 60_000,
+    });
+
+    expect(isWorkerPiContextLengthFailure(contextLengthResult)).toBe(true);
+    expect(isRetryableWorkerPiSessionFailure(contextLengthResult)).toBe(false);
+    expect(decision.shouldRetry).toBe(true);
+    expect(decision.currentBudget).toBe("full");
+    expect(decision.nextBudget).toBe("compact");
+    expect(decision.reason).toBe("context_length_retry_with_smaller_prompt");
+  });
+
+  test("allows one more minimal-budget retry after compact is rejected", () => {
+    const decision = workerPiContextRetryDecision({
+      result: contextLengthResult,
+      contextRetryIndex: 1,
+      dryRun: false,
+      claimDeadlineMs: Date.now() + 60_000,
+    });
+
+    expect(decision.shouldRetry).toBe(true);
+    expect(decision.currentBudget).toBe("compact");
+    expect(decision.nextBudget).toBe("minimal");
+  });
+
+  test("stops after the minimal budget is rejected", () => {
+    const decision = workerPiContextRetryDecision({
+      result: contextLengthResult,
+      contextRetryIndex: WORKER_PI_CONTEXT_RETRY_POLICY.budgets.length - 1,
+      dryRun: false,
+      claimDeadlineMs: Date.now() + 60_000,
+    });
+
+    expect(decision.retryable).toBe(true);
+    expect(decision.shouldRetry).toBe(false);
+    expect(decision.reason).toBe("context_budget_exhausted");
   });
 });
 
@@ -570,6 +728,21 @@ describe("classifyWorkerError with QA lint violations", () => {
       runnerValidation: passedValidation(qaLint),
     });
     expect(classification).toBeNull();
+  });
+
+  test("provider errors classify as infrastructure failures without requiring parser errors", () => {
+    const classification = classifyWorkerError({
+      result: {
+        ...piResult(),
+        providerError: "context_length_exceeded: Your input exceeds the context window of this model",
+      },
+      agentNote: null,
+      runnerValidation: { status: "skipped", reasons: [], qaLint: null },
+    });
+
+    expect(classification?.kind).toBe("provider_error");
+    expect(classification?.summary).toContain("LLM provider failed");
+    expect(classification?.reasons).toEqual(["context_length_exceeded: Your input exceeds the context window of this model"]);
   });
 
   test("clean qaLint on a passed attempt produces no error classification", () => {

@@ -12,6 +12,7 @@ export {
 export { fileGraphCard } from "./file-card.js";
 export { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
 export { buildMismatchPatternGraphRecords, type BuildMismatchPatternGraphRecordsOptions } from "./mismatch-patterns.js";
+export { buildOpseqSimilarityGraphRecords, OPSEQ_SIMILARITY_SOURCE_ID, type BuildOpseqSimilarityGraphRecordsOptions } from "./opseq-similarity.js";
 export { buildPastPrsGraphRecords } from "./past-prs.js";
 export { rankFeatureForSourcePath, rankFeatureMapForCandidates } from "./rank.js";
 export { defaultGraphSources, rebuildKnowledgeGraph } from "./rebuild.js";
@@ -51,6 +52,7 @@ export {
   type KnownGraphFactType,
   type MismatchPatternEvidencePayload,
   type MismatchPatternPayload,
+  type OpseqAnalogProfilePayload,
   type PastPrFileRollupPayload,
   type PullRequestPayload,
   type SourceFilePayload,

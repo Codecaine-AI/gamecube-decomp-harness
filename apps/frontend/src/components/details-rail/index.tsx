@@ -13,6 +13,7 @@ export function DetailsRail({
   busy,
   collapsed,
   dashboard,
+  form,
   loadRunDetails,
   loadingRunDetails,
   onAction,
@@ -21,6 +22,7 @@ export function DetailsRail({
   onResizeStart,
   onWidthChange,
   runDetails,
+  setForm,
   tabRequest,
 }: DetailsRailProps) {
   const [activeTab, setActiveTab] = useState<DetailsTab>(() => {
@@ -87,9 +89,9 @@ export function DetailsRail({
           {activeTab === "logs" ? (
             <OperationLogsTab dashboard={dashboard} />
           ) : activeTab === "process" ? (
-            <ProcessTab busy={busy} dashboard={dashboard} onAction={onAction} />
+            <ProcessTab busy={busy} dashboard={dashboard} form={form} onAction={onAction} setForm={setForm} />
           ) : (
-            <RunTab dashboard={dashboard} loadRunDetails={loadRunDetails} loadingRunDetails={loadingRunDetails} runDetails={runDetails} />
+            <RunTab dashboard={dashboard} form={form} loadRunDetails={loadRunDetails} loadingRunDetails={loadingRunDetails} runDetails={runDetails} />
           )}
         </div>
       </div>

@@ -87,6 +87,7 @@ function completedCountLabel(dashboard: RunTabProps["dashboard"], loadedCount: n
 export function WorkerStates(props: RunTabProps) {
   const [tab, setTab] = useState<WorkerStateTab>("active");
   const [selectedEpoch, setSelectedEpoch] = useState<string>(CURRENT_EPOCH);
+  const runId = text(asObject(props.dashboard?.status?.run).id);
   const recentWorkerStates = (props.dashboard?.workerStates || []).map(asObject);
   const fullWorkerStates = asArray(props.runDetails?.workerStates).map(asObject);
   const workerStates = fullWorkerStates.length > 0 ? fullWorkerStates : recentWorkerStates;
@@ -149,7 +150,7 @@ export function WorkerStates(props: RunTabProps) {
         </TabButton>
       </div>
       {tab === "active" ? (
-        <ActiveWorkerStates activeReports={activeReportsForEpoch} />
+        <ActiveWorkerStates activeReports={activeReportsForEpoch} form={props.form} runId={runId} />
       ) : (
         <CompletedWorkerStates
           loadedAll={loadedAll}

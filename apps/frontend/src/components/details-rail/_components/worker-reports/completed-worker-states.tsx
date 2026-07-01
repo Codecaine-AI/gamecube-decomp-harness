@@ -14,7 +14,6 @@ import {
   reasonLines,
   reportBorderClass,
   reportCountsForReports,
-  reportFilters,
   reportFinishLabel,
   reportMatchesFilter,
   reportOutcomeDescription,
@@ -27,6 +26,7 @@ import {
   runnerAttemptScoreText,
   statusText,
   stopReasonLabel,
+  visibleReportFilters,
   workerStateStatusLabel,
   type WorkerStateFilter,
 } from "../../_lib/worker-reports";
@@ -52,6 +52,7 @@ export function CompletedWorkerStates({
   const pages = Math.max(1, Math.ceil(filteredWorkerStates.length / reportsPageSize));
   const safePage = Math.min(page, pages - 1);
   const visibleWorkerStates = filteredWorkerStates.slice(safePage * reportsPageSize, safePage * reportsPageSize + reportsPageSize);
+  const visibleFilters = visibleReportFilters(totalCounts, filter);
 
   if (workerStates.length === 0) {
     return (
@@ -93,7 +94,7 @@ export function CompletedWorkerStates({
           </Button>
         </div>
         <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Worker state filters">
-          {reportFilters.map((option) => {
+          {visibleFilters.map((option) => {
             const active = filter === option.id;
             const count = totalCounts[option.id];
             return (
@@ -151,6 +152,7 @@ export function CompletedWorkerStates({
           const title = text(target.symbol) || text(target.sourcePath) || text(report.claimId, "worker state");
           const result = reportResult(report);
           const stopReason = reportStopReason(report, result);
+          const outcomeLabel = reportFinishLabel(report);
           const neededFact = compactValue(report.neededFact);
           const nextRecommendation = text(report.nextRecommendation);
           return (
@@ -190,6 +192,7 @@ export function CompletedWorkerStates({
                   </div>
                   <p className="mt-2 whitespace-pre-wrap leading-5 text-soft">{text(report.summary, "No summary recorded.")}</p>
                   <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] max-[520px]:grid-cols-1">
+                    <MetaItem label="outcome" value={outcomeLabel} />
                     <MetaItem label="result" value={result.replace("_", " ")} />
                     <MetaItem label="stop" value={stopReasonLabel(stopReason)} />
                     <MetaItem label="delta" value={delta(reportDelta)} valueClassName={reportDelta > 0 ? "text-up" : ""} />

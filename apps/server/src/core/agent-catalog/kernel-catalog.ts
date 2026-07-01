@@ -429,14 +429,13 @@ export function toKernelParsedAgentFromBundle(
 ): KernelPromptBundleConversion {
   const contextResolver = promptBundleContextResolver(entry, bundle);
   const parsedAgent = parsedAgentFromTyped(typedAgentDefinition(entry.id));
-  const renderedPrompt = bundle.kernelContext?.renderedContext ?? bundle.userPrompt;
   return {
     parsed: {
       frontmatter: parsedAgent.frontmatter,
       body: bundle.systemPrompt,
     },
     userPrompt: contextResolver
-      ? bundle.kernelContext?.turnPrompt ?? renderedPrompt ?? defaultKernelTurnPrompt(entry.name)
+      ? bundle.kernelContext?.turnPrompt ?? defaultKernelTurnPrompt(entry.name)
       : bundle.userPrompt,
     contextResolver,
   };

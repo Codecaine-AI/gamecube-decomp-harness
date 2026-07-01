@@ -112,4 +112,9 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
     type: "source_review",
     useWhen: "Scan source text or files for decomp review anti-patterns before reporting retained edits.",
   },
+  review_lint_sdata2_order_helper: {
+    provider: "review_lint",
+    type: "source_editing",
+    useWhen: "Preview or explicitly apply an isolated .sdata2 ordering helper after restoring inline numeric literals.",
+  },
 };

@@ -38,6 +38,9 @@ export interface FormState {
   processName: string;
   maxWorkers: number;
   epochSize: string;
+  candidateWindow: string;
+  candidateRerank: string;
+  integrationResolverConcurrency: number;
   agentTimeoutSeconds: number;
   goalValue: number;
   provider: string;
@@ -103,6 +106,11 @@ export interface RunDetails {
   improvements?: JsonObject[];
   improvedFiles?: JsonObject[];
   knowledgeIntake?: JsonObject;
+}
+
+export interface WorkerStateTrace extends JsonObject {
+  runId: string;
+  workerStateId: string;
 }
 
 export type PromptPreviewAgentId =

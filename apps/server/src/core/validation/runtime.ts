@@ -1,6 +1,6 @@
 import { compactReportRunResult } from "@server/core/session-runtime/phases/preparing/runtime";
 import { forceReportRun, recordReportRunDashboardArtifacts } from "@server/core/validation/report";
-import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
+import { getLatestRun, getRun, openState } from "@server/core/session-runtime/run-state";
 import type { ProjectRuntimeContext, ProjectSummary, ResolvedProject } from "@server/core/project-registry";
 
 type JsonObject = Record<string, unknown>;
@@ -19,6 +19,10 @@ function boolValue(value: unknown): boolean {
   return value === true || value === "true";
 }
 
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
 export function createValidationRuntime(deps: ValidationRuntimeDeps): ValidationRuntime {
   async function runReportNow(body: JsonObject): Promise<JsonObject> {
     const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
@@ -28,7 +32,8 @@ export function createValidationRuntime(deps: ValidationRuntimeDeps): Validation
     const result = await forceReportRun(repoRoot, { resetBaseline });
     const store = openState(paths.stateDir);
     try {
-      const run = getLatestRun(store);
+      const requestedRunId = stringValue(body.runId);
+      const run = requestedRunId ? getRun(store, requestedRunId) : getLatestRun(store);
       await recordReportRunDashboardArtifacts(store, {
         result,
         runId: run?.id ?? null,

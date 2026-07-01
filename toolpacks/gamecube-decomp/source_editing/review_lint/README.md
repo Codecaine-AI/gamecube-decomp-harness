@@ -62,7 +62,41 @@ human-readable summary goes to stderr. Rules live in `api/_qa_rules.py`
 | `resubmission_tombstone` | error | An added hunk whose normalized token-shingle Jaccard similarity to a previously rejected hunk meets the tombstone's threshold (default 0.7; hunks under 12 tokens are never checked). The finding cites the original rejection comment URL. |
 
 Every finding carries a `standard_id` so agent-facing errors cite the
-standard the worker already saw in its prompt.
+standard the worker already saw in its prompt. Data/literal ownership findings
+also carry structured repair details (`repair_hint` and, when applicable,
+`data_ordering_repair`) so worker repair loops can distinguish "restore the
+literal" from "use an isolated .sdata2 ordering helper after the literal is
+restored."
+
+### `.sdata2` Order Helper
+
+`api/sdata2_order_helper.py` is the explicit repair tool for the common case
+where an exact text match was achieved by replacing numeric literals with
+address-named `.sdata2` symbols. The correct repair sequence is:
+
+1. Restore the numeric literal in normal function logic.
+2. If the remaining mismatch is only `.sdata2` float/double order, preview the
+   helper:
+
+   ```sh
+   python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/sdata2_order_helper.py \
+     --repo-root <melee-root> --source src/melee/path/file.c --symbol lbl_804D0000 --json
+   ```
+
+3. Apply and validate only when that helper is the intended source edit:
+
+   ```sh
+   python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/sdata2_order_helper.py \
+     --repo-root <melee-root> --source src/melee/path/file.c --symbol lbl_804D0000 --apply --validate --json
+   ```
+
+The helper reads the reference object under `build/GALE01/obj/<unit>.o`,
+renders/replaces a narrow `sdata2_order` function, and with `--validate`
+direct-compiles the TU to compare the current `.sdata2` float/double sequence
+back to the reference. Repeat `--symbol` to keep the helper scoped to the
+specific address-style labels from QA findings; omit it only when a full-TU
+ordering helper is explicitly intended. It is read-only unless `--apply` is
+present.
 
 ### Moved vs. Invented Data Anchors
 

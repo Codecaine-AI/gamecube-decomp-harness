@@ -1,14 +1,14 @@
 import { asObject, numberValue, type ToolConcurrencySettings } from "./format";
 
-export const DEFAULT_WORKER_TIMEOUT_SECONDS = 3000;
+export const DEFAULT_WORKER_TIMEOUT_SECONDS = 1800;
 
 export const DEFAULT_TOOL_CONCURRENCY: ToolConcurrencySettings = {
-  checkdiff: 12,
+  checkdiff: 20,
   compile: 12,
-  m2cDecomp: 8,
-  mwccDebug: 2,
-  other: 16,
-  sourcePermuter: 1,
+  m2cDecomp: 15,
+  mwccDebug: 6,
+  other: 20,
+  sourcePermuter: 3,
   sourcePermuterJobs: 1,
 };
 

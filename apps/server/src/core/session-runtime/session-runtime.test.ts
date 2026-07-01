@@ -12,6 +12,7 @@ import {
   markSessionComplete,
   startRunning,
   stopProjectSessionRun,
+  updateRunningSubphase,
   updatePrSubphase,
 } from "@server/core/session-runtime";
 import { ensureSchema } from "@server/core/orchestrator-state/storage/ddl";
@@ -97,6 +98,57 @@ describe("project session runtime", () => {
     expect(pr.view.phase).toBe("pr");
     expect(pr.view.activeSubphase).toBe("final_build");
     expect(pr.view.phases.running.manual_stop_mode).toBe("hard_stop");
+    db.close();
+  });
+
+  test("restarting workers reactivates running state and clears manual stop metadata", () => {
+    const { db } = openTestDb();
+    const created = createNewProjectSession(db, { projectId: "melee", sessionUuid: "session-uuid", id: "project-session:session-uuid" });
+    markPreparingComplete(db, { id: created.record.id });
+    startRunning(db, { id: created.record.id });
+    stopProjectSessionRun(db, { id: created.record.id }, "manual_stop", { manualStopMode: "hard_stop" });
+
+    const restarted = updateRunningSubphase(db, { id: created.record.id }, "workers");
+    expect(restarted.view.phases.running.status).toBe("active");
+    expect(restarted.view.phases.running.completed_at).toBe(null);
+    expect(restarted.view.phases.running.stop_reason).toBeUndefined();
+    expect(restarted.view.phases.running.manual_stop_mode).toBeUndefined();
+    expect(restarted.view.activeSubphase).toBe("workers");
+    db.close();
+  });
+
+  test("running subphase stores worker config metadata", () => {
+    const { db } = openTestDb();
+    const created = createNewProjectSession(db, { projectId: "melee", sessionUuid: "session-uuid", id: "project-session:session-uuid" });
+    markPreparingComplete(db, { id: created.record.id });
+    startRunning(db, { id: created.record.id });
+
+    const updated = updateRunningSubphase(db, { id: created.record.id }, "workers", {
+      data: {
+        workers: {
+          workerConfig: {
+            configVersion: 2,
+            maxWorkers: 20,
+            epochSize: "128",
+            agentTimeoutSeconds: 1800,
+            provider: "codex-lb",
+            model: "gpt-5.5",
+            thinkingLevel: "xhigh",
+            toolConcurrency: { compile: 12 },
+          },
+        },
+      },
+    });
+    expect(updated.view.phases.running.workers?.workerConfig).toEqual({
+      configVersion: 2,
+      maxWorkers: 20,
+      epochSize: "128",
+      agentTimeoutSeconds: 1800,
+      provider: "codex-lb",
+      model: "gpt-5.5",
+      thinkingLevel: "xhigh",
+      toolConcurrency: { compile: 12 },
+    });
     db.close();
   });
 

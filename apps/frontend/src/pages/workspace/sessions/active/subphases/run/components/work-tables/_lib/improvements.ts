@@ -13,6 +13,8 @@ import {
 } from "@/lib/format";
 import type { ImprovedMode, ImprovedResultMode } from "./types";
 
+const exactPercentThreshold = 99.99999;
+
 function trustedReport(dashboard: Dashboard | null): JsonObject {
   return asObject(dashboard?.trustedReport);
 }
@@ -37,8 +39,14 @@ function workerScore(row: JsonObject, key: "oldScore" | "newScore"): string {
   return scoreOrPercent(row[key], scorePairLooksPercent(row.oldScore, row.newScore, row.totalDelta));
 }
 
+function reachesExactPercent(value: unknown): boolean {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= exactPercentThreshold;
+}
+
 function isWorkerMatch(row: JsonObject): boolean {
-  return Number(row.exactMatches || 0) > 0;
+  if (Number(row.exactMatches || 0) > 0) return true;
+  return scorePairLooksPercent(row.oldScore, row.newScore, row.totalDelta) && reachesExactPercent(row.newScore);
 }
 
 function workerRowDisplay(row: JsonObject): JsonObject {
@@ -89,12 +97,16 @@ function completedWorkerImprovementRows(dashboard: Dashboard | null): JsonObject
 // Confirmed = full-build truth accumulated across the run's saved epoch reports.
 export function confirmedMatchRows(dashboard: Dashboard | null): JsonObject[] {
   const source = improvementSourceReport(dashboard);
-  return source.ready ? asArray(source.report.newMatches).map(asObject) : [];
+  if (!source.ready) return [];
+  return [
+    ...asArray(source.report.newMatches).map(asObject),
+    ...asArray(source.report.improvements).map(asObject).filter((row) => reachesExactPercent(row.toPercent)),
+  ];
 }
 
 export function confirmedImprovementRows(dashboard: Dashboard | null): JsonObject[] {
   const source = improvementSourceReport(dashboard);
-  return source.ready ? asArray(source.report.improvements).map(asObject) : [];
+  return source.ready ? asArray(source.report.improvements).map(asObject).filter((row) => !reachesExactPercent(row.toPercent)) : [];
 }
 
 export function confirmedRows(dashboard: Dashboard | null): JsonObject[] {
@@ -144,7 +156,7 @@ export function reportRows(dashboard: Dashboard | null, mode: ImprovedMode, resu
 
 export function deltaColumnLabel(mode: ImprovedMode): string {
   if (mode === "confirmed") return "Bytes +/-";
-  return "Score +/-";
+  return "Score Delta";
 }
 
 export function deltaColumnTitle(mode: ImprovedMode): string {

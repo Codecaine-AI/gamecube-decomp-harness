@@ -27,9 +27,26 @@ export function schedulingForWorkers(
   };
 }
 
-export const workerCountOptions = [1, 2, 4, 8, 16, 32, 64] as const;
+export const workerCountOptions = [1, 2, 4, 8, 16, 20, 32, 64] as const;
 
 export const epochSizeOptions = [4, 8, 16, 32, 64, 128, 256, 512, 1024] as const;
+
+export const candidateWindowOptions = [32, 64, 128, 256, 512, 1024] as const;
+
+export const candidateRerankOptions = [
+  { label: "Priority", value: "priority" },
+  { label: "OPSEC hot lane", value: "opseq_hot_lane" },
+] as const;
+
+export const resolverConcurrencyOptions = [1, 2, 4, 8] as const;
+
+export const candidateWindowTooltip =
+  "How many top-ranked board candidates the scheduler rechecks when building an epoch. Keep it at or above the epoch size; larger windows let the OPSEC/opseq rerank pull likely matches into smaller batches after each rebuild.";
+
+export const candidateRerankTooltip = "Priority uses the normal board score. OPSEC hot lane adds a matched-opseq analog bonus so likely exact matches can rise from deeper in the candidate window.";
+
+export const resolverConcurrencyTooltip =
+  "How many integration resolver agents may run at once. Same-file conflicts stay serialized; different-file conflicts can resolve in parallel.";
 
 export function statusClass(value: unknown): string {
   const status = text(value);

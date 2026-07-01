@@ -23,6 +23,8 @@ export function setRunningSubphase(
       ...options.data,
       subphase,
       subphase_detail: subphase === "other" ? options.detail : undefined,
+      stop_reason: undefined,
+      manual_stop_mode: undefined,
     },
   };
 }

@@ -268,6 +268,36 @@ function createAppSessionBinding(
   };
 }
 
+function assistantProviderError(message: unknown): string | undefined {
+  if (!message || typeof message !== "object") return undefined;
+  const record = message as Record<string, unknown>;
+  if (record.role !== "assistant" || record.stopReason !== "error") return undefined;
+  return typeof record.errorMessage === "string" && record.errorMessage.trim()
+    ? record.errorMessage
+    : "provider ended the session with an error and no message";
+}
+
+function kernelSpawnProviderError(result: unknown): string | undefined {
+  if (!result || typeof result !== "object") return undefined;
+  const direct = (result as Record<string, unknown>).providerError;
+  if (typeof direct === "string" && direct.trim()) return direct;
+  const session = (result as Record<string, unknown>).session;
+  if (!session || typeof session !== "object") return undefined;
+  const messages = (session as Record<string, unknown>).messages;
+  if (!Array.isArray(messages)) return undefined;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const error = assistantProviderError(messages[index]);
+    if (error) return error;
+  }
+  return undefined;
+}
+
+function responseTextForKernelSpawn(result: { responseText?: unknown }, providerError: string | undefined): string {
+  if (typeof result.responseText === "string" && result.responseText.length > 0) return result.responseText;
+  if (!providerError) return typeof result.responseText === "string" ? result.responseText : "";
+  return `[Pi provider error]\n${providerError}\n`;
+}
+
 export function createMeleeKernelSpawnAgent(
   options: CreateMeleeKernelSpawnAgentOptions,
 ): MeleeKernelSpawnAdapter<PiRunResult> {
@@ -329,17 +359,21 @@ export function createMeleeKernelSpawnAgent(
         abortSignal: timeoutSignal.signal,
       },
     });
-    const userPrompt = promptWithRenderedContext(options.piOptions, prompt);
+    const userPrompt = options.contextResolver
+      ? prompt
+      : promptWithRenderedContext(options.piOptions, prompt);
     const restoreEnv = applyProcessEnvPatch(options.piOptions.env);
     try {
       const result = await kernelSpawn(name, userPrompt, null, kernelOptions).finally(
         timeoutSignal.cleanup,
       );
+      const providerError = kernelSpawnProviderError(result);
+      const responseText = responseTextForKernelSpawn(result, providerError);
       const sessionId = String((result.session as { sessionId?: unknown }).sessionId ?? randomUUID());
       const paths = resultPaths(options.piOptions, sessionId);
       await writeOutput(paths.systemPromptPath, parsedAgent.body);
       await writeOutput(paths.userPromptPath, userPrompt);
-      await writeOutput(paths.outputPath, result.responseText);
+      await writeOutput(paths.outputPath, responseText);
       result.session.dispose?.();
 
       return {
@@ -352,7 +386,7 @@ export function createMeleeKernelSpawnAgent(
           ? sessionDirFor(options.runtime, spawnContext.appSessionId, options.piOptions)
           : undefined,
         ...paths,
-        rawText: result.responseText,
+        rawText: responseText,
         dryRun: false,
         failed: result.aborted ? true : undefined,
         error: result.aborted
@@ -360,6 +394,7 @@ export function createMeleeKernelSpawnAgent(
             ? timeoutMessage(options.piOptions)
             : "Pi session aborted"
           : undefined,
+        providerError,
       };
     } finally {
       restoreEnv();

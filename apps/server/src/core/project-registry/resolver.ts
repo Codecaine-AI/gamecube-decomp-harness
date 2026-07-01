@@ -11,6 +11,9 @@ export interface ProjectValidationDefaults {
 
 export interface ProjectDashboardDefaults {
   epochSize?: number | string;
+  candidateWindow?: number | string;
+  candidateRerank?: string;
+  integrationResolverConcurrency?: number;
   agentTimeoutSeconds?: number;
   goalValue?: number;
 }
@@ -121,7 +124,10 @@ const defaultValidation: Required<ProjectValidationDefaults> = {
 
 const defaultDashboard: Required<ProjectDashboardDefaults> = {
   epochSize: 64,
-  agentTimeoutSeconds: 3000,
+  candidateWindow: 128,
+  candidateRerank: "opseq_hot_lane",
+  integrationResolverConcurrency: 4,
+  agentTimeoutSeconds: 1800,
   goalValue: 100,
 };
 
@@ -205,6 +211,9 @@ function dashboardFromObject(value: unknown): ProjectDashboardDefaults | undefin
   if (!isObject(value)) return undefined;
   return {
     epochSize: stringOrNumberField(value.epochSize),
+    candidateWindow: stringOrNumberField(value.candidateWindow),
+    candidateRerank: stringField(value.candidateRerank),
+    integrationResolverConcurrency: numberField(value.integrationResolverConcurrency),
     agentTimeoutSeconds: numberField(value.agentTimeoutSeconds),
     goalValue: numberField(value.goalValue),
   };

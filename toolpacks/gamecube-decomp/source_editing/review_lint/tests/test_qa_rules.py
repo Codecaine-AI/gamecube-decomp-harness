@@ -31,6 +31,15 @@ def test_address_from_name_value():
     assert _qa_rules.address_from_name("lbl_804DA60C") == 0x804DA60C
 
 
+def test_symbol_may_be_sdata2_uses_full_project_range():
+    assert _qa_rules.symbol_may_be_sdata2("lbl_804D79E0")
+    assert _qa_rules.symbol_may_be_sdata2("lbl_804D7D70")
+    assert _qa_rules.symbol_may_be_sdata2("lbl_804DEBFC")
+    assert not _qa_rules.symbol_may_be_sdata2("lbl_804D79DC")
+    assert not _qa_rules.symbol_may_be_sdata2("lbl_804DEC00")
+    assert not _qa_rules.symbol_may_be_sdata2("lbl_803D6900")
+
+
 # ---------------------------------------------------------------------------
 # extern_literal_anchor declaration regex.
 # ---------------------------------------------------------------------------
@@ -371,6 +380,9 @@ def test_numeric_literal_to_symbol_pairing():
         "grBb_804DB310",
         "grBb_804DB2F4",
     ]
+    assert findings[0]["detail"]["repair_hint"]
+    assert findings[0]["detail"]["data_ordering_repair"]["tool"] == "review_lint_sdata2_order_helper"
+    assert "--source src/melee/gr/grbigblue.c" in findings[0]["detail"]["data_ordering_repair"]["command"]
 
 
 def test_numeric_literal_to_symbol_requires_numeric_in_removed():
@@ -380,6 +392,35 @@ def test_numeric_literal_to_symbol_requires_numeric_in_removed():
         "removed": ["    foo(existing_symbol);"],
     }
     assert _qa_rules.check_numeric_literal_to_symbol(hunk) == []
+
+
+def test_string_literal_to_symbol_carries_restore_hint_without_sdata2_tool():
+    hunk = {
+        "file": "src/melee/gr/grkongo.c",
+        "added": [(662, "        OSReport(grKg_803E1A00);")],
+        "removed": ['        OSReport("gp->u.taru.keep");'],
+    }
+    findings = _qa_rules.check_string_literal_to_symbol(hunk)
+    assert len(findings) == 1
+    assert "Restore the string literal" in findings[0]["detail"]["repair_hint"]
+    assert "data_ordering_repair" not in findings[0]["detail"]
+
+
+def test_address_named_static_data_carries_sdata2_repair_tool():
+    hunk = _hardened_hunk("static const f32 grSmoke_804D9000 = 1.0F;\n")
+    findings = _qa_rules.check_address_named_static_data(hunk)
+    assert len(findings) == 1
+    detail = findings[0]["detail"]
+    assert detail["source_shape"] == "address_named_static_data"
+    assert detail["data_ordering_repair"]["tool"] == "review_lint_sdata2_order_helper"
+
+
+def test_address_named_static_data_outside_sdata2_has_no_sdata2_tool():
+    hunk = _hardened_hunk("static const char grSmoke_804736B0[] = \"abc\";\n")
+    findings = _qa_rules.check_address_named_static_data(hunk)
+    assert len(findings) == 1
+    assert "repair_hint" in findings[0]["detail"]
+    assert "data_ordering_repair" not in findings[0]["detail"]
 
 
 def test_copied_jobj_inline_flags_local_header_body_copy():

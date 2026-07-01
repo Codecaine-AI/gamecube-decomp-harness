@@ -30,6 +30,7 @@ export const agent = defineAgent({
       "type_oracle_lookup",
       "m2c_decompile",
       "review_lint_scan",
+      "review_lint_sdata2_order_helper",
   ],
   disallowedTools: [],
   extensions: false,

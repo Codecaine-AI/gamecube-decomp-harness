@@ -506,12 +506,17 @@ export function compareWorkerUnitSnapshots(params: {
   const targetHasScores = beforeTarget !== null && afterTarget !== null;
   const targetImproved = targetHasScores && afterTarget > beforeTarget + SCORE_EPSILON;
   const targetReachedExact = targetHasScores && beforeTarget < EXACT_SCORE && afterTarget >= EXACT_SCORE;
+  const targetIsExact = targetHasScores && afterTarget >= EXACT_SCORE;
   const targetRegressed = targetHasScores && afterTarget + SCORE_EPSILON < beforeTarget;
   // The runner owns the durable outcome: a measured official improvement is
   // accepted progress even when the model over-claimed exact. The over-claim
   // is surfaced in reasons and target.exact stays truthful, so the recorded
   // result downgrades to "improved" instead of discarding real score movement.
-  const targetAccepted = targetImproved || targetReachedExact;
+  //
+  // If the pre-worker worktree is already exact, treat an exact post-worker
+  // target as accepted too. This happens when the admission board is stale but
+  // the session worktree already contains the exact source.
+  const targetAccepted = targetImproved || targetReachedExact || targetIsExact;
 
   compareRows({ kind: "unit", unit: params.before.unit, beforeRows: params.before.metrics, afterRows: params.after.metrics, regressions, improvements, reasons });
   compareRows({ kind: "function", unit: params.before.unit, beforeRows: params.before.functions, afterRows: params.after.functions, regressions, improvements, reasons });
@@ -549,7 +554,7 @@ export function compareWorkerUnitSnapshots(params: {
       before: beforeTarget,
       after: afterTarget,
       improved: Boolean(targetImproved),
-      exact: Boolean(targetHasScores && afterTarget >= EXACT_SCORE),
+      exact: Boolean(targetIsExact),
     },
     regressions,
     improvements,
@@ -604,11 +609,45 @@ function qaLintRequiresRepair(qaLint: WorkerQaLint | null | undefined): qaLint i
 }
 
 /** Worker-facing repair feedback: one verbatim reason per finding plus the standing instruction. */
+function qaLintFindingRepairDetail(finding: QaScanFinding): string {
+  const detail = isRecord(finding.detail) ? finding.detail : {};
+  const parts: string[] = [];
+  const repairHint = stringValue(detail.repair_hint);
+  if (repairHint) parts.push(`repair_hint: ${repairHint}`);
+
+  const dataOrderingRepair = isRecord(detail.data_ordering_repair) ? detail.data_ordering_repair : null;
+  if (dataOrderingRepair) {
+    const kind = stringValue(dataOrderingRepair.kind);
+    const when = stringValue(dataOrderingRepair.when);
+    const tool = stringValue(dataOrderingRepair.tool);
+    const command = stringValue(dataOrderingRepair.command);
+    const repairParts = [
+      kind ? `kind=${kind}` : "",
+      when ? `when=${when}` : "",
+      tool ? `tool=${tool}` : "",
+      command ? `command=${command}` : "",
+    ].filter(Boolean);
+    if (repairParts.length > 0) parts.push(`data_ordering_repair: ${repairParts.join("; ")}`);
+  }
+
+  const suggestedTool = detail.suggested_tool;
+  if (typeof suggestedTool === "string" && suggestedTool.trim()) {
+    parts.push(`suggested_tool: ${suggestedTool.trim()}`);
+  } else if (isRecord(suggestedTool)) {
+    const tool = stringValue(suggestedTool.tool ?? suggestedTool.id);
+    const command = stringValue(suggestedTool.command);
+    const suggestedParts = [tool ? `tool=${tool}` : "", command ? `command=${command}` : ""].filter(Boolean);
+    if (suggestedParts.length > 0) parts.push(`suggested_tool: ${suggestedParts.join("; ")}`);
+  }
+
+  return parts.length > 0 ? ` repair: ${parts.join(" | ")}` : "";
+}
+
 export function qaLintRepairReasons(qaLint: WorkerQaLint | null | undefined): string[] {
   if (!qaLintRequiresRepair(qaLint)) return [];
   const reasons = qaLint.findings.map(
     (finding) =>
-      `qa_lint_finding: ${finding.severity} ${finding.rule_id} at ${finding.file}:${finding.line} — ${finding.message} [standard: ${finding.standard_id ?? "unknown"}] excerpt: ${finding.excerpt}`,
+      `qa_lint_finding: ${finding.severity} ${finding.rule_id} at ${finding.file}:${finding.line} — ${finding.message} [standard: ${finding.standard_id ?? "unknown"}] excerpt: ${finding.excerpt}${qaLintFindingRepairDetail(finding)}`,
   );
   if (reasons.length === 0) {
     reasons.push(`qa_lint_finding: scan_diff gate failed (exit ${qaLint.exitCode ?? "unknown"}) without parseable findings`);

@@ -36,6 +36,7 @@ export type KnownGraphFactType =
   | "historical_tool_issue"
   | "mismatch_pattern"
   | "mismatch_pattern_evidence"
+  | "opseq_analog_profile"
   | "past_pr_file_rollup"
   | "past_pr_key_file"
   | "path_scoped_hint"
@@ -153,6 +154,15 @@ export interface MismatchPatternEvidencePayload extends JsonObject {
   text?: string;
 }
 
+export interface OpseqAnalogProfilePayload extends JsonObject {
+  source?: JsonObject;
+  analog_count?: number;
+  best_score?: number;
+  exact_analog_count?: number;
+  matched_analog_count?: number;
+  top_analogs?: JsonObject[];
+}
+
 export type GraphEntityPayloadByType = {
   function: FunctionEntityPayload;
   mismatch_pattern: MismatchPatternPayload;
@@ -168,6 +178,7 @@ export type GraphFactPayloadByType = {
   function_status: FunctionStatusPayload;
   mismatch_pattern: MismatchPatternPayload;
   mismatch_pattern_evidence: MismatchPatternEvidencePayload;
+  opseq_analog_profile: OpseqAnalogProfilePayload;
   past_pr_file_rollup: PastPrFileRollupPayload;
 };
 

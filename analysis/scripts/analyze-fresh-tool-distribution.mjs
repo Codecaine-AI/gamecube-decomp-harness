@@ -14,6 +14,7 @@ function parseArgs(argv) {
     minEpoch: null,
     maxEpoch: null,
     includeActive: false,
+    thinkingLevel: null,
     out: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -29,6 +30,10 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--include-active") {
       args.includeActive = true;
+    } else if ((arg === "--thinking-level" || arg === "--thinking") && argv[index + 1]) {
+      const level = normalizeThinkingLevel(argv[index + 1]);
+      args.thinkingLevel = level === "all" ? null : level;
+      index += 1;
     } else if (arg === "--out" && argv[index + 1]) {
       args.out = argv[index + 1];
       index += 1;
@@ -52,6 +57,12 @@ function parseTime(value) {
   return Number.isFinite(ms) ? ms : null;
 }
 
+function normalizeThinkingLevel(value) {
+  if (value == null) return null;
+  const normalized = String(value).trim().toLowerCase().replaceAll("_", "-");
+  return normalized === "x-high" ? "xhigh" : normalized;
+}
+
 function pct(numerator, denominator, digits = 1) {
   if (!denominator) return null;
   return Number(((100 * numerator) / denominator).toFixed(digits));
@@ -64,6 +75,10 @@ function fmt(value, digits = 1) {
 
 function fmtPct(value) {
   return value == null ? "" : `${fmt(value, 1)}%`;
+}
+
+function fmtMin(value) {
+  return value == null ? "" : `${fmt(value, 1)} min`;
 }
 
 function average(values) {
@@ -350,7 +365,7 @@ const checkpointRows = db
     size: number(row.size),
   }));
 
-const sessionRows = db
+const allSessionRows = db
   .query(
     `
       SELECT run_id, target_claim_id, session_id, session_file, thinking_level, status, created_at
@@ -368,10 +383,15 @@ const sessionRows = db
     sessionId: String(row.session_id),
     sessionFile: row.session_file == null ? null : String(row.session_file),
     thinkingLevel: row.thinking_level == null ? null : String(row.thinking_level),
+    normalizedThinkingLevel: normalizeThinkingLevel(row.thinking_level),
     status: String(row.status),
     createdAt: String(row.created_at),
     createdMs: parseTime(row.created_at),
   }));
+
+const sessionRows = args.thinkingLevel
+  ? allSessionRows.filter((session) => session.normalizedThinkingLevel === args.thinkingLevel)
+  : allSessionRows;
 
 const sessionsByClaim = new Map();
 for (const session of sessionRows) {
@@ -405,6 +425,12 @@ function sessionsInWindow(targetClaimId, startMs, endMs) {
   });
 }
 
+const workerRowsToAnalyze = args.thinkingLevel
+  ? workerRows.filter((worker) => sessionsInWindow(worker.targetClaimId, worker.startedMs, worker.endedMs).length > 0)
+  : workerRows;
+
+const excludedWorkersByThinkingLevel = workerRows.length - workerRowsToAnalyze.length;
+
 const advertisedTools = new Set();
 let parsedTranscriptSessions = 0;
 let missingTranscriptSessions = 0;
@@ -434,7 +460,7 @@ function parseSessionTools(sessions) {
 const attemptRecords = [];
 const workerRecords = [];
 
-for (const worker of workerRows) {
+for (const worker of workerRowsToAnalyze) {
   const checkpoints = (checkpointRowsByWorker.get(worker.id) ?? []).sort(
     (left, right) => left.attemptIndex - right.attemptIndex || left.validationMs - right.validationMs,
   );
@@ -444,6 +470,13 @@ for (const worker of workerRows) {
   let firstWinAttempt = null;
   let firstWinKind = null;
   let firstWinScoreDelta = null;
+  let firstWinElapsedMin = null;
+  let firstExactAttempt = null;
+  let firstExactElapsedMin = null;
+  let firstExactScoreDelta = null;
+  let firstFuzzyWinAttempt = null;
+  let firstFuzzyWinElapsedMin = null;
+  let firstFuzzyWinScoreDelta = null;
   let acceptedExact = false;
   const toolsThroughOutcome = {};
   const allTools = {};
@@ -462,6 +495,10 @@ for (const worker of workerRows) {
     const fuzzyGain = fuzzyNewBest ? Math.max(0, checkpoint.newScore - baselineForGain) : 0;
     const winKind = kind === "accepted_exact" ? "accepted_exact" : fuzzyNewBest ? (hadFuzzyWin ? "later_fuzzy_new_best" : "first_fuzzy_new_best") : null;
     const producedWin = Boolean(winKind);
+    const elapsedFromWorkerStartMin =
+      worker.startedMs != null && checkpoint.validationMs != null ? (checkpoint.validationMs - worker.startedMs) / 60000 : null;
+    const windowDurationMin =
+      previousBoundaryMs != null && checkpoint.validationMs != null ? (checkpoint.validationMs - previousBoundaryMs) / 60000 : null;
 
     const record = {
       ...checkpoint,
@@ -473,6 +510,8 @@ for (const worker of workerRows) {
       sessionsInWindow: sessions.length,
       parsedSessions: parsed.parsedSessions,
       durationMin: parsed.durationMin,
+      elapsedFromWorkerStartMin,
+      windowDurationMin,
       tools: parsed.tools,
       totalToolCalls: parsed.totalToolCalls,
     };
@@ -483,12 +522,25 @@ for (const worker of workerRows) {
     if (producedWin && !firstWinAttempt) {
       firstWinAttempt = record.humanAttempt;
       firstWinKind = winKind;
+      firstWinElapsedMin = elapsedFromWorkerStartMin;
       firstWinScoreDelta =
         winKind === "accepted_exact"
           ? Math.max(0, 100 - (record.oldScore ?? record.newScore ?? 100))
           : fuzzyGain;
     }
-    if (kind === "accepted_exact") acceptedExact = true;
+    if (kind === "accepted_exact") {
+      acceptedExact = true;
+      if (firstExactElapsedMin == null) {
+        firstExactAttempt = record.humanAttempt;
+        firstExactElapsedMin = elapsedFromWorkerStartMin;
+        firstExactScoreDelta = Math.max(0, 100 - (record.oldScore ?? record.newScore ?? 100));
+      }
+    }
+    if (winKind && winKind !== "accepted_exact" && firstFuzzyWinElapsedMin == null) {
+      firstFuzzyWinAttempt = record.humanAttempt;
+      firstFuzzyWinElapsedMin = elapsedFromWorkerStartMin;
+      firstFuzzyWinScoreDelta = fuzzyGain;
+    }
     if (fuzzyNewBest && checkpoint.newScore != null) {
       bestFuzzy = checkpoint.newScore;
       hadFuzzyWin = true;
@@ -506,6 +558,11 @@ for (const worker of workerRows) {
 
   const wins = workerAttemptRecords.filter((record) => record.producedWin);
   const fuzzyWins = wins.filter((record) => record.winKind !== "accepted_exact");
+  const observedRuntimeMin =
+    worker.startedMs != null
+      ? ((worker.endedMs ?? parseTime(generatedAt)) - worker.startedMs) / 60000
+      : null;
+  const isCensored = worker.lifecycleStatus === "running" && worker.endedMs == null;
   workerRecords.push({
     workerStateId: worker.id,
     runId: worker.runId,
@@ -518,10 +575,20 @@ for (const worker of workerRows) {
     sourcePath: worker.sourcePath,
     attempts: checkpoints.length,
     hasCheckpoint: checkpoints.length > 0,
+    firstCheckpointKind: workerAttemptRecords[0]?.kind ?? null,
+    firstCheckpointElapsedMin: workerAttemptRecords[0]?.elapsedFromWorkerStartMin ?? null,
+    checkpointKinds: workerAttemptRecords.map((record) => record.kind),
     hasWin: wins.length > 0,
     firstWinAttempt,
     firstWinKind,
     firstWinScoreDelta,
+    firstWinElapsedMin,
+    firstExactAttempt,
+    firstExactElapsedMin,
+    firstExactScoreDelta,
+    firstFuzzyWinAttempt,
+    firstFuzzyWinElapsedMin,
+    firstFuzzyWinScoreDelta,
     acceptedExact,
     fuzzyWinCount: fuzzyWins.length,
     winCount: wins.length,
@@ -529,6 +596,9 @@ for (const worker of workerRows) {
     toolsThroughOutcome,
     allTools,
     totalToolCalls: Object.values(allTools).reduce((total, count) => total + count, 0),
+    workerRuntimeMin: worker.startedMs != null && worker.endedMs != null ? (worker.endedMs - worker.startedMs) / 60000 : null,
+    observedRuntimeMin,
+    isCensored,
   });
 }
 
@@ -602,10 +672,217 @@ const attemptToolRows = allToolNames.map((tool) => {
   };
 });
 
+function summarizeAttemptTiming(records) {
+  return {
+    elapsedFromWorkerStartMin: summarizeValues(records.map((record) => record.elapsedFromWorkerStartMin).filter((value) => Number.isFinite(value))),
+    attemptNumber: summarizeValues(records.map((record) => record.humanAttempt).filter((value) => Number.isFinite(value))),
+    transcriptDurationMin: summarizeValues(records.map((record) => record.durationMin).filter((value) => Number.isFinite(value))),
+  };
+}
+
+function groupedBy(values, keyFn) {
+  const groups = new Map();
+  for (const value of values) {
+    const key = keyFn(value);
+    const list = groups.get(key) ?? [];
+    list.push(value);
+    groups.set(key, list);
+  }
+  return groups;
+}
+
+function terminalDenominator(laterWins, noLaterWins) {
+  return laterWins + noLaterWins;
+}
+
+const timingSummary = {
+  firstWinMin: summarizeValues(workerWins.map((worker) => worker.firstWinElapsedMin).filter((value) => Number.isFinite(value))),
+  acceptedExactMin: summarizeValues(exactWorkers.map((worker) => worker.firstExactElapsedMin).filter((value) => Number.isFinite(value))),
+  fuzzyImprovementMin: summarizeValues(
+    workerRecords.map((worker) => worker.firstFuzzyWinElapsedMin).filter((value) => Number.isFinite(value)),
+  ),
+  failedGateExactAttempts: summarizeAttemptTiming(failedGateExactAttempts),
+  rejectedImprovementAttempts: summarizeAttemptTiming(rejectedImprovementAttempts),
+};
+
+function buildAttemptKillRows(workers) {
+  const maxAttempts = Math.max(0, ...workers.map((worker) => worker.attempts));
+  const thresholds = Array.from({ length: Math.min(maxAttempts, 8) }, (_, index) => index + 1);
+  return thresholds.map((threshold) => {
+    const reachedNoWin = workers.filter(
+      (worker) => worker.attempts >= threshold && (worker.firstWinAttempt == null || worker.firstWinAttempt > threshold),
+    );
+    const laterWins = reachedNoWin.filter((worker) => worker.firstWinAttempt != null && worker.firstWinAttempt > threshold);
+    const noLaterWins = reachedNoWin.filter((worker) => !worker.hasWin && !worker.isCensored);
+    const censored = reachedNoWin.filter((worker) => !worker.hasWin && worker.isCensored);
+    const denominator = terminalDenominator(laterWins.length, noLaterWins.length);
+    return {
+      thresholdAttempts: threshold,
+      reachedNoWin: reachedNoWin.length,
+      laterWins: laterWins.length,
+      noLaterWins: noLaterWins.length,
+      censored: censored.length,
+      laterWinRate: pct(laterWins.length, denominator),
+      exactLaterWins: laterWins.filter((worker) => worker.acceptedExact).length,
+      fuzzyOnlyLaterWins: laterWins.filter((worker) => worker.hasWin && !worker.acceptedExact).length,
+      shareOfWorkers: pct(reachedNoWin.length, workers.length),
+    };
+  });
+}
+
+function buildTimeKillRows(workers) {
+  const thresholds = [10, 15, 20, 25, 30, 40, 50, 60];
+  return thresholds.map((threshold) => {
+    const reachedNoWin = workers.filter((worker) => {
+      if (worker.firstWinElapsedMin != null) return worker.firstWinElapsedMin > threshold;
+      return (worker.observedRuntimeMin ?? 0) >= threshold;
+    });
+    const laterWins = reachedNoWin.filter((worker) => worker.firstWinElapsedMin != null && worker.firstWinElapsedMin > threshold);
+    const noLaterWins = reachedNoWin.filter((worker) => !worker.hasWin && !worker.isCensored);
+    const censored = reachedNoWin.filter((worker) => !worker.hasWin && worker.isCensored);
+    const denominator = terminalDenominator(laterWins.length, noLaterWins.length);
+    return {
+      thresholdMin: threshold,
+      reachedNoWin: reachedNoWin.length,
+      laterWins: laterWins.length,
+      noLaterWins: noLaterWins.length,
+      censored: censored.length,
+      laterWinRate: pct(laterWins.length, denominator),
+      exactLaterWins: laterWins.filter((worker) => worker.acceptedExact).length,
+      fuzzyOnlyLaterWins: laterWins.filter((worker) => worker.hasWin && !worker.acceptedExact).length,
+      shareOfWorkers: pct(reachedNoWin.length, workers.length),
+    };
+  });
+}
+
+function buildFirstCheckpointSignalRows(workers) {
+  const checkpointWorkers = workers.filter((worker) => worker.firstCheckpointKind != null);
+  const groups = [...groupedBy(checkpointWorkers, (worker) => worker.firstCheckpointKind).entries()];
+  return groups
+    .map(([kind, rows]) => {
+      const wins = rows.filter((worker) => worker.hasWin);
+      const exact = rows.filter((worker) => worker.acceptedExact);
+      const terminalRows = rows.filter((worker) => !worker.isCensored);
+      return {
+        kind,
+        workers: rows.length,
+        shareOfCheckpointWorkers: pct(rows.length, checkpointWorkers.length),
+        eventualWins: wins.length,
+        eventualWinRate: pct(wins.length, terminalRows.length),
+        exactWins: exact.length,
+        medianFirstCheckpointMin: quantile(
+          rows.map((worker) => worker.firstCheckpointElapsedMin).filter((value) => Number.isFinite(value)),
+          0.5,
+        ),
+        medianFirstWinMin: quantile(
+          wins.map((worker) => worker.firstWinElapsedMin).filter((value) => Number.isFinite(value)),
+          0.5,
+        ),
+        censored: rows.filter((worker) => worker.isCensored && !worker.hasWin).length,
+      };
+    })
+    .sort((left, right) => right.workers - left.workers || String(left.kind).localeCompare(String(right.kind)));
+}
+
+function hasNoWinAfterAttempts(worker, threshold) {
+  return worker.attempts >= threshold && (worker.firstWinAttempt == null || worker.firstWinAttempt > threshold);
+}
+
+function hasNoWinAfterMinutes(worker, threshold) {
+  if (worker.firstWinElapsedMin != null) return worker.firstWinElapsedMin > threshold;
+  return (worker.observedRuntimeMin ?? 0) >= threshold;
+}
+
+function hasNoCheckpointByMinutes(worker, threshold) {
+  if (worker.firstCheckpointElapsedMin != null) return worker.firstCheckpointElapsedMin > threshold;
+  return (worker.observedRuntimeMin ?? 0) >= threshold;
+}
+
+function summarizeCandidateKillSignal(workers, key, label, predicate) {
+  const atRisk = workers.filter(predicate);
+  const laterWins = atRisk.filter((worker) => worker.hasWin);
+  const noLaterWins = atRisk.filter((worker) => !worker.hasWin && !worker.isCensored);
+  const censored = atRisk.filter((worker) => !worker.hasWin && worker.isCensored);
+  const denominator = terminalDenominator(laterWins.length, noLaterWins.length);
+  return {
+    key,
+    label,
+    atRisk: atRisk.length,
+    laterWins: laterWins.length,
+    noLaterWins: noLaterWins.length,
+    censored: censored.length,
+    laterWinRate: pct(laterWins.length, denominator),
+    exactLaterWins: laterWins.filter((worker) => worker.acceptedExact).length,
+    fuzzyOnlyLaterWins: laterWins.filter((worker) => worker.hasWin && !worker.acceptedExact).length,
+    shareOfWorkers: pct(atRisk.length, workers.length),
+  };
+}
+
+function buildCandidateKillSignalRows(workers) {
+  const specs = [
+    ["no_checkpoint_20m", "No checkpoint by 20 min", (worker) => hasNoCheckpointByMinutes(worker, 20)],
+    ["no_checkpoint_30m", "No checkpoint by 30 min", (worker) => hasNoCheckpointByMinutes(worker, 30)],
+    ["no_checkpoint_40m", "No checkpoint by 40 min", (worker) => hasNoCheckpointByMinutes(worker, 40)],
+    ["no_win_1_attempt", "No win after 1 attempt", (worker) => hasNoWinAfterAttempts(worker, 1)],
+    ["no_win_2_attempts", "No win after 2 attempts", (worker) => hasNoWinAfterAttempts(worker, 2)],
+    ["no_win_3_attempts", "No win after 3 attempts", (worker) => hasNoWinAfterAttempts(worker, 3)],
+    ["no_win_4_attempts", "No win after 4 attempts", (worker) => hasNoWinAfterAttempts(worker, 4)],
+    ["no_win_30m", "No win by 30 min", (worker) => hasNoWinAfterMinutes(worker, 30)],
+    ["no_win_40m", "No win by 40 min", (worker) => hasNoWinAfterMinutes(worker, 40)],
+    ["no_win_50m", "No win by 50 min", (worker) => hasNoWinAfterMinutes(worker, 50)],
+    ["first_no_selectable", "First checkpoint: no selectable win", (worker) => worker.firstCheckpointKind === "no_selectable_win"],
+    ["first_rejected_improvement", "First checkpoint: rejected improvement", (worker) => worker.firstCheckpointKind === "rejected_improvement"],
+    ["first_failed_gate_exact", "First checkpoint: failed-gate exact", (worker) => worker.firstCheckpointKind === "failed_gate_exact"],
+    [
+      "two_attempts_no_failed_exact",
+      "No win after 2 attempts, no failed-gate exact yet",
+      (worker) => hasNoWinAfterAttempts(worker, 2) && !worker.checkpointKinds.slice(0, 2).includes("failed_gate_exact"),
+    ],
+    [
+      "two_attempts_all_no_selectable",
+      "Two no-win attempts, both no-selectable",
+      (worker) => hasNoWinAfterAttempts(worker, 2) && worker.checkpointKinds.slice(0, 2).every((kind) => kind === "no_selectable_win"),
+    ],
+    [
+      "two_attempts_latest_no_selectable_or_rejected",
+      "No win after 2 attempts, latest no-selectable/rejected",
+      (worker) =>
+        hasNoWinAfterAttempts(worker, 2) &&
+        ["no_selectable_win", "rejected_improvement"].includes(worker.checkpointKinds[1]),
+    ],
+  ];
+
+  return specs
+    .map(([key, label, predicate]) => summarizeCandidateKillSignal(workers, key, label, predicate))
+    .filter((row) => row.atRisk > 0)
+    .sort((left, right) => {
+      const leftRate = left.laterWinRate ?? Number.POSITIVE_INFINITY;
+      const rightRate = right.laterWinRate ?? Number.POSITIVE_INFINITY;
+      if (Math.abs(leftRate - rightRate) > 0.0001) return leftRate - rightRate;
+      return right.atRisk - left.atRisk;
+    });
+}
+
+const terminalWorkerRecords = workerRecords.filter((worker) => !worker.isCensored);
+const killSignalSummary = {
+  candidateHeuristics: buildCandidateKillSignalRows(workerRecords),
+  candidateHeuristicsTerminalOnly: buildCandidateKillSignalRows(terminalWorkerRecords),
+  attempts: buildAttemptKillRows(workerRecords),
+  attemptsTerminalOnly: buildAttemptKillRows(terminalWorkerRecords),
+  time: buildTimeKillRows(workerRecords),
+  timeTerminalOnly: buildTimeKillRows(terminalWorkerRecords),
+  firstCheckpoint: buildFirstCheckpointSignalRows(workerRecords),
+  terminalWorkers: terminalWorkerRecords.length,
+  censoredWorkers: workerRecords.length - terminalWorkerRecords.length,
+};
+
 const epochRows = includedEpochs.map((epoch) => {
   const workers = workerRecords.filter((worker) => worker.epochId === epoch.id);
   const attempts = attemptRecords.filter((attempt) => attempt.epochId === epoch.id);
   const wins = attempts.filter((attempt) => attempt.producedWin);
+  const exactTiming = workers.map((worker) => worker.firstExactElapsedMin).filter((value) => Number.isFinite(value));
+  const fuzzyTiming = workers.map((worker) => worker.firstFuzzyWinElapsedMin).filter((value) => Number.isFinite(value));
+  const firstWinTiming = workers.map((worker) => worker.firstWinElapsedMin).filter((value) => Number.isFinite(value));
   return {
     ordinal: epoch.ordinal,
     status: epoch.status,
@@ -619,6 +896,12 @@ const epochRows = includedEpochs.map((epoch) => {
     exactWinAttempts: wins.filter((attempt) => attempt.winKind === "accepted_exact").length,
     fuzzyWinAttempts: wins.filter((attempt) => attempt.winKind !== "accepted_exact").length,
     failedGateExactAttempts: attempts.filter((attempt) => attempt.kind === "failed_gate_exact").length,
+    firstWinMedianMin: quantile(firstWinTiming, 0.5),
+    exactMedianMin: quantile(exactTiming, 0.5),
+    fuzzyMedianMin: quantile(fuzzyTiming, 0.5),
+    firstWinP90Min: quantile(firstWinTiming, 0.9),
+    exactP90Min: quantile(exactTiming, 0.9),
+    fuzzyP90Min: quantile(fuzzyTiming, 0.9),
     createdAt: epoch.createdAt,
     closedAt: epoch.closedAt,
   };
@@ -653,10 +936,17 @@ const report = {
       closedAt: epoch.closedAt,
     })),
     includeActive: args.includeActive,
+    thinkingLevel: args.thinkingLevel,
+    excludedWorkersByThinkingLevel,
   },
   method:
-    "Fresh session-flow analysis only. Pi worker sessions are assigned to the attempt window ending at each worker checkpoint. Worker-level tool rows use tools seen up to the first accepted exact or fuzzy new-best; no-win workers use all observed tools.",
+    `Fresh session-flow analysis only. Pi worker sessions are assigned to the attempt window ending at each worker checkpoint. Worker-level tool rows use tools seen up to the first accepted exact or fuzzy new-best; no-win workers use all observed tools.${
+      args.thinkingLevel
+        ? ` Filtered to Pi worker sessions with thinking_level=${args.thinkingLevel}; workers without scoped sessions are excluded.`
+        : ""
+    }`,
   sourceSummary: {
+    piWorkerSessionsBeforeThinkingFilter: allSessionRows.length,
     piWorkerSessionsForRun: sessionRows.length,
     assignedSessionCount,
     parsedTranscriptSessions,
@@ -674,6 +964,8 @@ const report = {
     totalFuzzyGain: Number(workerRecords.reduce((total, worker) => total + worker.totalFuzzyGain, 0).toFixed(6)),
     firstWinDelta: summarizeValues(workerWins.map((worker) => worker.firstWinScoreDelta).filter((value) => value != null)),
   },
+  timingSummary,
+  killSignalSummary,
   attemptsSummary: {
     attempts: attemptRecords.length,
     attemptsWithToolCalls: attemptRecords.filter((record) => record.totalToolCalls > 0).length,
@@ -693,16 +985,39 @@ const report = {
     .filter((worker) => worker.hasWin)
     .sort((left, right) => right.totalFuzzyGain - left.totalFuzzyGain || (right.firstWinScoreDelta ?? 0) - (left.firstWinScoreDelta ?? 0))
     .slice(0, 24),
+  fastestExactWorkers: workerRecords
+    .filter((worker) => worker.firstExactElapsedMin != null)
+    .sort((left, right) => left.firstExactElapsedMin - right.firstExactElapsedMin)
+    .slice(0, 24),
+  fastestFuzzyImprovementWorkers: workerRecords
+    .filter((worker) => worker.firstFuzzyWinElapsedMin != null)
+    .sort((left, right) => left.firstFuzzyWinElapsedMin - right.firstFuzzyWinElapsedMin)
+    .slice(0, 24),
 };
 
 mkdirSync(outDir, { recursive: true });
-const defaultBase = `fresh-tool-distribution-${report.scope.includedEpochCount}-epoch-${today}`;
+const scopeSlug = args.thinkingLevel ? `${args.thinkingLevel}-` : "";
+const defaultBase = `fresh-tool-distribution-${scopeSlug}${report.scope.includedEpochCount}-epoch-${today}`;
 const htmlPath = resolve(args.out ?? `${outDir}/${defaultBase}.html`);
 const jsonPath = htmlPath.replace(/\.html$/, ".stats.json");
 writeFileSync(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
 
 const epochTable = table(
-  ["Epoch", "Status", "Workers", "With checkpoints", "Attempts", "Wins", "Exact", "Fuzzy", "Failed 100%", "Closed"],
+  [
+    "Epoch",
+    "Status",
+    "Workers",
+    "With checkpoints",
+    "Attempts",
+    "Wins",
+    "Exact",
+    "Fuzzy",
+    "Failed 100%",
+    "First win med",
+    "Exact med",
+    "Improvement med",
+    "Closed",
+  ],
   epochRows.map((epoch) =>
     [
       cell(epoch.ordinal, "num"),
@@ -714,7 +1029,106 @@ const epochTable = table(
       cell(epoch.exactWinAttempts, "num"),
       cell(epoch.fuzzyWinAttempts, "num"),
       cell(epoch.failedGateExactAttempts, "num"),
+      cell(fmtMin(epoch.firstWinMedianMin), "num"),
+      cell(fmtMin(epoch.exactMedianMin), "num"),
+      cell(fmtMin(epoch.fuzzyMedianMin), "num"),
       cell(epoch.closedAt ?? ""),
+    ].join("").replace(/^/, "<tr>").replace(/$/, "</tr>"),
+  ),
+);
+
+const exactTimingTable = table(
+  ["Epoch", "Symbol", "Source", "Attempt", "Minutes", "Delta to exact"],
+  report.fastestExactWorkers.map((worker) =>
+    [
+      cell(worker.epochOrdinal, "num"),
+      cell(worker.symbol),
+      cell(worker.sourcePath, "mono"),
+      cell(worker.firstExactAttempt, "num"),
+      cell(fmtMin(worker.firstExactElapsedMin), "num"),
+      cell(fmt(worker.firstExactScoreDelta, 3), "num"),
+    ].join("").replace(/^/, "<tr>").replace(/$/, "</tr>"),
+  ),
+);
+
+const improvementTimingTable = table(
+  ["Epoch", "Symbol", "Source", "Attempt", "Minutes", "First gain"],
+  report.fastestFuzzyImprovementWorkers.map((worker) =>
+    [
+      cell(worker.epochOrdinal, "num"),
+      cell(worker.symbol),
+      cell(worker.sourcePath, "mono"),
+      cell(worker.firstFuzzyWinAttempt, "num"),
+      cell(fmtMin(worker.firstFuzzyWinElapsedMin), "num"),
+      cell(fmt(worker.firstFuzzyWinScoreDelta, 3), "num"),
+    ].join("").replace(/^/, "<tr>").replace(/$/, "</tr>"),
+  ),
+);
+
+const attemptKillTable = table(
+  ["Kill after", "Workers at threshold", "Later wins missed", "No later win", "Censored", "Later-win rate", "Exact later", "Fuzzy later", "Worker share"],
+  report.killSignalSummary.attempts.map((rowData) =>
+    [
+      cell(`${rowData.thresholdAttempts} no-win attempt${rowData.thresholdAttempts === 1 ? "" : "s"}`, "num"),
+      cell(rowData.reachedNoWin, "num"),
+      cell(rowData.laterWins, "num"),
+      cell(rowData.noLaterWins, "num"),
+      cell(rowData.censored, "num"),
+      cell(fmtPct(rowData.laterWinRate), "num"),
+      cell(rowData.exactLaterWins, "num"),
+      cell(rowData.fuzzyOnlyLaterWins, "num"),
+      cell(fmtPct(rowData.shareOfWorkers), "num"),
+    ].join("").replace(/^/, "<tr>").replace(/$/, "</tr>"),
+  ),
+);
+
+const candidateKillTable = table(
+  ["Candidate signal", "Workers hit", "Later wins missed", "No later win", "Censored", "Later-win rate", "Exact later", "Fuzzy later", "Worker share"],
+  report.killSignalSummary.candidateHeuristics.map((rowData) =>
+    [
+      cell(rowData.label),
+      cell(rowData.atRisk, "num"),
+      cell(rowData.laterWins, "num"),
+      cell(rowData.noLaterWins, "num"),
+      cell(rowData.censored, "num"),
+      cell(fmtPct(rowData.laterWinRate), "num"),
+      cell(rowData.exactLaterWins, "num"),
+      cell(rowData.fuzzyOnlyLaterWins, "num"),
+      cell(fmtPct(rowData.shareOfWorkers), "num"),
+    ].join("").replace(/^/, "<tr>").replace(/$/, "</tr>"),
+  ),
+);
+
+const timeKillTable = table(
+  ["Kill after", "Workers at threshold", "Later wins missed", "No later win", "Censored", "Later-win rate", "Exact later", "Fuzzy later", "Worker share"],
+  report.killSignalSummary.time.map((rowData) =>
+    [
+      cell(`${rowData.thresholdMin} min no win`, "num"),
+      cell(rowData.reachedNoWin, "num"),
+      cell(rowData.laterWins, "num"),
+      cell(rowData.noLaterWins, "num"),
+      cell(rowData.censored, "num"),
+      cell(fmtPct(rowData.laterWinRate), "num"),
+      cell(rowData.exactLaterWins, "num"),
+      cell(rowData.fuzzyOnlyLaterWins, "num"),
+      cell(fmtPct(rowData.shareOfWorkers), "num"),
+    ].join("").replace(/^/, "<tr>").replace(/$/, "</tr>"),
+  ),
+);
+
+const firstCheckpointSignalTable = table(
+  ["First checkpoint", "Workers", "Share", "Eventual wins", "Win rate", "Exact wins", "Median first checkpoint", "Median first win", "Censored"],
+  report.killSignalSummary.firstCheckpoint.map((rowData) =>
+    [
+      cell(rowData.kind, "mono"),
+      cell(rowData.workers, "num"),
+      cell(fmtPct(rowData.shareOfCheckpointWorkers), "num"),
+      cell(rowData.eventualWins, "num"),
+      cell(fmtPct(rowData.eventualWinRate), "num"),
+      cell(rowData.exactWins, "num"),
+      cell(fmtMin(rowData.medianFirstCheckpointMin), "num"),
+      cell(fmtMin(rowData.medianFirstWinMin), "num"),
+      cell(rowData.censored, "num"),
     ].join("").replace(/^/, "<tr>").replace(/$/, "</tr>"),
   ),
 );
@@ -786,12 +1200,14 @@ const excludedText = excludedEpochs.length
   ? `Excluded epochs: ${excludedEpochs.map((epoch) => `${epoch.ordinal} (${epoch.status})`).join(", ")}.`
   : "No epochs excluded.";
 
+const titleSuffix = args.thinkingLevel ? ` (${args.thinkingLevel})` : "";
+
 const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fresh Tool Distribution</title>
+<title>Fresh Tool Distribution${htmlEscape(titleSuffix)}</title>
 <style>
 :root{--bg:#f7f9fb;--ink:#172026;--muted:#65727c;--line:#d9e1e7;--panel:#fff;--green:#16803a;--teal:#087f83}
 *{box-sizing:border-box}
@@ -821,8 +1237,8 @@ code{background:#eef2f4;border:1px solid #dfe6ea;border-radius:4px;padding:1px 4
 <body>
 <main>
   <header>
-    <h1>Fresh Tool Distribution</h1>
-    <div class="subtitle">Run <code>${htmlEscape(runId)}</code> · epochs ${report.scope.minEpoch}-${report.scope.maxEpoch} (${report.scope.includedEpochCount} closed epochs) · generated ${htmlEscape(generatedAt)}</div>
+    <h1>Fresh Tool Distribution${htmlEscape(titleSuffix)}</h1>
+    <div class="subtitle">Run <code>${htmlEscape(runId)}</code> · epochs ${report.scope.minEpoch}-${report.scope.maxEpoch} (${report.scope.includedEpochCount}${args.includeActive ? " scoped" : " closed"} epochs) · generated ${htmlEscape(generatedAt)}</div>
     <div class="callout">${htmlEscape(report.method)} ${htmlEscape(excludedText)}</div>
   </header>
 
@@ -833,7 +1249,37 @@ code{background:#eef2f4;border:1px solid #dfe6ea;border-radius:4px;padding:1px 4
       <section class="card"><div class="ct">Workers with wins</div><div class="cv">${report.workerSummary.workersWithWins}</div><div class="cn">${fmtPct(report.workerSummary.workersWithWinsRate)} of started workers</div></section>
       <section class="card"><div class="ct">Win attempts</div><div class="cv">${report.attemptsSummary.winAttempts}</div><div class="cn">${report.attemptsSummary.exactWinAttempts} exact, ${report.attemptsSummary.fuzzyWinAttempts} fuzzy</div></section>
       <section class="card"><div class="ct">Fuzzy gain</div><div class="cv">${fmt(report.workerSummary.totalFuzzyGain, 3)}</div><div class="cn">accepted score points from fuzzy new-bests</div></section>
+      <section class="card"><div class="ct">Median exact time</div><div class="cv">${fmt(report.timingSummary.acceptedExactMin.median, 1)}</div><div class="cn">minutes from worker start to first accepted exact</div></section>
+      <section class="card"><div class="ct">Median improvement time</div><div class="cv">${fmt(report.timingSummary.fuzzyImprovementMin.median, 1)}</div><div class="cn">minutes from worker start to first fuzzy new-best</div></section>
     </div>
+  </section>
+
+  <section class="band">
+    <h2>Match And Improvement Timing</h2>
+    <p class="muted">Timing is measured from each worker state's start time to the validation checkpoint that first produced the outcome. Exact matches and fuzzy improvements are separated because the first useful checkpoint can be either.</p>
+    <div class="cards">
+      <section class="card"><div class="ct">Exact matches</div><div class="cv">${report.timingSummary.acceptedExactMin.count}</div><div class="cn">median ${fmtMin(report.timingSummary.acceptedExactMin.median)} · p90 ${fmtMin(report.timingSummary.acceptedExactMin.p90)}</div></section>
+      <section class="card"><div class="ct">Fuzzy improvements</div><div class="cv">${report.timingSummary.fuzzyImprovementMin.count}</div><div class="cn">median ${fmtMin(report.timingSummary.fuzzyImprovementMin.median)} · p90 ${fmtMin(report.timingSummary.fuzzyImprovementMin.p90)}</div></section>
+      <section class="card"><div class="ct">Failed 100%</div><div class="cv">${report.timingSummary.failedGateExactAttempts.elapsedFromWorkerStartMin.count}</div><div class="cn">median ${fmtMin(report.timingSummary.failedGateExactAttempts.elapsedFromWorkerStartMin.median)}</div></section>
+      <section class="card"><div class="ct">Rejected improvements</div><div class="cv">${report.timingSummary.rejectedImprovementAttempts.elapsedFromWorkerStartMin.count}</div><div class="cn">median ${fmtMin(report.timingSummary.rejectedImprovementAttempts.elapsedFromWorkerStartMin.median)}</div></section>
+    </div>
+    <h3>Fastest Exact Matches</h3>
+    ${exactTimingTable}
+    <h3>Fastest Fuzzy Improvements</h3>
+    ${improvementTimingTable}
+  </section>
+
+  <section class="band">
+    <h2>Early Kill Signals</h2>
+    <p class="muted">A row means the worker reached that threshold without an accepted exact or fuzzy new-best yet. "Later wins missed" is the number of eventual wins that a kill at that threshold would have stopped. Censored rows are still running, so the later-win rate excludes them.</p>
+    <h3>Candidate Heuristics</h3>
+    ${candidateKillTable}
+    <h3>Attempt Thresholds</h3>
+    ${attemptKillTable}
+    <h3>Elapsed-Time Thresholds</h3>
+    ${timeKillTable}
+    <h3>First Checkpoint Outcome</h3>
+    ${firstCheckpointSignalTable}
   </section>
 
   <section class="band">
@@ -866,7 +1312,7 @@ code{background:#eef2f4;border:1px solid #dfe6ea;border-radius:4px;padding:1px 4
   <section class="band">
     <h2>Method</h2>
     <p>Data source: <code>${htmlEscape(dbPath)}</code>, using <code>epochs</code>, <code>worker_state</code>, <code>worker_checkpoints</code>, <code>epoch_targets</code>, and <code>pi_sessions</code>. Checkpoint gates are canonical: failed-gate 100% exacts are tracked separately and do not count as wins.</p>
-    <p class="muted">Parsed transcript sessions: ${report.sourceSummary.parsedTranscriptSessions}. Missing transcript sessions: ${report.sourceSummary.missingTranscriptSessions}. Companion stats: <code>${htmlEscape(jsonPath)}</code>.</p>
+    <p class="muted">Pi worker sessions in run: ${report.sourceSummary.piWorkerSessionsBeforeThinkingFilter}. Scoped sessions: ${report.sourceSummary.piWorkerSessionsForRun}. Workers excluded by thinking-level scope: ${report.scope.excludedWorkersByThinkingLevel}. Parsed transcript sessions: ${report.sourceSummary.parsedTranscriptSessions}. Missing transcript sessions: ${report.sourceSummary.missingTranscriptSessions}. Companion stats: <code>${htmlEscape(jsonPath)}</code>.</p>
   </section>
 </main>
 </body>

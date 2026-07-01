@@ -2,7 +2,7 @@
   "id": "review_lint",
   "title": "Review lint for decomp source edits",
   "trust_tier": "tool_evidence",
-  "description": "Scan proposed source text or files for high-risk decomp review anti-patterns.",
+  "description": "Scan proposed source text or files for high-risk decomp review anti-patterns, and provide explicit repair helpers for data-ordering QA findings.",
   "operation_mode": "native_api_v1",
   "runner_status": "on_demand_native",
   "status_message": "Native API v1: review lint scans text/files directly for decomp review guardrails.",
@@ -10,12 +10,14 @@
     "The scan is conservative and lexical; findings should prompt source review rather than automatic rejection in isolation.",
     "Inline-helper pointer-variable checks work best on complete C function text, not small snippets.",
     "Whole-file QA rules (--rule qa_text) are advisory: they cannot do paired-line or section-ownership analysis and may flag pre-existing code; the diff-aware scan_diff gate is authoritative.",
-    "This suite complements, but does not replace, project review lint and local regression validation."
+    "This suite complements, but does not replace, project review lint and local regression validation.",
+    "The sdata2_order_helper command is read-only by default and mutates source only with --apply."
   ],
   "commands": {
     "status": "python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/status.py --json",
     "scan": "python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/scan.py --file <path> --json",
-    "scan_diff": "python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py --repo <melee-root> --base origin/master --gate --json"
+    "scan_diff": "python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py --repo <melee-root> --base origin/master --gate --json",
+    "sdata2_order_helper": "python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/sdata2_order_helper.py --repo-root <melee-root> --source <path> [--symbol <label>] --json"
   },
   "capabilities": [
     "review_lint",
@@ -26,6 +28,9 @@
     "self_tu_extern",
     "same_tu_function_extern",
     "string_literal_to_symbol",
+    "numeric_literal_to_symbol",
+    "address_named_static_data",
+    "sdata2_order_helper",
     "packed_string_blob",
     "unrolled_assert",
     "fake_assert_macro",
@@ -45,7 +50,7 @@
   "process_role": "attempt_review_guardrail",
   "usage": {
     "invocation_mode": "attempt_evaluation",
-    "mutates_source": false,
+    "mutates_source": "conditional",
     "blocks_on_failure": true,
     "triggers": [
       "attempt_ready_for_evaluation",
@@ -54,8 +59,9 @@
     ],
     "outputs": [
       "review_findings",
-      "risk_patterns"
+      "risk_patterns",
+      "sdata2_order_helper_preview"
     ],
-    "agent_guidance": "Use as part of attempt evaluation or source review feedback. It is a guardrail for accepting an attempt, not a command that must run after every edit."
+    "agent_guidance": "Use scans as part of attempt evaluation or source review feedback. Use sdata2_order_helper only after restoring inline numeric literals, when the remaining issue is pure .sdata2 float/double order; pass --apply explicitly to mutate source."
   }
 }

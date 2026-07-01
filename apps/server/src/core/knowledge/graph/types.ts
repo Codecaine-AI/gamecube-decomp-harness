@@ -1,6 +1,6 @@
 import type { GraphEdgeType, GraphEntityPayload, GraphEntityType, GraphFactPayload, GraphFactType, GraphStatus } from "./payloads.js";
 
-export type SourceKind = "code_graph" | "pr_corpus" | "document" | "csv_corpus" | "external_mirror";
+export type SourceKind = "code_graph" | "pr_corpus" | "document" | "csv_corpus" | "external_mirror" | "tool_evidence";
 
 export type TrustTier = "canonical" | "local" | "reference" | "historical" | "external_hint" | "tool_evidence";
 
@@ -169,6 +169,11 @@ export interface GraphRankFeature {
   relevant_pr_count: number;
   review_risk_count: number;
   duplicate_reference_count: number;
+  opseq_best_analog_score: number;
+  opseq_best_matched_analog_score: number;
+  opseq_analog_count: number;
+  opseq_exact_analog_count: number;
+  opseq_matched_analog_count: number;
   linked_unlock_potential: number;
   connected_incomplete_function_count: number;
   connected_matched_reference_count: number;

@@ -14,7 +14,8 @@ MODEL ?= gpt-5.5
 THINKING ?= medium
 WORKER_THINKING ?= medium
 
-WORKERS ?= 16
+WORKERS ?= 20
+AGENT_TIMEOUT_SECONDS ?= 1800
 GOAL_KIND ?= matched_code_percent
 GOAL ?= 100
 CANDIDATE_LIMIT ?= 64
@@ -27,7 +28,7 @@ RUN_ID_FLAG := $(if $(RUN_ID),--run-id "$(RUN_ID)",)
 PR_QA_AGENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_RUN_AGENTS)),--run-agents,)
 PR_QA_COMMENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_COMMENT)),--comment-unresolved,)
 PR_QA_CI_FLAG := $(if $(filter 1 true yes,$(PR_QA_WAIT_CI)),--wait-ci,)
-ORCH_GLOBAL_FLAGS := --repo-root "$(REPO_ROOT)" --state-dir "$(STATE_DIR)" $(DRY_FLAG) --provider "$(PROVIDER)" --model "$(MODEL)" --thinking-level "$(THINKING)"
+ORCH_GLOBAL_FLAGS := --repo-root "$(REPO_ROOT)" --state-dir "$(STATE_DIR)" $(DRY_FLAG) --provider "$(PROVIDER)" --model "$(MODEL)" --thinking-level "$(THINKING)" --agent-timeout-seconds "$(AGENT_TIMEOUT_SECONDS)"
 
 .PHONY: help install check smoke ui status init-run start dry-start recover-leases regression-check pr-split-plan pr-draft-qa kg-status kg-maintain
 
@@ -52,7 +53,7 @@ help:
 	  '  REPO_ROOT="$(REPO_ROOT)"' \
 	  '  STATE_DIR="$(STATE_DIR)"' \
 	  '  RUN_ID="$(RUN_ID)"' \
-	  '  WORKERS=$(WORKERS) GOAL=$(GOAL) DRY_RUN=$(DRY_RUN)'
+	  '  WORKERS=$(WORKERS) AGENT_TIMEOUT_SECONDS=$(AGENT_TIMEOUT_SECONDS) GOAL=$(GOAL) DRY_RUN=$(DRY_RUN)'
 
 install:
 	bun install

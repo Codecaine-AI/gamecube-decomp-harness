@@ -72,6 +72,28 @@ ADDRESS_SUFFIX_RE = re.compile(r"_(8[0-9A-Fa-f]{7})$")
 FLOAT_TYPES = {"f32", "f64", "float", "double"}
 STRING_TYPES = {"char", "u8"}
 
+SDATA2_ORDER_HELPER_TOOL_ID = "review_lint_sdata2_order_helper"
+SDATA2_ORDER_HELPER_SCRIPT = (
+    "toolpacks/gamecube-decomp/source_editing/review_lint/api/sdata2_order_helper.py"
+)
+MELEE_SDATA2_START = 0x804D79E0
+MELEE_SDATA2_END = 0x804DEC00
+NUMERIC_DATA_REPAIR_HINT = (
+    "Restore the numeric literal in ordinary logic. If the only remaining "
+    "exact-match gap is .sdata2 float/double order, use an isolated "
+    "sdata2_order helper generated from the reference object instead of "
+    "referencing address-named data from the function body."
+)
+STRING_DATA_REPAIR_HINT = (
+    "Restore the string literal at the call site. Do not replace review-facing "
+    "string literals with address-named data symbols or pointer-offset aliases."
+)
+ADDRESS_DATA_REPAIR_HINT = (
+    "Remove the address-named data definition unless this change is explicitly "
+    "scoped to evidenced data ownership. Keep ordinary literals inline; for a "
+    "pure .sdata2 float/double ordering gap, use an isolated sdata2_order helper."
+)
+
 # `extern [const] <type> [const] name[optional array];` with NO initializer.
 EXTERN_DECL_RE = re.compile(
     r"^\s*extern\s+(?:(?:const|volatile)\s+)*"
@@ -333,6 +355,16 @@ def address_from_name(name: str) -> int | None:
     return int(match.group(1), 16)
 
 
+def symbol_may_be_sdata2(name: str) -> bool:
+    """Heuristic for labels in the usual Melee .sdata2 address band."""
+
+    address = address_from_name(name)
+    return (
+        address is not None
+        and MELEE_SDATA2_START <= address < MELEE_SDATA2_END
+    )
+
+
 def path_matches(path: str | None, patterns: list[str]) -> bool:
     """Return whether a repo-relative path matches any glob pattern."""
 
@@ -369,6 +401,14 @@ def check_extern_literal_anchor(hunk: dict[str, Any]) -> list[dict[str, Any]]:
         }
         if ctype in STRING_TYPES:
             standard = "global_standard:no-string-literal-symbol-regression"
+            detail = data_ordering_repair_detail(
+                detail,
+                source_ref=hunk.get("file"),
+                source_shape="extern_literal_anchor:string",
+                hint=STRING_DATA_REPAIR_HINT,
+                include_sdata2_tool=False,
+                symbols=[name],
+            )
             findings.append(
                 {
                     "line": lineno,
@@ -384,6 +424,14 @@ def check_extern_literal_anchor(hunk: dict[str, Any]) -> list[dict[str, Any]]:
             )
         else:
             standard = "global_standard:literals-and-data-ownership"
+            detail = data_ordering_repair_detail(
+                detail,
+                source_ref=hunk.get("file"),
+                source_shape="extern_literal_anchor:numeric",
+                hint=NUMERIC_DATA_REPAIR_HINT,
+                include_sdata2_tool=symbol_may_be_sdata2(name),
+                symbols=[name],
+            )
             findings.append(
                 {
                     "line": lineno,
@@ -454,6 +502,51 @@ def _normalize_ws(text: str) -> str:
     return " ".join(text.split())
 
 
+def sdata2_order_helper_command(
+    source_ref: str | None = None,
+    symbols: list[str] | None = None,
+) -> str:
+    """Return a worker-facing command for the explicit .sdata2 repair helper."""
+
+    command = f"python3 {SDATA2_ORDER_HELPER_SCRIPT} --repo-root <melee-root>"
+    if source_ref:
+        command += f" --source {source_ref}"
+    else:
+        command += " --source <src/path.c>"
+    for symbol in symbols or []:
+        command += f" --symbol {symbol}"
+    return command + " --apply --validate --json"
+
+
+def data_ordering_repair_detail(
+    detail: dict[str, Any],
+    *,
+    source_ref: str | None,
+    source_shape: str,
+    hint: str,
+    include_sdata2_tool: bool,
+    symbols: list[str] | None = None,
+) -> dict[str, Any]:
+    """Attach structured repair context to data/literal ownership findings."""
+
+    enriched = {
+        **detail,
+        "source_shape": source_shape,
+        "repair_hint": hint,
+    }
+    if include_sdata2_tool:
+        enriched["data_ordering_repair"] = {
+            "kind": "sdata2_order_helper",
+            "when": (
+                "after restoring inline numeric literals, if the remaining "
+                "mismatch is only .sdata2 float/double order"
+            ),
+            "tool": SDATA2_ORDER_HELPER_TOOL_ID,
+            "command": sdata2_order_helper_command(source_ref, symbols),
+        }
+    return enriched
+
+
 def check_string_literal_to_symbol(hunk: dict[str, Any]) -> list[dict[str, Any]]:
     """Detect string-literal arguments replaced by symbols/offset expressions.
 
@@ -492,7 +585,14 @@ def check_string_literal_to_symbol(hunk: dict[str, Any]) -> list[dict[str, Any]]
                                 f"String literal argument replaced by `{candidate.strip()}`. "
                                 f"{STANDARD_TITLES[standard]}."
                             ),
-                            "detail": {"replacement": candidate.strip()},
+                            "detail": data_ordering_repair_detail(
+                                {"replacement": candidate.strip()},
+                                source_ref=hunk.get("file"),
+                                source_shape="string_literal_to_symbol",
+                                hint=STRING_DATA_REPAIR_HINT,
+                                include_sdata2_tool=False,
+                                symbols=[candidate.strip()],
+                            ),
                         }
                     )
                     matched = True
@@ -539,7 +639,14 @@ def check_numeric_literal_to_symbol(hunk: dict[str, Any]) -> list[dict[str, Any]
                             "PR is explicitly scoped to evidenced data ownership. "
                             f"{STANDARD_TITLES[standard]}."
                         ),
-                        "detail": {"replacement": candidate},
+                        "detail": data_ordering_repair_detail(
+                            {"replacement": candidate},
+                            source_ref=hunk.get("file"),
+                            source_shape="numeric_literal_to_symbol",
+                            hint=NUMERIC_DATA_REPAIR_HINT,
+                            include_sdata2_tool=symbol_may_be_sdata2(candidate),
+                            symbols=[candidate],
+                        ),
                     }
                 )
                 break
@@ -801,7 +908,14 @@ def check_address_named_static_data(hunk: dict[str, Any]) -> list[dict[str, Any]
                     "ordinary literals inline or fix symbol/split ownership instead. "
                     f"{STANDARD_TITLES[standard]}."
                 ),
-                "detail": {"symbol": name},
+                "detail": data_ordering_repair_detail(
+                    {"symbol": name},
+                    source_ref=hunk.get("file"),
+                    source_shape="address_named_static_data",
+                    hint=ADDRESS_DATA_REPAIR_HINT,
+                    include_sdata2_tool=symbol_may_be_sdata2(name),
+                    symbols=[name],
+                ),
             }
         )
     return findings

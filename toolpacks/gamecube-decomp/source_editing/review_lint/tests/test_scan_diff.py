@@ -234,6 +234,8 @@ def test_gm1832_new_data_anchor_detail(melee_checkout):
     assert finding["detail"]["verdict"] == "new_data_anchor"
     assert finding["standard_id"] == "global_standard:literals-and-data-ownership"
     assert "data order" in finding["message"]
+    assert finding["detail"]["repair_hint"]
+    assert finding["detail"]["data_ordering_repair"]["tool"] == "review_lint_sdata2_order_helper"
     # The pre-existing lbl_804DA5C8 self-TU extern must still be flagged.
     assert any(f["rule_id"] == "self_tu_extern" for f in payload["findings"])
 

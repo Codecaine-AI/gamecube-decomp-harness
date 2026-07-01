@@ -44,12 +44,100 @@ import type { GlobalArgs } from "@server/core/project-registry/runtime-options.j
 import { booleanArg, numberArg, projectMetadata, stringArg } from "@server/core/project-registry/runtime-options.js";
 
 interface SpawnSummary {
+  tool?: string;
   command: string[];
   exit_code: number;
   stdout: string;
   stderr: string;
   skipped?: boolean;
+  failed?: boolean;
   reason?: string;
+  error?: string;
+  repo_root?: string;
+  fallback_reason?: string;
+}
+
+export interface KnowledgeMaintenanceProgressEvent {
+  stage: string;
+  status: "started" | "finished" | "skipped" | "error";
+  tool?: string;
+  command?: string[];
+  repo_root?: string;
+  reason?: string;
+  exit_code?: number;
+  duration_ms?: number;
+  summary?: Record<string, unknown>;
+  error?: string;
+  created_at: string;
+}
+
+export type KnowledgeMaintenanceProgress = (event: KnowledgeMaintenanceProgressEvent) => void | Promise<void>;
+
+export interface KnowledgeMaintenanceOptions {
+  progress?: KnowledgeMaintenanceProgress;
+}
+
+function summarizeProgressResult(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  if (Array.isArray(value)) {
+    return {
+      count: value.length,
+      tools: value.map((item) => (item && typeof item === "object" ? String((item as Record<string, unknown>).tool ?? "") : "")).filter(Boolean),
+      failed: value.filter((item) => item && typeof item === "object" && (item as Record<string, unknown>).failed).length,
+      skipped: value.filter((item) => item && typeof item === "object" && (item as Record<string, unknown>).skipped).length,
+    };
+  }
+  const record = value as Record<string, unknown>;
+  const summary: Record<string, unknown> = {};
+  for (const key of ["tool", "exit_code", "skipped", "failed", "reason", "repo_root", "fallback_reason", "output_path", "graph_db"]) {
+    if (record[key] !== undefined) summary[key] = record[key];
+  }
+  if (Array.isArray(record.indexed_sources)) summary.indexed_sources = record.indexed_sources;
+  if (Array.isArray(record.skipped_sources)) summary.skipped_sources = record.skipped_sources;
+  if (record.stats && typeof record.stats === "object") summary.stats = record.stats;
+  return Object.keys(summary).length > 0 ? summary : undefined;
+}
+
+async function reportKnowledgeProgress(options: KnowledgeMaintenanceOptions | undefined, event: Omit<KnowledgeMaintenanceProgressEvent, "created_at">): Promise<void> {
+  const payload = { ...event, created_at: new Date().toISOString() };
+  const detail = [payload.tool ? `tool=${payload.tool}` : "", payload.reason ? `reason=${payload.reason}` : "", payload.exit_code !== undefined ? `exit=${payload.exit_code}` : ""]
+    .filter(Boolean)
+    .join(" ");
+  console.error(`[kg] ${payload.stage} ${payload.status}${detail ? ` (${detail})` : ""}`);
+  await options?.progress?.(payload);
+}
+
+async function runKnowledgeStep<T>(
+  options: KnowledgeMaintenanceOptions | undefined,
+  stage: string,
+  detail: Omit<KnowledgeMaintenanceProgressEvent, "stage" | "status" | "created_at">,
+  work: () => Promise<T> | T,
+): Promise<T> {
+  const startedAt = Date.now();
+  await reportKnowledgeProgress(options, { stage, status: "started", ...detail });
+  try {
+    const result = await work();
+    const status = result && typeof result === "object" && (result as Record<string, unknown>).skipped ? "skipped" : "finished";
+    await reportKnowledgeProgress(options, {
+      stage,
+      status,
+      ...detail,
+      duration_ms: Date.now() - startedAt,
+      summary: summarizeProgressResult(result),
+      reason: status === "skipped" ? String((result as Record<string, unknown>).reason ?? detail.reason ?? "") : detail.reason,
+      exit_code: typeof (result as Record<string, unknown>)?.exit_code === "number" ? Number((result as Record<string, unknown>).exit_code) : detail.exit_code,
+    });
+    return result;
+  } catch (error) {
+    await reportKnowledgeProgress(options, {
+      stage,
+      status: "error",
+      ...detail,
+      duration_ms: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }
 
 function configureKernelDatabaseFromArgs(args: Map<string, string | true>): void {
@@ -204,35 +292,48 @@ export async function kgCurate(globals: GlobalArgs, args: Map<string, string | t
   console.log(JSON.stringify({ ...payload, agent_review: agentReview }, null, 2));
 }
 
-export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<string, string | true>): Promise<Record<string, unknown>> {
+export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<string, string | true>, options: KnowledgeMaintenanceOptions = {}): Promise<Record<string, unknown>> {
   const repoRoot = knowledgeRepoRoot(globals);
-  const prIndex = booleanArg(args, "--no-pr-index") ? skipSummary("pr_index", "--no-pr-index") : await runPrPostmortemIndex(globals, args);
+  await reportKnowledgeProgress(options, { stage: "knowledge_maintenance", status: "started", repo_root: repoRoot });
+  const startedAt = Date.now();
+  try {
+  const prIndex = await runKnowledgeStep(options, "pr_index", { repo_root: repoRoot }, () =>
+    booleanArg(args, "--no-pr-index") ? skipSummary("pr_index", "--no-pr-index") : runPrPostmortemIndex(globals, args),
+  );
   const toolContext = knowledgeToolContext(globals);
-  const toolRunners = booleanArg(args, "--no-tool-runners") ? skipSummary("tool_runners", "--no-tool-runners") : await runToolRunners(toolContext);
-  const toolIndexes = booleanArg(args, "--no-tool-index") ? skipSummary("tool_indexes", "--no-tool-index") : await runToolIndexes(toolContext);
-  const curator = curateKnowledgeEnrichments({
-    repoRoot,
-    stateDir: globals.stateDir,
-    outputPath: stringArg(args, "--knowledge-curator-enrichment", knowledgeCuratorEnrichmentPath()),
-    runId: stringArg(args, "--run-id", ""),
-    workerLimit: numberArg(args, "--worker-limit", 250),
-    prLimit: positiveLimitArg(args, "--pr-limit", 500),
-    includeStalled: !booleanArg(args, "--progress-only"),
-  });
-  const agentReview = await maybeRunCuratorAgent(globals, args, curator.output_path);
-  const dataSheetFacts = booleanArg(args, "--no-data-sheet-facts")
-    ? skipSummary("data_sheet_facts", "--no-data-sheet-facts")
-    : await runDataSheetFacts(repoRoot);
-  const rebuild = booleanArg(args, "--no-rebuild")
-    ? { skipped: true, reason: "--no-rebuild" }
-    : rebuildKnowledgeGraph({
+  const toolRunners = await runKnowledgeStep(options, "tool_runners", { repo_root: toolContext.repoRoot }, () =>
+    booleanArg(args, "--no-tool-runners") ? [skipSummary("tool_runners", "--no-tool-runners")] : runToolRunners(toolContext, options),
+  );
+  const toolIndexes = await runKnowledgeStep(options, "tool_indexes", { repo_root: toolContext.repoRoot }, () =>
+    booleanArg(args, "--no-tool-index") ? skipSummary("tool_indexes", "--no-tool-index") : runToolIndexes(toolContext, options),
+  );
+  const curator = await runKnowledgeStep(options, "curator_enrichment", { repo_root: repoRoot }, () =>
+    curateKnowledgeEnrichments({
+      repoRoot,
+      stateDir: globals.stateDir,
+      outputPath: stringArg(args, "--knowledge-curator-enrichment", knowledgeCuratorEnrichmentPath()),
+      runId: stringArg(args, "--run-id", ""),
+      workerLimit: numberArg(args, "--worker-limit", 250),
+      prLimit: positiveLimitArg(args, "--pr-limit", 500),
+      includeStalled: !booleanArg(args, "--progress-only"),
+    }),
+  );
+  const agentReview = await runKnowledgeStep(options, "curator_agent_review", { repo_root: repoRoot }, () => maybeRunCuratorAgent(globals, args, curator.output_path));
+  const dataSheetFacts = await runKnowledgeStep(options, "data_sheet_facts", { repo_root: repoRoot }, () =>
+    booleanArg(args, "--no-data-sheet-facts") ? skipSummary("data_sheet_facts", "--no-data-sheet-facts") : runDataSheetFacts(repoRoot),
+  );
+  const rebuild = await runKnowledgeStep(options, "rebuild_graph", { repo_root: repoRoot, command: ["rebuildKnowledgeGraph"] }, () =>
+    booleanArg(args, "--no-rebuild")
+      ? { skipped: true, reason: "--no-rebuild" }
+      : rebuildKnowledgeGraph({
         repoRoot,
         dbPath: stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath()),
         sources: sourceListArg(args),
         agentStateEnrichmentPath: stringArg(args, "--agent-state-enrichment", agentSharedStateEnrichmentPath()),
         knowledgeCuratorEnrichmentPath: stringArg(args, "--knowledge-curator-enrichment", knowledgeCuratorEnrichmentPath()),
-      });
-  return {
+      }),
+  );
+  const result = {
     generated_at: new Date().toISOString(),
     pr_index: prIndex,
     tool_runners: toolRunners,
@@ -242,6 +343,24 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
     agent_review: agentReview,
     rebuild,
   };
+  await reportKnowledgeProgress(options, {
+    stage: "knowledge_maintenance",
+    status: "finished",
+    repo_root: repoRoot,
+    duration_ms: Date.now() - startedAt,
+    summary: summarizeProgressResult(rebuild),
+  });
+  return result;
+  } catch (error) {
+    await reportKnowledgeProgress(options, {
+      stage: "knowledge_maintenance",
+      status: "error",
+      repo_root: repoRoot,
+      duration_ms: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }
 
 async function runDataSheetFacts(repoRoot: string): Promise<SpawnSummary> {
@@ -258,18 +377,20 @@ async function runDataSheetFacts(repoRoot: string): Promise<SpawnSummary> {
   return { command, exit_code: exitCode, stdout, stderr };
 }
 
-async function runToolRunners(context: ToolRuntimeContext): Promise<SpawnSummary[]> {
+async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMaintenanceOptions = {}): Promise<SpawnSummary[]> {
   const runners = [
     ["ghidra", "run_headless_probe.py"],
     ["opseq", "extract_opcode_sequences.py"],
     ["mismatch_db", "analyze_objdiff_mismatches.py"],
     ["mwcc_debug", "probe_mwcc_compiler.py"],
   ] as const;
-  const repoRoot = context.repoRoot ?? "";
   return Promise.all(
     runners.map(async ([toolId, scriptName]) => {
       const resolved = resolveRegisteredTool(context, toolId);
+      const repo = toolRunnerRepoRoot(context, toolId);
+      const repoRoot = repo.repoRoot;
       const command = ["python3", resolve(resolved.toolRoot, "runners", scriptName), "--repo-root", repoRoot];
+      return runKnowledgeStep(options, "tool_runner", { tool: toolId, command, repo_root: repoRoot, reason: repo.fallbackReason }, async () => {
       const proc = Bun.spawn(command, {
         cwd: packageRoot(),
         env: { ...Bun.env, ...resolved.env },
@@ -277,17 +398,55 @@ async function runToolRunners(context: ToolRuntimeContext): Promise<SpawnSummary
         stderr: "pipe",
       });
       const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
-      if (exitCode !== 0) throw new Error(`Tool runner failed for ${toolId} (${exitCode}): ${command.join(" ")}\n${stderr || stdout}`);
-      return { command, exit_code: exitCode, stdout, stderr };
+      const summary: SpawnSummary = {
+        tool: toolId,
+        command,
+        exit_code: exitCode,
+        stdout,
+        stderr,
+        repo_root: repoRoot,
+        fallback_reason: repo.fallbackReason,
+      };
+      if (exitCode !== 0) {
+        const error = stderr || stdout || `command exited ${exitCode}`;
+        if (toolBlocksOnFailure(toolId)) throw new Error(`Tool runner failed for ${toolId} (${exitCode}): ${command.join(" ")}\n${error}`);
+        return { ...summary, failed: true, reason: "non_blocking_tool_runner_failed", error };
+      }
+      return summary;
+      });
     }),
   );
 }
 
-async function runToolIndexes(context: ToolRuntimeContext): Promise<SpawnSummary> {
+function toolRunnerRepoRoot(context: ToolRuntimeContext, toolId: string): { repoRoot: string; fallbackReason?: string } {
+  const requested = context.repoRoot ?? context.project?.repoRoot ?? "";
+  if (toolId !== "opseq") return { repoRoot: requested };
+  const candidates = [requested, context.project?.repoRoot ?? ""].filter((value, index, values) => value && values.indexOf(value) === index);
+  const withAsm = candidates.find(hasOpseqBuildArtifacts);
+  if (withAsm && withAsm !== requested) {
+    return {
+      repoRoot: withAsm,
+      fallbackReason: "requested_repo_root_missing_build_GALE01_asm",
+    };
+  }
+  return { repoRoot: requested };
+}
+
+function hasOpseqBuildArtifacts(repoRoot: string): boolean {
+  return Boolean(repoRoot) && existsSync(resolve(repoRoot, "build/GALE01/asm")) && existsSync(resolve(repoRoot, "build/GALE01/report.json"));
+}
+
+function toolBlocksOnFailure(toolId: string): boolean {
+  const tool = readToolRegistry().find((entry) => entry.id === toolId) as ({ blocks_on_failure?: unknown; blocksOnFailure?: unknown } & Record<string, unknown>) | undefined;
+  return tool?.blocks_on_failure === true || tool?.blocksOnFailure === true;
+}
+
+async function runToolIndexes(context: ToolRuntimeContext, options: KnowledgeMaintenanceOptions = {}): Promise<SpawnSummary> {
   const repoRoot = context.repoRoot ?? "";
   const resolved = resolveRegisteredTool(context, "ghidra");
   const script = resolve(toolsRoot(), "build_tool_indexes.py");
   const command = ["python3", script, "--repo-root", repoRoot];
+  return runKnowledgeStep(options, "tool_index_build", { command, repo_root: repoRoot }, async () => {
   const proc = Bun.spawn(command, {
     cwd: packageRoot(),
     env: { ...Bun.env, ...resolved.env },
@@ -297,6 +456,7 @@ async function runToolIndexes(context: ToolRuntimeContext): Promise<SpawnSummary
   const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
   if (exitCode !== 0) throw new Error(`Tool index build failed (${exitCode}): ${command.join(" ")}\n${stderr || stdout}`);
   return { command, exit_code: exitCode, stdout, stderr };
+  });
 }
 
 export async function kgMaintain(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
@@ -869,8 +1029,9 @@ function countRows(store: ReturnType<typeof openKnowledgeGraph>, sql: string, ..
 
 async function toolStatus(tool: { id: string; commands?: Record<string, string> }, context: ToolRuntimeContext): Promise<Record<string, unknown>> {
   const resolved = resolveRegisteredTool(context, tool.id);
+  const repo = toolRunnerRepoRoot(context, tool.id);
   const command = ["python3", resolve(resolved.apiRoot, "status.py")];
-  if (tool.commands?.status?.includes("--repo-root")) command.push("--repo-root", context.repoRoot ?? "");
+  if (tool.commands?.status?.includes("--repo-root")) command.push("--repo-root", repo.repoRoot);
   command.push("--json");
   const proc = Bun.spawn(command, {
     cwd: packageRoot(),
@@ -884,7 +1045,7 @@ async function toolStatus(tool: { id: string; commands?: Record<string, string> 
   }
   try {
     const parsed = JSON.parse(stdout) as Record<string, unknown>;
-    return { id: tool.id, ...parsed };
+    return { id: tool.id, ...parsed, fallback_reason: repo.fallbackReason };
   } catch {
     return { id: tool.id, available: false, status: "unparseable", stdout };
   }

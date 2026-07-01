@@ -1,5 +1,5 @@
-import { and, desc, eq, ne } from "drizzle-orm";
-import { fileEntityId } from "../builders/code-graph.js";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { fileEntityId, functionEntityId } from "../builders/code-graph.js";
 import type { KnowledgeGraphStore } from "../db.js";
 import { graphFactPayload, graphPayload } from "../payloads.js";
 import { rankFeatureForSourcePath } from "./rank.js";
@@ -10,6 +10,7 @@ import { arrayValue, objectValue, stringValue } from "../util.js";
 export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): FileGraphCard {
   const entityId = fileEntityId(sourcePath);
   const matchStatus = factPayload(store, entityId, "file_match_status");
+  const functionRows = arrayValue(matchStatus.functions).map(objectValue);
   const editabilityPayload = factPayload(store, entityId, "editability");
   const editability = {
     mode: editabilityMode(editabilityPayload.mode),
@@ -41,7 +42,7 @@ export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): F
     editability,
     match_status: matchStatus,
     units: arrayValue(matchStatus.units).map((unit) => ({ unit: String(unit) })),
-    functions: arrayValue(matchStatus.functions).map(objectValue),
+    functions: functionRows,
     pr_history: {
       touching_prs: touchingPrs.map((row) => graphPayload(row.payload)),
       review_risks: arrayValue(rollup.review_risks).map((value) => ({ value })),
@@ -53,9 +54,56 @@ export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): F
       evidence_ref: stringValue(row.evidenceRef),
     })),
     mismatch_patterns: mismatchPatternsForFile(store, entityId),
-    tool_hits: [],
+    tool_hits: opseqAnalogToolHitsForFile(store, functionRows),
     scheduling_signals: rankFeatureForSourcePath(store, sourcePath),
   };
+}
+
+function opseqAnalogToolHitsForFile(store: KnowledgeGraphStore, functions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  const functionIds = functions
+    .map((fn) => {
+      const unit = stringValue(fn.unit);
+      const symbol = stringValue(fn.symbol);
+      return unit && symbol ? functionEntityId(unit, symbol) : "";
+    })
+    .filter(Boolean);
+  if (functionIds.length === 0) return [];
+
+  const rows = store.orm
+    .select({
+      entityId: graphFacts.entityId,
+      payload: graphFacts.payloadJson,
+      factType: graphFacts.factType,
+      evidenceRef: graphFacts.evidenceRef,
+    })
+    .from(graphFacts)
+    .where(and(eq(graphFacts.status, "accepted"), eq(graphFacts.factType, "opseq_analog_profile"), inArray(graphFacts.entityId, functionIds)))
+    .all();
+
+  const hits: Array<Record<string, unknown>> = [];
+  for (const row of rows) {
+    const payload = objectValue(graphFactPayload(row.factType, row.payload));
+    const source = objectValue(payload.source);
+    for (const analog of arrayValue(payload.top_analogs).map(objectValue).slice(0, 5)) {
+      hits.push({
+        tool_id: "opseq",
+        source_id: "opseq_similarity",
+        entity_id: row.entityId,
+        unit: stringValue(source.unit),
+        symbol: stringValue(source.symbol),
+        analog_unit: stringValue(analog.unit),
+        analog_symbol: stringValue(analog.symbol),
+        analog_source_path: stringValue(analog.source_path),
+        score: analog.score ?? null,
+        exact_match: booleanValue(analog.exact_match),
+        matched: booleanValue(analog.matched),
+        evidence_ref: stringValue(analog.evidence_ref, stringValue(row.evidenceRef)),
+      });
+    }
+  }
+  return hits
+    .sort((left, right) => Number(right.score ?? 0) - Number(left.score ?? 0) || stringValue(left.analog_symbol).localeCompare(stringValue(right.analog_symbol)))
+    .slice(0, 12);
 }
 
 function mismatchPatternsForFile(store: KnowledgeGraphStore, entityId: string): Array<Record<string, unknown>> {
@@ -153,4 +201,10 @@ function editabilityMode(value: unknown): FileGraphCard["editability"]["mode"] {
   const mode = stringValue(value, "unknown");
   if (mode === "editable" || mode === "read_only_complete" || mode === "locked" || mode === "blocked") return mode;
   return "unknown";
+}
+
+function booleanValue(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  return typeof value === "string" && /^(?:true|yes|1)$/i.test(value);
 }

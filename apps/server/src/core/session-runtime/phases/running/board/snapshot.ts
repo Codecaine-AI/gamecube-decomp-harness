@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import type { BoardMeasures, BoardRankBreakdown, BoardSnapshot, TargetCandidate } from "@server/core/shared/types/index.js";
+import type { BoardMeasures, BoardRankBreakdown, BoardSnapshot, CandidateRerankMode, TargetCandidate } from "@server/core/shared/types/index.js";
 import { candidateFromReportFunction, closenessPriority, closenessScore, objdiffSourceMap } from "./candidates.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
 
@@ -9,12 +9,14 @@ const ACCURACY_READINESS_READINESS_WEIGHT = 0.35;
 const ACCURACY_READINESS_INFORMATION_WEIGHT = 0.1;
 const MAX_ACCURACY_READINESS_BONUS = 18;
 const MAX_CLOSENESS_FALLBACK_SCORE = 3;
+const MAX_OPSEQ_RERANK_BONUS = 48;
 
 function readJson(path: string): JsonObject {
   return JSON.parse(readFileSync(path, "utf8")) as JsonObject;
 }
 
 export interface LoadBoardSnapshotOptions {
+  candidateRerank?: CandidateRerankMode;
   codeGraphFunctionsIndexPath?: string;
   rankFeatureProvider?: BoardRankFeatureProvider;
 }
@@ -35,6 +37,11 @@ export interface BoardRankFeature {
   relevant_pr_count: number;
   review_risk_count: number;
   duplicate_reference_count: number;
+  opseq_best_analog_score: number;
+  opseq_best_matched_analog_score: number;
+  opseq_analog_count: number;
+  opseq_exact_analog_count: number;
+  opseq_matched_analog_count: number;
   linked_unlock_potential: number;
   connected_incomplete_function_count: number;
   connected_matched_reference_count: number;
@@ -66,11 +73,11 @@ function sessionBaselineRepoRoot(repoRoot: string): string | null {
 export function loadBoardSnapshot(repoRoot: string, limit: number, options: LoadBoardSnapshotOptions = {}): BoardSnapshot {
   let reportPath = resolve(repoRoot, "build/GALE01/report.json");
   let objdiffPath = resolve(repoRoot, "objdiff.json");
-  if (!existsSync(reportPath) || !existsSync(objdiffPath)) {
+  if (!existsSync(reportPath)) {
     const baselineRoot = sessionBaselineRepoRoot(repoRoot);
     const baselineReportPath = baselineRoot ? resolve(baselineRoot, "build/GALE01/report.json") : "";
     const baselineObjdiffPath = baselineRoot ? resolve(baselineRoot, "objdiff.json") : "";
-    if (baselineReportPath && existsSync(baselineReportPath) && existsSync(baselineObjdiffPath)) {
+    if (baselineReportPath && existsSync(baselineReportPath)) {
       reportPath = baselineReportPath;
       objdiffPath = baselineObjdiffPath;
     } else {
@@ -79,8 +86,7 @@ export function loadBoardSnapshot(repoRoot: string, limit: number, options: Load
   }
 
   const report = readJson(reportPath);
-  const objdiff = readJson(objdiffPath);
-  const sourceByUnit = objdiffSourceMap(objdiff);
+  const sourceByUnit = existsSync(objdiffPath) ? objdiffSourceMap(readJson(objdiffPath)) : new Map<string, string>();
   const candidates: TargetCandidate[] = [];
 
   for (const unitValue of asArray(report.units)) {
@@ -99,7 +105,7 @@ export function loadBoardSnapshot(repoRoot: string, limit: number, options: Load
     }
   }
 
-  rankBoardCandidates(candidates, options.rankFeatureProvider);
+  rankBoardCandidates(candidates, options.rankFeatureProvider, options.candidateRerank ?? "priority");
   candidates.sort((left, right) => right.priority - left.priority);
   const measures = asObject(report.measures) as BoardMeasures;
   return {
@@ -109,6 +115,31 @@ export function loadBoardSnapshot(repoRoot: string, limit: number, options: Load
     measures,
     candidates: candidates.slice(0, limit),
   };
+}
+
+export function loadExactTargetKeys(repoRoot: string): Set<string> {
+  let reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  if (!existsSync(reportPath)) {
+    const baselineRoot = sessionBaselineRepoRoot(repoRoot);
+    const baselineReportPath = baselineRoot ? resolve(baselineRoot, "build/GALE01/report.json") : "";
+    if (baselineReportPath && existsSync(baselineReportPath)) reportPath = baselineReportPath;
+    else return new Set();
+  }
+
+  const report = readJson(reportPath);
+  const exactKeys = new Set<string>();
+  for (const unitValue of asArray(report.units)) {
+    const unit = asObject(unitValue);
+    const unitName = stringValue(unit.name);
+    if (!unitName) continue;
+    for (const fnValue of asArray(unit.functions)) {
+      const fn = asObject(fnValue);
+      const symbol = stringValue(fn.name);
+      const fuzzy = numberValue(fn.fuzzy_match_percent, 100);
+      if (symbol && fuzzy >= 100) exactKeys.add(`${unitName}::${symbol}`);
+    }
+  }
+  return exactKeys;
 }
 
 function loadBoardSnapshotFromCodeGraphIndex(
@@ -157,7 +188,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
     });
   }
 
-  rankBoardCandidates(candidates, options.rankFeatureProvider);
+  rankBoardCandidates(candidates, options.rankFeatureProvider, options.candidateRerank ?? "priority");
   candidates.sort((left, right) => right.priority - left.priority);
   const measures: BoardMeasures = {
     matched_functions_percent: percent(matchedFunctions, totalFunctions),
@@ -188,27 +219,38 @@ function percent(part: number, whole: number): number {
   return Number(((part / whole) * 100).toFixed(5));
 }
 
-function rankBoardCandidates(candidates: TargetCandidate[], rankFeatureProvider?: BoardRankFeatureProvider): void {
+export function normalizeCandidateRerankMode(value: unknown): CandidateRerankMode {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (normalized === "opseq_hot_lane" || normalized === "opsec_hot_lane" || normalized === "opseq_matched" || normalized === "opsec_matched") {
+    return "opseq_hot_lane";
+  }
+  return "priority";
+}
+
+function rankBoardCandidates(candidates: TargetCandidate[], rankFeatureProvider?: BoardRankFeatureProvider, candidateRerank: CandidateRerankMode = "priority"): void {
   if (!rankFeatureProvider || candidates.length === 0) {
-    for (const candidate of candidates) applyCandidateRank(candidate);
+    for (const candidate of candidates) applyCandidateRank(candidate, undefined, candidateRerank);
     return;
   }
   for (let index = candidates.length - 1; index >= 0; index -= 1) {
     const candidate = candidates[index];
     const feature = rankFeatureProvider(candidate);
     if (!feature) {
-      applyCandidateRank(candidate);
+      applyCandidateRank(candidate, undefined, candidateRerank);
       continue;
     }
     if (feature.editability === "read_only_complete" || feature.editability === "locked" || feature.editability === "blocked") {
       candidates.splice(index, 1);
       continue;
     }
-    applyCandidateRank(candidate, feature);
+    applyCandidateRank(candidate, feature, candidateRerank);
   }
 }
 
-function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature): void {
+function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature, candidateRerank: CandidateRerankMode = "priority"): void {
   const rawCloseness = closenessPriority(candidate.size, candidate.fuzzy);
   const localClosenessScore = closenessScore(candidate.size, candidate.fuzzy);
   const graphScore = graph?.priority_bonus ?? 0;
@@ -231,6 +273,7 @@ function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature
         ),
       )
     : 0;
+  const opseqRerankBonus = opseqHotLaneBonus(graph, candidateRerank);
   const rank: BoardRankBreakdown = {
     raw_finishability_priority: roundScore(rawCloseness),
     finishability_score: localClosenessScore,
@@ -241,13 +284,27 @@ function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature
     completion_readiness_score: graph?.completion_readiness_score ?? 0,
     information_value_score: graph?.information_value_score ?? 0,
     information_priority_score: graphScore,
+    opseq_best_analog_score: graph?.opseq_best_analog_score ?? 0,
+    opseq_best_matched_analog_score: graph?.opseq_best_matched_analog_score ?? 0,
+    opseq_analog_count: graph?.opseq_analog_count ?? 0,
+    opseq_exact_analog_count: graph?.opseq_exact_analog_count ?? 0,
+    opseq_matched_analog_count: graph?.opseq_matched_analog_count ?? 0,
+    opseq_rerank_bonus: opseqRerankBonus,
+    candidate_rerank_mode: candidateRerank,
     high_accuracy_bonus: highAccuracyBonus,
     accuracy_readiness_bonus: accuracyReadinessBonus,
     closeness_fallback_score: closenessFallbackScore,
     risk_penalty: graph?.risk_penalty ?? 0,
     graph_score: graphScore,
-    total_priority: roundScore(graphScore + highAccuracyBonus + accuracyReadinessBonus + closenessFallbackScore),
-    explanation: graph ? [...graph.explanation, hasInformationSignals ? "information_signals=present" : "information_signals=absent"] : ["graph_db=unavailable"],
+    total_priority: roundScore(graphScore + highAccuracyBonus + accuracyReadinessBonus + closenessFallbackScore + opseqRerankBonus),
+    explanation: graph
+      ? [
+          ...graph.explanation,
+          hasInformationSignals ? "information_signals=present" : "information_signals=absent",
+          candidateRerank !== "priority" ? `candidate_rerank=${candidateRerank}` : "",
+          opseqRerankBonus > 0 ? `opseq_rerank_bonus=${opseqRerankBonus.toFixed(2)}` : "",
+        ].filter(Boolean)
+      : ["graph_db=unavailable"],
   };
   candidate.priority = rank.total_priority;
   candidate.rank = rank;
@@ -255,13 +312,29 @@ function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature
     2,
   )} + high-accuracy bonus ${rank.high_accuracy_bonus.toFixed(2)} + accuracy/readiness bonus ${rank.accuracy_readiness_bonus.toFixed(
     2,
-  )} + closeness fallback ${rank.closeness_fallback_score.toFixed(
+  )} + closeness fallback ${rank.closeness_fallback_score.toFixed(2)} + opseq rerank ${rank.opseq_rerank_bonus.toFixed(
     2,
   )}; signals: closeness ${rank.closeness_score.toFixed(2)}, information gain ${rank.information_gain_score.toFixed(
     2,
   )}, unlock ${rank.unlock_score.toFixed(2)}, readiness ${rank.completion_readiness_score.toFixed(
     2,
-  )}, context ${rank.context_quality_score.toFixed(2)}, risk ${rank.risk_penalty.toFixed(2)}`;
+  )}, context ${rank.context_quality_score.toFixed(2)}, opseq ${rank.opseq_analog_count} analogs best ${rank.opseq_best_analog_score.toFixed(
+    3,
+  )} matched best ${rank.opseq_best_matched_analog_score.toFixed(
+    3,
+  )}, risk ${rank.risk_penalty.toFixed(2)}`;
+}
+
+function opseqHotLaneBonus(graph: BoardRankFeature | undefined, candidateRerank: CandidateRerankMode): number {
+  if (candidateRerank !== "opseq_hot_lane" || !graph) return 0;
+  const bestMatched = graph.opseq_best_matched_analog_score ?? 0;
+  if (bestMatched <= 0) return 0;
+  return roundScore(
+    Math.min(
+      MAX_OPSEQ_RERANK_BONUS,
+      bestMatched * 34 + Math.min(8, (graph.opseq_matched_analog_count ?? 0) * 2) + Math.min(6, (graph.opseq_exact_analog_count ?? 0) * 1.5),
+    ),
+  );
 }
 
 function fallbackClosenessScore(candidate: TargetCandidate, rawCloseness: number): number {

@@ -222,7 +222,9 @@ function workerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefine
   return {
     workerCount: numberValue(body.maxWorkers, 16),
     epochSize: stringValue(body.epochSize, dashboard?.epochSize == null ? "64" : String(dashboard.epochSize)),
-    agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 3000)),
+    candidateWindow: stringValue(body.candidateWindow, dashboard?.candidateWindow == null ? "128" : String(dashboard.candidateWindow)),
+    candidateRerank: stringValue(body.candidateRerank, dashboard?.candidateRerank == null ? "priority" : String(dashboard.candidateRerank)),
+    agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 1800)),
     toolConcurrency: body.toolConcurrency && typeof body.toolConcurrency === "object" ? body.toolConcurrency : undefined,
   };
 }
@@ -275,6 +277,10 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
     String(maxWorkers),
     "--epoch-size",
     stringValue(body.epochSize, project?.dashboard.epochSize == null ? "64" : String(project.dashboard.epochSize)),
+    "--candidate-window",
+    stringValue(body.candidateWindow, project?.dashboard.candidateWindow == null ? "128" : String(project.dashboard.candidateWindow)),
+    "--candidate-rerank",
+    stringValue(body.candidateRerank, project?.dashboard.candidateRerank == null ? "priority" : String(project.dashboard.candidateRerank)),
     "--goal-kind",
     stringValue(body.goalKind, "matched_code_percent"),
     "--goal-value",

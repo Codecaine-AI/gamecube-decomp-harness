@@ -3,6 +3,7 @@ import { buildCodeGraphRecords } from "./code-graph.js";
 import { insertGraphRecords, openKnowledgeGraph, resetKnowledgeGraph, upsertSourceDescriptor, upsertToolDescriptor, graphStats } from "../db.js";
 import { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
 import { buildMismatchPatternGraphRecords } from "./mismatch-patterns.js";
+import { buildOpseqSimilarityGraphRecords } from "./opseq-similarity.js";
 import { buildPastPrsGraphRecords } from "./past-prs.js";
 import {
   buildDiscordKnowledgeGraphRecords,
@@ -89,6 +90,15 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
         skippedSources.push("mismatch_patterns");
       }
     }
+    if (selected.has("opseq_similarity")) {
+      const records = buildOpseqSimilarityGraphRecords(options.repoRoot);
+      if (records) {
+        insertGraphRecords(store, records);
+        indexedSources.push("opseq_similarity");
+      } else {
+        skippedSources.push("opseq_similarity");
+      }
+    }
 
     return {
       graph_db: store.path,
@@ -114,5 +124,6 @@ export function defaultGraphSources(): string[] {
     "agent_shared_state",
     "curator_enrichment",
     "mismatch_patterns",
+    "opseq_similarity",
   ];
 }
