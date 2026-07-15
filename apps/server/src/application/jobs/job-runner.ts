@@ -7,10 +7,12 @@ import { babysit } from "@server/core/session-runtime/phases/running/jobs/babysi
 import { checkpointRun } from "@server/core/session-runtime/phases/pr/jobs/checkpoint-run.js";
 import { prDraftQa } from "@server/core/session-runtime/phases/pr/jobs/pr-draft-qa.js";
 import { prPreshipReview } from "@server/core/session-runtime/phases/pr/jobs/pr-preship-review.js";
+import { prSessionReview } from "@server/core/session-runtime/phases/pr/jobs/pr-session-review.js";
 import { prSplitPlan } from "@server/core/session-runtime/phases/pr/jobs/pr-split-plan.js";
 import { qaRepair } from "@server/core/session-runtime/phases/pr/jobs/qa-repair.js";
 import { reconcile } from "@server/core/session-runtime/phases/pr/jobs/reconcile.js";
 import { savePoint } from "@server/core/session-runtime/phases/pr/jobs/save-point.js";
+import { verifyShipSet } from "@server/core/session-runtime/phases/pr/jobs/verify-ship-set.js";
 import {
   kgCurate,
   kgFileCard,
@@ -59,10 +61,12 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "report-run") await reportRun(globals, args);
     else if (command === "save-point") await savePoint(globals, args);
     else if (command === "regression-check") await regressionCheck(globals, args);
+    else if (command === "verify-ship-set") await verifyShipSet(globals, args);
     else if (command === "reconcile") await reconcile(globals, args);
     else if (command === "qa-repair") await qaRepair(globals, args);
     else if (command === "pr-split-plan") await prSplitPlan(globals, args);
     else if (command === "pr-draft-qa") await prDraftQa(globals, args);
+    else if (command === "pr-session-review") await prSessionReview(globals, args);
     else if (command === "pr-preship-review") await prPreshipReview(globals, args);
     else if (command === "kg-sources") await kgSources();
     else if (command === "kg-status") await kgStatus(globals, args);

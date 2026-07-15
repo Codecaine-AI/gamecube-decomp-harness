@@ -19,6 +19,7 @@ export interface CodeIssuesResult {
 }
 
 export interface PrWorktreeProjectContext {
+  handoffDir?: string;
   project: { baseRef?: string } | null;
   repoRoot: string;
   stateDir: string;
@@ -43,6 +44,7 @@ interface RunGitOptions {
 export interface PrWorktreeServiceDeps<Context extends PrWorktreeProjectContext> {
   appendLog: (stream: LogStream, text: string) => void;
   branchExists: (repoRoot: string, branch: string) => boolean;
+  codeIssuesChecker?: (worktreeDir: string) => Promise<CodeIssuesResult>;
   isLocalBranchPrRecord: (record: JsonObject) => boolean;
   localBranchDiffBase: (repoRoot: string, baseRef: string, branch: string) => string;
   outputTail: (textValue: string, maxLength?: number) => string;
@@ -210,7 +212,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     copyFileSync(worktreeBaseline, baselinePath);
     appendLog("ui", `production baseline installed at ${baselinePath}`);
     const status = { baseRef, baseSha, worktreeDir, cached, baselinePath, installedAt: new Date().toISOString() };
-    const statusPath = resolve(paths.stateDir, "pr_handoff", "baseline_status.json");
+    const statusPath = resolve(paths.handoffDir ?? resolve(paths.stateDir, "pr_handoff"), "baseline_status.json");
     mkdirSync(dirname(statusPath), { recursive: true });
     writeFileSync(statusPath, JSON.stringify(status, null, 2), "utf8");
     await submitWorkflowEvent?.(paths, {
@@ -241,11 +243,17 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     return rebuildProductionBaseline(paths);
   }
 
-  async function verifyShipSet(paths: Context, baseline: JsonObject, matchPathspecs: string[]): Promise<JsonObject> {
+  async function verifyShipSet(
+    paths: Context,
+    baseline: JsonObject,
+    matchPathspecs: string[],
+    options: { sourceRef?: string } = {},
+  ): Promise<JsonObject> {
     const { repoRoot, stateDir } = paths;
     const worktreeDir = stringValue(baseline.worktreeDir);
     const baseSha = stringValue(baseline.baseSha);
-    const statusPath = resolve(stateDir, "pr_handoff", "ship_status.json");
+    const handoffDir = paths.handoffDir ?? resolve(stateDir, "pr_handoff");
+    const statusPath = resolve(handoffDir, "ship_status.json");
     const writeStatus = (status: JsonObject): JsonObject => {
       mkdirSync(dirname(statusPath), { recursive: true });
       writeFileSync(statusPath, JSON.stringify(status, null, 2), "utf8");
@@ -258,7 +266,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
       return writeStatus({ status: "nothing_to_ship", baseSha, files: 0, checkedAt: new Date().toISOString() });
     }
 
-    const patchPath = resolve(stateDir, "pr_handoff", "ship_set.patch");
+    const patchPath = resolve(handoffDir, "ship_set.patch");
     mkdirSync(dirname(patchPath), { recursive: true });
     let pathspecs = [...matchPathspecs];
     const droppedFiles = new Map<string, string[]>();
@@ -270,7 +278,8 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
       if (pathspecs.length === 0) {
         return writeStatus({ status: "nothing_to_ship", baseSha, files: 0, droppedFiles: Object.fromEntries(droppedFiles), checkedAt: new Date().toISOString() });
       }
-      const diff = await runCli(["git", "diff", "--binary", baseSha, "--", ...pathspecs], repoRoot);
+      const sourceRef = stringValue(options.sourceRef);
+      const diff = await runCli(["git", "diff", "--binary", baseSha, ...(sourceRef ? [sourceRef] : []), "--", ...pathspecs], repoRoot);
       if (diff.exitCode !== 0) throw new Error(`Ship-set diff failed (${diff.exitCode}): ${outputTail(diff.stderr, 2000)}`);
       writeFileSync(patchPath, diff.stdout, "utf8");
 
@@ -366,6 +375,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
   }
 
   async function checkCodeIssues(worktreeDir: string): Promise<CodeIssuesResult> {
+    if (deps.codeIssuesChecker) return deps.codeIssuesChecker(worktreeDir);
     if (dockerAvailable === null) {
       dockerAvailable = spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0;
     }

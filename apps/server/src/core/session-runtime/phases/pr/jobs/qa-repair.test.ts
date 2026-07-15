@@ -6,9 +6,16 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import type { MeleeKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import type { QaScanFinding, QaScanResult } from "@server/core/validation/qa";
+import type { UnitMatchSnapshot } from "@server/core/validation/qa/repair-checks";
+import {
+  applyQaRepairValidation,
+  buildQaRepairQueue,
+  type QaRepairAttempt,
+  type QaRepairValidationResult,
+} from "@server/core/validation/qa/repair-lane";
 import type { PiRunResult } from "@server/core/shared/types";
 import type { GlobalArgs } from "@server/core/project-registry/runtime-options.js";
-import { runQaRepair } from "./qa-repair.js";
+import { mergeProcessedItem, processQueueItem, runQaRepair, type QaRepairAttemptWithEnforcedChecks } from "./qa-repair.js";
 
 const tempDirs: string[] = [];
 
@@ -131,6 +138,15 @@ function fixedRepairJson(scoreImpact: "same_match" | "lower_score" = "same_match
   });
 }
 
+function unitSnapshot(functionScore = 100): UnitMatchSnapshot {
+  return {
+    sourcePath: "src/melee/gr/grsmoke.c",
+    objectPath: "build/GALE01/src/melee/gr/grsmoke.o",
+    functions: [{ name: "grSmoke", fuzzyMatchPercent: functionScore, size: 16 }],
+    sections: [{ name: ".text", fuzzyMatchPercent: 100 }],
+  };
+}
+
 async function mockRunnerResult(rawText: string, outputDir: string): Promise<PiRunResult> {
   const outputPath = resolve(outputDir, "mock-output.txt");
   const systemPromptPath = resolve(outputDir, "mock.system.md");
@@ -155,7 +171,7 @@ describe("qa-repair server job", () => {
     const outputDir = tempDir("qa-repair-output-");
     const scanPath = await writeScanJson(root, [
       finding(),
-      finding({ file: "src/melee/gm/gm_1832.c", rule_id: "new_data_anchor", line: 99 }),
+      finding({ file: "src/melee/gm/gm_1832.c", rule_id: "extern_in_c", line: 99 }),
       finding({ file: "src/melee/gm/gm_1832.c", rule_id: "novel_pragma", severity: "warning", line: 100 }),
     ]);
 
@@ -209,13 +225,87 @@ describe("qa-repair server job", () => {
     expect(userPrompt).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
   });
 
+  test("per-item agent overrides take precedence in runner options", async () => {
+    const root = tempDir("qa-repair-repo-");
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot: root,
+      scanResult: scanResult([finding()]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+      dryRun: true,
+    });
+    let runnerOptions: MeleeKernelPiRunOptions | undefined;
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      runnerOptions = options;
+      return { ...(await mockRunnerResult("", options.outputDir)), dryRun: true };
+    };
+
+    await processQueueItem({
+      globals: globals(root, stateDir, true),
+      runId: "manual",
+      queue,
+      item: queue.items[0]!,
+      outputDir,
+      baseRef: null,
+      validationCommands: {},
+      runner,
+      agentOverrides: {
+        provider: "override-provider",
+        model: "override-model",
+        thinkingLevel: "high",
+      },
+    });
+
+    expect(runnerOptions?.provider).toBe("override-provider");
+    expect(runnerOptions?.model).toBe("override-model");
+    expect(runnerOptions?.thinkingLevel).toBe("high");
+  });
+
+  test("mergeProcessedItem matches the legacy whole-queue update", () => {
+    const queue = buildQaRepairQueue({
+      runId: "test-run",
+      repoRoot: "/repo",
+      scanResult: scanResult([
+        finding(),
+        finding({ file: "src/melee/gm/gm_1832.c", rule_id: "extern_in_c", line: 99 }),
+      ]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    const target = queue.items[0]!;
+    const attempt: QaRepairAttempt = {
+      id: "repair-session",
+      status: "validated",
+      createdAt: "2026-07-14T00:01:00.000Z",
+      outputDir: "/artifacts/repair-session",
+      summary: "post-repair QA scan is clean for the item",
+    };
+    const validation: QaRepairValidationResult = {
+      itemId: target.id,
+      sourcePath: target.source_path,
+      status: "clean_same_match",
+      reasons: ["post-repair QA scan is clean for the item"],
+      remainingFindings: [],
+      validationArtifacts: {},
+    };
+    const legacyQueue = applyQaRepairValidation(queue, validation, attempt);
+    const processedItem = legacyQueue.items.find((item) => item.id === target.id)!;
+
+    expect(mergeProcessedItem(queue, { item: processedItem })).toEqual(legacyQueue);
+    expect(queue.items[0]?.status).toBe("queued");
+    expect(queue.items[1]).toBe(legacyQueue.items[1]);
+  });
+
   test("item id limits live resolution to one queued repair item", async () => {
     const root = tempDir("qa-repair-repo-");
     const stateDir = tempDir("qa-repair-state-");
     const outputDir = tempDir("qa-repair-output-");
     const scanPath = await writeScanJson(root, [
       finding(),
-      finding({ file: "src/melee/gm/gm_1832.c", rule_id: "new_data_anchor", line: 99 }),
+      finding({ file: "src/melee/gm/gm_1832.c", rule_id: "extern_in_c", line: 99 }),
     ]);
     const resolvedItems: string[] = [];
     const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
@@ -234,6 +324,7 @@ describe("qa-repair server job", () => {
         ["--output-dir", outputDir],
       ]),
       runner,
+      { enforcedChecks: false },
     );
 
     expect(resolvedItems).toEqual(["src-melee-gr-grsmoke"]);
@@ -284,6 +375,7 @@ describe("qa-repair server job", () => {
         ["--output-dir", outputDir],
       ]),
       runner,
+      { enforcedChecks: false },
     );
 
     const item = result.queue.items[0];
@@ -323,6 +415,7 @@ describe("qa-repair server job", () => {
         ["--output-dir", outputDir],
       ]),
       runner,
+      { enforcedChecks: false },
     );
 
     const item = result.queue.items[0];
@@ -333,5 +426,327 @@ describe("qa-repair server job", () => {
     const postScanResult = postScan.result ?? postScan;
     expect(postScanResult.counts.errors).toBe(0);
     expect(postScanResult.findings).toEqual([]);
+  });
+
+  test("enforced object build failure restores the source and leaves the item unresolved", async () => {
+    const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const sourcePath = resolve(repoRoot, "src/melee/gr/grsmoke.c");
+    const preContent = await readFile(sourcePath, "utf8");
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot,
+      baseRef: baseSha,
+      scanResult: scanResult([finding({ rule_id: "register_keyword", excerpt: "register int bad = 1;" })]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    let buildCalls = 0;
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      await writeFile(sourcePath, "int grSmoke(void) { int value = 1; return value; }\n");
+      return mockRunnerResult(fixedRepairJson(), options.outputDir);
+    };
+
+    const result = await processQueueItem({
+      globals: globals(repoRoot, stateDir),
+      runId: "manual",
+      queue,
+      item: queue.items[0]!,
+      outputDir,
+      baseRef: baseSha,
+      validationCommands: {},
+      runner,
+      repairChecks: {
+        captureUnitMatchSnapshot: async () => null,
+        objdiffUnitPresence: async () => "present",
+        waitForSnapshotRetry: async (delayMs) => expect(delayMs).toBe(10_000),
+        buildObjectForSource: async () => {
+          buildCalls += 1;
+          return buildCalls === 1 ? { ok: false, log: "mock compile error" } : { ok: true, log: "restored object built" };
+        },
+      },
+    });
+
+    const item = result.items[0]!;
+    const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
+    expect(item.status).toBe("needs_rework");
+    expect(await readFile(sourcePath, "utf8")).toBe(preContent);
+    expect(buildCalls).toBe(2);
+    expect(attempt.status).toBe("validation_failed");
+    expect(attempt.validation.build_check).toBe("failed");
+    expect(attempt.validation.match_check).toBe("unavailable");
+    expect(attempt.validation.check_result!.buildOk).toBe(false);
+    expect(attempt.validation.check_result!.buildLog).toContain("mock compile error");
+    expect(attempt.validation.reverted).toBe(true);
+    expect(attempt.validation.restored_build).toEqual({ ok: true, log: "restored object built" });
+  });
+
+  test("unavailable pre-repair match snapshot retries, restores the source, and needs rework", async () => {
+    const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const sourcePath = resolve(repoRoot, "src/melee/gr/grsmoke.c");
+    const preContent = await readFile(sourcePath, "utf8");
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot,
+      baseRef: baseSha,
+      scanResult: scanResult([finding({ rule_id: "register_keyword", excerpt: "register int bad = 1;" })]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    let snapshotCalls = 0;
+    let buildCalls = 0;
+    const retryDelays: number[] = [];
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      await writeFile(sourcePath, "int grSmoke(void) { int value = 1; return value; }\n");
+      return mockRunnerResult(fixedRepairJson(), options.outputDir);
+    };
+
+    const result = await processQueueItem({
+      globals: globals(repoRoot, stateDir),
+      runId: "manual",
+      queue,
+      item: queue.items[0]!,
+      outputDir,
+      baseRef: baseSha,
+      validationCommands: {},
+      runner,
+      repairChecks: {
+        objdiffUnitPresence: async () => "present",
+        captureUnitMatchSnapshot: async () => {
+          snapshotCalls += 1;
+          return null;
+        },
+        waitForSnapshotRetry: async (delayMs) => {
+          retryDelays.push(delayMs);
+        },
+        buildObjectForSource: async () => {
+          buildCalls += 1;
+          return { ok: true, log: "object built" };
+        },
+      },
+    });
+
+    const item = result.items[0]!;
+    const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
+    expect(item.status).toBe("needs_rework");
+    expect(item.routing_reason).toContain("match verification unavailable");
+    expect(await readFile(sourcePath, "utf8")).toBe(preContent);
+    expect(snapshotCalls).toBe(2);
+    expect(retryDelays).toEqual([10_000]);
+    expect(buildCalls).toBe(2);
+    expect(attempt.status).toBe("validation_failed");
+    expect(attempt.validation.match_check).toBe("unavailable");
+    expect(attempt.validation.check_result?.ok).toBe(false);
+    expect(attempt.validation.reverted).toBe(true);
+  });
+
+  test("unavailable post-repair match snapshot retries, restores the source, and needs rework", async () => {
+    const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const sourcePath = resolve(repoRoot, "src/melee/gr/grsmoke.c");
+    const preContent = await readFile(sourcePath, "utf8");
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot,
+      baseRef: baseSha,
+      scanResult: scanResult([finding({ rule_id: "register_keyword", excerpt: "register int bad = 1;" })]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    let snapshotCalls = 0;
+    const retryDelays: number[] = [];
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      await writeFile(sourcePath, "int grSmoke(void) { int value = 1; return value; }\n");
+      return mockRunnerResult(fixedRepairJson(), options.outputDir);
+    };
+
+    const result = await processQueueItem({
+      globals: globals(repoRoot, stateDir),
+      runId: "manual",
+      queue,
+      item: queue.items[0]!,
+      outputDir,
+      baseRef: baseSha,
+      validationCommands: {},
+      runner,
+      repairChecks: {
+        objdiffUnitPresence: async () => "present",
+        captureUnitMatchSnapshot: async () => {
+          snapshotCalls += 1;
+          return snapshotCalls === 1 ? unitSnapshot(100) : null;
+        },
+        waitForSnapshotRetry: async (delayMs) => {
+          retryDelays.push(delayMs);
+        },
+        buildObjectForSource: async () => ({ ok: true, log: "object built" }),
+      },
+    });
+
+    const item = result.items[0]!;
+    const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
+    expect(item.status).toBe("needs_rework");
+    expect(item.routing_reason).toContain("match verification unavailable");
+    expect(await readFile(sourcePath, "utf8")).toBe(preContent);
+    expect(snapshotCalls).toBe(3);
+    expect(retryDelays).toEqual([10_000]);
+    expect(attempt.validation.match_check).toBe("unavailable");
+    expect(attempt.validation.reverted).toBe(true);
+  });
+
+  test("source without an objdiff unit proceeds with an explicit match-check note", async () => {
+    const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const sourcePath = resolve(repoRoot, "src/melee/gr/grsmoke.c");
+    await writeFile(resolve(repoRoot, "objdiff.json"), '{"units":[]}\n');
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot,
+      baseRef: baseSha,
+      scanResult: scanResult([finding({ rule_id: "register_keyword", excerpt: "register int bad = 1;" })]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      await writeFile(sourcePath, "int grSmoke(void) { int value = 1; return value; }\n");
+      return mockRunnerResult(fixedRepairJson(), options.outputDir);
+    };
+
+    const result = await processQueueItem({
+      globals: globals(repoRoot, stateDir),
+      runId: "manual",
+      queue,
+      item: queue.items[0]!,
+      outputDir,
+      baseRef: baseSha,
+      validationCommands: {},
+      runner,
+      repairChecks: {
+        captureUnitMatchSnapshot: async () => {
+          throw new Error("snapshot capture must not run without an objdiff unit");
+        },
+        buildObjectForSource: async () => ({ ok: true, log: "object built" }),
+      },
+    });
+
+    const item = result.items[0]!;
+    const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
+    expect(item.status).toBe("clean_same_match");
+    expect(await readFile(sourcePath, "utf8")).toBe("int grSmoke(void) { int value = 1; return value; }\n");
+    expect(attempt.status).toBe("validated");
+    expect(attempt.validation.match_check).toBe("skipped");
+    expect(attempt.validation.match_note).toBe("objdiff unit absent; match verification skipped");
+    expect(attempt.validation.reverted).toBe(false);
+  });
+
+  test("exact-function regression restores the source even when the object builds", async () => {
+    const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const sourcePath = resolve(repoRoot, "src/melee/gr/grsmoke.c");
+    const preContent = await readFile(sourcePath, "utf8");
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot,
+      baseRef: baseSha,
+      scanResult: scanResult([finding({ rule_id: "register_keyword", excerpt: "register int bad = 1;" })]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    let snapshots = 0;
+    let buildCalls = 0;
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      await writeFile(sourcePath, "int grSmoke(void) { int value = 1; return value; }\n");
+      return mockRunnerResult(fixedRepairJson(), options.outputDir);
+    };
+
+    const result = await processQueueItem({
+      globals: globals(repoRoot, stateDir),
+      runId: "manual",
+      queue,
+      item: queue.items[0]!,
+      outputDir,
+      baseRef: baseSha,
+      validationCommands: {},
+      runner,
+      repairChecks: {
+        captureUnitMatchSnapshot: async () => (snapshots++ === 0 ? unitSnapshot(100) : unitSnapshot(98.5)),
+        objdiffUnitPresence: async () => "present",
+        buildObjectForSource: async () => {
+          buildCalls += 1;
+          return { ok: true, log: "object built" };
+        },
+      },
+    });
+
+    const item = result.items[0]!;
+    const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
+    expect(item.status).toBe("needs_rework");
+    expect(await readFile(sourcePath, "utf8")).toBe(preContent);
+    expect(buildCalls).toBe(2);
+    expect(attempt.validation.build_check).toBe("passed");
+    expect(attempt.validation.match_check).toBe("failed");
+    expect(attempt.validation.check_result!.exactRegressions).toEqual([{ name: "grSmoke", before: 100, after: 98.5 }]);
+    expect(attempt.validation.reverted).toBe(true);
+    expect(attempt.validation.restored_build!.ok).toBe(true);
+  });
+
+  test("header edits are checked out, the target is rolled back, and the item needs rework", async () => {
+    const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const sourcePath = resolve(repoRoot, "src/melee/gr/grsmoke.c");
+    const headerPath = resolve(repoRoot, "src/melee/gr/grsmoke.h");
+    const unrelatedHeaderPath = resolve(repoRoot, "src/melee/gr/unrelated.h");
+    await writeFile(headerPath, "int grSmoke(void);\n");
+    await writeFile(unrelatedHeaderPath, "#define UNRELATED 1\n");
+    await git(repoRoot, ["add", "src/melee/gr/grsmoke.h", "src/melee/gr/unrelated.h"]);
+    await git(repoRoot, ["commit", "-q", "-m", "add smoke headers"]);
+    await writeFile(unrelatedHeaderPath, "#define UNRELATED 2\n");
+    const preContent = await readFile(sourcePath, "utf8");
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot,
+      baseRef: baseSha,
+      scanResult: scanResult([finding({ rule_id: "register_keyword", excerpt: "register int bad = 1;" })]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      await writeFile(sourcePath, "int grSmoke(void) { int value = 1; return value; }\n");
+      await writeFile(headerPath, "int grSmoke(int changed);\n");
+      return mockRunnerResult(fixedRepairJson(), options.outputDir);
+    };
+
+    const result = await processQueueItem({
+      globals: globals(repoRoot, stateDir),
+      runId: "manual",
+      queue,
+      item: queue.items[0]!,
+      outputDir,
+      baseRef: baseSha,
+      validationCommands: {},
+      runner,
+      repairChecks: {
+        captureUnitMatchSnapshot: async () => null,
+        objdiffUnitPresence: async () => "absent",
+        buildObjectForSource: async () => ({ ok: true, log: "restored object built" }),
+      },
+    });
+
+    const item = result.items[0]!;
+    const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
+    expect(item.status).toBe("needs_rework");
+    expect(await readFile(sourcePath, "utf8")).toBe(preContent);
+    expect(await readFile(headerPath, "utf8")).toBe("int grSmoke(void);\n");
+    expect(await readFile(unrelatedHeaderPath, "utf8")).toBe("#define UNRELATED 2\n");
+    expect(attempt.header_edit_reverted).toBe(true);
+    expect(attempt.header_edit_paths).toEqual(["src/melee/gr/grsmoke.h"]);
+    expect(attempt.validation.reverted).toBe(true);
+    expect(attempt.validation.restored_build!.ok).toBe(true);
   });
 });

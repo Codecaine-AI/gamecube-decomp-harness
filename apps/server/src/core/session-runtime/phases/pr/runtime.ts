@@ -14,6 +14,8 @@ import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import type { SavePointRuntime } from "./save-points-runtime.js";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 import type { ProjectRuntimeContext, ProjectSummary, ResolvedProject } from "@server/core/project-registry";
+import { commentUnresolvedFindings, fetchGithubComments, type CommentableFinding } from "./github-comments.js";
+import { findLatestLedger, ledgerAnchorsReliable, ledgerEntriesForFiles, loadReviewLedger, type LedgerEntry, type ReviewLedger } from "./review-ledger.js";
 
 type JsonObject = Record<string, unknown>;
 type OperationRecordLike = { name?: unknown; status?: unknown };
@@ -114,6 +116,7 @@ export interface HandoffRuntime {
   runQaRepairForPr: (body: JsonObject) => Promise<JsonObject>;
   setPrReviewState: (body: JsonObject) => Promise<JsonObject>;
   syncPrRecords: (body: JsonObject) => Promise<JsonObject>;
+  verifyShipSet: (body: JsonObject) => Promise<JsonObject>;
 }
 
 export function localPrPreparationOperationRunning(operation: OperationRecordLike | null | undefined): boolean {
@@ -235,6 +238,132 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     }
   }
 
+  function ledgerCommentFinding(entry: LedgerEntry): CommentableFinding {
+    return {
+      source: entry.source,
+      severity: entry.severity,
+      file: entry.file,
+      line: entry.line,
+      ruleId: entry.ruleId,
+      standardId: entry.standardId,
+      message: entry.message,
+      suggestedFix: entry.suggestedFix,
+      artifactPath: null,
+      tier: entry.tier,
+      disposition: entry.disposition,
+      evidence: entry.evidence,
+      matchContext: entry.match_context,
+    };
+  }
+
+  async function postReviewLedgerComments(params: {
+    body: JsonObject;
+    branch: string;
+    files: string[];
+    paths: ProjectRuntimeContext;
+    prUrl: string;
+    record: JsonObject | null;
+    repoSlug: string;
+    sessionHeadSha: string;
+    title: string;
+  }): Promise<void> {
+    const { body, branch, files, paths, prUrl, record, repoSlug, sessionHeadSha, title } = params;
+    if (body.postLedgerComments === false) {
+      appendLog("ui", `ledger comments for ${branch}: disabled`);
+      return;
+    }
+
+    const ledgerPath = stringValue(body.ledgerPath) || findLatestLedger(paths.stateDir);
+    if (!ledgerPath) {
+      appendLog("ui", `ledger comments for ${branch}: no review ledger found; skipped`);
+      return;
+    }
+
+    let ledger: ReviewLedger;
+    let entries: LedgerEntry[];
+    try {
+      ledger = loadReviewLedger(ledgerPath);
+      entries = ledgerEntriesForFiles(ledger, files);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendLog("stderr", `ledger comments for ${branch}: could not load ${ledgerPath} — ${message}`);
+      appendLog("ui", `ledger comments for ${branch}: posted 0, failed 1`);
+      return;
+    }
+    if (entries.length === 0) {
+      appendLog("ui", `ledger comments for ${branch}: no entries matched the slice files; skipped`);
+      return;
+    }
+
+    const reliableAnchors = ledgerAnchorsReliable(ledger.head_sha, sessionHeadSha);
+    try {
+      const view = await runCli(["gh", "pr", "view", prUrl || branch, "--repo", repoSlug, "--json", "number,headRefOid"], paths.repoRoot);
+      if (view.exitCode !== 0) throw new Error(`gh pr view failed (${view.exitCode}): ${outputTail(view.stderr || view.stdout, 1000)}`);
+      const metadata = asObject(JSON.parse(view.stdout));
+      const prNumber = numberValue(record?.prNumber, numberValue(metadata.number));
+      const headRefOid = stringValue(metadata.headRefOid);
+      if (!prNumber || !headRefOid) throw new Error("gh pr view did not return a PR number and headRefOid");
+
+      const commandDeps = {
+        commandRunner: async (cwd: string, command: string[]) => {
+          const result = await runCli(command, cwd);
+          return { ...result, exitCode: result.exitCode ?? 1 };
+        },
+      };
+      const globals = {
+        repoRoot: paths.repoRoot,
+        stateDir: paths.stateDir,
+        projectId: paths.project?.projectId,
+        project: paths.project ?? undefined,
+        graphDbPath: paths.graphDbPath,
+        dryRunAgents: false,
+        provider: "",
+        model: "",
+        thinkingLevel: "",
+      };
+
+      const outputDir = resolve(paths.stateDir, "pr_handoff", "ledger_comments");
+      mkdirSync(outputDir, { recursive: true });
+      const outputPath = resolve(outputDir, `${branch.replace(/[^A-Za-z0-9_.-]+/g, "-")}.github-comments.json`);
+      const intake = await fetchGithubComments({ globals, deps: commandDeps, repo: repoSlug, prNumber, outputPath });
+      for (const warning of intake.warnings) appendLog("stderr", `ledger comments for ${branch}: ${warning}`);
+      const results = await commentUnresolvedFindings({
+        globals,
+        deps: commandDeps,
+        repo: repoSlug,
+        pr: {
+          number: prNumber,
+          url: prUrl,
+          title,
+          state: "OPEN",
+          isDraft: true,
+          baseRefName: "",
+          baseRefOid: "",
+          headRefName: branch,
+          headRefOid,
+          authorLogin: null,
+          headOwnerLogin: null,
+        },
+        findings: entries.map(ledgerCommentFinding),
+        existingComments: intake.comments,
+        dryRun: false,
+        allowInline: reliableAnchors,
+      });
+      const posted = results.filter((result) => result.status === "posted_inline" || result.status === "posted_top_level").length;
+      const failed = results.filter((result) => result.status === "failed").length;
+      const alreadyPresent = results.filter((result) => result.status === "already_present").length;
+      for (const result of results) {
+        if (result.status === "failed") appendLog("stderr", `ledger comments for ${branch}: ${result.finding.file}:${result.finding.line} — ${result.error ?? "posting failed"}`);
+      }
+      const anchorNote = reliableAnchors ? "" : "; anchors stale, used issue comments";
+      appendLog("ui", `ledger comments for ${branch}: posted ${posted}, failed ${failed}${alreadyPresent ? `, already present ${alreadyPresent}` : ""}${anchorNote}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendLog("stderr", `ledger comments for ${branch}: ${message}`);
+      appendLog("ui", `ledger comments for ${branch}: posted 0, failed 1`);
+    }
+  }
+
   function assertHandoffIdle(stateDir: string, action: string): void {
     const active = deps.hasActiveProcess(stateDir);
     if (active.active) {
@@ -347,6 +476,45 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       return {
         ...merged,
         savePoint,
+        uiCommand: command,
+        cliExitCode: result.exitCode,
+        stdout: outputTail(result.stdout, 4000),
+        stderr: outputTail(result.stderr, 4000),
+      };
+    });
+  }
+
+  async function runVerifyShipSet(body: JsonObject): Promise<JsonObject> {
+    const paths = resolveDashboardProject(body, { useDefaultProject: true });
+    const { stateDir } = paths;
+    const runId = activeRunIdFromBody(body, stateDir);
+    assertHandoffIdle(stateDir, "Verify ship set");
+    const baseRef = stringValue(body.baseRef, stringValue(body.prBaseRef, paths.project?.baseRef ?? "origin/master")).trim() || "origin/master";
+    const sourceRef = stringValue(body.sourceRef, stringValue(body.prSourceRef, "HEAD")).trim() || "HEAD";
+    const command = [
+      ...serverJobPrefix(paths, serverJobPath),
+      "verify-ship-set",
+      "--run-id",
+      runId,
+      "--base-ref",
+      baseRef,
+      "--source-ref",
+      sourceRef,
+    ];
+    return withOperation("verify-ship-set", "Verify Ship Set", ["verify ship set"], async () => {
+      operationStep("verify ship set", `${sourceRef} onto ${baseRef}`);
+      appendLog("ui", `ship-set verification started: ${command.join(" ")}`);
+      const result = await runCli(command);
+      appendLog("ui", `ship-set verification exit=${result.exitCode}`);
+      if (result.exitCode !== 0) {
+        throw new Error(`Ship-set verification failed (${result.exitCode}): ${outputTail(result.stderr || result.stdout, 4000)}`);
+      }
+      const parsed = savePoints.parseCliJsonOutput(result.stdout);
+      operationStepDetail("verify ship set", `${stringValue(parsed.status, "unknown")} @ ${stringValue(parsed.baseSha).slice(0, 10)}`);
+      return {
+        ...parsed,
+        project: paths.project ? projectToSummary(paths.project) : null,
+        runId,
         uiCommand: command,
         cliExitCode: result.exitCode,
         stdout: outputTail(result.stdout, 4000),
@@ -750,6 +918,16 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     const files = asArray(record.files).map((path) => stringValue(path)).filter(Boolean);
     if (files.length === 0) throw new Error(`PR record for ${branch} has no file manifest; re-run Plan PRs and Sync PR Status.`);
 
+    let sessionHeadAtOpen = "";
+    if (body.postLedgerComments !== false) {
+      try {
+        const sessionHead = await deps.runGit(repoRoot, ["rev-parse", "HEAD"], { check: false });
+        if (sessionHead.exitCode === 0) sessionHeadAtOpen = sessionHead.stdout.trim();
+      } catch {
+        // A missing source SHA makes the ledger stale; comment posting remains best-effort.
+      }
+    }
+
     const repoSlug = upstreamRepoSlug(repoRoot);
     const forkOwner = prWorktrees.remoteOwner(repoRoot, "fork");
     if (!repoSlug || !forkOwner) throw new Error("Need an `origin` (upstream) and `fork` (push target) remote on the checkout.");
@@ -887,6 +1065,23 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       const prs = await prSync.syncPrRecords({ ...body });
       const updated = asArray(prs.records).map(asObject).find((candidate) => stringValue(candidate.branch) === branch) ?? null;
       operationStepDetail("sync PR records", updated ? `${branch} -> ${stringValue(updated.status)} #${numberValue(updated.prNumber)}` : "synced");
+      try {
+        await postReviewLedgerComments({
+          body,
+          branch,
+          files,
+          paths,
+          prUrl,
+          record: updated ?? record,
+          repoSlug,
+          sessionHeadSha: sessionHeadAtOpen,
+          title,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        appendLog("stderr", `ledger comments for ${branch}: unexpected failure — ${message}`);
+        appendLog("ui", `ledger comments for ${branch}: posted 0, failed 1`);
+      }
       await deps.submitWorkflowEvent(paths, {
         kind: "pr-publication",
         operation: "openPrForSlice",
@@ -1186,5 +1381,6 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     runQaRepairForPr,
     setPrReviewState,
     syncPrRecords: prSync.syncPrRecords,
+    verifyShipSet: runVerifyShipSet,
   };
 }

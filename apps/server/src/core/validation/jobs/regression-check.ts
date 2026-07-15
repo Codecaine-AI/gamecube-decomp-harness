@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { artifactTimestamp } from "@server/infrastructure/agent-runtime/runtime";
 import {
@@ -22,6 +22,17 @@ function trace(message: string): void {
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.stack ?? error.message;
   return String(error);
+}
+
+function outputTail(output: string, maxLines = 30): string {
+  const lines = output.replace(/\r\n/g, "\n").split("\n");
+  while (lines.at(-1) === "") lines.pop();
+  return lines.slice(-maxLines).join("\n");
+}
+
+function firstFailedTarget(output: string): string | null {
+  const failedLine = output.match(/(?:^|\n)FAILED:\s+([^\r\n]+)/)?.[1]?.trim();
+  return failedLine?.replace(/^\[code=[^\]]+\]\s*/, "") ?? null;
 }
 
 function nonNegativeInteger(value: number, name: string): number {
@@ -74,8 +85,13 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
   const outputDir = resolve(globals.stateDir, "regression_checks", runId, artifactTimestamp());
   await mkdir(outputDir, { recursive: true });
 
+  const buildStartedAtMs = Date.now();
+  const buildOutputChunks: string[] = [];
   trace(`full build started: ninja ${target} in ${globals.repoRoot}`);
-  const result = await runCommandStreaming(globals.repoRoot, ["ninja", target], (chunk) => process.stderr.write(chunk));
+  const result = await runCommandStreaming(globals.repoRoot, ["ninja", target], (chunk) => {
+    buildOutputChunks.push(chunk);
+    process.stderr.write(chunk);
+  });
   trace(`full build exited ${result.exitCode}`);
   const stdoutPath = resolve(outputDir, "stdout.txt");
   const stderrPath = resolve(outputDir, "stderr.txt");
@@ -85,6 +101,74 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
   const prReportErrorPath = resolve(outputDir, "pr_report_error.txt");
   await writeFile(stdoutPath, result.stdout);
   await writeFile(stderrPath, result.stderr);
+
+  const finishBuildFailure = async (exitCode: number, buildFailure: string, hint: string): Promise<void> => {
+    const summary = {
+      status: "build_failed",
+      exitCode,
+      regressionGateExitCode: 1,
+      prPromotionGateExitCode: 1,
+      handoffGateExitCode: 1,
+      command: ["ninja", target],
+      repoRoot: globals.repoRoot,
+      runId,
+      artifactDir: outputDir,
+      stdoutPath,
+      stderrPath,
+      baselinePath: resolve(globals.repoRoot, "build/GALE01/baseline.json"),
+      reportChangesPath,
+      prReportPath: null,
+      prReportGenerator: "decomp-orchestrator/apps/server/src/core/validation/objdiff/report.ts",
+      prReportErrorPath: null,
+      regressionCounts: null,
+      prPromotion: null,
+      requirePrPromotion,
+      promotionPolicy,
+      qaGateExitCode: null,
+      qaGateSkipped: false,
+      qaFindings: null,
+      qaCounts: null,
+      qaScanPath: null,
+      buildFailure,
+      hint,
+    };
+    trace(`verdict: build_failed (build exit ${exitCode}; regression report was not read)`);
+    trace(hint);
+    await writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    console.log(JSON.stringify({ ...summary, summaryPath }, null, 2));
+    process.exitCode = exitCode;
+  };
+
+  if (result.exitCode !== 0) {
+    const buildOutput = buildOutputChunks.join("");
+    const failedTarget = firstFailedTarget(buildOutput);
+    const buildFailure = outputTail(buildOutput) || `ninja ${target} exited with code ${result.exitCode} without output`;
+    const hint = failedTarget
+      ? `Ninja failed at target "${failedTarget}". Inspect stdout/stderr; regression reports were not read because the build did not complete.`
+      : `Ninja target "${target}" failed. Inspect stdout/stderr; regression reports were not read because the build did not complete.`;
+    await finishBuildFailure(result.exitCode, buildFailure, hint);
+    return;
+  }
+
+  let reportFreshnessFailure: string | null = null;
+  try {
+    const reportChangesStat = await stat(reportChangesPath);
+    if (reportChangesStat.mtimeMs <= buildStartedAtMs) {
+      reportFreshnessFailure =
+        `${reportChangesPath} is stale: mtime ${reportChangesStat.mtime.toISOString()} is not newer than ` +
+        `the build start ${new Date(buildStartedAtMs).toISOString()}.`;
+    }
+  } catch (error) {
+    reportFreshnessFailure = `${reportChangesPath} was not refreshed by the build and could not be inspected: ${errorText(error)}`;
+  }
+  if (reportFreshnessFailure !== null) {
+    await finishBuildFailure(
+      1,
+      reportFreshnessFailure,
+      "Ninja exited successfully, but build/GALE01/report_changes.json was not refreshed after the build started. Regression reports were not read.",
+    );
+    return;
+  }
 
   // L2 QA ship gate: deterministic maintainer-rejection scan over the diff
   // against the upstream base. Runs by default; --skip-qa-gate is for
@@ -103,6 +187,7 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
       stateDir: globals.stateDir,
       baseRef: qaBaseRef,
       includeWorktree: true,
+      surface: "pr_gate",
     });
     await writeFile(qaScanPath, qaInvocation.stdout);
     await writeFile(qaScanTextPath, qaInvocation.stderr);

@@ -1342,7 +1342,7 @@ describe("kernel Pi runtime bridge", () => {
     expect(calls).toHaveLength(0);
   });
 
-  test("can route a DB-backed non-dry spawn through kernel createSpawnAgent", async () => {
+  test("passes a bundle without kernel context unchanged through kernel createSpawnAgent", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-spawn-"));
     const outputDir = join(tempDir, "out");
     const traceInputs: unknown[] = [];
@@ -1551,11 +1551,19 @@ describe("kernel Pi runtime bridge", () => {
     expect(((traceInputs[1] as Record<string, any>).eventData.error as string)).toContain("context_length_exceeded");
   });
 
-  test("passes converted prompt-bundle context resolver into kernel createSpawnAgent", async () => {
+  test("delivers resolver-backed rendered context through the kernel createSpawnAgent prompt", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-context-"));
     const outputDir = join(tempDir, "out");
     const loadedResolvers: unknown[] = [];
     const kernelPrompts: string[] = [];
+    const renderedContext = [
+      "<slice_diff>",
+      "diff --git a/src/example.c b/src/example.c",
+      "</slice_diff>",
+      "<lint_findings>",
+      "Avoid unnecessary casts.",
+      "</lint_findings>",
+    ].join("\n");
     const contextResolver = {
       loaders: [
         {
@@ -1583,7 +1591,7 @@ describe("kernel Pi runtime bridge", () => {
           },
           body: bundle.systemPrompt,
         },
-        userPrompt: "Use the injected worker context.",
+        userPrompt: "Use the injected reviewer context.",
         contextResolver,
       }),
       createKernelSpawnAgent: (adapters) => {
@@ -1604,23 +1612,23 @@ describe("kernel Pi runtime bridge", () => {
     });
 
     const result = await runner({
-      role: "worker",
+      role: "pr-reviewer",
       cwd: tempDir,
       outputDir,
       dryRun: false,
       prompt: {
-        systemPrompt: "worker system prompt",
-        userPrompt: "full original worker user prompt",
-        systemTemplatePath: "apps/server/src/core/agent-catalog/agents/running/worker/agent.ts",
-        userTemplatePath: "apps/server/src/core/agent-catalog/agents/running/worker/prompt.ts",
+        systemPrompt: "reviewer system prompt",
+        userPrompt: "full original reviewer user prompt",
+        systemTemplatePath: "apps/server/src/core/agent-catalog/agents/pr/reviewer/agent.ts",
+        userTemplatePath: "apps/server/src/core/agent-catalog/agents/pr/reviewer/prompt.ts",
         kernelContext: {
-          renderedContext: "full rendered worker context",
-          turnPrompt: "Use the injected worker context.",
+          renderedContext,
+          turnPrompt: "Use the injected reviewer context.",
           inputs: [
             {
               loaderKind: "worker-packet",
               inputRef: "worker-packet",
-              content: "<task>Use the packet.</task>",
+              content: "<task>Review the packet.</task>",
             },
           ],
         },
@@ -1641,11 +1649,17 @@ describe("kernel Pi runtime bridge", () => {
       },
     });
 
-    expect(kernelPrompts).toEqual(["Use the injected worker context."]);
+    expect(kernelPrompts).toEqual([
+      `${renderedContext}\n\nUse the injected reviewer context.`,
+    ]);
+    expect(kernelPrompts[0]).toContain("<slice_diff>");
+    expect(kernelPrompts[0]).toContain("<lint_findings>");
     expect(loadedResolvers).toHaveLength(1);
     expect(loadedResolvers[0]).toBe(contextResolver);
-    expect(await Bun.file(result.systemPromptPath).text()).toBe("worker system prompt");
-    expect(await Bun.file(result.userPromptPath).text()).toBe("Use the injected worker context.");
+    expect(await Bun.file(result.systemPromptPath).text()).toBe("reviewer system prompt");
+    expect(await Bun.file(result.userPromptPath).text()).toBe(
+      `${renderedContext}\n\nUse the injected reviewer context.`,
+    );
   });
 });
 

@@ -31,6 +31,7 @@ interface ReportRow {
   name: string;
   from?: MetricValues;
   to?: MetricValues;
+  metadata?: { virtual_address?: unknown };
 }
 
 interface ReportUnit extends ReportRow {
@@ -59,6 +60,17 @@ export interface ReportEntry {
   fromPercent: number;
   toPercent: number;
   bytesDelta: number;
+}
+
+export interface RenamedFunction {
+  unitName: string;
+  fromName: string;
+  toName: string;
+  address: string | null;
+  size: number;
+  fromPercent: number;
+  toPercent: number;
+  pairedBy: "address" | "size";
 }
 
 export interface RegressionReportSummary {
@@ -112,6 +124,7 @@ export interface RegressionReport {
   brokenMatches: ReportEntry[];
   improvements: ReportEntry[];
   fuzzyRegressions: ReportEntry[];
+  renames: RenamedFunction[];
   summary: RegressionReportSummary;
   promotion: PrPromotionEvaluation;
   markdown: string;
@@ -155,6 +168,103 @@ function sizeOf(row: ReportRow): number {
 function bytesDelta(size: number, fromPercent: number, toPercent: number): number {
   const delta = (size * (toPercent - fromPercent)) / 100.0;
   return delta < 0 ? Math.trunc(delta - 0.5) : Math.trunc(delta + 0.5);
+}
+
+function rowAddress(row: ReportRow): string | null {
+  const address = row.metadata?.virtual_address;
+  if (typeof address === "string" && address.trim() !== "") return address;
+  if (typeof address === "number" && Number.isFinite(address)) return String(address);
+  return null;
+}
+
+/**
+ * Upstream merges rename symbols (e.g. `fn_8002F488` -> `Camera_SetBounds`),
+ * which a name-keyed diff misreads as one lost match plus one new function.
+ * Pair removed (from-only) and added (to-only) rows within a unit — exactly by
+ * virtual address when both sides carry it, otherwise conservatively by
+ * matching size with a non-regressing percent — and merge each pair into a
+ * single row under the new name. Unpaired removals fall through unchanged and
+ * still count as regressions (fail-closed).
+ */
+function resolveFunctionRenames(unit: ReportUnit): { rows: ReportRow[]; renames: RenamedFunction[] } {
+  const rows = asArray<ReportRow>(unit.functions);
+  const removed: ReportRow[] = [];
+  const added: ReportRow[] = [];
+  const resolved: ReportRow[] = [];
+  for (const row of rows) {
+    const hasFrom = row.from != null;
+    const hasTo = row.to != null;
+    if (hasFrom && !hasTo) removed.push(row);
+    else if (hasTo && !hasFrom) added.push(row);
+    else resolved.push(row);
+  }
+  if (removed.length === 0 || added.length === 0) {
+    return { rows, renames: [] };
+  }
+
+  const renames: RenamedFunction[] = [];
+  const pairedAdded = new Set<ReportRow>();
+  const pair = (removedRow: ReportRow, addedRow: ReportRow, pairedBy: RenamedFunction["pairedBy"]): void => {
+    pairedAdded.add(addedRow);
+    const merged: ReportRow = { name: addedRow.name, from: removedRow.from, to: addedRow.to, metadata: addedRow.metadata };
+    resolved.push(merged);
+    renames.push({
+      unitName: unit.name,
+      fromName: removedRow.name,
+      toName: addedRow.name,
+      address: rowAddress(addedRow) ?? rowAddress(removedRow),
+      size: sizeOf(merged),
+      fromPercent: toNumber(removedRow.from?.fuzzy_match_percent),
+      toPercent: toNumber(addedRow.to?.fuzzy_match_percent),
+      pairedBy,
+    });
+  };
+
+  // Pass 1: exact pairing by virtual address (only when the address is unambiguous).
+  const addedByAddress = new Map<string, ReportRow | null>();
+  for (const row of added) {
+    const address = rowAddress(row);
+    if (address === null) continue;
+    addedByAddress.set(address, addedByAddress.has(address) ? null : row);
+  }
+  const fallbackRemoved: ReportRow[] = [];
+  for (const row of removed) {
+    const address = rowAddress(row);
+    const candidate = address !== null ? addedByAddress.get(address) : undefined;
+    if (candidate && !pairedAdded.has(candidate)) pair(row, candidate, "address");
+    else fallbackRemoved.push(row);
+  }
+
+  // Pass 2: conservative fallback for rows without address metadata. Pair only
+  // when sizes agree (when known) and the new percent does not regress; on
+  // ambiguity require an identical size+percent match, else leave unpaired.
+  for (const row of fallbackRemoved) {
+    if (rowAddress(row) !== null && addedByAddress.size > 0) {
+      // The removed row has an address but no added row shares it: genuinely gone.
+      resolved.push(row);
+      continue;
+    }
+    const fromPercent = toNumber(row.from?.fuzzy_match_percent);
+    const fromSize = toNumber(row.from?.size);
+    const candidates = added.filter((entry) => {
+      if (pairedAdded.has(entry)) return false;
+      const toSize = toNumber(entry.to?.size);
+      if (fromSize > 0 && toSize > 0 && fromSize !== toSize) return false;
+      return toNumber(entry.to?.fuzzy_match_percent) >= fromPercent;
+    });
+    if (candidates.length === 1) {
+      pair(row, candidates[0]!, "size");
+      continue;
+    }
+    const exact = candidates.find(
+      (entry) => toNumber(entry.to?.size) === fromSize && toNumber(entry.to?.fuzzy_match_percent) === fromPercent,
+    );
+    if (exact) pair(row, exact, "size");
+    else resolved.push(row);
+  }
+
+  resolved.push(...added.filter((row) => !pairedAdded.has(row)));
+  return { rows: resolved, renames };
 }
 
 function formatFloat(value: number): string {
@@ -221,7 +331,7 @@ function metricChanges(report: ObjdiffReportChanges): Pick<RegressionReport, "re
         diffKey(regressions, progressions, `${unit.name}::${section.name}`, section, key);
       }
     }
-    for (const func of asArray<ReportRow>(unit.functions)) {
+    for (const func of resolveFunctionRenames(unit).rows) {
       for (const key of FUNCTION_KEYS_TO_DIFF) {
         diffKey(regressions, progressions, func.name, func, key);
       }
@@ -266,13 +376,16 @@ function sortedEntries(report: ObjdiffReportChanges): Omit<
   const brokenMatches: ReportEntry[] = [];
   const improvements: ReportEntry[] = [];
   const fuzzyRegressions: ReportEntry[] = [];
+  const renames: RenamedFunction[] = [];
 
   for (const unit of asArray<ReportUnit>(report.units)) {
     const metadata = (unit as { metadata?: { source_path?: unknown } }).metadata ?? {};
     const sourcePath = typeof metadata.source_path === "string" ? metadata.source_path : "";
+    const resolvedFunctions = resolveFunctionRenames(unit);
+    renames.push(...resolvedFunctions.renames);
     const rows = [
       ...asArray<ReportRow>(unit.sections).filter((row) => row.name !== ".text"),
-      ...asArray<ReportRow>(unit.functions),
+      ...resolvedFunctions.rows,
     ];
     for (const row of rows) {
       const fromPercent = toNumber(row.from?.fuzzy_match_percent);
@@ -299,7 +412,7 @@ function sortedEntries(report: ObjdiffReportChanges): Omit<
   brokenMatches.sort((a, b) => a.bytesDelta - b.bytesDelta);
   improvements.sort((a, b) => b.bytesDelta - a.bytesDelta);
   fuzzyRegressions.sort((a, b) => a.bytesDelta - b.bytesDelta);
-  return { newMatches, brokenMatches, improvements, fuzzyRegressions };
+  return { newMatches, brokenMatches, improvements, fuzzyRegressions, renames };
 }
 
 function reportTable(entries: ReportEntry[], maxRows: number): string[] {
@@ -315,6 +428,26 @@ function reportTable(entries: ReportEntry[], maxRows: number): string[] {
   if (maxRows > 0 && entries.length > maxRows) {
     lines.push("", `...and ${entries.length - maxRows} more`);
   }
+  return lines;
+}
+
+function renameSection(renames: RenamedFunction[], maxRows: number): string[] {
+  const shown = maxRows <= 0 ? renames : renames.slice(0, maxRows);
+  const lines = ["<details>", `<summary>${renames.length} renamed functions (paired, not regressions)</summary>`, ""];
+  if (shown.length === 0) {
+    lines.push("No entries.");
+  } else {
+    lines.push("| Unit | Before | After | Paired by | Before % | After % |", "| - | - | - | - | - | - |");
+    for (const rename of shown) {
+      lines.push(
+        `| \`${rename.unitName}\` | \`${rename.fromName}\` | \`${rename.toName}\` | ${rename.pairedBy} | ${formatPercent(rename.fromPercent)} | ${formatPercent(rename.toPercent)} |`,
+      );
+    }
+    if (maxRows > 0 && renames.length > maxRows) {
+      lines.push("", `...and ${renames.length - maxRows} more`);
+    }
+  }
+  lines.push("</details>");
   return lines;
 }
 
@@ -441,17 +574,18 @@ function generateMarkdown(report: ObjdiffReportChanges, title: string, maxRows: 
     "",
     ...reportSection("regressions in unmatched items", entries.fuzzyRegressions, maxRows, entries.fuzzyRegressions.length > 0),
     "",
+    ...renameSection(entries.renames, maxRows),
+    "",
   ];
   return lines.join("\n");
 }
 
-export async function readRegressionReport(
-  reportChangesPath: string,
+export function buildRegressionReport(
+  raw: unknown,
   title: string,
   maxRows: number,
   promotionPolicy?: Partial<PrPromotionPolicy>,
-): Promise<RegressionReport> {
-  const raw = JSON.parse(await readFile(reportChangesPath, "utf8")) as unknown;
+): RegressionReport {
   const report = asRecord(raw) as ObjdiffReportChanges;
   const changes = metricChanges(report);
   const entries = sortedEntries(report);
@@ -464,6 +598,16 @@ export async function readRegressionReport(
     promotion,
     markdown: generateMarkdown(report, title, maxRows, promotionPolicy),
   };
+}
+
+export async function readRegressionReport(
+  reportChangesPath: string,
+  title: string,
+  maxRows: number,
+  promotionPolicy?: Partial<PrPromotionPolicy>,
+): Promise<RegressionReport> {
+  const raw = JSON.parse(await readFile(reportChangesPath, "utf8")) as unknown;
+  return buildRegressionReport(raw, title, maxRows, promotionPolicy);
 }
 
 export async function writePrReport(

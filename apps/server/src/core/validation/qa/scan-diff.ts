@@ -21,6 +21,9 @@ import { resolveRegisteredTool } from "@server/core/tools/resolver";
 
 export type QaScanSeverity = "error" | "warning";
 
+/** Scan surface for per-surface severity resolution in scan_diff.py. */
+export type QaScanSurface = "worker" | "pr_gate";
+
 export interface QaScanFinding {
   rule_id: string;
   severity: QaScanSeverity;
@@ -77,6 +80,12 @@ export interface RunQaScanDiffOptions {
   includeWorktree?: boolean;
   /** Run scanner in gate mode. Defaults to true. Queue-building scans can disable this to collect findings without a failing process exit. */
   gate?: boolean;
+  /**
+   * Scan surface for per-surface severity resolution ("worker" for the L1
+   * worker lint, "pr_gate" for PR-side gates). Omitted = base severities
+   * (fully backward compatible).
+   */
+  surface?: QaScanSurface;
 }
 
 async function runProcess(repoRoot: string, command: string[], env?: Record<string, string>): Promise<{ exitCode: number; stdout: string; stderr: string }> {
@@ -172,6 +181,7 @@ export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaSc
   if (options.baseRef) command.push("--base", options.baseRef);
   if (options.diffFile) command.push("--diff-file", options.diffFile);
   if (options.includeWorktree) command.push("--include-worktree");
+  if (options.surface) command.push("--surface", options.surface);
   for (const file of options.files ?? []) command.push("--path", file);
   if (!existsSync(scriptPath)) {
     return {

@@ -26,8 +26,9 @@ import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import { qaGatePassed, runQaScanDiff, type QaScanInvocation } from "@server/core/validation/qa";
 import { runCommand } from "@server/infrastructure/shell";
 import type { PiRunResult } from "@server/core/shared/types";
-import { packageRoot } from "@server/core/knowledge";
+import { appendCuratedKnowledgeRecords, knowledgeCuratorEnrichmentPath, packageRoot, type CuratedKnowledgeRecord } from "@server/core/knowledge";
 import { booleanArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { preshipProposedRuleRecords } from "./pr-preship-proposals.js";
 
 /** Injectable agent runner; the default is the in-process Pi runtime the other server agent jobs use. */
 export type PreshipAgentRunner = (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
@@ -57,13 +58,13 @@ export interface PreshipAggregate {
   allApproved: boolean;
 }
 
-interface PreshipPlanSlice {
+export interface PreshipPlanSlice {
   id: string;
   lane: string | null;
   pathspecs: string[];
 }
 
-interface PreshipPlan {
+export interface PreshipPlan {
   repoRoot: string;
   baseRef: string;
   headRef: string;
@@ -79,6 +80,8 @@ export interface PreshipReviewRunOptions {
   includeWorktree?: boolean;
   runId: string;
   stateDir: string;
+  /** Optional direct parent for per-slice review directories. */
+  reviewRootDir?: string;
   orchestratorRoot: string;
   dryRun: boolean;
   provider: string;
@@ -87,6 +90,14 @@ export interface PreshipReviewRunOptions {
   timeoutMs?: number;
   projectId?: string;
   project?: GlobalArgs["project"];
+  /**
+   * Where reviewer-proposed lint rules accumulate (decomp_standards proposal
+   * store). Defaults to the shared knowledge_curator_updates.jsonl. Injectable
+   * for tests. Pass null to disable accumulation.
+   */
+  proposedRuleStorePath?: string | null;
+  /** Injectable appender (defaults to the shared curator append writer). */
+  appendProposedRules?: (storePath: string, records: CuratedKnowledgeRecord[]) => void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -188,8 +199,10 @@ async function sliceDiff(repoRoot: string, baseRef: string, headRef: string, pat
   return readFile(outputPath, "utf8").catch(() => "");
 }
 
-async function reviewOneSlice(slice: PreshipPlanSlice, options: PreshipReviewRunOptions, runner: PreshipAgentRunner): Promise<PreshipSliceOutcome> {
-  const reviewDir = resolve(options.stateDir, "preship_reviews", options.runId, slice.id);
+export async function reviewOneSlice(slice: PreshipPlanSlice, options: PreshipReviewRunOptions, runner: PreshipAgentRunner): Promise<PreshipSliceOutcome> {
+  const reviewDir = options.reviewRootDir
+    ? resolve(options.reviewRootDir, slice.id)
+    : resolve(options.stateDir, "preship_reviews", options.runId, slice.id);
   await mkdir(reviewDir, { recursive: true });
   const repoRoot = options.plan.repoRoot;
 
@@ -219,6 +232,7 @@ async function reviewOneSlice(slice: PreshipPlanSlice, options: PreshipReviewRun
     project: options.project,
     stateDir: options.stateDir,
     diffFile: diffPath,
+    surface: "pr_gate",
   });
   await writeFile(
     resolve(reviewDir, "lint.json"),
@@ -324,7 +338,34 @@ async function reviewOneSlice(slice: PreshipPlanSlice, options: PreshipReviewRun
     )}\n`,
   );
   await writeFile(resolve(reviewDir, "review.md"), reviewMarkdown(slice.id, review, lintNote));
+  await accumulateProposedRules(review, options, reviewPath);
   return { id: slice.id, verdict: review.slice_verdict, ...counts, reviewPath };
+}
+
+/**
+ * Append any reviewer-proposed lint rules to the decomp_standards proposal
+ * store. Accumulate-only and best-effort: a store write failure must never
+ * fail-open the gate, so errors are swallowed after being recorded on the
+ * review artifact directory is skipped (the gate verdict already stands).
+ */
+async function accumulateProposedRules(review: PreshipReview, options: PreshipReviewRunOptions, reviewPath: string | null): Promise<void> {
+  const proposedRules = review.proposed_rules ?? [];
+  if (proposedRules.length === 0) return;
+  if (options.proposedRuleStorePath === null) return;
+  const storePath = options.proposedRuleStorePath ?? knowledgeCuratorEnrichmentPath();
+  const records = preshipProposedRuleRecords({
+    proposedRules,
+    runId: options.runId,
+    sliceId: review.slice_id,
+    reviewPath,
+  });
+  if (records.length === 0) return;
+  const append = options.appendProposedRules ?? ((path, rows) => void appendCuratedKnowledgeRecords(path, rows));
+  try {
+    append(storePath, records);
+  } catch {
+    // Accumulate-only side channel; never block the ship gate on a store write.
+  }
 }
 
 export async function runPreshipReview(

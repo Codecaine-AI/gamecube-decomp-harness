@@ -136,6 +136,23 @@ describe("qaRepairPrompt", () => {
     const injectedContext = bundle.kernelContext?.renderedContext ?? "";
 
     expect(promptOnly).toContain("Repair one PR-bound candidate file");
+    // Requirement framing (Phase 4): findings are requirement violations; false_positive
+    // demands evidence; llm_review findings kept as-is need justification.
+    expect(promptOnly).toContain("requirement violation");
+    expect(promptOnly.toLowerCase()).toContain("llm_review");
+    expect(promptOnly).toContain("scanner error");
+    expect(promptOnly).toContain("Do not edit headers");
+    expect(promptOnly).toContain("Header edits are outside this repair lane and will be rolled back");
+    expect(promptOnly).toContain("process those targets one at a time");
+    expect(promptOnly).toContain("record its current source shape");
+    expect(promptOnly).toContain("you MUST run the available compile tool and objdiff/checkdiff score tool scoped to that function");
+    expect(promptOnly).toContain("was exact before this target's edit is no longer exact");
+    expect(promptOnly).toContain("restore the prior source shape you recorded for this target");
+    expect(promptOnly).toContain("record `left_with_evidence`");
+    expect(promptOnly).toContain("measured before/after exact-match regression");
+    expect(promptOnly).toContain("then continue to the next target");
+    expect(promptOnly).toContain("file-scope findings such as data ordering, includes, and literals");
+    expect(promptOnly).toContain("whole-file compile and whole-file objdiff/checkdiff score check");
     expect(promptOnly).not.toContain("src/melee/gr/grsmoke.c");
     expect(injectedContext).toContain("src/melee/gr/grsmoke.c");
     expect(injectedContext).toContain("m2c_residue_names");

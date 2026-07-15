@@ -62,6 +62,7 @@ export const prompt = definePrompt({
     section("goal", [
       bulletList([
         "Repair one PR-bound candidate file that has deterministic QA findings.",
+        "Every finding in the queue item is a requirement violation, not a suggestion. The default disposition is to repair it. Leaving a finding unfixed requires stated evidence, not preference.",
         "Make the smallest valuable source edits that remove the listed maintainer-rejected patterns.",
         "Treat worker output as useful but fallible: make the retained source worth merging into the repo, not preserve every score gain.",
         "Preserve useful matching work when possible by converting bad tactics into project idioms.",
@@ -77,7 +78,7 @@ export const prompt = definePrompt({
       usesContext("qa-repair-item", {
         instructions: [
           "Use the injected queue item, available tools, source path, lane, findings, proofs, and repair task as the authoritative repair packet.",
-          "Fix only the file and findings named in the queue item unless a local include/header edit is strictly required.",
+          "Fix only the source file and findings named in the queue item. Do not edit headers; if a repair requires a header change, leave the finding with evidence and report the blocker.",
         ],
       }),
       usesContext("qa-repair-queue-summary", {
@@ -106,7 +107,7 @@ export const prompt = definePrompt({
     section("rules", [
       orderedList([
         "Return JSON only; no Markdown outside the JSON object.",
-        "Fix only the file and findings named in the queue item unless a local include/header edit is strictly required.",
+        "Fix only the source file and findings named in the queue item. Header edits are outside this repair lane and will be rolled back; report a header dependency as evidence instead.",
         "Do not preserve exactness by retaining `register`, inline asm, `M2C_FIELD`, generated labels, fake assert macros, extern-literal anchors, packed string blobs, define aliases, or other listed QA violations.",
         "Prefer project idioms already present in nearby source: existing field names, helpers, HSD_ASSERT/HSD_ASSERTMSG forms, canonical macros, and typed accesses.",
         "Treat `<standard_examples>` as pattern-specific repair guidance, not as permission to edit unrelated code.",
@@ -117,7 +118,8 @@ export const prompt = definePrompt({
         "For raw `__assert`/`OSReport` findings, try to restore the project assert/report idiom (`HSD_ASSERT`, `HSD_ASSERTMSG`, or an existing helper) before removing matching work.",
         "Do not use destructive git commands or reset unrelated user work.",
         "A small score loss is acceptable when it is the cost of removing standards-violating worker output; record the loss instead of chasing it back with generated, tactic-shaped, or fake source. Fuzzy improvements are less important than exact matches, and both are less important than avoiding new regressions in existing items.",
-        'If a finding appears false-positive, leave code minimal, set `outcome: "false_positive"`, add a `false_positive` disposition, and explain the rule/evidence gap. Do not call it clean.',
+        'A finding is a requirement violation by default; do not mark `false_positive` to avoid a repair. Only when a finding is genuinely a scanner error may you set `outcome: "false_positive"`, add a `false_positive` disposition, and you MUST state the concrete rule/evidence gap (the source fact the detector misread). An unexplained `false_positive` is not acceptable and is not clean.',
+        'An `llm_review`-advisory finding (the scanner marked it advisory, deferring to reviewer judgment) may be kept as-is only with a `left_with_evidence` disposition and a `risks[]` entry that justifies why the retained shape is acceptable — the line, the tradeoff, and the reviewer question. Silence is not justification.',
         "Do not silently normalize away a new exact match for a merely suspicious source shape. First try a clean idiomatic repair; if exactness depends on a non-banned but reviewer-sensitive line, leave the smallest match-preserving form and mark it `left_with_evidence` plus a `risks[]` entry for reviewer judgment. If the shape is fake, cheating, a listed violation, or causes an existing regression, fix/revert it even if the match is lost.",
         "If you cannot validate, set the relevant validation row to `not_run` and explain why.",
       ]),
@@ -132,26 +134,41 @@ export const prompt = definePrompt({
       ], { attrs: { id: "1", name: "understand_findings" } }),
       section("phase", [
         bulletList([
-          "Remove the concrete violations one class at a time.",
-          "Keep unrelated matching work intact.",
+          "Group function-scoped findings by repair target, and process those targets one at a time.",
+          "Before editing a target, record its current source shape and whether its function is already exact so you can restore only that target if its checkpoint regresses.",
+          "Remove the concrete violations for the current target while keeping unrelated matching work intact.",
           "Try `fixed_source` first: inline a constant, use an owned data definition, restore an HSD assert macro, replace generated residue names, or use typed fields/helpers.",
           "Use `fixed_by_minimal_revert` only for the smallest hunk that cannot be made reviewable without keeping the banned tactic.",
           "Prefer losing fuzzy improvements over losing exact matches when both choices remain standards-compliant and regression-free.",
-          "When exact match and a known violation conflict, choose cleanliness and report the score impact honestly.",
+          "When a new exact match created during this repair and a known violation conflict, choose cleanliness and report the score impact honestly; this does not override the checkpoint rule protecting a function that was already exact before its target edit.",
           "When exact match depends on a non-banned unresolved style or source-shape tradeoff, keep the minimal match-preserving code and annotate that line in the JSON for PR-reviewer/maintainer guidance rather than hiding the concern.",
         ]),
-      ], { attrs: { id: "2", name: "repair_minimally" } }),
+      ], { attrs: { id: "2", name: "repair_targets_one_at_a_time" } }),
       section("phase", [
         bulletList([
-          "Run focused source/score/build/QA checks available to you.",
-          "Record each command and artifact path in the JSON.",
+          "After fixing each target's findings, and before moving to the next target, you MUST run the available compile tool and objdiff/checkdiff score tool scoped to that function.",
+          "If a function that was exact before this target's edit is no longer exact, restore the prior source shape you recorded for this target; do not leave the regressing edit in the file.",
+          "For every target finding left by that restore, record `left_with_evidence` and include the measured before/after exact-match regression in `evidence`, then continue to the next target.",
+          "Re-run the target checkpoint after restoring its prior shape when the available tools permit, and record every checkpoint command, result, and artifact path in `validation[]`.",
+        ]),
+      ], { attrs: { id: "3", name: "checkpoint_each_target" } }),
+      section("phase", [
+        bulletList([
+          "Only after all function targets have completed their checkpoints, handle file-scope findings such as data ordering, includes, and literals.",
+          "Keep file-scope repairs minimal and do not reopen already checkpointed function targets unless the file-scope repair requires it.",
+        ]),
+      ], { attrs: { id: "4", name: "repair_file_scope_findings" } }),
+      section("phase", [
+        bulletList([
+          "After file-scope repairs, you MUST run a whole-file compile and whole-file objdiff/checkdiff score check, plus the focused QA checks available to you.",
+          "Record each command, result, and artifact path in the JSON.",
           "If validation still reports findings, return `needs_rework` with the remaining rule IDs.",
           "Do not return `fixed` while a required finding lacks a disposition row.",
         ]),
-      ], { attrs: { id: "3", name: "validate" } }),
+      ], { attrs: { id: "5", name: "validate_whole_file" } }),
       section("phase", [
         "Return one compact JSON object with edits, validations, remaining findings, risks, and score impact.",
-      ], { attrs: { id: "4", name: "report" } }),
+      ], { attrs: { id: "6", name: "report" } }),
     ]),
   ],
 });

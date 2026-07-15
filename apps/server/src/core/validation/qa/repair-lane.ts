@@ -295,6 +295,17 @@ function findingsForPath(findings: QaScanFinding[], path: string, severity?: QaS
   return findings.filter((finding) => sameOrSuffixPath(finding.file, path) && (!severity || finding.severity === severity));
 }
 
+/**
+ * True for advisory findings the scanner routes to reviewer judgment
+ * (detail.llm_review === true). These are never mandatory repair targets:
+ * they defer to a human, so they must not force a file into the repair queue
+ * nor count as a remaining-required blocker.
+ */
+function isLlmReviewFinding(finding: QaScanFinding): boolean {
+  const detail = finding.detail;
+  return Boolean(detail) && typeof detail === "object" && !Array.isArray(detail) && (detail as Record<string, unknown>).llm_review === true;
+}
+
 function ruleCounts(findings: QaScanFinding[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const finding of findings) increment(counts, finding.rule_id);
@@ -328,10 +339,14 @@ export function buildQaRepairQueue(options: BuildQaRepairQueueOptions): QaRepair
 
   const candidate_files: QaRepairCandidateFile[] = [];
   const items: QaRepairQueueItem[] = [];
+  const itemSlugCounts = new Map<string, number>();
   for (const sourcePath of candidatePaths) {
     const proofs = proofGroups.get(sourcePath) ?? [];
     const errors = findingsForPath(options.scanResult.findings, sourcePath, "error");
     const warnings = findingsForPath(options.scanResult.findings, sourcePath, "warning");
+    // llm_review warnings are advisory (reviewer judgment); only non-llm_review
+    // warnings are mandatory repair targets when repairWarnings is set.
+    const mandatoryWarnings = warnings.filter((finding) => !isLlmReviewFinding(finding));
     const allFileFindings = [...errors, ...warnings];
     const fileRuleCounts = ruleCounts(allFileFindings);
     const lane = proofLane(proofs);
@@ -345,10 +360,13 @@ export function buildQaRepairQueue(options: BuildQaRepairQueueOptions): QaRepair
       status: candidateFileStatus(errors.length, warnings.length),
     });
     const repairWarnings = options.repairWarnings === true;
-    if (errors.length === 0 && (!repairWarnings || warnings.length === 0)) continue;
+    if (errors.length === 0 && (!repairWarnings || mandatoryWarnings.length === 0)) continue;
+    const itemSlug = slugForPath(sourcePath);
+    const itemSlugCount = (itemSlugCounts.get(itemSlug) ?? 0) + 1;
+    itemSlugCounts.set(itemSlug, itemSlugCount);
     items.push({
       schema_version: "qa_repair_queue_item_v1",
-      id: slugForPath(sourcePath),
+      id: itemSlugCount === 1 ? itemSlug : `${itemSlug}--${itemSlugCount}`,
       status: "queued",
       source_path: sourcePath,
       lane,
@@ -356,7 +374,7 @@ export function buildQaRepairQueue(options: BuildQaRepairQueueOptions): QaRepair
       head_sha: options.headSha ?? null,
       proofs,
       findings: errors,
-      warnings,
+      warnings: mandatoryWarnings,
       repair_warnings: repairWarnings,
       rule_counts: fileRuleCounts,
       created_at: createdAt,
@@ -562,7 +580,11 @@ export function validateQaRepairOutcome(input: QaRepairValidationInput): QaRepai
     };
   }
   const remainingErrors = findingsForPath(input.postScan.findings, input.item.source_path, "error");
-  const remainingWarnings = input.item.repair_warnings ? findingsForPath(input.postScan.findings, input.item.source_path, "warning") : [];
+  // Advisory llm_review warnings defer to reviewer judgment; they never block a
+  // clean disposition even when repair_warnings is set.
+  const remainingWarnings = input.item.repair_warnings
+    ? findingsForPath(input.postScan.findings, input.item.source_path, "warning").filter((finding) => !isLlmReviewFinding(finding))
+    : [];
   const remainingFindings = [...remainingErrors, ...remainingWarnings];
   if (remainingErrors.length > 0) {
     reasons.push(`post-repair QA scan still has ${remainingErrors.length} error finding(s) for ${input.item.source_path}`);

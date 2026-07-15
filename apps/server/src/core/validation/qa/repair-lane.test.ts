@@ -86,7 +86,7 @@ describe("buildQaRepairQueue", () => {
     const queue = buildQaRepairQueue({
       runId: "test-run",
       repoRoot: "/repo",
-      scanResult: scanResult([finding(), finding({ file: "src/melee/gm/gm_1832.c", rule_id: "new_data_anchor" })]),
+      scanResult: scanResult([finding(), finding({ file: "src/melee/gm/gm_1832.c", rule_id: "extern_in_c" })]),
       candidateFiles: ["src/melee/gr/grsmoke.c"],
       createdAt: "2026-06-13T00:00:00.000Z",
     });
@@ -94,6 +94,24 @@ describe("buildQaRepairQueue", () => {
     expect(queue.items).toHaveLength(1);
     expect(queue.ignored_findings).toHaveLength(1);
     expect(queue.ignored_findings[0]?.reason).toBe("outside_candidate_set");
+  });
+
+  test("later colliding path slugs receive deterministic unique item ids", () => {
+    const options = {
+      runId: "test-run",
+      repoRoot: "/repo",
+      scanResult: scanResult([finding({ file: "a-b.c" }), finding({ file: "a/b.c" })]),
+      createdAt: "2026-06-13T00:00:00.000Z",
+    };
+    const queue = buildQaRepairQueue({ ...options, candidateFiles: ["a/b.c", "a-b.c"] });
+    const rebuilt = buildQaRepairQueue({ ...options, candidateFiles: ["a-b.c", "a/b.c"] });
+
+    expect(queue.items.map((item) => [item.source_path, item.id])).toEqual([
+      ["a-b.c", "a-b"],
+      ["a/b.c", "a-b--2"],
+    ]);
+    expect(rebuilt.items.map((item) => item.id)).toEqual(queue.items.map((item) => item.id));
+    expect(new Set(queue.items.map((item) => item.id)).size).toBe(queue.items.length);
   });
 
   test("warning-only files become repair items when warnings are required", () => {
@@ -112,6 +130,49 @@ describe("buildQaRepairQueue", () => {
     expect(queue.items[0]?.warnings[0]?.rule_id).toBe("type_erasing_cast");
     expect(queue.items[0]?.repair_warnings).toBe(true);
     expect(summarizeQaRepairQueue(queue).recommendation).toBe("repair_required");
+  });
+
+  test("advisory llm_review warnings never force a repair item even when warnings are required", () => {
+    const queue = buildQaRepairQueue({
+      runId: "test-run",
+      repoRoot: "/repo",
+      scanResult: scanResult([
+        finding({
+          severity: "warning",
+          rule_id: "type_erasing_cast",
+          excerpt: "(u8*) data",
+          message: "Added type-erasing cast.",
+          detail: { llm_review: true },
+        }),
+      ]),
+      candidateFiles: ["src/melee/gr/grsmoke.c"],
+      repairWarnings: true,
+      createdAt: "2026-06-13T00:00:00.000Z",
+    });
+
+    // The file is still visible as warning_only, but there is no mandatory repair item.
+    expect(queue.candidate_files[0]?.status).toBe("warning_only");
+    expect(queue.candidate_files[0]?.warningCount).toBe(1);
+    expect(queue.items).toHaveLength(0);
+    expect(summarizeQaRepairQueue(queue).recommendation).toBe("clean");
+  });
+
+  test("a file mixing a mandatory warning and an advisory llm_review warning queues only the mandatory one", () => {
+    const queue = buildQaRepairQueue({
+      runId: "test-run",
+      repoRoot: "/repo",
+      scanResult: scanResult([
+        finding({ severity: "warning", rule_id: "m2c_goto_label", line: 10, excerpt: "goto done;", message: "Added goto." }),
+        finding({ severity: "warning", rule_id: "type_erasing_cast", line: 20, excerpt: "(u8*) data", message: "cast", detail: { llm_review: true } }),
+      ]),
+      candidateFiles: ["src/melee/gr/grsmoke.c"],
+      repairWarnings: true,
+      createdAt: "2026-06-13T00:00:00.000Z",
+    });
+
+    expect(queue.items).toHaveLength(1);
+    const warnRules = queue.items[0]?.warnings.map((entry) => entry.rule_id);
+    expect(warnRules).toEqual(["m2c_goto_label"]);
   });
 });
 
@@ -230,5 +291,28 @@ describe("validateQaRepairOutcome", () => {
     expect(result.status).toBe("needs_rework");
     expect(result.remainingFindings).toHaveLength(1);
     expect(result.reasons[0]).toContain("required warning");
+  });
+
+  test("a surviving advisory llm_review warning does not block a clean disposition", () => {
+    const queue = buildQaRepairQueue({
+      runId: "test-run",
+      repoRoot: "/repo",
+      scanResult: scanResult([finding()]),
+      candidateFiles: ["src/melee/gr/grsmoke.c"],
+      repairWarnings: true,
+      createdAt: "2026-06-13T00:00:00.000Z",
+    });
+    const result = validateQaRepairOutcome({
+      item: queue.items[0] as QaRepairQueueItem,
+      // Error is fixed; only an advisory llm_review warning remains for the file.
+      postScan: scanResult([
+        finding({ severity: "warning", rule_id: "type_erasing_cast", excerpt: "(u8*) data", message: "cast", detail: { llm_review: true } }),
+      ]),
+      buildPassed: true,
+      regressionPassed: true,
+    });
+
+    expect(result.status).toBe("clean_same_match");
+    expect(result.remainingFindings).toEqual([]);
   });
 });

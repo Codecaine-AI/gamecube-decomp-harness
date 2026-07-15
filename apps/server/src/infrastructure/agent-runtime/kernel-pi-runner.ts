@@ -1,4 +1,10 @@
 import { TraceLevel, type EventData } from "@agent-kernel/protocol";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import {
+  createBashToolDefinition,
+  type BashOperations,
+} from "@earendil-works/pi-coding-agent";
 import type { AgentContextResolver } from "@agent-kernel/kernel/context";
 import type { ParsedAgent } from "@agent-kernel/kernel/spawn-pipeline";
 import type { PiRunResult, RuntimeAgentRole } from "@server/core/shared/types";
@@ -32,6 +38,171 @@ import { runPiAgent } from "./runtime/pi-agent.js";
 export const MELEE_AGENT_SPAWN_STARTED_EVENT = "melee:agent_spawn_started";
 export const MELEE_AGENT_SPAWN_COMPLETED_EVENT = "melee:agent_spawn_completed";
 export const MELEE_AGENT_SPAWN_FAILED_EVENT = "melee:agent_spawn_failed";
+
+const CHILD_REAPER_GRACE_MS = 5_000;
+
+type ChildReaperSignal = "SIGTERM" | "SIGKILL";
+type ChildReaperKill = (pid: number, signal: ChildReaperSignal) => unknown;
+
+export interface PiChildProcessReaper {
+  registerProcessGroup(pgid: number): void;
+  unregisterProcessGroup(pgid: number): void;
+  processGroupCount(): number;
+  handleSignal(signal: "SIGTERM" | "SIGINT"): void;
+}
+
+export function createPiChildProcessReaper(opts: {
+  kill?: ChildReaperKill;
+  schedule?: (callback: () => void, delayMs: number) => unknown;
+  exit?: (code: number) => void;
+  platform?: NodeJS.Platform;
+  graceMs?: number;
+} = {}): PiChildProcessReaper {
+  const processGroups = new Set<number>();
+  const kill = opts.kill ?? process.kill;
+  const schedule = opts.schedule ?? setTimeout;
+  const exit = opts.exit ?? ((code: number) => process.exit(code));
+  const platform = opts.platform ?? process.platform;
+  const graceMs = opts.graceMs ?? CHILD_REAPER_GRACE_MS;
+  let reaping = false;
+
+  const signalAll = (signal: ChildReaperSignal): void => {
+    for (const pgid of [...processGroups]) {
+      try {
+        kill(platform === "win32" ? pgid : -pgid, signal);
+      } catch (error) {
+        const code = error && typeof error === "object" ? (error as NodeJS.ErrnoException).code : undefined;
+        if (code === "ESRCH") processGroups.delete(pgid);
+      }
+    }
+  };
+
+  return {
+    registerProcessGroup(pgid) {
+      if (Number.isSafeInteger(pgid) && pgid > 0) processGroups.add(pgid);
+    },
+    unregisterProcessGroup(pgid) {
+      if (!reaping) processGroups.delete(pgid);
+    },
+    processGroupCount() {
+      return processGroups.size;
+    },
+    handleSignal(signal) {
+      const exitCode = signal === "SIGINT" ? 130 : 143;
+      if (reaping) {
+        signalAll("SIGKILL");
+        processGroups.clear();
+        exit(exitCode);
+        return;
+      }
+      reaping = true;
+      signalAll("SIGTERM");
+      schedule(() => {
+        signalAll("SIGKILL");
+        processGroups.clear();
+        exit(exitCode);
+      }, graceMs);
+    },
+  };
+}
+
+function childReaperDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.ORCH_NO_CHILD_REAPER === "1";
+}
+
+const livePiChildProcessReaper = createPiChildProcessReaper();
+let childReaperHandlersInstalled = false;
+
+function installChildReaperSignalHandlers(): void {
+  if (childReaperHandlersInstalled || childReaperDisabled()) return;
+  childReaperHandlersInstalled = true;
+  const install = (signal: "SIGTERM" | "SIGINT"): void => {
+    const handler = (): void => {
+      if (livePiChildProcessReaper.processGroupCount() > 0) {
+        livePiChildProcessReaper.handleSignal(signal);
+        return;
+      }
+      process.off(signal, handler);
+      process.kill(process.pid, signal);
+    };
+    process.on(signal, handler);
+  };
+  install("SIGTERM");
+  install("SIGINT");
+}
+
+function shellPath(): string {
+  if (process.platform === "win32") return "bash.exe";
+  return existsSync("/bin/bash") ? "/bin/bash" : "bash";
+}
+
+function signalProcessGroup(pgid: number, signal: ChildReaperSignal): void {
+  try {
+    process.kill(process.platform === "win32" ? pgid : -pgid, signal);
+  } catch {
+    // The process may have completed between the caller's check and the signal.
+  }
+}
+
+function trackedBashOperations(): BashOperations {
+  return {
+    exec(command, cwd, options) {
+      return new Promise((resolve, reject) => {
+        if (options.signal?.aborted) {
+          reject(new Error("aborted"));
+          return;
+        }
+        installChildReaperSignalHandlers();
+        const child = spawn(shellPath(), ["-c", command], {
+          cwd,
+          // Node's POSIX spawn API creates a new process group only when detached is true.
+          // The child remains tracked and is never unref'ed, so normal completion is unchanged.
+          detached: process.platform !== "win32",
+          env: options.env ?? process.env,
+          stdio: ["ignore", "pipe", "pipe"],
+          windowsHide: true,
+        });
+        const pgid = child.pid;
+        if (pgid) livePiChildProcessReaper.registerProcessGroup(pgid);
+        let timedOut = false;
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        let settled = false;
+
+        const cleanup = (): void => {
+          if (pgid) livePiChildProcessReaper.unregisterProcessGroup(pgid);
+          if (timeout) clearTimeout(timeout);
+          options.signal?.removeEventListener("abort", onAbort);
+        };
+        const onAbort = (): void => {
+          if (pgid) signalProcessGroup(pgid, "SIGKILL");
+        };
+        child.stdout?.on("data", options.onData);
+        child.stderr?.on("data", options.onData);
+        child.once("error", (error) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(error);
+        });
+        child.once("close", (exitCode) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          if (options.signal?.aborted) reject(new Error("aborted"));
+          else if (timedOut) reject(new Error(`timeout:${options.timeout}`));
+          else resolve({ exitCode });
+        });
+        if (options.timeout !== undefined && options.timeout > 0) {
+          timeout = setTimeout(() => {
+            timedOut = true;
+            if (pgid) signalProcessGroup(pgid, "SIGKILL");
+          }, options.timeout * 1_000);
+        }
+        options.signal?.addEventListener("abort", onAbort, { once: true });
+      });
+    },
+  };
+}
 
 export type MeleeKernelSpawnStrategy = "auto" | "kernel";
 
@@ -255,7 +426,7 @@ function directUserPromptForContextSpawn(
   prompt: string,
 ): string {
   const renderedContext = piOptions.prompt.kernelContext?.renderedContext?.trim();
-  if (!renderedContext) return piOptions.prompt.userPrompt;
+  if (!renderedContext) return prompt;
   const turnPrompt = prompt.trim();
   if (!turnPrompt || turnPrompt === renderedContext) return renderedContext;
   return `${renderedContext}\n\n${turnPrompt}`;
@@ -316,6 +487,12 @@ export function createMeleeKernelPiAgentRunner(
     const useKernelCreateSpawnAgent =
       strategy === "kernel" ||
       (strategy === "auto" && Boolean(runtime?.db && context.appSessionId && !piOptions.dryRun));
+    // Temporary workaround for the kernel accumulation-guard live-state injection bug.
+    // Remove once resolved context is appended to the spawned agent's in-memory messages.
+    const kernelUserPrompt =
+      useKernelCreateSpawnAgent && converted.contextResolver
+        ? directUserPromptForContextSpawn(piOptions, converted.userPrompt)
+        : converted.userPrompt;
 
     if (strategy === "kernel" && piOptions.dryRun) {
       throw new Error("Kernel createSpawnAgent strategy does not support Pi dryRun");
@@ -389,7 +566,7 @@ export function createMeleeKernelPiAgentRunner(
     try {
       const result = await kernel.spawnAgent(
         entry.name,
-        converted.userPrompt,
+        kernelUserPrompt,
         context,
         kernelOptionsFor(piOptions, kernelOptions),
       );
@@ -429,11 +606,17 @@ const buildToolFactories: BuildMeleeKernelToolFactories = (options) => {
     repoRoot: options.cwd,
     ...(options.toolContext ?? {}),
   };
-  return buildAgentTools(toolContext, options.toolProfile).map((tool) => {
+  const toolFactories: ReturnType<BuildMeleeKernelToolFactories> = buildAgentTools(toolContext, options.toolProfile).map((tool) => {
     return (pi) => {
       pi.registerTool(tool as never);
     };
   });
+  if (!childReaperDisabled()) {
+    toolFactories.push((pi) => {
+      pi.registerTool(createBashToolDefinition(options.cwd, { operations: trackedBashOperations() }) as never);
+    });
+  }
+  return toolFactories;
 };
 
 export const runMeleeKernelPiAgent = createMeleeKernelPiAgentRunner({

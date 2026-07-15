@@ -6,28 +6,24 @@
  * run deterministic QA scan + optional repairs, comment unresolved findings,
  * and verify local/CI checks before declaring the draft ready for humans.
  */
-import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import { artifactTimestamp } from "@server/infrastructure/agent-runtime/runtime";
-import type { PreshipReview, PreshipReviewFinding } from "@server/core/agent-catalog/agents/pr/reviewer";
-import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type QaScanResult, type RunQaScanDiffOptions } from "@server/core/validation/qa";
+import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
 import type { QaRepairItemStatus, QaRepairQueue, QaRepairQueueItem } from "@server/core/validation/qa/repair-lane";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { commentUnresolvedFindings, fetchGithubComments, type CommentableFinding, type PostedCommentRecord } from "../github-comments.js";
 import { runPreshipReview, type PreshipAgentRunner, type PreshipAggregate, type PreshipReviewRunOptions } from "./pr-preship-review.js";
 import { runQaRepair, type QaRepairAgentRunner } from "./qa-repair.js";
+import { deriveStatus, isLlmReviewFinding } from "./pr-draft-qa-classify.js";
+import type { DraftQaStatus } from "./pr-draft-qa-classify.js";
+import { mergeRepairScanFindings, preshipFindingRecordsFromOutcomes, type PreshipFindingRecord } from "./preship-findings.js";
+
+export type { DraftQaStatus } from "./pr-draft-qa-classify.js";
 
 const SUMMARY_SCHEMA_VERSION = "pr_draft_qa_summary_v1";
-const COMMENT_MARKER_PREFIX = "decomp-orchestrator:pr-draft-qa";
-
-export type DraftQaStatus =
-  | "ready_for_human_review"
-  | "ready_for_human_review_with_warnings"
-  | "manual_review_required"
-  | "needs_repair"
-  | "blocked";
 
 export interface DraftPrMetadata {
   number: number;
@@ -41,38 +37,6 @@ export interface DraftPrMetadata {
   headRefOid: string;
   authorLogin: string | null;
   headOwnerLogin: string | null;
-}
-
-interface PreshipFindingRecord {
-  source: "preship";
-  sliceId: string;
-  file: string;
-  line: number | null;
-  verdict: "reject" | "warn";
-  standardId: string | null;
-  rationale: string;
-  suggestedFix: string | null;
-  reviewPath: string;
-}
-
-interface CommentableFinding {
-  source: "preship" | "review_lint" | "qa_repair";
-  severity: "error" | "warning" | "reject" | "blocked";
-  file: string | null;
-  line: number | null;
-  ruleId: string | null;
-  standardId: string | null;
-  message: string;
-  suggestedFix: string | null;
-  artifactPath: string | null;
-}
-
-interface PostedCommentRecord {
-  marker: string;
-  finding: CommentableFinding;
-  status: "posted_inline" | "posted_top_level" | "already_present" | "dry_run" | "failed";
-  url?: string | null;
-  error?: string;
 }
 
 interface VerificationResult {
@@ -164,10 +128,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
 function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
@@ -191,23 +151,6 @@ function resolveInputPath(path: string, repoRoot: string): string {
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
-function stableHash(value: string): string {
-  return createHash("sha256").update(value).digest("hex").slice(0, 16);
-}
-
-function commentMarker(finding: CommentableFinding): string {
-  const material = [
-    finding.source,
-    finding.severity,
-    finding.file ?? "",
-    String(finding.line ?? ""),
-    finding.ruleId ?? "",
-    finding.standardId ?? "",
-    finding.message,
-  ].join("\0");
-  return `<!-- ${COMMENT_MARKER_PREFIX}:${stableHash(material)} -->`;
 }
 
 function repoSlugFromRemoteUrl(url: string): string | null {
@@ -239,25 +182,6 @@ function parseJsonOutput(output: string, label: string): unknown {
     return JSON.parse(output) as unknown;
   } catch (error) {
     throw new Error(`${label} did not return JSON: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-function parseGhPaginatedJson(output: string): unknown[] {
-  const trimmed = output.trim();
-  if (!trimmed) return [];
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    return Array.isArray(parsed) ? parsed : [parsed];
-  } catch {
-    const rows: unknown[] = [];
-    for (const line of trimmed.split(/\r?\n/)) {
-      const text = line.trim();
-      if (!text) continue;
-      const parsed = JSON.parse(text) as unknown;
-      if (Array.isArray(parsed)) rows.push(...parsed);
-      else rows.push(parsed);
-    }
-    return rows;
   }
 }
 
@@ -390,72 +314,7 @@ async function writeDiff(params: {
 }
 
 async function readPreshipFindings(aggregate: PreshipAggregate): Promise<PreshipFindingRecord[]> {
-  const records: PreshipFindingRecord[] = [];
-  for (const slice of aggregate.slices) {
-    if (!slice.reviewPath) continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(await readFile(slice.reviewPath, "utf8")) as unknown;
-    } catch {
-      continue;
-    }
-    const payload = isRecord(parsed) && isRecord(parsed.review) ? (parsed.review as unknown) : parsed;
-    const review = isRecord(payload) ? (payload as Partial<PreshipReview>) : null;
-    for (const rawFinding of asArray(review?.findings)) {
-      const finding = rawFinding as Partial<PreshipReviewFinding>;
-      records.push({
-        source: "preship",
-        sliceId: slice.id,
-        file: stringValue(finding.file),
-        line: typeof finding.line === "number" ? finding.line : null,
-        verdict: finding.verdict === "warn" ? "warn" : "reject",
-        standardId: typeof finding.standard_id === "string" ? finding.standard_id : null,
-        rationale: stringValue(finding.rationale),
-        suggestedFix: typeof finding.suggested_fix === "string" ? finding.suggested_fix : null,
-        reviewPath: slice.reviewPath,
-      });
-    }
-  }
-  return records;
-}
-
-function slugForRule(value: string | null): string {
-  return (value ?? "review")
-    .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toLowerCase() || "review";
-}
-
-function preshipFindingsAsQaFindings(findings: PreshipFindingRecord[], includeWarnings: boolean): QaScanFinding[] {
-  return findings
-    .filter((finding) => finding.file && (finding.verdict === "reject" || includeWarnings))
-    .map((finding) => ({
-      rule_id: `preship_${finding.verdict}_${slugForRule(finding.standardId)}`,
-      severity: finding.verdict === "reject" ? "error" : "warning",
-      file: finding.file,
-      line: finding.line ?? 1,
-      excerpt: finding.suggestedFix ?? finding.rationale,
-      message: finding.rationale,
-      standard_id: finding.standardId,
-      detail: {
-        source: "preship",
-        slice_id: finding.sliceId,
-        review_path: finding.reviewPath,
-        suggested_fix: finding.suggestedFix,
-      },
-    }));
-}
-
-function mergeRepairScanFindings(scan: QaScanResult, preshipFindings: PreshipFindingRecord[], includePreshipWarnings: boolean): QaScanResult {
-  const findings = [...scan.findings, ...preshipFindingsAsQaFindings(preshipFindings, includePreshipWarnings)];
-  const errors = findings.filter((finding) => finding.severity === "error").length;
-  const warnings = findings.filter((finding) => finding.severity === "warning").length;
-  return {
-    ...scan,
-    findings,
-    counts: { errors, warnings },
-    status: errors > 0 ? "failed" : warnings > 0 ? "warned" : "passed",
-  };
+  return preshipFindingRecordsFromOutcomes(aggregate.slices);
 }
 
 function unresolvedRepairItems(queue: QaRepairQueue | null, options: { allowLowerScore?: boolean } = {}): QaRepairQueueItem[] {
@@ -504,7 +363,7 @@ function commentablesFromScan(findings: QaScanFinding[], scanPath: string | null
   return findings
     .filter((finding) => finding.severity === "error" || includeWarnings)
     .map((finding) => ({
-      source: "review_lint",
+      source: "review_lint" as const,
       severity: finding.severity,
       file: finding.file,
       line: finding.line,
@@ -513,6 +372,7 @@ function commentablesFromScan(findings: QaScanFinding[], scanPath: string | null
       message: finding.message,
       suggestedFix: null,
       artifactPath: scanPath,
+      llmReview: isLlmReviewFinding(finding),
     }));
 }
 
@@ -531,136 +391,6 @@ function commentablesFromRepair(queue: QaRepairQueue | null, queuePath: string |
       artifactPath: queuePath,
     };
   });
-}
-
-function renderCommentBody(finding: CommentableFinding, marker: string, prNumber: number): string {
-  const lines = [
-    marker,
-    "Automated draft PR QA could not fully clear this finding.",
-    "",
-    `Source: ${finding.source}`,
-    `Severity: ${finding.severity}`,
-  ];
-  if (finding.ruleId) lines.push(`Rule: ${finding.ruleId}`);
-  if (finding.standardId) lines.push(`Standard: ${finding.standardId}`);
-  lines.push("", finding.message);
-  if (finding.suggestedFix) lines.push("", `Suggested follow-up: ${finding.suggestedFix}`);
-  if (finding.artifactPath) lines.push("", `Artifact: \`${finding.artifactPath}\``);
-  lines.push("", `After fixing or intentionally accepting this, rerun \`make pr-draft-qa PR=${prNumber}\`.`);
-  return `${lines.join("\n")}\n`;
-}
-
-function markersFromComments(comments: unknown[]): Set<string> {
-  const markers = new Set<string>();
-  const regex = new RegExp(`<!--\\s*${COMMENT_MARKER_PREFIX}:[^>]+-->`, "g");
-  for (const comment of comments) {
-    const body = isRecord(comment) ? stringValue(comment.body) : "";
-    for (const match of body.matchAll(regex)) markers.add(match[0]);
-  }
-  return markers;
-}
-
-async function fetchGithubComments(params: {
-  globals: GlobalArgs;
-  deps: DraftPrQaDeps;
-  repo: string;
-  prNumber: number;
-  outputPath: string;
-}): Promise<{ comments: unknown[]; warnings: string[] }> {
-  const warnings: string[] = [];
-  const comments: unknown[] = [];
-  const endpoints = [
-    ["issue", `repos/${params.repo}/issues/${params.prNumber}/comments`],
-    ["review", `repos/${params.repo}/pulls/${params.prNumber}/comments`],
-  ] as const;
-  for (const [kind, endpoint] of endpoints) {
-    const result = await runExternal(params.deps, params.globals.repoRoot, ["gh", "api", "--paginate", endpoint]);
-    if (result.exitCode !== 0) {
-      warnings.push(`gh api ${endpoint} failed (${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`);
-      continue;
-    }
-    try {
-      for (const comment of parseGhPaginatedJson(result.stdout)) comments.push({ kind, ...(isRecord(comment) ? comment : { value: comment }) });
-    } catch (error) {
-      warnings.push(`Could not parse gh api ${endpoint}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-  await writeFile(params.outputPath, `${JSON.stringify({ comments, warnings }, null, 2)}\n`);
-  return { comments, warnings };
-}
-
-async function postTopLevelComment(params: {
-  globals: GlobalArgs;
-  deps: DraftPrQaDeps;
-  repo: string;
-  prNumber: number;
-  body: string;
-}): Promise<{ status: "posted_top_level" | "failed"; url?: string | null; error?: string }> {
-  const result = await runExternal(params.deps, params.globals.repoRoot, ["gh", "api", `repos/${params.repo}/issues/${params.prNumber}/comments`, "-f", `body=${params.body}`]);
-  if (result.exitCode !== 0) return { status: "failed", error: result.stderr.trim() || result.stdout.trim() };
-  const parsed = parseJsonOutput(result.stdout || "{}", "gh issue comment");
-  return { status: "posted_top_level", url: isRecord(parsed) ? nullableStringValue(parsed.html_url) : null };
-}
-
-async function postFindingComment(params: {
-  globals: GlobalArgs;
-  deps: DraftPrQaDeps;
-  repo: string;
-  pr: DraftPrMetadata;
-  finding: CommentableFinding;
-  body: string;
-}): Promise<{ status: "posted_inline" | "posted_top_level" | "failed"; url?: string | null; error?: string }> {
-  if (params.finding.file && params.finding.line && params.finding.line > 0) {
-    const inline = await runExternal(params.deps, params.globals.repoRoot, [
-      "gh",
-      "api",
-      `repos/${params.repo}/pulls/${params.pr.number}/comments`,
-      "-f",
-      `body=${params.body}`,
-      "-f",
-      `commit_id=${params.pr.headRefOid}`,
-      "-f",
-      `path=${params.finding.file}`,
-      "-F",
-      `line=${params.finding.line}`,
-      "-f",
-      "side=RIGHT",
-    ]);
-    if (inline.exitCode === 0) {
-      const parsed = parseJsonOutput(inline.stdout || "{}", "gh review comment");
-      return { status: "posted_inline", url: isRecord(parsed) ? nullableStringValue(parsed.html_url) : null };
-    }
-  }
-  return postTopLevelComment({ globals: params.globals, deps: params.deps, repo: params.repo, prNumber: params.pr.number, body: params.body });
-}
-
-async function commentUnresolvedFindings(params: {
-  globals: GlobalArgs;
-  deps: DraftPrQaDeps;
-  repo: string;
-  pr: DraftPrMetadata;
-  findings: CommentableFinding[];
-  existingComments: unknown[];
-  dryRun: boolean;
-}): Promise<PostedCommentRecord[]> {
-  const existingMarkers = markersFromComments(params.existingComments);
-  const records: PostedCommentRecord[] = [];
-  for (const finding of params.findings) {
-    const marker = commentMarker(finding);
-    if (existingMarkers.has(marker)) {
-      records.push({ marker, finding, status: "already_present" });
-      continue;
-    }
-    const body = renderCommentBody(finding, marker, params.pr.number);
-    if (params.dryRun) {
-      records.push({ marker, finding, status: "dry_run" });
-      continue;
-    }
-    const posted = await postFindingComment({ ...params, finding, body });
-    records.push({ marker, finding, ...posted });
-    if (posted.status !== "failed") existingMarkers.add(marker);
-  }
-  return records;
 }
 
 function renderTemplateCommand(template: string, params: { globals: GlobalArgs; outputDir: string; runId: string; pr: DraftPrMetadata; baseRef: string; headRef: string }): string {
@@ -734,56 +464,6 @@ async function runCiCheck(params: {
   await writeFile(stderrPath, result.stderr);
   await writeFile(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
   return summary;
-}
-
-function deriveStatus(params: {
-  scanToolError: string | null;
-  strictWarnings: boolean;
-  allowLowerScoreRepairs: boolean;
-  qaErrors: number;
-  qaWarnings: number;
-  preshipRejects: number;
-  preshipWarnings: number;
-  repairUnresolved: number;
-  repairLowerScore: number;
-  repairFalsePositive: number;
-  comments: PostedCommentRecord[];
-  ci: VerificationResult;
-  localCheck: VerificationResult;
-}): { status: DraftQaStatus; exitCode: number; readyForHumanReview: boolean } {
-  if (params.scanToolError || params.ci.status === "failed" || params.localCheck.status === "failed") {
-    return { status: "blocked", exitCode: 1, readyForHumanReview: false };
-  }
-  if (
-    params.qaErrors > 0 ||
-    params.repairUnresolved > 0 ||
-    params.repairFalsePositive > 0 ||
-    (!params.allowLowerScoreRepairs && params.repairLowerScore > 0)
-  ) {
-    return { status: "needs_repair", exitCode: 1, readyForHumanReview: false };
-  }
-  if (params.preshipRejects > 0) {
-    const allCommented =
-      params.comments.length > 0 && params.comments.every((comment) => comment.status === "posted_inline" || comment.status === "posted_top_level" || comment.status === "already_present" || comment.status === "dry_run");
-    return {
-      status: allCommented ? "manual_review_required" : "needs_repair",
-      exitCode: allCommented ? 0 : 1,
-      readyForHumanReview: allCommented,
-    };
-  }
-  if (params.strictWarnings && (params.qaWarnings > 0 || params.preshipWarnings > 0)) {
-    const allCommented =
-      params.comments.length > 0 && params.comments.every((comment) => comment.status === "posted_inline" || comment.status === "posted_top_level" || comment.status === "already_present" || comment.status === "dry_run");
-    return {
-      status: allCommented ? "manual_review_required" : "needs_repair",
-      exitCode: allCommented ? 0 : 1,
-      readyForHumanReview: allCommented,
-    };
-  }
-  if (params.qaWarnings > 0 || params.preshipWarnings > 0 || params.repairLowerScore > 0) {
-    return { status: "ready_for_human_review_with_warnings", exitCode: 0, readyForHumanReview: true };
-  }
-  return { status: "ready_for_human_review", exitCode: 0, readyForHumanReview: true };
 }
 
 function renderReport(summary: DraftQaSummary, commentRecords: PostedCommentRecord[]): string {
@@ -958,7 +638,7 @@ export async function runDraftPrQa(globals: GlobalArgs, args: Map<string, string
     );
     latestPreshipFindings = await readPreshipFindings(preshipResult.aggregate);
 
-    latestScan = await scanDiff({ repoRoot: globals.repoRoot, orchestratorRoot, diffFile: diffPath, gate: false });
+    latestScan = await scanDiff({ repoRoot: globals.repoRoot, orchestratorRoot, diffFile: diffPath, gate: false, surface: "pr_gate" });
     const scanArtifacts = await writeScanArtifacts(latestScan, roundDir);
     latestScanPath = scanArtifacts.resultPath;
     scanToolError = latestScan.toolError;
@@ -1083,6 +763,9 @@ export async function runDraftPrQa(globals: GlobalArgs, args: Map<string, string
   const latestRound = rounds[rounds.length - 1];
   const qaErrors = latestRound?.scanErrors ?? 0;
   const qaWarnings = latestRound?.scanWarnings ?? 0;
+  const latestScanWarningFindings = (latestScan?.result?.findings ?? []).filter((finding) => finding.severity === "warning");
+  const qaWarningsLlmReview = latestScanWarningFindings.filter((finding) => isLlmReviewFinding(finding)).length;
+  const qaWarningsOther = latestScanWarningFindings.filter((finding) => !isLlmReviewFinding(finding)).length;
   const preshipRejects = latestPreshipFindings.filter((finding) => finding.verdict === "reject").length;
   const preshipWarnings = latestPreshipFindings.filter((finding) => finding.verdict === "warn").length;
   const repairUnresolved = unresolvedRepairItems(latestQueue, { allowLowerScore: allowLowerScoreRepairs }).length;
@@ -1090,10 +773,10 @@ export async function runDraftPrQa(globals: GlobalArgs, args: Map<string, string
   const repairFalsePositive = countRepairDispositions(repairDispositionByPath, "false_positive");
   const verdict = deriveStatus({
     scanToolError,
-    strictWarnings,
     allowLowerScoreRepairs,
     qaErrors,
-    qaWarnings,
+    qaWarningsLlmReview,
+    qaWarningsOther,
     preshipRejects,
     preshipWarnings,
     repairUnresolved,

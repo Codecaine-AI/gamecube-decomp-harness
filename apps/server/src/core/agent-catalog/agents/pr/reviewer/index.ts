@@ -1,6 +1,7 @@
 export { PRESHIP_DIFF_CHAR_LIMIT, prPreshipReviewPrompt, type PrPreshipReviewPromptOptions } from "./prompt.js";
 export {
   PRESHIP_REVIEW_SCHEMA_VERSION,
+  PRESHIP_PROPOSED_RULE_FAMILIES,
   loadPreshipExhibits,
   preshipExhibitsPath,
   preshipExhibitsPromptXml,
@@ -8,6 +9,8 @@ export {
   type PreshipExhibit,
   type PreshipExhibitKind,
   type PreshipFindingVerdict,
+  type PreshipProposedRule,
+  type PreshipProposedRuleFamily,
   type PreshipReview,
   type PreshipReviewFinding,
   type PreshipSliceVerdict,

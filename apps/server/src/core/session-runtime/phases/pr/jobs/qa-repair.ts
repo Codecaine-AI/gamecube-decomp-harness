@@ -1,13 +1,13 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { runMeleeKernelPiAgent as runPiAgent, type MeleeKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { qaRepairPrompt, validateQaRepairAgentResult } from "@server/core/agent-catalog/agents/pr/qa-repair";
 import { artifactTimestamp, parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import {
-  applyQaRepairValidation,
   buildQaRepairQueue,
   candidateProofsFromCheckpoint,
   qaRepairShipStatus,
@@ -17,8 +17,19 @@ import {
   type QaRepairAttempt,
   type QaRepairQueue,
   type QaRepairQueueItem,
+  type QaRepairSummary,
+  type QaRepairValidationResult,
 } from "@server/core/validation/qa/repair-lane";
 import { parseQaScanResult, runQaScanDiff, type QaScanResult } from "@server/core/validation/qa";
+import {
+  buildObjectForSource,
+  captureUnitMatchSnapshot,
+  compareUnitMatchSnapshots,
+  objdiffUnitPresence,
+  type ObjdiffUnitPresence,
+  type RepairCheckResult,
+  type UnitMatchSnapshot,
+} from "@server/core/validation/qa/repair-checks";
 import { runCommand } from "@server/infrastructure/shell";
 import { addPiSession } from "@server/core/session-runtime/run-state";
 import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
@@ -28,8 +39,96 @@ import { packageRoot } from "@server/core/knowledge";
 import { booleanArg, numberArg, projectMetadata, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 
 export type QaRepairAgentRunner = (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
-type QaRepairValidationKind = "score" | "build" | "regression";
-type QaRepairValidationCommands = Partial<Record<QaRepairValidationKind, string>>;
+export type QaRepairValidationKind = "score" | "build" | "regression";
+export type QaRepairValidationCommands = Partial<Record<QaRepairValidationKind, string>>;
+
+export interface QaRepairAgentOverrides {
+  provider?: string;
+  model?: string;
+  thinkingLevel?: string;
+}
+
+export interface ProcessSingleItemParams {
+  globals: GlobalArgs;
+  runId: string;
+  item: QaRepairQueueItem;
+  queueSummary: QaRepairSummary;
+  outputDir: string;
+  baseRef: string | null;
+  validationCommands: QaRepairValidationCommands;
+  runner: QaRepairAgentRunner;
+  agentOverrides?: QaRepairAgentOverrides;
+  enforcedChecks?: boolean;
+  repairChecks?: QaRepairEnforcedCheckRunners;
+}
+
+export interface ProcessedQaRepairItem {
+  item: QaRepairQueueItem;
+}
+
+export interface ProcessQueueItemParams extends Omit<ProcessSingleItemParams, "queueSummary"> {
+  queue: QaRepairQueue;
+}
+
+export interface QaRepairArtifacts {
+  queuePath: string;
+  summaryPath: string;
+  reportPath: string;
+  shipStatusPath: string;
+}
+
+export interface RunQaRepairOptions {
+  enforcedChecks?: boolean;
+  repairChecks?: QaRepairEnforcedCheckRunners;
+}
+
+export interface QaRepairEnforcedCheckRunners {
+  buildObjectForSource?: typeof buildObjectForSource;
+  captureUnitMatchSnapshot?: typeof captureUnitMatchSnapshot;
+  compareUnitMatchSnapshots?: typeof compareUnitMatchSnapshots;
+  objdiffUnitPresence?: typeof objdiffUnitPresence;
+  waitForSnapshotRetry?: (delayMs: number) => Promise<void>;
+}
+
+export type QaRepairEnforcedCheckStatus = "passed" | "failed" | "unavailable" | "not_run" | "skipped";
+
+export interface QaRepairEnforcedValidation {
+  enabled: boolean;
+  build_check: QaRepairEnforcedCheckStatus;
+  match_check: QaRepairEnforcedCheckStatus;
+  match_note?: string;
+  check_result?: RepairCheckResult;
+  reverted: boolean;
+  restored_build?: { ok: boolean; log: string };
+  restore_error?: string;
+}
+
+export type QaRepairAttemptWithEnforcedChecks = QaRepairAttempt & {
+  validation: QaRepairEnforcedValidation;
+  header_edit_reverted?: boolean;
+  header_edit_paths?: string[];
+  header_revert_failures?: string[];
+};
+
+export interface QaRepairHeaderStatusEntry {
+  status: string;
+  mtimeMs: number | null;
+  size: number | null;
+  contentHash: string | null;
+}
+
+export interface QaRepairHeaderStatusSnapshot {
+  available: boolean;
+  entries: Record<string, QaRepairHeaderStatusEntry>;
+  error?: string;
+}
+
+export interface QaRepairHeaderRevertResult {
+  changedPaths: string[];
+  revertedPaths: string[];
+  failedPaths: string[];
+  error?: string;
+}
 
 interface QaRepairCommandValidation {
   kind: QaRepairValidationKind;
@@ -97,6 +196,120 @@ async function runProcess(repoRoot: string, command: string[]): Promise<{ exitCo
   });
 }
 
+function normalizeRepoPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.\/+/, "");
+}
+
+function pathWithinRepo(repoRoot: string, path: string): string | null {
+  const absolutePath = resolve(repoRoot, path);
+  const repoRelativePath = relative(resolve(repoRoot), absolutePath);
+  if (!repoRelativePath || repoRelativePath.startsWith("..") || isAbsolute(repoRelativePath)) return null;
+  return absolutePath;
+}
+
+function isHeaderPath(path: string): boolean {
+  return normalizeRepoPath(path).toLowerCase().endsWith(".h");
+}
+
+function parseHeaderPorcelain(output: string): Map<string, string> {
+  const result = new Map<string, string>();
+  const records = output.split("\0");
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    if (!record || record.length < 4) continue;
+    const status = record.slice(0, 2);
+    const path = normalizeRepoPath(record.slice(3));
+    if (isHeaderPath(path)) result.set(path, status);
+    if (status.includes("R") || status.includes("C")) {
+      const originalPath = normalizeRepoPath(records[index + 1] ?? "");
+      index += 1;
+      if (isHeaderPath(originalPath)) result.set(originalPath, `${status}:source`);
+    }
+  }
+  return result;
+}
+
+async function headerStatusEntry(repoRoot: string, path: string, status: string): Promise<QaRepairHeaderStatusEntry> {
+  const absolutePath = pathWithinRepo(repoRoot, path);
+  if (!absolutePath) return { status, mtimeMs: null, size: null, contentHash: null };
+  try {
+    const [fileStat, content] = await Promise.all([lstat(absolutePath), readFile(absolutePath)]);
+    return {
+      status,
+      mtimeMs: fileStat.mtimeMs,
+      size: fileStat.size,
+      contentHash: createHash("sha256").update(content).digest("hex"),
+    };
+  } catch {
+    return { status, mtimeMs: null, size: null, contentHash: null };
+  }
+}
+
+/** Captures only dirty headers so unrelated clean files do not enter rollback scope. */
+export async function captureModifiedHeaderSnapshot(repoRoot: string): Promise<QaRepairHeaderStatusSnapshot> {
+  const status = await runCommand(repoRoot, ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "*.h"]);
+  if (status.exitCode !== 0) {
+    return {
+      available: false,
+      entries: {},
+      error: status.stderr.trim() || `git status exited ${status.exitCode}`,
+    };
+  }
+  const parsed = parseHeaderPorcelain(status.stdout);
+  const entries = Object.fromEntries(
+    await Promise.all([...parsed].map(async ([path, porcelainStatus]) => [path, await headerStatusEntry(repoRoot, path, porcelainStatus)] as const)),
+  );
+  return { available: true, entries };
+}
+
+function headerEntryChanged(before: QaRepairHeaderStatusEntry | undefined, after: QaRepairHeaderStatusEntry | undefined): boolean {
+  if (!before || !after) return before !== after;
+  return (
+    before.status !== after.status ||
+    before.mtimeMs !== after.mtimeMs ||
+    before.size !== after.size ||
+    before.contentHash !== after.contentHash
+  );
+}
+
+/** Restores only headers whose porcelain/fingerprint state changed during this repair attempt. */
+export async function revertModifiedHeadersSince(repoRoot: string, before: QaRepairHeaderStatusSnapshot): Promise<QaRepairHeaderRevertResult> {
+  if (!before.available) return { changedPaths: [], revertedPaths: [], failedPaths: [], error: before.error ?? "pre-run header status unavailable" };
+  const after = await captureModifiedHeaderSnapshot(repoRoot);
+  if (!after.available) return { changedPaths: [], revertedPaths: [], failedPaths: [], error: after.error ?? "post-run header status unavailable" };
+
+  const paths = new Set([...Object.keys(before.entries), ...Object.keys(after.entries)]);
+  const changedPaths = [...paths].filter((path) => headerEntryChanged(before.entries[path], after.entries[path])).sort();
+  const revertedPaths: string[] = [];
+  const failedPaths: string[] = [];
+  for (const path of changedPaths) {
+    const checkout = await runCommand(repoRoot, ["git", "checkout", "HEAD", "--", path]);
+    if (checkout.exitCode === 0) {
+      revertedPaths.push(path);
+      continue;
+    }
+
+    // A newly-created header has no HEAD entry for checkout. Remove only that
+    // scoped path (and any staging for it) so the same HEAD-state invariant holds.
+    const trackedAtHead = await runCommand(repoRoot, ["git", "cat-file", "-e", `HEAD:${path}`]);
+    const absolutePath = pathWithinRepo(repoRoot, path);
+    if (trackedAtHead.exitCode !== 0 && absolutePath) {
+      const reset = await runCommand(repoRoot, ["git", "reset", "-q", "HEAD", "--", path]);
+      try {
+        await rm(absolutePath, { force: true });
+        if (reset.exitCode === 0) {
+          revertedPaths.push(path);
+          continue;
+        }
+      } catch {
+        // Record the path below; the caller will keep the item in needs_rework.
+      }
+    }
+    failedPaths.push(path);
+  }
+  return { changedPaths, revertedPaths, failedPaths };
+}
+
 function candidateListFromFile(path: string): string[] {
   if (!path) return [];
   const raw = readFileSync(resolvePath(path), "utf8");
@@ -112,7 +325,7 @@ function candidateListFromFile(path: string): string[] {
     .filter((line) => line && !line.startsWith("#"));
 }
 
-function scanResultFromJson(raw: unknown, sourcePath: string): QaScanResult {
+export function scanResultFromJson(raw: unknown, sourcePath: string): QaScanResult {
   if (!isRecord(raw)) throw new Error(`${sourcePath} is not a JSON object`);
   const parsed = parseQaScanResult(JSON.stringify(raw));
   if (!parsed) throw new Error(`${sourcePath} is not a review_lint scan_diff JSON result`);
@@ -278,7 +491,7 @@ function recordQaRepairSession(globals: GlobalArgs, runId: string, result: PiRun
   }
 }
 
-async function writeArtifacts(queue: QaRepairQueue, outputDir: string): Promise<{ queuePath: string; summaryPath: string; reportPath: string; shipStatusPath: string }> {
+export async function writeArtifacts(queue: QaRepairQueue, outputDir: string): Promise<QaRepairArtifacts> {
   await mkdir(outputDir, { recursive: true });
   const queuePath = resolve(outputDir, "queue.json");
   const summaryPath = resolve(outputDir, "summary.json");
@@ -299,11 +512,27 @@ async function writeArtifacts(queue: QaRepairQueue, outputDir: string): Promise<
   return { queuePath, summaryPath, reportPath, shipStatusPath };
 }
 
-function appendAttempt(queue: QaRepairQueue, itemId: string, attempt: QaRepairAttempt): QaRepairQueue {
+function appendAttempt(item: QaRepairQueueItem, attempt: QaRepairAttempt): QaRepairQueueItem {
   return {
-    ...queue,
-    items: queue.items.map((item) => (item.id === itemId ? { ...item, attempts: [...item.attempts, attempt] } : item)),
+    ...item,
+    attempts: [...item.attempts, attempt],
   };
+}
+
+function applyValidation(item: QaRepairQueueItem, result: QaRepairValidationResult, attempt: QaRepairAttempt): QaRepairQueueItem {
+  return {
+    ...item,
+    status: result.status,
+    routing_reason: result.reasons.join("; "),
+    attempts: [...item.attempts, attempt],
+  };
+}
+
+function itemOutputDir(outputDir: string, item: QaRepairQueueItem): string {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(item.id)) {
+    throw new Error(`QA repair item id is not a safe artifact directory name: ${item.id}`);
+  }
+  return resolve(outputDir, item.id);
 }
 
 async function writeScanInvocation(outputDir: string, name: string, invocation: Awaited<ReturnType<typeof runQaScanDiff>>): Promise<string> {
@@ -317,34 +546,143 @@ async function writeScanInvocation(outputDir: string, name: string, invocation: 
   return jsonPath;
 }
 
-async function processQueueItem(params: {
-  globals: GlobalArgs;
-  runId: string;
-  queue: QaRepairQueue;
-  item: QaRepairQueueItem;
-  outputDir: string;
-  baseRef: string | null;
-  validationCommands: QaRepairValidationCommands;
-  runner: QaRepairAgentRunner;
-}): Promise<QaRepairQueue> {
-  const itemDir = resolve(params.outputDir, params.item.id);
+function failedBuildCheck(log: string): RepairCheckResult {
+  const buildLog = log.split(/\r?\n/).slice(-80).join("\n").slice(-8192);
+  return {
+    ok: false,
+    buildOk: false,
+    ...(buildLog ? { buildLog } : {}),
+    exactRegressions: [],
+    sectionRegressions: [],
+  };
+}
+
+function passedBuildCheck(): RepairCheckResult {
+  return { ok: true, buildOk: true, exactRegressions: [], sectionRegressions: [] };
+}
+
+const MATCH_SNAPSHOT_RETRY_DELAY_MS = 10_000;
+
+async function waitForSnapshotRetry(delayMs: number): Promise<void> {
+  await new Promise<void>((resolveDelay) => setTimeout(resolveDelay, delayMs));
+}
+
+async function captureMatchSnapshotWithRetry(opts: {
+  repoRoot: string;
+  sourcePath: string;
+  capture: typeof captureUnitMatchSnapshot;
+  wait: (delayMs: number) => Promise<void>;
+}): Promise<UnitMatchSnapshot | null> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const snapshot = await opts.capture({ repoRoot: opts.repoRoot, sourcePath: opts.sourcePath });
+      if (snapshot) return snapshot;
+    } catch {
+      // Snapshot capture failures are represented as null and retried once.
+    }
+    if (attempt === 0) await opts.wait(MATCH_SNAPSHOT_RETRY_DELAY_MS);
+  }
+  return null;
+}
+
+function forceNeedsRework(
+  validation: QaRepairValidationResult,
+  item: QaRepairQueueItem,
+  reasons: string[],
+): QaRepairValidationResult {
+  return {
+    ...validation,
+    status: "needs_rework",
+    reasons: [...new Set([...reasons, ...validation.reasons])],
+    remainingFindings: [...item.findings, ...(item.repair_warnings ? item.warnings : [])],
+  };
+}
+
+function attemptWithEnforcedChecks(
+  attempt: QaRepairAttempt,
+  validation: QaRepairEnforcedValidation,
+  headerResult: QaRepairHeaderRevertResult,
+): QaRepairAttemptWithEnforcedChecks {
+  const headerEditDetected = headerResult.changedPaths.length > 0;
+  return {
+    ...attempt,
+    validation,
+    ...(headerEditDetected ? { header_edit_reverted: headerResult.failedPaths.length === 0, header_edit_paths: headerResult.changedPaths } : {}),
+    ...(headerResult.failedPaths.length > 0 ? { header_revert_failures: headerResult.failedPaths } : {}),
+  };
+}
+
+export async function processSingleItem(params: ProcessSingleItemParams): Promise<ProcessedQaRepairItem> {
+  const itemDir = itemOutputDir(params.outputDir, params.item);
   await mkdir(itemDir, { recursive: true });
   const startedAt = new Date().toISOString();
+  const checksEnabled = params.enforcedChecks !== false && !params.globals.dryRunAgents;
+  const repairChecks: Required<QaRepairEnforcedCheckRunners> = {
+    buildObjectForSource: params.repairChecks?.buildObjectForSource ?? buildObjectForSource,
+    captureUnitMatchSnapshot: params.repairChecks?.captureUnitMatchSnapshot ?? captureUnitMatchSnapshot,
+    compareUnitMatchSnapshots: params.repairChecks?.compareUnitMatchSnapshots ?? compareUnitMatchSnapshots,
+    objdiffUnitPresence: params.repairChecks?.objdiffUnitPresence ?? objdiffUnitPresence,
+    waitForSnapshotRetry: params.repairChecks?.waitForSnapshotRetry ?? waitForSnapshotRetry,
+  };
+  const sourceFilePath = pathWithinRepo(params.globals.repoRoot, params.item.source_path);
+  let preContent: string | null = null;
+  let preSnapshot: UnitMatchSnapshot | null = null;
+  let unitPresence: ObjdiffUnitPresence = "unavailable";
+  let preContentError: string | undefined;
+  let headerSnapshot: QaRepairHeaderStatusSnapshot = { available: false, entries: {}, error: "enforced checks disabled" };
+  if (checksEnabled) {
+    if (!sourceFilePath) {
+      preContentError = `source path escapes repository: ${params.item.source_path}`;
+    } else {
+      try {
+        preContent = await readFile(sourceFilePath, "utf8");
+      } catch (error) {
+        preContentError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    try {
+      unitPresence = await repairChecks.objdiffUnitPresence({
+        repoRoot: params.globals.repoRoot,
+        sourcePath: params.item.source_path,
+      });
+    } catch {
+      unitPresence = "unavailable";
+    }
+    if (unitPresence !== "absent") {
+      preSnapshot = await captureMatchSnapshotWithRetry({
+        repoRoot: params.globals.repoRoot,
+        sourcePath: params.item.source_path,
+        capture: repairChecks.captureUnitMatchSnapshot,
+        wait: repairChecks.waitForSnapshotRetry,
+      });
+    }
+    headerSnapshot = await captureModifiedHeaderSnapshot(params.globals.repoRoot);
+  }
+  const enforcedValidation: QaRepairEnforcedValidation = {
+    enabled: checksEnabled,
+    build_check: checksEnabled ? "not_run" : "skipped",
+    match_check: checksEnabled ? (unitPresence === "absent" ? "skipped" : preSnapshot ? "not_run" : "unavailable") : "skipped",
+    ...(checksEnabled && unitPresence === "absent"
+      ? { match_note: "objdiff unit absent; match verification skipped" }
+      : {}),
+    reverted: false,
+    ...(preContentError ? { restore_error: preContentError } : {}),
+  };
   const run = await params.runner({
     role: "qa-repair",
     cwd: params.globals.repoRoot,
     prompt: qaRepairPrompt({
       item: params.item,
-      queueSummary: summarizeQaRepairQueue(params.queue),
+      queueSummary: params.queueSummary,
       repoRoot: params.globals.repoRoot,
       stateDir: params.globals.stateDir,
       project: projectMetadata(params.globals),
     }),
     outputDir: itemDir,
     dryRun: params.globals.dryRunAgents,
-    provider: params.globals.provider,
-    model: params.globals.model,
-    thinkingLevel: params.globals.thinkingLevel,
+    provider: params.agentOverrides?.provider ?? params.globals.provider,
+    model: params.agentOverrides?.model ?? params.globals.model,
+    thinkingLevel: params.agentOverrides?.thinkingLevel ?? params.globals.thinkingLevel,
     timeoutMs: params.globals.agentTimeoutSeconds ? params.globals.agentTimeoutSeconds * 1000 : undefined,
     toolContext: {
       repoRoot: params.globals.repoRoot,
@@ -370,6 +708,27 @@ async function processQueueItem(params: {
     }),
   });
   recordQaRepairSession(params.globals, params.runId, run);
+  const headerResult = checksEnabled
+    ? await revertModifiedHeadersSince(params.globals.repoRoot, headerSnapshot)
+    : { changedPaths: [], revertedPaths: [], failedPaths: [] };
+  const headerCheckFailed = headerResult.changedPaths.length > 0;
+  let targetRestored = false;
+  const restoreTarget = async (): Promise<void> => {
+    if (targetRestored) return;
+    if (!sourceFilePath || preContent === null) {
+      enforcedValidation.restore_error = enforcedValidation.restore_error ?? "pre-repair source content unavailable";
+      return;
+    }
+    try {
+      await writeFile(sourceFilePath, preContent);
+      targetRestored = true;
+      enforcedValidation.reverted = true;
+      delete enforcedValidation.restore_error;
+    } catch (error) {
+      enforcedValidation.restore_error = error instanceof Error ? error.message : String(error);
+    }
+  };
+  if (headerCheckFailed) await restoreTarget();
   const baseAttempt: QaRepairAttempt = {
     id: run.sessionId,
     status: run.dryRun ? "dry_run" : "agent_failed",
@@ -379,40 +738,111 @@ async function processQueueItem(params: {
     userPromptPath: run.userPromptPath,
     agentOutputPath: run.outputPath,
   };
+  const headerFailureReasons = headerCheckFailed
+    ? [
+        `qa-repair agent modified header files outside its single-file scope: ${headerResult.changedPaths.join(", ")}`,
+        ...(headerResult.failedPaths.length > 0 ? [`failed to restore header files: ${headerResult.failedPaths.join(", ")}`] : []),
+      ]
+    : [];
+  const preMatchFailureReasons = checksEnabled && unitPresence !== "absent" && !preSnapshot
+    ? ["match verification unavailable"]
+    : [];
+  const earlyEnforcedFailureReasons = [...headerFailureReasons, ...preMatchFailureReasons];
+  const runEnforcedBuild = async (): Promise<{ ok: boolean; log: string }> => {
+    try {
+      return await repairChecks.buildObjectForSource({ repoRoot: params.globals.repoRoot, sourcePath: params.item.source_path });
+    } catch (error) {
+      return { ok: false, log: error instanceof Error ? error.message : String(error) };
+    }
+  };
+  const confirmRestoredBuild = async (): Promise<void> => {
+    if (!checksEnabled || !targetRestored || enforcedValidation.restored_build) return;
+    enforcedValidation.restored_build = await runEnforcedBuild();
+  };
   if (run.dryRun) {
-    return appendAttempt(params.queue, params.item.id, { ...baseAttempt, summary: "dry-run agents wrote prompt artifacts; no validation ran" });
+    return {
+      item: appendAttempt(
+        params.item,
+        attemptWithEnforcedChecks({ ...baseAttempt, summary: "dry-run agents wrote prompt artifacts; no validation ran" }, enforcedValidation, headerResult),
+      ),
+    };
   }
   if (run.failed || run.providerError) {
-    const validation = validateQaRepairOutcome({
+    let validation = validateQaRepairOutcome({
       item: params.item,
       postScan: null,
       blockedReason: `qa-repair agent failed: ${run.error ?? run.providerError ?? "unknown failure"}`,
       validationArtifacts: { agent_output: run.outputPath },
     });
-    return applyQaRepairValidation(params.queue, validation, { ...baseAttempt, status: "agent_failed", error: validation.reasons.join("; ") });
+    if (earlyEnforcedFailureReasons.length > 0) {
+      await restoreTarget();
+      await confirmRestoredBuild();
+      validation = forceNeedsRework(validation, params.item, earlyEnforcedFailureReasons);
+    }
+    return {
+      item: applyValidation(
+        params.item,
+        validation,
+        attemptWithEnforcedChecks(
+          { ...baseAttempt, status: "agent_failed", error: validation.reasons.join("; ") },
+          enforcedValidation,
+          headerResult,
+        ),
+      ),
+    };
   }
 
   const parsed = parseJsonObject(run.rawText);
   if (!parsed.object) {
-    const validation = validateQaRepairOutcome({
+    let validation = validateQaRepairOutcome({
       item: params.item,
       postScan: null,
       blockedReason: `qa-repair output was not parseable JSON: ${parsed.error ?? "unknown parse error"}`,
       validationArtifacts: { agent_output: run.outputPath },
     });
-    return applyQaRepairValidation(params.queue, validation, { ...baseAttempt, status: "invalid_output", error: validation.reasons.join("; ") });
+    if (earlyEnforcedFailureReasons.length > 0) {
+      await restoreTarget();
+      await confirmRestoredBuild();
+      validation = forceNeedsRework(validation, params.item, earlyEnforcedFailureReasons);
+    }
+    return {
+      item: applyValidation(
+        params.item,
+        validation,
+        attemptWithEnforcedChecks(
+          { ...baseAttempt, status: "invalid_output", error: validation.reasons.join("; ") },
+          enforcedValidation,
+          headerResult,
+        ),
+      ),
+    };
   }
   const validated = validateQaRepairAgentResult(parsed.object);
   const parsedOutputPath = resolve(itemDir, "agent_result.json");
   await writeFile(parsedOutputPath, `${JSON.stringify({ parsed: parsed.object, validation_errors: validated.errors }, null, 2)}\n`);
   if (!validated.result) {
-    const validation = validateQaRepairOutcome({
+    let validation = validateQaRepairOutcome({
       item: params.item,
       postScan: null,
       blockedReason: `qa-repair output failed schema validation: ${validated.errors.join("; ")}`,
       validationArtifacts: { agent_output: run.outputPath, parsed_output: parsedOutputPath },
     });
-    return applyQaRepairValidation(params.queue, validation, { ...baseAttempt, status: "invalid_output", parsedOutputPath, error: validation.reasons.join("; ") });
+    if (earlyEnforcedFailureReasons.length > 0) {
+      await restoreTarget();
+      await confirmRestoredBuild();
+      validation = forceNeedsRework(validation, params.item, earlyEnforcedFailureReasons);
+    }
+    return {
+      item: applyValidation(
+        params.item,
+        validation,
+        attemptWithEnforcedChecks(
+          { ...baseAttempt, status: "invalid_output", parsedOutputPath, error: validation.reasons.join("; ") },
+          enforcedValidation,
+          headerResult,
+        ),
+      ),
+    };
   }
 
   const postScan = await runQaScanDiff({
@@ -423,8 +853,65 @@ async function processQueueItem(params: {
     ...(params.baseRef ? { baseRef: params.baseRef } : {}),
     files: [params.item.source_path],
     includeWorktree: true,
+    surface: "pr_gate",
   });
   const postScanPath = await writeScanInvocation(itemDir, "post_scan", postScan);
+  const enforcedFailureReasons = [...earlyEnforcedFailureReasons];
+  if (checksEnabled) {
+    const buildResult = await runEnforcedBuild();
+    enforcedValidation.build_check = buildResult.ok ? "passed" : "failed";
+    let checkResult = buildResult.ok ? passedBuildCheck() : failedBuildCheck(buildResult.log);
+
+    if (unitPresence === "absent") {
+      enforcedValidation.match_check = "skipped";
+    } else if (preSnapshot) {
+      const postSnapshot = await captureMatchSnapshotWithRetry({
+        repoRoot: params.globals.repoRoot,
+        sourcePath: params.item.source_path,
+        capture: repairChecks.captureUnitMatchSnapshot,
+        wait: repairChecks.waitForSnapshotRetry,
+      });
+      if (postSnapshot) {
+        try {
+          const comparison = repairChecks.compareUnitMatchSnapshots(preSnapshot, postSnapshot);
+          checkResult = buildResult.ok
+            ? comparison
+            : {
+                ...comparison,
+                ok: false,
+                buildOk: false,
+                ...(checkResult.buildLog ? { buildLog: checkResult.buildLog } : {}),
+              };
+          enforcedValidation.match_check =
+              comparison.exactRegressions.length > 0 || comparison.sectionRegressions.length > 0 ? "failed" : "passed";
+        } catch {
+          enforcedValidation.match_check = "unavailable";
+          enforcedFailureReasons.push("match verification unavailable");
+        }
+      } else {
+        enforcedValidation.match_check = "unavailable";
+        enforcedFailureReasons.push("match verification unavailable");
+      }
+    } else {
+      enforcedValidation.match_check = "unavailable";
+    }
+    if (enforcedValidation.match_check === "unavailable") checkResult = { ...checkResult, ok: false };
+    enforcedValidation.check_result = checkResult;
+
+    if (!buildResult.ok) enforcedFailureReasons.push("enforced per-source object build failed");
+    for (const regression of checkResult.exactRegressions) {
+      enforcedFailureReasons.push(`exact function regressed: ${regression.name} (${regression.before} -> ${regression.after})`);
+    }
+    for (const regression of checkResult.sectionRegressions) {
+      enforcedFailureReasons.push(`matched section regressed: ${regression.name} (${regression.before} -> ${regression.after})`);
+    }
+
+    if (enforcedFailureReasons.length > 0) {
+      await restoreTarget();
+      if (headerCheckFailed && targetRestored) enforcedValidation.restored_build = buildResult;
+      await confirmRestoredBuild();
+    }
+  }
   const commandValidations = await runQaRepairValidationCommands({
     commands: params.validationCommands,
     globals: params.globals,
@@ -434,7 +921,7 @@ async function processQueueItem(params: {
     baseRef: params.baseRef,
   });
   const scoreValidation = commandValidationByKind(commandValidations, "score");
-  const validation = validateQaRepairOutcome({
+  let validation = validateQaRepairOutcome({
     item: params.item,
     postScan: postScan.result,
     postScanToolError: postScan.toolError,
@@ -453,25 +940,64 @@ async function processQueueItem(params: {
       ...validationArtifactPaths(commandValidations),
     },
   });
+  if (enforcedFailureReasons.length > 0) validation = forceNeedsRework(validation, params.item, enforcedFailureReasons);
   const validationPath = resolve(itemDir, "validation.json");
-  await writeFile(validationPath, `${JSON.stringify(validation, null, 2)}\n`);
-  return applyQaRepairValidation(params.queue, validation, {
-    ...baseAttempt,
-    status: validation.status === "clean_same_match" || validation.status === "clean_lower_score" ? "validated" : "validation_failed",
-    parsedOutputPath,
-    postScanPath,
-    scoreCheckPath: validationSummaryPath(commandValidations, "score"),
-    buildCheckPath: validationSummaryPath(commandValidations, "build"),
-    regressionCheckPath: validationSummaryPath(commandValidations, "regression"),
+  await writeFile(
     validationPath,
-    summary: validation.reasons.join("; "),
+    `${JSON.stringify({ ...validation, enforced_checks: enforcedValidation, header_scope: headerResult }, null, 2)}\n`,
+  );
+  return {
+    item: applyValidation(
+      params.item,
+      validation,
+      attemptWithEnforcedChecks(
+        {
+          ...baseAttempt,
+          status: validation.status === "clean_same_match" || validation.status === "clean_lower_score" ? "validated" : "validation_failed",
+          parsedOutputPath,
+          postScanPath,
+          scoreCheckPath: validationSummaryPath(commandValidations, "score"),
+          buildCheckPath: validationSummaryPath(commandValidations, "build"),
+          regressionCheckPath: validationSummaryPath(commandValidations, "regression"),
+          validationPath,
+          summary: validation.reasons.join("; "),
+        },
+        enforcedValidation,
+        headerResult,
+      ),
+    ),
+  };
+}
+
+export function mergeProcessedItem(queue: QaRepairQueue, processed: ProcessedQaRepairItem): QaRepairQueue {
+  return {
+    ...queue,
+    items: queue.items.map((item) => (item.id === processed.item.id ? processed.item : item)),
+  };
+}
+
+export async function processQueueItem(params: ProcessQueueItemParams): Promise<QaRepairQueue> {
+  const processed = await processSingleItem({
+    globals: params.globals,
+    runId: params.runId,
+    item: params.item,
+    queueSummary: summarizeQaRepairQueue(params.queue),
+    outputDir: params.outputDir,
+    baseRef: params.baseRef,
+    validationCommands: params.validationCommands,
+    runner: params.runner,
+    ...(params.agentOverrides ? { agentOverrides: params.agentOverrides } : {}),
+    ...(params.enforcedChecks !== undefined ? { enforcedChecks: params.enforcedChecks } : {}),
+    ...(params.repairChecks ? { repairChecks: params.repairChecks } : {}),
   });
+  return mergeProcessedItem(params.queue, processed);
 }
 
 export async function runQaRepair(
   globals: GlobalArgs,
   args: Map<string, string | true>,
   runner: QaRepairAgentRunner = runPiAgent,
+  options: RunQaRepairOptions = {},
 ): Promise<{ queue: QaRepairQueue; artifacts: { queuePath: string; summaryPath: string; reportPath: string; shipStatusPath: string }; outputDir: string }> {
   const runId = stringArg(args, "--run-id", "") || latestRunId(globals.stateDir);
   const baseRef = stringArg(args, "--base-ref", globals.project?.baseRef ?? "origin/master");
@@ -510,6 +1036,7 @@ export async function runQaRepair(
       files: candidateFiles.length > 0 ? candidateFiles : undefined,
       includeWorktree: true,
       gate: false,
+      surface: "pr_gate",
     });
     await writeScanInvocation(outputDir, "pre_scan", invocation);
     if (!invocation.result || invocation.toolError) {
@@ -541,7 +1068,18 @@ export async function runQaRepair(
       .slice(0, maxItems);
     if (itemId && selected.length === 0) throw new Error(`No QA repair queue item with id ${itemId}`);
     for (const item of selected) {
-      queue = await processQueueItem({ globals, runId, queue, item, outputDir, baseRef, validationCommands, runner });
+      queue = await processQueueItem({
+        globals,
+        runId,
+        queue,
+        item,
+        outputDir,
+        baseRef,
+        validationCommands,
+        runner,
+        ...(options.enforcedChecks !== undefined ? { enforcedChecks: options.enforcedChecks } : {}),
+        ...(options.repairChecks ? { repairChecks: options.repairChecks } : {}),
+      });
       await writeArtifacts(queue, outputDir);
     }
   }

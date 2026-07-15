@@ -61,6 +61,11 @@ function prRecordsPath(stateDir: string): string {
   return resolve(stateDir, "pr_handoff", "pr_records.json");
 }
 
+export function prHandoffArtifactPath(stateDir: string, savedPath: string, filename: string): string {
+  if (savedPath && existsSync(savedPath)) return savedPath;
+  return resolve(stateDir, "pr_handoff", filename);
+}
+
 function prSessionId(runId: string): string {
   return runId ? `run:${runId}` : "legacy";
 }
@@ -307,11 +312,6 @@ export function createPrRecordsService(deps: PrRecordsServiceDeps): {
 
   function prWorkspacePath(stateDir: string, runId: string, branch: string): string {
     return resolve(stateDir, "pr_workspaces", runId || "manual", prBranchPathSlug(branch));
-  }
-
-  function prHandoffArtifactPath(stateDir: string, savedPath: string, filename: string): string {
-    if (savedPath && existsSync(savedPath)) return savedPath;
-    return resolve(stateDir, "pr_handoff", filename);
   }
 
   function prRecordMatchesRun(record: JsonObject, runId: string, activeBranches: Set<string> = new Set()): boolean {
