@@ -1,0 +1,729 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-00-overview",
+  "title": "System Design Overview",
+  "root": "b-00-overview-root-43",
+  "blocks": {
+    "b-00-overview-root-43": {
+      "id": "b-00-overview-root-43",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "system-design",
+          "scheduler",
+          "workers",
+          "durable-state",
+          "process-guardians",
+          "knowledge",
+          "score-gate"
+        ]
+      },
+      "children": [
+        "b-00-overview-system-design-overview-1",
+        "b-00-overview-d-comp-orchestrator-syst-2",
+        "b-00-overview-d-comp-orchestrator-is-a-3",
+        "b-00-overview-architecture-map-4",
+        "b-00-overview-text-5",
+        "b-00-overview-text-6",
+        "b-00-overview-the-important-split-is-d-7",
+        "b-00-overview-text-8",
+        "b-00-overview-the-process-health-loop-9",
+        "b-00-overview-core-concepts-10",
+        "b-00-overview-session-operating-flow-11",
+        "b-00-overview-first-read-flow-for-a-fu-12",
+        "b-00-overview-core-principles-05-cor-13",
+        "b-00-overview-run-boundary-rule-metri-14",
+        "b-00-overview-run-scheduler-loop-10-15",
+        "b-00-overview-deterministic-admission-16",
+        "b-00-overview-board-prioritization-1-17",
+        "b-00-overview-and-scheduler-rank-signa-18",
+        "b-00-overview-agent-model-20-agent-m-19",
+        "b-00-overview-indexer-splitter-reviewe-20",
+        "b-00-overview-process-guardians-25-p-21",
+        "b-00-overview-health-incidents-recove-22",
+        "b-00-overview-durable-state-and-event-23",
+        "b-00-overview-claims-worker-states-c-24",
+        "b-00-overview-write-safety-35-write-25",
+        "b-00-overview-workspaces-and-integrat-26",
+        "b-00-overview-worker-lifecycle-40-wo-27",
+        "b-00-overview-capabilities-validation-28",
+        "b-00-overview-worker-capabilities-45-29",
+        "b-00-overview-table-evidence-emitted-30",
+        "b-00-overview-knowledge-model-50-kno-31",
+        "b-00-overview-decomp-resources-and-pa-32",
+        "b-00-overview-score-integration-and-p-33",
+        "b-00-overview-validation-gate-and-the-34",
+        "b-00-overview-operator-flow-and-pr-tr-35",
+        "b-00-overview-the-canonical-session-li-36",
+        "b-00-overview-campaign-and-save-point-37",
+        "b-00-overview-timeline-commit-anchore-38",
+        "b-00-overview-project-session-archite-39",
+        "b-00-overview-covers-the-target-projec-40",
+        "b-00-overview-design-source-41",
+        "b-00-overview-these-docs-are-the-maint-42"
+      ]
+    },
+    "b-00-overview-system-design-overview-1": {
+      "id": "b-00-overview-system-design-overview-1",
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "text": [
+        {
+          "insert": "System Design Overview"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-d-comp-orchestrator-syst-2": {
+      "id": "b-00-overview-d-comp-orchestrator-syst-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "D-Comp Orchestrator system design map."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-d-comp-orchestrator-is-a-3": {
+      "id": "b-00-overview-d-comp-orchestrator-is-a-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "D-Comp Orchestrator is an event-driven coordination system for decompilation\nwork. A thin runner owns durable state transitions, deterministic scheduling,\nand agent invocation. Pi agents own bounded target-local or boundary-specific\nreasoning. The board is the shared medium between those two worlds.\nAn optional guardian process can wrap the decomp system process to handle\noperational health events, recovery, and restart without becoming a second\nboard scheduler."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-architecture-map-4": {
+      "id": "b-00-overview-architecture-map-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Architecture Map"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-text-5": {
+      "id": "b-00-overview-text-5",
+      "type": "code",
+      "props": {
+        "language": "text"
+      },
+      "text": [
+        {
+          "insert": "OWNERSHIP LAYOUT\n\n+----------------------+     +--------------------------+     +----------------------+\n| Scheduler scope      |     | Shared run state         |     | Worker execution     |\n| - run target         |     | - epochs/targets         |---->| - claim A Pi worker  |\n| - indexer output     |<--->| - claims/events          |<----| - claim B Pi worker  |\n| - reducer output     |     | - worker states          |     | - claim N Pi worker  |\n| - epoch policy       |     | - artifacts/wakeups      |     | - PR/docs/source     |\n+----------------------+     | - checkpoints/facts      |     | - experimental       |\n                             +------------+-------------+     |   search             |\n                                          |                   | - permuter handoff   |\n                                          v                   +----------------------+\n                             +------------+-------------+\n                             | Score gate                |\n                             | verify / absorb           |\n                             | refresh baseline          |\n                             +--------------------------+"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-text-6": {
+      "id": "b-00-overview-text-6",
+      "type": "code",
+      "props": {
+        "language": "text"
+      },
+      "text": [
+        {
+          "insert": "RUNTIME FEEDBACK LOOP\n\nrun target + report/graph evidence\n        |\n        v\n+---------------------+       epoch policy     +--------------------------+\n| Deterministic       |----------------------->| State substrate          |\n| scheduler           |<-----------------------| wake event + snapshot    |\n| admit/drain/route   |    wake + snapshot     | epochs / claims / facts  |\n+---------------------+                        +------------+-------------+\n                                          |\n                                          v\n                              target packets / claims\n                                          |\n                                          v\n                             +------------+-------------+\n                             | Worker pool              |\n                             | Pi workers under claims  |\n                             | selected capabilities    |\n                             +------------+-------------+\n                                          |\n                              checkpoints / events\n                              facts / selected patches\n                                          |\n                                          v\n                             +------------+-------------+\n                             | State substrate          |\n                             | durable board update     |\n                             +------------+-------------+\n                                          |\n                                  score candidates\n                                          |\n                                          v\n                             +------------+-------------+\n                             | Score gate               |\n                             | verify / absorb          |\n                             | refresh baseline         |\n                             +------------+-------------+\n                                          |\n                                    new baseline\n                                          |\n                                          v\n                             refreshed evidence + next board read"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-the-important-split-is-d-7": {
+      "id": "b-00-overview-the-important-split-is-d-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The important split is directional: the scheduler reads durable board state and\nwrites reproducible scheduling transitions; workers receive target claims and\nproduce checkpoint evidence; the state substrate is the only coordination\nsurface between them."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-text-8": {
+      "id": "b-00-overview-text-8",
+      "type": "code",
+      "props": {
+        "language": "text"
+      },
+      "text": [
+        {
+          "insert": "PROCESS HEALTH LOOP\n\n+---------------------+\n| Guardian process    |\n| waits for incidents |\n+----------+----------+\n           |\n           v\n+---------------------+        process exit / worker error\n| Decomp system       |----------------------------------+\n| run loop, scheduler,|                                  |\n| workers             |                                  |\n+----------+----------+                                  |\n           |                                             |\n           v                                             |\n+---------------------+                                  |\n| Durable state       |<---------------------------------+\n| claims/events/logs  |    incident packet + recovery\n+---------------------+"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-the-process-health-loop-9": {
+      "id": "b-00-overview-the-process-health-loop-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The process health loop is operational, not strategic. It preserves liveness\naround the decomp system while the scheduler and workers continue to own\ndecompilation decisions."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-core-concepts-10": {
+      "id": "b-00-overview-core-concepts-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Core Concepts"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-session-operating-flow-11": {
+      "id": "b-00-overview-session-operating-flow-11",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Session operating flow",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/01-session-operating-flow.md",
+              "label": "Session operating flow"
+            }
+          }
+        },
+        {
+          "insert": " covers the target"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-first-read-flow-for-a-fu-12": {
+      "id": "b-00-overview-first-read-flow-for-a-fu-12",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  first-read flow for a full Melee project session, from baseline sync through\n  epoch workers, PR review, and next-session intake."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-core-principles-05-cor-13": {
+      "id": "b-00-overview-core-principles-05-cor-13",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Core principles",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/05-core-principles.md",
+              "label": "Core principles"
+            }
+          }
+        },
+        {
+          "insert": " covers the Sudoku metaphor,"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-run-boundary-rule-metri-14": {
+      "id": "b-00-overview-run-boundary-rule-metri-14",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  run-boundary rule, metric choice, and former-skill mapping."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-run-scheduler-loop-10-15": {
+      "id": "b-00-overview-run-scheduler-loop-10-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run scheduler loop",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/10-run-director-loop.md",
+              "label": "Run scheduler loop"
+            }
+          }
+        },
+        {
+          "insert": " covers how board reads,"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-deterministic-admission-16": {
+      "id": "b-00-overview-deterministic-admission-16",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  deterministic admission, sleep, and wake events work."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-board-prioritization-1-17": {
+      "id": "b-00-overview-board-prioritization-1-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Board prioritization",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/15-board-prioritization.md",
+              "label": "Board prioritization"
+            }
+          }
+        },
+        {
+          "insert": " covers helper score inputs"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-and-scheduler-rank-signa-18": {
+      "id": "b-00-overview-and-scheduler-rank-signa-18",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  and scheduler rank signals."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-agent-model-20-agent-m-19": {
+      "id": "b-00-overview-agent-model-20-agent-m-19",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Agent model",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/20-agent-model.md",
+              "label": "Agent model"
+            }
+          }
+        },
+        {
+          "insert": " covers worker, integration resolver, PR"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-indexer-splitter-reviewe-20": {
+      "id": "b-00-overview-indexer-splitter-reviewe-20",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  indexer/splitter/reviewer, curator, reconcile, and QA repair agents plus the\n  shared runtime boundary."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-process-guardians-25-p-21": {
+      "id": "b-00-overview-process-guardians-25-p-21",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Process guardians",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/25-process-guardians.md",
+              "label": "Process guardians"
+            }
+          }
+        },
+        {
+          "insert": " covers the babysit wrapper,"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-health-incidents-recove-22": {
+      "id": "b-00-overview-health-incidents-recove-22",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  health incidents, recovery policy, and restart boundary."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-durable-state-and-event-23": {
+      "id": "b-00-overview-durable-state-and-event-23",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Durable state and events",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/30-state-and-events.md",
+              "label": "Durable state and events"
+            }
+          }
+        },
+        {
+          "insert": " covers the board, target"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-claims-worker-states-c-24": {
+      "id": "b-00-overview-claims-worker-states-c-24",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  claims, worker states, checkpoints, facts, and wake handshake."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-write-safety-35-write-25": {
+      "id": "b-00-overview-write-safety-35-write-25",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Write safety",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/35-write-safety.md",
+              "label": "Write safety"
+            }
+          }
+        },
+        {
+          "insert": " covers target-claim write sets, worker"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-workspaces-and-integrat-26": {
+      "id": "b-00-overview-workspaces-and-integrat-26",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  workspaces, and integration race prevention."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-worker-lifecycle-40-wo-27": {
+      "id": "b-00-overview-worker-lifecycle-40-wo-27",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/40-worker-lifecycle.md",
+              "label": "Worker lifecycle"
+            }
+          }
+        },
+        {
+          "insert": " covers target packets, research,"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-capabilities-validation-28": {
+      "id": "b-00-overview-capabilities-validation-28",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  capabilities, validation, and stall behavior."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-worker-capabilities-45-29": {
+      "id": "b-00-overview-worker-capabilities-45-29",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker capabilities",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/45-worker-capabilities.md",
+              "label": "Worker capabilities"
+            }
+          }
+        },
+        {
+          "insert": " covers the worker tactic"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-table-evidence-emitted-30": {
+      "id": "b-00-overview-table-evidence-emitted-30",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  table, evidence emitted, guardrails, and "
+        },
+        {
+          "insert": "melee-assist",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " absorption map."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-knowledge-model-50-kno-31": {
+      "id": "b-00-overview-knowledge-model-50-kno-31",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Knowledge model",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/50-knowledge-model.md",
+              "label": "Knowledge model"
+            }
+          }
+        },
+        {
+          "insert": " covers references, workflows, tools,"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-decomp-resources-and-pa-32": {
+      "id": "b-00-overview-decomp-resources-and-pa-32",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  decomp resources, and past PR evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-score-integration-and-p-33": {
+      "id": "b-00-overview-score-integration-and-p-33",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Score integration and PR handoff",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/60-score-and-pr-handoff.md",
+              "label": "Score integration and PR handoff"
+            }
+          }
+        },
+        {
+          "insert": " covers the"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-validation-gate-and-the-34": {
+      "id": "b-00-overview-validation-gate-and-the-34",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  validation gate and the boundary between run output and human-facing review."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-operator-flow-and-pr-tr-35": {
+      "id": "b-00-overview-operator-flow-and-pr-tr-35",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Operator flow and PR tracking",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/65-operator-flow-and-pr-tracking.md",
+              "label": "Operator flow and PR tracking"
+            }
+          }
+        },
+        {
+          "insert": " covers"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-the-canonical-session-li-36": {
+      "id": "b-00-overview-the-canonical-session-li-36",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  the canonical session lifecycle, the pipeline-rail sidebar, and PRs as\n  first-class tracked state."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-campaign-and-save-point-37": {
+      "id": "b-00-overview-campaign-and-save-point-37",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Campaign and save points",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/70-save-points.md",
+              "label": "Campaign and save points"
+            }
+          }
+        },
+        {
+          "insert": " covers the canonical campaign"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-timeline-commit-anchore-38": {
+      "id": "b-00-overview-timeline-commit-anchore-38",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  timeline, commit-anchored save points, and the where-we-are staleness\n  contract."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-project-session-archite-39": {
+      "id": "b-00-overview-project-session-archite-39",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Project session architecture mockup",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/75-project-session-architecture.md",
+              "label": "Project session architecture mockup"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-covers-the-target-projec-40": {
+      "id": "b-00-overview-covers-the-target-projec-40",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  covers the target project-centered model, single active session rule,\n  run-to-PR lifecycle, and multi-page dashboard shape."
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-design-source-41": {
+      "id": "b-00-overview-design-source-41",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Design Source"
+        }
+      ],
+      "children": []
+    },
+    "b-00-overview-these-docs-are-the-maint-42": {
+      "id": "b-00-overview-these-docs-are-the-maint-42",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "These docs are the maintainable version of the original standalone HTML design\nartifact (since retired from the tree), adjusted to the current package layout\nand terminology."
+        }
+      ],
+      "children": []
+    }
+  }
+}

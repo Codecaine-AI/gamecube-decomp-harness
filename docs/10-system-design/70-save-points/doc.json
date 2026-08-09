@@ -1,0 +1,658 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-70-save-points",
+  "title": "Campaign And Save Points",
+  "root": "b-70-save-points-root-27",
+  "blocks": {
+    "b-70-save-points-root-27": {
+      "id": "b-70-save-points-root-27",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "campaign",
+          "save-points",
+          "session-branch",
+          "baseline",
+          "staleness",
+          "ledger"
+        ]
+      },
+      "children": [
+        "b-70-save-points-campaign-and-save-points-1",
+        "b-70-save-points-canonical-campaign-save-2",
+        "b-70-save-points-the-orchestrator-s-durab-3",
+        "b-70-save-points-why-4",
+        "b-70-save-points-reports-used-to-be-ancho-5",
+        "b-70-save-points-canonical-save-point-str-6",
+        "b-70-save-points-a-save-point-records-7",
+        "b-70-save-points-field-meaning-8",
+        "b-70-save-points-save-point-commits-never-9",
+        "b-70-save-points-save-points-and-the-cycl-10",
+        "b-70-save-points-save-points-are-created-11",
+        "b-70-save-points-where-we-are-contract-12",
+        "b-70-save-points-on-open-the-dashboard-a-13",
+        "b-70-save-points-the-latest-save-point-c-14",
+        "b-70-save-points-the-current-head-sha-b-15",
+        "b-70-save-points-are-16",
+        "b-70-save-points-aheadofbase-how-many-17",
+        "b-70-save-points-durable-answer-to-what-18",
+        "b-70-save-points-stale-true-when-the-h-19",
+        "b-70-save-points-exist-the-ui-shows-a-st-20",
+        "b-70-save-points-relationship-to-runs-and-21",
+        "b-70-save-points-runs-target-claims-wor-22",
+        "b-70-save-points-related-23",
+        "b-70-save-points-score-integration-and-p-24",
+        "b-70-save-points-state-implementation-25",
+        "b-70-save-points-ui-implementation-2-26"
+      ]
+    },
+    "b-70-save-points-campaign-and-save-points-1": {
+      "id": "b-70-save-points-campaign-and-save-points-1",
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "text": [
+        {
+          "insert": "Campaign And Save Points"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-canonical-campaign-save-2": {
+      "id": "b-70-save-points-canonical-campaign-save-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Canonical campaign, save-point structure, and the where-we-are contract."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-the-orchestrator-s-durab-3": {
+      "id": "b-70-save-points-the-orchestrator-s-durab-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The orchestrator's durable position is one canonical campaign per project, not\na pile of disconnected runs. Runs remain internal work segments; the campaign\nowns the timeline. A save point is the unit of that timeline: a commit in the\ncheckout's history plus the evidence needed to know where the effort stood at\nthat commit."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-why-4": {
+      "id": "b-70-save-points-why-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Why"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-reports-used-to-be-ancho-5": {
+      "id": "b-70-save-points-reports-used-to-be-ancho-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Reports used to be anchored to whichever run was newest, so opening the\ndashboard after a fresh run showed 0% until a rebuild. Save points anchor every\nreport to a specific commit, so opening the dashboard always answers \"where are\nwe, and what hasn't been merged upstream yet\" from durable state."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-canonical-save-point-str-6": {
+      "id": "b-70-save-points-canonical-save-point-str-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Canonical Save-Point Structure"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-a-save-point-records-7": {
+      "id": "b-70-save-points-a-save-point-records-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A save point records:"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-field-meaning-8": {
+      "id": "b-70-save-points-field-meaning-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Field | Meaning |\n| --- | --- |\n| "
+        },
+        {
+          "insert": "commit_sha",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " / "
+        },
+        {
+          "insert": "branch",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | The exact checkout position. If the worktree was dirty, the save-point commit captures it first. |\n| "
+        },
+        {
+          "insert": "base_ref",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " / "
+        },
+        {
+          "insert": "base_sha",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | The upstream anchor (default "
+        },
+        {
+          "insert": "origin/master",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") the position is measured against. |\n| "
+        },
+        {
+          "insert": "trigger_kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | What boundary produced it: "
+        },
+        {
+          "insert": "manual",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "init",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "pause",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "checkpoint",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "qa",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "ship",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "sync",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", or "
+        },
+        {
+          "insert": "fresh",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". |\n| "
+        },
+        {
+          "insert": "matched_code_percent",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | The headline progress measure at this commit. |\n| "
+        },
+        {
+          "insert": "report_path",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " / "
+        },
+        {
+          "insert": "report_changes_path",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Copies of "
+        },
+        {
+          "insert": "report.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " / "
+        },
+        {
+          "insert": "report_changes.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " under "
+        },
+        {
+          "insert": "state_dir/save_points/<timestamp>/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". |\n| "
+        },
+        {
+          "insert": "board_snapshot_path",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Measures + position summary written beside the reports. |\n| "
+        },
+        {
+          "insert": "worktree_dirty",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " / "
+        },
+        {
+          "insert": "committed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Whether uncommitted work remained, and whether this save point created a commit. |\n| "
+        },
+        {
+          "insert": "payload",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Ahead-of-base count, dirty paths, commit warnings, and full measures. |"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-save-point-commits-never-9": {
+      "id": "b-70-save-points-save-point-commits-never-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Save-point commits never stage the nested "
+        },
+        {
+          "insert": "decomp-orchestrator/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " repository or\nthe state directory. The commit message is "
+        },
+        {
+          "insert": "savepoint(<trigger>): <label>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-save-points-and-the-cycl-10": {
+      "id": "b-70-save-points-save-points-and-the-cycl-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Save Points And The Cycle"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-save-points-are-created-11": {
+      "id": "b-70-save-points-save-points-are-created-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Save points are created automatically at every phase boundary — init, pause,\ncheckpoint, QA, sync, and fresh run — and manually through server jobs\n("
+        },
+        {
+          "insert": "save-point",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") or the dashboard's "
+        },
+        {
+          "insert": "Save Point",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " action. The boundary hooks are\nbest-effort: a failed save point logs a warning but never blocks the boundary\naction itself."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-where-we-are-contract-12": {
+      "id": "b-70-save-points-where-we-are-contract-12",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Where-We-Are Contract"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-on-open-the-dashboard-a-13": {
+      "id": "b-70-save-points-on-open-the-dashboard-a-13",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "On open, the dashboard answers from the last save point instantly — no build is\ntriggered. The "
+        },
+        {
+          "insert": "campaign",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " block of the dashboard payload carries:"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-the-latest-save-point-c-14": {
+      "id": "b-70-save-points-the-latest-save-point-c-14",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The latest save point (commit, trigger, matched percent, artifacts)."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-the-current-head-sha-b-15": {
+      "id": "b-70-save-points-the-current-head-sha-b-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The current head (sha, branch, dirty paths, filtered the same way commits"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-are-16": {
+      "id": "b-70-save-points-are-16",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  are)."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-aheadofbase-how-many-17": {
+      "id": "b-70-save-points-aheadofbase-how-many-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "aheadOfBase",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": how many commits have not been merged into the base ref — the"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-durable-answer-to-what-18": {
+      "id": "b-70-save-points-durable-answer-to-what-18",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  durable answer to \"what hasn't shipped yet\"."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-stale-true-when-the-h-19": {
+      "id": "b-70-save-points-stale-true-when-the-h-19",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "stale",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": true when the head moved past the save point or uncommitted changes"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-exist-the-ui-shows-a-st-20": {
+      "id": "b-70-save-points-exist-the-ui-shows-a-st-20",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  exist. The UI shows a staleness banner with refresh/save actions instead of\n  silently showing old numbers."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-relationship-to-runs-and-21": {
+      "id": "b-70-save-points-relationship-to-runs-and-21",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Relationship To Runs And The Ledger"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-runs-target-claims-wor-22": {
+      "id": "b-70-save-points-runs-target-claims-wor-22",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Runs, target claims, worker states, checkpoints, and report artifacts continue\nto key off the active run internally; each save point records the run that was\nactive when it was taken. The local change ledger (carry-forward patches, facts,\nlessons) flows across save points the same way it flows across sessions: only\nshipped PR candidates leave the system. Reverting to a save point is git-native\n— the commit, its reports, and the board state in the same state directory\ntravel together."
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-related-23": {
+      "id": "b-70-save-points-related-23",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-score-integration-and-p-24": {
+      "id": "b-70-save-points-score-integration-and-p-24",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Score integration and PR handoff",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/60-score-and-pr-handoff.md",
+              "label": "Score integration and PR handoff"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-state-implementation-25": {
+      "id": "b-70-save-points-state-implementation-25",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "State implementation",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/20-implementation/40-state/00-overview.md",
+              "label": "State implementation"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-70-save-points-ui-implementation-2-26": {
+      "id": "b-70-save-points-ui-implementation-2-26",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "UI implementation",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/20-implementation/60-ui/00-overview.md",
+              "label": "UI implementation"
+            }
+          }
+        }
+      ],
+      "children": []
+    }
+  }
+}

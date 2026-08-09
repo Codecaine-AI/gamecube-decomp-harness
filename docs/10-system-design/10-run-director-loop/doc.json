@@ -1,0 +1,774 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-10-run-director-loop",
+  "title": "Run Scheduler Loop",
+  "root": "b-10-run-director-loop-root-58",
+  "blocks": {
+    "b-10-run-director-loop-root-58": {
+      "id": "b-10-run-director-loop-root-58",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "scheduler",
+          "run-loop",
+          "board",
+          "epochs",
+          "target-claims",
+          "worker-state",
+          "wake-events",
+          "checkpoints",
+          "tool-slots"
+        ]
+      },
+      "children": [
+        "b-10-run-director-loop-run-scheduler-loop-1",
+        "b-10-run-director-loop-deterministic-run-schedu-2",
+        "b-10-run-director-loop-the-run-scheduler-is-the-3",
+        "b-10-run-director-loop-behavior-4",
+        "b-10-run-director-loop-each-scheduler-pass-has-5",
+        "b-10-run-director-loop-board-read-observe-acti-6",
+        "b-10-run-director-loop-wake-events-run-status-7",
+        "b-10-run-director-loop-epoch-maintenance-creat-8",
+        "b-10-run-director-loop-epoch-size-worker-pool-9",
+        "b-10-run-director-loop-worker-realization-star-10",
+        "b-10-run-director-loop-unclaimed-epoch-targets-11",
+        "b-10-run-director-loop-boundary-checks-trigger-12",
+        "b-10-run-director-loop-truth-rebuilds-at-epoch-13",
+        "b-10-run-director-loop-rest-mark-handled-wake-14",
+        "b-10-run-director-loop-durable-state-changes-ag-15",
+        "b-10-run-director-loop-the-scheduler-s-decision-16",
+        "b-10-run-director-loop-scheduler-cycle-17",
+        "b-10-run-director-loop-text-18",
+        "b-10-run-director-loop-the-run-loop-is-the-non-19",
+        "b-10-run-director-loop-the-scheduler-does-not-p-20",
+        "b-10-run-director-loop-epoch-cycle-21",
+        "b-10-run-director-loop-an-epoch-is-a-bounded-sc-22",
+        "b-10-run-director-loop-each-epoch-23",
+        "b-10-run-director-loop-admission-selects-up-to-24",
+        "b-10-run-director-loop-schedulable-unmatched-ta-25",
+        "b-10-run-director-loop-priority-refresh-keeps-a-26",
+        "b-10-run-director-loop-graph-ranked-evidence-wh-27",
+        "b-10-run-director-loop-workers-claim-admitted-t-28",
+        "b-10-run-director-loop-explicit-write-set-chec-29",
+        "b-10-run-director-loop-fast-run-evidence-refres-30",
+        "b-10-run-director-loop-checkpoints-facts-bloc-31",
+        "b-10-run-director-loop-the-epoch-boundary-pause-32",
+        "b-10-run-director-loop-maintenance-records-a-p-33",
+        "b-10-run-director-loop-three-sizes-stay-distinc-34",
+        "b-10-run-director-loop-concept-purpose-35",
+        "b-10-run-director-loop-worker-pool-size-is-the-36",
+        "b-10-run-director-loop-there-are-three-hot-path-37",
+        "b-10-run-director-loop-control-owns-38",
+        "b-10-run-director-loop-wake-events-39",
+        "b-10-run-director-loop-wake-events-are-durable-40",
+        "b-10-run-director-loop-a-run-starts-41",
+        "b-10-run-director-loop-active-workers-drop-belo-42",
+        "b-10-run-director-loop-a-worker-state-closes-as-43",
+        "b-10-run-director-loop-claim-pressure-shows-too-44",
+        "b-10-run-director-loop-slots-45",
+        "b-10-run-director-loop-an-epoch-boundary-pause-46",
+        "b-10-run-director-loop-a-scheduler-tick-handles-47",
+        "b-10-run-director-loop-worker-delegation-48",
+        "b-10-run-director-loop-an-epoch-target-plus-tar-49",
+        "b-10-run-director-loop-the-scheduler-can-admit-50",
+        "b-10-run-director-loop-worker-checkpoint-contra-51",
+        "b-10-run-director-loop-the-runner-records-worke-52",
+        "b-10-run-director-loop-validation-status-score-53",
+        "b-10-run-director-loop-patch-diff-and-validatio-54",
+        "b-10-run-director-loop-failure-reasons-for-reje-55",
+        "b-10-run-director-loop-facts-blockers-and-neg-56",
+        "b-10-run-director-loop-only-hard-gate-passing-i-57"
+      ]
+    },
+    "b-10-run-director-loop-run-scheduler-loop-1": {
+      "id": "b-10-run-director-loop-run-scheduler-loop-1",
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "text": [
+        {
+          "insert": "Run Scheduler Loop"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-deterministic-run-schedu-2": {
+      "id": "b-10-run-director-loop-deterministic-run-schedu-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Deterministic run scheduler responsibilities, run-loop process semantics, epoch admission, wake handling, and worker checkpoint flow."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-the-run-scheduler-is-the-3": {
+      "id": "b-10-run-director-loop-the-run-scheduler-is-the-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The run scheduler is the board-level control loop. It reads durable run state,\nrefreshes epoch-target priorities from the ranked board, admits deterministic\nwork, starts workers through target claims, and handles wake events without\nrequiring a model-driven scheduling session in the hot path."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-behavior-4": {
+      "id": "b-10-run-director-loop-behavior-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Behavior"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-each-scheduler-pass-has-5": {
+      "id": "b-10-run-director-loop-each-scheduler-pass-has-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each scheduler pass has five phases:"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-board-read-observe-acti-6": {
+      "id": "b-10-run-director-loop-board-read-observe-acti-6",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Board read: observe active claims, epoch targets, worker states, checkpoints,"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-wake-events-run-status-7": {
+      "id": "b-10-run-director-loop-wake-events-run-status-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   wake events, run status, and graph-ranked candidates."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-epoch-maintenance-creat-8": {
+      "id": "b-10-run-director-loop-epoch-maintenance-creat-8",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Epoch maintenance: create or refresh the active epoch according to explicit"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-epoch-size-worker-pool-9": {
+      "id": "b-10-run-director-loop-epoch-size-worker-pool-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   epoch-size, worker-pool, candidate-window, cooldown, and exhaustion policy."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-worker-realization-star-10": {
+      "id": "b-10-run-director-loop-worker-realization-star-10",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Worker realization: start workers only for open slots and admitted,"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-unclaimed-epoch-targets-11": {
+      "id": "b-10-run-director-loop-unclaimed-epoch-targets-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   unclaimed epoch targets, with target claims and explicit write sets as the\n   authority."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-boundary-checks-trigger-12": {
+      "id": "b-10-run-director-loop-boundary-checks-trigger-12",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Boundary checks: trigger fast run-evidence refreshes during an epoch and full"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-truth-rebuilds-at-epoch-13": {
+      "id": "b-10-run-director-loop-truth-rebuilds-at-epoch-13",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   truth rebuilds at epoch boundaries."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-rest-mark-handled-wake-14": {
+      "id": "b-10-run-director-loop-rest-mark-handled-wake-14",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Rest: mark handled wake events, record observable state, and sleep until"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-durable-state-changes-ag-15": {
+      "id": "b-10-run-director-loop-durable-state-changes-ag-15",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   durable state changes again."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-the-scheduler-s-decision-16": {
+      "id": "b-10-run-director-loop-the-scheduler-s-decision-16",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The scheduler's decisions are reproducible from durable state and operator\nconfiguration. Graph scores can rank candidates, but admission and wake-event\nhandling follow deterministic policy."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-scheduler-cycle-17": {
+      "id": "b-10-run-director-loop-scheduler-cycle-17",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Scheduler Cycle"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-text-18": {
+      "id": "b-10-run-director-loop-text-18",
+      "type": "code",
+      "props": {
+        "language": "text"
+      },
+      "text": [
+        {
+          "insert": "+------------------+     +------------------+     +------------------+\n| Wake event       |---->| Board snapshot   |---->| Deterministic    |\n| - run started    |     | - ranked targets |     | scheduler policy |\n| - worker closed  |     | - epoch targets  |     | admission/drain  |\n| - pool pressure  |     | - claims/states  |     | refresh/routing  |\n+--------+---------+     +------------------+     +--------+---------+\n         ^                                                 |\n         |                                                 v\n         |                  +------------------+     +-----+------------+\n         |                  | Durable state    |<----| Scheduler result |\n         |                  | - epoch targets  |     | - admitted work  |\n         |                  | - handled events |     | - refreshed rank |\n         |                  | - epoch status   |     | - boundary state |\n         |                  | - checkpoints    |     | - routing notes  |\n         |                  +--------+---------+     +------------------+\n         |                           |\n         |                           v\n         +------ scheduler sleeps until another durable event or cadence fires"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-the-run-loop-is-the-non-19": {
+      "id": "b-10-run-director-loop-the-run-loop-is-the-non-19",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The run loop is the non-agent process component that gives the scheduler a\nresting shape. It checks durable events, runs one deterministic scheduler tick\nwhen an unhandled event exists, keeps worker slots filled from admitted epoch\ntargets, runs maintenance cadence checks, and then sleeps without keeping a\nboard-level model session alive."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-the-scheduler-does-not-p-20": {
+      "id": "b-10-run-director-loop-the-scheduler-does-not-p-20",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The scheduler does not perform source archaeology or source edits. Workers own\ntarget-local source work; the scheduler owns target admission, claim pressure,\nrefresh cadence, boundary routing, and process realization."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-epoch-cycle-21": {
+      "id": "b-10-run-director-loop-epoch-cycle-21",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Epoch Cycle"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-an-epoch-is-a-bounded-sc-22": {
+      "id": "b-10-run-director-loop-an-epoch-is-a-bounded-sc-22",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An epoch is a bounded scheduling wave admitted from the freshest authoritative\nreport and graph state available at epoch start."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-each-epoch-23": {
+      "id": "b-10-run-director-loop-each-epoch-23",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each epoch:"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-admission-selects-up-to-24": {
+      "id": "b-10-run-director-loop-admission-selects-up-to-24",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Admission selects up to the configured epoch size, or every currently"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-schedulable-unmatched-ta-25": {
+      "id": "b-10-run-director-loop-schedulable-unmatched-ta-25",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   schedulable unmatched target in "
+        },
+        {
+          "insert": "Full",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " mode. Admission scans the ranked board\n   through the candidate window and expands when needed until the epoch target\n   is satisfied or the board is exhausted."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-priority-refresh-keeps-a-26": {
+      "id": "b-10-run-director-loop-priority-refresh-keeps-a-26",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Priority refresh keeps admitted-but-unclaimed epoch targets aligned with"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-graph-ranked-evidence-wh-27": {
+      "id": "b-10-run-director-loop-graph-ranked-evidence-wh-27",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   graph-ranked evidence while the epoch is running."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-workers-claim-admitted-t-28": {
+      "id": "b-10-run-director-loop-workers-claim-admitted-t-28",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Workers claim admitted targets. Each claim creates one worker state and an"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-explicit-write-set-chec-29": {
+      "id": "b-10-run-director-loop-explicit-write-set-chec-29",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   explicit write set; checkpoints hang from that worker state."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-fast-run-evidence-refres-30": {
+      "id": "b-10-run-director-loop-fast-run-evidence-refres-30",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Fast run-evidence refreshes can ingest closed worker states, selected"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-checkpoints-facts-bloc-31": {
+      "id": "b-10-run-director-loop-checkpoints-facts-bloc-31",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   checkpoints, facts, blockers, and deterministic curator output. Fast refresh\n   updates learning and ranking inputs only; it does not rebuild report truth."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-the-epoch-boundary-pause-32": {
+      "id": "b-10-run-director-loop-the-epoch-boundary-pause-32",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "The epoch boundary pauses intake, rebuilds report truth, runs full"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-maintenance-records-a-p-33": {
+      "id": "b-10-run-director-loop-maintenance-records-a-p-33",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   maintenance, records a progress save point, removes exact matches from\n   future scheduling, routes regressions to repair priority, and admits the next\n   epoch from the refreshed board."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-three-sizes-stay-distinc-34": {
+      "id": "b-10-run-director-loop-three-sizes-stay-distinc-34",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Three sizes stay distinct:"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-concept-purpose-35": {
+      "id": "b-10-run-director-loop-concept-purpose-35",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Concept | Purpose |\n| --- | --- |\n| Epoch size | Total target admissions for one epoch. |\n| Worker pool size | Number of worker slots the run loop tries to keep active. |\n| Candidate window | Number of ranked board candidates scanned to satisfy admission. |"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-worker-pool-size-is-the-36": {
+      "id": "b-10-run-director-loop-worker-pool-size-is-the-36",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker pool size is the claim/process target, not the raw compiler parallelism\ntarget. Worker processes can be active while their expensive validation or\ntool calls are queued behind per-epoch tool slots. The active epoch still owns a\nfixed admitted target set; the slot queues only smooth local CPU/build pressure\ninside the already-claimed work."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-there-are-three-hot-path-37": {
+      "id": "b-10-run-director-loop-there-are-three-hot-path-37",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "There are three hot-path capacity controls:"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-control-owns-38": {
+      "id": "b-10-run-director-loop-control-owns-38",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Control | Owns |\n| --- | --- |\n| Worker pool | Number of live worker claims/processes. |\n| Epoch ready queue | Number of admitted, unclaimed targets kept available to feed worker slots. |\n| Tool/build slots | Number of concurrent compile-heavy validation and Pi tool operations allowed across worker worktrees in an epoch. |"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-wake-events-39": {
+      "id": "b-10-run-director-loop-wake-events-39",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Wake Events"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-wake-events-are-durable-40": {
+      "id": "b-10-run-director-loop-wake-events-are-durable-40",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Wake events are durable work notices, not requests for model judgment:"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-a-run-starts-41": {
+      "id": "b-10-run-director-loop-a-run-starts-41",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A run starts."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-active-workers-drop-belo-42": {
+      "id": "b-10-run-director-loop-active-workers-drop-belo-42",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Active workers drop below the desired count."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-a-worker-state-closes-as-43": {
+      "id": "b-10-run-director-loop-a-worker-state-closes-as-43",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A worker state closes as exact, timeout, error, or cancellation."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-claim-pressure-shows-too-44": {
+      "id": "b-10-run-director-loop-claim-pressure-shows-too-44",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Claim pressure shows too little schedulable admitted work for available worker"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-slots-45": {
+      "id": "b-10-run-director-loop-slots-45",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  slots."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-an-epoch-boundary-pause-46": {
+      "id": "b-10-run-director-loop-an-epoch-boundary-pause-46",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "An epoch boundary, pause, retry, or stop condition is recorded."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-a-scheduler-tick-handles-47": {
+      "id": "b-10-run-director-loop-a-scheduler-tick-handles-47",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A scheduler tick handles one wake event by refreshing deterministic epoch state,\nrecording the result, and marking the event handled. If no schedulable board\nwork exists, the scheduler records claim pressure and backs off according to\npolicy rather than spinning or falling back to a model-driven replan."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-worker-delegation-48": {
+      "id": "b-10-run-director-loop-worker-delegation-48",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Worker Delegation"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-an-epoch-target-plus-tar-49": {
+      "id": "b-10-run-director-loop-an-epoch-target-plus-tar-49",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An epoch target plus target claim is the bounded delegation contract. It names\nthe unit, symbol, source path, current score evidence, priority, reason, and\nexplicit write set. The worker receives target-local context and validation\nexpectations, but it does not receive board-level authority."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-the-scheduler-can-admit-50": {
+      "id": "b-10-run-director-loop-the-scheduler-can-admit-50",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The scheduler can admit a previously attempted target into a later epoch only\nwhen deterministic routing has authority to do so, such as regression repair,\naccepted new facts, or explicit operator policy. Normal admission stays biased\ntoward fresh, graph-ranked work."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-worker-checkpoint-contra-51": {
+      "id": "b-10-run-director-loop-worker-checkpoint-contra-51",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Worker Checkpoint Contract"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-the-runner-records-worke-52": {
+      "id": "b-10-run-director-loop-the-runner-records-worke-52",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The runner records worker progress as validation checkpoints:"
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-validation-status-score-53": {
+      "id": "b-10-run-director-loop-validation-status-score-53",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Validation status, score movement, exactness, and hard-gate result."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-patch-diff-and-validatio-54": {
+      "id": "b-10-run-director-loop-patch-diff-and-validatio-54",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Patch/diff and validation artifact paths when they exist."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-failure-reasons-for-reje-55": {
+      "id": "b-10-run-director-loop-failure-reasons-for-reje-55",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Failure reasons for rejected checkpoints."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-facts-blockers-and-neg-56": {
+      "id": "b-10-run-director-loop-facts-blockers-and-neg-56",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Facts, blockers, and negative evidence preserved in the worker-state summary."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-only-hard-gate-passing-i-57": {
+      "id": "b-10-run-director-loop-only-hard-gate-passing-i-57",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Only hard-gate-passing improvements are selectable. Exact checkpoints win over\nnon-exact checkpoints, then highest score wins, then earliest validation time.\nFuture scheduling consumes durable worker states and checkpoint evidence, not\nhidden conversation state."
+        }
+      ],
+      "children": []
+    }
+  }
+}

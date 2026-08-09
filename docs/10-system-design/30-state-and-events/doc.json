@@ -1,0 +1,818 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-30-state-and-events",
+  "title": "Durable State And Events",
+  "root": "b-30-state-and-events-root-51",
+  "blocks": {
+    "b-30-state-and-events-root-51": {
+      "id": "b-30-state-and-events-root-51",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "durable-state",
+          "sqlite",
+          "epochs",
+          "target-claims",
+          "worker-state",
+          "checkpoints",
+          "events",
+          "facts",
+          "artifacts"
+        ]
+      },
+      "children": [
+        "b-30-state-and-events-durable-state-and-events-1",
+        "b-30-state-and-events-durable-state-substrate-2",
+        "b-30-state-and-events-durable-state-is-the-orc-3",
+        "b-30-state-and-events-state-model-4",
+        "b-30-state-and-events-the-board-carries-5",
+        "b-30-state-and-events-runs-the-goal-desired-6",
+        "b-30-state-and-events-targets-candidate-funct-7",
+        "b-30-state-and-events-epochs-deterministic-sc-8",
+        "b-30-state-and-events-completion-counts-refre-9",
+        "b-30-state-and-events-epoch-targets-the-targe-10",
+        "b-30-state-and-events-such-as-admitted-claime-11",
+        "b-30-state-and-events-target-claims-active-or-12",
+        "b-30-state-and-events-including-the-explicit-w-13",
+        "b-30-state-and-events-worker-states-runner-ow-14",
+        "b-30-state-and-events-worker-checkpoints-one-15",
+        "b-30-state-and-events-validations-and-the-sele-16",
+        "b-30-state-and-events-pi-sessions-worker-pr-17",
+        "b-30-state-and-events-metadata-18",
+        "b-30-state-and-events-legacy-director-cycles-19",
+        "b-30-state-and-events-state-files-remain-reada-20",
+        "b-30-state-and-events-epoch-verdicts-and-integ-21",
+        "b-30-state-and-events-results-and-score-gate-22",
+        "b-30-state-and-events-events-durable-wake-req-23",
+        "b-30-state-and-events-event-handshake-24",
+        "b-30-state-and-events-events-are-the-handshake-25",
+        "b-30-state-and-events-wake-events-include-26",
+        "b-30-state-and-events-run-started-27",
+        "b-30-state-and-events-worker-finished-28",
+        "b-30-state-and-events-worker-error-29",
+        "b-30-state-and-events-pool-below-target-30",
+        "b-30-state-and-events-epoch-admitted-31",
+        "b-30-state-and-events-epoch-exhausted-32",
+        "b-30-state-and-events-epoch-fast-refresh-star-33",
+        "b-30-state-and-events-epoch-fast-refresh-fini-34",
+        "b-30-state-and-events-epoch-fast-refresh-defe-35",
+        "b-30-state-and-events-epoch-fast-refresh-skip-36",
+        "b-30-state-and-events-epoch-full-refresh-star-37",
+        "b-30-state-and-events-epoch-full-refresh-fini-38",
+        "b-30-state-and-events-epoch-regression-pause-39",
+        "b-30-state-and-events-epoch-cycle-error-40",
+        "b-30-state-and-events-in-the-default-epoch-cyc-41",
+        "b-30-state-and-events-epoch-regression-pause-42",
+        "b-30-state-and-events-claims-and-checkpoints-43",
+        "b-30-state-and-events-a-worker-may-only-edit-p-44",
+        "b-30-state-and-events-facts-45",
+        "b-30-state-and-events-facts-are-reusable-prov-46",
+        "b-30-state-and-events-the-design-taxonomy-name-47",
+        "b-30-state-and-events-fact-type-meaning-48",
+        "b-30-state-and-events-artifacts-49",
+        "b-30-state-and-events-artifacts-make-the-run-i-50"
+      ]
+    },
+    "b-30-state-and-events-durable-state-and-events-1": {
+      "id": "b-30-state-and-events-durable-state-and-events-1",
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "text": [
+        {
+          "insert": "Durable State And Events"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-durable-state-substrate-2": {
+      "id": "b-30-state-and-events-durable-state-substrate-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Durable state substrate, events, target claims, worker states, checkpoints, facts, and artifacts."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-durable-state-is-the-orc-3": {
+      "id": "b-30-state-and-events-durable-state-is-the-orc-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Durable state is the orchestrator's memory. It records the board, active work,\nagent sessions, scheduler epochs, worker states, checkpoints, facts, and wake\nevents. The state substrate allows workers and deterministic scheduling to\noperate at different times without losing context."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-state-model-4": {
+      "id": "b-30-state-and-events-state-model-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "State Model"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-the-board-carries-5": {
+      "id": "b-30-state-and-events-the-board-carries-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The board carries:"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-runs-the-goal-desired-6": {
+      "id": "b-30-state-and-events-runs-the-goal-desired-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Runs: the goal, desired worker count, baseline report identity, and status."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-targets-candidate-funct-7": {
+      "id": "b-30-state-and-events-targets-candidate-funct-7",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Targets: candidate functions or units with priority and rationale."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epochs-deterministic-sc-8": {
+      "id": "b-30-state-and-events-epochs-deterministic-sc-8",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Epochs: deterministic scheduling waves with fixed target membership,"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-completion-counts-refre-9": {
+      "id": "b-30-state-and-events-completion-counts-refre-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  completion counts, refresh counters, and boundary routing summaries."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-targets-the-targe-10": {
+      "id": "b-30-state-and-events-epoch-targets-the-targe-10",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Epoch targets: the target inventory for one epoch, with lifecycle positions"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-such-as-admitted-claime-11": {
+      "id": "b-30-state-and-events-such-as-admitted-claime-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  such as admitted, claimed, and finished."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-target-claims-active-or-12": {
+      "id": "b-30-state-and-events-target-claims-active-or-12",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Target claims: active or closed worker ownership for one epoch target,"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-including-the-explicit-w-13": {
+      "id": "b-30-state-and-events-including-the-explicit-w-13",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  including the explicit write set and worker workspace."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-worker-states-runner-ow-14": {
+      "id": "b-30-state-and-events-worker-states-runner-ow-14",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker states: runner-owned lifecycle ledgers for target claims."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-worker-checkpoints-one-15": {
+      "id": "b-30-state-and-events-worker-checkpoints-one-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker checkpoints: one row per runner validation attempt, including failed"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-validations-and-the-sele-16": {
+      "id": "b-30-state-and-events-validations-and-the-sele-16",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  validations and the selected best attempt."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-pi-sessions-worker-pr-17": {
+      "id": "b-30-state-and-events-pi-sessions-worker-pr-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Pi sessions: worker, PR splitter/reviewer, curation, reconcile, and QA repair invocation"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-metadata-18": {
+      "id": "b-30-state-and-events-metadata-18",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  metadata."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-legacy-director-cycles-19": {
+      "id": "b-30-state-and-events-legacy-director-cycles-19",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Legacy director cycles: old board-level decision rows retained only so old"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-state-files-remain-reada-20": {
+      "id": "b-30-state-and-events-state-files-remain-reada-20",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  state files remain readable."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-verdicts-and-integ-21": {
+      "id": "b-30-state-and-events-epoch-verdicts-and-integ-21",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Epoch verdicts and integrations: target-centric boundary truth, validation"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-results-and-score-gate-22": {
+      "id": "b-30-state-and-events-results-and-score-gate-22",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  results, and score-gate records."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-events-durable-wake-req-23": {
+      "id": "b-30-state-and-events-events-durable-wake-req-23",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Events: durable wake requests."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-event-handshake-24": {
+      "id": "b-30-state-and-events-event-handshake-24",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Event Handshake"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-events-are-the-handshake-25": {
+      "id": "b-30-state-and-events-events-are-the-handshake-25",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Events are the handshake between workers, the runner, and the sleeping\nscheduler loop.\nA producer writes an event with payload and provenance. The runner handles the\noldest relevant unhandled event by invoking the correct next step. The event is\nmarked handled only after the resulting decision or state transition is stored."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-wake-events-include-26": {
+      "id": "b-30-state-and-events-wake-events-include-26",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Wake events include:"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-run-started-27": {
+      "id": "b-30-state-and-events-run-started-27",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "run_started",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-worker-finished-28": {
+      "id": "b-30-state-and-events-worker-finished-28",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "worker_finished",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-worker-error-29": {
+      "id": "b-30-state-and-events-worker-error-29",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "worker_error",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-pool-below-target-30": {
+      "id": "b-30-state-and-events-pool-below-target-30",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "pool_below_target",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-admitted-31": {
+      "id": "b-30-state-and-events-epoch-admitted-31",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_admitted",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-exhausted-32": {
+      "id": "b-30-state-and-events-epoch-exhausted-32",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_exhausted",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-fast-refresh-star-33": {
+      "id": "b-30-state-and-events-epoch-fast-refresh-star-33",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_fast_refresh_started",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-fast-refresh-fini-34": {
+      "id": "b-30-state-and-events-epoch-fast-refresh-fini-34",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_fast_refresh_finished",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-fast-refresh-defe-35": {
+      "id": "b-30-state-and-events-epoch-fast-refresh-defe-35",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_fast_refresh_deferred",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-fast-refresh-skip-36": {
+      "id": "b-30-state-and-events-epoch-fast-refresh-skip-36",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_fast_refresh_skipped",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-full-refresh-star-37": {
+      "id": "b-30-state-and-events-epoch-full-refresh-star-37",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_full_refresh_started",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-full-refresh-fini-38": {
+      "id": "b-30-state-and-events-epoch-full-refresh-fini-38",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_full_refresh_finished",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-regression-pause-39": {
+      "id": "b-30-state-and-events-epoch-regression-pause-39",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_regression_pause",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-cycle-error-40": {
+      "id": "b-30-state-and-events-epoch-cycle-error-40",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch_cycle_error",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-in-the-default-epoch-cyc-41": {
+      "id": "b-30-state-and-events-in-the-default-epoch-cyc-41",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "In the default epoch cycle, fixed admission and worker-slot realization are\nseparate. A shrinking pool of admitted-but-unclaimed work is normal when the\nadmitted set is nearly complete.\nFast refresh events record in-epoch "
+        },
+        {
+          "insert": "kg-maintain --no-tool-runners",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " work and\ncoalescing decisions. Full refresh events record boundary knowledge\nmaintenance after report truth is rebuilt. "
+        },
+        {
+          "insert": "pool_below_target",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " covers worker\npool pressure and admitted-target exhaustion. The state reader prioritizes\nunhandled "
+        },
+        {
+          "insert": "pool_below_target",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " events ahead of ordinary completion backlog so\ncapacity-preserving replans are not delayed behind many older completion\nevents."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-epoch-regression-pause-42": {
+      "id": "b-30-state-and-events-epoch-regression-pause-42",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "epoch_regression_pause",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " records that one epoch regressed more report rows\nthan the pause threshold, so the pipeline recorded its checkpoint but withheld\nthe refill. "
+        },
+        {
+          "insert": "epoch_cycle_error",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " records a failed epoch commit or report build.\nBoth carry enough payload for deterministic routing or an operator to decide\nwhether to repair, revert, or resume."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-claims-and-checkpoints-43": {
+      "id": "b-30-state-and-events-claims-and-checkpoints-43",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Claims And Checkpoints"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-a-worker-may-only-edit-p-44": {
+      "id": "b-30-state-and-events-a-worker-may-only-edit-p-44",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A worker may only edit paths covered by its active target claim. Each claim owns\nan explicit write set, and each claim has exactly one worker state. Runner\nvalidation writes checkpoints under that worker state; failed validations are\nkept as evidence, while selectable checkpoints must pass hard gates and improve\nover baseline. When execution ends, the claim closes and the worker state\nrecords whether the lifecycle ended as exact, timeout, error, cancellation, or\nanother runner-owned terminal state."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-facts-45": {
+      "id": "b-30-state-and-events-facts-45",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Facts"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-facts-are-reusable-prov-46": {
+      "id": "b-30-state-and-events-facts-are-reusable-prov-46",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Facts are reusable, provenance-tagged board knowledge. They can describe\nsymbols, types, source shapes, resource findings, duplicate relationships,\nnegative hypotheses, or review constraints. Accepted facts can change future\ntarget packets; rejected or uncertain facts stay visible so workers do not\nrepeat low-value guesses."
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-the-design-taxonomy-name-47": {
+      "id": "b-30-state-and-events-the-design-taxonomy-name-47",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The design taxonomy names these fact classes:"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-fact-type-meaning-48": {
+      "id": "b-30-state-and-events-fact-type-meaning-48",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Fact Type | Meaning |\n| --- | --- |\n| "
+        },
+        {
+          "insert": "asm_duplicate_group",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Normalized assembly group with matched refs and unmatched candidates. |\n| "
+        },
+        {
+          "insert": "source_shape_pattern",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Declaration order, branch shape, helper inline shape, loop form, or pragma behavior that improved a target. |\n| "
+        },
+        {
+          "insert": "type_or_field_hint",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Struct field, accessor, callback signature, table type, or data ownership fact. |\n| "
+        },
+        {
+          "insert": "negative_result",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Capability or hypothesis class that preserved a bad mismatch or caused regressions. |\n| "
+        },
+        {
+          "insert": "integration_fact",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Accepted patch, score delta, validation commands, and affected graph neighbors. |"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-artifacts-49": {
+      "id": "b-30-state-and-events-artifacts-49",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Artifacts"
+        }
+      ],
+      "children": []
+    },
+    "b-30-state-and-events-artifacts-make-the-run-i-50": {
+      "id": "b-30-state-and-events-artifacts-make-the-run-i-50",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Artifacts make the run inspectable. Board snapshots, rendered prompts, raw Pi\noutput, worker-state summaries, checkpoint notes, fact files, blockers,\nvalidation transcripts, regression reports, guardian system-run logs, and\nincident packets belong under the run state directory."
+        }
+      ],
+      "children": []
+    }
+  }
+}

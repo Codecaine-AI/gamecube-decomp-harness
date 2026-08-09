@@ -1,0 +1,315 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-20-agent-model",
+  "title": "Agent Model",
+  "root": "b-20-agent-model-root-22",
+  "blocks": {
+    "b-20-agent-model-root-22": {
+      "id": "b-20-agent-model-root-22",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "agents",
+          "scheduler",
+          "worker-agent",
+          "integration-resolver",
+          "pr-indexer",
+          "pr-splitter",
+          "pr-reviewer",
+          "pr-fixer",
+          "runtime",
+          "run-loop",
+          "guardians"
+        ]
+      },
+      "children": [
+        "b-20-agent-model-agent-model-1",
+        "b-20-agent-model-centralized-agent-catalo-2",
+        "b-20-agent-model-the-orchestrator-has-a-s-3",
+        "b-20-agent-model-the-package-also-has-eve-4",
+        "b-20-agent-model-roles-5",
+        "b-20-agent-model-agent-owns-does-no-6",
+        "b-20-agent-model-the-integration-resolver-7",
+        "b-20-agent-model-the-reconcile-agent-is-d-8",
+        "b-20-agent-model-process-actors-9",
+        "b-20-agent-model-actor-owns-does-no-10",
+        "b-20-agent-model-runtime-boundary-11",
+        "b-20-agent-model-the-non-agent-runner-own-12",
+        "b-20-agent-model-prompt-shape-13",
+        "b-20-agent-model-each-agent-receives-14",
+        "b-20-agent-model-a-system-prompt-that-def-15",
+        "b-20-agent-model-any-structured-output-co-16",
+        "b-20-agent-model-an-initial-user-prompt-t-17",
+        "b-20-agent-model-packet-selected-context-18",
+        "b-20-agent-model-rendered-prompts-are-art-19",
+        "b-20-agent-model-adding-agents-20",
+        "b-20-agent-model-a-new-agent-should-enter-21"
+      ]
+    },
+    "b-20-agent-model-agent-model-1": {
+      "id": "b-20-agent-model-agent-model-1",
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "text": [
+        {
+          "insert": "Agent Model"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-centralized-agent-catalo-2": {
+      "id": "b-20-agent-model-centralized-agent-catalo-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Centralized agent catalog, runtime role boundaries, and non-agent run-loop/guardian actors."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-the-orchestrator-has-a-s-3": {
+      "id": "b-20-agent-model-the-orchestrator-has-a-s-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The orchestrator has a small set of named agents with explicit boundaries. New\nagents should be added to the central catalog and given a colocated prompt,\ninput builder, runtime integration, and output contract when the agent owns a\nstructured result."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-the-package-also-has-eve-4": {
+      "id": "b-20-agent-model-the-package-also-has-eve-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The package also has evented process actors such as the deterministic run loop\nand the guardian process. They make rule-based\ndecisions and sleep between events, but they are not Pi agents. They own process\nand state-machine mechanics, including target admission and worker-slot\nrealization."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-roles-5": {
+      "id": "b-20-agent-model-roles-5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Roles"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-agent-owns-does-no-6": {
+      "id": "b-20-agent-model-agent-owns-does-no-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Agent | Owns | Does Not Own |\n| --- | --- | --- |\n| Worker | One claimed target packet, research, edits, local validation readiness, and checkpoint note evidence | Board strategy, cross-worker coordination, edits outside the claim write set |\n| Integration resolver | Running-phase worker-output conflict queue items: failed checkpoint patch applies, conflict groups, explicit write-set merges, worker-output dispositions, and validation evidence before PR handoff | Board scheduling, ordinary clean checkpoint integration, PR QA repair, PR comments, upstream-sync reconcile policy |\n| PR indexer | PR postmortem indexing and reusable review knowledge | Live decomp worker execution, scheduler admission, preship findings |\n| PR splitter | Review-sized PR series planning from deterministic handoff evidence: slice grouping, order, titles, dependencies, and PR-body focus | Deciding which files ship, source edits, GitHub publication, scheduler admission |\n| PR reviewer | Planned/opened PR slice review and maintainer-risk findings | Knowledge curation, source repairs, scheduler admission |\n| PR fixer | Opened-PR feedback repair: maintainer comments, review-thread findings, focused source edits, validation evidence, and manual-review notes | Bundle-wide regression recovery, deterministic QA queue ownership, GitHub thread mutation |\n| Knowledge-curator | Reducing worker/PR evidence into graph-safe lessons and proposal-only source updates | Direct graph mutation, scheduling, decomp attempts |\n| Reconcile | Making a bundle safe at run-cycle boundaries: fixing QA regressions before PR handoff ("
+        },
+        {
+          "insert": "ship-validate",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") and resolving merge conflicts, duplicate work, and build errors after an upstream sync ("
+        },
+        {
+          "insert": "sync-merge",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") | Board scheduling, claim-scoped worker tactics, knowledge graph mutation, publishing PRs |"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-the-integration-resolver-7": {
+      "id": "b-20-agent-model-the-integration-resolver-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The integration resolver is a rare running-phase agent. Normal clean worker\ncheckpoint applies do not need it; the runner uses it only when a completed\nworker output queue item cannot be applied cleanly or a conflict group needs\nsource-level reconciliation before the epoch can accept or reject the output.\nIt stays pre-PR: it does not own PR review comments, deterministic PR QA queue\nitems, or upstream sync repair."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-the-reconcile-agent-is-d-8": {
+      "id": "b-20-agent-model-the-reconcile-agent-is-d-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The reconcile agent is deliberately not a worker capability. It needs\nwhole-checkout authority - merging, rebuilding, multi-file regression fixes -\nthat the claim/write-set model denies workers, and it only runs while\nworker scheduling is locked (run paused or no session active). When\nupstream already matched a function held locally, upstream wins; the local\nattempt is preserved as lesson evidence for the curator pipeline, not as code."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-process-actors-9": {
+      "id": "b-20-agent-model-process-actors-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Process Actors"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-actor-owns-does-no-10": {
+      "id": "b-20-agent-model-actor-owns-does-no-10",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Actor | Owns | Does Not Own |\n| --- | --- | --- |\n| Trigger actor | Durable wake-event reaction, deterministic scheduler ticks, epoch admission, worker-slot realization, sleep between board events | Source edits, model-driven board strategy, process crash repair |\n| Guardian process | Decomp system process health, incident capture, failed/expired claim recovery, restart policy | Target selection, worker tactics, hidden always-on agent memory |"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-runtime-boundary-11": {
+      "id": "b-20-agent-model-runtime-boundary-11",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Runtime Boundary"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-the-non-agent-runner-own-12": {
+      "id": "b-20-agent-model-the-non-agent-runner-own-12",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The non-agent runner owns process control, state transitions, scheduler epochs,\ntarget claims, explicit write sets, artifact paths, and Pi session invocation.\nAgents own target-local or boundary-specific reasoning and structured outputs. This split keeps\ncoordination deterministic while still letting agents make high-context\ndecisions where they are useful. The guardian may decide that a process incident\nneeds recovery, but the runtime materializes that intent as claim recovery\ncommands and process restarts."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-prompt-shape-13": {
+      "id": "b-20-agent-model-prompt-shape-13",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Prompt Shape"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-each-agent-receives-14": {
+      "id": "b-20-agent-model-each-agent-receives-14",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each agent receives:"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-a-system-prompt-that-def-15": {
+      "id": "b-20-agent-model-a-system-prompt-that-def-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A system prompt that defines authority, role boundaries, safety rules, and"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-any-structured-output-co-16": {
+      "id": "b-20-agent-model-any-structured-output-co-16",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  any structured output contract the role owns."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-an-initial-user-prompt-t-17": {
+      "id": "b-20-agent-model-an-initial-user-prompt-t-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "An initial user prompt that contains the current run state or assigned target"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-packet-selected-context-18": {
+      "id": "b-20-agent-model-packet-selected-context-18",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "  packet, selected context, available resources/tools, and required output path."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-rendered-prompts-are-art-19": {
+      "id": "b-20-agent-model-rendered-prompts-are-art-19",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Rendered prompts are artifacts. They are part of the audit trail and should be\npreserved beside agent output."
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-adding-agents-20": {
+      "id": "b-20-agent-model-adding-agents-20",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Adding Agents"
+        }
+      ],
+      "children": []
+    },
+    "b-20-agent-model-a-new-agent-should-enter-21": {
+      "id": "b-20-agent-model-a-new-agent-should-enter-21",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A new agent should enter through the same catalog as the worker, integration\nresolver, PR indexer, PR splitter, PR reviewer, PR fixer, knowledge-curator,\nreconcile, and QA repair agents. It should not create a side-channel prompt tree or hidden runtime path. The package should have one\nobvious place to discover every agent role and its contract."
+        }
+      ],
+      "children": []
+    }
+  }
+}

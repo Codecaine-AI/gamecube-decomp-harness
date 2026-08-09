@@ -1,0 +1,1505 @@
+{
+  "schemaVersion": 1,
+  "id": "30-runbooks-20-gate-exact-tail-repair",
+  "title": "Runbook: Gate-Exact Tail Repair Loop",
+  "root": "b-20-gate-exact-tail-repair-root-57",
+  "blocks": {
+    "b-20-gate-exact-tail-repair-root-57": {
+      "id": "b-20-gate-exact-tail-repair-root-57",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-20-gate-exact-tail-repair-runbook-gate-exact-tail-1",
+        "b-20-gate-exact-tail-repair-operating-procedure-for-2",
+        "b-20-gate-exact-tail-repair-intended-use-in-a-fresh-3",
+        "b-20-gate-exact-tail-repair-0-locate-the-active-run-4",
+        "b-20-gate-exact-tail-repair-bash-5",
+        "b-20-gate-exact-tail-repair-ground-rules-standing-u-6",
+        "b-20-gate-exact-tail-repair-orchestrator-db-is-pro-7",
+        "b-20-gate-exact-tail-repair-do-not-run-report-run-8",
+        "b-20-gate-exact-tail-repair-no-git-commits-to-the-se-9",
+        "b-20-gate-exact-tail-repair-1-detect-new-tails-eve-10",
+        "b-20-gate-exact-tail-repair-sql-11",
+        "b-20-gate-exact-tail-repair-also-worth-sweeping-occa-12",
+        "b-20-gate-exact-tail-repair-sql-13",
+        "b-20-gate-exact-tail-repair-triage-before-launchin-14",
+        "b-20-gate-exact-tail-repair-drop-stale-echoes-check-15",
+        "b-20-gate-exact-tail-repair-drop-targets-already-lis-16",
+        "b-20-gate-exact-tail-repair-group-remaining-targets-17",
+        "b-20-gate-exact-tail-repair-2-launch-the-repair-fle-18",
+        "b-20-gate-exact-tail-repair-one-background-general-p-19",
+        "b-20-gate-exact-tail-repair-read-and-follow-exactly-20",
+        "b-20-gate-exact-tail-repair-notes-that-matter-21",
+        "b-20-gate-exact-tail-repair-if-the-user-has-directed-22",
+        "b-20-gate-exact-tail-repair-shared-header-config-f-23",
+        "b-20-gate-exact-tail-repair-batch-size-8-11-concurr-24",
+        "b-20-gate-exact-tail-repair-3-verification-gauntlet-25",
+        "b-20-gate-exact-tail-repair-never-trust-the-agent-s-26",
+        "b-20-gate-exact-tail-repair-banned-construct-grep-27",
+        "b-20-gate-exact-tail-repair-fresh-qa-gate-both-28",
+        "b-20-gate-exact-tail-repair-bash-29",
+        "b-20-gate-exact-tail-repair-same-tool-scoring-only-30",
+        "b-20-gate-exact-tail-repair-claims-gate-check-be-31",
+        "b-20-gate-exact-tail-repair-sql-32",
+        "b-20-gate-exact-tail-repair-check-every-unit-the-pat-33",
+        "b-20-gate-exact-tail-repair-drift-check-agents-34",
+        "b-20-gate-exact-tail-repair-apply-git-c-session-35",
+        "b-20-gate-exact-tail-repair-4-outcome-classes-all-36",
+        "b-20-gate-exact-tail-repair-exact-clean-100-0-37",
+        "b-20-gate-exact-tail-repair-best-gate-clean-exa-38",
+        "b-20-gate-exact-tail-repair-already-done-measur-39",
+        "b-20-gate-exact-tail-repair-policy-blocker-docu-40",
+        "b-20-gate-exact-tail-repair-5-root-cause-patterns-41",
+        "b-20-gate-exact-tail-repair-config-metadata-not-s-42",
+        "b-20-gate-exact-tail-repair-name-evidenced-data-se-43",
+        "b-20-gate-exact-tail-repair-fix-headers-truthfully-44",
+        "b-20-gate-exact-tail-repair-mwcc-idioms-if-0-45",
+        "b-20-gate-exact-tail-repair-lint-false-positives-a-46",
+        "b-20-gate-exact-tail-repair-6-write-the-worker-repo-47",
+        "b-20-gate-exact-tail-repair-for-each-processed-targe-48",
+        "b-20-gate-exact-tail-repair-path-facts-is-the-ch-49",
+        "b-20-gate-exact-tail-repair-copy-deliverables-resul-50",
+        "b-20-gate-exact-tail-repair-insert-a-worker-reports-51",
+        "b-20-gate-exact-tail-repair-do-not-append-to-knowle-52",
+        "b-20-gate-exact-tail-repair-7-report-to-the-user-53",
+        "b-20-gate-exact-tail-repair-end-each-sweep-with-tar-54",
+        "b-20-gate-exact-tail-repair-reference-campaign-of-2-55",
+        "b-20-gate-exact-tail-repair-46-targets-42-exact-cle-56"
+      ]
+    },
+    "b-20-gate-exact-tail-repair-runbook-gate-exact-tail-1": {
+      "id": "b-20-gate-exact-tail-repair-runbook-gate-exact-tail-1",
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "text": [
+        {
+          "insert": "Runbook: Gate-Exact Tail Repair Loop"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-operating-procedure-for-2": {
+      "id": "b-20-gate-exact-tail-repair-operating-procedure-for-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Operating procedure for monitoring a melee run for stuck \"Gate-Exact Tail\" targets (worker reached an exact match but QA gates rejected it and the repair tail exhausted), repairing them to gate-clean with sub-agents, applying the fixes to the live session tree, and capturing the knowledge as worker reports. Written 2026-07-12 after a 46-target campaign (42 exact-clean, 4 documented policy blockers)."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-intended-use-in-a-fresh-3": {
+      "id": "b-20-gate-exact-tail-repair-intended-use-in-a-fresh-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Intended use in a fresh session: "
+        },
+        {
+          "insert": "\"Follow docs/30-runbooks/20-gate-exact-tail-repair.md. Monitor for new gate-exact tails every 30 minutes; process any to completion and write the reports.\"",
+          "attributes": {
+            "italic": true
+          }
+        },
+        {
+          "insert": " (Pair with "
+        },
+        {
+          "insert": "/loop 30m",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or a Monitor for the cadence.)"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-0-locate-the-active-run-4": {
+      "id": "b-20-gate-exact-tail-repair-0-locate-the-active-run-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "0. Locate the active run (paths change per run/session)"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-bash-5": {
+      "id": "b-20-gate-exact-tail-repair-bash-5",
+      "type": "code",
+      "props": {
+        "language": "bash"
+      },
+      "text": [
+        {
+          "insert": "DB=\"projects/melee/state/orchestrator.sqlite\"          # ALWAYS open read-only: sqlite3 -readonly\nRUN=$(sqlite3 -readonly \"$DB\" \"SELECT id FROM runs ORDER BY created_at DESC LIMIT 1;\")\n# Session tree (the run's live source; NEVER edit except via the apply step below):\n# find it from a running job-runner:  ps ax | grep job-runner | grep -o '\\-\\-repo-root [^ ]*'\n# or: projects/melee/worktrees/sessions/<session>/current"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-ground-rules-standing-u-6": {
+      "id": "b-20-gate-exact-tail-repair-ground-rules-standing-u-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Ground rules (standing user policy):"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-orchestrator-db-is-pro-7": {
+      "id": "b-20-gate-exact-tail-repair-orchestrator-db-is-pro-7",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Orchestrator DB is "
+        },
+        {
+          "insert": "product state",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": reads are fine; the ONLY sanctioned writes are the worker-report capture in §6. Never touch worker_state/checkpoints/claims/epochs/integrations."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-do-not-run-report-run-8": {
+      "id": "b-20-gate-exact-tail-repair-do-not-run-report-run-8",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Do not run report-run or reset baselines",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " — promotion to the UI's Confirmed table belongs to the epoch runner's boundary report. (Applied fixes sit as uncommitted working-tree state until then; that is expected.)"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-no-git-commits-to-the-se-9": {
+      "id": "b-20-gate-exact-tail-repair-no-git-commits-to-the-se-9",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "No git commits to the session tree; apply patches to the working tree only (matches the integration convention)."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-1-detect-new-tails-eve-10": {
+      "id": "b-20-gate-exact-tail-repair-1-detect-new-tails-eve-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "1. Detect new tails (every ~30 min)"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-sql-11": {
+      "id": "b-20-gate-exact-tail-repair-sql-11",
+      "type": "code",
+      "props": {
+        "language": "sql"
+      },
+      "text": [
+        {
+          "insert": "SELECT ws.target_key, ws.ended_at, ws.best_score, ws.artifact_dir\nFROM worker_state ws\nWHERE ws.summary_json LIKE '%gate_failed_exact_followup_budget_exhausted%'\n  AND ws.ended_at > '<last sweep timestamp>'\nORDER BY ws.ended_at DESC;"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-also-worth-sweeping-occa-12": {
+      "id": "b-20-gate-exact-tail-repair-also-worth-sweeping-occa-12",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Also worth sweeping occasionally (broader class: exact checkpoints that could never be accepted):"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-sql-13": {
+      "id": "b-20-gate-exact-tail-repair-sql-13",
+      "type": "code",
+      "props": {
+        "language": "sql"
+      },
+      "text": [
+        {
+          "insert": "SELECT ws.target_key, MAX(wc.new_score), ws.artifact_dir\nFROM worker_checkpoints wc JOIN worker_state ws ON ws.id=wc.worker_state_id\nWHERE wc.exact_match=1 AND wc.selectable=0 GROUP BY ws.target_key;"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-triage-before-launchin-14": {
+      "id": "b-20-gate-exact-tail-repair-triage-before-launchin-14",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Triage before launching anything:",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-drop-stale-echoes-check-15": {
+      "id": "b-20-gate-exact-tail-repair-drop-stale-echoes-check-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Drop stale echoes: check each symbol's current fuzzy % in the latest report ("
+        },
+        {
+          "insert": "<session>/build/GALE01/report.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") or via objdiff — workers in flight when a prior repair landed produce tail records for already-fixed functions."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-drop-targets-already-lis-16": {
+      "id": "b-20-gate-exact-tail-repair-drop-targets-already-lis-16",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Drop targets already listed as policy blockers in "
+        },
+        {
+          "insert": "knowledge/oob-repair-blockers",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " facts (see §7) — more agent effort will not fix those."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-group-remaining-targets-17": {
+      "id": "b-20-gate-exact-tail-repair-group-remaining-targets-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Group remaining targets "
+        },
+        {
+          "insert": "by unit",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " — one agent per unit, so patches to the same files can't collide."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-2-launch-the-repair-fle-18": {
+      "id": "b-20-gate-exact-tail-repair-2-launch-the-repair-fle-18",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "2. Launch the repair fleet"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-one-background-general-p-19": {
+      "id": "b-20-gate-exact-tail-repair-one-background-general-p-19",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "One background general-purpose agent per unit. Prompt template (fill in unit/targets/artifact dirs; keep the playbook reference):"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-read-and-follow-exactly-20": {
+      "id": "b-20-gate-exact-tail-repair-read-and-follow-exactly-20",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "Read and follow exactly: docs/30-runbooks/10-gate-exact-repair-playbook.md\nYour assigned unit: "
+        },
+        {
+          "insert": "<unit>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ("
+        },
+        {
+          "insert": "<source path>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). Targets (current fuzzy %): "
+        },
+        {
+          "insert": "<symbol — %, artifact dir>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " …\nDeliverable dir: "
+        },
+        {
+          "insert": "<scratchpad>/repairs/<unit-shortname>/",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-notes-that-matter-21": {
+      "id": "b-20-gate-exact-tail-repair-notes-that-matter-21",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Notes that matter:"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-if-the-user-has-directed-22": {
+      "id": "b-20-gate-exact-tail-repair-if-the-user-has-directed-22",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "If the user has directed that repair agents implement directly (they did for this campaign), state in the prompt that this overrides the global codex-delegation rule."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-shared-header-config-f-23": {
+      "id": "b-20-gate-exact-tail-repair-shared-header-config-f-23",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Shared-header / config-file units (sysdolphin baselib, anything touching "
+        },
+        {
+          "insert": "symbols.txt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "/"
+        },
+        {
+          "insert": "splits.txt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") must run a repo-wide A/B check; the playbook mandates it."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-batch-size-8-11-concurr-24": {
+      "id": "b-20-gate-exact-tail-repair-batch-size-8-11-concurr-24",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Batch size ~8–11 concurrent agents; backfill as they finish. If agents die to a session limit, resume them with SendMessage (context survives) rather than relaunching."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-3-verification-gauntlet-25": {
+      "id": "b-20-gate-exact-tail-repair-3-verification-gauntlet-25",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "3. Verification gauntlet (coordinator side, per delivered patch)"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-never-trust-the-agent-s-26": {
+      "id": "b-20-gate-exact-tail-repair-never-trust-the-agent-s-26",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Never trust the agent's claims alone. In order:"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-banned-construct-grep-27": {
+      "id": "b-20-gate-exact-tail-repair-banned-construct-grep-27",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Banned-construct grep",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " over added lines: "
+        },
+        {
+          "insert": "#pragma",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (net-new; pure moves must net zero), "
+        },
+        {
+          "insert": "__assert(",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "\\bregister\\b",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "\\basm\\b",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "goto ",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", function-like "
+        },
+        {
+          "insert": "#define",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " aliases, "
+        },
+        {
+          "insert": "extern",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in "
+        },
+        {
+          "insert": ".c",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", K&R empty-paren decls. Comment mentions are fine — confirm by eye."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-fresh-qa-gate-both-28": {
+      "id": "b-20-gate-exact-tail-repair-fresh-qa-gate-both-28",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Fresh QA gate",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ", both surfaces, run yourself:"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-bash-29": {
+      "id": "b-20-gate-exact-tail-repair-bash-29",
+      "type": "code",
+      "props": {
+        "language": "bash"
+      },
+      "text": [
+        {
+          "insert": "   python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py \\\n     --repo <agent worktree> --diff-file <repair.patch> --surface worker  --gate --json\n   # and again with --surface pr_gate ; both must pass 0 errors / 0 warnings"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-same-tool-scoring-only-30": {
+      "id": "b-20-gate-exact-tail-repair-same-tool-scoring-only-30",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Same-tool scoring only",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "objdiff-cli diff",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " vs "
+        },
+        {
+          "insert": "objdiff-cli diff",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (with "
+        },
+        {
+          "insert": "--config functionRelocDiffs=data_value",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). "
+        },
+        {
+          "insert": "objdiff report generate",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " disagrees with "
+        },
+        {
+          "insert": "diff",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " on partial matches (they agree at 100) — comparing across tools produces phantom regressions."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-claims-gate-check-be-31": {
+      "id": "b-20-gate-exact-tail-repair-claims-gate-check-be-31",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Claims gate — check BEFORE apply and let it actually gate",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " ("
+        },
+        {
+          "insert": "if [ \"$C\" = 0 ]; then apply; fi",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "):"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-sql-32": {
+      "id": "b-20-gate-exact-tail-repair-sql-32",
+      "type": "code",
+      "props": {
+        "language": "sql"
+      },
+      "text": [
+        {
+          "insert": "   SELECT COUNT(*) FROM target_claims tc JOIN epoch_targets et ON et.id=tc.epoch_target_id\n   WHERE tc.status='active' AND et.unit LIKE '%<unit>%';"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-check-every-unit-the-pat-33": {
+      "id": "b-20-gate-exact-tail-repair-check-every-unit-the-pat-33",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "   Check EVERY unit the patch touches (a patch moving data between TUs gates on both; a header patch gates on consumer units it rewrites).\n   If claimed: park the patch and arm a Monitor that polls claim counts (~45s) and notifies when clear. Exception — apply despite an active claim only when the claimed symbol's file region provably cannot overlap the patch hunks (compare hunk headers vs the claimed function)."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-drift-check-agents-34": {
+      "id": "b-20-gate-exact-tail-repair-drift-check-agents-34",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Drift check",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": agents snapshot session-dirty at start; if the live tree moved since (their patch was verified against a stale base), reconcile explicitly — inspect the drift, revert only orphaned lines the patch supersedes (claim must be closed), or have the agent regenerate against the current base. "
+        },
+        {
+          "insert": "git apply --check",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " failing is the signal."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-apply-git-c-session-35": {
+      "id": "b-20-gate-exact-tail-repair-apply-git-c-session-35",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Apply: "
+        },
+        {
+          "insert": "git -C <session tree> apply <repair.patch>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (working tree only, no commit)."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-4-outcome-classes-all-36": {
+      "id": "b-20-gate-exact-tail-repair-4-outcome-classes-all-36",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "4. Outcome classes (all are successes — record them)"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-exact-clean-100-0-37": {
+      "id": "b-20-gate-exact-tail-repair-exact-clean-100-0-37",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "exact-clean",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": 100.0 + QA 0/0 both surfaces + zero regressions → apply."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-best-gate-clean-exa-38": {
+      "id": "b-20-gate-exact-tail-repair-best-gate-clean-exa-38",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "best gate-clean",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": exact provably requires a banned pattern; apply the clean improvement and record the blocker evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-already-done-measur-39": {
+      "id": "b-20-gate-exact-tail-repair-already-done-measur-39",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "already-done",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": measurement/config artifact (stale echo, renamed symbol, moved TU) — fix the metadata story, nothing else."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-policy-blocker-docu-40": {
+      "id": "b-20-gate-exact-tail-repair-policy-blocker-docu-40",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "policy blocker",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": document precisely (which rule, what evidence, what the only exact route is) — these go to the maintainer, not back into the queue. Known standing blockers: particle "
+        },
+        {
+          "insert": "fn_80393C14",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "/"
+        },
+        {
+          "insert": "hsd_80394434",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (need per-function "
+        },
+        {
+          "insert": "pool_data off",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "), grgreens "
+        },
+        {
+          "insert": "grGreens_80214FA8",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "/"
+        },
+        {
+          "insert": "_802166C4",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (need retail "
+        },
+        {
+          "insert": "OSReport(__FILE__,…)",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " vs "
+        },
+        {
+          "insert": "assert_idiom_downgrade",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ")."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-5-root-cause-patterns-41": {
+      "id": "b-20-gate-exact-tail-repair-5-root-cause-patterns-41",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "5. Root-cause patterns (check in this order — full detail in the playbook)"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-config-metadata-not-s-42": {
+      "id": "b-20-gate-exact-tail-repair-config-metadata-not-s-42",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Config metadata, not source",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " (~40% of cases): "
+        },
+        {
+          "insert": "symbols.txt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " extents (missed NUL/pad), TU-local literals annotated "
+        },
+        {
+          "insert": "scope:global",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (→ "
+        },
+        {
+          "insert": "@NNN scope:local data:string",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " + claim the "
+        },
+        {
+          "insert": "splits.txt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " gap), data attributed to the wrong TU, missing TU split (MWCC's merged-data anchor always sits at .data+0 — a retail anchor elsewhere proves a separate TU)."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-name-evidenced-data-se-43": {
+      "id": "b-20-gate-exact-tail-repair-name-evidenced-data-se-43",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Name evidenced data semantically",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " across "
+        },
+        {
+          "insert": ".c",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "/"
+        },
+        {
+          "insert": ".static.h",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "/"
+        },
+        {
+          "insert": "symbols.txt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; declarations in the owning header, never "
+        },
+        {
+          "insert": "extern",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in "
+        },
+        {
+          "insert": ".c",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-fix-headers-truthfully-44": {
+      "id": "b-20-gate-exact-tail-repair-fix-headers-truthfully-44",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Fix headers truthfully",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " — one-file write sets made workers hide signature mismatches behind "
+        },
+        {
+          "insert": "#define",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " aliases; retype the prototype and A/B the consumers."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-mwcc-idioms-if-0-45": {
+      "id": "b-20-gate-exact-tail-repair-mwcc-idioms-if-0-45",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "MWCC idioms",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "if (0) {…}",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " statement padding beats auto-inline (threshold 14 pre-expansion statements); "
+        },
+        {
+          "insert": "__declspec(weak)",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " breaks ≥3-object data pooling; inlined u16-returning helper reproduces argument truncation (replaces goto); real jobj.h inline helpers already emit exact assert strings; "
+        },
+        {
+          "insert": "#ifdef __MWERKS__",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "/"
+        },
+        {
+          "insert": "#else",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " guard (upstream-master precedent) when clean C provably can't match."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-lint-false-positives-a-46": {
+      "id": "b-20-gate-exact-tail-repair-lint-false-positives-a-46",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Lint false positives are real",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " — e.g. "
+        },
+        {
+          "insert": "SP_LOCAL_DECL_RE",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " fires on "
+        },
+        {
+          "insert": "speed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ("
+        },
+        {
+          "insert": "sp",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "+hex-letters). If the only \"violation\" is a name, rename the local."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-6-write-the-worker-repo-47": {
+      "id": "b-20-gate-exact-tail-repair-6-write-the-worker-repo-47",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "6. Write the worker reports (the knowledge capture step)"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-for-each-processed-targe-48": {
+      "id": "b-20-gate-exact-tail-repair-for-each-processed-targe-48",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "For each processed target (including blockers), persist into the run's report/knowledge pipeline. Channel map (established 2026-07-12):"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-path-facts-is-the-ch-49": {
+      "id": "b-20-gate-exact-tail-repair-path-facts-is-the-ch-49",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "path_facts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the channel that durably reaches future worker prompts",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " ("
+        },
+        {
+          "insert": "projects/melee/knowledge/sources/injectable/path_facts/data/path_facts/*.jsonl",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", schema "
+        },
+        {
+          "insert": "path_fact_v1",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", status "
+        },
+        {
+          "insert": "accepted",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; rebuild the index after adding; verify resolution injects your fact for the target file). Policy-blocker facts should say \"exact requires banned pattern X — do not re-attempt exact\". Existing blocker facts live in "
+        },
+        {
+          "insert": "oob_repairs_2026_07.jsonl",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-copy-deliverables-resul-50": {
+      "id": "b-20-gate-exact-tail-repair-copy-deliverables-resul-50",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Copy deliverables (result.json, repair.patch, QA outputs) to "
+        },
+        {
+          "insert": "projects/melee/state/runs/<RUN>/oob_repairs/<name>/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with per-target "
+        },
+        {
+          "insert": "report/<symbol>/worker_report.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " + "
+        },
+        {
+          "insert": "facts.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (+ "
+        },
+        {
+          "insert": "blocker.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") — scratchpad dirs die with the session. Maintain "
+        },
+        {
+          "insert": "oob_repairs/manifest.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-insert-a-worker-reports-51": {
+      "id": "b-20-gate-exact-tail-repair-insert-a-worker-reports-51",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Insert a "
+        },
+        {
+          "insert": "worker_reports",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row per repair ("
+        },
+        {
+          "insert": "report_type='oob_repair'",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", lease_id NULL, paths → durable copies). Know its limits: the table is a legacy channel — no harness code reads it and the UI's worker-reports view renders "
+        },
+        {
+          "insert": "worker_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows, so these are durable records, not UI entries."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-do-not-append-to-knowle-52": {
+      "id": "b-20-gate-exact-tail-repair-do-not-append-to-knowle-52",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Do NOT append to "
+        },
+        {
+          "insert": "knowledge_curator_updates.jsonl",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " expecting persistence — "
+        },
+        {
+          "insert": "curateKnowledgeEnrichments()",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " regenerates it from "
+        },
+        {
+          "insert": "worker_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " each maintenance run, discarding foreign records. Never fabricate "
+        },
+        {
+          "insert": "worker_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "/lease rows to get into that channel."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-7-report-to-the-user-53": {
+      "id": "b-20-gate-exact-tail-repair-7-report-to-the-user-53",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "7. Report to the user"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-end-each-sweep-with-tar-54": {
+      "id": "b-20-gate-exact-tail-repair-end-each-sweep-with-tar-54",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "End each sweep with: targets found (after triage), per-target before→after and fix class, what was applied vs parked vs blocked, any new lint bugs or systemic findings, and the epoch-boundary ETA for the values to reach the UI's Confirmed table. Silence is only acceptable when the sweep found nothing — say that too, briefly."
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-reference-campaign-of-2-55": {
+      "id": "b-20-gate-exact-tail-repair-reference-campaign-of-2-55",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Reference: campaign of 2026-07-11/12"
+        }
+      ],
+      "children": []
+    },
+    "b-20-gate-exact-tail-repair-46-targets-42-exact-cle-56": {
+      "id": "b-20-gate-exact-tail-repair-46-targets-42-exact-cle-56",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "46 targets: 42 exact-clean (41 applied same night), 4 policy blockers. Side findings: 3 real code bugs (grinishie1 backward table walk + wrong assert line, gmregclear wrong literals, mnmainrule fake data blob), 1 CI-breaking K&R contamination removed (toy.c), 1 new TU discovered (gm_1A9B.c), 1 lint bug ("
+        },
+        {
+          "insert": "speed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "), 2 harness fixes shipped (gate-priority repair prompt; worker objdiff config aligned to the board's "
+        },
+        {
+          "insert": "objdiff_report_args",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). Root-cause split: ~40% config metadata, ~25% header/prototype truth, ~25% MWCC idiom search, ~10% lint issues."
+        }
+      ],
+      "children": []
+    }
+  }
+}
