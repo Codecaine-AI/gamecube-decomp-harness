@@ -142,5 +142,5 @@ attributed separately from other projects.
 
 ## Related
 
-- [Knowledge implementation](../knowledge/00-overview.md)
+- [Knowledge implementation](../30-knowledge/00-overview.md)
 - [Agent model](../../10-system-design/20-agent-model.md)

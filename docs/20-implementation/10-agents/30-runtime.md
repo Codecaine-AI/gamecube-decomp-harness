@@ -54,4 +54,4 @@ complete injected input.
 ## Related
 
 - [Agents overview](00-overview.md)
-- [Server jobs overview](../server-jobs/00-overview.md)
+- [Server jobs overview](../20-server-jobs/00-overview.md)

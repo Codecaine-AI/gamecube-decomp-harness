@@ -1,7 +1,7 @@
 ---
 covers: Example-backed Melee decomp code-quality standards, QA lint coverage, retired rules, and repair examples
 concepts: [review-standards, decomp-quality, matching-standards, qa-checklist, example-backed-standards]
-code-ref: projects/melee/knowledge/sources/injectable/decomp_standards/data/standards.jsonl, projects/melee/knowledge/sources/injectable/decomp_standards/data/examples.jsonl, toolpacks/gamecube-decomp/source_editing/review_lint/api/_qa_rules.py
+code-ref: projects/melee/knowledge/sources/injectable/decomp_standards/standards, toolpacks/gamecube-decomp/source_editing/review_lint/api/_qa_rules.py
 ---
 
 # Melee Code Quality Standards
@@ -25,8 +25,8 @@ Current source, headers, symbols, splits, assembly, objdiff/checkdiff, and regre
 
 | Tier | Meaning | Example rule ids |
 | --- | --- | --- |
-| Deterministic error | Added diff shape is mechanically rejected or maintainer-rejected. | `new_data_anchor`, `self_tu_extern`, `packed_string_blob`, `copied_jobj_inline`, `unrolled_assert`, `register_keyword`, `inline_asm`, `m2c_field_use`, `define_alias` |
-| Deterministic warning | Added diff shape is suspicious but context can justify it. | `extern_literal_anchor`, `function_extern_visibility`, `novel_pragma`, `type_erasing_cast`, `pointer_offset_arithmetic`, typed `spNN` locals |
+| Deterministic error | Added diff shape is mechanically rejected or maintainer-rejected. | `extern_in_c`, `packed_string_blob`, `copied_jobj_inline`, `unrolled_assert`, `register_keyword`, `inline_asm`, `m2c_field_use`, `define_alias`, `novel_pragma`, `pointer_offset_arithmetic` |
+| Deterministic warning | Added diff shape is advisory and routed to LLM review. | `type_erasing_cast`, typed `spNN` locals |
 | Pre-ship review | Judgment needs local source analogs, type context, or objdiff reasoning. | likely loops, one-off helpers, authored-source style, semantic naming |
 | Pipeline-owned verification | Runner/build evidence proves whether retained source matches. | `ninja`, objdiff/checkdiff, regression-check, worker validation artifacts |
 
@@ -548,12 +548,12 @@ Standard id: `global_standard:literals-and-data-ownership`
 - Do not promote strings, floats, or constants into named storage just because generated output exposed an address.
 - Check section ownership, symbol metadata, split boundaries, and local source patterns first.
 
-QA coverage: `extern_literal_anchor`, `new_data_anchor`, `self_tu_extern`, `numeric_literal_to_symbol`, `address_named_static_data`, `banned_pattern:*`, `resubmission_tombstone`.
+QA coverage: `extern_in_c`, `numeric_literal_to_symbol`, `address_named_static_data`, `banned_pattern:*`, `resubmission_tombstone`.
 Severity: `repair_required`; enforcement: `hard_lint_plus_warning`.
 
 #### Example 1: Data Extern Float Anchor
 
-severity: `error`; rule: `new_data_anchor`.
+severity: `error`; rule: `extern_in_c`.
 
 Bad:
 
@@ -629,7 +629,7 @@ Why this example represents the standard:
 
 #### Example 4: Literal Unused Float Anchors
 
-severity: `error`; rule: `new_data_anchor`.
+severity: `error`; rule: `extern_in_c`.
 
 Bad:
 
@@ -685,7 +685,7 @@ Standard id: `global_standard:no-string-literal-symbol-regression`
 - String literals used as asset names, resource labels, assert/report text, and table labels should stay inline for code-matching PRs.
 - Replacing a literal with a generated or global data symbol is data work and a regression unless evidence and change scope justify it.
 
-QA coverage: `extern_literal_anchor`, `string_literal_to_symbol`, `packed_string_blob`, `banned_pattern:*`, `resubmission_tombstone`.
+QA coverage: `extern_in_c`, `string_literal_to_symbol`, `packed_string_blob`, `banned_pattern:*`, `resubmission_tombstone`.
 Severity: `repair_required`; enforcement: `hard_lint`.
 
 #### Example 1: String Packed Blob Offset
@@ -771,12 +771,12 @@ Standard id: `global_standard:matching-tactics-need-evidence`
 
 - PAD_STACK, declaration order changes, widened local lifetimes, dummy locals, volatile locals, manual inline expansion, direct global access, and temporary padded structs need explicit build/objdiff/regression evidence before they remain in reviewable source.
 
-QA coverage: `function_extern_visibility`, `same_tu_function_extern`, `volatile_local_tactic`.
+QA coverage: `extern_in_c`, `volatile_local_tactic`.
 Severity: `evidence_required`; enforcement: `partial_lint_plus_pre_ship_review`.
 
 #### Example 1: Codegen Volatile Local
 
-severity: `warning`; rule: `volatile_local_tactic`.
+severity: `error`; rule: `volatile_local_tactic`.
 
 Bad:
 
@@ -1194,12 +1194,12 @@ Standard id: `global_standard:truthful-headers-and-includes`
 - When a body proves a signature, update the owning header and remove UNK_RET/UNK_PARAMS.
 - Use established include style and run require-protos checks when prototype or include surfaces change.
 
-QA coverage: `function_extern_visibility`, `same_tu_function_extern`.
+QA coverage: `extern_in_c`.
 Severity: `review_required`; enforcement: `partial_lint_plus_pre_ship_review`.
 
 #### Example 1: Headers Source Local Extern
 
-severity: `error`; rule: `same_tu_function_extern`.
+severity: `error`; rule: `extern_in_c`.
 
 Bad:
 
@@ -1499,7 +1499,7 @@ Why:
 
 | Use case | Source |
 | --- | --- |
-| Worker base prompt | Active standards from `standards.jsonl`, each with one canonical example pair from `examples.jsonl`. |
+| Worker base prompt | Active standards from `standards/<family>/standards.jsonl`, each with one canonical example pair from `standards/<family>/examples.jsonl`. |
 | Deterministic lint finding | `review_lint` message, `standard_id`, `rule_id`, and targeted repair hint. |
 | QA repair and fixer | Standard-linked examples selected by `standard_id` and `qa_rule_id`. |
 | Pre-ship review | `preship_exhibits.json`, banned-pattern exhibits, and standard-linked examples. |

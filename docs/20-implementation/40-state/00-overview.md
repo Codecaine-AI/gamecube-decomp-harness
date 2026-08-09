@@ -154,5 +154,5 @@ apps/server/src/infrastructure/persistence/sqlite/
 ## Related
 
 - [Durable state and events](../../10-system-design/30-state-and-events.md)
-- [Server jobs overview](../server-jobs/00-overview.md)
-- [UI implementation](../ui/00-overview.md)
+- [Server jobs overview](../20-server-jobs/00-overview.md)
+- [UI implementation](../60-ui/00-overview.md)

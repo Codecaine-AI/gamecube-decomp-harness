@@ -50,18 +50,20 @@ decomp-orchestrator/
 
 ## Child Sections
 
-- [Agents](agents/00-overview.md): worker, integration resolver, PR indexer,
+- [Agents](10-agents/00-overview.md): worker, integration resolver, PR indexer,
   PR splitter, PR reviewer, PR fixer, knowledge-curator, reconcile, QA repair,
   and runtime prompt/session code.
-- [Server jobs](server-jobs/00-overview.md): operator job surface and feature-owned job modules.
-- [Knowledge](knowledge/00-overview.md): sectioned knowledge sources,
+- [Server jobs](20-server-jobs/00-overview.md): operator job surface and feature-owned job modules.
+- [Knowledge](30-knowledge/00-overview.md): sectioned knowledge sources,
   tool-backed resources, resource graph, agent context routing, and past PR library.
-- [State](state/00-overview.md): SQLite schema, state helpers, epochs,
+- [State](40-state/00-overview.md): SQLite schema, state helpers, epochs,
   target claims, worker states, checkpoints, events, runs, and status.
-- [UI](ui/00-overview.md): dashboard server, process controls, collapsible
+- [Tools](50-tools/00-overview.md): reusable GameCube decomp toolpack, project
+  tool bindings, agent tool wrappers, and validation tools.
+- [UI](60-ui/00-overview.md): dashboard server, process controls, collapsible
   rails, and PR handoff controls.
-- [Appendix](99-appendix/10-design-source.md): original design source and
-  preserved HTML artifact.
+- [Appendix](99-appendix/00-overview.md): preserved operational notes, design
+  traceability, and historical run analysis.
 - [Current repo mechanics](99-appendix/20-current-repo-mechanics.md): Melee
   report/objdiff/configure/progress surfaces that the orchestrator wraps.
 - [Implementation roadmap](99-appendix/30-implementation-roadmap.md): original

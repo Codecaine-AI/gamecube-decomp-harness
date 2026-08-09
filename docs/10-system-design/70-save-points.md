@@ -71,5 +71,5 @@ travel together.
 ## Related
 
 - [Score integration and PR handoff](60-score-and-pr-handoff.md)
-- [State implementation](../20-implementation/state/00-overview.md)
-- [UI implementation](../20-implementation/ui/00-overview.md)
+- [State implementation](../20-implementation/40-state/00-overview.md)
+- [UI implementation](../20-implementation/60-ui/00-overview.md)

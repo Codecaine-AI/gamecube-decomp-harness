@@ -243,6 +243,6 @@ a view concern; only local verification and the review substate are persisted.
 
 - [Score and PR handoff](60-score-and-pr-handoff.md) — the prepare pipeline
   this flow drives (steps, gates, replan-after-survivors).
-- [UI operator runbook](../20-implementation/ui/10-operator-runbook.md) —
+- [UI operator runbook](../20-implementation/60-ui/10-operator-runbook.md) —
   today's panel-by-panel controls until the rail lands.
 - [Save points](70-save-points.md) — the epoch anchors stage 2 commits to.

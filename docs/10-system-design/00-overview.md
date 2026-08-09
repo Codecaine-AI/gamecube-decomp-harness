@@ -152,6 +152,6 @@ decompilation decisions.
 
 ## Design Source
 
-The original standalone design artifact is preserved as
-[../design.html](../design.html). These markdown docs are the maintainable
-version of that design, adjusted to the current package layout and terminology.
+These docs are the maintainable version of the original standalone HTML design
+artifact (since retired from the tree), adjusted to the current package layout
+and terminology.

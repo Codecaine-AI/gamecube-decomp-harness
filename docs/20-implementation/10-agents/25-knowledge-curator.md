@@ -48,5 +48,5 @@ owning tool suite.
 
 ## Related
 
-- [Knowledge implementation](../knowledge/00-overview.md)
+- [Knowledge implementation](../30-knowledge/00-overview.md)
 - [PR indexer, splitter, and reviewer agents](20-pr-review.md)

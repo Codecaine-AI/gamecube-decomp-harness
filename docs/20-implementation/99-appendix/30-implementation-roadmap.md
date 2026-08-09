@@ -13,7 +13,7 @@ artifact while naming the current package status.
 
 | Phase | Deliverable | Current Status |
 | --- | --- | --- |
-| 0 | Design doc and repo survey | Preserved in `docs/design.html` and markdown docs. |
+| 0 | Design doc and repo survey | Preserved in the markdown docs (the original HTML design artifact has been retired). |
 | 1 | Top-level orchestrator scaffold | Present under `decomp-orchestrator/`. |
 | 2 | Pi agent runtime bridge | Present for dry-run and live worker/review/curation sessions. |
 | 3 | State substrate | Present for runs, targets, epochs, target claims, worker states, checkpoints, events, sessions, and integrations. |

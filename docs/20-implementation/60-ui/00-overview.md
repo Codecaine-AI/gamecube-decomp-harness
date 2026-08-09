@@ -419,6 +419,6 @@ as the legacy all-planned path.
 
 ## Related
 
-- [Server jobs overview](../server-jobs/00-overview.md)
-- [State implementation](../state/00-overview.md)
+- [Server jobs overview](../20-server-jobs/00-overview.md)
+- [State implementation](../40-state/00-overview.md)
 - [Score integration and PR handoff](../../10-system-design/60-score-and-pr-handoff.md)

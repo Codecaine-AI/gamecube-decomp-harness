@@ -22,8 +22,6 @@ upstream, the sync boundary is a hard lock, not advice. Sync and merged-PR
 intake are rejected while a run is active, because pulling upstream would
 invalidate the baseline all worker evidence is measured against. Once a sync
 starts, the old session is closed; there is no path back to the old baseline.
-The visual map of this cycle lives in
-[../sidebar-flow-design.html](../sidebar-flow-design.html).
 
 ## Integration Gate
 
@@ -142,9 +140,7 @@ hand-packed string blobs, open-coded asserts, and one resubmission of a
 previously rejected change — all explicitly prohibited by the QA standards,
 yet waved through because every gate measured objdiff score and the violation
 is what inflates the score. The QA ship gate makes "maintainer-rejected
-pattern" a machine-detected, ship-blocking condition in four layers (rationale
-and rollout in
-[the plan](../30-plans/2026-06-11-qa-ship-gate-and-pr-review-wiring.md)):
+pattern" a machine-detected, ship-blocking condition in four layers:
 
 - **L1 — worker attempt lint.** Any attempt with deterministic QA findings,
   including warning-only findings, is rejected at attempt time inside the
@@ -164,7 +160,7 @@ and rollout in
   PR reviewer agent in adversarial mode over every shipping slice between
   regression-check and PR body drafting; any `reject` finding — or any
   infrastructure failure — exits 1 and blocks the handoff (see
-  [PR indexer, splitter, and reviewer agents](../20-implementation/agents/20-pr-review.md)).
+  [PR indexer, splitter, and reviewer agents](../20-implementation/10-agents/20-pr-review.md)).
 - **Draft PR lifecycle.** `pr-draft-qa` runs after a draft PR exists, or opens
   the draft first. It treats the PR as the central remote object, fetches the
   PR refs, runs L3 preship review plus the deterministic scan/repair loop,
@@ -205,8 +201,7 @@ PR QA keeps the same strict default unless an operator explicitly selects
 advisory warnings. Clean-lower-score files stay out of ready status unless an
 operator explicitly accepts that outcome. The ship-filter artifact feeds split
 planning so queued, blocked, false-positive, or clean-lower-score files are
-not silently included in match PRs. The flow and implementation details live in
-[the QA repair lane plan](../30-plans/2026-06-13-qa-repair-lane.md).
+not silently included in match PRs.
 
 ## PR Boundary
 
@@ -387,6 +382,6 @@ evidence for future sessions.
 
 ## Related
 
-- [Server jobs overview](../20-implementation/server-jobs/00-overview.md)
-- [State implementation](../20-implementation/state/00-overview.md)
-- [UI implementation](../20-implementation/ui/00-overview.md)
+- [Server jobs overview](../20-implementation/20-server-jobs/00-overview.md)
+- [State implementation](../20-implementation/40-state/00-overview.md)
+- [UI implementation](../20-implementation/60-ui/00-overview.md)
