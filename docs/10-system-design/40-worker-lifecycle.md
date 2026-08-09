@@ -1,9 +1,10 @@
 ---
-covers: Worker target packet lifecycle, target claims, runner validation, checkpoints, timeout/error classification, and continuation policy
 concepts: [worker, target-packet, target-claim, worker-state, checkpoints, validation, qa-lint, write-safety, tool-slots]
 ---
 
 # Worker Lifecycle
+
+Worker target packet lifecycle, target claims, runner validation, checkpoints, timeout/error classification, and continuation policy.
 
 A worker is a bounded decompilation attempt for one claimed epoch target. The
 worker keeps trying to reach an exact match; the runner owns lifecycle,

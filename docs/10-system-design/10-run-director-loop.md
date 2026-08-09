@@ -1,9 +1,10 @@
 ---
-covers: Deterministic run scheduler responsibilities, run-loop process semantics, epoch admission, wake handling, and worker checkpoint flow
 concepts: [scheduler, run-loop, board, epochs, target-claims, worker-state, wake-events, checkpoints, tool-slots]
 ---
 
 # Run Scheduler Loop
+
+Deterministic run scheduler responsibilities, run-loop process semantics, epoch admission, wake handling, and worker checkpoint flow.
 
 The run scheduler is the board-level control loop. It reads durable run state,
 refreshes epoch-target priorities from the ranked board, admits deterministic

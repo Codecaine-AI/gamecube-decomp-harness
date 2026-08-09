@@ -1,10 +1,12 @@
 ---
-covers: How an operator drives a full session cycle from the dashboard
 concepts: [runbook, operator, status-panel, actions-panel, prepare-handoff, reconcile, ship]
-code-ref: apps/frontend/src/components/Sidebar.tsx, apps/server/src/server.ts, apps/server/src/infrastructure/http/server.ts
 ---
 
 # UI: Operator Runbook
+
+How an operator drives a full session cycle from the dashboard.
+
+Sources: [apps/frontend/src/pages/workspace/_components/WorkspaceSidebar.tsx](/apps/frontend/src/pages/workspace/_components/WorkspaceSidebar.tsx), [apps/server/src/server.ts](/apps/server/src/server.ts), [apps/server/src/infrastructure/http/server.ts](/apps/server/src/infrastructure/http/server.ts).
 
 The left rail is controls; the right rail is the view. The **Status** panel
 answers "where are we", the **Actions** panel answers "what can I do", and

@@ -1,9 +1,10 @@
 ---
-covers: Durable state substrate, events, target claims, worker states, checkpoints, facts, and artifacts
 concepts: [durable-state, sqlite, epochs, target-claims, worker-state, checkpoints, events, facts, artifacts]
 ---
 
 # Durable State And Events
+
+Durable state substrate, events, target claims, worker states, checkpoints, facts, and artifacts.
 
 Durable state is the orchestrator's memory. It records the board, active work,
 agent sessions, scheduler epochs, worker states, checkpoints, facts, and wake

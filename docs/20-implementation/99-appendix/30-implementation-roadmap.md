@@ -1,10 +1,10 @@
 ---
-covers: Original implementation plan, current status, and v1 defaults
 concepts: [implementation-plan, roadmap, defaults, v1, status]
-code-ref: decomp-orchestrator/
 ---
 
 # Implementation Roadmap And Defaults
+
+Original implementation plan, current status, and v1 defaults.
 
 This document preserves the implementation plan and v1 defaults from the design
 artifact while naming the current package status.

@@ -1,9 +1,10 @@
 ---
-covers: Board prioritization, candidate-prior scoring, and deterministic scheduler signals
 concepts: [board-prioritization, candidate-prior, helper-score, scheduling, constraint-propagation]
 ---
 
 # Board Prioritization
+
+Board prioritization, candidate-prior scoring, and deterministic scheduler signals.
 
 Board helpers produce deterministic candidate-prior features. The run scheduler
 uses those features as rank input, while final admission follows explicit epoch,

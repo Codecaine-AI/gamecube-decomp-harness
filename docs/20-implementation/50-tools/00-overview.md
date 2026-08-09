@@ -1,10 +1,12 @@
 ---
-covers: Reusable GameCube decomp toolpack, project tool bindings, agent tool wrappers, validation tools, and scoped tool data
 concepts: [tools, toolpacks, project-bindings, worker-tools, pi-extensions, validation, research, worktree-cache, wibo, tool-slots]
-code-ref: toolpacks/gamecube-decomp, projects/melee/project.json, projects/melee/tool-bindings, apps/server/src/core/tools/resolver.ts, apps/server/src/core/tools
 ---
 
 # Worker Tool Suites
+
+Reusable GameCube decomp toolpack, project tool bindings, agent tool wrappers, validation tools, and scoped tool data.
+
+Sources: [toolpacks/gamecube-decomp](/toolpacks/gamecube-decomp), [projects/melee/project.json](/projects/melee/project.json), [projects/melee/tool-bindings](/projects/melee/tool-bindings), [apps/server/src/core/tools/resolver.ts](/apps/server/src/core/tools/resolver.ts), [apps/server/src/core/tools](/apps/server/src/core/tools).
 
 Callable decomp tools are resolved through a toolpack/project binding runtime.
 Reusable GameCube decomp tool contracts, default Python APIs, runners, recipes,

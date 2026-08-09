@@ -1,10 +1,12 @@
 ---
-covers: Drizzle-typed SQLite schema and state helper modules for sessions, runs, epoch targets, target claims, worker state, checkpoints, events, PR checkpoints, and status
 concepts: [state, sqlite, drizzle, schema, epochs, target-claims, worker-state, checkpoints, run-status, project-session, status]
-code-ref: decomp-orchestrator/apps/server/src/core/orchestrator-state, decomp-orchestrator/apps/server/src/core/session-runtime/run-state, decomp-orchestrator/apps/server/src/core/project-session
 ---
 
 # State: Overview
+
+Drizzle-typed SQLite schema and state helper modules for sessions, runs, epoch targets, target claims, worker state, checkpoints, events, PR checkpoints, and status.
+
+Sources: [apps/server/src/core/orchestrator-state](/apps/server/src/core/orchestrator-state), [apps/server/src/core/session-runtime/run-state](/apps/server/src/core/session-runtime/run-state), [apps/server/src/core/project-session](/apps/server/src/core/project-session).
 
 The orchestrator app state lives in `<stateDir>/orchestrator.sqlite`. The
 shared storage adapter in `core/orchestrator-state` opens that database,

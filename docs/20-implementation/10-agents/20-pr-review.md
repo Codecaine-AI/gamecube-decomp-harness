@@ -1,10 +1,12 @@
 ---
-covers: PR indexer, PR splitter, and PR reviewer agent slices
 concepts: [pr-indexer, pr-splitter, pr-reviewer, pr-knowledge, pr-planning, preship-review, draft-pr-qa, qa-ship-gate, pr-fixer]
-code-ref: decomp-orchestrator/apps/server/src/core/agent-catalog/agents/knowledge/pr-indexer, decomp-orchestrator/apps/server/src/core/agent-catalog/agents/pr/splitter, decomp-orchestrator/apps/server/src/core/agent-catalog/agents/pr/reviewer, decomp-orchestrator/apps/server/src/core/agent-catalog/agents/pr/fixer, decomp-orchestrator/projects/melee/knowledge/sources/code_context/past_prs
 ---
 
 # PR Indexer, Splitter, Reviewer, And Fixer Agents
+
+PR indexer, PR splitter, and PR reviewer agent slices.
+
+Sources: [apps/server/src/core/agent-catalog/agents/knowledge/pr-indexer](/apps/server/src/core/agent-catalog/agents/knowledge/pr-indexer), [apps/server/src/core/agent-catalog/agents/pr/splitter](/apps/server/src/core/agent-catalog/agents/pr/splitter), [apps/server/src/core/agent-catalog/agents/pr/reviewer](/apps/server/src/core/agent-catalog/agents/pr/reviewer), [apps/server/src/core/agent-catalog/agents/pr/fixer](/apps/server/src/core/agent-catalog/agents/pr/fixer), [projects/melee/knowledge/sources/code_context/past_prs](/projects/melee/knowledge/sources/code_context/past_prs).
 
 PR work is split between knowledge-oriented indexing, handoff planning, and
 PR-oriented review. The source layout separates those responsibilities and

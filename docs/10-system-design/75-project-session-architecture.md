@@ -1,9 +1,10 @@
 ---
-covers: Project-scoped session architecture, single active session rule, run-to-PR lifecycle, and multi-page dashboard model
 concepts: [project, session, run-mode, pr-mode, active-session, dashboard, review-loop]
 ---
 
 # Project Session Architecture Mockup
+
+Project-scoped session architecture, single active session rule, run-to-PR lifecycle, and multi-page dashboard model.
 
 This is the target architecture sketch for moving the orchestrator from a
 single live dashboard into a project-centered system. The project owns durable

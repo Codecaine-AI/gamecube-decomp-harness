@@ -1,10 +1,10 @@
 ---
-covers: Current D-Comp Orchestrator source tree and implementation sections
 concepts: [implementation, source-layout, server, agents, state, knowledge, ui]
-code-ref: decomp-orchestrator/
 ---
 
 # Implementation Overview
+
+Current D-Comp Orchestrator source tree and implementation sections.
 
 The package is organized as a Bun workspace around two first-party apps:
 `apps/frontend` for the React/Vite dashboard and `apps/server` for API routes,

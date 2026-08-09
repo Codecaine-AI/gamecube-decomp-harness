@@ -1,5 +1,4 @@
 ---
-covers: Package-local documentation map for D-Comp Orchestrator
 concepts: [docs, navigation, package-local, foundation, system-design, implementation, runbooks]
 ---
 

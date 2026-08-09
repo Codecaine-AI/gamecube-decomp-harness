@@ -1,10 +1,12 @@
 ---
-covers: Centralized agent implementation layout and boundary from trigger/guardian process actors
 concepts: [agents, prompt-builders, runtime, registry, process-actors, vertical-slice, kernel-context]
-code-ref: decomp-orchestrator/apps/server/src/core/agent-catalog, decomp-orchestrator/apps/server/src/infrastructure/agent-runtime, decomp-orchestrator/apps/server/src/infrastructure/kernel/bridge
 ---
 
 # Agents: Overview
+
+Centralized agent implementation layout and boundary from trigger/guardian process actors.
+
+Sources: [apps/server/src/core/agent-catalog](/apps/server/src/core/agent-catalog), [apps/server/src/infrastructure/agent-runtime](/apps/server/src/infrastructure/agent-runtime), [apps/server/src/infrastructure/kernel/bridge](/apps/server/src/infrastructure/kernel/bridge).
 
 Agent definitions live together in `apps/server/src/core/agent-catalog`.
 The catalog is sectioned by workflow area: `agents/running`, `agents/pr`, and

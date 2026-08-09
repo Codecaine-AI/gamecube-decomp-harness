@@ -1,10 +1,12 @@
 ---
-covers: Worker-facing tool discoverability for decomp knowledge tools
 concepts: [worker-tools, available-tools, knowledge-tools, prompt-surface]
-code-ref: apps/server/src/core/tools/profiles, apps/server/src/core/tools/wrappers, apps/server/src/core/agent-catalog/agents/running/worker/context.ts
 ---
 
 # Worker Tooling Prompt Surface
+
+Worker-facing tool discoverability for decomp knowledge tools.
+
+Sources: [apps/server/src/core/tools/profiles](/apps/server/src/core/tools/profiles), [apps/server/src/core/tools/wrappers](/apps/server/src/core/tools/wrappers), [apps/server/src/core/agent-catalog/agents/running/worker/context.ts](/apps/server/src/core/agent-catalog/agents/running/worker/context.ts).
 
 Date: 2026-06-07
 

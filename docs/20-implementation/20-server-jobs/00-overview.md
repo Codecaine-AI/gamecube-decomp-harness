@@ -1,10 +1,12 @@
 ---
-covers: D-Comp Orchestrator server-owned job modules and operator command surface
 concepts: [server-jobs, commands, init-run, tick, worker, integration-resolve, scheduler, run-loop, babysit, recovery, checkpoint, regression-check, qa-ship-gate, qa-repair, pr-split-plan, pr-draft-qa, pr-preship-review, ui]
-code-ref: decomp-orchestrator/apps/server/src/job-runner.ts, decomp-orchestrator/apps/server/src/application/jobs/job-runner.ts, decomp-orchestrator/apps/server/src/core/session-runtime/phases
 ---
 
 # Server Jobs: Overview
+
+D-Comp Orchestrator server-owned job modules and operator command surface.
+
+Sources: [apps/server/src/job-runner.ts](/apps/server/src/job-runner.ts), [apps/server/src/application/jobs/job-runner.ts](/apps/server/src/application/jobs/job-runner.ts), [apps/server/src/core/session-runtime/phases](/apps/server/src/core/session-runtime/phases).
 
 The operator job surface is owned by `apps/server`. `apps/server/src/job-runner.ts`
 is a stable executable shim. `apps/server/src/application/jobs/job-runner.ts`

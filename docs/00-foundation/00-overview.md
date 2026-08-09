@@ -1,9 +1,10 @@
 ---
-covers: D-Comp Orchestrator purpose, principles, and non-goals
 concepts: [foundation, intent, boundaries, orchestration, decompilation]
 ---
 
 # Foundation: D-Comp Orchestrator
+
+D-Comp Orchestrator purpose, principles, and non-goals.
 
 D-Comp Orchestrator coordinates Melee decompilation work across a durable board
 of targets, facts, leases, and agent reports. It is not a replacement for the

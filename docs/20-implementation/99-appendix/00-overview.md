@@ -1,5 +1,4 @@
 ---
-covers: Preserved source artifacts, operational notes, and historical analysis for the implementation docs
 concepts: [appendix, traceability, repo-mechanics, roadmap, run-reports]
 ---
 

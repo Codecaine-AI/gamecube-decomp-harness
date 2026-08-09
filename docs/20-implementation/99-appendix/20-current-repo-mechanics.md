@@ -1,10 +1,12 @@
 ---
-covers: Current Melee repo mechanics that the orchestrator indexes or wraps
 concepts: [repo-mechanics, report-json, objdiff, configure, progress-terms, commands, wibo]
-code-ref: decomp-orchestrator/tools, decomp-orchestrator/apps/server/src/core/session-runtime/phases/running/board, decomp-orchestrator/apps/server/src/infrastructure/shell
 ---
 
 # Current Repo Mechanics
+
+Current Melee repo mechanics that the orchestrator indexes or wraps.
+
+Sources: [toolpacks](/toolpacks), [apps/server/src/core/session-runtime/phases/running/board](/apps/server/src/core/session-runtime/phases/running/board), [apps/server/src/infrastructure/shell](/apps/server/src/infrastructure/shell).
 
 The orchestrator should index and drive the existing Melee progress pipeline. It
 should not fork the compiler, report, objdiff, or progress machinery.

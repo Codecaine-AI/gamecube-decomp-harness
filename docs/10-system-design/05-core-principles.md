@@ -1,9 +1,10 @@
 ---
-covers: Core design principles, Sudoku metaphor, run boundaries, metrics, process actors, and former-skill mapping
 concepts: [principles, sudoku, run-boundary, matched-code-percent, process-actors, skill-model]
 ---
 
 # Core Principles
+
+Core design principles, Sudoku metaphor, run boundaries, metrics, process actors, and former-skill mapping.
 
 D-Comp Orchestrator treats a decompilation run as a whole-board reasoning
 problem. The scheduler does not camp on one target just because it is

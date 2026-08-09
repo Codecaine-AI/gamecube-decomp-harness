@@ -1,10 +1,12 @@
 ---
-covers: Worker prompt builders, integration conflict resolver, claimed target packets, checkpoint notes, and runner validation ownership
 concepts: [worker-agent, integration-resolver, scheduler, target-packet, target-claim, checkpoint-note, prompts, output]
-code-ref: decomp-orchestrator/apps/server/src/core/agent-catalog/agents/running
 ---
 
 # Worker Agents And Scheduler Delegation
+
+Worker prompt builders, integration conflict resolver, claimed target packets, checkpoint notes, and runner validation ownership.
+
+Sources: [apps/server/src/core/agent-catalog/agents/running](/apps/server/src/core/agent-catalog/agents/running).
 
 The worker slice is the primary live run agent surface. Board-level target
 admission and wake-event handling are deterministic scheduler responsibilities;

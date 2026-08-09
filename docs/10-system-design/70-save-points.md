@@ -1,9 +1,10 @@
 ---
-covers: Canonical campaign, save-point structure, and the where-we-are contract
 concepts: [campaign, save-points, session-branch, baseline, staleness, ledger]
 ---
 
 # Campaign And Save Points
+
+Canonical campaign, save-point structure, and the where-we-are contract.
 
 The orchestrator's durable position is one canonical campaign per project, not
 a pile of disconnected runs. Runs remain internal work segments; the campaign

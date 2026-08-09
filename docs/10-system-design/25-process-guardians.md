@@ -1,9 +1,10 @@
 ---
-covers: Evented process guardians, babysit wrapper semantics, health incidents, and recovery policy
 concepts: [guardian-process, babysit, process-wrapper, health-events, recovery, trigger-actors]
 ---
 
 # Process Guardians
+
+Evented process guardians, babysit wrapper semantics, health incidents, and recovery policy.
 
 A process guardian is an evented safety layer around the decomp system process.
 It is not a scheduler, worker, or always-on reasoning agent. It sleeps while the

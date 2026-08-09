@@ -1,9 +1,10 @@
 ---
-covers: Coverage audit from the original design to the package-local markdown docs
 concepts: [coverage, design-audit, traceability, no-data-loss]
 ---
 
 # Design Coverage Audit
+
+Coverage audit from the original design to the package-local markdown docs.
 
 This audit tracks where each idea from the original standalone HTML design
 artifact (since retired from the tree) lives in the markdown docs, so the

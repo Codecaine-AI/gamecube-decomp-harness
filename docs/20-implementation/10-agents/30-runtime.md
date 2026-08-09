@@ -1,10 +1,12 @@
 ---
-covers: Shared agent runtime, rendered prompt artifacts, dry-run/live Pi runner, kernel context bridge, and JSON salvage
 concepts: [agent-runtime, pi-sdk, dry-run, artifacts, prompt-rendering, kernel-context]
-code-ref: decomp-orchestrator/apps/server/src/infrastructure/agent-runtime/runtime, decomp-orchestrator/apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.ts, decomp-orchestrator/apps/server/src/infrastructure/kernel/bridge
 ---
 
 # Agent Runtime
+
+Shared agent runtime, rendered prompt artifacts, dry-run/live Pi runner, kernel context bridge, and JSON salvage.
+
+Sources: [apps/server/src/infrastructure/agent-runtime/runtime](/apps/server/src/infrastructure/agent-runtime/runtime), [apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.ts](/apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.ts), [apps/server/src/infrastructure/kernel/bridge](/apps/server/src/infrastructure/kernel/bridge).
 
 The runtime slice is the shared path for invoking Pi agents and writing prompt
 artifacts. Role slices build prompts and parse outputs; the runtime handles the

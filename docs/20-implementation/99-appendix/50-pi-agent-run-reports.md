@@ -1,10 +1,10 @@
 ---
-covers: How to build and evaluate the Pi worker run-analysis reports (outcomes, durations, tool effectiveness)
 concepts: [run-reports, tool-analysis, kill-threshold, runner-validation, lift, experiments]
-code-ref: decomp-orchestrator/reports
 ---
 
 # Pi Agent Run Reports
+
+How to build and evaluate the Pi worker run-analysis reports (outcomes, durations, tool effectiveness).
 
 The run report (e.g. `reports/pi-agent-tool-analysis-2026-06-12.html`) answers
 three questions about a sweep: what outcomes did leases actually confirm, how

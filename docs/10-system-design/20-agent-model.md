@@ -1,9 +1,10 @@
 ---
-covers: Centralized agent catalog, runtime role boundaries, and non-agent run-loop/guardian actors
 concepts: [agents, scheduler, worker-agent, integration-resolver, pr-indexer, pr-splitter, pr-reviewer, pr-fixer, runtime, run-loop, guardians]
 ---
 
 # Agent Model
+
+Centralized agent catalog, runtime role boundaries, and non-agent run-loop/guardian actors.
 
 The orchestrator has a small set of named agents with explicit boundaries. New
 agents should be added to the central catalog and given a colocated prompt,

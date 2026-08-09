@@ -1,10 +1,12 @@
 ---
-covers: Dashboard server, React UI, session setup, process controls, PR handoff controls, and workspace style controls
 concepts: [ui, dashboard, project-session, session-setup, process-controls, pr-handoff, checkpoint, regression-check, pr-split-plan, style-controls, visual-effects]
-code-ref: decomp-orchestrator/apps/frontend, decomp-orchestrator/apps/server/src
 ---
 
 # UI: Overview
+
+Dashboard server, React UI, session setup, process controls, PR handoff controls, and workspace style controls.
+
+Sources: [apps/frontend](/apps/frontend), [apps/server/src](/apps/server/src).
 
 The UI is the operator dashboard for live runs. It combines a Bun HTTP server
 with a React app so an operator can inspect progress, prepare a session

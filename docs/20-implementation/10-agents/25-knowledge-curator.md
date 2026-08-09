@@ -1,10 +1,12 @@
 ---
-covers: Knowledge-curator agent and graph enrichment reducer
 concepts: [knowledge-curator, graph-enrichment, worker-states, checkpoints, pr-postmortems]
-code-ref: decomp-orchestrator/apps/server/src/core/agent-catalog/agents/knowledge/curator, decomp-orchestrator/apps/server/src/core/knowledge/curator.ts
 ---
 
 # Knowledge Curator Agent
+
+Knowledge-curator agent and graph enrichment reducer.
+
+Sources: [apps/server/src/core/agent-catalog/agents/knowledge/curator](/apps/server/src/core/agent-catalog/agents/knowledge/curator), [apps/server/src/core/knowledge/curator.ts](/apps/server/src/core/knowledge/curator.ts).
 
 The knowledge-curator agent is the model-reviewed layer between messy evidence
 and graph-owned knowledge. V1 uses a deterministic reducer as the canonical

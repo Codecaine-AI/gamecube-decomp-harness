@@ -1,11 +1,12 @@
 ---
-covers: Target high-level Melee decomp harness flow from project session startup through autonomous epochs, PR preparation, review, kernel-backed tracing, and next-session sync/intake
 concepts: [project-session, full-flow, agent-kernel, kernel-containers, trace-events, run-mode, epoch-flow, worker-worktrees, pr-mode, adversarial-review, smart-prs]
 status: target-flow
 depends-on: [docs/10-system-design/10-run-director-loop.md, docs/10-system-design/40-worker-lifecycle.md, docs/10-system-design/50-knowledge-model.md, docs/10-system-design/60-score-and-pr-handoff.md, docs/10-system-design/65-operator-flow-and-pr-tracking.md, docs/10-system-design/75-project-session-architecture.md]
 ---
 
 # Session Operating Flow
+
+Target high-level Melee decomp harness flow from project session startup through autonomous epochs, PR preparation, review, kernel-backed tracing, and next-session sync/intake.
 
 This is the first-read flow for the Melee decomp harness. It describes the
 system the harness should become, not the exact current implementation.

@@ -1,5 +1,4 @@
 ---
-covers: Operator playbooks for monitoring live runs and repairing stuck targets
 concepts: [runbooks, operations, gate-exact, repair, monitoring]
 ---
 

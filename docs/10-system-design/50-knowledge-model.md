@@ -1,9 +1,10 @@
 ---
-covers: Runtime knowledge sources, tools, resource graph, agent context, and PR evidence
 concepts: [knowledge, sources, tools, resource-graph, agent-context, past-prs]
 ---
 
 # Knowledge Model
+
+Runtime knowledge sources, tools, resource graph, agent context, and PR evidence.
 
 Runtime knowledge is platform-owned evidence selected or searched by agents. It
 is not a Codex skill. The model separates access modes: injected context,

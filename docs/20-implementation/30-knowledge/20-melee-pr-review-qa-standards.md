@@ -1,10 +1,12 @@
 ---
-covers: Example-backed Melee decomp code-quality standards, QA lint coverage, retired rules, and repair examples
 concepts: [review-standards, decomp-quality, matching-standards, qa-checklist, example-backed-standards]
-code-ref: projects/melee/knowledge/sources/injectable/decomp_standards/standards, toolpacks/gamecube-decomp/source_editing/review_lint/api/_qa_rules.py
 ---
 
 # Melee Code Quality Standards
+
+Example-backed Melee decomp code-quality standards, QA lint coverage, retired rules, and repair examples.
+
+Sources: [projects/melee/knowledge/sources/injectable/decomp_standards/standards](/projects/melee/knowledge/sources/injectable/decomp_standards/standards), [toolpacks/gamecube-decomp/source_editing/review_lint/api/_qa_rules.py](/toolpacks/gamecube-decomp/source_editing/review_lint/api/_qa_rules.py).
 
 Use these standards for agent-authored Melee C and QA review of review-bound candidate files. Each standard is a short source-quality description backed by concrete bad/preferred code pairs. The examples are the primary teaching surface; metadata and QA rule ids explain how the standard is enforced.
 

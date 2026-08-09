@@ -1,10 +1,12 @@
 ---
-covers: Project-owned Melee knowledge sources, server runtime knowledge code, toolpack boundaries, agent context routing, resource graph, and past PR library
 concepts: [knowledge, agent-context, sources, tools, resource-graph, past-prs]
-code-ref: projects/melee/knowledge, toolpacks/gamecube-decomp, projects/melee/tool-bindings, apps/server/src/core/knowledge, apps/server/src/core/tools/resolver.ts, apps/server/src/core/agent-catalog/context.ts
 ---
 
 # Knowledge: Overview
+
+Project-owned Melee knowledge sources, server runtime knowledge code, toolpack boundaries, agent context routing, resource graph, and past PR library.
+
+Sources: [projects/melee/knowledge](/projects/melee/knowledge), [toolpacks/gamecube-decomp](/toolpacks/gamecube-decomp), [projects/melee/tool-bindings](/projects/melee/tool-bindings), [apps/server/src/core/knowledge](/apps/server/src/core/knowledge), [apps/server/src/core/tools/resolver.ts](/apps/server/src/core/tools/resolver.ts), [apps/server/src/core/agent-catalog/context.ts](/apps/server/src/core/agent-catalog/context.ts).
 
 Melee knowledge is project-owned. `projects/melee/knowledge` owns source
 descriptors, source API code, registry metadata, graph schemas, graph commands,

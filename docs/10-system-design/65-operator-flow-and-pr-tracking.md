@@ -1,10 +1,12 @@
 ---
-covers: The operator lifecycle as one flow, the pipeline-rail sidebar design, and PR tracking as first-class state
 concepts: [operator-flow, pipeline-rail, pr-tracking, pr-board, pr-kanban, session-lifecycle, epoch-qa]
-code-ref: apps/frontend/src/components/Sidebar.tsx, apps/server/src/server.ts
 ---
 
 # Operator Flow And PR Tracking
+
+The operator lifecycle as one flow, the pipeline-rail sidebar design, and PR tracking as first-class state.
+
+Sources: [apps/frontend/src/pages/workspace/_components/WorkspaceSidebar.tsx](/apps/frontend/src/pages/workspace/_components/WorkspaceSidebar.tsx), [apps/server/src/server.ts](/apps/server/src/server.ts).
 
 The dashboard's left rail should read as the lifecycle itself: every control
 belongs to a numbered stage, the current stage is obvious, and PRs are

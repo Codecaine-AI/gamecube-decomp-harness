@@ -1,9 +1,10 @@
 ---
-covers: Score integration gate, global regression protection, and PR handoff boundary
 concepts: [score-integration, regression-gate, qa-ship-gate, preship-review, draft-pr-qa, baseline, pr-handoff, pr-split-plan, pr-splitter, review, dashboard]
 ---
 
 # Score Integration And PR Handoff
+
+Score integration gate, global regression protection, and PR handoff boundary.
 
 The worker loop can create evidence and candidate patches, but the run baseline
 changes only through the score integration gate. This keeps verified progress

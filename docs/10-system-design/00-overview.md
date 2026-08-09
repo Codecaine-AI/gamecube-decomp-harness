@@ -1,9 +1,10 @@
 ---
-covers: D-Comp Orchestrator system design map
 concepts: [system-design, scheduler, workers, durable-state, process-guardians, knowledge, score-gate]
 ---
 
 # System Design Overview
+
+D-Comp Orchestrator system design map.
 
 D-Comp Orchestrator is an event-driven coordination system for decompilation
 work. A thin runner owns durable state transitions, deterministic scheduling,

@@ -1,9 +1,10 @@
 ---
-covers: Target-claim write sets, worker workspaces, integration validation, and shared artifact safety
 concepts: [write-safety, target-claims, write-sets, workspaces, validation, integration, tool-slots]
 ---
 
 # Write Safety
+
+Target-claim write sets, worker workspaces, integration validation, and shared artifact safety.
 
 Write safety starts with explicit target-claim write sets and isolated worker
 workspaces. The state substrate records who owns a target, what paths that

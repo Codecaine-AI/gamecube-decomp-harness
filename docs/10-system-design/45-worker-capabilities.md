@@ -1,9 +1,10 @@
 ---
-covers: Worker capability model, evidence emitted by each capability, guardrails, and melee-assist absorption map
 concepts: [worker-capabilities, evidence, guardrails, melee-assist, context-packaging]
 ---
 
 # Worker Capabilities
+
+Worker capability model, evidence emitted by each capability, guardrails, and melee-assist absorption map.
 
 Worker capabilities are tactics chosen inside one target claim after research.
 They are not separate worker types. The scheduler controls target assignment and
