@@ -1643,13 +1643,137 @@
     },
     "b-60-score-and-pr-handoff-code-77": {
       "id": "b-60-score-and-pr-handoff-code-77",
-      "type": "code",
-      "props": {},
-      "text": [
-        {
-          "insert": "1. pause intake                 drain workers; run status -> paused\n2. pull upstream & rebase       git fetch; ff-pull master or rebase the\n                                working branch onto the base ref; newly\n                                merged PR numbers are discovered here\n3. PR intake agents             when new merged PRs were pulled, fetch their\n   + knowledge graph rebuild    dumps, run postmortem agents, and rebuild the\n                                knowledge graph (same path as Sync Merged\n                                PRs); skipped when nothing new landed\n4. rebuild production baseline  detached worktree at the base SHA runs\n                                configure + `ninja baseline` (cached per SHA\n                                under /tmp/melee-baseline-<sha>, shared with\n                                the melee-pr-workflow skill); baseline.json\n                                is copied into the checkout. This is the\n                                \"upstream as merged, without local work\"\n                                reference everything is compared against.\n5. QA build & regression gate   `ninja changes_all` on the rebased branch,\n                                regression + promotion gates vs the new\n                                baseline. Informational: branch regressions\n                                are rework to readmit, not PR blockers,\n                                because the branch carries local-only work\n                                that never ships\n6. checkpoint                   classify worker states/checkpoints: matches ship,\n                                notable improvements and the rest carry\n                                forward; any symbol that broke an exact match\n                                or regressed against the new baseline is\n                                forced to `needs_rework`. The checkpoint\n                                lands even when the QA gate fails, so the\n                                rework ledger survives.\n7. readmit rework               regressed symbols become priority epoch\n                                targets (same machinery as the epoch cycle),\n                                so the next working session fixes them first\n                                instead of leaving them parked\n8. QA repair lane               candidate files from the checkpoint are\n                                scanned with the deterministic QA rules,\n                                error findings become per-file repair queue\n                                items, and the bounded qa-repair lane writes\n                                repair-list, report, and ship-filter artifacts. Only\n                                clean survivors continue to split planning.\n9. plan PR slices               match slices ship, local-only slices stay;\n                                lanes merge the checkpoint items with the\n                                regression report (every new exact match in\n                                report_changes.json joins the match lane via\n                                its unit source path), so matches from\n                                earlier sessions ship even without a worker\n                                report in this run. Project configuration can\n                                use the PR splitter strategy here to reshape\n                                the deterministic seed plan into a semantic,\n                                ordered PR series before validation.\n10. verify ship set             THE PR GATE. The match-lane diff (worktree vs\n                                the base SHA, so uncommitted work counts) is\n                                applied onto the cached baseline worktree,\n                                rebuilt incrementally, and regression-checked\n                                there, then linted with upstream CI's\n                                check-issues container (clang semantic issues\n                                like -Wself-assign permuter slop or\n                                conflicting prototypes that the MWCC match\n                                build never reports). Files with lint issues\n                                drop to rework through the same survivor loop\n                                as regressions. pr_ready means: exactly what\n                                the PRs will contain produces new matches,\n                                zero regressions against the production\n                                baseline, and zero CI lint issues, regardless\n                                of how messy the local branch is. The\n                                worktree is reset afterwards so the per-SHA\n                                cache stays valid.\n11. reconcile & re-verify       only when the ship set is blocked: the\n                                reconcile agent (`reconcile --mode\n                                ship-validate`) gets one fix loop, then the\n                                ship set re-verifies. Prepare fails only if\n                                regressions persist after that.\n12. replan PR slices            when the survivor loop dropped files, the\n                                split plan regenerates against the verified\n                                verdict (`pr-split-plan --ship-status`):\n                                match slices keep only files that survived\n                                ship-set verification, and dropped files ride\n                                the local lane with their drop reasons. The\n                                plan the operator ships from never needs\n                                manual subtraction.\n13. sync PR records             the PR board seeds from the final plan\n                                (state/pr_handoff/pr_records.json), so\n                                stage 4 lists exactly what to open.\n14. save point                  a hard `ship` save point anchors the\n                                session: prepare *is* the end of the run.\n                                The next session starts from here; PR\n                                comment fixes can ride the next run."
-        }
-      ],
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "pause intake",
+            "steps": [
+              {
+                "text": "drain workers; run status -> paused",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "pull upstream & rebase",
+            "steps": [
+              {
+                "text": "git fetch; ff-pull master or rebase the working branch onto the base ref; newly merged PR numbers are discovered here",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "PR intake agents + knowledge graph rebuild",
+            "steps": [
+              {
+                "text": "when new merged PRs were pulled, fetch their dumps, run postmortem agents, and rebuild the knowledge graph (same path as Sync Merged PRs); skipped when nothing new landed",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "rebuild production baseline",
+            "steps": [
+              {
+                "text": "detached worktree at the base SHA runs configure + `ninja baseline` (cached per SHA under /tmp/melee-baseline-<sha>, shared with the melee-pr-workflow skill); baseline.json is copied into the checkout. This is the \"upstream as merged, without local work\" reference everything is compared against.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "QA build & regression gate",
+            "steps": [
+              {
+                "text": "`ninja changes_all` on the rebased branch, regression + promotion gates vs the new baseline. Informational: branch regressions are rework to readmit, not PR blockers, because the branch carries local-only work that never ships",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "checkpoint",
+            "steps": [
+              {
+                "text": "classify worker states/checkpoints: matches ship, notable improvements and the rest carry forward; any symbol that broke an exact match or regressed against the new baseline is forced to `needs_rework`. The checkpoint lands even when the QA gate fails, so the rework ledger survives.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "readmit rework",
+            "steps": [
+              {
+                "text": "regressed symbols become priority epoch targets (same machinery as the epoch cycle), so the next working session fixes them first instead of leaving them parked",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "QA repair lane",
+            "steps": [
+              {
+                "text": "candidate files from the checkpoint are scanned with the deterministic QA rules, error findings become per-file repair queue items, and the bounded qa-repair lane writes repair-list, report, and ship-filter artifacts. Only clean survivors continue to split planning.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "plan PR slices",
+            "steps": [
+              {
+                "text": "match slices ship, local-only slices stay; lanes merge the checkpoint items with the regression report (every new exact match in report_changes.json joins the match lane via its unit source path), so matches from earlier sessions ship even without a worker report in this run. Project configuration can use the PR splitter strategy here to reshape the deterministic seed plan into a semantic, ordered PR series before validation.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "verify ship set",
+            "steps": [
+              {
+                "text": "THE PR GATE. The match-lane diff (worktree vs the base SHA, so uncommitted work counts) is applied onto the cached baseline worktree, rebuilt incrementally, and regression-checked there, then linted with upstream CI's check-issues container (clang semantic issues like -Wself-assign permuter slop or conflicting prototypes that the MWCC match build never reports). Files with lint issues drop to rework through the same survivor loop as regressions. pr_ready means: exactly what the PRs will contain produces new matches, zero regressions against the production baseline, and zero CI lint issues, regardless of how messy the local branch is. The worktree is reset afterwards so the per-SHA cache stays valid.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "reconcile & re-verify",
+            "steps": [
+              {
+                "text": "only when the ship set is blocked: the reconcile agent (`reconcile --mode ship-validate`) gets one fix loop, then the ship set re-verifies. Prepare fails only if regressions persist after that.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "replan PR slices",
+            "steps": [
+              {
+                "text": "when the survivor loop dropped files, the split plan regenerates against the verified verdict (`pr-split-plan --ship-status`): match slices keep only files that survived ship-set verification, and dropped files ride the local lane with their drop reasons. The plan the operator ships from never needs manual subtraction.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "sync PR records",
+            "steps": [
+              {
+                "text": "the PR board seeds from the final plan (state/pr_handoff/pr_records.json), so stage 4 lists exactly what to open.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "save point",
+            "steps": [
+              {
+                "text": "a hard `ship` save point anchors the session: prepare *is* the end of the run. The next session starts from here; PR comment fixes can ride the next run.",
+                "kind": "note"
+              }
+            ]
+          }
+        ]
+      },
       "children": []
     },
     "b-60-score-and-pr-handoff-prepare-fails-only-when-78": {
