@@ -3,7 +3,7 @@
 This directory owns reusable callable tool capabilities for GameCube decomp
 projects. It is intentionally outside knowledge sources and outside any single
 project: the toolpack defines stable tool ids, default APIs, runner scripts,
-recipes, and shared helper code. A project opts into the pack, supplies
+and shared helper code. A project opts into the pack, supplies
 tool-specific bindings, and owns the generated data for its checkout.
 
 Project-owned runtime data is resolved from `projects/<id>/project.json` and
@@ -26,13 +26,11 @@ folders.
 toolpacks/gamecube-decomp/
 +-- toolpack.json
 +-- registry.json
-+-- recipes/
 +-- research/
 +-- validation/
 +-- compiler/
 +-- source_editing/
 +-- data_conversion/
-+-- operations/
 +-- _impl/
 +-- _shared/
 ```
@@ -105,18 +103,6 @@ default; set `ORCH_SOURCE_PERMUTER_MAX_JOBS` to intentionally allow more.
 | `source_permuter` | source_editing | source-shape exploration | on demand |
 | `struct_infer` | data_conversion | asm layout inference | on demand |
 | `item_state_table` | data_conversion | asm data conversion preview | on demand |
-
-## Recipes
-
-Recipes are optional bundles, not schedulers. The baseline contract is:
-the agent sees the available tools, chooses the relevant research or validation
-capability, and calls it when it needs evidence.
-
-- `toolpacks/gamecube-decomp/recipes/attempt-evaluation.json` describes the validation feedback
-  bundle for a concrete source-edit attempt: review lint, compile/checkdiff,
-  and conditional follow-up suggestions. It is useful when the agent wants a
-  structured answer to "what is right, wrong, or still unknown about this
-  attempt?"
 
 ## Maintenance Commands
 

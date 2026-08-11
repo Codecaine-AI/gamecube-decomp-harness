@@ -319,13 +319,6 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
     }),
   );
   const agentReview = await runKnowledgeStep(options, "curator_agent_review", { repo_root: repoRoot }, () => maybeRunCuratorAgent(globals, args, curator.output_path));
-  const dataSheetFacts = await runKnowledgeStep(options, "data_sheet_facts", { repo_root: repoRoot }, () =>
-    booleanArg(args, "--no-data-sheet-facts")
-      ? skipSummary("data_sheet_facts", "--no-data-sheet-facts")
-      : booleanArg(args, "--data-sheet-facts")
-        ? runDataSheetFacts(repoRoot)
-        : skipSummary("data_sheet_facts", "skipped_by_default_deprecated_source (pass --data-sheet-facts to run)"),
-  );
   const rebuild = await runKnowledgeStep(options, "rebuild_graph", { repo_root: repoRoot, command: ["rebuildKnowledgeGraph"] }, () =>
     booleanArg(args, "--no-rebuild")
       ? { skipped: true, reason: "--no-rebuild" }
@@ -342,7 +335,6 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
     pr_index: prIndex,
     tool_runners: toolRunners,
     tool_indexes: toolIndexes,
-    data_sheet_facts: dataSheetFacts,
     curator,
     agent_review: agentReview,
     rebuild,
@@ -365,20 +357,6 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
     });
     throw error;
   }
-}
-
-async function runDataSheetFacts(repoRoot: string): Promise<SpawnSummary> {
-  const script = resolve(sourceRoot("ssbm_data_sheet"), "commands/build_codebase_facts.py");
-  const command = ["python3", script, "--repo-root", repoRoot, "--json"];
-  const proc = Bun.spawn(command, {
-    cwd: packageRoot(),
-    env: Bun.env,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
-  if (exitCode !== 0) throw new Error(`Data-sheet fact build failed (${exitCode}): ${command.join(" ")}\n${stderr || stdout}`);
-  return { command, exit_code: exitCode, stdout, stderr };
 }
 
 async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMaintenanceOptions = {}): Promise<SpawnSummary[]> {

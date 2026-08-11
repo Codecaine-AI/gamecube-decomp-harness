@@ -1,6 +1,7 @@
 import { buildAgentSharedStateGraphRecords } from "./agent-shared-state.js";
 import { buildCallGraphEdgeRecords } from "./call-graph-edges.js";
 import { buildCodeGraphRecords } from "./code-graph.js";
+import { buildGhidraXrefGraphRecords } from "./ghidra-xrefs.js";
 import { insertGraphRecords, openKnowledgeGraph, resetKnowledgeGraph, upsertSourceDescriptor, upsertToolDescriptor, graphStats } from "../db.js";
 import { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
 import { buildMismatchPatternGraphRecords } from "./mismatch-patterns.js";
@@ -111,6 +112,15 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
         skippedSources.push("call_graph");
       }
     }
+    if (selected.has("ghidra_xrefs")) {
+      const records = buildGhidraXrefGraphRecords(options.repoRoot);
+      if (records) {
+        insertGraphRecords(store, records);
+        indexedSources.push("ghidra_xrefs");
+      } else {
+        skippedSources.push("ghidra_xrefs");
+      }
+    }
     if (selected.has("siblings")) {
       const records = buildSiblingGraphRecords(options.repoRoot);
       if (records) {
@@ -154,6 +164,7 @@ export function defaultGraphSources(): string[] {
     "mismatch_patterns",
     "opseq_similarity",
     "call_graph",
+    "ghidra_xrefs",
     "siblings",
     "knowledge_ledger",
   ];

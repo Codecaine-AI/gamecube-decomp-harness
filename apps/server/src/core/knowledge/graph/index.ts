@@ -1,5 +1,6 @@
 export { buildAgentSharedStateGraphRecords, importAgentSharedStateLessons } from "./agent-shared-state.js";
 export { buildCodeGraphRecords, fileEntityId, functionEntityId, unitEntityId } from "./code-graph.js";
+export { buildGhidraXrefGraphRecords, GHIDRA_XREFS_SOURCE_ID, type BuildGhidraXrefGraphRecordsOptions } from "./ghidra-xrefs.js";
 export {
   ensureKnowledgeGraphSchema,
   graphDbExists,
@@ -39,6 +40,7 @@ export {
   type EditabilityPayload,
   type FileMatchStatusPayload,
   type FunctionStatusPayload,
+  type GhidraXrefProfilePayload,
   type GraphEdgeType,
   type GraphEntityPayload,
   type GraphEntityType,

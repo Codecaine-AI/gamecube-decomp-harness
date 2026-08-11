@@ -33,6 +33,7 @@ export type KnownGraphFactType =
   | "external_mirror_reference"
   | "file_match_status"
   | "function_status"
+  | "ghidra_xref_profile"
   | "historical_function_hint"
   | "historical_tool_issue"
   | "mismatch_pattern"
@@ -168,6 +169,18 @@ export interface OpseqAnalogProfilePayload extends JsonObject {
   top_analogs?: JsonObject[];
 }
 
+export interface GhidraXrefProfilePayload extends JsonObject {
+  source?: JsonObject;
+  xref_count?: number;
+  call_count?: number;
+  data_ref_count?: number;
+  other_ref_count?: number;
+  resolved_target_count?: number;
+  top_calls?: JsonObject[];
+  top_data_refs?: JsonObject[];
+  top_other_refs?: JsonObject[];
+}
+
 export type GraphEntityPayloadByType = {
   function: FunctionEntityPayload;
   mismatch_pattern: MismatchPatternPayload;
@@ -181,6 +194,7 @@ export type GraphFactPayloadByType = {
   editability: EditabilityPayload;
   file_match_status: FileMatchStatusPayload;
   function_status: FunctionStatusPayload;
+  ghidra_xref_profile: GhidraXrefProfilePayload;
   mismatch_pattern: MismatchPatternPayload;
   mismatch_pattern_evidence: MismatchPatternEvidencePayload;
   opseq_analog_profile: OpseqAnalogProfilePayload;
