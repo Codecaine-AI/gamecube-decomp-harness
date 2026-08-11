@@ -101,6 +101,39 @@ describe("toolpack runtime resolver", () => {
     expect(override.apiRoot).toBe(join(projectDir, "overrides/type_oracle/api"));
   });
 
+  test("exports the platform-specific state wibo for an explicit execution target", () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "gamecube-tool-platform-fixture-"));
+    const stateDir = join(projectDir, "state");
+    mkdirSync(join(stateDir, "tools"), { recursive: true });
+    writeFileSync(
+      join(projectDir, "project.json"),
+      `${JSON.stringify({ id: "sunshine", repoRoot: "./checkout", stateDir: "./state", tools: { toolpacks: ["gamecube-decomp"] } }, null, 2)}\n`,
+    );
+    writeFileSync(join(stateDir, "tools/wibo"), "legacy host artifact");
+    writeFileSync(join(stateDir, "tools/wibo-linux-x86_64"), "linux artifact");
+    const original = process.env.ORCH_TOOL_PLATFORM;
+    delete process.env.ORCH_TOOL_PLATFORM;
+    try {
+      const tool = resolveRegisteredTool(
+        {
+          project: {
+            projectId: "sunshine",
+            repoRoot: join(projectDir, "checkout"),
+            stateDir,
+            descriptorPath: join(projectDir, "project.json"),
+          },
+          toolPlatform: "linux-x86_64",
+        },
+        "ghidra",
+      );
+
+      expect(tool.env.MWCC_WIBO).toBe(join(stateDir, "tools/wibo-linux-x86_64"));
+    } finally {
+      if (original === undefined) delete process.env.ORCH_TOOL_PLATFORM;
+      else process.env.ORCH_TOOL_PLATFORM = original;
+    }
+  });
+
   test("rejects unknown tools", () => {
     expect(() => resolveRegisteredTool({}, "missing_tool")).toThrow("Unknown tool id missing_tool");
   });

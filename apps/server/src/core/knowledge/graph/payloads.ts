@@ -25,6 +25,7 @@ export type KnownGraphEntityType =
 export type GraphEntityType = KnownGraphEntityType | `curated_${string}` | (string & {});
 
 export type KnownGraphFactType =
+  | "call_graph_profile"
   | "data_sheet_reference"
   | "decomp_standard"
   | "document_reference"
@@ -40,12 +41,14 @@ export type KnownGraphFactType =
   | "past_pr_file_rollup"
   | "past_pr_key_file"
   | "path_scoped_hint"
-  | "powerpc_reference";
+  | "powerpc_reference"
+  | "sibling_profile";
 
 export type GraphFactType = KnownGraphFactType | `curated_${string}` | (string & {});
 
 export type KnownGraphEdgeType =
   | "ANALOGOUS_TO"
+  | "CALLS"
   | "COMPILES_TO"
   | "CONTAINS"
   | "EVIDENCED_BY_PR"
@@ -66,6 +69,8 @@ export type KnownGraphEdgeType =
   | "HAS_RESOURCE_EVIDENCE"
   | "HAS_SOURCE_UPDATE_PROPOSAL"
   | "MENTIONED_IN_HISTORICAL_TOOL_ISSUE"
+  | "REFERENCES_DATA"
+  | "SIBLING_OF"
   | "TOUCHED_BY_PR";
 
 export type GraphEdgeType = KnownGraphEdgeType | (string & {});

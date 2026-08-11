@@ -695,7 +695,7 @@ describe("qa-repair server job", () => {
     expect(attempt.validation.restored_build!.ok).toBe(true);
   });
 
-  test("header edits are checked out, the target is rolled back, and the item needs rework", async () => {
+  test("reverts header edits but keeps an independently valid target repair", async () => {
     const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
     const stateDir = tempDir("qa-repair-state-");
     const outputDir = tempDir("qa-repair-output-");
@@ -707,7 +707,7 @@ describe("qa-repair server job", () => {
     await git(repoRoot, ["add", "src/melee/gr/grsmoke.h", "src/melee/gr/unrelated.h"]);
     await git(repoRoot, ["commit", "-q", "-m", "add smoke headers"]);
     await writeFile(unrelatedHeaderPath, "#define UNRELATED 2\n");
-    const preContent = await readFile(sourcePath, "utf8");
+    const repairedContent = "int grSmoke(void) { int value = 1; return value; }\n";
     const queue = buildQaRepairQueue({
       runId: "manual",
       repoRoot,
@@ -716,8 +716,9 @@ describe("qa-repair server job", () => {
       includeAllScanFilesWhenNoCandidates: true,
       createdAt: "2026-07-14T00:00:00.000Z",
     });
+    let buildCalls = 0;
     const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
-      await writeFile(sourcePath, "int grSmoke(void) { int value = 1; return value; }\n");
+      await writeFile(sourcePath, repairedContent);
       await writeFile(headerPath, "int grSmoke(int changed);\n");
       return mockRunnerResult(fixedRepairJson(), options.outputDir);
     };
@@ -734,19 +735,171 @@ describe("qa-repair server job", () => {
       repairChecks: {
         captureUnitMatchSnapshot: async () => null,
         objdiffUnitPresence: async () => "absent",
-        buildObjectForSource: async () => ({ ok: true, log: "restored object built" }),
+        buildObjectForSource: async () => {
+          buildCalls += 1;
+          expect(await readFile(sourcePath, "utf8")).toBe(repairedContent);
+          expect(await readFile(headerPath, "utf8")).toBe("int grSmoke(void);\n");
+          return { ok: true, log: "repaired object built" };
+        },
       },
     });
 
     const item = result.items[0]!;
     const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
-    expect(item.status).toBe("needs_rework");
-    expect(await readFile(sourcePath, "utf8")).toBe(preContent);
+    expect(item.status).toBe("clean_same_match");
+    expect(item.routing_reason).toContain("unauthorized header edit(s) reverted: src/melee/gr/grsmoke.h");
+    expect(item.routing_reason).toContain("target repair validated independently");
+    expect(item.required_cross_file_paths).toBeUndefined();
+    expect(await readFile(sourcePath, "utf8")).toBe(repairedContent);
     expect(await readFile(headerPath, "utf8")).toBe("int grSmoke(void);\n");
     expect(await readFile(unrelatedHeaderPath, "utf8")).toBe("#define UNRELATED 2\n");
+    expect(buildCalls).toBe(1);
     expect(attempt.header_edit_reverted).toBe(true);
     expect(attempt.header_edit_paths).toEqual(["src/melee/gr/grsmoke.h"]);
+    expect(attempt.validation.reverted).toBe(false);
+    expect(attempt.validation.restored_build).toBeUndefined();
+    const validation = JSON.parse(await readFile(String(attempt.validationPath), "utf8")) as Record<string, any>;
+    expect(validation.status).toBe("clean_same_match");
+    expect(validation.reasons).toContain(
+      "unauthorized header edit(s) reverted: src/melee/gr/grsmoke.h; target repair validated independently",
+    );
+    expect(validation.required_cross_file_paths).toBeUndefined();
+  });
+
+  test("restores target and reports blocked_needs_cross_file when repair fails after header revert", async () => {
+    const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const sourcePath = resolve(repoRoot, "src/melee/gr/grsmoke.c");
+    const headerPath = resolve(repoRoot, "src/melee/gr/grsmoke.h");
+    await writeFile(headerPath, "int grSmoke(void);\n");
+    await git(repoRoot, ["add", "src/melee/gr/grsmoke.h"]);
+    await git(repoRoot, ["commit", "-q", "-m", "add smoke header"]);
+    const preContent = await readFile(sourcePath, "utf8");
+    const repairedContent = "int grSmoke(void) { int value = 1; return value; }\n";
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot,
+      baseRef: baseSha,
+      scanResult: scanResult([finding({ rule_id: "register_keyword", excerpt: "register int bad = 1;" })]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    const builtStates: Array<{ source: string; header: string }> = [];
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      await writeFile(sourcePath, repairedContent);
+      await writeFile(headerPath, "int grSmoke(int changed);\n");
+      return mockRunnerResult(fixedRepairJson(), options.outputDir);
+    };
+
+    const result = await processQueueItem({
+      globals: globals(repoRoot, stateDir),
+      runId: "manual",
+      queue,
+      item: queue.items[0]!,
+      outputDir,
+      baseRef: baseSha,
+      validationCommands: {
+        regression: "grep -q 'int value = 1' {source_path}",
+      },
+      runner,
+      repairChecks: {
+        captureUnitMatchSnapshot: async () => null,
+        objdiffUnitPresence: async () => "absent",
+        buildObjectForSource: async () => {
+          const state = {
+            source: await readFile(sourcePath, "utf8"),
+            header: await readFile(headerPath, "utf8"),
+          };
+          builtStates.push(state);
+          return builtStates.length === 1
+            ? { ok: false, log: "repair requires header" }
+            : { ok: state.source === preContent, log: "restored object built" };
+        },
+      },
+    });
+
+    const item = result.items[0]!;
+    const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
+    expect(item.status).toBe("blocked_needs_cross_file");
+    expect(item.required_cross_file_paths).toEqual(["src/melee/gr/grsmoke.h"]);
+    expect(item.routing_reason).toContain("the correct fix requires widening the write set");
+    expect(await readFile(sourcePath, "utf8")).toBe(preContent);
+    expect(await readFile(headerPath, "utf8")).toBe("int grSmoke(void);\n");
+    expect(builtStates).toEqual([
+      { source: repairedContent, header: "int grSmoke(void);\n" },
+      { source: preContent, header: "int grSmoke(void);\n" },
+    ]);
+    expect(attempt.status).toBe("validation_failed");
     expect(attempt.validation.reverted).toBe(true);
-    expect(attempt.validation.restored_build!.ok).toBe(true);
+    expect(attempt.validation.restored_build).toEqual({ ok: true, log: "restored object built" });
+    const commandSummary = JSON.parse(await readFile(String(attempt.regressionCheckPath), "utf8")) as Record<string, any>;
+    expect(commandSummary.status).toBe("passed");
+    const validation = JSON.parse(await readFile(String(attempt.validationPath), "utf8")) as Record<string, any>;
+    expect(validation.status).toBe("blocked_needs_cross_file");
+    expect(validation.required_cross_file_paths).toEqual(["src/melee/gr/grsmoke.h"]);
+    expect(validation.reasons[0]).toContain("repair validated only with unauthorized cross-file edit(s): src/melee/gr/grsmoke.h");
+    expect(validation.remainingFindings).toEqual(item.findings);
+    expect(validation.enforced_checks.restored_build).toEqual({ ok: true, log: "restored object built" });
+  });
+
+  test("header revert failure still restores target and needs rework", async () => {
+    const { repoRoot, baseSha } = await repoWithCommittedQaViolation();
+    const stateDir = tempDir("qa-repair-state-");
+    const outputDir = tempDir("qa-repair-output-");
+    const sourcePath = resolve(repoRoot, "src/melee/gr/grsmoke.c");
+    const headerPath = resolve(repoRoot, "src/melee/gr/grsmoke.h");
+    await writeFile(headerPath, "int grSmoke(void);\n");
+    await git(repoRoot, ["add", "src/melee/gr/grsmoke.h"]);
+    await git(repoRoot, ["commit", "-q", "-m", "add smoke header"]);
+    const preContent = await readFile(sourcePath, "utf8");
+    const indexLockPath = resolve(repoRoot, ".git/index.lock");
+    const queue = buildQaRepairQueue({
+      runId: "manual",
+      repoRoot,
+      baseRef: baseSha,
+      scanResult: scanResult([finding({ rule_id: "register_keyword", excerpt: "register int bad = 1;" })]),
+      includeAllScanFilesWhenNoCandidates: true,
+      createdAt: "2026-07-14T00:00:00.000Z",
+    });
+    const runner = async (options: MeleeKernelPiRunOptions): Promise<PiRunResult> => {
+      await writeFile(sourcePath, "int grSmoke(void) { int value = 1; return value; }\n");
+      await writeFile(headerPath, "int grSmoke(int changed);\n");
+      await writeFile(indexLockPath, "force checkout failure\n");
+      return mockRunnerResult(fixedRepairJson(), options.outputDir);
+    };
+
+    const result = await (async () => {
+      try {
+        return await processQueueItem({
+          globals: globals(repoRoot, stateDir),
+          runId: "manual",
+          queue,
+          item: queue.items[0]!,
+          outputDir,
+          baseRef: baseSha,
+          validationCommands: {},
+          runner,
+          repairChecks: {
+            captureUnitMatchSnapshot: async () => null,
+            objdiffUnitPresence: async () => "absent",
+            buildObjectForSource: async () => ({ ok: true, log: "restored object built" }),
+          },
+        });
+      } finally {
+        rmSync(indexLockPath, { force: true });
+      }
+    })();
+
+    const item = result.items[0]!;
+    const attempt = item.attempts[0] as QaRepairAttemptWithEnforcedChecks;
+    expect(item.status).toBe("needs_rework");
+    expect(item.required_cross_file_paths).toBeUndefined();
+    expect(item.routing_reason).toContain("failed to restore header files: src/melee/gr/grsmoke.h");
+    expect(await readFile(sourcePath, "utf8")).toBe(preContent);
+    expect(attempt.header_edit_reverted).toBe(false);
+    expect(attempt.header_edit_paths).toEqual(["src/melee/gr/grsmoke.h"]);
+    expect(attempt.header_revert_failures).toEqual(["src/melee/gr/grsmoke.h"]);
+    expect(attempt.validation.reverted).toBe(true);
   });
 });

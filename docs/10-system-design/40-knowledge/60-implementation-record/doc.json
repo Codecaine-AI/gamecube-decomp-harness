@@ -1,0 +1,1053 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-knowledge-60-implementation-record",
+  "title": "Implementation plan",
+  "root": "b-95-impl-root",
+  "blocks": {
+    "b-95-impl-root": {
+      "id": "b-95-impl-root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-95-impl-shipped-2026-08-11",
+        "b-95-impl-2",
+        "b-95-impl-3",
+        "b-95-impl-4",
+        "b-95-impl-5",
+        "b-95-impl-6",
+        "b-95-impl-7",
+        "b-95-impl-8",
+        "b-95-impl-9",
+        "b-95-impl-10",
+        "b-95-impl-11",
+        "b-95-impl-12",
+        "b-95-impl-13",
+        "b-95-impl-14",
+        "b-95-impl-15",
+        "b-95-impl-16",
+        "b-95-impl-17"
+      ]
+    },
+    "b-95-impl-shipped-2026-08-11": {
+      "id": "b-95-impl-shipped-2026-08-11",
+      "type": "callout",
+      "props": {
+        "title": "Shipped (2026-08-11)",
+        "tone": "info"
+      },
+      "text": [
+        {
+          "insert": "All four phases landed via the worker fan-out; every gate green. Deviations and later refinements are recorded in the decision log."
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-2": {
+      "id": "b-95-impl-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Four gated phases, each shippable and verifiable on its own. Phases 0–2 are deterministic code; phase 3 builds the librarian; phase 4 is the backfill, designed in "
+        },
+        {
+          "insert": "Agent runs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/60-implementation-record/10-agent-runs"
+            }
+          }
+        },
+        {
+          "insert": ". Grounded against the current code — every path below was verified to exist."
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-3": {
+      "id": "b-95-impl-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Phase 0 — pre-flight blockers"
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-4": {
+      "id": "b-95-impl-4",
+      "type": "callout",
+      "props": {
+        "title": "Two hard blockers found",
+        "tone": "warning"
+      },
+      "text": [
+        {
+          "insert": "(1) "
+        },
+        {
+          "insert": "packages/agent-kernel",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is a dangling symlink — it points at "
+        },
+        {
+          "insert": "../../../Codecaine/agent-kernel-main",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", which does not exist right now. Nothing kernel-spawned (workers, curator, the future librarian) can run until the worktree is restored. (2) "
+        },
+        {
+          "insert": "pi_sessions.session_file",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows point at the pre-migration repo path, so transcript-grounded condensation cannot find its inputs."
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-5": {
+      "id": "b-95-impl-5",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "restore the agent-kernel-main worktree the symlink expects (reboot-fragile infra — verify agent-kernel Postgres on 127.0.0.1:55432 is up too)"
+          },
+          {
+            "text": "one-time migration script: rewrite pi_sessions.session_file prefixes from the old decomp-orchestrator path to the repo-local .pi-sessions/ root; verify by sampling 50 rows and stat-ing the files"
+          },
+          {
+            "text": "gate: a dry-run kernel spawn succeeds; sampled session files resolve",
+            "kind": "note"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-95-impl-6": {
+      "id": "b-95-impl-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Phase 1 — prune the dead stuff"
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-7": {
+      "id": "b-95-impl-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Everything lands in "
+        },
+        {
+          "insert": "sources/deprecated/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or gets its wiring removed; nothing is destructively deleted. Exact touch points:"
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-8": {
+      "id": "b-95-impl-8",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Target",
+          "Action",
+          "Touch points"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "path_facts",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "deactivate + move dir under deprecated/; remove injection",
+            [
+              {
+                "insert": "registry.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "decomp-context.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · worker "
+              },
+              {
+                "insert": "context.ts:437,613,656",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "worker-cycle.ts:2234-2261",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "profiles/defaults.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " (7 profiles) · wrappers/metadata"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "powerpc_docs",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "deactivate + move dir under deprecated/",
+            [
+              {
+                "insert": "registry.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "resources.ts:45,352",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · wrappers/metadata · "
+              },
+              {
+                "insert": "resolver.ts:149",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " globalSources"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "banned_patterns",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "retire registry entry (no builder ever existed)",
+            [
+              {
+                "insert": "registry.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · stale comment "
+              },
+              {
+                "insert": "agents/pr/reviewer/preship.ts:11",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "ssbm_data_sheet",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "external_mirrors",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "already inactive — finish the job",
+            [
+              {
+                "insert": "project.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + "
+              },
+              {
+                "insert": "resolver.ts:144-153",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " globalSources · default "
+              },
+              {
+                "insert": "--no-data-sheet-facts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " in "
+              },
+              {
+                "insert": "kg.ts:366-377",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "discord_knowledge",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " (markdown distillate)"
+              }
+            ],
+            "keep parked as cross-check corpus (decision); remove agent-facing search wrappers",
+            [
+              {
+                "insert": "resources.ts:337",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · wrappers/metadata · curator "
+              },
+              {
+                "insert": "schema.json:23",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " enum"
+              }
+            ]
+          ],
+          [
+            "graph defaults",
+            "drop powerpc_docs + path_facts from default sources (still re-includable via --sources)",
+            [
+              {
+                "insert": "builders/rebuild.ts:114-128",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "epoch_verdicts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " (dead table)"
+              }
+            ],
+            "remove DDL + Drizzle declarations; leave existing DB files untouched (orchestrator state is product state)",
+            [
+              {
+                "insert": "storage/ddl.ts:228-241",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "storage/schema.ts:239-252",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ]
+        ],
+        "title": "Prune matrix"
+      },
+      "children": []
+    },
+    "b-95-impl-9": {
+      "id": "b-95-impl-9",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "move dirs + flip registry flags; update globalSources and graph defaults"
+          },
+          {
+            "text": "strip tool wrappers/profiles/metadata references (path_facts, powerpc_docs, discord_knowledge)"
+          },
+          {
+            "text": "remove worker-packet path_facts injection (boot card slims in phase 2)"
+          },
+          {
+            "text": "gate: full graph rebuild passes; worker dry-run boots with an unchanged-except-path-facts packet; smoke tests green",
+            "kind": "note"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-95-impl-10": {
+      "id": "b-95-impl-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Phase 2 — search indexes (lane 1, approved)"
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-11": {
+      "id": "b-95-impl-11",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "What gets built",
+          "Template / wiring"
+        ],
+        "rows": [
+          [
+            "callgraph extractor",
+            [
+              {
+                "insert": "new toolpack "
+              },
+              {
+                "insert": "research/callgraph/",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ": parse "
+              },
+              {
+                "insert": "asm/*.s",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " symbolized "
+              },
+              {
+                "insert": "bl",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "/data sites, join "
+              },
+              {
+                "insert": "report.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " → "
+              },
+              {
+                "insert": "shared/tool-data/callgraph/indexes/{calls,data_refs}.jsonl",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "copy opseq shape ("
+              },
+              {
+                "insert": "tool.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "runners/",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "api/",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "); register in "
+              },
+              {
+                "insert": "toolpack.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + "
+              },
+              {
+                "insert": "registry.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + "
+              },
+              {
+                "insert": "tool-bindings/callgraph.json",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "graph edges",
+            [
+              {
+                "insert": "new "
+              },
+              {
+                "insert": "builders/call-graph-edges.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " emitting "
+              },
+              {
+                "insert": "CALLS",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " / "
+              },
+              {
+                "insert": "REFERENCES_DATA",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + per-target peer facts"
+              }
+            ],
+            [
+              {
+                "insert": "template "
+              },
+              {
+                "insert": "builders/opseq-similarity.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "; wire "
+              },
+              {
+                "insert": "rebuild.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + defaults + "
+              },
+              {
+                "insert": "kg.ts:380-386",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " runner list (make it config-driven, not hardcoded 4)"
+              }
+            ]
+          ],
+          [
+            "ghidra xrefs",
+            [
+              {
+                "insert": "extend "
+              },
+              {
+                "insert": "research/ghidra",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " runner to emit "
+              },
+              {
+                "insert": "xrefs.jsonl",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " cache rows (cross-check facts)"
+              }
+            ],
+            "analyzed project already on disk; standardize outputs on the shared JSONL layout"
+          ],
+          [
+            "sibling rules",
+            [
+              {
+                "insert": "one-time bootstrap distilling the tree-guide character table + crosswalk globs → "
+              },
+              {
+                "insert": "projects/melee/knowledge/config/sibling_rules.json",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "; new "
+              },
+              {
+                "insert": "builders/siblings.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " emits "
+              },
+              {
+                "insert": "SIBLING_OF",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "config is data per the sibling decision; builder stays game-agnostic"
+          ],
+          [
+            "boot card",
+            "slim the worker packet to the minimal target card (target + record + shorthand pointers) per the boot-card decision",
+            [
+              {
+                "insert": "agents/running/worker/context.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " digest builders + "
+              },
+              {
+                "insert": "worker-cycle.ts:2227-2267",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "epoch triggers",
+            "full extractor pass at epoch boundary (exists); switch the fast knowledge-maintenance lane from timer-only to also firing on worker_finished",
+            [
+              {
+                "insert": "run-loop.ts:582-592,960-984",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ]
+        ],
+        "title": "Build items"
+      },
+      "children": []
+    },
+    "b-95-impl-12": {
+      "id": "b-95-impl-12",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "callgraph extractor + builder; verify edge counts (~80k call sites → CALLS edges) against a hand-checked file"
+          },
+          {
+            "text": "ghidra xref export; cross-check sample: asm-derived vs ghidra xrefs on 50 functions"
+          },
+          {
+            "text": "sibling bootstrap + builder; spot-check ftKirby/ftPurin sibling pairs"
+          },
+          {
+            "text": "boot-card slimming; measure packet size before/after"
+          },
+          {
+            "text": "gate: epoch-boundary rebuild produces all new edge kinds; worker boot works from the slim card",
+            "kind": "note"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-95-impl-13": {
+      "id": "b-95-impl-13",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Phase 3 — ledger + librarian"
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-14": {
+      "id": "b-95-impl-14",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "What gets built",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "knowledge ledger store",
+            [
+              {
+                "insert": "projects/melee/knowledge/ledger/learnings.jsonl",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " append log + SQLite FTS index rebuilt at maintenance (search-first decision); write path extends the "
+              },
+              {
+                "insert": "appendCuratedKnowledgeRecords",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " pattern"
+              }
+            ],
+            "LearningRecord per the knowledge-ledger doc: subject+scope, origin, evidence[], confidence, status"
+          ],
+          [
+            "attempt view",
+            [
+              {
+                "insert": "deterministic transform over "
+              },
+              {
+                "insert": "worker_checkpoints",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " (checkpoint-substrate decision): observed attempts + graded outcomes, no agent involved"
+              }
+            ],
+            "a builder/view module, zero agent rounds"
+          ],
+          [
+            "librarian agent",
+            [
+              {
+                "insert": "new role in the kernel catalog — the 9-step checklist: "
+              },
+              {
+                "insert": "AgentRole",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " union · "
+              },
+              {
+                "insert": "agents/knowledge/librarian/{agent,prompt,context,tools,index,schema.json}",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "registry.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "kernel-catalog.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · barrel · tool profile · "
+              },
+              {
+                "insert": "kernel-preview.ts",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " case · smoke count · job-runner command"
+              }
+            ],
+            [
+              {
+                "insert": "config visible in the Agent Viewer ("
+              },
+              {
+                "insert": "GET /api/kernel/agents",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ") BEFORE any run — see "
+              },
+              {
+                "insert": "Agent runs",
+                "attributes": {
+                  "reference": {
+                    "kind": "doc",
+                    "path": "10-system-design/40-knowledge/60-implementation-record/10-agent-runs"
+                  }
+                }
+              }
+            ]
+          ],
+          [
+            "live wiring",
+            [
+              {
+                "insert": "on "
+              },
+              {
+                "insert": "worker_finished",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ": enqueue librarian condensation for that worker (transcript + checkpoints → attempts filed + learnings proposed); eventually replaces the serial "
+              },
+              {
+                "insert": "kgKnowledgeIntakeAgent",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " postmortem path"
+              }
+            ],
+            "flag-gated so live runs are unaffected until enabled"
+          ],
+          [
+            "forwarding fix",
+            [
+              {
+                "insert": "--curator-agent-jobs",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " / "
+              },
+              {
+                "insert": "--batch-size",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " are not in the run-loop forwarding list ("
+              },
+              {
+                "insert": "run-loop.ts:539-565",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ") — add them, or keep backfill strictly CLI-driven"
+              }
+            ],
+            "small but load-bearing for parallelism"
+          ]
+        ],
+        "title": "Build items"
+      },
+      "children": []
+    },
+    "b-95-impl-15": {
+      "id": "b-95-impl-15",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "ledger store + attempt view + FTS index (deterministic, testable without agents)"
+          },
+          {
+            "text": "librarian agent definition; verify in the Agent Viewer; dry-run prompt render"
+          },
+          {
+            "text": "single-worker end-to-end: one recent worker's transcript+checkpoints → attempts filed, learnings proposed, ledger searchable"
+          },
+          {
+            "text": "gate: Ford reviews the agent config in the viewer + the E2E output before phase 4",
+            "kind": "note"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-95-impl-16": {
+      "id": "b-95-impl-16",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Phase 4 — backfill runs"
+        }
+      ],
+      "children": []
+    },
+    "b-95-impl-17": {
+      "id": "b-95-impl-17",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Discord CLI re-export → past PRs → worker history, per the backfill decisions. Batching, concurrency, and round estimates are the second deliverable: "
+        },
+        {
+          "insert": "Agent runs — config and parallel backfill",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/60-implementation-record/10-agent-runs"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

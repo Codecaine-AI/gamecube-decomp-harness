@@ -8,6 +8,17 @@ export {
   type EpochRepairResult,
   type RegressionRepairPlan,
 } from "./cycle.js";
+export {
+  attributeRegressionByRevertBisect,
+  isCleanGlobalRegression,
+  rankConfirmationCandidates,
+  runConfirmationPass,
+  type ConfirmationCandidate,
+  type ConfirmationGlobalVerdict,
+  type ConfirmationPassDeps,
+  type ConfirmationPassResult,
+  type ValidationState,
+} from "./confirmation-pass.js";
 export { runningEpochCheckpointProgress, runningEpochHistory, type RunningEpochCheckpointProgress, type RunningEpochJsonObject } from "./projection.js";
 export {
   DEFAULT_SESSION_DRAFT_PR_BODY,

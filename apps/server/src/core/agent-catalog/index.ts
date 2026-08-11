@@ -1,11 +1,5 @@
 export { agentRegistry, type RegisteredAgentId } from "./registry.js";
-export { knowledgeCuratorAgent, knowledgeCuratorPrompt, type KnowledgeCuratorPromptOptions } from "@server/core/agent-catalog/agents/knowledge/curator/index.js";
-export {
-  prContextPromptXml,
-  prIndexerAgent,
-  prIndexerPrompt,
-  type PrIndexerPromptOptions,
-} from "@server/core/agent-catalog/agents/knowledge/pr-indexer/index.js";
+export { librarianAgent, librarianPrompt, type LibrarianPromptOptions } from "@server/core/agent-catalog/agents/knowledge/librarian/index.js";
 export {
   PRESHIP_DIFF_CHAR_LIMIT,
   PRESHIP_REVIEW_SCHEMA_VERSION,
@@ -53,6 +47,16 @@ export {
   type ReconcilePromptOptions,
 } from "@server/core/agent-catalog/agents/pr/reconcile/index.js";
 export {
+  conflictResolverAgent,
+  conflictResolverPrompt,
+  invokeConflictResolver,
+  validateConflictResolverAgentResult,
+  type ConflictResolverAgentResult,
+  type ConflictResolverAgentRunner,
+  type ConflictResolverInvocationResult,
+  type ConflictResolverPromptOptions,
+} from "@server/core/agent-catalog/agents/running/conflict-resolver/index.js";
+export {
   integrationResolverAgent,
   integrationResolverPrompt,
   validateIntegrationResolverAgentResult,
@@ -65,8 +69,7 @@ export {
   buildAgentTools,
   defaultAgentToolProfiles,
   defaultIntegrationResolverToolProfile,
-  defaultKnowledgeCuratorToolProfile,
-  defaultPrIndexerToolProfile,
+  defaultConflictResolverToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultWorkerToolProfile,

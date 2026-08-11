@@ -1,6 +1,7 @@
 import { WorkspaceLayout, useWorkspaceNav } from "@/pages/workspace/layout";
 import { AgentsPage } from "@/pages/workspace/agents";
 import { deriveSessionView } from "@/pages/workspace/_lib/model";
+import { KnowledgePage } from "@/pages/workspace/knowledge";
 import { OverviewPage } from "@/pages/workspace/overview";
 import { SessionsPage } from "@/pages/workspace/sessions";
 import { SettingsPage } from "@/pages/workspace/settings";
@@ -22,6 +23,9 @@ function WorkspaceSectionContent(props: ProjectWorkspaceProps & { nav: Workspace
   }
   if (props.route.section === "trace") {
     return <TracePage form={props.form} view={props.view} />;
+  }
+  if (props.route.section === "knowledge") {
+    return <KnowledgePage form={props.form} />;
   }
   if (props.route.section === "style") {
     return <StylePage grainSettings={props.grainSettings} onGrainSettingsChange={props.onGrainSettingsChange} view={props.view} />;

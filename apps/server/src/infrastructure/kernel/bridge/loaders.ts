@@ -13,6 +13,7 @@ export const MELEE_INLINE_CONTEXT_LOADER_KINDS = [
   "knowledge-graph-file-card",
   "integration-conflict-item",
   "integration-queue-summary",
+  "merge-on-finish-conflict",
   "pr-index-context",
   "pr-slice-diff",
   "review-lint-findings",

@@ -70,6 +70,7 @@ export interface HandoffRuntimeDeps {
       baseSha: string;
       branch: string;
       files: string[];
+      supportFiles?: string[];
       force: boolean;
       patchPath: string;
       record: JsonObject;
@@ -78,12 +79,20 @@ export interface HandoffRuntimeDeps {
       stateDir: string;
       title: string;
     }) => Promise<JsonObject>;
-    publishPatchToFork: (params: { baseSha: string; branch: string; files: string[]; patchPath: string; repoRoot: string; title: string }) => Promise<void>;
-    readyLocalPrSource: (params: { baseSha: string; branch: string; files: string[]; record: JsonObject; repoRoot: string; stateDir: string }) => Promise<JsonObject | null>;
+    publishPatchToFork: (params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; patchPath: string; repoRoot: string; title: string }) => Promise<void>;
+    readyLocalPrSource: (params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; record: JsonObject; repoRoot: string; stateDir: string }) => Promise<JsonObject | null>;
     rebuildProductionBaseline: (paths: ProjectRuntimeContext) => Promise<JsonObject>;
     remoteOwner: (repoRoot: string, remote: string) => string;
     sliceValidationSummary: (report: RegressionReport, issues: CodeIssuesResult) => JsonObject;
-    verifyPrSliceInBaseline: (params: { baseSha: string; baselineWorktree: string; files: string[]; patchPath: string }) => Promise<{ issues: CodeIssuesResult; report: RegressionReport }>;
+    verifyPrSliceInBaseline: (params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string }) => Promise<{ issues: CodeIssuesResult; report: RegressionReport }>;
+    verifySupportMergeOrder: (params: {
+      repoRoot: string;
+      branch: string;
+      sliceId: string;
+      files: string[];
+      supportFiles: string[];
+      others: Array<{ branch: string; sliceId: string; files: string[]; supportFiles: string[] }>;
+    }) => Promise<JsonObject>;
     verifyShipSet: (paths: ProjectRuntimeContext, baseline: JsonObject, matchPathspecs: string[]) => Promise<JsonObject>;
   };
   processControl: {
@@ -414,16 +423,23 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       const store = openState(stateDir);
       let result: JsonObject;
       try {
-        result = compactCheckpointResult(
-          createRunCheckpoint(store, runId, {
-            improvementPromotion: {
-              minGainPoints: paths.project?.pr.improvementMinGainPoints,
-              minMatchedBytes: paths.project?.pr.improvementMinMatchedBytes,
-            },
-            reworkSymbols,
-            title: "PR handoff checkpoint",
-          }),
-        );
+        const checkpointResult = createRunCheckpoint(store, runId, {
+          improvementPromotion: {
+            minGainPoints: paths.project?.pr.improvementMinGainPoints,
+            minMatchedBytes: paths.project?.pr.improvementMinMatchedBytes,
+          },
+          reworkSymbols,
+          title: "PR handoff checkpoint",
+        });
+        for (const item of checkpointResult.items) {
+          const eligibility = asObject(item.evidence.pr_eligibility);
+          if (eligibility.excluded !== true) continue;
+          appendLog(
+            "ui",
+            `[pr-eligibility] excluded ${item.symbol || item.targetKey} from PR preparation: ${stringValue(eligibility.reason)}`,
+          );
+        }
+        result = compactCheckpointResult(checkpointResult);
         appendLog("ui", `PR checkpoint complete for run ${runId}`);
       } finally {
         store.db.close();
@@ -661,6 +677,12 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       "--json",
     ];
     if (checkpointPath && existsSync(checkpointPath)) command.push("--checkpoint", checkpointPath);
+    const supportMapInput = stringValue(body.prSupportMapPath);
+    if (supportMapInput) {
+      const supportMapPath = resolve(paths.repoRoot, supportMapInput);
+      if (!existsSync(supportMapPath)) throw new Error(`PR support map does not exist: ${supportMapPath}`);
+      command.push("--support-map", supportMapPath);
+    }
     const reportChangesRelative = paths.project?.validation.reportChangesPath ?? "build/GALE01/report_changes.json";
     if (existsSync(resolve(paths.repoRoot, reportChangesRelative))) command.push("--report-changes", reportChangesRelative);
     const shipStatusPath = stringValue(body.prShipStatusPath);
@@ -695,21 +717,25 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
           ...new Set(
             slices
               .filter((slice) => slice.lane === "match")
-              .flatMap((slice) => (Array.isArray(slice.pathspecs) ? slice.pathspecs : []))
+              .flatMap((slice) => [...asArray(slice.pathspecs), ...asArray(slice.supportPathspecs)])
               .map((path) => stringValue(path))
               .filter(Boolean),
           ),
         ],
-        slices: slices.map((slice) => ({
-          id: stringValue(slice.id),
-          displayName: stringValue(slice.displayName),
-          lane: slice.lane ?? null,
-          scope: stringValue(slice.scope),
-          branchName: stringValue(slice.branchName),
-          title: stringValue(slice.title),
-          pathspecs: asArray(slice.pathspecs).map((path) => stringValue(path)).filter(Boolean),
-          fileCount: numberValue(slice.fileCount),
-        })),
+        slices: slices.map((slice) => {
+          const supportPathspecs = asArray(slice.supportPathspecs).map((path) => stringValue(path)).filter(Boolean);
+          return {
+            id: stringValue(slice.id),
+            displayName: stringValue(slice.displayName),
+            lane: slice.lane ?? null,
+            scope: stringValue(slice.scope),
+            branchName: stringValue(slice.branchName),
+            title: stringValue(slice.title),
+            pathspecs: asArray(slice.pathspecs).map((path) => stringValue(path)).filter(Boolean),
+            ...(supportPathspecs.length > 0 ? { supportPathspecs } : {}),
+            fileCount: numberValue(slice.fileCount),
+          };
+        }),
         runId,
         project: paths.project ? projectToSummary(paths.project) : null,
         repoRoot: paths.repoRoot,
@@ -744,6 +770,44 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     }
   }
 
+  function preparedMergePeers(records: JsonObject[], currentBranch: string, runId: string, baseSha: string) {
+    return records
+      .filter((candidate) => stringValue(candidate.branch) !== currentBranch)
+      .filter((candidate) => prRecords.prRecordMatchesRun(candidate, runId))
+      .filter((candidate) => stringValue(candidate.baseSha) === baseSha)
+      .filter((candidate) => {
+        const localStatus = stringValue(asObject(candidate.local).status);
+        const prStatus = stringValue(candidate.status);
+        const hasOpenPrNumber =
+          Number.isFinite(numberValue(candidate.prNumber, NaN)) && prStatus !== "closed" && prStatus !== "merged";
+        return (
+          ["ready", "local_only"].includes(localStatus) ||
+          hasOpenPrNumber ||
+          prStatus === "draft" ||
+          prStatus === "open"
+        );
+      })
+      .map((candidate) => ({
+        branch: stringValue(candidate.branch),
+        sliceId: stringValue(candidate.sliceId, stringValue(candidate.branch)),
+        files: asArray(candidate.files).map((path) => stringValue(path)).filter(Boolean),
+        supportFiles: asArray(candidate.supportFiles).map((path) => stringValue(path)).filter(Boolean),
+      }))
+      .filter((candidate) => candidate.branch);
+  }
+
+  function peersWithSupportOverlap(
+    files: string[],
+    supportFiles: string[],
+    peers: Array<{ files: string[]; supportFiles: string[] }>,
+  ): boolean {
+    const primary = new Set(files);
+    return peers.some((peer) => {
+      const peerFiles = new Set([...peer.files, ...peer.supportFiles]);
+      return supportFiles.some((path) => peerFiles.has(path)) || peer.supportFiles.some((path) => primary.has(path));
+    });
+  }
+
   async function prepareLocalPrForBranch(body: JsonObject, branch: string): Promise<JsonObject> {
     const paths = resolveDashboardProject(body, { useDefaultProject: true });
     const { repoRoot, stateDir } = paths;
@@ -758,6 +822,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     const status = stringValue(record.status, "planned");
     if (status !== "planned") throw new Error(`Local preparation expects a planned PR slice; ${branch} is ${status}.`);
     const files = asArray(record.files).map((path) => stringValue(path)).filter(Boolean);
+    const supportFiles = asArray(record.supportFiles).map((path) => stringValue(path)).filter(Boolean);
     if (files.length === 0) throw new Error(`PR record for ${branch} has no file manifest; re-run Plan PRs and Sync PR Status.`);
 
     const shipStatus = readJsonObject(resolve(stateDir, "pr_handoff", "ship_status.json"));
@@ -777,8 +842,14 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         ...current,
         local: { ...asObject(current.local), status: "preparing", prepStartedAt: new Date().toISOString(), error: "" },
       }));
-      operationStep("verify slice locally", `${files.length} file(s) onto baseline ${baseSha.slice(0, 10)}`);
-      const { report, issues } = await prWorktrees.verifyPrSliceInBaseline({ baseSha, baselineWorktree, files, patchPath });
+      operationStep("verify slice locally", `${supportFiles.length > 0 ? `${files.length}+${supportFiles.length}` : files.length} file(s) onto baseline ${baseSha.slice(0, 10)}`);
+      const { report, issues } = await prWorktrees.verifyPrSliceInBaseline({
+        baseSha,
+        baselineWorktree,
+        files,
+        ...(supportFiles.length > 0 ? { supportFiles } : {}),
+        patchPath,
+      });
       const validation = prWorktrees.sliceValidationSummary(report, issues);
       prWorktrees.assertSliceVerificationClean(branch, validation);
       operationStepDetail("verify slice locally", `${numberValue(validation.newMatches)} new match(es), ${stringValue(validation.issuesCheck)} issues check`);
@@ -789,6 +860,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         baseSha,
         branch,
         files,
+        ...(supportFiles.length > 0 ? { supportFiles } : {}),
         force: body.forceLocalPrepare === true,
         patchPath,
         record: { ...record, baseSha, validation },
@@ -797,6 +869,17 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         stateDir,
         title,
       });
+      const otherRecords = preparedMergePeers(records, branch, runId, baseSha);
+      if (peersWithSupportOverlap(files, supportFiles, otherRecords)) {
+        await prWorktrees.verifySupportMergeOrder({
+          repoRoot,
+          branch,
+          sliceId: stringValue(record.sliceId, branch),
+          files,
+          supportFiles,
+          others: otherRecords,
+        });
+      }
       const updated = prRecords.normalizePrRecord(
         {
           ...prepared,
@@ -916,6 +999,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     if (!record) throw new Error(`No PR record for branch ${branch}; run Sync PR Status first.`);
     if (record.prNumber) throw new Error(`Branch ${branch} already has PR #${numberValue(record.prNumber)}.`);
     const files = asArray(record.files).map((path) => stringValue(path)).filter(Boolean);
+    const supportFiles = asArray(record.supportFiles).map((path) => stringValue(path)).filter(Boolean);
     if (files.length === 0) throw new Error(`PR record for ${branch} has no file manifest; re-run Plan PRs and Sync PR Status.`);
 
     let sessionHeadAtOpen = "";
@@ -954,6 +1038,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
           branch,
           sliceId: stringValue(record.sliceId),
           files,
+          ...(supportFiles.length > 0 ? { supportFiles } : {}),
         },
       });
       const baseRef = paths.project?.baseRef ?? "origin/master";
@@ -969,7 +1054,15 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       operationStepDetail("prepare baseline", `${baseSha.slice(0, 10)} at ${baselineWorktree}`);
 
       operationStep("prepare source patch", prSync.isLocalBranchPrRecord(record) ? "local branch" : "verified ship set");
-      const localSource = await prWorktrees.readyLocalPrSource({ baseSha, branch, files, record, repoRoot, stateDir });
+      const localSource = await prWorktrees.readyLocalPrSource({
+        baseSha,
+        branch,
+        files,
+        ...(supportFiles.length > 0 ? { supportFiles } : {}),
+        record,
+        repoRoot,
+        stateDir,
+      });
       const shipStatus = readJsonObject(resolve(stateDir, "pr_handoff", "ship_status.json"));
       let patchToApply = stringValue(localSource?.patchPath);
       let shipSetVerified = false;
@@ -992,8 +1085,31 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       }
       if (!patchToApply) throw new Error(`No source patch could be prepared for ${branch}.`);
 
-      operationStep("verify slice in isolation", `${files.length} file(s) onto baseline ${baseSha.slice(0, 10)}`);
-      const { report, issues } = await prWorktrees.verifyPrSliceInBaseline({ baseSha, baselineWorktree, files, patchPath: patchToApply });
+      const otherRecords = preparedMergePeers(records, branch, publicationRunId, baseSha);
+      if (peersWithSupportOverlap(files, supportFiles, otherRecords)) {
+        if (!localSource) {
+          throw new Error(
+            `Merge-order verification for slice ${stringValue(record.sliceId, branch)} requires a materialized local branch ` +
+            `before opening because a prepared sibling overlaps its support files. Run Prepare Local PR first.`,
+          );
+        }
+        await prWorktrees.verifySupportMergeOrder({
+          repoRoot,
+          branch,
+          sliceId: stringValue(record.sliceId, branch),
+          files,
+          supportFiles,
+          others: otherRecords,
+        });
+      }
+      operationStep("verify slice in isolation", `${supportFiles.length > 0 ? `${files.length}+${supportFiles.length}` : files.length} file(s) onto baseline ${baseSha.slice(0, 10)}`);
+      const { report, issues } = await prWorktrees.verifyPrSliceInBaseline({
+        baseSha,
+        baselineWorktree,
+        files,
+        ...(supportFiles.length > 0 ? { supportFiles } : {}),
+        patchPath: patchToApply,
+      });
       if (report.regressions.length > 0 || report.brokenMatches.length > 0 || report.fuzzyRegressions.length > 0) {
         failOperationStep("verify slice in isolation");
         operationNextHint("This slice does not stand alone - it likely depends on a shared/support slice. Open that slice's PR first, or stack the branches manually.");
@@ -1028,7 +1144,15 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         if (push.exitCode !== 0) throw new Error(`git push failed (${push.exitCode}): ${outputTail(push.stderr, 1500)}`);
       } else {
         operationStep("publish branch", branch);
-        await prWorktrees.publishPatchToFork({ baseSha, branch, files, patchPath: patchToApply, repoRoot, title });
+        await prWorktrees.publishPatchToFork({
+          baseSha,
+          branch,
+          files,
+          ...(supportFiles.length > 0 ? { supportFiles } : {}),
+          patchPath: patchToApply,
+          repoRoot,
+          title,
+        });
       }
 
       operationStep("create draft PR", `${repoSlug} <- ${forkOwner}:${branch}`);
@@ -1044,6 +1168,16 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         "",
         ...files.map((file) => `- \`${file}\``),
         "",
+        ...(supportFiles.length > 0
+          ? [
+              "## Support files",
+              "",
+              ...supportFiles.map((file) => `- \`${file}\``),
+              "",
+              "Cross-subsystem support files whose changes exist to serve this slice's matches (maintainer ruling: any file may be edited when the primary motivation is a match in this slice's target TU and nothing breaks). Verified in isolation together with the slice and merge-order-checked against sibling slices.",
+              "",
+            ]
+          : []),
         "## Verification",
         "",
         `- Slice verified in isolation against the production baseline at \`${baseSha.slice(0, 10)}\`: applied alone, built with \`ninja changes_all\`, regression report clean (0 broken matches, 0 fuzzy regressions, 0 metric regressions).`,
@@ -1095,6 +1229,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
           prNumber: numberValue(asObject(updated).prNumber, 0),
           url: stringValue(asObject(updated).url, prUrl),
           files,
+          ...(supportFiles.length > 0 ? { supportFiles } : {}),
         },
       });
       return { opened: true, branch, record: updated, prs };

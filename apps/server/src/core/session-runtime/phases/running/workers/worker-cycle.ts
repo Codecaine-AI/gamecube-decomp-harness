@@ -18,14 +18,27 @@ import {
   type WorkerReviewLint,
   type WorkerRunnerValidation,
 } from "@server/core/agent-catalog/agents/running/worker";
-import { qaLintRepairReasons, type WorkerChangeValidation } from "@server/core/agent-catalog/agents/running/worker/change-validation";
+import {
+  extendWorkerChangeBaselineSourceSnapshot,
+  qaLintRepairReasons,
+  validateWidenedChange,
+  type WorkerChangeValidation,
+} from "@server/core/agent-catalog/agents/running/worker/change-validation";
 import { defaultWorkerToolProfile } from "@server/core/tools";
+import {
+  isHostToolPlatform,
+  requiredStateToolArtifactError,
+  resolveStateToolArtifact,
+  resolveToolPlatform,
+  TOOL_PLATFORMS,
+  type ToolPlatform,
+} from "@server/core/tools/platform.js";
+import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
 import {
   fileGraphCard,
   graphDbExists,
   loadKnowledgeBoardSnapshot,
   openKnowledgeGraph,
-  resolvePathFactsContext,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
 import { runCommand } from "@server/infrastructure/shell";
@@ -48,12 +61,35 @@ import {
   type StateStore,
   type WorkerCheckpointRecord,
 } from "@server/core/session-runtime/run-state";
+import { widenClaimWriteSet } from "@server/core/session-runtime/run-state/worker-state.js";
+import {
+  categorizePath,
+  type WideningDecision,
+  type WideningRequest,
+  type WriteSetCategory,
+  type WriteSetEntry,
+} from "@server/core/session-runtime/run-state/write-set-categories.js";
+import {
+  createWriteSetWidening,
+  decideWidening,
+  draftWideningRequestFromOutOfWriteSet,
+  parseWideningRequest,
+  recordWriteSetWideningDecision,
+  recordWriteSetWideningValidation,
+} from "@server/core/session-runtime/run-state/write-set-widening.js";
 import {
   processWorkerOutputIntegrationQueue,
+  type WorkerOutputConflictResolverConfig,
   type WorkerOutputIntegrationApplyResult,
 } from "@server/core/session-runtime/phases/running/integration/worker-output-queue.js";
 import type { PiRunResult } from "@server/core/shared/types";
-import { projectMetadata, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import {
+  projectMetadata,
+  stringArg,
+  writeSetIntegrationFlags,
+  type GlobalArgs,
+  type WriteSetWideningMode,
+} from "@server/core/project-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/session-runtime/phases/running/jobs/shared.js";
 import { workerTtlSeconds } from "@server/core/session-runtime/phases/running/worker-ttl.js";
 
@@ -92,6 +128,7 @@ interface WorkerAttemptEvaluation {
   repairReasons: string[];
   continuationDecision: WorkerContinuationDecision;
   writeSetDiffChanged: boolean;
+  outOfWriteSetChanges: OutOfWriteSetChange[];
   postAttemptDiffPath: string;
   repairFeedbackPath?: string;
 }
@@ -250,12 +287,118 @@ export function isReworkErrorKind(kind: string): boolean {
   return /^(?:runner_validation_|worker_integration_)/.test(kind);
 }
 
-// All repair feedback for one attempt: the shared return-gate reasons plus the
-// L1 QA lint findings, formatted verbatim for the worker's next iteration.
+// Out-of-write-set change evidence. The banked patch is a write-set-scoped
+// `git diff`, so any other edit silently vanishes at patch capture; these
+// records make that visible to the worker (repair reason), to QA (snapshot
+// extension), and to telemetry (checkpoint metadata) sizing a future
+// write-set-widening design.
+export type OutOfWriteSetCategory = Exclude<WriteSetCategory, "target-source">;
+
+export interface OutOfWriteSetChange {
+  path: string;
+  category: OutOfWriteSetCategory;
+}
+
+export function classifyOutOfWriteSetPath(path: string): OutOfWriteSetCategory {
+  const category = categorizePath(path, "");
+  return category === "target-source" ? "other" : category;
+}
+
+// Tracked paths the worker modified outside the claim write set. Paths already
+// modified before the first attempt (seeded report artifacts) are excluded so
+// the list names only worker-authored drift; an out-of-set edit from an earlier
+// repair attempt stays flagged until the worker reverts it.
+export function collectOutOfWriteSetChanges(params: {
+  changedPaths: string[];
+  preAttemptChangedPaths: string[];
+  writeSet: string[];
+}): OutOfWriteSetChange[] {
+  const preAttempt = new Set(params.preAttemptChangedPaths);
+  const writeSet = new Set(params.writeSet);
+  const changes: OutOfWriteSetChange[] = [];
+  for (const path of new Set(params.changedPaths)) {
+    if (!path || writeSet.has(path) || preAttempt.has(path)) continue;
+    changes.push({ path, category: classifyOutOfWriteSetPath(path) });
+  }
+  return changes;
+}
+
+export function outOfWriteSetCategoryCounts(changes: OutOfWriteSetChange[]): Record<OutOfWriteSetCategory, number> {
+  const counts: Record<OutOfWriteSetCategory, number> = { "owning-header": 0, "config-metadata": 0, "foreign-source": 0, other: 0 };
+  for (const change of changes) counts[change.category] += 1;
+  return counts;
+}
+
+export function outOfWriteSetRepairReason(changes: OutOfWriteSetChange[]): string | null {
+  if (changes.length === 0) return null;
+  const listed = changes.map((change) => `${change.path} (${change.category})`).join(", ");
+  return (
+    `out_of_write_set_edit: you edited ${listed}, but the banked patch is captured only from your claim write set — those edits are silently dropped at patch capture and will not ship. ` +
+    `If the match depends on them, an in-file workaround is not the honest outcome: state "exact requires cross-file edit to <path>" in your note's blockers so the runner can close the target truthfully. ` +
+    `Otherwise revert the out-of-write-set edit so the shipped patch matches what you validated.`
+  );
+}
+
+export interface ParsedWorkerWideningRequest {
+  request: WideningRequest | null;
+  error?: string;
+}
+
+export function parseWorkerWideningRequest(note: Record<string, unknown> | null): ParsedWorkerWideningRequest {
+  const value = note?.widening_request;
+  if (value == null) return { request: null };
+  const request = parseWideningRequest(value);
+  return request
+    ? { request }
+    : { request: null, error: "widening_request does not match write_set_widening_request_v1" };
+}
+
+export function shouldApplyWideningDecision(mode: WriteSetWideningMode, decision: WideningDecision): boolean {
+  if (decision.status !== "approved") return false;
+  if (mode === "config") return decision.validationTier === 2;
+  if (mode === "header") return decision.validationTier === 2 || decision.validationTier === 3;
+  return false;
+}
+
+export function shouldExposeWideningDecisionToWorker(mode: WriteSetWideningMode): boolean {
+  return mode === "config" || mode === "header";
+}
+
+function wideningDecisionRepairReason(decision: WideningDecision): string | null {
+  if (decision.status === "approved") return null;
+  const prefix = decision.status === "routed_cross_module" ? "widening_routed_cross_module" : "widening_denied";
+  return `${prefix}: ${decision.reason}`;
+}
+
+function safeRepoRelativePath(repoRoot: string, path: string): string | null {
+  if (!path || isAbsolute(path)) return null;
+  const resolved = resolve(repoRoot, path);
+  const relativePath = relative(repoRoot, resolved);
+  return relativePath && !relativePath.startsWith("..") && !isAbsolute(relativePath) ? resolved : null;
+}
+
+async function headerDeclaresEvidenceSymbol(repoRoot: string, request: WideningRequest): Promise<boolean | undefined> {
+  if (request.rung !== 3 || request.paths.length !== 1) return undefined;
+  const headerPath = safeRepoRelativePath(repoRoot, request.paths[0] ?? "");
+  if (!headerPath) return false;
+  try {
+    const contents = await readFile(headerPath, "utf8");
+    const symbol = request.evidence.mismatched_declaration.symbol;
+    const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\b${escaped}\\b`).test(contents);
+  } catch {
+    return false;
+  }
+}
+
+// All repair feedback for one attempt: the shared return-gate reasons, any
+// out-of-write-set edit warning, plus the L1 QA lint findings, formatted
+// verbatim for the worker's next iteration.
 export function workerAttemptRepairReasons(params: {
-  writeSetDiffChanged: boolean;
   runnerValidation: WorkerChangeValidation;
   reviewLint?: WorkerReviewLint;
+  outOfWriteSetChanges?: OutOfWriteSetChange[];
+  wideningReasons?: string[];
 }): string[] {
   const reasons: string[] = [];
   if (params.runnerValidation.status !== "passed" && params.runnerValidation.status !== "skipped") {
@@ -264,6 +407,9 @@ export function workerAttemptRepairReasons(params: {
   if (params.reviewLint?.status === "failed") {
     reasons.push(...params.reviewLint.reasons.map((reason) => `review lint: ${reason}`));
   }
+  const outOfWriteSetReason = outOfWriteSetRepairReason(params.outOfWriteSetChanges ?? []);
+  if (outOfWriteSetReason) reasons.push(outOfWriteSetReason);
+  reasons.push(...(params.wideningReasons ?? []));
   reasons.push(...qaLintRepairReasons(params.runnerValidation.qaLint));
   return reasons;
 }
@@ -639,6 +785,19 @@ async function captureWriteSetDiff(repoRoot: string, writeSet: string[], outputP
   return result;
 }
 
+// Full-worktree changed-path list (tracked files, matching the `git diff`
+// patch-capture view). Compared against the write set, this is what exposes
+// edits that patch capture would silently drop.
+async function captureWorktreeChangedPaths(repoRoot: string, outputPath: string): Promise<string[]> {
+  const result = await runCommand(repoRoot, ["git", "diff", "--name-only"]);
+  await writeFile(outputPath, result.stdout);
+  if (result.stderr) await writeFile(`${outputPath}.stderr.txt`, result.stderr);
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 async function runPostReturnCheck(params: {
   commandTemplate: string;
   dryRun: boolean;
@@ -767,9 +926,9 @@ const WORKER_REPORT_ARTIFACT_RELATIVE_PATHS = [
 ];
 
 const WORKER_TOOL_ARTIFACTS = [
-  { relativePath: "build/tools", mode: "copy" },
-  { relativePath: "build/compilers", mode: "link" },
-  { relativePath: "build/binutils", mode: "link" },
+  { name: "tools", relativePath: "build/tools", mode: "copy" },
+  { name: "compilers", relativePath: "build/compilers", mode: "link" },
+  { name: "binutils", relativePath: "build/binutils", mode: "link" },
 ] as const;
 const WORKER_TOOL_ARTIFACT_RELATIVE_PATHS = WORKER_TOOL_ARTIFACTS.map((artifact) => artifact.relativePath);
 const WORKER_WORKTREE_LOCK_STALE_MS = 10 * 60 * 1000;
@@ -824,6 +983,7 @@ exec "$real_find" "$@"
 `;
 
 interface WorkerToolArtifactSource {
+  platform: ToolPlatform;
   relativePath: string;
   sourcePath: string;
 }
@@ -971,12 +1131,24 @@ export function workerToolArtifactSourceRoots(globals: Pick<GlobalArgs, "repoRoo
   return Array.from(new Set(roots));
 }
 
-function toolArtifactSourcesForWorker(globals: Pick<GlobalArgs, "repoRoot" | "project">): WorkerToolArtifactSource[] {
-  return WORKER_TOOL_ARTIFACT_RELATIVE_PATHS.flatMap((relativePath) => {
+function toolArtifactSourcesForWorker(
+  globals: Pick<GlobalArgs, "repoRoot" | "stateDir" | "project">,
+  toolPlatform: ToolPlatform,
+): WorkerToolArtifactSource[] {
+  return WORKER_TOOL_ARTIFACTS.flatMap((artifact) => {
+    const stateSource = resolveStateToolArtifact({
+      stateDir: globals.stateDir,
+      name: artifact.name,
+      platform: toolPlatform,
+    });
+    if (stateSource) return [{ platform: toolPlatform, relativePath: artifact.relativePath, sourcePath: stateSource }];
+    if (!isHostToolPlatform(toolPlatform)) {
+      throw requiredStateToolArtifactError({ stateDir: globals.stateDir, name: artifact.name, platform: toolPlatform });
+    }
     const sourcePath = workerToolArtifactSourceRoots(globals)
-      .map((root) => resolve(root, relativePath))
+      .map((root) => resolve(root, artifact.relativePath))
       .find((candidate) => existsSync(candidate));
-    return sourcePath ? [{ relativePath, sourcePath }] : [];
+    return sourcePath ? [{ platform: toolPlatform, relativePath: artifact.relativePath, sourcePath }] : [];
   });
 }
 
@@ -1064,15 +1236,32 @@ export async function seedWorkerToolArtifacts(params: {
   workerRepoRoot: string;
   outputDir: string;
   sources: WorkerToolArtifactSource[];
+  toolPlatform: ToolPlatform;
 }): Promise<void> {
   await mkdir(params.outputDir, { recursive: true });
   const linked: Array<Record<string, string>> = [];
   const copied: Array<Record<string, string>> = [];
   const existing: string[] = [];
-  const sourceByRelativePath = new Map(params.sources.map((source) => [source.relativePath, source.sourcePath]));
+  const sourceByRelativePath = new Map(
+    params.sources
+      .filter((source) => source.platform === params.toolPlatform && existsSync(source.sourcePath))
+      .map((source) => [source.relativePath, source.sourcePath]),
+  );
+  const crossPlatformTarget = !isHostToolPlatform(params.toolPlatform);
+  if (crossPlatformTarget) {
+    const missing = WORKER_TOOL_ARTIFACT_RELATIVE_PATHS.filter((relativePath) => !sourceByRelativePath.has(relativePath));
+    if (missing.length > 0) {
+      throw new Error(
+        `Required worker tool artifact source(s) for execution target ${params.toolPlatform} are missing: ${missing.join(", ")}`,
+      );
+    }
+  }
   for (const artifact of WORKER_TOOL_ARTIFACTS) {
     const { relativePath } = artifact;
     const targetPath = resolve(params.workerRepoRoot, relativePath);
+    if (crossPlatformTarget && existsOrSymlink(targetPath)) {
+      await rm(targetPath, { recursive: true, force: true });
+    }
     if (existsOrSymlink(targetPath)) {
       if (!existsSync(targetPath)) {
         await rm(targetPath, { recursive: true, force: true });
@@ -1109,6 +1298,9 @@ export async function seedWorkerToolArtifacts(params: {
       linked.push({ relativePath, sourcePath, targetPath });
     }
   }
+  if (existsSync(resolve(params.workerRepoRoot, "build/tools/wibo"))) {
+    installMwccCacheShim(params.workerRepoRoot);
+  }
   await writeFile(
     resolve(params.outputDir, "worker_worktree_tool_artifacts.json"),
     JSON.stringify(
@@ -1129,7 +1321,7 @@ export async function seedWorkerToolArtifacts(params: {
   );
 }
 
-function localWorkerConfigureToolPaths(workerRepoRoot: string): WorkerConfigureToolPaths {
+function localWorkerConfigureToolPaths(workerRepoRoot: string, toolPlatform: ToolPlatform): WorkerConfigureToolPaths {
   const relativePaths: Required<WorkerConfigureToolPaths> = {
     wrapper: "build/tools/wibo",
     binutils: "build/binutils",
@@ -1140,7 +1332,7 @@ function localWorkerConfigureToolPaths(workerRepoRoot: string): WorkerConfigureT
   };
   const toolPaths: WorkerConfigureToolPaths = {};
   for (const [key, relativePath] of Object.entries(relativePaths) as Array<[keyof WorkerConfigureToolPaths, string]>) {
-    if (key === "wrapper" && process.platform !== "linux" && process.platform !== "darwin") continue;
+    if (key === "wrapper" && !TOOL_PLATFORMS.includes(toolPlatform)) continue;
     if (existsSync(resolve(workerRepoRoot, relativePath))) toolPaths[key] = relativePath;
   }
   return toolPaths;
@@ -1292,6 +1484,7 @@ async function ensureWorkerWorktree(params: {
   configureCommand: string;
   reportArtifactSources: WorkerReportArtifactSource[];
   toolArtifactSources: WorkerToolArtifactSource[];
+  toolPlatform: ToolPlatform;
   dryRun: boolean;
 }): Promise<void> {
   await mkdir(params.outputDir, { recursive: true });
@@ -1308,6 +1501,7 @@ async function ensureWorkerWorktree(params: {
       workerRepoRoot: params.workerRepoRoot,
       outputDir: params.outputDir,
       sources: params.toolArtifactSources,
+      toolPlatform: params.toolPlatform,
     });
     return;
   }
@@ -1345,8 +1539,9 @@ async function ensureWorkerWorktree(params: {
     workerRepoRoot: params.workerRepoRoot,
     outputDir: params.outputDir,
     sources: params.toolArtifactSources,
+    toolPlatform: params.toolPlatform,
   });
-  const configureToolPaths = localWorkerConfigureToolPaths(params.workerRepoRoot);
+  const configureToolPaths = localWorkerConfigureToolPaths(params.workerRepoRoot, params.toolPlatform);
   await runWorkerConfigure({
     workerRepoRoot: params.workerRepoRoot,
     outputDir: params.outputDir,
@@ -1445,7 +1640,38 @@ function clampSummary(text: string, maxChars = 400): string {
   return trimmed.length <= maxChars ? trimmed : `${trimmed.slice(0, maxChars)}…`;
 }
 
+function liveConflictResolverConfig(globals: GlobalArgs, runId: string): WorkerOutputConflictResolverConfig {
+  return {
+    dryRun: globals.dryRunAgents,
+    project: projectMetadata(globals),
+    provider: globals.provider,
+    model: globals.model,
+    thinkingLevel: globals.thinkingLevel,
+    timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
+    runner: async (options) => {
+      const { executionContract, ...runnerOptions } = options;
+      const { runMeleeKernelPiAgent } = await import("@server/infrastructure/agent-runtime/kernel-pi-runner");
+      return runMeleeKernelPiAgent({
+        ...runnerOptions,
+        kernelContext: createMeleeKernelSpawnContext({
+          kind: "worker-integration",
+          projectId: globals.project?.projectId ?? globals.projectId,
+          sessionId: runId,
+          runId,
+          phase: "integration",
+          workingDir: options.cwd,
+          metadata: {
+            agentRole: "conflict-resolver",
+            sessionWorktreePath: executionContract.sessionWorktreePath,
+          },
+        }),
+      });
+    },
+  };
+}
+
 export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, string | true>): Promise<WorkerCycleResult> {
+  const toolPlatform = resolveToolPlatform();
   const store = openState(globals.stateDir);
   try {
     const runId = stringArg(args, "--run-id", getLatestRun(store)?.id ?? "");
@@ -1460,10 +1686,15 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const workerConfigureCommand = stringArg(args, "--worker-configure-command", "python3 configure.py --require-protos");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
+    const writeSetFlags = writeSetIntegrationFlags(args);
+    const writeSetWideningMode = writeSetFlags.writeSetWidening;
     const schedulerEpoch = activeSchedulerEpoch(store, runId);
     if (!schedulerEpoch) throw new Error(`No active epoch with admitted targets for session ${runId}`);
     const claimed = claimNextEpochTarget({ store, sessionId: runId, workerId, baseRev, ttlSeconds });
     if (!claimed) throw new Error(`No admitted epoch targets available for session ${runId}`);
+    let currentWriteSet = [...claimed.writeSet];
+    let currentEntries = [...claimed.writeSetEntries];
+    const wideningIds: string[] = [];
     const outputDir = resolve(globals.stateDir, "runs", runId, "worker_state", claimed.workerStateId);
     store.db.query("UPDATE worker_state SET artifact_dir = ? WHERE id = ?").run(outputDir, claimed.workerStateId);
     const workerRepoRoot = workerWorktreePath(globals, claimed.claimId, schedulerEpoch);
@@ -1475,7 +1706,8 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       outputDir,
       configureCommand: workerConfigureCommand,
       reportArtifactSources: reportArtifactSourcesForWorker({ store, runId, globals }),
-      toolArtifactSources: toolArtifactSourcesForWorker(globals),
+      toolArtifactSources: toolArtifactSourcesForWorker(globals, toolPlatform),
+      toolPlatform,
       dryRun: globals.dryRunAgents,
     });
     const claimWithWorktree = { ...claimed, worktreePath: workerRepoRoot };
@@ -1492,13 +1724,18 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     const workerAgentEnv = workerAgentToolEnvironment({ workerRepoRoot, shellBin: workerShellBin });
     const summaryPath = resolve(reportDir, "worker_state.json");
     const factsPath = resolve(reportDir, "facts.json");
-    const preAttemptDiffPath = resolve(validationDir, "pre_worker_write_set.diff");
-    const preAttemptDiff = await captureWriteSetDiff(workerRepoRoot, claimed.writeSet, preAttemptDiffPath);
+    let preAttemptDiffPath = resolve(validationDir, "pre_worker_write_set.diff");
+    let preAttemptDiff = await captureWriteSetDiff(workerRepoRoot, currentWriteSet, preAttemptDiffPath);
+    const preAttemptChangedPaths = await captureWorktreeChangedPaths(workerRepoRoot, resolve(validationDir, "pre_worker_changed_paths.txt"));
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
       outputDir: validationDir,
       target,
       dryRun: globals.dryRunAgents,
+      // Tracked paths already modified outside the write set (e.g. seeded
+      // report artifacts) join the QA snapshot so any worker edit to them is
+      // visible to the L1 QA lint diff.
+      extraPaths: preAttemptChangedPaths.filter((path) => !currentWriteSet.includes(path)),
     });
     const measuredBaselineScore = finiteNumber(workerChangeBaseline.snapshot?.targetScore);
     if (measuredBaselineScore !== null) {
@@ -1537,12 +1774,19 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     let contextRetryIndex = 0;
     const claimDeadlineMs = Date.parse(claimed.ttl);
     while (true) {
+      const currentPacket = {
+        ...packet,
+        target_claim: {
+          ...((packet.target_claim as Record<string, unknown> | undefined) ?? {}),
+          write_set: currentWriteSet,
+        },
+      };
       const attemptPacket = repairRequest
         ? {
-            ...packet,
+            ...currentPacket,
             repair_request: repairRequest,
           }
-        : packet;
+        : currentPacket;
       const sessionRetryIndex = transientSessionRetryCount;
       const contextBudget = workerPromptContextBudget(contextRetryIndex);
       appendWorkerActivityEvent(outputDir, {
@@ -1685,9 +1929,152 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       const agentNote = parsedAgentNote.note;
       const workerSessionTimedOut = isWorkerSessionTimeoutFailure(result);
       const postAttemptDiffPath = resolve(validationDir, `attempt-${attemptIndex}.write_set.diff`);
-      const postAttemptDiff = await captureWriteSetDiff(workerRepoRoot, claimed.writeSet, postAttemptDiffPath);
+      const postAttemptDiff = await captureWriteSetDiff(workerRepoRoot, currentWriteSet, postAttemptDiffPath);
       const writeSetDiffChanged = postAttemptDiff.stdout !== preAttemptDiff.stdout;
       const reviewLint = lintWorkerReviewDiff(postAttemptDiff.stdout);
+      const attemptChangedPathsPath = resolve(validationDir, `attempt-${attemptIndex}.changed_paths.txt`);
+      const attemptChangedPaths = await captureWorktreeChangedPaths(workerRepoRoot, attemptChangedPathsPath);
+      // Edits outside the write set are dropped from the banked patch, but must
+      // not stay invisible: extend the QA baseline snapshot so worker-level
+      // Python QA diffs them, and surface them below as a repair reason plus
+      // structured checkpoint evidence.
+      const outOfWriteSetChanges = collectOutOfWriteSetChanges({
+        changedPaths: attemptChangedPaths,
+        preAttemptChangedPaths,
+        writeSet: currentWriteSet,
+      });
+      if (outOfWriteSetChanges.length > 0) {
+        await extendWorkerChangeBaselineSourceSnapshot({
+          repoRoot: workerRepoRoot,
+          baseline: workerChangeBaseline,
+          extraPaths: outOfWriteSetChanges.map((change) => change.path),
+        });
+      }
+
+      let wideningDecision: WideningDecision | null = null;
+      let wideningDraftRequest: WideningRequest | null = null;
+      const wideningReasons: string[] = [];
+      let wideningRoutedCrossModule = false;
+      if (writeSetWideningMode !== "off") {
+        const parsedWidening = parseWorkerWideningRequest(agentNote);
+        if (parsedWidening.error) {
+          if (writeSetWideningMode !== "shadow") wideningReasons.push(`widening_denied: ${parsedWidening.error}`);
+        } else if (parsedWidening.request) {
+          const request = parsedWidening.request;
+          const wideningId = randomUUID();
+          createWriteSetWidening(store, {
+            id: wideningId,
+            sessionId: runId,
+            epochId: claimed.epochId,
+            targetClaimId: claimed.claimId,
+            workerStateId: claimed.workerStateId,
+            attemptIndex,
+            request,
+          });
+          wideningDecision = decideWidening({
+            request,
+            sourcePath: String(target.source_path ?? ""),
+            wideningId,
+            allowOwningHeader: writeSetWideningMode === "shadow" || writeSetWideningMode === "header",
+            headerDeclaresEvidenceSymbol: await headerDeclaresEvidenceSymbol(workerRepoRoot, request),
+          });
+          recordWriteSetWideningDecision(store, wideningId, wideningDecision);
+
+          if (shouldApplyWideningDecision(writeSetWideningMode, wideningDecision)) {
+            const newPaths = wideningDecision.approvedPaths.filter((path) => !currentWriteSet.includes(path));
+            if (newPaths.length > 0) {
+              const entries: WriteSetEntry[] = newPaths.map((path) => ({
+                path,
+                category: request.category,
+                rung: request.rung,
+                addedBy: "widening",
+                wideningId,
+              }));
+              const widened = widenClaimWriteSet(store, claimed.claimId, entries);
+              currentWriteSet = widened.writeSet;
+              currentEntries = widened.entries;
+              wideningIds.push(wideningId);
+
+              // The validation module's scope-following widening hook lands in
+              // parallel. Until it is importable, extend the source snapshot so
+              // QA sees the newly authorized paths; do not run a full build here.
+              await extendWorkerChangeBaselineSourceSnapshot({
+                repoRoot: workerRepoRoot,
+                baseline: workerChangeBaseline,
+                extraPaths: newPaths,
+              });
+              preAttemptDiffPath = resolve(validationDir, `attempt-${attemptIndex}.pre_widening_write_set.diff`);
+              preAttemptDiff = await captureWriteSetDiff(workerRepoRoot, currentWriteSet, preAttemptDiffPath);
+
+              const continuationReason = `write_set_widened: approved ${newPaths.join(", ")} at rung ${request.rung}; scoped validation tier ${wideningDecision.validationTier} applies`;
+              const repairFeedbackPath = resolve(validationDir, `attempt-${attemptIndex}.widening_continuation.json`);
+              repairRequest = {
+                attempt: attemptIndex + 1,
+                previous_agent_output_path: result.outputPath,
+                previous_post_attempt_diff_path: postAttemptDiffPath,
+                reasons: [continuationReason],
+                widening_decision: wideningDecision,
+                write_set: currentWriteSet,
+                instruction:
+                  `Your approved write set now includes ${newPaths.join(", ")} under category ${request.category}. ` +
+                  `Make the canonical fix, remove any local shim used to work around it, and return a validation-ready handoff. ` +
+                  `The runner will apply scope-following tier ${wideningDecision.validationTier} checks; no per-attempt full build is permitted.`,
+              };
+              await writeFile(repairFeedbackPath, JSON.stringify(repairRequest, null, 2));
+              addEvent(store, runId, "write_set_widened" as Parameters<typeof addEvent>[2], "worker", {
+                worker_state_id: claimed.workerStateId,
+                target_claim_id: claimed.claimId,
+                widening_id: wideningId,
+                paths: newPaths,
+                category: request.category,
+                rung: request.rung,
+              });
+              appendWorkerActivityEvent(outputDir, {
+                claim_id: claimed.claimId,
+                session_id: result.sessionId,
+                attempt_index: attemptIndex,
+                phase: "repair_request",
+                event_type: "write_set_widened",
+                unit: targetUnit,
+                symbol: targetSymbol,
+                summary: continuationReason,
+                artifact_path: repairFeedbackPath,
+              });
+              attemptIndex += 1;
+              transientSessionRetryCount = 0;
+              continue;
+            }
+          } else if (writeSetWideningMode !== "shadow") {
+            const reason = wideningDecisionRepairReason(wideningDecision);
+            if (reason) wideningReasons.push(reason);
+            if (wideningDecision.status === "routed_cross_module") {
+              wideningRoutedCrossModule = true;
+              addEvent(store, runId, "widening_routed_cross_module" as Parameters<typeof addEvent>[2], "worker", {
+                worker_state_id: claimed.workerStateId,
+                target_claim_id: claimed.claimId,
+                widening_id: wideningId,
+                request,
+                decision: wideningDecision,
+              });
+            }
+          }
+        }
+        if (
+          (writeSetWideningMode === "config" || writeSetWideningMode === "header") &&
+          agentNote?.widening_request == null &&
+          outOfWriteSetChanges.length > 0
+        ) {
+          wideningDraftRequest = draftWideningRequestFromOutOfWriteSet(
+            outOfWriteSetChanges,
+            String(target.source_path ?? ""),
+          );
+          if (wideningDraftRequest) {
+            wideningReasons.push(
+              "widening_request_required: justify the surfaced cross-file edit by completing the attached widening_request draft, or revert it",
+            );
+          }
+        }
+      }
 
       if (!shouldRunRunnerValidationForWorkerSession(result)) {
         const contextRetryDecision = workerPiContextRetryDecision({
@@ -1840,13 +2227,14 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
           }),
           writeSetDiffChanged,
+          outOfWriteSetChanges,
           postAttemptDiffPath,
         };
         break;
       }
 
       const shouldRunRunnerValidation = shouldRunRunnerValidationForWorkerSession(result);
-      const changeValidation = await validateWorkerChange({
+      const targetChangeValidation = await validateWorkerChange({
         repoRoot: workerRepoRoot,
         outputDir: validationDir,
         attemptIndex,
@@ -1856,6 +2244,27 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         shouldRun: shouldRunRunnerValidation,
         claimedExact: true,
       });
+      const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")
+        ? await validateWidenedChange({
+            validation: targetChangeValidation,
+            repoRoot: workerRepoRoot,
+            outputDir: validationDir,
+            attemptIndex,
+            targetSourcePath: String(target.source_path ?? ""),
+            writeSetEntries: currentEntries,
+            baseRev,
+            runStateDir: resolve(globals.stateDir, "runs", runId),
+          })
+        : targetChangeValidation;
+      if (changeValidation.scopedChecks?.status !== undefined && changeValidation.scopedChecks.status !== "skipped") {
+        const status = changeValidation.scopedChecks.status === "passed" ? "validated" : "validation_failed";
+        for (const wideningId of wideningIds) {
+          recordWriteSetWideningValidation(store, wideningId, {
+            status,
+            evidence: { ...changeValidation.scopedChecks },
+          });
+        }
+      }
       const postReturnCheck = await runPostReturnCheck({
         commandTemplate: postReturnCheckCommand,
         dryRun: globals.dryRunAgents,
@@ -1863,7 +2272,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         stateDir: globals.stateDir,
         workerLogDir: outputDir,
         claimId: claimed.claimId,
-        writeSet: claimed.writeSet,
+        writeSet: currentWriteSet,
         target,
         outputDir,
         attemptIndex,
@@ -1889,6 +2298,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         artifactPath: runnerValidation.summaryPath ?? null,
         patchPath: postAttemptDiffPath,
         diffPath: postAttemptDiffPath,
+        writeSet: currentWriteSet,
         failureReasons: runnerValidation.reasons,
         metadata: {
           agent_output_path: result.outputPath,
@@ -1898,6 +2308,18 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
           post_return_check: runnerValidation.postReturnCheck ?? null,
           worker_session_timed_out: workerSessionTimedOut,
           write_set_diff_changed: writeSetDiffChanged,
+          write_set_entries: currentEntries,
+          widening_ids: wideningIds,
+          widening_decision: wideningDecision,
+          widening_request_draft: wideningDraftRequest,
+          widened_validation: runnerValidation.scopedChecks ?? null,
+          // Structured evidence of edits the banked patch drops; the category
+          // counts feed the future write-set-widening design.
+          out_of_write_set_changes: {
+            paths: outOfWriteSetChanges,
+            count: outOfWriteSetChanges.length,
+            categories: outOfWriteSetCategoryCounts(outOfWriteSetChanges),
+          },
         },
       });
       appendWorkerActivityEvent(outputDir, {
@@ -1936,14 +2358,23 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
           : undefined,
         artifact_path: runnerValidation.summaryPath,
       });
-      const repairReasons = workerAttemptRepairReasons({ writeSetDiffChanged, runnerValidation, reviewLint });
-      const continuationDecision = workerContinuationDecision({
+      const repairReasons = workerAttemptRepairReasons({ runnerValidation, reviewLint, outOfWriteSetChanges, wideningReasons });
+      const policyContinuationDecision = workerContinuationDecision({
         attemptIndex,
         checkpoints: workerCheckpointsForWorkerState(store, claimed.workerStateId),
         repairReasons,
         dryRun: result.dryRun,
         claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
       });
+      const continuationDecision: WorkerContinuationDecision = wideningRoutedCrossModule
+        ? {
+            ...policyContinuationDecision,
+            shouldContinue: false,
+            exhausted: false,
+            stopReason: "widening_routed_cross_module",
+            continueReason: null,
+          }
+        : policyContinuationDecision;
       const attemptGatePath = resolve(validationDir, `attempt-${attemptIndex}.return_gate.json`);
       const evaluation: WorkerAttemptEvaluation = {
         result,
@@ -1953,6 +2384,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         repairReasons,
         continuationDecision,
         writeSetDiffChanged,
+        outOfWriteSetChanges,
         postAttemptDiffPath,
       };
       await writeFile(
@@ -1975,10 +2407,18 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             agent_note_status: recordString(agentNote?.status) || null,
             runner_validation: runnerValidation,
             review_lint: reviewLint,
+            widening: {
+              mode: writeSetWideningMode,
+              decision: wideningDecision,
+              request_draft: wideningDraftRequest,
+            },
             write_set_diff: {
               baseline_path: preAttemptDiffPath,
               post_attempt_path: postAttemptDiffPath,
               changed_from_pre_worker: writeSetDiffChanged,
+              changed_paths_path: attemptChangedPathsPath,
+              out_of_write_set_changes: outOfWriteSetChanges,
+              out_of_write_set_categories: outOfWriteSetCategoryCounts(outOfWriteSetChanges),
             },
             repair_reasons: repairReasons,
           },
@@ -1993,7 +2433,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       const repairFeedbackPath = resolve(validationDir, `attempt-${attemptIndex}.repair_request.json`);
       const repairInstruction =
         continuationDecision.continueReason === "gate_failed_exact_repair"
-          ? "The runner measured an exact target score, but hard gates failed, so this is a bounded gate-repair continuation. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom (owning-header declarations, project assert/report macros, established inline helpers — not banned pragmas, .c externs, or open-coded asserts). If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff — if no gate-clean improvement is possible, state that in your note's blockers (e.g. 'exact requires banned pattern X') so the runner can close the target. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands."
+          ? "The runner measured an exact target score, but hard gates failed, so this is a bounded gate-repair continuation. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set (project assert/report macros, established inline helpers — not banned pragmas, .c externs, or open-coded asserts). If the canonical fix is a cross-file edit — a declaration in the owning header, a symbols.txt/splits.txt change — you cannot ship it: edits outside your write set are silently dropped at patch capture, so do not shim around it locally; state that in your note's blockers instead. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff — if no gate-clean improvement is possible, state that in your note's blockers (e.g. 'exact requires banned pattern X' or 'exact requires cross-file edit to <path>') so the runner can close the target. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands."
           : "The runner checkpointed the current worktree under the bounded attempt-tail policy, but the checkpoint is not yet acceptable. Fix the runner-listed validation/review-lint issues; a validated, gate-clean improvement will be banked immediately and the worker closed. Keep retained useful edits, preserve pre-existing dirty work, and return a compact validation-ready JSON note when you want the runner to checkpoint again. Do not use whole-file destructive reset/restore/checkout/clean commands.";
       repairRequest = {
         attempt: attemptIndex + 1,
@@ -2002,6 +2442,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         previous_post_attempt_diff_path: postAttemptDiffPath,
         reasons: repairReasons,
         continuation_policy: continuationDecision,
+        ...(shouldExposeWideningDecisionToWorker(writeSetWideningMode)
+          ? { widening_decision: wideningDecision, widening_request: wideningDraftRequest }
+          : {}),
         instruction: repairInstruction,
       };
       evaluation.repairFeedbackPath = repairFeedbackPath;
@@ -2073,7 +2516,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       worker_state_id: claimed.workerStateId,
       worker_id: claimed.workerId,
       target,
-      write_set: claimed.writeSet,
+      write_set: currentWriteSet,
+      write_set_entries: currentEntries,
+      widening_ids: wideningIds,
       baseline: {
         kind: "worker_baseline",
         status: workerChangeBaseline.status,
@@ -2107,6 +2552,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         stop_reason: finalEvaluation.continuationDecision.stopReason,
         unresolved_repair_reasons: finalEvaluation.repairReasons.length > 0,
         latest_reasons: finalEvaluation.repairReasons,
+        out_of_write_set_changes: finalEvaluation.outOfWriteSetChanges,
         latest_write_set_diff_path: finalEvaluation.postAttemptDiffPath,
         repair_feedback_path: finalEvaluation.repairFeedbackPath ?? null,
       },
@@ -2161,17 +2607,20 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         targetKey: `${targetUnit}::${targetSymbol}`,
         patchPath: bestCheckpoint.patchPath,
         diffPath: bestCheckpoint.diffPath,
-        writeSet: claimed.writeSet,
+        writeSet: bestCheckpoint.writeSet.length > 0 ? bestCheckpoint.writeSet : currentWriteSet,
         metadata: {
           lifecycle_status: lifecycleStatus,
           exact: Boolean(bestCheckpoint.exactMatch),
           worker_state_summary_path: summaryPath,
           worker_worktree_path: workerRepoRoot,
+          widening_ids: wideningIds,
           target,
         },
       });
       const queue = await processWorkerOutputIntegrationQueue({
+        conflictResolver: writeSetFlags.mergeOnFinish ? liveConflictResolverConfig(globals, runId) : undefined,
         dryRun: globals.dryRunAgents,
+        mergeOnFinish: writeSetFlags.mergeOnFinish,
         repoRoot: globals.repoRoot,
         sessionId: runId,
         stateDir: globals.stateDir,
@@ -2202,7 +2651,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       workerStateId: claimed.workerStateId,
       epochTargetId: claimed.epochTargetId,
       target: claimed.targetId,
-      writeSet: claimed.writeSet,
+      writeSet: currentWriteSet,
       workerOutput: result.outputPath,
       workerSystemPrompt: result.systemPromptPath,
       workerUserPrompt: result.userPromptPath,
@@ -2225,13 +2674,11 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
 }
 
 export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resourceGraphDbPath()): Record<string, unknown> {
-  const pathFacts = sourcePath ? resolvePathFactsContext(sourcePath, 5) : null;
   const lookupTools = [...defaultWorkerToolProfile];
   if (!sourcePath) {
     return {
       status: "missing_source_path",
       graph_db: graphDb,
-      path_facts: { source: "path_facts", status: "missing_source_path" },
       lookup_tools: lookupTools,
     };
   }
@@ -2239,7 +2686,6 @@ export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resour
     return {
       status: "graph_missing",
       graph_db: graphDb,
-      path_facts: pathFacts,
       lookup_tools: lookupTools,
     };
   }
@@ -2250,7 +2696,6 @@ export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resour
       graph_db: graphDb,
       generated_at: new Date().toISOString(),
       file_card: fileGraphCard(store, sourcePath),
-      path_facts: pathFacts,
       lookup_tools: lookupTools,
     };
   } catch (error) {
@@ -2258,7 +2703,6 @@ export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resour
       status: "failed",
       graph_db: graphDb,
       reason: error instanceof Error ? error.message : String(error),
-      path_facts: pathFacts,
       lookup_tools: lookupTools,
     };
   } finally {

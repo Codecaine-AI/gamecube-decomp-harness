@@ -14,6 +14,8 @@ export interface WorkerReviewLint {
 
 const DIFF_FILE_RE = /^diff --git a\/(.+?) b\/(.+)$/;
 const ADDED_DEFINE_ALIAS_RE = /^\+\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)\b(?!\s*\()\s+([A-Za-z_][A-Za-z0-9_]*)\b\s*(?:$|\/\/|\/\*)/;
+const ADDED_FUNCTION_DEFINE_RE = /^\+\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s*(.*)$/;
+const ADDRESS_STYLE_GLOBAL_RE = /\b[A-Za-z_][A-Za-z0-9_]*_8[0-9A-Fa-f]{7}\b/g;
 const ADDRESS_EXTERN_RE = /^([ +])\s*\/\*\s*(?:0x)?([0-9A-Fa-f]{6,8})\s*\*\/\s*extern\b.*?\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[.*\])?\s*;/;
 const C_STRING_LITERAL_RE = /"(?:(?:\\.)|[^"\\])*"/g;
 const IDENTIFIER_EXPR_RE = "(?:\\(\\s*(?:const\\s+)?(?:char|void)\\s*\\*+\\s*\\)\\s*)?([A-Za-z_][A-Za-z0-9_]*)";
@@ -30,6 +32,14 @@ interface RemovedStringLine {
   evidence: string;
 }
 
+interface PendingFunctionDefine {
+  name: string;
+  params: string;
+  body: string;
+  evidence: string;
+  reported: boolean;
+}
+
 export function lintWorkerReviewDiff(diffText: string): WorkerReviewLint {
   if (!diffText.trim()) {
     return { status: "skipped", reasons: ["empty write_set diff"], findings: [] };
@@ -39,19 +49,25 @@ export function lintWorkerReviewDiff(diffText: string): WorkerReviewLint {
   const externsByPath = new Map<string, AddressExtern[]>();
   let removedStringLines: RemovedStringLine[] = [];
   let currentPath = "";
+  let pendingFunctionDefine: PendingFunctionDefine | null = null;
 
   for (const line of diffText.split(/\r?\n/)) {
     const fileMatch = DIFF_FILE_RE.exec(line);
     if (fileMatch) {
       currentPath = fileMatch[2];
       removedStringLines = [];
+      pendingFunctionDefine = null;
       continue;
     }
     if (!currentPath) continue;
     if (line.startsWith("@@")) {
       removedStringLines = [];
+      pendingFunctionDefine = null;
       continue;
     }
+
+    const isAddedLine = line.startsWith("+") && !line.startsWith("+++");
+    if (!isAddedLine) pendingFunctionDefine = null;
 
     if (line.startsWith("-") && !line.startsWith("---")) {
       const body = line.slice(1);
@@ -59,6 +75,35 @@ export function lintWorkerReviewDiff(diffText: string): WorkerReviewLint {
         removedStringLines.push({ body, evidence: body.trim() });
       }
       continue;
+    }
+
+    if (isAddedLine) {
+      if (pendingFunctionDefine) {
+        const continuation = line.slice(1);
+        pendingFunctionDefine.body += `\n${continuation}`;
+        pendingFunctionDefine.evidence += `\n${continuation.trim()}`;
+        const target = functionLikeMacroTarget(pendingFunctionDefine.name, pendingFunctionDefine.params, pendingFunctionDefine.body);
+        if (target && !pendingFunctionDefine.reported) {
+          findings.push(functionLikeMacroFinding(currentPath, pendingFunctionDefine.name, target, pendingFunctionDefine.evidence));
+          pendingFunctionDefine.reported = true;
+        }
+        if (!line.trimEnd().endsWith("\\")) pendingFunctionDefine = null;
+      } else {
+        const functionDefineMatch = ADDED_FUNCTION_DEFINE_RE.exec(line);
+        if (functionDefineMatch && !isFunctionLikeMacroExempt(functionDefineMatch[1])) {
+          const name = functionDefineMatch[1];
+          const evidence = line.slice(1).trim();
+          const params = functionDefineMatch[2];
+          const target = functionLikeMacroTarget(name, params, functionDefineMatch[3]);
+          const reported = Boolean(target);
+          if (target) {
+            findings.push(functionLikeMacroFinding(currentPath, name, target, evidence));
+          }
+          if (line.trimEnd().endsWith("\\")) {
+            pendingFunctionDefine = { name, params, body: functionDefineMatch[3], evidence, reported };
+          }
+        }
+      }
     }
 
     const defineMatch = ADDED_DEFINE_ALIAS_RE.exec(line);
@@ -167,4 +212,78 @@ function codeFragmentPattern(fragment: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
+function isFunctionLikeMacroExempt(name: string): boolean {
+  return name === "M2C_FIELD" || /_(?:ABS|MIN|MAX|CLAMP)$/.test(name);
+}
+
+function functionLikeMacroTarget(name: string, params: string, body: string): string | null {
+  const code = stripCommentsAndStrings(body);
+  if (new RegExp(`\\b${escapeRegExp(name)}\\b`).test(code)) return name;
+  ADDRESS_STYLE_GLOBAL_RE.lastIndex = 0;
+  for (const match of code.matchAll(ADDRESS_STYLE_GLOBAL_RE)) {
+    if (match[0] !== name) return match[0];
+  }
+  const paramNames = new Set(
+    params
+      .split(",")
+      .map((param) => param.trim())
+      .filter((param) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(param)),
+  );
+  for (const match of code.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) {
+    const target = match[1];
+    if (target !== name && !paramNames.has(target) && !C_KEYWORDS.has(target)) return target;
+  }
+  return null;
+}
+
+const C_KEYWORDS = new Set(["if", "for", "while", "switch", "sizeof", "return"]);
+
+function stripCommentsAndStrings(source: string): string {
+  const chars = source.split("");
+  for (let index = 0; index < source.length; ) {
+    const char = source[index];
+    const next = source[index + 1] ?? "";
+    if (char === "/" && next === "/") {
+      let end = source.indexOf("\n", index);
+      if (end < 0) end = source.length;
+      for (let cursor = index; cursor < end; cursor += 1) chars[cursor] = " ";
+      index = end;
+    } else if (char === "/" && next === "*") {
+      const close = source.indexOf("*/", index + 2);
+      const end = close < 0 ? source.length : close + 2;
+      for (let cursor = index; cursor < end; cursor += 1) {
+        if (source[cursor] !== "\n") chars[cursor] = " ";
+      }
+      index = end;
+    } else if (char === '"' || char === "'") {
+      const quote = char;
+      index += 1;
+      while (index < source.length && source[index] !== quote) {
+        if (source[index] === "\\" && index + 1 < source.length) {
+          if (source[index] !== "\n") chars[index] = " ";
+          if (source[index + 1] !== "\n") chars[index + 1] = " ";
+          index += 2;
+        } else {
+          if (source[index] !== "\n") chars[index] = " ";
+          index += 1;
+        }
+      }
+      index += 1;
+    } else {
+      index += 1;
+    }
+  }
+  return chars.join("");
+}
+
+function functionLikeMacroFinding(path: string, name: string, target: string, evidence: string): WorkerReviewLintFinding {
+  return {
+    ruleId: "no-define-alias-global-renames",
+    severity: "error",
+    path,
+    evidence,
+    message: `Function-like macro ${name} re-declares/aliases global symbol ${target} (prototype-shim shape); fix the owning header instead.`,
+  };
 }

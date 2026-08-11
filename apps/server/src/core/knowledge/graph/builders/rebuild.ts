@@ -1,10 +1,13 @@
 import { buildAgentSharedStateGraphRecords } from "./agent-shared-state.js";
+import { buildCallGraphEdgeRecords } from "./call-graph-edges.js";
 import { buildCodeGraphRecords } from "./code-graph.js";
 import { insertGraphRecords, openKnowledgeGraph, resetKnowledgeGraph, upsertSourceDescriptor, upsertToolDescriptor, graphStats } from "../db.js";
 import { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
 import { buildMismatchPatternGraphRecords } from "./mismatch-patterns.js";
 import { buildOpseqSimilarityGraphRecords } from "./opseq-similarity.js";
 import { buildPastPrsGraphRecords } from "./past-prs.js";
+import { buildLearningsGraphRecords } from "./learnings.js";
+import { buildSiblingGraphRecords } from "./siblings.js";
 import {
   buildDiscordKnowledgeGraphRecords,
   buildDecompStandardsGraphRecords,
@@ -99,6 +102,33 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
         skippedSources.push("opseq_similarity");
       }
     }
+    if (selected.has("call_graph")) {
+      const records = buildCallGraphEdgeRecords(options.repoRoot);
+      if (records) {
+        insertGraphRecords(store, records);
+        indexedSources.push("call_graph");
+      } else {
+        skippedSources.push("call_graph");
+      }
+    }
+    if (selected.has("siblings")) {
+      const records = buildSiblingGraphRecords(options.repoRoot);
+      if (records) {
+        insertGraphRecords(store, records);
+        indexedSources.push("siblings");
+      } else {
+        skippedSources.push("siblings");
+      }
+    }
+    if (selected.has("knowledge_ledger")) {
+      const records = buildLearningsGraphRecords({ repoRoot: options.repoRoot });
+      if (records) {
+        insertGraphRecords(store, records);
+        indexedSources.push("knowledge_ledger");
+      } else {
+        skippedSources.push("knowledge_ledger");
+      }
+    }
 
     return {
       graph_db: store.path,
@@ -118,12 +148,13 @@ export function defaultGraphSources(): string[] {
   return [
     "code_graph",
     "past_prs",
-    "powerpc_docs",
     "decomp_standards",
-    "path_facts",
     "agent_shared_state",
     "curator_enrichment",
     "mismatch_patterns",
     "opseq_similarity",
+    "call_graph",
+    "siblings",
+    "knowledge_ledger",
   ];
 }

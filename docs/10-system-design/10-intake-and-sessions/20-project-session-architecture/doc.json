@@ -19,7 +19,6 @@
         ]
       },
       "children": [
-        "b-75-project-session-architecture-project-session-architec-1",
         "b-75-project-session-architecture-project-scoped-session-a-2",
         "b-75-project-session-architecture-this-is-the-target-archi-3",
         "b-75-project-session-architecture-top-level-shape-4",
@@ -111,19 +110,6 @@
         "b-75-project-session-architecture-whether-pr-mode-should-a-90",
         "b-75-project-session-architecture-only-named-fixer-reviewe-91"
       ]
-    },
-    "b-75-project-session-architecture-project-session-architec-1": {
-      "id": "b-75-project-session-architecture-project-session-architec-1",
-      "type": "heading",
-      "props": {
-        "level": 1
-      },
-      "text": [
-        {
-          "insert": "Project Session Architecture Mockup"
-        }
-      ],
-      "children": []
     },
     "b-75-project-session-architecture-project-scoped-session-a-2": {
       "id": "b-75-project-session-architecture-project-scoped-session-a-2",
@@ -380,7 +366,18 @@
                                     "text": "worker states"
                                   },
                                   {
-                                    "text": "checkpoints"
+                                    "text": "checkpoints",
+                                    "steps": [
+                                      {
+                                        "text": "tentative"
+                                      },
+                                      {
+                                        "text": "confirmed"
+                                      },
+                                      {
+                                        "text": "regressed"
+                                      }
+                                    ]
                                   },
                                   {
                                     "text": "artifacts"
@@ -388,7 +385,15 @@
                                 ]
                               },
                               {
-                                "text": "boundary checkpoint"
+                                "text": "boundary confirmation",
+                                "steps": [
+                                  {
+                                    "text": "clean global comparison confirms the tentative window"
+                                  },
+                                  {
+                                    "text": "regression blame reverts and marks the guilty integration regressed"
+                                  }
+                                ]
                               },
                               {
                                 "text": "repair routing"
@@ -406,7 +411,7 @@
                     "text": "PR mode",
                     "steps": [
                       {
-                        "text": "ship set"
+                        "text": "confirmed ship set"
                       },
                       {
                         "text": "split plan",
@@ -1149,10 +1154,13 @@
                 "text": "session branch",
                 "steps": [
                   {
-                    "text": "run mode accumulates verified worker changes"
+                    "text": "run mode accumulates scoped-validated tentative integrations in session ancestry"
                   },
                   {
-                    "text": "PR mode derives draft PR branches from verified slices",
+                    "text": "epoch boundaries confirm clean integrations or revert and regress the blamed change"
+                  },
+                  {
+                    "text": "PR mode derives draft PR branches from confirmed slices",
                     "steps": [
                       {
                         "text": "draft PR branch A"
@@ -1179,7 +1187,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The session branch is the workbench for the whole session. Run mode writes\nthere under epoch, claim, and score-gate rules. PR mode does not keep adding\nnew autonomous run work; it packages the verified part of that branch into\nreviewable local PR worktrees first. Only an explicit bounded publication batch\npushes local-ready PR objects as GitHub drafts; the remaining local PRs stay\nprivate and keep their validation/repair state until the operator chooses the\nnext batch. Draft branches then stay aligned during QA and human review."
+          "insert": "The session branch is the workbench for the whole session. Run mode writes\nthere under epoch, claim, and score-gate rules. The --merge-on-finish flag\ndefaults off. When enabled, each hard-gate-passing worker result is applied\nserially into the branch as a tentative integration, so later workers inherit\nthat session ancestry. A merge conflict routes to the conflict-resolver agent;\nan unresolved conflict remains operator-visible. The epoch boundary confirms a\nclean tentative window or attributes a regression, reverts the guilty change,\nand marks it regressed. PR mode does not keep adding new autonomous run work; it\npackages only the confirmed part of the branch into reviewable local PR\nworktrees first. Only an explicit bounded publication batch pushes local-ready\nPR objects as GitHub drafts; the remaining local PRs stay private and keep their\nvalidation/repair state until the operator chooses the next batch. Draft\nbranches then stay aligned during QA and human review."
         }
       ],
       "children": []
@@ -1221,8 +1229,32 @@
                 "text": "workers run target claims"
               },
               {
-                "text": "epoch checkpoint and refresh",
+                "text": "workers finish with scoped validation",
                 "steps": [
+                  {
+                    "text": "passing changes bank as tentative"
+                  },
+                  {
+                    "text": "--merge-on-finish applies them serially when enabled; the flag defaults off",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "conflicts route through the conflict-resolver agent to operator-visible fallback",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "epoch confirmation and refresh",
+                "steps": [
+                  {
+                    "text": "clean global comparison confirms the tentative window",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "regression blame reverts and marks the guilty integration regressed",
+                    "kind": "note"
+                  },
                   {
                     "text": "continue running while bounds allow — loops back to `epoch admitted`",
                     "kind": "note"
@@ -1241,7 +1273,7 @@
             "text": "PR mode active",
             "steps": [
               {
-                "text": "split ship set into PR slices"
+                "text": "split the confirmed ship set into PR slices"
               },
               {
                 "text": "run QA and preship review"
@@ -1649,7 +1681,7 @@
       },
       "text": [
         {
-          "insert": "What did the last boundary checkpoint prove?"
+          "insert": "Which tentative integrations did the last boundary confirm or regress?"
         }
       ],
       "children": []
@@ -1823,7 +1855,7 @@
       },
       "text": [
         {
-          "insert": "PR slices belong to PR mode and are derived from the completed run summary."
+          "insert": "PR slices belong to PR mode and are derived only from the completed run's\nconfirmed ship set."
         }
       ],
       "children": []

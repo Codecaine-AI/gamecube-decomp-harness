@@ -116,11 +116,10 @@ export interface WorkerStateTrace extends JsonObject {
 export type PromptPreviewAgentId =
   | "worker"
   | "integration-resolver"
-  | "pr-indexer"
   | "pr-reviewer"
   | "pr-fixer"
   | "pr-splitter"
-  | "knowledge-curator"
+  | "librarian"
   | "reconcile"
   | "qa-repair";
 export type PromptPreviewSource = "latest" | "sample";

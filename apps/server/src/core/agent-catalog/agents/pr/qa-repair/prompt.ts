@@ -9,6 +9,7 @@ import {
   usesContext,
 } from "@codecaine-ai/prompt-kit";
 import type { PiPromptBundle } from "@server/core/shared/types";
+import type { WideningRequest } from "@server/core/session-runtime/run-state/write-set-categories";
 import {
   buildQaRepairKernelContext,
   QA_REPAIR_TURN_PROMPT,
@@ -48,7 +49,38 @@ export interface QaRepairAgentResult {
     reason: string;
   }>;
   risks: string[];
+  widening_request?: WideningRequest;
 }
+
+const QA_REPAIR_WIDENING_REQUEST_EXAMPLE = JSON.stringify(
+  {
+    schema_version: "write_set_widening_request_v1",
+    paths: ["include/melee/example.h"],
+    category: "owning-header",
+    rung: 3,
+    evidence: {
+      mismatched_declaration: {
+        symbol: "Example_80000000",
+        current: "void Example_80000000(void*);",
+        required: "void Example_80000000(HSD_GObj*);",
+        expected_owner: "include/melee/example.h",
+      },
+      objdiff: {
+        unit: "melee/example",
+        score_without: 96.5,
+        score_with: null,
+        artifact_path: "artifacts/example.objdiff.json",
+      },
+      ladder_evidence: {
+        rung1_in_slice: "Describe the in-slice typing attempted and its measured result.",
+        rung2_config: "For rung 3+, explain why config metadata cannot fix the mismatch.",
+        rung3_header: "For rung 4, explain why the owning-header repair cannot fix it.",
+      },
+    },
+  },
+  null,
+  2,
+);
 
 function agentFilePath(): string {
   return fileURLToPath(new URL("./agent.ts", import.meta.url));
@@ -78,7 +110,7 @@ export const prompt = definePrompt({
       usesContext("qa-repair-item", {
         instructions: [
           "Use the injected queue item, available tools, source path, lane, findings, proofs, and repair task as the authoritative repair packet.",
-          "Fix only the source file and findings named in the queue item. Do not edit headers; if a repair requires a header change, leave the finding with evidence and report the blocker.",
+          "The target translation unit is the motivation and review scope. Edit only its source_path plus paths explicitly listed in authorized_write_set; a requested path is not authorized until the runner adds it there.",
         ],
       }),
       usesContext("qa-repair-queue-summary", {
@@ -90,6 +122,18 @@ export const prompt = definePrompt({
           "Treat standard examples as pattern-specific repair guidance, not as permission to edit unrelated code.",
         ],
       }),
+    ]),
+    section("write_set_ladder", [
+      "Write-set widening is gated. A widening_request is honored only when widening is enabled. Until the runner returns authorization in <qa_repair_item>.authorized_write_set, keep every requested path unchanged.",
+      orderedList([
+        "Rung 1 — target-source: repair the target source only. Before requesting any widening, try typing the in-slice code to master's existing foreign declarations and types, then record the measured objdiff result.",
+        "Rung 2 — config-metadata: request only the project symbols.txt or splits.txt entry needed for an address-range ownership mismatch, with evidence that rung 1 failed.",
+        "Rung 3 — owning-header: request the single header that owns the mismatched declaration or type, with evidence that rungs 1 and 2 cannot produce the canonical repair.",
+        "Rung 4 — foreign-source: request the foreign .c definition only after the lower rungs fail. This request is routed to the operator lane; if it is not authorized, keep the best in-slice repair and report the concrete blocker.",
+      ]),
+      "Never add local shims—aliases, local prototypes, or include-macro rewrites—as a substitute for a canonical widening request. A header dependency is not itself a blocker: use rung 3 when enabled and reserve a widening-related blocked outcome for a rung-4 request that is denied or remains unrouted.",
+      "When widening is required, include widening_request in the same JSON result, alongside the normal output-contract fields, using this shape:",
+      QA_REPAIR_WIDENING_REQUEST_EXAMPLE,
     ]),
     section("definition_of_done", [
       "Return exactly one JSON object following the injected output contract.",
@@ -107,7 +151,7 @@ export const prompt = definePrompt({
     section("rules", [
       orderedList([
         "Return JSON only; no Markdown outside the JSON object.",
-        "Fix only the source file and findings named in the queue item. Header edits are outside this repair lane and will be rolled back; report a header dependency as evidence instead.",
+        "Work only on the current target translation unit and its findings. Edit the target source plus authorized_write_set paths only, and follow the gated four-rung ladder before requesting another path.",
         "Do not preserve exactness by retaining `register`, inline asm, `M2C_FIELD`, generated labels, fake assert macros, extern-literal anchors, packed string blobs, define aliases, or other listed QA violations.",
         "Prefer project idioms already present in nearby source: existing field names, helpers, HSD_ASSERT/HSD_ASSERTMSG forms, canonical macros, and typed accesses.",
         "Treat `<standard_examples>` as pattern-specific repair guidance, not as permission to edit unrelated code.",
@@ -199,6 +243,99 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function wideningRequestValue(value: unknown): { request?: WideningRequest; errors: string[] } {
+  if (value === undefined) return { errors: [] };
+  if (!isRecord(value)) return { errors: ["widening_request must be an object"] };
+
+  const errors: string[] = [];
+  if (value.schema_version !== "write_set_widening_request_v1") {
+    errors.push("widening_request.schema_version must be write_set_widening_request_v1");
+  }
+  const rawPaths = value.paths;
+  const paths = stringArray(rawPaths).filter(Boolean);
+  if (!Array.isArray(rawPaths) || paths.length === 0 || paths.length !== rawPaths.length) {
+    errors.push("widening_request.paths must be a non-empty string array");
+  }
+  const category = stringValue(value.category);
+  const rung = value.rung;
+  const expectedRung =
+    category === "config-metadata" ? 2 : category === "owning-header" ? 3 : category === "foreign-source" ? 4 : null;
+  if (expectedRung === null) {
+    errors.push("widening_request.category must be config-metadata, owning-header, or foreign-source");
+  }
+  if (rung !== 2 && rung !== 3 && rung !== 4) {
+    errors.push("widening_request.rung must be 2, 3, or 4");
+  } else if (expectedRung !== null && rung !== expectedRung) {
+    errors.push("widening_request.rung must match its category");
+  }
+
+  const evidence = asPromptRecord(value.evidence);
+  const declaration = asPromptRecord(evidence.mismatched_declaration);
+  const objdiff = asPromptRecord(evidence.objdiff);
+  const ladder = asPromptRecord(evidence.ladder_evidence);
+  for (const [field, fieldValue] of [
+    ["symbol", declaration.symbol],
+    ["current", declaration.current],
+    ["required", declaration.required],
+    ["expected_owner", declaration.expected_owner],
+  ] as const) {
+    if (!stringValue(fieldValue)) errors.push(`widening_request.evidence.mismatched_declaration.${field} is required`);
+  }
+  if (!stringValue(objdiff.unit)) errors.push("widening_request.evidence.objdiff.unit is required");
+  if (typeof objdiff.score_without !== "number" || !Number.isFinite(objdiff.score_without)) {
+    errors.push("widening_request.evidence.objdiff.score_without must be a finite number");
+  }
+  if (objdiff.score_with !== null && (typeof objdiff.score_with !== "number" || !Number.isFinite(objdiff.score_with))) {
+    errors.push("widening_request.evidence.objdiff.score_with must be a finite number or null");
+  }
+  if (objdiff.artifact_path !== undefined && !stringValue(objdiff.artifact_path)) {
+    errors.push("widening_request.evidence.objdiff.artifact_path must be a non-empty string when present");
+  }
+  if (!stringValue(ladder.rung1_in_slice)) {
+    errors.push("widening_request.evidence.ladder_evidence.rung1_in_slice is required");
+  }
+  if ((rung === 3 || rung === 4) && !stringValue(ladder.rung2_config)) {
+    errors.push("widening_request.evidence.ladder_evidence.rung2_config is required for rung 3 or 4");
+  }
+  if (rung === 4 && !stringValue(ladder.rung3_header)) {
+    errors.push("widening_request.evidence.ladder_evidence.rung3_header is required for rung 4");
+  }
+  if (errors.length > 0 || expectedRung === null || (rung !== 2 && rung !== 3 && rung !== 4)) return { errors };
+
+  return {
+    request: {
+      schema_version: "write_set_widening_request_v1",
+      paths,
+      category: category as WideningRequest["category"],
+      rung,
+      evidence: {
+        mismatched_declaration: {
+          symbol: stringValue(declaration.symbol),
+          current: stringValue(declaration.current),
+          required: stringValue(declaration.required),
+          expected_owner: stringValue(declaration.expected_owner),
+        },
+        objdiff: {
+          unit: stringValue(objdiff.unit),
+          score_without: objdiff.score_without as number,
+          score_with: objdiff.score_with as number | null,
+          ...(objdiff.artifact_path ? { artifact_path: stringValue(objdiff.artifact_path) } : {}),
+        },
+        ladder_evidence: {
+          rung1_in_slice: stringValue(ladder.rung1_in_slice),
+          ...(ladder.rung2_config ? { rung2_config: stringValue(ladder.rung2_config) } : {}),
+          ...(ladder.rung3_header ? { rung3_header: stringValue(ladder.rung3_header) } : {}),
+        },
+      },
+    },
+    errors: [],
+  };
+}
+
+function asPromptRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
 function scoreImpactValue(value: unknown): QaRepairScoreImpact | null {
   const raw = stringValue(value);
   if (raw === "same_match" || raw === "lower_score" || raw === "unknown") return raw;
@@ -273,6 +410,8 @@ export function validateQaRepairAgentResult(value: unknown): { result: QaRepairA
   if (!Array.isArray(value.edits)) errors.push("edits must be an array");
   const risks = stringArray(value.risks);
   if (!Array.isArray(value.risks)) errors.push("risks must be an array");
+  const widening = wideningRequestValue(value.widening_request);
+  errors.push(...widening.errors);
   const itemId = stringValue(value.item_id);
   const sourcePath = stringValue(value.source_path);
   const summary = stringValue(value.summary);
@@ -293,6 +432,7 @@ export function validateQaRepairAgentResult(value: unknown): { result: QaRepairA
       finding_dispositions: dispositions,
       remaining_findings: remaining,
       risks,
+      ...(widening.request ? { widening_request: widening.request } : {}),
     },
     errors: [],
   };

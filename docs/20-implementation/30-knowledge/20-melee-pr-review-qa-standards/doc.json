@@ -17,7 +17,6 @@
         ]
       },
       "children": [
-        "b-20-melee-pr-review-qa-standards-melee-code-quality-stand-1",
         "b-20-melee-pr-review-qa-standards-example-backed-melee-dec-2",
         "b-20-melee-pr-review-qa-standards-sources-projects-melee-3",
         "b-20-melee-pr-review-qa-standards-use-these-standards-for-4",
@@ -528,19 +527,6 @@
         "b-20-melee-pr-review-qa-standards-use-case-source-509"
       ]
     },
-    "b-20-melee-pr-review-qa-standards-melee-code-quality-stand-1": {
-      "id": "b-20-melee-pr-review-qa-standards-melee-code-quality-stand-1",
-      "type": "heading",
-      "props": {
-        "level": 1
-      },
-      "text": [
-        {
-          "insert": "Melee Code Quality Standards"
-        }
-      ],
-      "children": []
-    },
     "b-20-melee-pr-review-qa-standards-example-backed-melee-dec-2": {
       "id": "b-20-melee-pr-review-qa-standards-example-backed-melee-dec-2",
       "type": "paragraph",
@@ -721,6 +707,24 @@
         },
         {
           "insert": "define_alias",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "bare_local_prototype",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "numeric_literal_to_symbol",
           "attributes": {
             "code": true
           }
@@ -3551,7 +3555,7 @@
           }
         },
         {
-          "insert": "."
+          "insert": ". The numeric_literal_to_symbol rule is gated by the symbol's symbols.txt section and type: immutable literal-like data is eligible, while mutable data and .text/function symbols are excluded."
         }
       ],
       "children": []
@@ -6424,7 +6428,7 @@
       },
       "text": [
         {
-          "insert": "Do not hide speculative or convenience renames behind identifier-to-identifier defines, and do not keep duplicate address-commented extern declarations for the same data address."
+          "insert": "Do not hide speculative or convenience renames behind object-like or function-like define aliases, and do not keep duplicate address-commented extern declarations for the same data address. A function-like macro that forwards a call through an alternate global name is the same shadowing shim as an identifier alias."
         }
       ],
       "children": []
@@ -6462,7 +6466,7 @@
           }
         },
         {
-          "insert": "."
+          "insert": ". Object-like aliases and function-like macro shims are deterministic attempt-time failures, so neither shape can bank as a clean improvement."
         }
       ],
       "children": []
@@ -6788,10 +6792,19 @@
           }
         },
         {
+          "insert": ", "
+        },
+        {
+          "insert": "bare_local_prototype",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
           "insert": ".\nSeverity: "
         },
         {
-          "insert": "review_required",
+          "insert": "repair_required",
           "attributes": {
             "code": true
           }
@@ -6800,7 +6813,7 @@
           "insert": "; enforcement: "
         },
         {
-          "insert": "partial_lint_plus_pre_ship_review",
+          "insert": "hard_lint_plus_warning",
           "attributes": {
             "code": true
           }
@@ -6819,7 +6832,7 @@
       },
       "text": [
         {
-          "insert": "Example 1: Headers Source Local Extern"
+          "insert": "Example 1: Headers Source-Local Public Prototype"
         }
       ],
       "children": []
@@ -6842,7 +6855,7 @@
           "insert": "; rule: "
         },
         {
-          "insert": "extern_in_c",
+          "insert": "bare_local_prototype",
           "attributes": {
             "code": true
           }
@@ -6872,7 +6885,7 @@
       },
       "text": [
         {
-          "insert": "extern void Helper(void);\n\nvoid Caller(void)\n{\n    Helper();\n}\n\nvoid Helper(void)\n{\n    ...\n}"
+          "insert": "void Helper(void);\n\nvoid Caller(void)\n{\n    Helper();\n}\n\nvoid Helper(void)\n{\n    ...\n}"
         }
       ],
       "children": []
@@ -6896,7 +6909,7 @@
       },
       "text": [
         {
-          "insert": "void Helper(void);\n\nvoid Caller(void)\n{\n    Helper();\n}\n\nvoid Helper(void)\n{\n    ...\n}\n/* Move real public prototypes to the owning header instead. */"
+          "insert": "static void Helper(void);\n\nvoid Caller(void)\n{\n    Helper();\n}\n\nstatic void Helper(void)\n{\n    ...\n}\n/* Public prototypes belong in the owning header; private forwards stay static. */"
         }
       ],
       "children": []
@@ -6920,7 +6933,7 @@
       },
       "text": [
         {
-          "insert": "A same-TU extern can hide the function body from MWCC and steer inlining."
+          "insert": "A non-static, non-extern file-scope prototype in a .c file creates a second public-looking declaration surface; a same-TU extern can also hide the function body from MWCC and steer inlining."
         }
       ],
       "children": []
@@ -6933,7 +6946,7 @@
       },
       "text": [
         {
-          "insert": "Header/prototype truth should improve as source is recovered."
+          "insert": "Public declarations belong in the owning header. A source-local forward declaration is valid only for a private static definition."
         }
       ],
       "children": []
@@ -7205,7 +7218,16 @@
           "insert": "severity: "
         },
         {
-          "insert": "pre_ship_review",
+          "insert": "error",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; rule: "
+        },
+        {
+          "insert": "define_alias",
           "attributes": {
             "code": true
           }
@@ -7235,7 +7257,7 @@
       },
       "text": [
         {
-          "insert": "#define __THPReadFrameHeader __THPReadFrameHeader_proto\n#define THPDec_80330158 THPDec_80330158_proto\n#include <dolphin/thp/thp.h>\n#undef THPDec_80330158\n#undef __THPReadFrameHeader\n\nstatic u8 __THPReadFrameHeader(THPFileInfo* info);"
+          "insert": "#define __THPReadFrameHeader __THPReadFrameHeader_proto\n#define THPDec_80330158(info) THPDec_80330158_proto(info)\n#include <dolphin/thp/thp.h>\n#undef THPDec_80330158\n#undef __THPReadFrameHeader\n\nstatic u8 __THPReadFrameHeader(THPFileInfo* info);"
         }
       ],
       "children": []

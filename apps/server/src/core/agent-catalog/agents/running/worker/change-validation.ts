@@ -1,9 +1,11 @@
 import { existsSync, statSync } from "node:fs";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
+import type { WriteSetEntry } from "@server/core/session-runtime/run-state/write-set-categories";
 import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
+import { resolveHeaderConsumers } from "./consumer-map.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
 
 const SCORE_EPSILON = 0.000001;
@@ -90,7 +92,58 @@ export interface WorkerQaLint {
   toolError: string | null;
 }
 
-export type WorkerChangeValidation = WorkerRunnerValidation & { qaLint: WorkerQaLint | null };
+export type ScopedCheckMode = "strict-object" | "section-measure";
+
+export interface ScopedUnitCheck {
+  sourcePath: string;
+  mode: ScopedCheckMode;
+  triggerPaths: string[];
+  status: "passed" | "failed";
+  reasons: string[];
+  reportPath?: string;
+}
+
+export interface WidenedScopedChecks {
+  status: "passed" | "failed" | "skipped";
+  /** A passing widened patch is bankable, but only tentatively until the epoch confirmation pass. */
+  verdict: "tentative" | "rejected" | "not_run";
+  reasons: string[];
+  units: ScopedUnitCheck[];
+  consumerMaps: Array<{
+    headerPath: string;
+    derivedFrom: "ninja-deps" | "grep-includes";
+    consumers: string[];
+    truncated: boolean;
+  }>;
+  evidencePath?: string;
+}
+
+export type WorkerChangeValidation = WorkerRunnerValidation & {
+  qaLint: WorkerQaLint | null;
+  scopedChecks?: WidenedScopedChecks;
+};
+
+export interface ScopedUnitCheckRunnerOptions {
+  repoRoot: string;
+  outputDir: string;
+  attemptIndex: number;
+  sourcePath: string;
+  mode: ScopedCheckMode;
+  triggerPaths: string[];
+}
+
+export type ScopedUnitCheckRunner = (options: ScopedUnitCheckRunnerOptions) => Promise<ScopedUnitCheck>;
+
+export interface WidenedValidationRunners {
+  resolveHeaderConsumers?: typeof resolveHeaderConsumers;
+  resolveHeaderOwner?: (headerPath: string) => Promise<string | null> | string | null;
+  resolveConfigUnits?: (options: {
+    repoRoot: string;
+    baseRev: string;
+    metadataPath: string;
+  }) => Promise<string[]>;
+  checkUnit?: ScopedUnitCheckRunner;
+}
 
 interface ObjdiffSideRows {
   functions: WorkerUnitScore[];
@@ -484,6 +537,51 @@ export async function captureWorkerChangeBaseline(params: {
   };
 }
 
+/**
+ * Post-attempt hook: add newly discovered out-of-write-set paths to the
+ * baseline's pre-worker source snapshot so the per-attempt L1 QA lint diff
+ * covers them. The pre-worker content is recovered from `git show HEAD:<path>`
+ * — the worker worktree is created clean at the claim base rev, and callers
+ * only pass paths that carried no pre-attempt modifications, so HEAD content
+ * is the pre-worker content. Mutates the baseline in place (the baseline
+ * object is threaded through every attempt of the worker loop) and returns
+ * the paths actually added.
+ */
+export async function extendWorkerChangeBaselineSourceSnapshot(params: {
+  repoRoot: string;
+  baseline: WorkerChangeBaseline;
+  extraPaths: string[];
+}): Promise<string[]> {
+  const dir = params.baseline.sourceSnapshotDir;
+  if (!dir) return [];
+  const existing = new Set(params.baseline.sourceSnapshotPaths ?? []);
+  const added: string[] = [];
+  for (const relPath of new Set(params.extraPaths)) {
+    if (!isSafeRepoRelativePath(relPath) || existing.has(relPath)) continue;
+    let show: CommandResult;
+    try {
+      show = await runCommand(params.repoRoot, ["git", "show", `HEAD:${relPath}`]);
+    } catch {
+      continue;
+    }
+    // A path absent at HEAD (worker-created file) has no pre-worker content;
+    // skipping only degrades QA visibility for that path, never fails capture.
+    if (show.exitCode !== 0) continue;
+    const destination = resolve(dir, relPath);
+    try {
+      await mkdir(dirname(destination), { recursive: true });
+      await writeFile(destination, show.stdout);
+      added.push(relPath);
+    } catch {
+      // Same fail-open contract as snapshotPreWorkerSources.
+    }
+  }
+  if (added.length > 0) {
+    params.baseline.sourceSnapshotPaths = [...(params.baseline.sourceSnapshotPaths ?? []), ...added];
+  }
+  return added;
+}
+
 function scoreMap(rows: WorkerUnitScore[]): Map<string, number> {
   const map = new Map<string, number>();
   for (const row of rows) map.set(row.name, row.score);
@@ -626,7 +724,7 @@ export function qaLintFromInvocation(invocation: QaScanInvocation, scanPath: str
 }
 
 export const QA_LINT_REPAIR_INSTRUCTION =
-  "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match (owning-header declarations, project assert/report macros, established inline helpers); if the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.";
+  "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match inside your claimed write set (project assert/report macros, established inline helpers), including typing in-slice code to the foreign types already present on master. When that measurably fails because the canonical fix is a declaration in the owning header or a symbols.txt/splits.txt update, never substitute a source-local shim: if write-set widening is enabled, submit a structured widening_request with the mismatched declaration, objdiff evidence, expected owner, and why the lower rung failed. Until the runner authorizes it, an edit outside the write set is dropped at patch capture. If widening is disabled, denied, or routed at rung 4, state \"exact requires cross-file edit to <path>\" in your note's blockers and return the best gate-clean version confined to your write set. If the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.";
 
 function qaLintRequiresRepair(qaLint: WorkerQaLint | null | undefined): qaLint is WorkerQaLint {
   return qaLint?.status === "violations" || qaLint?.status === "warnings";
@@ -699,6 +797,374 @@ export function applyQaLintToValidation(validation: WorkerRunnerValidation, qaLi
     ],
     qaLint,
   };
+}
+
+export function applyScopedChecksToValidation(
+  validation: WorkerChangeValidation,
+  scopedChecks: WidenedScopedChecks,
+): WorkerChangeValidation {
+  if (scopedChecks.status !== "failed") return { ...validation, scopedChecks };
+  return {
+    ...validation,
+    status: validation.status === "passed" ? "failed" : validation.status,
+    reasons: [...validation.reasons, ...scopedChecks.reasons],
+    scopedChecks,
+  };
+}
+
+interface SplitUnitRange {
+  sourcePath: string;
+  start: number;
+  end: number;
+}
+
+function normalizeRepoPath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+function sourcePathForSplitUnit(unit: string): string | null {
+  let normalized = normalizeRepoPath(unit.trim());
+  if (normalized.endsWith(".o")) normalized = `${normalized.slice(0, -2)}.c`;
+  if (!normalized.endsWith(".c")) return null;
+  return normalized.startsWith("src/") ? normalized : `src/${normalized}`;
+}
+
+/** Parse the TU address ownership table used to scope symbols/splits edits. */
+export function parseSplitUnitRanges(text: string): SplitUnitRange[] {
+  const ranges: SplitUnitRange[] = [];
+  let sourcePath: string | null = null;
+  for (const line of text.split(/\r?\n/)) {
+    const unit = line.match(/^(\S.*?):\s*$/);
+    if (unit) {
+      sourcePath = unit[1] === "Sections" ? null : sourcePathForSplitUnit(unit[1]);
+      continue;
+    }
+    if (!sourcePath) continue;
+    const section = line.match(/^\s+\.\w+\s+.*?start:0x([0-9a-f]+)\s+end:0x([0-9a-f]+)/i);
+    if (!section) continue;
+    const start = Number.parseInt(section[1], 16);
+    const end = Number.parseInt(section[2], 16);
+    if (Number.isFinite(start) && Number.isFinite(end) && end >= start) ranges.push({ sourcePath, start, end });
+  }
+  return ranges;
+}
+
+/** Only addresses on added/removed hunk lines affect scoped metadata checks. */
+export function configHunkAddresses(diff: string): number[] {
+  const addresses = new Set<number>();
+  for (const line of diff.split(/\r?\n/)) {
+    if ((!line.startsWith("+") && !line.startsWith("-")) || line.startsWith("+++") || line.startsWith("---")) continue;
+    for (const match of line.matchAll(/0x([0-9a-f]{8})\b/gi)) addresses.add(Number.parseInt(match[1], 16));
+  }
+  return [...addresses].filter(Number.isFinite).sort((left, right) => left - right);
+}
+
+async function resolveConfigUnitsFromHunks(options: {
+  repoRoot: string;
+  baseRev: string;
+  metadataPath: string;
+}): Promise<string[]> {
+  const diff = await runCommand(options.repoRoot, ["git", "diff", "--unified=0", options.baseRev, "--", options.metadataPath]);
+  if (diff.exitCode !== 0) return [];
+  const addresses = configHunkAddresses(diff.stdout);
+  if (addresses.length === 0) return [];
+
+  const splitsPath = "config/GALE01/splits.txt";
+  let currentSplits = "";
+  try {
+    currentSplits = await readFile(resolve(options.repoRoot, splitsPath), "utf8");
+  } catch {
+    currentSplits = "";
+  }
+  const baselineSplits = await runCommand(options.repoRoot, ["git", "show", `${options.baseRev}:${splitsPath}`]);
+  const ranges = [
+    ...parseSplitUnitRanges(currentSplits),
+    ...(baselineSplits.exitCode === 0 ? parseSplitUnitRanges(baselineSplits.stdout) : []),
+  ];
+  const units = new Set<string>();
+  for (const address of addresses) {
+    for (const range of ranges) {
+      // Include the end boundary as metadata hunks commonly replace the exact
+      // end address; the adjacent range will be checked too when it shares it.
+      if (address >= range.start && address <= range.end) units.add(range.sourcePath);
+    }
+  }
+  return [...units].sort();
+}
+
+async function objdiffUnitNameForSource(repoRoot: string, sourcePath: string): Promise<string | null> {
+  try {
+    const config = JSON.parse(await readFile(resolve(repoRoot, "objdiff.json"), "utf8")) as unknown;
+    const units = isRecord(config) && Array.isArray(config.units) ? config.units : [];
+    const normalized = normalizeRepoPath(sourcePath);
+    for (const value of units) {
+      if (!isRecord(value)) continue;
+      const metadata = isRecord(value.metadata) ? value.metadata : {};
+      const candidate = normalizeRepoPath(stringValue(metadata.source_path));
+      if (candidate === normalized) return stringValue(value.name, candidate.replace(/^src\//, "")) || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function scopedArtifactSlug(sourcePath: string): string {
+  return normalizeRepoPath(sourcePath).replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+}
+
+async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<ScopedUnitCheck> {
+  const slug = scopedArtifactSlug(options.sourcePath);
+  const prefix = `attempt-${options.attemptIndex}.scoped-${slug}`;
+  const objectTarget = objectTargetFromSourcePath(options.sourcePath);
+  if (!objectTarget) {
+    return {
+      sourcePath: options.sourcePath,
+      mode: options.mode,
+      triggerPaths: options.triggerPaths,
+      status: "failed",
+      reasons: [`could not derive object target for scoped unit ${options.sourcePath}`],
+    };
+  }
+
+  const objectBuild = await runValidationCommand(
+    options.repoRoot,
+    ["ninja", objectTarget],
+    resolve(options.outputDir, `${prefix}.build.stdout.txt`),
+    resolve(options.outputDir, `${prefix}.build.stderr.txt`),
+  );
+  if (objectBuild.exitCode !== 0) {
+    return {
+      sourcePath: options.sourcePath,
+      mode: options.mode,
+      triggerPaths: options.triggerPaths,
+      status: "failed",
+      reasons: [`scoped object build failed for ${options.sourcePath} (exit ${objectBuild.exitCode})`],
+    };
+  }
+
+  const unit = await objdiffUnitNameForSource(options.repoRoot, options.sourcePath);
+  if (!unit) {
+    return {
+      sourcePath: options.sourcePath,
+      mode: options.mode,
+      triggerPaths: options.triggerPaths,
+      status: "failed",
+      reasons: [`objdiff unit is unavailable for scoped source ${options.sourcePath}`],
+    };
+  }
+  const reportPath = resolve(options.outputDir, `${prefix}.objdiff.json`);
+  const unitDiff = await runValidationCommand(
+    options.repoRoot,
+    ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", unit, ...(await objdiffReportConfigArgs(options.repoRoot)), "--format", "json-pretty", "-o", reportPath],
+    resolve(options.outputDir, `${prefix}.objdiff.stdout.txt`),
+    resolve(options.outputDir, `${prefix}.objdiff.stderr.txt`),
+  );
+  if (unitDiff.exitCode !== 0 || !existsSync(reportPath)) {
+    return {
+      sourcePath: options.sourcePath,
+      mode: options.mode,
+      triggerPaths: options.triggerPaths,
+      status: "failed",
+      reasons: [`scoped objdiff failed for ${options.sourcePath} (exit ${unitDiff.exitCode})`],
+      reportPath,
+    };
+  }
+
+  let rows: ObjdiffSideRows | null = null;
+  try {
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as unknown;
+    rows = isRecord(report) ? chooseObjdiffRows(report) : null;
+  } catch {
+    rows = null;
+  }
+  if (!rows) {
+    return {
+      sourcePath: options.sourcePath,
+      mode: options.mode,
+      triggerPaths: options.triggerPaths,
+      status: "failed",
+      reasons: [`scoped objdiff report was unusable for ${options.sourcePath}`],
+      reportPath,
+    };
+  }
+
+  const checkedRows = options.mode === "strict-object" ? [...rows.functions, ...rows.sections] : rows.sections;
+  if (checkedRows.length === 0) {
+    return {
+      sourcePath: options.sourcePath,
+      mode: options.mode,
+      triggerPaths: options.triggerPaths,
+      status: "failed",
+      reasons: [`scoped ${options.mode} report had no comparable rows for ${options.sourcePath}`],
+      reportPath,
+    };
+  }
+  const nonExact = checkedRows.filter((row) => row.score < EXACT_SCORE);
+  return {
+    sourcePath: options.sourcePath,
+    mode: options.mode,
+    triggerPaths: options.triggerPaths,
+    status: nonExact.length === 0 ? "passed" : "failed",
+    reasons: nonExact.map((row) => `${options.mode} mismatch in ${options.sourcePath}: ${row.name} scored ${row.score}`),
+    reportPath,
+  };
+}
+
+function inferredHeaderOwner(repoRoot: string, headerPath: string): string | null {
+  const normalized = normalizeRepoPath(headerPath);
+  const candidates = normalized.startsWith("include/")
+    ? [`src/${normalized.slice("include/".length).replace(/\.h$/i, ".c")}`]
+    : [normalized.replace(/\.h$/i, ".c")];
+  return candidates.find((candidate) => existsSync(resolve(repoRoot, candidate))) ?? null;
+}
+
+/**
+ * Run §8 scope-following checks after the existing target-TU validation.
+ * This function never runs a full build. A passing result is explicitly only
+ * tentative; the epoch-boundary confirmation pass owns global confirmation.
+ */
+export async function validateWidenedChange(params: {
+  validation: WorkerChangeValidation;
+  repoRoot: string;
+  outputDir: string;
+  attemptIndex: number;
+  targetSourcePath: string;
+  writeSetEntries: WriteSetEntry[];
+  baseRev: string;
+  runStateDir: string;
+  maxConsumers?: number;
+  headerOwnerByPath?: Record<string, string>;
+  runners?: WidenedValidationRunners;
+}): Promise<WorkerChangeValidation> {
+  await mkdir(params.outputDir, { recursive: true });
+  const evidencePath = resolve(params.outputDir, `attempt-${params.attemptIndex}.widened_validation.json`);
+  if (params.validation.status !== "passed") {
+    const scopedChecks: WidenedScopedChecks = {
+      status: "skipped",
+      verdict: "not_run",
+      reasons: ["scoped widening checks require the target translation-unit check to pass first"],
+      units: [],
+      consumerMaps: [],
+      evidencePath,
+    };
+    await writeFile(evidencePath, JSON.stringify(scopedChecks, null, 2));
+    return applyScopedChecksToValidation(params.validation, scopedChecks);
+  }
+
+  const reasons: string[] = [];
+  const consumerMaps: WidenedScopedChecks["consumerMaps"] = [];
+  const unitScopes = new Map<string, { mode: ScopedCheckMode; triggerPaths: Set<string> }>();
+  const addUnit = (sourcePath: string, mode: ScopedCheckMode, triggerPath: string): void => {
+    const normalized = normalizeRepoPath(sourcePath);
+    if (!normalized || normalized === normalizeRepoPath(params.targetSourcePath)) return;
+    const current = unitScopes.get(normalized);
+    if (current) {
+      current.triggerPaths.add(triggerPath);
+      if (mode === "strict-object") current.mode = mode;
+      return;
+    }
+    unitScopes.set(normalized, { mode, triggerPaths: new Set([triggerPath]) });
+  };
+
+  const resolveConsumers = params.runners?.resolveHeaderConsumers ?? resolveHeaderConsumers;
+  const resolveConfigUnits = params.runners?.resolveConfigUnits ?? resolveConfigUnitsFromHunks;
+  for (const entry of params.writeSetEntries) {
+    if (entry.category === "target-source") continue;
+    if (entry.category === "foreign-source") {
+      addUnit(entry.path, "strict-object", entry.path);
+      continue;
+    }
+    if (entry.category === "owning-header") {
+      let consumers: Awaited<ReturnType<typeof resolveHeaderConsumers>>;
+      try {
+        consumers = await resolveConsumers({
+          repoRoot: params.repoRoot,
+          runStateDir: params.runStateDir,
+          baseRev: params.baseRev,
+          headerPath: entry.path,
+          ...(params.maxConsumers === undefined ? {} : { maxConsumers: params.maxConsumers }),
+        });
+      } catch (error) {
+        reasons.push(`header consumer resolution failed for ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
+        continue;
+      }
+      consumerMaps.push({
+        headerPath: entry.path,
+        derivedFrom: consumers.derivedFrom,
+        consumers: consumers.consumers,
+        truncated: consumers.truncated,
+      });
+      if (consumers.truncated) {
+        reasons.push(`header consumer scope exceeded the explicit maxConsumers ceiling for ${entry.path}; no full-build escalation was attempted`);
+      }
+      const configuredOwner = params.headerOwnerByPath?.[entry.path];
+      let owner = configuredOwner ?? null;
+      try {
+        owner ??= params.runners?.resolveHeaderOwner
+          ? await params.runners.resolveHeaderOwner(entry.path)
+          : inferredHeaderOwner(params.repoRoot, entry.path);
+      } catch (error) {
+        reasons.push(`header owner resolution failed for ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (owner) addUnit(owner, "strict-object", entry.path);
+      for (const consumer of consumers.consumers) addUnit(consumer, "strict-object", entry.path);
+      if (!owner && consumers.consumers.length === 0) reasons.push(`no owner unit or direct includers were found for ${entry.path}`);
+      continue;
+    }
+    if (entry.category === "config-metadata") {
+      let units: string[] = [];
+      try {
+        units = await resolveConfigUnits({ repoRoot: params.repoRoot, baseRev: params.baseRev, metadataPath: entry.path });
+      } catch (error) {
+        reasons.push(`config metadata scope resolution failed for ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (units.length === 0) reasons.push(`no units were found for address ranges touched by ${entry.path}`);
+      for (const unit of units) addUnit(unit, "section-measure", entry.path);
+      continue;
+    }
+    reasons.push(`write-set category other is not valid for scoped checking: ${entry.path}`);
+  }
+
+  const checkUnit = params.runners?.checkUnit ?? checkScopedUnit;
+  const units: ScopedUnitCheck[] = [];
+  for (const [sourcePath, scope] of [...unitScopes.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+    const triggerPaths = [...scope.triggerPaths].sort();
+    let checked: ScopedUnitCheck;
+    try {
+      checked = await checkUnit({
+        repoRoot: params.repoRoot,
+        outputDir: params.outputDir,
+        attemptIndex: params.attemptIndex,
+        sourcePath,
+        mode: scope.mode,
+        triggerPaths,
+      });
+    } catch (error) {
+      checked = {
+        sourcePath,
+        mode: scope.mode,
+        triggerPaths,
+        status: "failed",
+        reasons: [`scoped ${scope.mode} check crashed for ${sourcePath}: ${error instanceof Error ? error.message : String(error)}`],
+      };
+    }
+    units.push(checked);
+    if (checked.status === "failed") {
+      reasons.push(...(checked.reasons.length > 0 ? checked.reasons : [`scoped ${checked.mode} check failed for ${checked.sourcePath}`]));
+    }
+  }
+
+  const scopedChecks: WidenedScopedChecks = {
+    status: reasons.length === 0 ? "passed" : "failed",
+    verdict: reasons.length === 0 ? "tentative" : "rejected",
+    reasons: [...new Set(reasons)],
+    units,
+    consumerMaps,
+    evidencePath,
+  };
+  await writeFile(evidencePath, JSON.stringify(scopedChecks, null, 2));
+  return applyScopedChecksToValidation(params.validation, scopedChecks);
 }
 
 async function runWorkerQaLintScan(params: {

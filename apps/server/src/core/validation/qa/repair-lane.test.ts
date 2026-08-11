@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { QaScanFinding, QaScanResult } from "./scan-diff.js";
 import {
+  applyQaRepairValidation,
   buildQaRepairQueue,
+  forceBlockedNeedsCrossFile,
   qaRepairShipStatus,
+  renderQaRepairReport,
   summarizeQaRepairQueue,
   validateQaRepairOutcome,
   type QaRepairQueueItem,
@@ -195,6 +198,51 @@ describe("validateQaRepairOutcome", () => {
     expect(result.status).toBe("needs_rework");
     expect(result.remainingFindings).toHaveLength(1);
     expect(result.reasons[0]).toContain("still has 1 error");
+  });
+
+  test("cross-file-dependent repairs retain structured blocked context", () => {
+    const queue = buildQaRepairQueue({
+      runId: "test-run",
+      repoRoot: "/repo",
+      scanResult: scanResult([finding(), finding({ severity: "warning", rule_id: "novel_pragma" })]),
+      candidateFiles: ["src/melee/gr/grsmoke.c"],
+      repairWarnings: true,
+      createdAt: "2026-06-13T00:00:00.000Z",
+    });
+    const item = queue.items[0] as QaRepairQueueItem;
+    const validation = validateQaRepairOutcome({
+      item,
+      postScan: scanResult([]),
+      buildPassed: true,
+      regressionPassed: true,
+    });
+    const blocked = forceBlockedNeedsCrossFile(
+      validation,
+      item,
+      ["./include/melee/gr/grsmoke.h", "include/melee/gr/grsmoke.h"],
+      ["unauthorized header edit(s) reverted: include/melee/gr/grsmoke.h"],
+    );
+
+    expect(blocked.status).toBe("blocked_needs_cross_file");
+    expect(blocked.required_cross_file_paths).toEqual(["include/melee/gr/grsmoke.h"]);
+    expect(blocked.reasons[0]).toBe(
+      "repair validated only with unauthorized cross-file edit(s): include/melee/gr/grsmoke.h; reverted — the correct fix requires widening the write set to those files",
+    );
+    expect(blocked.remainingFindings).toEqual([...item.findings, ...item.warnings]);
+
+    const nextQueue = applyQaRepairValidation(queue, blocked);
+    expect(nextQueue.items[0]?.required_cross_file_paths).toEqual(["include/melee/gr/grsmoke.h"]);
+    const summary = summarizeQaRepairQueue(nextQueue);
+    expect(summary.counts.by_status.blocked_needs_cross_file).toBe(1);
+    expect(summary.recommendation).toBe("blocked");
+
+    const shipStatus = qaRepairShipStatus(nextQueue);
+    expect(shipStatus.status).toBe("qa_repair_blocked");
+    expect(shipStatus.shippedFiles).toEqual([]);
+    expect(shipStatus.summary.droppedFiles).toBe(1);
+    expect(shipStatus.droppedFiles["src/melee/gr/grsmoke.c"]?.[0]).toContain("repair validated only with unauthorized cross-file edit");
+    expect(renderQaRepairReport(nextQueue)).toContain("- Status: blocked_needs_cross_file");
+    expect(renderQaRepairReport(nextQueue)).toContain("- Required cross-file paths: include/melee/gr/grsmoke.h");
   });
 
   test("clean lower-score repairs route as clean_lower_score and demote from ship status", () => {

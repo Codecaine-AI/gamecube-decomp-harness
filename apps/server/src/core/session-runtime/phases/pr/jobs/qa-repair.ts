@@ -10,6 +10,7 @@ import { artifactTimestamp, parseJsonObject } from "@server/infrastructure/agent
 import {
   buildQaRepairQueue,
   candidateProofsFromCheckpoint,
+  forceBlockedNeedsCrossFile,
   qaRepairShipStatus,
   renderQaRepairReport,
   summarizeQaRepairQueue,
@@ -124,6 +125,9 @@ export interface QaRepairHeaderStatusSnapshot {
 }
 
 export interface QaRepairHeaderRevertResult {
+  /** Header edits allowed by the queue item's authorized write set and left intact. */
+  authorizedPaths?: string[];
+  /** Unauthorized header edits detected during this repair attempt. */
   changedPaths: string[];
   revertedPaths: string[];
   failedPaths: string[];
@@ -272,14 +276,21 @@ function headerEntryChanged(before: QaRepairHeaderStatusEntry | undefined, after
   );
 }
 
-/** Restores only headers whose porcelain/fingerprint state changed during this repair attempt. */
-export async function revertModifiedHeadersSince(repoRoot: string, before: QaRepairHeaderStatusSnapshot): Promise<QaRepairHeaderRevertResult> {
+/** Restores only unauthorized headers whose state changed during this repair attempt. */
+export async function revertModifiedHeadersSince(
+  repoRoot: string,
+  before: QaRepairHeaderStatusSnapshot,
+  authorizedHeaderPaths: Iterable<string> = [],
+): Promise<QaRepairHeaderRevertResult> {
   if (!before.available) return { changedPaths: [], revertedPaths: [], failedPaths: [], error: before.error ?? "pre-run header status unavailable" };
   const after = await captureModifiedHeaderSnapshot(repoRoot);
   if (!after.available) return { changedPaths: [], revertedPaths: [], failedPaths: [], error: after.error ?? "post-run header status unavailable" };
 
   const paths = new Set([...Object.keys(before.entries), ...Object.keys(after.entries)]);
-  const changedPaths = [...paths].filter((path) => headerEntryChanged(before.entries[path], after.entries[path])).sort();
+  const changed = [...paths].filter((path) => headerEntryChanged(before.entries[path], after.entries[path])).sort();
+  const authorized = new Set([...authorizedHeaderPaths].map(normalizeRepoPath));
+  const authorizedPaths = changed.filter((path) => authorized.has(path));
+  const changedPaths = changed.filter((path) => !authorized.has(path));
   const revertedPaths: string[] = [];
   const failedPaths: string[] = [];
   for (const path of changedPaths) {
@@ -307,7 +318,7 @@ export async function revertModifiedHeadersSince(repoRoot: string, before: QaRep
     }
     failedPaths.push(path);
   }
-  return { changedPaths, revertedPaths, failedPaths };
+  return { authorizedPaths, changedPaths, revertedPaths, failedPaths };
 }
 
 function candidateListFromFile(path: string): string[] {
@@ -520,10 +531,12 @@ function appendAttempt(item: QaRepairQueueItem, attempt: QaRepairAttempt): QaRep
 }
 
 function applyValidation(item: QaRepairQueueItem, result: QaRepairValidationResult, attempt: QaRepairAttempt): QaRepairQueueItem {
+  const { required_cross_file_paths: _previousRequiredPaths, ...itemWithoutRequiredPaths } = item;
   return {
-    ...item,
+    ...itemWithoutRequiredPaths,
     status: result.status,
     routing_reason: result.reasons.join("; "),
+    ...(result.required_cross_file_paths ? { required_cross_file_paths: result.required_cross_file_paths } : {}),
     attempts: [...item.attempts, attempt],
   };
 }
@@ -708,10 +721,14 @@ export async function processSingleItem(params: ProcessSingleItemParams): Promis
     }),
   });
   recordQaRepairSession(params.globals, params.runId, run);
+  const authorizedHeaderPaths = (params.item.authorized_write_set ?? [])
+    .filter((entry) => entry.category === "owning-header" && isHeaderPath(entry.path))
+    .map((entry) => normalizeRepoPath(entry.path));
   const headerResult = checksEnabled
-    ? await revertModifiedHeadersSince(params.globals.repoRoot, headerSnapshot)
+    ? await revertModifiedHeadersSince(params.globals.repoRoot, headerSnapshot, authorizedHeaderPaths)
     : { changedPaths: [], revertedPaths: [], failedPaths: [] };
   const headerCheckFailed = headerResult.changedPaths.length > 0;
+  const headerRevertBroken = headerResult.failedPaths.length > 0;
   let targetRestored = false;
   const restoreTarget = async (): Promise<void> => {
     if (targetRestored) return;
@@ -728,7 +745,7 @@ export async function processSingleItem(params: ProcessSingleItemParams): Promis
       enforcedValidation.restore_error = error instanceof Error ? error.message : String(error);
     }
   };
-  if (headerCheckFailed) await restoreTarget();
+  if (headerRevertBroken) await restoreTarget();
   const baseAttempt: QaRepairAttempt = {
     id: run.sessionId,
     status: run.dryRun ? "dry_run" : "agent_failed",
@@ -740,7 +757,7 @@ export async function processSingleItem(params: ProcessSingleItemParams): Promis
   };
   const headerFailureReasons = headerCheckFailed
     ? [
-        `qa-repair agent modified header files outside its single-file scope: ${headerResult.changedPaths.join(", ")}`,
+        `qa-repair agent modified header files outside its authorized write set: ${headerResult.changedPaths.join(", ")}`,
         ...(headerResult.failedPaths.length > 0 ? [`failed to restore header files: ${headerResult.failedPaths.join(", ")}`] : []),
       ]
     : [];
@@ -760,11 +777,28 @@ export async function processSingleItem(params: ProcessSingleItemParams): Promis
     enforcedValidation.restored_build = await runEnforcedBuild();
   };
   if (run.dryRun) {
-    return {
-      item: appendAttempt(
+    const attempt = attemptWithEnforcedChecks(
+      { ...baseAttempt, summary: "dry-run agents wrote prompt artifacts; no validation ran" },
+      enforcedValidation,
+      headerResult,
+    );
+    if (headerCheckFailed) {
+      await restoreTarget();
+      await confirmRestoredBuild();
+      const validation = forceNeedsRework(
+        validateQaRepairOutcome({
+          item: params.item,
+          postScan: null,
+          blockedReason: "dry-run agents wrote prompt artifacts; no validation ran",
+          validationArtifacts: { agent_output: run.outputPath },
+        }),
         params.item,
-        attemptWithEnforcedChecks({ ...baseAttempt, summary: "dry-run agents wrote prompt artifacts; no validation ran" }, enforcedValidation, headerResult),
-      ),
+        earlyEnforcedFailureReasons,
+      );
+      return { item: applyValidation(params.item, validation, attempt) };
+    }
+    return {
+      item: appendAttempt(params.item, attempt),
     };
   }
   if (run.failed || run.providerError) {
@@ -856,7 +890,7 @@ export async function processSingleItem(params: ProcessSingleItemParams): Promis
     surface: "pr_gate",
   });
   const postScanPath = await writeScanInvocation(itemDir, "post_scan", postScan);
-  const enforcedFailureReasons = [...earlyEnforcedFailureReasons];
+  const independentFailureReasons = [...preMatchFailureReasons];
   if (checksEnabled) {
     const buildResult = await runEnforcedBuild();
     enforcedValidation.build_check = buildResult.ok ? "passed" : "failed";
@@ -886,11 +920,11 @@ export async function processSingleItem(params: ProcessSingleItemParams): Promis
               comparison.exactRegressions.length > 0 || comparison.sectionRegressions.length > 0 ? "failed" : "passed";
         } catch {
           enforcedValidation.match_check = "unavailable";
-          enforcedFailureReasons.push("match verification unavailable");
+          independentFailureReasons.push("match verification unavailable");
         }
       } else {
         enforcedValidation.match_check = "unavailable";
-        enforcedFailureReasons.push("match verification unavailable");
+        independentFailureReasons.push("match verification unavailable");
       }
     } else {
       enforcedValidation.match_check = "unavailable";
@@ -898,17 +932,17 @@ export async function processSingleItem(params: ProcessSingleItemParams): Promis
     if (enforcedValidation.match_check === "unavailable") checkResult = { ...checkResult, ok: false };
     enforcedValidation.check_result = checkResult;
 
-    if (!buildResult.ok) enforcedFailureReasons.push("enforced per-source object build failed");
+    if (!buildResult.ok) independentFailureReasons.push("enforced per-source object build failed");
     for (const regression of checkResult.exactRegressions) {
-      enforcedFailureReasons.push(`exact function regressed: ${regression.name} (${regression.before} -> ${regression.after})`);
+      independentFailureReasons.push(`exact function regressed: ${regression.name} (${regression.before} -> ${regression.after})`);
     }
     for (const regression of checkResult.sectionRegressions) {
-      enforcedFailureReasons.push(`matched section regressed: ${regression.name} (${regression.before} -> ${regression.after})`);
+      independentFailureReasons.push(`matched section regressed: ${regression.name} (${regression.before} -> ${regression.after})`);
     }
 
-    if (enforcedFailureReasons.length > 0) {
+    if ((headerRevertBroken || !headerCheckFailed) && [...headerFailureReasons, ...independentFailureReasons].length > 0) {
       await restoreTarget();
-      if (headerCheckFailed && targetRestored) enforcedValidation.restored_build = buildResult;
+      if (headerRevertBroken && targetRestored) enforcedValidation.restored_build = buildResult;
       await confirmRestoredBuild();
     }
   }
@@ -940,7 +974,33 @@ export async function processSingleItem(params: ProcessSingleItemParams): Promis
       ...validationArtifactPaths(commandValidations),
     },
   });
-  if (enforcedFailureReasons.length > 0) validation = forceNeedsRework(validation, params.item, enforcedFailureReasons);
+  if (headerRevertBroken) {
+    validation = forceNeedsRework(validation, params.item, [...headerFailureReasons, ...independentFailureReasons]);
+  } else if (headerCheckFailed) {
+    if (
+      independentFailureReasons.length === 0 &&
+      (validation.status === "clean_same_match" || validation.status === "clean_lower_score")
+    ) {
+      validation = {
+        ...validation,
+        reasons: [
+          ...validation.reasons,
+          `unauthorized header edit(s) reverted: ${headerResult.changedPaths.join(", ")}; target repair validated independently`,
+        ],
+      };
+    } else {
+      await restoreTarget();
+      await confirmRestoredBuild();
+      validation = forceBlockedNeedsCrossFile(
+        validation,
+        params.item,
+        headerResult.changedPaths,
+        [...headerFailureReasons, ...independentFailureReasons],
+      );
+    }
+  } else if (independentFailureReasons.length > 0) {
+    validation = forceNeedsRework(validation, params.item, independentFailureReasons);
+  }
   const validationPath = resolve(itemDir, "validation.json");
   await writeFile(
     validationPath,

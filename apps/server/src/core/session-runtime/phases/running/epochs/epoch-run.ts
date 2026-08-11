@@ -3,6 +3,7 @@ import { runEpochCycle } from "@server/core/session-runtime/phases/running/epoch
 import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 import { publishSessionDraftPr } from "./session-draft-pr.js";
+import { writeSetIntegrationFlags } from "@server/core/session-runtime/phases/running/integration/write-set-options.js";
 
 /**
  * Run one epoch checkpoint cycle by hand: commit validated work (excluding
@@ -15,14 +16,17 @@ export async function epochRun(globals: GlobalArgs, args: Map<string, string | t
   try {
     const runId = stringArg(args, "--run-id", getLatestRun(store)?.id ?? "");
     if (!runId) throw new Error("No run found. Run init-run first.");
+    const writeSetFlags = writeSetIntegrationFlags(args);
     const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
       baseRef: globals.project?.baseRef,
+      confirmationPass: writeSetFlags.confirmationPass,
       configureCommand: stringArg(args, "--configure-command", "python3 configure.py --require-protos"),
       label: stringArg(args, "--label", "") || null,
       linkPaths: stringArg(args, "--link-paths", "orig")
         .split(",")
         .map((path) => path.trim())
         .filter(Boolean),
+      mergeOnFinish: writeSetFlags.mergeOnFinish,
       projectId: globals.project?.projectId ?? globals.projectId ?? null,
       regressionPauseThreshold: Math.max(0, Math.floor(numberArg(args, "--regression-pause-threshold", 12))),
       regressionRequeueLimit: Math.max(0, Math.floor(numberArg(args, "--regression-requeue-limit", 32))),

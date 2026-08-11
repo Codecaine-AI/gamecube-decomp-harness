@@ -10,10 +10,9 @@
  *
  * Pruned 2026-06-12 per reports/pi-agent-tool-analysis-2026-06-12.html and
  * 2026-06-30 per analysis/reports/fresh-tool-distribution-15-epoch-2026-06-30.html.
- * Low-lift/stale external sources are no longer advertised to workers, and
- * path facts are injected into the worker packet instead of exposed as a
- * callable worker tool. Registrations stay in the registry; re-enable per run
- * via the profile `enable` override.
+ * Low-lift/stale external sources are no longer advertised to workers. The
+ * path_facts source was deprecated in the 2026-08 knowledge-graph redesign
+ * phase-1 prune and its tools were removed.
  */
 export const defaultWorkerToolProfile = [
   "code_graph_file_card",
@@ -45,7 +44,6 @@ export const defaultIntegrationResolverToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
   "past_prs_search",
-  "path_facts_resolve",
   "mismatch_db_search",
   "checkdiff_run",
   "checkdiff_summary",
@@ -57,10 +55,14 @@ export const defaultIntegrationResolverToolProfile = [
   "review_lint_scan",
 ] as const;
 
-/** Default PR indexer tools attached to PR postmortem launches. */
-export const defaultPrIndexerToolProfile = [
+/** Default tools for immediate merge-on-finish conflict resolution. */
+export const defaultConflictResolverToolProfile = [
+  "code_graph_file_card",
   "code_graph_search",
-  "path_facts_resolve",
+  "checkdiff_run",
+  "checkdiff_summary",
+  "direct_compile_tu",
+  "objdiff_score_candidate",
   "review_lint_scan",
 ] as const;
 
@@ -68,7 +70,6 @@ export const defaultPrIndexerToolProfile = [
 export const defaultPrSplitterToolProfile = [
   "code_graph_search",
   "past_prs_search",
-  "path_facts_resolve",
   "review_lint_scan",
 ] as const;
 
@@ -77,7 +78,6 @@ export const defaultPrFixerToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
   "past_prs_search",
-  "path_facts_resolve",
   "mismatch_db_search",
   "checkdiff_run",
   "checkdiff_summary",
@@ -94,7 +94,6 @@ export const defaultReconcileToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
   "past_prs_search",
-  "path_facts_resolve",
   "mismatch_db_search",
   "checkdiff_run",
   "checkdiff_summary",
@@ -110,7 +109,6 @@ export const defaultQaRepairToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
   "past_prs_search",
-  "path_facts_resolve",
   "mismatch_db_search",
   "checkdiff_run",
   "checkdiff_summary",
@@ -122,12 +120,14 @@ export const defaultQaRepairToolProfile = [
   "review_lint_sdata2_order_helper",
 ] as const;
 
-/** Default knowledge-curator tools attached to curator launches. */
-export const defaultKnowledgeCuratorToolProfile = [
+/** Default librarian tools attached to condensation, curation, and PR indexing launches. */
+export const defaultLibrarianToolProfile = [
   "code_graph_search",
   "past_prs_search",
   "decomp_standards_context",
   "decomp_standards_proposals",
-  "path_facts_resolve",
-  "path_facts_proposals",
+  "review_lint_scan",
+  "smashwiki_search",
+  "smashwiki_get_page",
+  "ledger_search",
 ] as const;

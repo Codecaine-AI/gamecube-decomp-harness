@@ -3,13 +3,54 @@ import {
   type KernelTraceSessionDetail,
   type KernelTraceSessionListResponse,
 } from "@agent-kernel/viewer-core";
-import type { AgentViewerDefinition } from "@agent-kernel/viewer-ui";
+import type { PromptDocument } from "@prompt-kit-next";
 import type { Dashboard, FormState, JsonObject, RunDetails, StandardsPayload, UiConfig, WorkerStateTrace } from "./api-types";
+
+export type KernelAgentGroup = "running" | "knowledge" | "pr";
+
+export interface KernelAgentDefinition {
+  name: string;
+  description: string;
+  model: string;
+  source: "typed" | "markdown";
+  prompt: PromptDocument | null;
+  tools: string[];
+  disallowedTools: string[];
+  extensions: true | string[] | false;
+  canSpawnSubagent: boolean;
+  variables: Record<string, { default: unknown; description?: string | null }>;
+  maxTurns: number | null;
+  runInBackground: boolean;
+  thinking: string | null;
+  body: string;
+  agentFile: string;
+  contextModulePath: string | null;
+  warnings: string[];
+  group: KernelAgentGroup;
+  renderedPrompt: {
+    content: string;
+    timestamp?: string | null;
+    resolvedVariables?: Record<string, unknown>;
+    toolsAllowlist?: string[];
+    toolsDisallowlist?: string[];
+  } | null;
+  context: {
+    modulePath: string | null;
+    inputs: Array<{
+      loaderKind: string;
+      inputRef: string;
+      status: string;
+      bytes: number;
+    }>;
+    renderedContext?: string | null;
+    timestamp?: string | null;
+  } | null;
+}
 
 export interface KernelAgentsPayload {
   generatedAt: string;
   source: "sample";
-  agents: AgentViewerDefinition[];
+  agents: KernelAgentDefinition[];
   warnings: string[];
 }
 
@@ -113,4 +154,69 @@ export function fetchKernelTraceSessionDetail(traceSessionId: string): Promise<K
 
 export function saveStandard(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, edit: JsonObject): Promise<{ ok: boolean; errors?: string[]; savedId?: string }> {
   return postJson(`/api/standards?${dashboardParams(form)}`, { edit });
+}
+
+export interface KnowledgeLearningEvidence {
+  type: string;
+  ref: string;
+}
+
+export interface KnowledgeLearningSubject {
+  scope: "symbol" | "file" | "area" | "general";
+  symbol?: string;
+  file?: string;
+  area?: string;
+  content_hash?: string;
+}
+
+export interface KnowledgeLearning {
+  id: string;
+  origin: "human_extracted" | "ai_inferred";
+  subject: KnowledgeLearningSubject;
+  statement: string;
+  evidence: KnowledgeLearningEvidence[];
+  confidence: number;
+  produced_by?: string;
+  status?: string;
+  created_at?: string;
+}
+
+export interface KnowledgeLearningsResponse {
+  learnings: KnowledgeLearning[];
+  total: number;
+  counts: {
+    by_scope: Record<string, number>;
+    by_origin: Record<string, number>;
+    by_status: Record<string, number>;
+  };
+}
+
+export interface KnowledgeLearningDetail {
+  learning: KnowledgeLearning;
+  versions: KnowledgeLearning[];
+}
+
+export interface KnowledgeLearningsQuery {
+  q?: string;
+  scope?: string;
+  origin?: string;
+  status?: string;
+  subject?: string;
+  limit?: number;
+}
+
+export function fetchKnowledgeLearnings(params: KnowledgeLearningsQuery): Promise<KnowledgeLearningsResponse> {
+  const search = new URLSearchParams();
+  if (params.q) search.set("q", params.q);
+  if (params.scope) search.set("scope", params.scope);
+  if (params.origin) search.set("origin", params.origin);
+  if (params.status) search.set("status", params.status);
+  if (params.subject) search.set("subject", params.subject);
+  if (params.limit) search.set("limit", String(params.limit));
+  const query = search.toString();
+  return fetchJson<KnowledgeLearningsResponse>(`/api/knowledge/learnings${query ? `?${query}` : ""}`);
+}
+
+export function fetchKnowledgeLearningDetail(id: string): Promise<KnowledgeLearningDetail> {
+  return fetchJson<KnowledgeLearningDetail>(`/api/knowledge/learnings/${encodeURIComponent(id)}`);
 }

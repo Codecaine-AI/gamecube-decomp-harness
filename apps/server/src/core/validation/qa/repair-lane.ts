@@ -1,11 +1,24 @@
 import type { QaScanFinding, QaScanResult } from "./scan-diff.js";
+import type {
+  WideningRequest,
+  WriteSetEntry,
+} from "@server/core/session-runtime/run-state/write-set-categories";
 
 export const QA_REPAIR_QUEUE_SCHEMA_VERSION = "qa_repair_queue_v1";
+export const QA_REPAIR_QUEUE_ITEM_SCHEMA_VERSION = "qa_repair_queue_item_v2";
 export const QA_REPAIR_SUMMARY_SCHEMA_VERSION = "qa_repair_summary_v1";
 export const QA_REPAIR_SHIP_STATUS_SCHEMA_VERSION = "qa_repair_ship_status_v1";
 
 export type QaRepairLane = "match" | "improvement" | "support" | "unknown";
-export type QaRepairItemStatus = "queued" | "in_progress" | "clean_same_match" | "clean_lower_score" | "needs_rework" | "false_positive" | "blocked";
+export type QaRepairItemStatus =
+  | "queued"
+  | "in_progress"
+  | "clean_same_match"
+  | "clean_lower_score"
+  | "needs_rework"
+  | "false_positive"
+  | "blocked"
+  | "blocked_needs_cross_file";
 
 export interface QaRepairProof {
   checkpointItemId?: string;
@@ -49,7 +62,8 @@ export interface QaRepairAttempt {
 }
 
 export interface QaRepairQueueItem {
-  schema_version: "qa_repair_queue_item_v1";
+  /** v1 remains readable for previously written queue artifacts; new items are always v2. */
+  schema_version: "qa_repair_queue_item_v1" | typeof QA_REPAIR_QUEUE_ITEM_SCHEMA_VERSION;
   id: string;
   status: QaRepairItemStatus;
   source_path: string;
@@ -68,7 +82,10 @@ export interface QaRepairQueueItem {
     ship_set_check: string;
   };
   attempts: QaRepairAttempt[];
+  authorized_write_set?: WriteSetEntry[];
+  widening?: Pick<WideningRequest, "rung" | "evidence">;
   routing_reason?: string;
+  required_cross_file_paths?: string[];
 }
 
 export interface QaRepairIgnoredFinding {
@@ -176,6 +193,7 @@ export interface QaRepairValidationResult {
   reasons: string[];
   remainingFindings: QaScanFinding[];
   validationArtifacts: Record<string, string | null>;
+  required_cross_file_paths?: string[];
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -365,7 +383,7 @@ export function buildQaRepairQueue(options: BuildQaRepairQueueOptions): QaRepair
     const itemSlugCount = (itemSlugCounts.get(itemSlug) ?? 0) + 1;
     itemSlugCounts.set(itemSlug, itemSlugCount);
     items.push({
-      schema_version: "qa_repair_queue_item_v1",
+      schema_version: QA_REPAIR_QUEUE_ITEM_SCHEMA_VERSION,
       id: itemSlugCount === 1 ? itemSlug : `${itemSlug}--${itemSlugCount}`,
       status: "queued",
       source_path: sourcePath,
@@ -416,7 +434,9 @@ export function summarizeQaRepairQueue(queue: QaRepairQueue, artifactPaths: Part
   }
   const filesWithErrors = queue.candidate_files.filter((file) => file.errorCount > 0).length;
   const filesWithWarnings = queue.candidate_files.filter((file) => file.warningCount > 0).length;
-  const blocked = queue.items.some((item) => item.status === "blocked" || item.status === "needs_rework" || item.status === "false_positive");
+  const blocked = queue.items.some(
+    (item) => item.status === "blocked" || item.status === "blocked_needs_cross_file" || item.status === "needs_rework" || item.status === "false_positive",
+  );
   const queued = queue.items.some((item) => item.status === "queued" || item.status === "in_progress");
   const lowerScore = queue.items.some((item) => item.status === "clean_lower_score");
   const unresolved = queue.items.some((item) => item.status !== "clean_same_match");
@@ -494,6 +514,7 @@ export function renderQaRepairReport(queue: QaRepairQueue, summary = summarizeQa
       lines.push(`- Warning repair: ${item.repair_warnings ? "required" : "advisory"}`);
       lines.push(`- Rules: ${renderRuleCounts(item.rule_counts)}`);
       if (item.routing_reason) lines.push(`- Routing: ${item.routing_reason}`);
+      if (item.required_cross_file_paths?.length) lines.push(`- Required cross-file paths: ${item.required_cross_file_paths.join(", ")}`);
       lines.push("");
       for (const finding of item.findings) lines.push(renderFindingLine(finding));
       if (item.warnings.length > 0) {
@@ -615,14 +636,36 @@ export function validateQaRepairOutcome(input: QaRepairValidationInput): QaRepai
   };
 }
 
+export function forceBlockedNeedsCrossFile(
+  validation: QaRepairValidationResult,
+  item: QaRepairQueueItem,
+  paths: string[],
+  reasons: string[],
+): QaRepairValidationResult {
+  const requiredPaths = [...new Set(paths.map(normalizePath).filter(Boolean))];
+  const pathList = requiredPaths.join(", ");
+  const crossFileReason =
+    `repair validated only with unauthorized cross-file edit(s): ${pathList}; reverted — ` +
+    "the correct fix requires widening the write set to those files";
+  return {
+    ...validation,
+    status: "blocked_needs_cross_file",
+    reasons: [...new Set([crossFileReason, ...reasons, ...validation.reasons])],
+    remainingFindings: [...item.findings, ...(item.repair_warnings ? item.warnings : [])],
+    required_cross_file_paths: requiredPaths,
+  };
+}
+
 export function applyQaRepairValidation(queue: QaRepairQueue, result: QaRepairValidationResult, attempt?: QaRepairAttempt): QaRepairQueue {
   const items = queue.items.map((item) => {
     if (item.id !== result.itemId) return item;
+    const { required_cross_file_paths: _previousRequiredPaths, ...itemWithoutRequiredPaths } = item;
     return {
-      ...item,
+      ...itemWithoutRequiredPaths,
       status: result.status,
       routing_reason: result.reasons.join("; "),
       attempts: attempt ? [...item.attempts, attempt] : item.attempts,
+      ...(result.required_cross_file_paths ? { required_cross_file_paths: result.required_cross_file_paths } : {}),
     };
   });
   return { ...queue, items };
@@ -653,7 +696,14 @@ export function qaRepairShipStatus(queue: QaRepairQueue): QaRepairShipStatus {
     }
   }
   const pending = queue.items.some((item) => item.status === "queued" || item.status === "in_progress");
-  const blocked = queue.items.some((item) => item.status === "blocked" || item.status === "needs_rework" || item.status === "false_positive" || item.status === "clean_lower_score");
+  const blocked = queue.items.some(
+    (item) =>
+      item.status === "blocked" ||
+      item.status === "blocked_needs_cross_file" ||
+      item.status === "needs_rework" ||
+      item.status === "false_positive" ||
+      item.status === "clean_lower_score",
+  );
   return {
     schema_version: QA_REPAIR_SHIP_STATUS_SCHEMA_VERSION,
     status: blocked ? "qa_repair_blocked" : pending ? "qa_repair_pending" : "qa_repair_clean",

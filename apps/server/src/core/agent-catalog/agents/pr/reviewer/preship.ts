@@ -7,9 +7,6 @@
  * exhibits (curated past maintainer rejections from doldecomp/melee
  * PRs #2655-#2659), their prompt XML rendering, and the structural validator
  * for the agent's output contract (schema.json).
- *
- * Phase 4's banned_patterns store will feed exhibit retrieval; until then the
- * static curated file under exhibits/ is loaded as-is.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

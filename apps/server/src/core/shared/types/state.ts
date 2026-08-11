@@ -11,6 +11,7 @@ export type EventType =
   | "worker_integration_resolver_started"
   | "worker_integration_resolved"
   | "worker_integration_skipped"
+  | "write_set_integration_flags"
   | "pool_below_target"
   | "epoch_regression_pause"
   | "epoch_cycle_error"

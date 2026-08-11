@@ -14,13 +14,13 @@
           "scheduler",
           "target-packet",
           "target-claim",
+          "write-set-widening",
           "checkpoint-note",
           "prompts",
           "output"
         ]
       },
       "children": [
-        "b-10-director-worker-worker-agents-and-schedu-1",
         "b-10-director-worker-worker-prompt-builders-2",
         "b-10-director-worker-sources-apps-server-sr-3",
         "b-10-director-worker-the-worker-slice-is-the-4",
@@ -53,19 +53,6 @@
         "b-10-director-worker-worker-lifecycle-31",
         "b-10-director-worker-agent-runtime-30-runti-32"
       ]
-    },
-    "b-10-director-worker-worker-agents-and-schedu-1": {
-      "id": "b-10-director-worker-worker-agents-and-schedu-1",
-      "type": "heading",
-      "props": {
-        "level": 1
-      },
-      "text": [
-        {
-          "insert": "Worker Agents And Scheduler Delegation"
-        }
-      ],
-      "children": []
     },
     "b-10-director-worker-worker-prompt-builders-2": {
       "id": "b-10-director-worker-worker-prompt-builders-2",
@@ -117,7 +104,7 @@
           }
         },
         {
-          "insert": " agent, which is reserved for rare worker-output queue\nitems where a selected checkpoint patch cannot be applied cleanly before PR\nhandoff."
+          "insert": " agent, which is reserved for worker-output conflicts that\na serial merge cannot apply cleanly before PR handoff."
         }
       ],
       "children": []
@@ -165,7 +152,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The worker slice builds prompts for one claimed epoch target. It carries the\ntarget packet, write-set rule, local regression requirements, selected worker\ncontext, resource map, optional repair request, and checkpoint-note guidance.\nThe worker return path lets the runner validate the current worktree, record a\n"
+          "insert": "The worker slice builds prompts for one claimed epoch target. It carries the\ntarget packet, category-typed write-set rule, local regression requirements,\nselected worker context, resource map, optional repair request, and checkpoint-\nnote guidance. The handoff note can request a higher necessity rung with owner,\nobjdiff, and lower-rung failure evidence. The runner decides that request,\nexpands compile checks with the touched set, and records a\n"
         },
         {
           "insert": "worker_checkpoints",
@@ -174,7 +161,7 @@
           }
         },
         {
-          "insert": " row, and either continue the same worker session under the\nbounded attempt-tail policy or close the paired "
+          "insert": " row with a tentative, confirmed, or regressed validation\nstate, then either continues the same worker session under the bounded attempt-\ntail policy or closes the paired "
         },
         {
           "insert": "worker_state",
@@ -239,7 +226,7 @@
           }
         },
         {
-          "insert": " | Parses optional compact worker checkpoint-note metadata. |\n| "
+          "insert": " | Parses compact worker checkpoint-note metadata, including evidence-backed widening requests. |\n| "
         },
         {
           "insert": "apps/server/src/core/agent-catalog/agents/running/worker/review-lint.ts",
@@ -248,7 +235,7 @@
           }
         },
         {
-          "insert": " | Evaluates runner-side review lint over the worker write-set diff. |\n| "
+          "insert": " | Evaluates runner-side review lint and surfaces categorized out-of-write-set paths as repair evidence. |\n| "
         },
         {
           "insert": "apps/server/src/core/agent-catalog/agents/running/worker/runner-validation.ts",
@@ -308,7 +295,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The integration resolver runs after worker completion and before PR mode. It\nreceives an explicit integration conflict queue item, not a PR review item. The\nitem contains failed apply evidence, selected worker checkpoint metadata, patch\npaths, conflict paths, and write sets. The agent resolves only that conflict\ngroup, returns "
+          "insert": "The integration resolver runs after worker completion and before PR mode. A\nconflict from the default integration queue or from flag-on merge-on-finish\nbecomes an explicit integration conflict item, not a PR review item. The item\ncontains failed apply evidence, selected worker checkpoint metadata, patch\npaths, conflict paths, and write sets. The agent resolves only that conflict\ngroup, returns "
         },
         {
           "insert": "melee_integration_resolver_result_v1",
@@ -317,7 +304,7 @@
           }
         },
         {
-          "insert": ", and records how each\nworker output was applied, partially applied, dropped, or superseded."
+          "insert": ", and records how each\nworker output was applied, partially applied, dropped, or superseded. An\nunresolved conflict remains operator-visible."
         }
       ],
       "children": []
@@ -334,13 +321,13 @@
                 "text": "selected worker_checkpoint",
                 "steps": [
                   {
-                    "text": "integration queue item",
+                    "text": "serial integration: merge-on-finish or default epoch queue",
                     "steps": [
                       {
                         "text": "clean apply",
                         "steps": [
                           {
-                            "text": "current epoch/session root"
+                            "text": "tentative integration in session ancestry"
                           },
                           {
                             "text": "runner records applied disposition"
@@ -361,6 +348,9 @@
                               },
                               {
                                 "text": "runner records dispositions and validation evidence"
+                              },
+                              {
+                                "text": "unresolved conflict remains operator-visible"
                               }
                             ]
                           }
@@ -415,7 +405,7 @@
           }
         },
         {
-          "insert": " so\nTrace places the session under the running epoch. The runner remains the owner\nof queue mutation, epoch acceptance, and full validation after the agent returns."
+          "insert": " so\nTrace places the session under the running epoch. The runner remains the owner\nof integration mutation, tentative acceptance, and boundary confirmation after\nthe agent returns."
         }
       ],
       "children": []
@@ -454,7 +444,7 @@
       },
       "text": [
         {
-          "insert": "The worker must stay inside its target claim and explicit write set."
+          "insert": "The worker must stay inside its target claim and approved write set. It can request a higher rung through the handoff note, but a recycled target starts again with only its target source path."
         }
       ],
       "children": []
@@ -571,7 +561,7 @@
       },
       "text": [
         {
-          "insert": "A selectable improvement is saved immediately, then the worker receives at"
+          "insert": "A selectable improvement is saved immediately as tentative, then the worker receives at"
         }
       ],
       "children": []

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { EventType, PiSessionStatus, RunStatus, RuntimeAgentRole } from "@server/core/shared/types";
+import type { WriteSetEntry } from "@server/core/session-runtime/run-state/write-set-categories.js";
 import type {
   CompletePhaseState,
   PreparingPhaseState,
@@ -154,6 +155,7 @@ export const targetClaims = sqliteTable(
     workerId: text("worker_id").notNull(),
     baseRev: text("base_rev"),
     writeSetJson: text("write_set_json", { mode: "json" }).$type<string[]>().notNull(),
+    writeSetEntriesJson: text("write_set_entries_json", { mode: "json" }).$type<WriteSetEntry[]>().notNull(),
     writeSetHash: text("write_set_hash"),
     worktreePath: text("worktree_path"),
     ttl: text("ttl"),
@@ -181,6 +183,7 @@ export const workerState = sqliteTable(
     targetKey: text("target_key").notNull(),
     lifecycleStatus: text("lifecycle_status").notNull(),
     writeSetJson: text("write_set_json", { mode: "json" }).$type<string[]>().notNull(),
+    writeSetEntriesJson: text("write_set_entries_json", { mode: "json" }).$type<WriteSetEntry[]>().notNull(),
     workerSessionIdsJson: text("worker_session_ids_json", { mode: "json" }).$type<string[]>().notNull(),
     artifactDir: text("artifact_dir"),
     worktreePath: text("worktree_path"),
@@ -223,9 +226,11 @@ export const workerCheckpoints = sqliteTable(
     qaStatus: text("qa_status"),
     objdiffStatus: text("objdiff_status"),
     validationStatus: text("validation_status").notNull(),
+    validationState: text("validation_state").$type<"tentative" | "confirmed" | "regressed">().notNull().default("tentative"),
     artifactPath: text("artifact_path"),
     patchPath: text("patch_path"),
     diffPath: text("diff_path"),
+    writeSetJson: text("write_set_json", { mode: "json" }).$type<string[]>().notNull(),
     failureReasonsJson: text("failure_reasons_json", { mode: "json" }).$type<string[]>().notNull(),
     metadataJson: text("metadata_json", { mode: "json" }).$type<JsonObject>().notNull(),
   },
@@ -235,22 +240,30 @@ export const workerCheckpoints = sqliteTable(
   ],
 );
 
-export const epochVerdicts = sqliteTable(
-  "epoch_verdicts",
+export const writeSetWidenings = sqliteTable(
+  "write_set_widenings",
   {
     id: text("id").primaryKey(),
     sessionId: text("session_id").notNull(),
     epochId: text("epoch_id").notNull(),
-    epochTargetId: text("epoch_target_id").notNull(),
-    verdict: text("verdict").notNull(),
-    reportPath: text("report_path"),
+    targetClaimId: text("target_claim_id").notNull(),
+    workerStateId: text("worker_state_id").notNull(),
+    attemptIndex: integer("attempt_index").notNull(),
+    category: text("category").notNull(),
+    rung: integer("rung").notNull(),
+    requestedPathsJson: text("requested_paths_json", { mode: "json" }).$type<string[]>().notNull(),
+    approvedPathsJson: text("approved_paths_json", { mode: "json" }).$type<string[]>().notNull(),
     evidenceJson: text("evidence_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    status: text("status").notNull(),
+    decidedBy: text("decided_by"),
+    decisionReason: text("decision_reason"),
+    validationTier: integer("validation_tier"),
+    validationEvidenceJson: text("validation_evidence_json", { mode: "json" }).$type<JsonObject>().notNull(),
     createdAt: text("created_at").notNull(),
+    decidedAt: text("decided_at"),
+    validatedAt: text("validated_at"),
   },
-  (table) => [
-    uniqueIndex("epoch_verdicts_epoch_target").on(table.epochId, table.epochTargetId),
-    index("epoch_verdicts_session_epoch").on(table.sessionId, table.epochId, table.verdict),
-  ],
+  (table) => [index("write_set_widenings_session").on(table.sessionId, table.status, table.createdAt)],
 );
 
 export const facts = sqliteTable("facts", {
@@ -308,6 +321,7 @@ export const workerOutputIntegrations = sqliteTable(
     applyStdoutPath: text("apply_stdout_path"),
     applyStderrPath: text("apply_stderr_path"),
     writeSetJson: text("write_set_json", { mode: "json" }).$type<string[]>().notNull(),
+    validationState: text("validation_state").$type<"tentative" | "confirmed" | "regressed">().notNull().default("tentative"),
     conflictPathsJson: text("conflict_paths_json", { mode: "json" }).$type<string[]>().notNull(),
     failureReasonsJson: text("failure_reasons_json", { mode: "json" }).$type<string[]>().notNull(),
     metadataJson: text("metadata_json", { mode: "json" }).$type<JsonObject>().notNull(),
@@ -432,7 +446,6 @@ export const orchestratorStateSchema = {
   directorCycles,
   epochs,
   epochTargets,
-  epochVerdicts,
   events,
   facts,
   integrations,
@@ -446,6 +459,7 @@ export const orchestratorStateSchema = {
   workerCheckpoints,
   workerOutputIntegrations,
   workerState,
+  writeSetWidenings,
 };
 
 export type RunRow = typeof runs.$inferSelect;
@@ -459,7 +473,7 @@ export type EpochTargetRow = typeof epochTargets.$inferSelect;
 export type TargetClaimRow = typeof targetClaims.$inferSelect;
 export type WorkerStateRow = typeof workerState.$inferSelect;
 export type WorkerCheckpointRow = typeof workerCheckpoints.$inferSelect;
-export type EpochVerdictRow = typeof epochVerdicts.$inferSelect;
+export type WriteSetWideningRow = typeof writeSetWidenings.$inferSelect;
 export type FactRow = typeof facts.$inferSelect;
 export type EventRow = typeof events.$inferSelect;
 export type NewEventRow = typeof events.$inferInsert;

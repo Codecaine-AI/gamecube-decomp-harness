@@ -410,23 +410,21 @@ async function main(): Promise<void> {
     })(),
   );
   assertSmoke(
-    "worker repair reasons include retained edits when runner validation is skipped",
+    "worker repair reasons surface out-of-write-set edits dropped at patch capture",
     workerAttemptRepairReasons({
-      writeSetDiffChanged: true,
-      runnerValidation: { status: "skipped", reasons: [], qaLint: null },
-    }).some((reason) => reason.includes("write_set diff changed")),
+      runnerValidation: { status: "passed", reasons: [], qaLint: null },
+      outOfWriteSetChanges: [{ path: "src/melee/ft/ftcoll.h", category: "owning-header" }],
+    }).some((reason) => reason.startsWith("out_of_write_set_edit:") && reason.includes("src/melee/ft/ftcoll.h (owning-header)")),
   );
   assertSmoke(
     "worker repair reasons include runner validation failure",
     workerAttemptRepairReasons({
-      writeSetDiffChanged: false,
       runnerValidation: { status: "failed", reasons: ["post-return check command exited 1"], qaLint: null },
     }).some((reason) => reason.includes("runner validation")),
   );
   assertSmoke(
     "worker repair reasons include build validation failure",
     workerAttemptRepairReasons({
-      writeSetDiffChanged: false,
       runnerValidation: { status: "build_failed", reasons: ["post-worker object build exited 1"], qaLint: null },
     }).some((reason) => reason.includes("runner validation")),
   );
@@ -455,7 +453,6 @@ async function main(): Promise<void> {
   assertSmoke(
     "worker repair reasons include no official score movement",
     workerAttemptRepairReasons({
-      writeSetDiffChanged: true,
       runnerValidation: { ...noOfficialMovementValidation, qaLint: null },
     }).some((reason) => reason.includes("runner validation")),
   );
@@ -493,7 +490,6 @@ async function main(): Promise<void> {
   assertSmoke(
     "worker repair reasons include review lint failure",
     workerAttemptRepairReasons({
-      writeSetDiffChanged: true,
       runnerValidation: { status: "passed", reasons: [], qaLint: null },
       reviewLint: defineAliasLint,
     }).some((reason) => reason.includes("review lint")),
@@ -1499,7 +1495,7 @@ async function main(): Promise<void> {
   const kernelPrFixerPrompt = kernelPrFixer?.renderedPrompt?.content ?? "";
   const kernelPrFixerContext = kernelPrFixer?.context?.renderedContext ?? "";
   assertSmoke("dashboard kernel agents endpoint responds", kernelAgentsResponse.ok);
-  assertSmoke("dashboard kernel agents endpoint renders all migrated agents", kernelAgents.length === 9);
+  assertSmoke("dashboard kernel agents endpoint renders all migrated agents", kernelAgents.length === 8);
   assertSmoke("dashboard kernel agents endpoint has no warnings", (kernelAgentsPayload.warnings ?? []).length === 0);
   assertSmoke("dashboard kernel worker catalog entry exists", Boolean(kernelWorker));
   assertSmoke(

@@ -17,16 +17,6 @@ export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata
     type: "history",
     useWhen: "Find prior accepted or rejected PR evidence for a file, subsystem, tactic, or review risk.",
   },
-  discord_knowledge_search: {
-    provider: "discord_knowledge",
-    type: "community_knowledge",
-    useWhen: "Search community/compiler notes for concrete decomp or review terms.",
-  },
-  discord_knowledge_topics_for_terms: {
-    provider: "discord_knowledge",
-    type: "community_knowledge",
-    useWhen: "Expand several loose compiler, review, or workflow terms into topic-style hits.",
-  },
   ssbm_data_sheet_search: {
     provider: "ssbm_data_sheet",
     type: "reference_data",
@@ -42,16 +32,6 @@ export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata
     type: "reference_data",
     useWhen: "Look up one concrete typed or untyped offset in normalized SSBM data-sheet rows.",
   },
-  powerpc_docs_search: {
-    provider: "powerpc_docs",
-    type: "reference_data",
-    useWhen: "Search PowerPC ABI, register, stack-frame, branch, conversion, or condition-register docs.",
-  },
-  powerpc_instruction_lookup: {
-    provider: "powerpc_docs",
-    type: "reference_data",
-    useWhen: "Look up documentation for one concrete PowerPC instruction mnemonic.",
-  },
   external_mirrors_search: {
     provider: "external_mirrors",
     type: "external_reference",
@@ -62,16 +42,6 @@ export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata
     type: "external_reference",
     useWhen: "Look up one specific external symbol or name, then verify locally.",
   },
-  path_facts_resolve: {
-    provider: "path_facts",
-    type: "path_context",
-    useWhen: "Resolve accepted path-scoped facts and directory-slice hints for a source path.",
-  },
-  path_facts_proposals: {
-    provider: "path_facts",
-    type: "proposal_review",
-    useWhen: "Inspect pending path-fact proposals before creating another scoped proposal.",
-  },
   decomp_standards_context: {
     provider: "decomp_standards",
     type: "standards_context",
@@ -81,5 +51,20 @@ export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata
     provider: "decomp_standards",
     type: "proposal_review",
     useWhen: "Inspect pending standards proposals before creating another global rule proposal.",
+  },
+  smashwiki_search: {
+    provider: "smashwiki",
+    type: "reference_data",
+    useWhen: "Search mirrored SmashWiki titles, summaries, and sections for game-mechanics evidence.",
+  },
+  smashwiki_get_page: {
+    provider: "smashwiki",
+    type: "reference_data",
+    useWhen: "Read an exact mirrored SmashWiki page or section after finding relevant game-mechanics evidence.",
+  },
+  ledger_search: {
+    provider: "knowledge_ledger",
+    type: "history",
+    useWhen: "Corroborate or refute a candidate learning against existing ledger learnings before emitting it.",
   },
 };

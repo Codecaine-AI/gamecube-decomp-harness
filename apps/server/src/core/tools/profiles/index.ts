@@ -16,10 +16,10 @@ import type {
 import { capabilityToolPromptMetadata } from "../metadata/capabilities.js";
 import { knowledgeToolPromptMetadata } from "../metadata/knowledge.js";
 import {
+  defaultConflictResolverToolProfile,
   defaultIntegrationResolverToolProfile,
-  defaultKnowledgeCuratorToolProfile,
+  defaultLibrarianToolProfile,
   defaultPrFixerToolProfile,
-  defaultPrIndexerToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
@@ -27,10 +27,10 @@ import {
 } from "./defaults.js";
 
 export {
+  defaultConflictResolverToolProfile,
   defaultIntegrationResolverToolProfile,
-  defaultKnowledgeCuratorToolProfile,
+  defaultLibrarianToolProfile,
   defaultPrFixerToolProfile,
-  defaultPrIndexerToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
@@ -44,12 +44,12 @@ const agentToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
 
 export const defaultAgentToolProfiles: Record<RuntimeAgentRole, string[]> = {
   worker: [...defaultWorkerToolProfile],
+  "conflict-resolver": [...defaultConflictResolverToolProfile],
   "integration-resolver": [...defaultIntegrationResolverToolProfile],
-  "pr-indexer": [...defaultPrIndexerToolProfile],
   "pr-reviewer": [],
   "pr-fixer": [...defaultPrFixerToolProfile],
   "pr-splitter": [...defaultPrSplitterToolProfile],
-  "knowledge-curator": [...defaultKnowledgeCuratorToolProfile],
+  librarian: [...defaultLibrarianToolProfile],
   reconcile: [...defaultReconcileToolProfile],
   "qa-repair": [...defaultQaRepairToolProfile],
 };

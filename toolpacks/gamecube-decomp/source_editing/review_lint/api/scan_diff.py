@@ -79,9 +79,12 @@ def run_git(repo: Path, args: list[str]) -> str:
 def parse_unified_diff(diff_text: str) -> list[dict[str, Any]]:
     """Parse a unified diff into per-file hunk records.
 
-    Returns [{"file": path, "hunks": [{"file", "added", "removed", "context"},
-    ...]}]. Added lines carry their new-file line numbers; removed and
-    context lines are bare text (both existed in the base version).
+    Returns [{"file": path, "hunks": [{"file", "added", "removed", "context",
+    "post_lines"}, ...]}]. Added lines carry their new-file line numbers;
+    removed and context lines are bare text (both existed in the base
+    version). ``post_lines`` preserves added/context order and marks whether
+    each post-image line was added so stateful rules can account for nearby
+    preprocessor and comment context without reporting unchanged lines.
     """
 
     files: list[dict[str, Any]] = []
@@ -114,6 +117,7 @@ def parse_unified_diff(diff_text: str) -> list[dict[str, Any]]:
                 "added": [],
                 "removed": [],
                 "context": [],
+                "post_lines": [],
             }
             current_file["hunks"].append(hunk)
             continue
@@ -122,13 +126,17 @@ def parse_unified_diff(diff_text: str) -> list[dict[str, Any]]:
         if raw.startswith("\\"):
             continue  # "\ No newline at end of file"
         if raw.startswith("+"):
-            hunk["added"].append((new_lineno, raw[1:]))
+            text = raw[1:]
+            hunk["added"].append((new_lineno, text))
+            hunk["post_lines"].append((new_lineno, text, True))
             new_lineno += 1
         elif raw.startswith("-"):
             hunk["removed"].append(raw[1:])
         else:
             # Context line (leading space; a fully blank line also counts).
-            hunk["context"].append(raw[1:] if raw.startswith(" ") else raw)
+            text = raw[1:] if raw.startswith(" ") else raw
+            hunk["context"].append(text)
+            hunk["post_lines"].append((new_lineno, text, False))
             new_lineno += 1
     return [record for record in files if record["hunks"]]
 
@@ -339,6 +347,11 @@ def collect_findings(
     for record in file_diffs:
         if not _qa_rules.path_matches(record["file"], GLOBAL_APPLIES_TO):
             continue
+        post_file_text = (
+            post_diff_file_text(repo, record["file"], mode, file_diffs)
+            if mode != "diff"
+            else None
+        )
         file_removed_hsd_asserts = sum(
             1
             for hunk in record["hunks"]
@@ -346,7 +359,11 @@ def collect_findings(
             if _qa_rules.HSD_ASSERT_CALL_RE.search(_qa_rules.blank_line(text))
         )
         for hunk in record["hunks"]:
-            hunk_for_rules = {**hunk, "file_removed_hsd_asserts": file_removed_hsd_asserts}
+            hunk_for_rules = {
+                **hunk,
+                "file_removed_hsd_asserts": file_removed_hsd_asserts,
+                "post_file_text": post_file_text,
+            }
             findings.extend(
                 _qa_rules.run_rules_on_hunk(rules, hunk_for_rules, surface=surface)
             )

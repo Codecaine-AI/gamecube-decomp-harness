@@ -44,6 +44,7 @@ export interface RunCheckpointItem {
   sourcePath: string;
   lifecycleStatus: string;
   validationStatus: string;
+  validationState: "tentative" | "confirmed" | "regressed";
   disposition: CheckpointDisposition;
   itemStatus: "pending";
   exactMatch: boolean;
@@ -68,6 +69,12 @@ export interface RunCheckpointResult {
     createdAt: string;
   };
   counts: Record<string, number>;
+  eligibility: {
+    confirmedOnly: boolean;
+    activationReasons: string[];
+    excludedTentative: number;
+    excludedRegressed: number;
+  };
   items: RunCheckpointItem[];
 }
 
@@ -75,6 +82,8 @@ interface CreateRunCheckpointOptions {
   allowActiveClaims?: boolean;
   artifactDir?: string;
   checkpointType?: string;
+  /** Forces the feature-only confirmed-state PR gate for direct callers. */
+  confirmedOnlyPrEligibility?: boolean;
   improvementPromotion?: Partial<ImprovementPromotionPolicy>;
   now?: string;
   /**
@@ -102,6 +111,7 @@ interface WorkerCheckpointEvidence {
   qaStatus: string;
   objdiffStatus: string;
   validationStatus: string;
+  validationState: "tentative" | "confirmed" | "regressed";
   artifactPath: string;
   patchPath: string;
   diffPath: string;
@@ -137,6 +147,10 @@ function nullableNumber(value: unknown): number | null {
 
 function boolValue(value: unknown): boolean {
   return value === true || value === 1 || value === "true";
+}
+
+function validationStateValue(value: unknown): "tentative" | "confirmed" | "regressed" {
+  return value === "confirmed" || value === "regressed" ? value : "tentative";
 }
 
 function jsonObjectValue(value: unknown): Record<string, unknown> {
@@ -196,6 +210,7 @@ function checkpointFromRow(row: Record<string, unknown>, prefix: "best" | "lates
     qaStatus: stringValue(row[`${prefix}_qa_status`]),
     objdiffStatus: stringValue(row[`${prefix}_objdiff_status`]),
     validationStatus: stringValue(row[`${prefix}_validation_status`]),
+    validationState: validationStateValue(row[`${prefix}_validation_state`]),
     artifactPath: stringValue(row[`${prefix}_artifact_path`]),
     patchPath: stringValue(row[`${prefix}_patch_path`]),
     diffPath: stringValue(row[`${prefix}_diff_path`]),
@@ -346,6 +361,7 @@ function itemFromWorkerState(
   createdAt: string,
   policy: ImprovementPromotionPolicy,
   reworkSymbols: Set<string>,
+  confirmedOnlyPrEligibility: boolean,
 ): RunCheckpointItem {
   const workerSummary = jsonObjectValue(row.summary_json);
   const bestCheckpoint = checkpointFromRow(row, "best");
@@ -362,13 +378,23 @@ function itemFromWorkerState(
   const improvement =
     checkpoint && !exactMatch ? evaluateImprovementPromotion(checkpoint, runnerValidation, symbol, policy) : null;
   const regressedAgainstBaseline = Boolean(symbol) && reworkSymbols.has(symbol);
-  const disposition = dispositionForWorkerState({
+  const candidateDisposition = dispositionForWorkerState({
     checkpoint,
     exactMatch,
     improvement,
     lifecycleStatus,
     regressedAgainstBaseline,
   });
+  const validationState = checkpoint?.validationState ?? "tentative";
+  const excludedByValidationState =
+    confirmedOnlyPrEligibility &&
+    (candidateDisposition === "pr_candidate" || candidateDisposition === "improvement_candidate") &&
+    validationState !== "confirmed";
+  const disposition = excludedByValidationState
+    ? validationState === "regressed"
+      ? "needs_rework"
+      : "deferred_patch"
+    : candidateDisposition;
   const validationStatus = checkpoint?.validationStatus || stringValue(runnerValidation.status);
   const summaryPath = workerStateSummaryPath(row, workerSummary);
   const itemSummary =
@@ -392,6 +418,18 @@ function itemFromWorkerState(
     selected_checkpoint: bestCheckpoint,
     latest_checkpoint: latestCheckpoint,
     runner_validation: runnerValidation,
+    pr_eligibility: {
+      confirmed_only_gate: confirmedOnlyPrEligibility,
+      validation_state: validationState,
+      eligible: !excludedByValidationState,
+      excluded: excludedByValidationState,
+      candidate_disposition: candidateDisposition,
+      reason: excludedByValidationState
+        ? `validation_state=${validationState}; confirmed-only PR eligibility gate requires confirmed`
+        : confirmedOnlyPrEligibility
+          ? "validation_state=confirmed or item was not in a PR-preparation lane"
+          : "legacy eligibility path; write-set feature gate inactive",
+    },
     ...(improvement ? { improvement_promotion: improvement } : {}),
     ...(regressedAgainstBaseline
       ? { baseline_regression: { reason: "symbol broke or regressed against the rebuilt production baseline; pulled from shipping lanes for rework" } }
@@ -412,6 +450,7 @@ function itemFromWorkerState(
     sourcePath,
     lifecycleStatus,
     validationStatus,
+    validationState,
     disposition,
     itemStatus: "pending",
     exactMatch,
@@ -482,6 +521,7 @@ function workerStateRows(store: StateStore, runId: string): Record<string, unkno
               best.qa_status AS best_qa_status,
               best.objdiff_status AS best_objdiff_status,
               best.validation_status AS best_validation_status,
+              best.validation_state AS best_validation_state,
               best.artifact_path AS best_artifact_path,
               best.patch_path AS best_patch_path,
               best.diff_path AS best_diff_path,
@@ -502,6 +542,7 @@ function workerStateRows(store: StateStore, runId: string): Record<string, unkno
               latest.qa_status AS latest_qa_status,
               latest.objdiff_status AS latest_objdiff_status,
               latest.validation_status AS latest_validation_status,
+              latest.validation_state AS latest_validation_state,
               latest.artifact_path AS latest_artifact_path,
               latest.patch_path AS latest_patch_path,
               latest.diff_path AS latest_diff_path,
@@ -525,12 +566,84 @@ function workerStateRows(store: StateStore, runId: string): Record<string, unkno
   );
 }
 
+function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, forced: boolean): string[] {
+  const reasons: string[] = [];
+  if (forced) reasons.push("caller_flag");
+  const featureEvent = withBusyRetry(
+    () =>
+      store.db
+        .query(
+          `
+            SELECT 1
+            FROM events
+            WHERE run_id = ?
+              AND event_type = 'write_set_integration_flags'
+            LIMIT 1
+          `,
+        )
+        .get(runId),
+  );
+  if (featureEvent) reasons.push("feature_flags_recorded");
+  const nonDefaultCheckpoint = withBusyRetry(
+    () =>
+      store.db
+        .query(
+          `
+            SELECT 1
+            FROM worker_checkpoints
+            WHERE session_id = ?
+              AND validation_state IN ('confirmed', 'regressed')
+            LIMIT 1
+          `,
+        )
+        .get(runId),
+  );
+  const nonDefaultIntegration = withBusyRetry(
+    () =>
+      store.db
+        .query(
+          `
+            SELECT 1
+            FROM worker_output_integrations
+            WHERE session_id = ?
+              AND validation_state IN ('confirmed', 'regressed')
+            LIMIT 1
+          `,
+        )
+        .get(runId),
+  );
+  if (nonDefaultCheckpoint || nonDefaultIntegration) reasons.push("non_default_validation_state");
+  const wideningHistory = withBusyRetry(
+    () => store.db.query("SELECT 1 FROM write_set_widenings WHERE session_id = ? LIMIT 1").get(runId),
+  );
+  if (wideningHistory) reasons.push("write_set_widening_history");
+  const mergeOnFinishIntegration = withBusyRetry(
+    () =>
+      store.db
+        .query(
+          `
+            SELECT 1
+            FROM worker_output_integrations
+            WHERE session_id = ?
+              AND disposition IN ('merge_on_finish_clean', 'conflict_resolved')
+            LIMIT 1
+          `,
+        )
+        .get(runId),
+  );
+  if (mergeOnFinishIntegration) reasons.push("merge_on_finish_history");
+  return reasons;
+}
+
 function markdownTable(items: RunCheckpointItem[]): string[] {
   if (items.length === 0) return ["No items."];
   const lines = ["| Disposition | Symbol | Source | Checkpoint | Patch | Evidence |", "| - | - | - | - | - | - |"];
   for (const item of items) {
     const promotion = asObject(item.evidence.improvement_promotion);
-    const evidence = item.exactMatch
+    const eligibility = asObject(item.evidence.pr_eligibility);
+    const evidence = boolValue(eligibility.excluded)
+      ? stringValue(eligibility.reason)
+      : item.exactMatch
       ? "runner-selected exact checkpoint"
       : item.disposition === "improvement_candidate"
         ? `${numberValue(promotion.target_before, NaN)} -> ${numberValue(promotion.target_after, NaN)} (+${numberValue(promotion.gain_points, NaN)}pts, ~${numberValue(promotion.estimated_matched_bytes, NaN)} bytes)`
@@ -549,6 +662,7 @@ function writeArtifacts(params: {
   carryForwardPath: string;
   checkpoint: RunCheckpointResult["checkpoint"];
   counts: Record<string, number>;
+  eligibility: RunCheckpointResult["eligibility"];
   items: RunCheckpointItem[];
   prCandidatesPath: string;
   summaryPath: string;
@@ -561,6 +675,7 @@ function writeArtifacts(params: {
   const payload = {
     checkpoint: params.checkpoint,
     counts: params.counts,
+    eligibility: params.eligibility,
     pr_candidates: prCandidates,
     improvement_candidates: improvementCandidates,
     carry_forward: carryForward,
@@ -633,7 +748,7 @@ function persistCheckpoint(store: StateStore, result: RunCheckpointResult): void
       result.checkpoint.prCandidatesPath,
       result.checkpoint.carryForwardPath,
       result.checkpoint.createdAt,
-      JSON.stringify({ counts: result.counts }),
+      JSON.stringify({ counts: result.counts, eligibility: result.eligibility }),
     );
     for (const item of result.items) {
       insertItem.run(
@@ -689,14 +804,29 @@ export function createRunCheckpoint(store: StateStore, runId: string, options: C
     minMatchedBytes: options.improvementPromotion?.minMatchedBytes ?? defaultImprovementPromotion.minMatchedBytes,
   };
   const reworkSymbols = new Set((options.reworkSymbols ?? []).filter(Boolean));
-  const items = workerStateRows(store, runId).map((row) => itemFromWorkerState(row, checkpointId, runId, createdAt, policy, reworkSymbols));
+  const activationReasons = confirmedOnlyPrEligibilityReasons(store, runId, options.confirmedOnlyPrEligibility === true);
+  const confirmedOnlyPrEligibility = activationReasons.length > 0;
+  const items = workerStateRows(store, runId).map((row) =>
+    itemFromWorkerState(row, checkpointId, runId, createdAt, policy, reworkSymbols, confirmedOnlyPrEligibility),
+  );
   const counts = checkpointCounts(items);
-  const result = { checkpoint, counts, items };
+  const eligibility = {
+    confirmedOnly: confirmedOnlyPrEligibility,
+    activationReasons,
+    excludedTentative: items.filter(
+      (item) => item.validationState === "tentative" && boolValue(asObject(item.evidence.pr_eligibility).excluded),
+    ).length,
+    excludedRegressed: items.filter(
+      (item) => item.validationState === "regressed" && boolValue(asObject(item.evidence.pr_eligibility).excluded),
+    ).length,
+  };
+  const result = { checkpoint, counts, eligibility, items };
   writeArtifacts({
     artifactDir,
     carryForwardPath,
     checkpoint,
     counts,
+    eligibility,
     items,
     prCandidatesPath,
     summaryPath,

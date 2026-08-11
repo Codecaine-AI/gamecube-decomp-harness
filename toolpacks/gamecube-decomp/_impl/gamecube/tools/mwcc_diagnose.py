@@ -2002,7 +2002,7 @@ def diagnose_stack(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        diff = checkdiff.run_diff(obj_path, compiled.obj, func, capture=True)
+        diff = checkdiff.run_diff(obj_path, compiled.obj, func, capture=True, strict=False)
     finally:
         compiled.tmpdir.cleanup()
 
@@ -2109,7 +2109,7 @@ def diagnose_regflow(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        diff = checkdiff.run_diff(obj_path, compiled.obj, func, capture=True)
+        diff = checkdiff.run_diff(obj_path, compiled.obj, func, capture=True, strict=False)
     finally:
         compiled.tmpdir.cleanup()
 
@@ -2182,7 +2182,7 @@ def diagnose_inlines(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        diff = checkdiff.run_diff(obj_path, compiled.obj, func, capture=True)
+        diff = checkdiff.run_diff(obj_path, compiled.obj, func, capture=True, strict=False)
     finally:
         compiled.tmpdir.cleanup()
 

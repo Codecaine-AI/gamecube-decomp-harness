@@ -15,15 +15,16 @@
           "schema",
           "epochs",
           "target-claims",
+          "write-set-widening",
           "worker-state",
           "checkpoints",
+          "validation-state",
           "run-status",
           "project-session",
           "status"
         ]
       },
       "children": [
-        "b-00-overview-state-overview-1",
         "b-00-overview-drizzle-typed-sqlite-sch-2",
         "b-00-overview-sources-apps-server-sr-3",
         "b-00-overview-the-orchestrator-app-sta-4",
@@ -89,19 +90,6 @@
         "b-00-overview-server-jobs-overview-64",
         "b-00-overview-ui-implementation-6-65"
       ]
-    },
-    "b-00-overview-state-overview-1": {
-      "id": "b-00-overview-state-overview-1",
-      "type": "heading",
-      "props": {
-        "level": 1
-      },
-      "text": [
-        {
-          "insert": "State: Overview"
-        }
-      ],
-      "children": []
     },
     "b-00-overview-drizzle-typed-sqlite-sch-2": {
       "id": "b-00-overview-drizzle-typed-sqlite-sch-2",
@@ -389,7 +377,16 @@
           }
         },
         {
-          "insert": " | Active and closed worker ownership records for epoch targets, including explicit write sets and worktree paths. |\n| "
+          "insert": " | Active and closed worker ownership records for epoch targets, including mutable category-typed write sets, compatibility path lists, and worktree paths. |\n| "
+        },
+        {
+          "insert": "write_set_widenings",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Evidence, requested and approved paths, necessity rung, runner decision, and validation provenance for each widening request. |\n| "
         },
         {
           "insert": "worker_state",
@@ -398,7 +395,7 @@
           }
         },
         {
-          "insert": " | One runner-owned execution summary per target claim: lifecycle status, worker sessions, artifacts, baseline/best scores, exact flag, and timeout/error summaries. |\n| "
+          "insert": " | One runner-owned execution summary per target claim: lifecycle status, current category-typed write set, worker sessions, artifacts, baseline/best scores, exact flag, and timeout/error summaries. |\n| "
         },
         {
           "insert": "worker_checkpoints",
@@ -407,7 +404,16 @@
           }
         },
         {
-          "insert": " | One row per runner validation attempt, including failed validations, score movement, hard-gate status, selectable/selected flags, artifact paths, and failure reasons. |\n| "
+          "insert": " | One row per runner validation attempt, including the captured write set, failed validations, score movement, hard-gate status, selectable/selected flags, tentative/confirmed/regressed state, artifact paths, and failure reasons. |\n| "
+        },
+        {
+          "insert": "worker_output_integrations",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Serial worker-output apply/conflict dispositions, captured write sets, widening metadata, and tentative/confirmed/regressed state in session ancestry. |\n| "
         },
         {
           "insert": "epoch_verdicts",
@@ -768,7 +774,7 @@
           }
         },
         {
-          "insert": " rows, records runner validation\n  checkpoints, selects the best checkpoint, and closes claim/state lifecycle."
+          "insert": " rows, records widening requests and decisions, updates category-typed write sets,\n  resets recycled claims to the target source path, records runner validation\n  checkpoints, selects the best checkpoint, and closes claim/state lifecycle."
         }
       ],
       "children": []
@@ -1136,7 +1142,7 @@
       "props": {},
       "text": [
         {
-          "insert": "  owns an explicit write set. Workers run in separate worktrees, so multiple\n  targets from the same source path can be active concurrently."
+          "insert": "  owns a category-typed write set. It begins with the target source path and\n  can add config metadata or an owning header only after the configured policy\n  approves evidence for each lower rung; foreign-source requests route out of\n  the automatic lane. Recycling resets the set to the target source path.\n  Workers run in separate worktrees, so multiple targets from the same source\n  path can be active concurrently."
         }
       ],
       "children": []
@@ -1247,7 +1253,7 @@
       "props": {},
       "text": [
         {
-          "insert": "  improves over the worker state's baseline. Best checkpoint selection is\n  deterministic: exact match first, then highest score, then earliest\n  validation tie."
+          "insert": "  improves over the worker state's baseline. Best checkpoint selection is\n  deterministic: exact match first, then highest score, then earliest\n  validation tie. A scoped-clean checkpoint banks as tentative. The epoch\n  boundary confirms clean tentative integrations; a blamed integration is\n  reverted and marked regressed. Only confirmed checkpoints are PR-eligible."
         }
       ],
       "children": []

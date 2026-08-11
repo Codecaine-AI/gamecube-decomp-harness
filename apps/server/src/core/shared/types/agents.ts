@@ -1,11 +1,11 @@
 export type AgentRole =
   | "worker"
+  | "conflict-resolver"
   | "integration-resolver"
-  | "pr-indexer"
   | "pr-reviewer"
   | "pr-fixer"
   | "pr-splitter"
-  | "knowledge-curator"
+  | "librarian"
   | "reconcile"
   | "qa-repair";
 export type RuntimeAgentRole = AgentRole;

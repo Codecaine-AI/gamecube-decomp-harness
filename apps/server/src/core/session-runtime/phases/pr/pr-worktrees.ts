@@ -1,7 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import {
+  isHostToolPlatform,
+  requiredStateToolArtifactError,
+  resolveStateToolArtifact,
+  resolveToolPlatform,
+  type ToolPlatform,
+} from "@server/core/tools/platform.js";
+import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
 import type { RegressionReport } from "@server/core/validation/objdiff/report";
 
 export type JsonObject = Record<string, unknown>;
@@ -23,6 +31,7 @@ export interface PrWorktreeProjectContext {
   project: { baseRef?: string } | null;
   repoRoot: string;
   stateDir: string;
+  toolPlatform?: ToolPlatform;
 }
 
 type LogStream = "stdout" | "stderr" | "ui";
@@ -74,6 +83,23 @@ function numberValue(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function dedupeStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+/** Preserve the legacy primary manifest exactly; append only novel support paths. */
+function manifestFiles(files: string[], supportFiles?: string[]): string[] {
+  if (!supportFiles?.length) return files;
+  const seen = new Set(files);
+  const manifest = [...files];
+  for (const file of supportFiles) {
+    if (seen.has(file)) continue;
+    seen.add(file);
+    manifest.push(file);
+  }
+  return manifest;
+}
+
 function readJsonObject(path: string): JsonObject {
   try {
     if (!path || !existsSync(path)) return {};
@@ -107,12 +133,21 @@ function pathCommandExists(command: string): boolean {
   return false;
 }
 
-function seedLocalWibo(paths: PrWorktreeProjectContext, worktreeDir: string): boolean {
-  if (process.platform !== "darwin" && process.platform !== "linux") return false;
+function seedLocalWibo(paths: PrWorktreeProjectContext, worktreeDir: string, toolPlatform: ToolPlatform): boolean {
   const localWibo = resolve(worktreeDir, "build", "tools", "wibo");
-  if (existsSync(localWibo)) return true;
-  const source = resolve(paths.stateDir, "tools", "wibo");
-  if (!existsSync(source)) return false;
+  const crossPlatformTarget = !isHostToolPlatform(toolPlatform);
+  if (!crossPlatformTarget && existsSync(localWibo)) {
+    installMwccCacheShim(worktreeDir);
+    return true;
+  }
+  const source = resolveStateToolArtifact({ stateDir: paths.stateDir, name: "wibo", platform: toolPlatform });
+  if (!source) {
+    if (crossPlatformTarget) {
+      throw requiredStateToolArtifactError({ stateDir: paths.stateDir, name: "wibo", platform: toolPlatform });
+    }
+    return false;
+  }
+  if (crossPlatformTarget) rmSync(localWibo, { recursive: true, force: true });
   mkdirSync(dirname(localWibo), { recursive: true });
   copyFileSync(source, localWibo);
   try {
@@ -120,14 +155,16 @@ function seedLocalWibo(paths: PrWorktreeProjectContext, worktreeDir: string): bo
   } catch {
     // Best effort; copied project tools are usually already executable.
   }
+  installMwccCacheShim(worktreeDir);
   return true;
 }
 
 function preferredConfigureCommand(paths: PrWorktreeProjectContext, worktreeDir: string): string[] {
-  if (seedLocalWibo(paths, worktreeDir)) {
+  const toolPlatform = resolveToolPlatform({ targetPlatform: paths.toolPlatform });
+  if (seedLocalWibo(paths, worktreeDir, toolPlatform)) {
     return ["/bin/sh", "-c", "python3 configure.py --require-protos --wrapper build/tools/wibo"];
   }
-  if ((process.platform === "darwin" || process.platform === "linux") && pathCommandExists("wibo")) {
+  if (isHostToolPlatform(toolPlatform) && pathCommandExists("wibo")) {
     return ["/bin/sh", "-c", "python3 configure.py --require-protos --wrapper wibo"];
   }
   return ["python3", "configure.py", "--require-protos"];
@@ -400,8 +437,9 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     return { status: "issues", output, files };
   }
 
-  async function verifyPrSliceInBaseline(params: { baseSha: string; baselineWorktree: string; files: string[]; patchPath: string }): Promise<{ issues: CodeIssuesResult; report: RegressionReport }> {
-    const includeArgs = params.files.map((file) => `--include=${file}`);
+  async function verifyPrSliceInBaseline(params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string }): Promise<{ issues: CodeIssuesResult; report: RegressionReport }> {
+    const allFiles = manifestFiles(params.files, params.supportFiles);
+    const includeArgs = allFiles.map((file) => `--include=${file}`);
     let report: RegressionReport | null = null;
     let issues: CodeIssuesResult = { status: "unavailable", output: "verification did not reach code-issues", files: [] };
     try {
@@ -416,18 +454,35 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
         issues = { status: "unavailable", output: "skipped — slice regressed in isolation", files: [] };
       }
     } finally {
-      await runCli(["git", "reset", "--hard", params.baseSha], params.baselineWorktree);
-      await runCli(["git", "clean", "-fd", "--", "src", "include", "config"], params.baselineWorktree);
+      const reset = await runCli(["git", "reset", "--hard", params.baseSha], params.baselineWorktree);
+      const cleanPaths = params.supportFiles?.length
+        ? dedupeStrings(["src", "include", "config", ...params.supportFiles])
+        : ["src", "include", "config"];
+      const clean = await runCli(["git", "clean", "-fd", "--", ...cleanPaths], params.baselineWorktree);
+      if (reset.exitCode !== 0 || clean.exitCode !== 0) {
+        throw new Error(
+          `Slice verification could not restore pristine baseline ${params.baseSha.slice(0, 10)} ` +
+          `(reset=${String(reset.exitCode)}, clean=${String(clean.exitCode)}).`,
+        );
+      }
     }
     if (!report) throw new Error("Slice verification did not produce a regression report.");
     if (issues.status === "issues") {
       // The upstream image reports issues already present on pristine master
       // (e.g. types.h static_asserts); a slice only fails on issues it adds.
+      const patchedEntries = issueEntries(issues.output);
+      if (patchedEntries.length === 0) {
+        throw new Error("Slice Issues output could not be parsed for pristine-master parity; refusing to classify it as a new clang issue.");
+      }
       const baselineIssues = await checkCodeIssues(params.baselineWorktree);
       if (baselineIssues.status === "issues" || baselineIssues.status === "clean") {
         const pristineCounts = new Map<string, number>();
-        for (const entry of issueEntries(baselineIssues.output)) pristineCounts.set(entry, (pristineCounts.get(entry) ?? 0) + 1);
-        const added = issueEntries(issues.output).filter((entry) => {
+        const baselineEntries = issueEntries(baselineIssues.output);
+        if (baselineIssues.status === "issues" && baselineEntries.length === 0) {
+          throw new Error("Pristine baseline Issues output could not be parsed; refusing to guess slice/master clang parity.");
+        }
+        for (const entry of baselineEntries) pristineCounts.set(entry, (pristineCounts.get(entry) ?? 0) + 1);
+        const added = patchedEntries.filter((entry) => {
           const remaining = pristineCounts.get(entry) ?? 0;
           if (remaining <= 0) return true;
           pristineCounts.set(entry, remaining - 1);
@@ -489,7 +544,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     );
   }
 
-  async function readyLocalPrSource(params: { baseSha: string; branch: string; files: string[]; record: JsonObject; repoRoot: string; stateDir: string }): Promise<JsonObject | null> {
+  async function readyLocalPrSource(params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; record: JsonObject; repoRoot: string; stateDir: string }): Promise<JsonObject | null> {
     const local = asObject(params.record.local);
     const worktreePath = stringValue(local.worktreePath);
     const localStatus = stringValue(local.status);
@@ -535,19 +590,21 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     const head = await runGit(params.repoRoot, ["rev-parse", params.branch], { failureHint: `Unable to read local PR branch HEAD for ${params.branch}` });
     const commitSha = head.stdout.trim();
     const diffBase = localBranchDiffBase(params.repoRoot, params.baseSha, params.branch);
+    const allFiles = manifestFiles(params.files, params.supportFiles);
     const changed = await runGit(params.repoRoot, ["diff", "--name-only", `${diffBase}..${params.branch}`], { failureHint: `Unable to inspect local PR diff for ${params.branch}` });
     const changedFiles = changed.stdout.split("\n").map((file) => file.trim()).filter(Boolean);
     if (changedFiles.length === 0) throw new Error(`Local PR branch ${params.branch} has no committed diff from ${diffBase.slice(0, 10)}.`);
-    const manifest = new Set(params.files);
+    const manifest = new Set(allFiles);
     const outsideManifest = changedFiles.filter((file) => !manifest.has(file));
     if (outsideManifest.length > 0) {
-      throw new Error(`Local PR branch ${params.branch} changes file(s) outside the PR manifest: ${outsideManifest.slice(0, 8).join(", ")}${outsideManifest.length > 8 ? `, +${outsideManifest.length - 8} more` : ""}. Re-plan or move those edits before opening.`);
+      const manifestLabel = params.supportFiles?.length ? "PR manifest (files + declared support files)" : "PR manifest";
+      throw new Error(`Local PR branch ${params.branch} changes file(s) outside the ${manifestLabel}: ${outsideManifest.slice(0, 8).join(", ")}${outsideManifest.length > 8 ? `, +${outsideManifest.length - 8} more` : ""}. Re-plan or move those edits before opening.`);
     }
 
     const patchDir = resolve(params.stateDir, "pr_handoff", "local_patches");
     mkdirSync(patchDir, { recursive: true });
     const patchPath = resolve(patchDir, `${prBranchPathSlug(params.branch)}.patch`);
-    const diff = await runGit(params.repoRoot, ["diff", "--binary", `${diffBase}..${params.branch}`, "--", ...params.files], { failureHint: `Unable to write local PR patch for ${params.branch}` });
+    const diff = await runGit(params.repoRoot, ["diff", "--binary", `${diffBase}..${params.branch}`, "--", ...allFiles], { failureHint: `Unable to write local PR patch for ${params.branch}` });
     if (!diff.stdout.trim()) throw new Error(`Local PR worktree for ${params.branch} produced an empty manifest diff.`);
     writeFileSync(patchPath, diff.stdout, "utf8");
 
@@ -564,6 +621,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     baseSha: string;
     branch: string;
     files: string[];
+    supportFiles?: string[];
     force: boolean;
     patchPath: string;
     record: JsonObject;
@@ -600,7 +658,8 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     const origSource = resolve(params.repoRoot, "orig");
     if (existsSync(origSource)) linkMissingFiles(origSource, resolve(worktreePath, "orig"));
 
-    const includeArgs = params.files.map((file) => `--include=${file}`);
+    const allFiles = manifestFiles(params.files, params.supportFiles);
+    const includeArgs = allFiles.map((file) => `--include=${file}`);
     const apply = await runCli(["git", "apply", "--index", ...includeArgs, params.patchPath], worktreePath);
     if (apply.exitCode !== 0) throw new Error(`Patch apply failed in the local PR worktree (${apply.exitCode}): ${outputTail(apply.stderr, 1500)}`);
     const commit = await runCli(["git", "commit", "-m", params.title], worktreePath);
@@ -620,8 +679,9 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     };
   }
 
-  async function publishPatchToFork(params: { baseSha: string; branch: string; files: string[]; patchPath: string; repoRoot: string; title: string }): Promise<void> {
-    const includeArgs = params.files.map((file) => `--include=${file}`);
+  async function publishPatchToFork(params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; patchPath: string; repoRoot: string; title: string }): Promise<void> {
+    const allFiles = manifestFiles(params.files, params.supportFiles);
+    const includeArgs = allFiles.map((file) => `--include=${file}`);
     const worktreeDir = resolve(tmpdir(), `melee-pr-${params.branch.replace(/[^A-Za-z0-9_.-]+/g, "-")}`);
     if (existsSync(worktreeDir)) await runCli(["git", "worktree", "remove", "--force", worktreeDir], params.repoRoot);
     const add = await runCli(["git", "worktree", "add", "-B", params.branch, worktreeDir, params.baseSha], params.repoRoot);
@@ -638,6 +698,93 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     }
   }
 
+  async function verifySupportMergeOrder(params: {
+    repoRoot: string;
+    branch: string;
+    sliceId: string;
+    files: string[];
+    supportFiles: string[];
+    others: Array<{ branch: string; sliceId: string; files: string[]; supportFiles: string[] }>;
+  }): Promise<JsonObject> {
+    let checkedPairs = 0;
+    const skipped: JsonObject[] = [];
+    for (const other of params.others) {
+      if (other.branch === params.branch) continue;
+      const otherFiles = new Set([...other.files, ...other.supportFiles]);
+      const otherSupportFiles = new Set(other.supportFiles);
+      const overlap = dedupeStrings([
+        ...params.supportFiles.filter((file) => otherFiles.has(file)),
+        ...params.files.filter((file) => otherSupportFiles.has(file)),
+      ]);
+      if (overlap.length === 0) continue;
+      if (!branchExists(params.repoRoot, params.branch)) {
+        throw new Error(
+          `Merge-order verification cannot resolve slice ${params.sliceId} (branch ${params.branch}) while checking ` +
+          `prepared slice ${other.sliceId}; shared support file(s): ${overlap.join(", ")}.`,
+        );
+      }
+      if (!branchExists(params.repoRoot, other.branch)) {
+        throw new Error(
+          `Merge-order verification cannot resolve prepared slice ${other.sliceId} (branch ${other.branch}) while checking ` +
+          `slice ${params.sliceId} (branch ${params.branch}); shared support file(s): ${overlap.join(", ")}.`,
+        );
+      }
+
+      const [forward, reverse] = await Promise.all([
+        runGit(params.repoRoot, ["merge-tree", "--write-tree", "--name-only", params.branch, other.branch], { check: false }),
+        runGit(params.repoRoot, ["merge-tree", "--write-tree", "--name-only", other.branch, params.branch], { check: false }),
+      ]);
+      const unsupported = [forward, reverse].find((result) => result.exitCode !== 0 && result.exitCode !== 1);
+      if (unsupported) {
+        throw new Error(
+          `Merge-order verification requires git >= 2.38 with \`merge-tree --write-tree\` (git merge-tree exited ${String(unsupported.exitCode)} for slices ${params.sliceId} and ${other.sliceId}).`,
+        );
+      }
+      const conflictedFiles = dedupeStrings(
+        [forward, reverse]
+          .filter((result) => result.exitCode === 1)
+          .flatMap((result) => {
+            const lines = result.stdout.split("\n");
+            const oidLine = lines.findIndex((line) => line.trim().length > 0);
+            if (oidLine < 0) return [];
+            const files: string[] = [];
+            for (const line of lines.slice(oidLine + 1)) {
+              const trimmed = line.trim();
+              if (!trimmed) {
+                if (files.length > 0) break;
+                continue;
+              }
+              files.push(trimmed.includes("\t") ? trimmed.slice(trimmed.lastIndexOf("\t") + 1) : trimmed);
+            }
+            return files;
+          }),
+      );
+      if (forward.exitCode === 1 || reverse.exitCode === 1) {
+        const conflictList = conflictedFiles.length > 0 ? conflictedFiles.join(", ") : overlap.join(", ");
+        throw new Error(
+          `Merge-order conflict: slice ${params.sliceId} (branch ${params.branch}) and slice ${other.sliceId} (branch ${other.branch}) both change ${conflictList} with non-identical, overlapping hunks. Per the cross-module ruling, shared foreign-file hunks must be byte-identical mirrors or zero-overlap.`,
+        );
+      }
+      const forwardTree = forward.stdout.split("\n").map((line) => line.trim()).find((line) => /^[0-9a-f]{40,64}$/i.test(line));
+      const reverseTree = reverse.stdout.split("\n").map((line) => line.trim()).find((line) => /^[0-9a-f]{40,64}$/i.test(line));
+      if (!forwardTree || !reverseTree) {
+        throw new Error(
+          `Merge-order verification produced no result tree for slices ${params.sliceId} and ${other.sliceId}; ` +
+          `shared support file(s): ${overlap.join(", ")}.`,
+        );
+      }
+      if (forwardTree !== reverseTree) {
+        throw new Error(
+          `Merge-order result mismatch: slice ${params.sliceId} (branch ${params.branch}) and slice ${other.sliceId} ` +
+          `(branch ${other.branch}) produce different trees in opposite orders for ${overlap.join(", ")}. ` +
+          "Shared foreign-file changes must be byte-identical mirrors or zero-overlap.",
+        );
+      }
+      checkedPairs += 1;
+    }
+    return { checkedPairs, conflicts: [], skipped };
+  }
+
   return {
     assertSliceVerificationClean,
     checkCodeIssues,
@@ -649,6 +796,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     remoteOwner,
     sliceValidationSummary,
     verifyPrSliceInBaseline,
+    verifySupportMergeOrder,
     verifyShipSet,
   };
 }

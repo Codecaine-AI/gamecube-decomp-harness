@@ -22,6 +22,18 @@ export interface ParsedArgs {
   args: Map<string, string | true>;
 }
 
+export const WRITE_SET_WIDENING_MODES = ["off", "shadow", "config", "header"] as const;
+export type WriteSetWideningMode = (typeof WRITE_SET_WIDENING_MODES)[number];
+
+export interface WriteSetIntegrationFlags {
+  /** Apply and commit accepted worker output as soon as its worker finishes. */
+  mergeOnFinish: boolean;
+  /** The highest write-set widening rung enabled for the run. */
+  writeSetWidening: WriteSetWideningMode;
+  /** Boundary confirmation requires both experimental features. */
+  confirmationPass: boolean;
+}
+
 function readFlag(argv: string[], index: number): string {
   const value = argv[index + 1];
   if (!value || value.startsWith("--")) throw new Error(`Missing value for ${argv[index]}`);
@@ -50,6 +62,13 @@ export function parse(argv: string[]): ParsedArgs {
     }
     if (!command && !arg.startsWith("--")) {
       command = arg;
+      continue;
+    }
+
+    if (arg.startsWith("--write-set-widening=")) {
+      const value = arg.slice("--write-set-widening=".length);
+      if (!value) throw new Error("Missing value for --write-set-widening");
+      args.set("--write-set-widening", value);
       continue;
     }
 
@@ -145,4 +164,30 @@ export function numberArg(args: Map<string, string | true>, name: string, fallba
 
 export function booleanArg(args: Map<string, string | true>, name: string): boolean {
   return args.get(name) === true;
+}
+
+export function writeSetWideningArg(args: Map<string, string | true>): WriteSetWideningMode {
+  const raw = args.get("--write-set-widening");
+  const value = (raw === true ? "shadow" : typeof raw === "string" ? raw : "off").trim().toLowerCase();
+  if (!WRITE_SET_WIDENING_MODES.includes(value as WriteSetWideningMode)) {
+    throw new Error(`--write-set-widening must be one of: ${WRITE_SET_WIDENING_MODES.join(", ")}`);
+  }
+  return value as WriteSetWideningMode;
+}
+
+export function mergeOnFinishArg(args: Map<string, string | true>): boolean {
+  const value = args.get("--merge-on-finish");
+  if (value === undefined) return false;
+  if (value === true) return true;
+  return !/^(?:0|false|no|off)$/i.test(value.trim());
+}
+
+export function writeSetIntegrationFlags(args: Map<string, string | true>): WriteSetIntegrationFlags {
+  const mergeOnFinish = mergeOnFinishArg(args);
+  const writeSetWidening = writeSetWideningArg(args);
+  return {
+    mergeOnFinish,
+    writeSetWidening,
+    confirmationPass: mergeOnFinish && writeSetWidening !== "off",
+  };
 }

@@ -224,7 +224,7 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const spans = useMemo(
-    () => (detail ? buildTraceSpans(detail.events, detail.pi_sessions, detail.agent_runs, detail.containers ?? []) : []),
+    () => (detail ? buildTraceSpans(detail.events, detail.pi_sessions, detail.agent_runs) : []),
     [detail],
   );
   const selectedSession = projectSessions.find((session) => session.sessionUuid === selectedProjectSessionId) ?? null;

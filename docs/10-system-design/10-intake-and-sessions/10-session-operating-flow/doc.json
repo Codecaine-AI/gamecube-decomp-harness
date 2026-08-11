@@ -32,7 +32,6 @@
         "status": "target-flow"
       },
       "children": [
-        "b-01-session-operating-flow-session-operating-flow-1",
         "b-01-session-operating-flow-target-high-level-melee-2",
         "b-01-session-operating-flow-this-is-the-first-read-f-3",
         "b-01-session-operating-flow-everything-centers-on-a-4",
@@ -145,26 +144,11 @@
         "b-01-session-operating-flow-time-or-both-111",
         "b-01-session-operating-flow-should-adversarial-revie-112",
         "b-01-session-operating-flow-only-after-an-operator-o-113",
-        "b-01-session-operating-flow-how-much-accepted-worker-114",
-        "b-01-session-operating-flow-epoch-boundary-versus-re-115",
         "b-01-session-operating-flow-should-the-first-kernel-116",
         "b-01-session-operating-flow-hardest-lineage-or-a-lo-117",
         "b-01-session-operating-flow-which-app-specific-trace-118",
         "b-01-session-operating-flow-which-should-remain-open-119"
       ]
-    },
-    "b-01-session-operating-flow-session-operating-flow-1": {
-      "id": "b-01-session-operating-flow-session-operating-flow-1",
-      "type": "heading",
-      "props": {
-        "level": 1
-      },
-      "text": [
-        {
-          "insert": "Session Operating Flow"
-        }
-      ],
-      "children": []
     },
     "b-01-session-operating-flow-target-high-level-melee-2": {
       "id": "b-01-session-operating-flow-target-high-level-melee-2",
@@ -1163,7 +1147,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The project keeps one canonical upstream worktree and each session gets its own\ncurrent integration worktree. The upstream worktree is the stable baseline\nsource of truth: it answers \"what is upstream now?\" for baseline builds and\nlater comparisons. The session current worktree answers \"what has this session\naccepted so far?\" and becomes the branch point for epochs, workers, and PR\nhandoff."
+          "insert": "The project keeps one canonical upstream worktree and each session gets its own\ncurrent integration worktree. The upstream worktree is the stable baseline\nsource of truth: it answers \"what is upstream now?\" for baseline builds and\nlater comparisons. The session current worktree records the session's ordered\nancestry of tentative and confirmed integrations and becomes the branch point\nfor later workers and PR handoff. With --merge-on-finish enabled, a passing\nworker result is applied there serially as soon as the worker finishes. The flag\ndefaults off, so integration otherwise remains an epoch-boundary action."
         }
       ],
       "children": []
@@ -1183,7 +1167,7 @@
           },
           {
             "path": "projects/melee/worktrees/sessions/<session-uuid>/current/",
-            "note": "session branch from the current upstream SHA; accepted session work accumulates here"
+            "note": "session branch from the current upstream SHA; ordered tentative and confirmed integrations accumulate here"
           },
           {
             "path": "projects/melee/worktrees/sessions/<session-uuid>/session.json",
@@ -1203,7 +1187,7 @@
           },
           {
             "path": "projects/melee/worktrees/sessions/<session-uuid>/epochs/0001/workers/<claim-or-worker-state-id>/source/",
-            "note": "per-worker worktree branched from session current"
+            "note": "per-worker worktree branched from session current at claim creation"
           },
           {
             "path": "projects/melee/worktrees/sessions/<session-uuid>/epochs/0001/workers/<claim-or-worker-state-id>/logs/"
@@ -1216,11 +1200,11 @@
           },
           {
             "path": "projects/melee/worktrees/sessions/<session-uuid>/epochs/0001/integration/",
-            "note": "accepted, rejected, conflict, and queue artifacts"
+            "note": "serial integration, conflict resolution, confirmation, rejection, and default-off queue artifacts"
           },
           {
             "path": "projects/melee/worktrees/sessions/<session-uuid>/epochs/0001/end/",
-            "note": "post-epoch report artifacts after accepted merges"
+            "note": "post-epoch report and confirmation artifacts"
           },
           {
             "path": "projects/melee/worktrees/sessions/<session-uuid>/epochs/0002/",
@@ -1479,10 +1463,18 @@
                 "text": "Post-process worker returns",
                 "steps": [
                   {
-                    "text": "Validate what came back"
+                    "text": "Run scoped checks for the returned touched set"
                   },
                   {
-                    "text": "Accept only work that survives the runner gates"
+                    "text": "Bank hard-gate-passing work as tentative"
+                  },
+                  {
+                    "text": "When --merge-on-finish is enabled, apply the tentative change serially into session current",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "Route conflicts to the conflict-resolver agent; keep unresolved conflicts operator-visible",
+                    "kind": "note"
                   },
                   {
                     "text": "Queue a postmortem agent for reusable lessons"
@@ -1515,10 +1507,13 @@
                     "text": "Drain or recover active workers"
                   },
                   {
-                    "text": "Run the full build"
+                    "text": "Run the full build and report comparison as the confirmation pass"
                   },
                   {
-                    "text": "Rebuild full report truth"
+                    "text": "On a clean comparison, mark every tentative integration in the window confirmed"
+                  },
+                  {
+                    "text": "On a regression, attribute blame, revert the guilty integration, mark it regressed, and confirm the unaffected integrations"
                   },
                   {
                     "text": "Rebuild Ghidra, opseq, mismatch, and graph evidence as needed"
@@ -1554,7 +1549,7 @@
       "props": {},
       "text": [
         {
-          "insert": "This keeps the shape simple: workers produce tentative evidence; post-processing\nclassifies it; epoch boundaries make the session's map authoritative again."
+          "insert": "This keeps the shape explicit: scoped worker checks bank tentative evidence, and\nthe epoch-boundary global comparison changes it to confirmed or regressed. Only\nconfirmed integrations become authoritative inputs to PR preparation."
         }
       ],
       "children": []
@@ -2150,7 +2145,7 @@
       "props": {},
       "text": [
         {
-          "insert": "At the end of an epoch, the system turns tentative worker output into durable\nlanes."
+          "insert": "At the end of an epoch, the system confirms or regresses tentative worker\noutput and turns the result into durable lanes."
         }
       ],
       "children": []
@@ -2164,7 +2159,7 @@
             "text": "Epoch boundary",
             "steps": [
               {
-                "text": "Full build and report refresh"
+                "text": "Full build and zero-regression report comparison"
               },
               {
                 "text": "Full knowledge graph refresh"
@@ -2173,10 +2168,31 @@
                 "text": "Compare session branch against baseline"
               },
               {
+                "text": "Confirm the tentative window",
+                "steps": [
+                  {
+                    "text": "clean global comparison marks every tentative integration confirmed",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "regression attribution uses touched consumers and session ancestry to narrow candidates",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "revert and compare isolates the guilty integration",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "the guilty integration is reverted and marked regressed; unaffected integrations confirm",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
                 "text": "Move exact matches",
                 "steps": [
                   {
-                    "text": "ship candidates",
+                    "text": "confirmed ship candidates",
                     "kind": "note"
                   },
                   {
@@ -2257,7 +2273,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The epoch boundary is the point where \"maybe\" becomes \"known enough to schedule\nfrom.\" Before that, worker output is evidence. After that, the refreshed board\nand graph decide what the next wave sees."
+          "insert": "The epoch boundary is the point where \"maybe\" becomes \"known enough to schedule\nfrom.\" Scoped checks make an integration tentative; the clean global comparison\nconfirms it. When the comparison regresses, blame is attributed within the\ntentative window, the guilty change is reverted and marked regressed, and the\nremaining changes confirm. Because later workers branch from session current,\ndependencies follow ordinary session ancestry and the revert re-establishes the\nboundary baseline."
         }
       ],
       "children": []
@@ -2281,7 +2297,7 @@
       "props": {},
       "text": [
         {
-          "insert": "PR mode begins when the operator stops autonomous worker scheduling. No new run\nworkers enter the session branch while the system is preparing reviewable\noutput. This is separate from merged-PR intake: merged upstream work is pulled\nand folded into knowledge at the next session's start/sync boundary, not by a\nPR-mode worker-drain action."
+          "insert": "PR mode begins when the operator stops autonomous worker scheduling. No new run\nworkers enter the session branch while the system is preparing reviewable\noutput, and only confirmed integrations are eligible for the ship set. This is\nseparate from merged-PR intake: merged upstream work is pulled and folded into\nknowledge at the next session's start/sync boundary, not by a PR-mode\nworker-drain action."
         }
       ],
       "children": []
@@ -2291,11 +2307,14 @@
       "type": "process-outline",
       "props": {
         "steps": [
-          {
-            "text": "PR mode",
-            "steps": [
               {
-                "text": "Full build to see the whole session delta",
+                "text": "PR mode",
+                "steps": [
+                  {
+                    "text": "Select confirmed integrations only"
+                  },
+                  {
+                    "text": "Full build to see the whole session delta",
                 "steps": [
                   {
                     "text": "report all code, data, and build changes"
@@ -2368,7 +2387,7 @@
                 "text": "Split into smart PRs",
                 "steps": [
                   {
-                    "text": "verified ship set only",
+                    "text": "confirmed, verified ship set only",
                     "kind": "note"
                   },
                   {
@@ -2626,7 +2645,7 @@
       },
       "text": [
         {
-          "insert": "Session delta\n  -> Ships\n       -> exact matches that survive PR validation\n\n  -> Carries forward\n       -> non-exact improvements\n       -> partial repairs\n       -> unresolved but promising findings\n       -> facts and negative evidence\n\n  -> Readmits\n       -> regressions\n       -> QA failures\n       -> standards violations\n       -> missing-fact blockers\n\n  -> Drops\n       -> unsafe patches\n       -> unreviewable tactics\n       -> work invalidated by upstream"
+          "insert": "Session delta\n  -> Ships\n       -> confirmed exact matches that survive PR validation\n\n  -> Carries forward\n       -> tentative improvements, exact or non-exact\n       -> partial repairs\n       -> unresolved but promising findings\n       -> facts and negative evidence\n\n  -> Readmits\n       -> regressed integrations\n       -> QA failures\n       -> standards violations\n       -> missing-fact blockers\n\n  -> Drops\n       -> unsafe patches\n       -> unreviewable tactics\n       -> work invalidated by upstream"
         }
       ],
       "children": []
@@ -2732,30 +2751,6 @@
       "text": [
         {
           "insert": "  only after an operator or maintainer confirms them?"
-        }
-      ],
-      "children": []
-    },
-    "b-01-session-operating-flow-how-much-accepted-worker-114": {
-      "id": "b-01-session-operating-flow-how-much-accepted-worker-114",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "How much accepted worker output should land in the session branch before the"
-        }
-      ],
-      "children": []
-    },
-    "b-01-session-operating-flow-epoch-boundary-versus-re-115": {
-      "id": "b-01-session-operating-flow-epoch-boundary-versus-re-115",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "  epoch boundary versus remaining patch-only until the full rebuild?"
         }
       ],
       "children": []

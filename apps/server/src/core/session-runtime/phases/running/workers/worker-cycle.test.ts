@@ -6,8 +6,11 @@ import { delimiter, join, resolve } from "node:path";
 import { QA_LINT_REPAIR_INSTRUCTION, type WorkerChangeValidation, type WorkerQaLint } from "@server/core/agent-catalog/agents/running/worker/change-validation";
 import type { QaScanFinding } from "@server/core/validation/qa";
 import type { PiRunResult } from "@server/core/shared/types";
+import { resolveToolPlatform, type ToolPlatform } from "@server/core/tools/platform.js";
 import {
+  classifyOutOfWriteSetPath,
   classifyWorkerError,
+  collectOutOfWriteSetChanges,
   configureCommandWithWorkerToolPaths,
   isReworkErrorKind,
   isRetryableWorkerPiSessionFailure,
@@ -22,6 +25,8 @@ import {
   workerContinuationDecision,
   workerAgentToolEnvironment,
   workerBuildNinjaNeedsToolReconfigure,
+  outOfWriteSetCategoryCounts,
+  outOfWriteSetRepairReason,
   workerAttemptRepairReasons,
   workerPiContextRetryDecision,
   workerPiSessionRetryDecision,
@@ -31,6 +36,8 @@ import {
   workerWorktreePath,
 } from "@server/core/session-runtime/phases/running/workers/worker-cycle.js";
 import { runCommand } from "@server/infrastructure/shell";
+
+const hostToolPlatform = resolveToolPlatform({ override: null });
 
 function finding(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
   return {
@@ -184,10 +191,11 @@ describe("workerToolArtifactSourceRoots", () => {
         workerRepoRoot: worker,
         outputDir,
         sources: [
-          { relativePath: "build/tools", sourcePath: resolve(source, "build/tools") },
-          { relativePath: "build/compilers", sourcePath: resolve(source, "build/compilers") },
-          { relativePath: "build/binutils", sourcePath: resolve(source, "build/binutils") },
+          { platform: hostToolPlatform, relativePath: "build/tools", sourcePath: resolve(source, "build/tools") },
+          { platform: hostToolPlatform, relativePath: "build/compilers", sourcePath: resolve(source, "build/compilers") },
+          { platform: hostToolPlatform, relativePath: "build/binutils", sourcePath: resolve(source, "build/binutils") },
         ],
+        toolPlatform: hostToolPlatform,
       });
 
       expect(lstatSync(resolve(worker, "build/tools")).isSymbolicLink()).toBe(false);
@@ -217,11 +225,71 @@ describe("workerToolArtifactSourceRoots", () => {
       await seedWorkerToolArtifacts({
         workerRepoRoot: worker,
         outputDir,
-        sources: [{ relativePath: "build/tools", sourcePath: resolve(source, "build/tools") }],
+        sources: [{ platform: hostToolPlatform, relativePath: "build/tools", sourcePath: resolve(source, "build/tools") }],
+        toolPlatform: hostToolPlatform,
       });
 
       expect(readFileSync(resolve(worker, "build/tools/wibo"), "utf8")).toBe("wibo");
       expect(readFileSync(resolve(worker, "build/tools/sjiswrap.exe"), "utf8")).toBe("sjiswrap-v2");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects host worker artifacts for a different execution target", async () => {
+    const root = await mkdtemp(join(tmpdir(), "worker-tool-platform-mismatch-"));
+    try {
+      const source = resolve(root, "source");
+      const worker = resolve(root, "worker");
+      const outputDir = resolve(root, "out");
+      mkdirSync(resolve(source, "build/tools"), { recursive: true });
+      writeFileSync(resolve(source, "build/tools/wibo"), "host executable");
+      const crossPlatform: ToolPlatform = hostToolPlatform === "darwin-x86_64" ? "linux-x86_64" : "darwin-x86_64";
+
+      await expect(
+        seedWorkerToolArtifacts({
+          workerRepoRoot: worker,
+          outputDir,
+          sources: [{ platform: hostToolPlatform, relativePath: "build/tools", sourcePath: resolve(source, "build/tools") }],
+          toolPlatform: crossPlatform,
+        }),
+      ).rejects.toThrow(`Required worker tool artifact source(s) for execution target ${crossPlatform} are missing`);
+      expect(existsSync(resolve(worker, "build/tools/wibo"))).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("replaces existing host artifacts when seeding a cross-platform target", async () => {
+    const root = await mkdtemp(join(tmpdir(), "worker-tool-platform-replace-"));
+    try {
+      const source = resolve(root, "source");
+      const worker = resolve(root, "worker");
+      const outputDir = resolve(root, "out");
+      const crossPlatform: ToolPlatform = hostToolPlatform === "darwin-x86_64" ? "linux-x86_64" : "darwin-x86_64";
+      mkdirSync(resolve(source, "build/tools"), { recursive: true });
+      mkdirSync(resolve(source, "build/compilers"), { recursive: true });
+      mkdirSync(resolve(source, "build/binutils"), { recursive: true });
+      writeFileSync(resolve(source, "build/tools/wibo"), "target wrapper");
+      writeFileSync(resolve(source, "build/compilers/mwcceppc.exe"), "compiler");
+      writeFileSync(resolve(source, "build/binutils/powerpc-eabi-ld"), "target linker");
+      mkdirSync(resolve(worker, "build/tools"), { recursive: true });
+      writeFileSync(resolve(worker, "build/tools/host-only"), "host executable");
+
+      await seedWorkerToolArtifacts({
+        workerRepoRoot: worker,
+        outputDir,
+        sources: [
+          { platform: crossPlatform, relativePath: "build/tools", sourcePath: resolve(source, "build/tools") },
+          { platform: crossPlatform, relativePath: "build/compilers", sourcePath: resolve(source, "build/compilers") },
+          { platform: crossPlatform, relativePath: "build/binutils", sourcePath: resolve(source, "build/binutils") },
+        ],
+        toolPlatform: crossPlatform,
+      });
+
+      expect(existsSync(resolve(worker, "build/tools/host-only"))).toBe(false);
+      expect(readFileSync(resolve(worker, "build/tools/wibo"), "utf8")).toBe("target wrapper");
+      expect(readFileSync(resolve(worker, "build/binutils/powerpc-eabi-ld"), "utf8")).toBe("target linker");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -330,7 +398,7 @@ describe("worker shell tool environment", () => {
 describe("workerAttemptRepairReasons", () => {
   test("violations append one verbatim qa_lint_finding reason per finding plus the instruction", () => {
     const validation = rejectedValidation(violationsQaLint());
-    const reasons = workerAttemptRepairReasons({ writeSetDiffChanged: true, runnerValidation: validation });
+    const reasons = workerAttemptRepairReasons({ runnerValidation: validation });
     expect(reasons).toContain(
       'qa_lint_finding: error packed_string_blob at src/melee/mn/mncount.c:782 — hand-packed string blob [standard: global_standard:literals-and-data-ownership] excerpt: static char lbl_803EE888[0x18] = "a\\0b";',
     );
@@ -341,7 +409,7 @@ describe("workerAttemptRepairReasons", () => {
 
   test("warnings append repair reasons too", () => {
     const validation = rejectedValidation(warningsQaLint());
-    const reasons = workerAttemptRepairReasons({ writeSetDiffChanged: true, runnerValidation: validation });
+    const reasons = workerAttemptRepairReasons({ runnerValidation: validation });
     expect(reasons).toContain(
       'qa_lint_finding: warning packed_string_blob at src/melee/mn/mncount.c:782 — hand-packed string blob [standard: global_standard:literals-and-data-ownership] excerpt: static char lbl_803EE888[0x18] = "a\\0b";',
     );
@@ -350,13 +418,13 @@ describe("workerAttemptRepairReasons", () => {
 
   test("tool_unavailable contributes no rejection reasons: a passed attempt stays accepted", () => {
     const qaLint: WorkerQaLint = { status: "tool_unavailable", exitCode: -1, findings: [], scanPath: null, toolError: "scan_diff.py not found" };
-    const reasons = workerAttemptRepairReasons({ writeSetDiffChanged: true, runnerValidation: passedValidation(qaLint) });
+    const reasons = workerAttemptRepairReasons({ runnerValidation: passedValidation(qaLint) });
     expect(reasons).toEqual([]);
   });
 
   test("clean qaLint on a passed attempt yields no repair reasons", () => {
     const qaLint: WorkerQaLint = { status: "clean", exitCode: 0, findings: [], scanPath: null, toolError: null };
-    expect(workerAttemptRepairReasons({ writeSetDiffChanged: true, runnerValidation: passedValidation(qaLint) })).toEqual([]);
+    expect(workerAttemptRepairReasons({ runnerValidation: passedValidation(qaLint) })).toEqual([]);
   });
 
   test("skipped runner validation does not request repair for a changed diff", () => {
@@ -365,14 +433,83 @@ describe("workerAttemptRepairReasons", () => {
       reasons: ["worker session failed before runner validation"],
       qaLint: null,
     };
-    expect(workerAttemptRepairReasons({ writeSetDiffChanged: true, runnerValidation: validation })).toEqual([]);
+    expect(workerAttemptRepairReasons({ runnerValidation: validation })).toEqual([]);
+  });
+});
+
+describe("out-of-write-set change detection", () => {
+  test("classifies paths into owning-header, config-metadata, foreign-source, and other", () => {
+    expect(classifyOutOfWriteSetPath("src/melee/ft/chara/ftCommon/types.h")).toBe("owning-header");
+    expect(classifyOutOfWriteSetPath("config/GALE01/symbols.txt")).toBe("config-metadata");
+    expect(classifyOutOfWriteSetPath("config/GALE01/splits.txt")).toBe("config-metadata");
+    expect(classifyOutOfWriteSetPath("src/melee/gr/ground.c")).toBe("foreign-source");
+    expect(classifyOutOfWriteSetPath("Makefile")).toBe("other");
+  });
+
+  test("collects only new tracked changes outside the write set", () => {
+    const changes = collectOutOfWriteSetChanges({
+      changedPaths: [
+        "src/melee/ft/ftcoll.c", // write set
+        "src/melee/ft/ftcoll.h",
+        "config/GALE01/symbols.txt",
+        "src/melee/gr/ground.c",
+        "build/report.json", // pre-attempt modification (seeded artifact)
+      ],
+      preAttemptChangedPaths: ["build/report.json"],
+      writeSet: ["src/melee/ft/ftcoll.c"],
+    });
+    expect(changes).toEqual([
+      { path: "src/melee/ft/ftcoll.h", category: "owning-header" },
+      { path: "config/GALE01/symbols.txt", category: "config-metadata" },
+      { path: "src/melee/gr/ground.c", category: "foreign-source" },
+    ]);
+    expect(outOfWriteSetCategoryCounts(changes)).toEqual({
+      "owning-header": 1,
+      "config-metadata": 1,
+      "foreign-source": 1,
+      other: 0,
+    });
+  });
+
+  test("no out-of-set edits yields an empty list and no repair reason", () => {
+    const changes = collectOutOfWriteSetChanges({
+      changedPaths: ["src/melee/ft/ftcoll.c"],
+      preAttemptChangedPaths: [],
+      writeSet: ["src/melee/ft/ftcoll.c"],
+    });
+    expect(changes).toEqual([]);
+    expect(outOfWriteSetRepairReason(changes)).toBeNull();
+    expect(workerAttemptRepairReasons({ runnerValidation: passedValidation(null), outOfWriteSetChanges: changes })).toEqual([]);
+  });
+
+  test("out-of-set edits produce one repair reason naming the dropped paths and categories", () => {
+    const changes = collectOutOfWriteSetChanges({
+      changedPaths: ["src/melee/ft/ftcoll.c", "src/melee/ft/ftcoll.h", "config/GALE01/symbols.txt"],
+      preAttemptChangedPaths: [],
+      writeSet: ["src/melee/ft/ftcoll.c"],
+    });
+    const reasons = workerAttemptRepairReasons({ runnerValidation: passedValidation(null), outOfWriteSetChanges: changes });
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0].startsWith("out_of_write_set_edit:")).toBe(true);
+    expect(reasons[0]).toContain("src/melee/ft/ftcoll.h (owning-header)");
+    expect(reasons[0]).toContain("config/GALE01/symbols.txt (config-metadata)");
+    expect(reasons[0]).toContain("dropped at patch capture");
+    expect(reasons[0]).toContain('state "exact requires cross-file edit to <path>" in your note\'s blockers');
+  });
+
+  test("the out-of-set reason rides with QA lint reasons and keeps the standing instruction last", () => {
+    const validation = rejectedValidation(violationsQaLint());
+    const changes = [{ path: "src/melee/ft/ftcoll.h", category: "owning-header" as const }];
+    const reasons = workerAttemptRepairReasons({ runnerValidation: validation, outOfWriteSetChanges: changes });
+    expect(reasons.some((reason) => reason.startsWith("out_of_write_set_edit:"))).toBe(true);
+    expect(reasons[reasons.length - 1]).toBe(QA_LINT_REPAIR_INSTRUCTION);
   });
 });
 
 describe("shouldRequestWorkerRepairAfterAttempt", () => {
   test("an exact score with QA lint failure still gets a repair attempt", () => {
     const validation = rejectedValidation(violationsQaLint());
-    const repairReasons = workerAttemptRepairReasons({ writeSetDiffChanged: true, runnerValidation: validation });
+    const repairReasons = workerAttemptRepairReasons({ runnerValidation: validation });
     expect(validation.target?.exact).toBe(true);
     expect(shouldRequestWorkerRepairAfterAttempt({ repairReasons, dryRun: false, claimDeadlineMs: Date.now() + 60_000 })).toBe(true);
   });

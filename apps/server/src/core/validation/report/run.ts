@@ -1,5 +1,13 @@
-import { chmod, copyFile, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { chmod, copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import {
+  isHostToolPlatform,
+  requiredStateToolArtifactError,
+  resolveStateToolArtifact,
+  resolveToolPlatform,
+  type ToolPlatform,
+} from "@server/core/tools/platform.js";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell/index.js";
 
 export interface ReportRunStep extends CommandResult {
@@ -31,6 +39,7 @@ export interface ReportRunResult {
   reportChangesPath: string;
   reportPath: string;
   resetBaseline: boolean;
+  reusedReport?: boolean;
   steps: ReportRunStep[];
   summary?: ReportRunSummary;
   timestamps: {
@@ -43,6 +52,31 @@ export interface ReportRunResult {
 export interface ReportRunOptions {
   generateChanges?: boolean;
   resetBaseline?: boolean;
+  toolPlatform?: ToolPlatform;
+}
+
+export interface ReportReuseKeyInput {
+  buildNinja: string | Uint8Array;
+  dolConfig: string | Uint8Array;
+  headCommit: string;
+}
+
+interface ReportReuseMetadata {
+  buildNinjaSha256: string;
+  dolConfigSha256: string;
+  headCommit: string;
+  key: string;
+  version: 1;
+}
+
+function sha256(value: string | Uint8Array): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export function computeReportReuseKey(input: ReportReuseKeyInput): string {
+  const buildNinjaSha256 = sha256(input.buildNinja);
+  const dolConfigSha256 = sha256(input.dolConfig);
+  return sha256(`report-reuse-v1\0${input.headCommit.trim()}\0${buildNinjaSha256}\0${dolConfigSha256}`);
 }
 
 async function removeIfExists(path: string): Promise<void> {
@@ -79,43 +113,48 @@ async function pathCommandExists(command: string): Promise<boolean> {
   return false;
 }
 
-async function stateWiboPath(repoRoot: string): Promise<string | null> {
+async function stateWiboPath(repoRoot: string, toolPlatform: ToolPlatform): Promise<string | null> {
   const stateDir = process.env.ORCH_PROJECT_STATE_DIR;
   if (stateDir) {
-    const candidate = resolve(stateDir, "tools", "wibo");
-    if (await pathExists(candidate)) return candidate;
+    const candidate = resolveStateToolArtifact({ stateDir, name: "wibo", platform: toolPlatform });
+    if (candidate && (await pathExists(candidate))) return candidate;
   }
   let current = resolve(repoRoot);
   while (true) {
     const name = current.split("/").at(-1);
     if (name === "worktrees") {
-      const candidate = resolve(current, "..", "state", "tools", "wibo");
-      if (await pathExists(candidate)) return candidate;
+      const candidateStateDir = resolve(current, "..", "state");
+      const candidate = resolveStateToolArtifact({ stateDir: candidateStateDir, name: "wibo", platform: toolPlatform });
+      if (candidate && (await pathExists(candidate))) return candidate;
     }
-    const candidate = resolve(current, "state", "tools", "wibo");
-    if (await pathExists(candidate)) return candidate;
+    const candidateStateDir = resolve(current, "state");
+    const candidate = resolveStateToolArtifact({ stateDir: candidateStateDir, name: "wibo", platform: toolPlatform });
+    if (candidate && (await pathExists(candidate))) return candidate;
     const parent = resolve(current, "..");
-    if (parent === current) return null;
+    if (parent === current) break;
     current = parent;
   }
+  if (!isHostToolPlatform(toolPlatform)) {
+    throw requiredStateToolArtifactError({ stateDir: stateDir ?? resolve(repoRoot, "state"), name: "wibo", platform: toolPlatform });
+  }
+  return null;
 }
 
-async function preferredConfigureCommand(repoRoot: string): Promise<string[]> {
+async function preferredConfigureCommand(repoRoot: string, toolPlatform: ToolPlatform): Promise<string[]> {
   const localWibo = resolve(repoRoot, "build", "tools", "wibo");
-  if (process.platform === "darwin" || process.platform === "linux") {
-    if (!(await pathExists(localWibo))) {
-      const source = await stateWiboPath(repoRoot);
-      if (source) {
-        await mkdir(dirname(localWibo), { recursive: true });
-        await copyFile(source, localWibo);
-        await chmod(localWibo, 0o755).catch(() => {});
-      }
-    }
-    if (await pathExists(localWibo)) {
-      return ["/bin/sh", "-c", `python3 configure.py --require-protos --wrapper ${shellQuote("build/tools/wibo")}`];
+  if (!isHostToolPlatform(toolPlatform) || !(await pathExists(localWibo))) {
+    const source = await stateWiboPath(repoRoot, toolPlatform);
+    if (source) {
+      if (!isHostToolPlatform(toolPlatform)) await rm(localWibo, { recursive: true, force: true });
+      await mkdir(dirname(localWibo), { recursive: true });
+      await copyFile(source, localWibo);
+      await chmod(localWibo, 0o755).catch(() => {});
     }
   }
-  if ((process.platform === "darwin" || process.platform === "linux") && (await pathCommandExists("wibo"))) {
+  if (await pathExists(localWibo)) {
+    return ["/bin/sh", "-c", `python3 configure.py --require-protos --wrapper ${shellQuote("build/tools/wibo")}`];
+  }
+  if (isHostToolPlatform(toolPlatform) && (await pathCommandExists("wibo"))) {
     return ["/bin/sh", "-c", "python3 configure.py --require-protos --wrapper wibo"];
   }
   return ["python3", "configure.py", "--require-protos"];
@@ -184,12 +223,42 @@ async function runStep(repoRoot: string, steps: ReportRunStep[], name: string, c
   }
 }
 
-async function ensureConfigured(repoRoot: string, steps: ReportRunStep[]): Promise<void> {
+async function ensureConfigured(repoRoot: string, steps: ReportRunStep[], toolPlatform: ToolPlatform): Promise<void> {
   if (await pathExists(resolve(repoRoot, "build.ninja"))) return;
   if (!(await pathExists(resolve(repoRoot, "configure.py")))) {
     throw new Error(`configure failed: build.ninja is missing and configure.py was not found in ${repoRoot}`);
   }
-  await runStep(repoRoot, steps, "configure", await preferredConfigureCommand(repoRoot));
+  await runStep(repoRoot, steps, "configure", await preferredConfigureCommand(repoRoot, toolPlatform));
+}
+
+async function reportReuseMetadata(repoRoot: string): Promise<ReportReuseMetadata> {
+  const head = await runCommand(repoRoot, ["git", "rev-parse", "--verify", "HEAD"]);
+  if (head.exitCode !== 0 || !head.stdout.trim()) {
+    throw new Error(`report reuse key failed to resolve worktree HEAD: ${(head.stderr || head.stdout).trim() || `exit ${head.exitCode}`}`);
+  }
+  const [buildNinja, dolConfig] = await Promise.all([
+    readFile(resolve(repoRoot, "build.ninja")),
+    readFile(resolve(repoRoot, "config/GALE01/config.yml")),
+  ]);
+  const headCommit = head.stdout.trim();
+  const buildNinjaSha256 = sha256(buildNinja);
+  const dolConfigSha256 = sha256(dolConfig);
+  return {
+    buildNinjaSha256,
+    dolConfigSha256,
+    headCommit,
+    key: computeReportReuseKey({ buildNinja, dolConfig, headCommit }),
+    version: 1,
+  };
+}
+
+async function storedReportReuseKey(path: string): Promise<string | null> {
+  try {
+    const value = JSON.parse(await readFile(path, "utf8")) as { key?: unknown; version?: unknown };
+    return value.version === 1 && typeof value.key === "string" ? value.key : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function forceReportRun(repoRoot: string, options: ReportRunOptions = {}): Promise<ReportRunResult> {
@@ -197,14 +266,26 @@ export async function forceReportRun(repoRoot: string, options: ReportRunOptions
   const reportPath = resolve(buildDir, "report.json");
   const baselinePath = resolve(buildDir, "baseline.json");
   const reportChangesPath = resolve(buildDir, "report_changes.json");
+  const reportReusePath = resolve(buildDir, "report.reuse-key.json");
   const generateChanges = options.generateChanges !== false;
   const resetBaseline = options.resetBaseline === true;
   const steps: ReportRunStep[] = [];
+  const toolPlatform = resolveToolPlatform({ targetPlatform: options.toolPlatform });
+  const reportReuseEnabled = process.env.ORCH_REPORT_REUSE === "1";
 
-  await ensureConfigured(repoRoot, steps);
+  await ensureConfigured(repoRoot, steps, toolPlatform);
   await removeIfExists(reportChangesPath);
-  await removeIfExists(reportPath);
-  await runStep(repoRoot, steps, "generate report", ["ninja", "build/GALE01/report.json"]);
+  const reuseMetadata = reportReuseEnabled ? await reportReuseMetadata(repoRoot) : null;
+  const reusedReport = Boolean(
+    reuseMetadata &&
+      (await pathExists(reportPath)) &&
+      (await storedReportReuseKey(reportReusePath)) === reuseMetadata.key,
+  );
+  if (!reusedReport) {
+    await removeIfExists(reportPath);
+    await runStep(repoRoot, steps, "generate report", ["ninja", "build/GALE01/report.json"]);
+    if (reuseMetadata) await writeFile(reportReusePath, `${JSON.stringify(reuseMetadata, null, 2)}\n`);
+  }
 
   if (resetBaseline) {
     await copyFile(reportPath, baselinePath);
@@ -219,6 +300,7 @@ export async function forceReportRun(repoRoot: string, options: ReportRunOptions
     reportChangesPath,
     reportPath,
     resetBaseline,
+    ...(reportReuseEnabled ? { reusedReport } : {}),
     steps,
     summary: await readReportSummary(reportPath),
     timestamps: {

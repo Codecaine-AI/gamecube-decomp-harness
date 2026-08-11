@@ -257,6 +257,7 @@ export function compactCheckpointResult(result: RunCheckpointResult): JsonObject
   return {
     checkpoint: result.checkpoint,
     counts: result.counts,
+    eligibility: result.eligibility,
     prCandidates: result.items.filter((item) => item.disposition === "pr_candidate").map(compactItem),
     improvementCandidates: result.items.filter((item) => item.disposition === "improvement_candidate").map(compactItem),
     carryForwardCount: result.items.filter((item) => !shipsInPr(item.disposition)).length,

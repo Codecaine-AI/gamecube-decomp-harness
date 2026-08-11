@@ -24,7 +24,7 @@ Rule families and their slices:
 - ``codegen_tactics``: ``volatile_local_tactic``, ``register_keyword``,
   ``inline_asm``, ``novel_pragma``, ``codegen_pragma``.
 - ``names_defines_headers_and_prototypes``: ``m2c_residue_names``,
-  ``define_alias``.
+  ``define_alias``, ``bare_local_prototype``.
 - ``authored_source_shape``: ``m2c_goto_label``.
 - ``pipeline_owned_verification``: standards-only slice (no rules.py).
 
@@ -128,6 +128,7 @@ CANONICAL_RULE_ORDER = [
     "m2c_field_use",
     "pointer_offset_arithmetic",
     "define_alias",
+    "bare_local_prototype",
     "novel_pragma",
     "codegen_pragma",
     "type_erasing_cast",
@@ -198,6 +199,9 @@ STANDARD_TITLES = {
     ),
     "global_standard:no-define-alias-global-renames": (
         "Do not alias global renames with defines"
+    ),
+    "global_standard:truthful-headers-and-includes": (
+        "Headers, prototypes, and includes must be truthful"
     ),
 }
 

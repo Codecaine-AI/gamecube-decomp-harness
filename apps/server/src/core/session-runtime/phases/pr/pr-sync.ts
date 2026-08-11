@@ -56,6 +56,17 @@ function numberValue(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function stringArray(value: unknown): string[] {
+  return asArray(value).map((entry) => stringValue(entry)).filter(Boolean);
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  const normalize = (values: string[]) => [...new Set(values)].sort();
+  const leftValues = normalize(left);
+  const rightValues = normalize(right);
+  return leftValues.length === rightValues.length && leftValues.every((value, index) => value === rightValues[index]);
+}
+
 export function quietGit(repoRoot: string, args: string[]): CliResult {
   const result = spawnSync("git", ["-C", repoRoot, ...args], { encoding: "utf8" });
   return {
@@ -299,7 +310,10 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
       const ci = ciVerdict(detail.statusCheckRollup);
       update.comments = comments;
       update.ci = ci;
-      update.files = asArray(detail.files).map((file) => stringValue(asObject(file).path)).filter(Boolean);
+      const supportFiles = new Set(stringArray(record.supportFiles));
+      update.files = asArray(detail.files)
+        .map((file) => stringValue(asObject(file).path))
+        .filter((path) => Boolean(path) && !supportFiles.has(path));
       update.github = {
         ...asObject(update.github),
         ci,
@@ -337,17 +351,38 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
       if (!branch) continue;
       const prior = previousByBranch.get(branch) ?? {};
       previousByBranch.delete(branch);
+      const files = stringArray(slice.pathspecs);
+      const supportFiles = stringArray(slice.supportPathspecs);
+      const manifestChanged =
+        Object.keys(prior).length > 0 &&
+        (!sameStringSet(stringArray(prior.files), files) || !sameStringSet(stringArray(prior.supportFiles), supportFiles));
+      const { supportFiles: _priorSupportFiles, ...priorWithoutSupportFiles } = prior;
       setPrRecord(
         recordsByBranch,
         branch,
         {
-          ...prior,
+          ...priorWithoutSupportFiles,
           sliceId: stringValue(slice.id),
           displayName: stringValue(slice.displayName, stringValue(slice.id)),
           branch,
           title: stringValue(slice.title),
           scope: stringValue(slice.scope),
-          files: asArray(slice.pathspecs).map((path) => stringValue(path)).filter(Boolean),
+          files,
+          ...(supportFiles.length > 0 ? { supportFiles } : {}),
+          ...(manifestChanged && !prior.prNumber
+            ? {
+                local: {
+                  ...asObject(prior.local),
+                  status: "not_prepared",
+                  error: "PR manifest changed during re-plan; rebuild and reverify this local slice.",
+                },
+                validation: {
+                  ...asObject(prior.validation),
+                  status: "not_run",
+                  error: "PR manifest changed during re-plan.",
+                },
+              }
+            : {}),
           status: stringValue(prior.status, "planned"),
         },
         context,

@@ -13,10 +13,10 @@ import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 
 const evidenceToolRoles = [
   "worker",
+  "conflict-resolver",
   "integration-resolver",
-  "pr-indexer",
   "pr-splitter",
-  "knowledge-curator",
+  "librarian",
   "pr-fixer",
   "reconcile",
   "qa-repair",

@@ -14,6 +14,8 @@
           "init-run",
           "tick",
           "worker",
+          "write-set-widening",
+          "merge-on-finish",
           "integration-resolve",
           "scheduler",
           "run-loop",
@@ -30,7 +32,6 @@
         ]
       },
       "children": [
-        "b-00-overview-server-jobs-overview-1",
         "b-00-overview-d-comp-orchestrator-serv-2",
         "b-00-overview-sources-apps-server-sr-3",
         "b-00-overview-the-operator-job-surface-4",
@@ -48,19 +49,6 @@
         "b-00-overview-project-resolution-is-a-16",
         "b-00-overview-the-run-loop-is-delibera-17"
       ]
-    },
-    "b-00-overview-server-jobs-overview-1": {
-      "id": "b-00-overview-server-jobs-overview-1",
-      "type": "heading",
-      "props": {
-        "level": 1
-      },
-      "text": [
-        {
-          "insert": "Server Jobs: Overview"
-        }
-      ],
-      "children": []
     },
     "b-00-overview-d-comp-orchestrator-serv-2": {
       "id": "b-00-overview-d-comp-orchestrator-serv-2",
@@ -387,7 +375,7 @@
           }
         },
         {
-          "insert": " | Claims one epoch target, runs the worker session, validates checkpoints, and closes worker state with runner-owned lifecycle state. |\n| "
+          "insert": " | Claims one epoch target, decides evidence-backed write-set widening, runs scope-following validation, and closes worker state with runner-owned lifecycle state. |\n| "
         },
         {
           "insert": "integration-resolve",
@@ -495,7 +483,7 @@
           }
         },
         {
-          "insert": " | Runs one epoch checkpoint cycle: commit validated work, rebuild the report in the epoch worktree, save a boundary point, and route regressions back through epoch target admission. |\n| "
+          "insert": " | Runs one epoch checkpoint cycle: rebuilds global report truth, confirms clean tentative integrations, attributes and reverts regressions, saves a boundary point, and routes regressed work back through epoch target admission. |\n| "
         },
         {
           "insert": "regression-check",
@@ -623,7 +611,34 @@
       "props": {},
       "text": [
         {
-          "insert": "Run a job with:"
+          "insert": "Run a job with these controls. "
+        },
+        {
+          "insert": "--write-set-widening=off|shadow|config|header",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " defaults to "
+        },
+        {
+          "insert": "off",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; shadow records decisions without granting paths, config enables metadata widening, and header also enables owning-header widening. "
+        },
+        {
+          "insert": "--merge-on-finish",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " also defaults off; when present, scoped-clean worker output is applied serially to session ancestry as soon as the worker finishes:"
         }
       ],
       "children": []
@@ -636,7 +651,7 @@
       },
       "text": [
         {
-          "insert": "bun run server:job -- --project melee status\nbun run server:job -- --project melee init-run --desired-workers 16 --goal-kind matched_code_percent --goal-value 72\nbun run server:job -- --project melee babysit --max-workers 16 --idle-sleep-ms 5000"
+          "insert": "bun run server:job -- --project melee status\nbun run server:job -- --project melee init-run --desired-workers 16 --goal-kind matched_code_percent --goal-value 72\nbun run server:job -- --project melee babysit --max-workers 16 --idle-sleep-ms 5000 --write-set-widening=shadow --merge-on-finish"
         }
       ],
       "children": []
@@ -698,7 +713,25 @@
           }
         },
         {
-          "insert": " bounds a batch. The dashboard PR-mode manual handoff actions\ncall "
+          "insert": " bounds a batch. Each item can carry an "
+        },
+        {
+          "insert": "authorized_write_set",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the runner partially reverts unauthorized paths and records "
+        },
+        {
+          "insert": "blocked_needs_cross_file",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " when the necessary support edit is outside that authorization. The dashboard PR-mode manual handoff actions\ncall "
         },
         {
           "insert": "/api/pr/qa-repair",
@@ -760,7 +793,7 @@
           }
         },
         {
-          "insert": "; the runner owns queue status\nmutation and epoch acceptance after the agent returns."
+          "insert": "; the runner owns integration status\nmutation and tentative acceptance after the agent returns. If the agent cannot\nresolve the merge, the conflict remains visible for operator action."
         }
       ],
       "children": []

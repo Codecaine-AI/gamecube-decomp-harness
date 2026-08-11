@@ -45,6 +45,10 @@ Options:
                   candidate from the current source
   --replay PATH   replay a saved JSON recipe instead of searching
 
+Narrowing is additionally bounded by PERMUTER_NARROW_MAX_COMPILES (default:
+min(--max-iters, 64), or 64 without --max-iters) and
+PERMUTER_NARROW_TIMEOUT_SECONDS (default: 30).
+
 The search always stops as soon as a 100% match (score 0) is found. On Ctrl+C /
 timeout / max-iters, prints the best diff found so far.
 """
@@ -56,8 +60,10 @@ import base64
 import difflib
 import hashlib
 import json
+import math
 import os
 import random
+import shlex
 import signal
 import subprocess
 import sys
@@ -73,10 +79,10 @@ sys.path.insert(0, str(_IMPL_ROOT / "tools"))          # for sibling modules
 
 import src_mutate  # noqa: E402
 import type_oracle  # noqa: E402
+import ninja_compile  # noqa: E402
 from ninja_compile import (  # noqa: E402
     ROOT,
     build_pch,
-    compile_batch,
     compile_source_text,
     find_unit_for_function,
     source_dir_for,
@@ -215,6 +221,201 @@ class ObjdiffScorer:
 
 def make_scorer(unit: str, fn: str) -> ObjdiffScorer:
     return ObjdiffScorer(unit, fn)
+
+
+@dataclass
+class BatchCompileResult:
+    objects: List[Optional[Path]]
+    timed_out: bool = False
+    invocations: int = 0
+
+
+class FixedBatchCompiler:
+    """MWCC batch runner with source/object paths reused for one worker.
+
+    MWCC stops a multi-input invocation at the first compile error. The failed
+    input is named in its diagnostic; keep already-produced objects, discard
+    that input, and submit all still-uncompiled inputs as another batch. This
+    preserves candidate order without degrading the entire suffix to serial
+    compiles.
+    """
+
+    def __init__(self, unit: str, slots: int) -> None:
+        self.unit = unit
+        self.slots = max(1, slots)
+        self.block = ninja_compile.find_build_block(unit)
+        if self.block.rule not in ninja_compile.MWCC_RULES:
+            raise RuntimeError(f"unsupported MWCC rule: {self.block.rule}")
+
+        build_tmp = ROOT / "build"
+        build_tmp.mkdir(exist_ok=True)
+        self.outdir = tempfile.TemporaryDirectory(
+            prefix="permute-worker-", dir=build_tmp
+        )
+        self.output_dir = Path(self.outdir.name)
+        self.sources: List[Path] = []
+        self.objects: List[Path] = []
+        self.closed = False
+        try:
+            src_dir = source_dir_for(unit)
+            for _ in range(self.slots):
+                fd, name = tempfile.mkstemp(
+                    suffix=".c", prefix=".permute-slot-", dir=str(src_dir)
+                )
+                os.close(fd)
+                source = Path(name)
+                ninja_compile._TEMP_CANDIDATES.add(source)
+                self.sources.append(source)
+                self.objects.append(self.output_dir / f"{source.stem}.o")
+        except Exception:
+            self.close()
+            raise
+
+    @staticmethod
+    def _remaining(deadline: Optional[float]) -> Optional[float]:
+        if deadline is None:
+            return None
+        return max(0.0, deadline - time.monotonic())
+
+    def _failed_input(
+        self,
+        missing: List[int],
+        stdout: str,
+        stderr: str,
+    ) -> int:
+        diagnostics = stdout + "\n" + stderr
+        named: List[tuple[int, int]] = []
+        for index in missing:
+            source = self.sources[index]
+            positions = [
+                diagnostics.find(source.name),
+                diagnostics.find(ninja_compile._root_rel(source)),
+                diagnostics.find(str(source)),
+            ]
+            positions = [position for position in positions if position >= 0]
+            if positions:
+                named.append((min(positions), index))
+        if named:
+            return min(named)[1]
+        # MWCC writes objects in input order and aborts at its first error, so
+        # the first missing object is the diagnostic-free fallback.
+        return missing[0]
+
+    def _postprocess_extab(
+        self,
+        objects: List[Optional[Path]],
+        deadline: Optional[float],
+    ) -> bool:
+        if "extab" not in self.block.rule:
+            return False
+        dtk = ROOT / "build/tools/dtk"
+        padding = self.block.extab_padding or ""
+        for obj in objects:
+            if obj is None:
+                continue
+            remaining = self._remaining(deadline)
+            if remaining is not None and remaining <= 0:
+                return True
+            try:
+                subprocess.run(
+                    [str(dtk), "extab", "clean", "--padding", padding,
+                     str(obj), str(obj)],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    timeout=remaining,
+                )
+            except subprocess.TimeoutExpired:
+                return True
+        return False
+
+    def compile(
+        self,
+        source_texts: List[str],
+        *,
+        prefix_pch: Optional[Path] = None,
+        deadline: Optional[float] = None,
+    ) -> BatchCompileResult:
+        if self.closed:
+            raise RuntimeError("batch compiler is closed")
+        if len(source_texts) > self.slots:
+            raise ValueError(
+                f"batch has {len(source_texts)} sources for {self.slots} slots"
+            )
+        if not source_texts:
+            return BatchCompileResult([])
+
+        count = len(source_texts)
+        for index, text in enumerate(source_texts):
+            self.sources[index].write_text(
+                text, encoding="utf-8", errors="surrogateescape"
+            )
+            self.objects[index].unlink(missing_ok=True)
+
+        objects: List[Optional[Path]] = [None] * count
+        pending = list(range(count))
+        invocations = 0
+        while pending:
+            remaining = self._remaining(deadline)
+            if remaining is not None and remaining <= 0:
+                return BatchCompileResult(objects, timed_out=True,
+                                          invocations=invocations)
+
+            source_args = [ninja_compile._root_rel(self.sources[i]) for i in pending]
+            cmd_prefix = ninja_compile._compiler_prefix(
+                self.block,
+                obj_path=self.unit,
+                sources=source_args,
+                quiet=True,
+            )
+            if cmd_prefix is None:
+                break
+            cmd = list(cmd_prefix) + shlex.split(self.block.cflags)
+            if prefix_pch is not None:
+                cmd += ["-prefix", prefix_pch.name]
+            cmd += ["-o", ninja_compile._root_rel(self.output_dir), "-c", *source_args]
+
+            try:
+                with ninja_compile.worker_compile_slot():
+                    result = subprocess.run(
+                        cmd,
+                        cwd=ROOT,
+                        capture_output=True,
+                        text=True,
+                        timeout=remaining,
+                    )
+            except subprocess.TimeoutExpired:
+                return BatchCompileResult(objects, timed_out=True,
+                                          invocations=invocations + 1)
+            invocations += 1
+
+            missing: List[int] = []
+            for index in pending:
+                obj = self.objects[index]
+                if obj.exists():
+                    objects[index] = obj
+                else:
+                    missing.append(index)
+            if not missing:
+                break
+
+            failed = self._failed_input(missing, result.stdout, result.stderr)
+            # The failed candidate is intentionally dropped. Everything MWCC
+            # skipped after it remains a batch on the next invocation.
+            pending = [index for index in missing if index != failed]
+
+        timed_out = self._postprocess_extab(objects, deadline)
+        return BatchCompileResult(objects, timed_out=timed_out,
+                                  invocations=invocations)
+
+    def close(self) -> None:
+        if self.closed:
+            return
+        self.closed = True
+        for source in self.sources:
+            source.unlink(missing_ok=True)
+            ninja_compile._TEMP_CANDIDATES.discard(source)
+        self.outdir.cleanup()
 
 
 def run_objdiff_json(unit: str, fn: str, cand_o: Path, *, timeout: int) -> subprocess.CompletedProcess[str]:
@@ -449,10 +650,37 @@ class NarrowEdit:
 @dataclass
 class NarrowStats:
     passes: int = 0
+    compiles: int = 0
     attempts: int = 0
     accepted: int = 0
     compile_failed: int = 0
     score_errors: int = 0
+    stop_reason: Optional[str] = None
+
+
+def _env_nonnegative_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        print(f"warning: ignoring invalid {name}={raw!r}", file=sys.stderr)
+        return default
+
+
+def _env_nonnegative_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        value = -1.0
+    if math.isfinite(value) and value >= 0:
+        return value
+    print(f"warning: ignoring invalid {name}={raw!r}", file=sys.stderr)
+    return default
 
 
 def _line_offsets(lines: List[bytes]) -> List[int]:
@@ -523,21 +751,6 @@ def _revert_edit(base: bytes, cand: bytes, edit: NarrowEdit) -> bytes:
     )
 
 
-def _compile_and_score_source(
-    unit: str, scorer: ObjdiffScorer, source: bytes
-) -> tuple[Optional[ScoreKey], str]:
-    co = compile_source_text(unit, source.decode("utf-8", "surrogateescape"))
-    if co is None:
-        return None, "compile"
-    try:
-        key, _ = scorer.score(str(co.obj))
-        return key, "ok"
-    except ScoreError:
-        return None, "score"
-    finally:
-        co.tmpdir.cleanup()
-
-
 def narrow_best_source(
     unit: str,
     fn: str,
@@ -547,6 +760,9 @@ def narrow_best_source(
     trace: ReplayTrace,
     *,
     max_passes: int,
+    max_compiles: int = 64,
+    timeout_seconds: float = 30.0,
+    batch_size: int = 16,
 ) -> tuple[bytes, ScoreKey, NarrowStats, ReplayTrace]:
     """Minimize the best diff while preserving its score.
 
@@ -558,11 +774,20 @@ def narrow_best_source(
     stats = NarrowStats()
     if max_passes <= 0 or base_source == best_source:
         return best_source, best_key, stats, trace
+    if max_compiles <= 0:
+        stats.stop_reason = "compile budget exhausted"
+        return best_source, best_key, stats, trace
+    if timeout_seconds <= 0:
+        stats.stop_reason = "time budget exhausted"
+        return best_source, best_key, stats, trace
 
     current = best_source
     current_key = best_key
     current_trace = trace
+    batch_size = max(1, batch_size)
     scorer = make_scorer(unit, fn)
+    compiler = FixedBatchCompiler(unit, batch_size)
+    deadline = time.monotonic() + timeout_seconds
     progress_last = 0.0
     progress_len = 0
 
@@ -575,6 +800,7 @@ def narrow_best_source(
         msg = (
             f"narrow: {granularity} pass {pass_idx}/{max_passes} "
             f"{edit_idx}/{edit_count}  tried={stats.attempts} "
+            f"compiled={stats.compiles}/{max_compiles} "
             f"kept={stats.accepted}  compile-fail={stats.compile_failed} "
             f"score-err={stats.score_errors}"
         )
@@ -600,49 +826,100 @@ def narrow_best_source(
                 stats.passes += 1
                 edit_count = len(edits)
                 show_progress(granularity, pass_idx, 0, edit_count, force=True)
-                for edit_idx, edit in enumerate(reversed(edits), start=1):
-                    trial = _revert_edit(base_source, current, edit)
-                    if trial == current:
-                        continue
-                    stats.attempts += 1
-                    show_progress(granularity, pass_idx, edit_idx, edit_count)
-                    try:
-                        key, status = _compile_and_score_source(unit, scorer, trial)
-                    except OSError as e:
-                        clear_progress()
-                        print(f"narrow: score server stopped ({e}); aborting", file=sys.stderr)
-                        return current, current_key, stats, current_trace
-                    if status == "compile":
-                        stats.compile_failed += 1
+                remaining_edits = list(reversed(edits))
+                while remaining_edits:
+                    if time.monotonic() >= deadline:
+                        stats.stop_reason = "time budget exhausted"
+                        break
+                    compile_left = max_compiles - stats.compiles
+                    if compile_left <= 0:
+                        stats.stop_reason = "compile budget exhausted"
+                        break
+
+                    batch_count = min(batch_size, compile_left,
+                                      len(remaining_edits))
+                    batch_edits = remaining_edits[:batch_count]
+                    trials = [
+                        _revert_edit(base_source, current, edit)
+                        for edit in batch_edits
+                    ]
+                    stats.compiles += len(trials)
+                    result = compiler.compile(
+                        [trial.decode("utf-8", "surrogateescape")
+                         for trial in trials],
+                        deadline=deadline,
+                    )
+                    if result.timed_out:
+                        stats.stop_reason = "time budget exhausted"
+                        break
+
+                    accepted_at: Optional[int] = None
+                    processed_before = edit_count - len(remaining_edits)
+                    for batch_index, (edit, trial, obj) in enumerate(
+                        zip(batch_edits, trials, result.objects)
+                    ):
+                        if trial == current:
+                            continue
+                        if time.monotonic() >= deadline:
+                            stats.stop_reason = "time budget exhausted"
+                            break
+                        stats.attempts += 1
+                        edit_idx = processed_before + batch_index + 1
                         show_progress(granularity, pass_idx, edit_idx, edit_count)
-                        continue
-                    if status == "score" or key is None:
-                        stats.score_errors += 1
-                        show_progress(granularity, pass_idx, edit_idx, edit_count)
-                        continue
-                    if key <= current_key:
-                        replay_edit = (edit.cand_start, edit.cand_end,
-                                       base_source[edit.base_start:edit.base_end])
-                        current_trace = current_trace + (
-                            make_replay_step(
-                                kind="narrow",
-                                mutate_fn=None,
-                                pass_name=f"revert_{granularity}",
-                                before=current,
-                                edits=[replay_edit],
-                                after=trial,
-                                note=edit.describe(),
-                            ),
-                        )
-                        current = trial
-                        current_key = key
-                        stats.accepted += 1
-                        accepted_this_pass += 1
-                    show_progress(granularity, pass_idx, edit_idx, edit_count)
+                        if obj is None:
+                            stats.compile_failed += 1
+                            continue
+                        try:
+                            key, _ = scorer.score(str(obj))
+                        except ScoreError:
+                            stats.score_errors += 1
+                            continue
+                        except OSError as e:
+                            clear_progress()
+                            print(f"narrow: score server stopped ({e}); aborting",
+                                  file=sys.stderr)
+                            return current, current_key, stats, current_trace
+                        if key <= current_key:
+                            replay_edit = (
+                                edit.cand_start,
+                                edit.cand_end,
+                                base_source[edit.base_start:edit.base_end],
+                            )
+                            current_trace = current_trace + (
+                                make_replay_step(
+                                    kind="narrow",
+                                    mutate_fn=None,
+                                    pass_name=f"revert_{granularity}",
+                                    before=current,
+                                    edits=[replay_edit],
+                                    after=trial,
+                                    note=edit.describe(),
+                                ),
+                            )
+                            current = trial
+                            current_key = key
+                            stats.accepted += 1
+                            accepted_this_pass += 1
+                            accepted_at = batch_index
+                            break
+                    if stats.stop_reason is not None:
+                        break
+                    if accepted_at is None:
+                        remaining_edits = remaining_edits[batch_count:]
+                    else:
+                        # Results after the accepted revert came from the old
+                        # state. Keep the original reverse-order scan, but
+                        # compile its remaining trials from the new state.
+                        remaining_edits = remaining_edits[accepted_at + 1:]
+                if stats.stop_reason is not None:
+                    break
                 if accepted_this_pass == 0:
                     break
+            if stats.stop_reason is not None:
+                break
     finally:
         clear_progress()
+        compiler.close()
         scorer.close()
     return current, current_key, stats, current_trace
 
@@ -816,6 +1093,7 @@ def worker(sh: Shared, mutators: Dict[str, "src_mutate.Mutator"],
            mutate_fns: List[str], seed: int) -> None:
     rng = random.Random(seed)
     scorer = make_scorer(sh.unit, sh.fn)
+    compiler = FixedBatchCompiler(sh.unit, sh.batch)
     names = set(mutate_fns)
     base_prefix = sh.base_source[:sh.split]   # the #include block (invariant)
 
@@ -900,74 +1178,71 @@ def worker(sh: Shared, mutators: Dict[str, "src_mutate.Mutator"],
             cand_sources = [cand for cand, _trace in cands]
             if sh.use_pch and all(c[:sh.split] == base_prefix for c in cand_sources):
                 sources = [c[sh.split:].decode("utf-8", "surrogateescape") for c in cand_sources]
-                objs, cleanups = compile_batch(sh.unit, sources, prefix_pch=sh.pch_path)
+                compiled = compiler.compile(sources, prefix_pch=sh.pch_path)
             else:
                 sources = [c.decode("utf-8", "surrogateescape") for c in cand_sources]
-                objs, cleanups = compile_batch(sh.unit, sources)
+                compiled = compiler.compile(sources)
+            objs = compiled.objects
             tc += time.perf_counter() - t0
 
             # --- score each candidate ---
             reanchor_cand = None    # candidate to re-anchor to after this batch
-            try:
-                for (cand, trace), obj in zip(cands, objs):
-                    if sh.stop.is_set():
-                        break
-                    if obj is None:
-                        with sh.lock:
-                            sh.compiles_failed += 1
-                        continue
-                    if not obj.exists():
-                        continue  # vanished (e.g. tmpdir cleaned during shutdown)
-                    t0 = time.perf_counter()
-                    try:
-                        key, asm_hash = scorer.score(str(obj))
-                    except ScoreError:
-                        # Unscoreable candidate (e.g. the symbol vanished): skip it;
-                        # tracked separately from compile failures, server stays up.
-                        ts += time.perf_counter() - t0
-                        with sh.lock:
-                            sh.score_errs += 1
-                        continue
-                    except OSError:
-                        # Server pipe gone -- Ctrl-C or shutdown. Stop quietly.
-                        sh.stop.set()
-                        break
+            for (cand, trace), obj in zip(cands, objs):
+                if sh.stop.is_set():
+                    break
+                if obj is None:
+                    with sh.lock:
+                        sh.compiles_failed += 1
+                    continue
+                if not obj.exists():
+                    continue  # vanished (e.g. worker cleanup during shutdown)
+                t0 = time.perf_counter()
+                try:
+                    key, asm_hash = scorer.score(str(obj))
+                except ScoreError:
+                    # Unscoreable candidate (e.g. the symbol vanished): skip it;
+                    # tracked separately from compile failures, server stays up.
                     ts += time.perf_counter() - t0
                     with sh.lock:
-                        sh.iters += 1
-                        assert sh.best_key is not None
-                        improved = key < sh.best_key
-                        is_zero = key.raw == 0
-                        novel = asm_hash not in sh.seen_asm  # never-seen codegen
-                        if novel and len(sh.seen_asm) < 200_000:
-                            sh.seen_asm.add(asm_hash)
-                        if improved:
-                            sh.best_score = key.raw
-                            sh.best_key = key
-                            sh.best_source = cand
-                            sh.best_trace = trace
-                        if (improved or is_zero) and novel:
-                            report_find(sh, key, cand, obj)
-                        if is_zero:
-                            sh.stop.set()  # 100% match: stop the whole search
-                        if sh.max_iters is not None and sh.iters >= sh.max_iters:
-                            sh.stop.set()
-                        b_score = sh.best_score
-                    # Re-anchor on this candidate? Always on an improvement. In
-                    # 'novel' mode also occasionally on a never-seen-codegen
-                    # candidate that isn't far worse than the best -- so the
-                    # search can cross the valleys where multi-helper extractions
-                    # each worsen the score but combine to a match. best_source
-                    # only tracks strict improvements, so this can't lose ground.
-                    if not is_zero and sh.reanchor_mode != "off":
-                        take = improved or (
-                            sh.reanchor_mode == "novel" and novel
-                            and key.raw <= b_score + REANCHOR_VALLEY_MARGIN)
-                        if take and (reanchor_cand is None or key < reanchor_cand[1]):
-                            reanchor_cand = (cand, key, improved, trace)
-            finally:
-                for c in cleanups:
-                    c.cleanup()
+                        sh.score_errs += 1
+                    continue
+                except OSError:
+                    # Server pipe gone -- Ctrl-C or shutdown. Stop quietly.
+                    sh.stop.set()
+                    break
+                ts += time.perf_counter() - t0
+                with sh.lock:
+                    sh.iters += 1
+                    assert sh.best_key is not None
+                    improved = key < sh.best_key
+                    is_zero = key.raw == 0
+                    novel = asm_hash not in sh.seen_asm  # never-seen codegen
+                    if novel and len(sh.seen_asm) < 200_000:
+                        sh.seen_asm.add(asm_hash)
+                    if improved:
+                        sh.best_score = key.raw
+                        sh.best_key = key
+                        sh.best_source = cand
+                        sh.best_trace = trace
+                    if (improved or is_zero) and novel:
+                        report_find(sh, key, cand, obj)
+                    if is_zero:
+                        sh.stop.set()  # 100% match: stop the whole search
+                    if sh.max_iters is not None and sh.iters >= sh.max_iters:
+                        sh.stop.set()
+                    b_score = sh.best_score
+                # Re-anchor on this candidate? Always on an improvement. In
+                # 'novel' mode also occasionally on a never-seen-codegen
+                # candidate that isn't far worse than the best -- so the
+                # search can cross the valleys where multi-helper extractions
+                # each worsen the score but combine to a match. best_source
+                # only tracks strict improvements, so this can't lose ground.
+                if not is_zero and sh.reanchor_mode != "off":
+                    take = improved or (
+                        sh.reanchor_mode == "novel" and novel
+                        and key.raw <= b_score + REANCHOR_VALLEY_MARGIN)
+                    if take and (reanchor_cand is None or key < reanchor_cand[1]):
+                        reanchor_cand = (cand, key, improved, trace)
 
             # Re-anchor (re-type, ~50ms) so subsequent typed mutations build on
             # the chosen candidate.
@@ -977,6 +1252,7 @@ def worker(sh: Shared, mutators: Dict[str, "src_mutate.Mutator"],
                 cur = a_src
                 cur_trace = a_trace
     finally:
+        compiler.close()
         scorer.close()
         with sh.lock:
             sh.prof_mutate += tm
@@ -1264,15 +1540,32 @@ def main() -> int:
           + ("  -- 100% match!" if matched else ""))
 
     if not args.no_narrow:
+        default_narrow_compiles = (
+            64 if args.max_iters is None else min(max(0, args.max_iters), 64)
+        )
+        narrow_max_compiles = _env_nonnegative_int(
+            "PERMUTER_NARROW_MAX_COMPILES", default_narrow_compiles
+        )
+        narrow_timeout = _env_nonnegative_float(
+            "PERMUTER_NARROW_TIMEOUT_SECONDS", 30.0
+        )
+        print(f"narrow: budget {narrow_max_compiles} compiles, "
+              f"{narrow_timeout:g}s, batch {batch}")
         narrowed_source, narrowed_key, narrow_stats, narrowed_trace = narrow_best_source(
             unit, fn, base_source, best_source, best_key, best_trace,
             max_passes=max(0, args.narrow_passes),
+            max_compiles=narrow_max_compiles,
+            timeout_seconds=narrow_timeout,
+            batch_size=batch,
         )
-        if narrow_stats.attempts:
+        if narrow_stats.compiles:
             print("narrow: "
                   f"{narrow_stats.accepted}/{narrow_stats.attempts} accepted, "
+                  f"{narrow_stats.compiles}/{narrow_max_compiles} compiled, "
                   f"compile-fail {narrow_stats.compile_failed}, "
                   f"score-err {narrow_stats.score_errors}")
+        if narrow_stats.stop_reason is not None:
+            print(f"narrow: stopped ({narrow_stats.stop_reason})")
         if narrowed_source != best_source or narrowed_key != best_key:
             best_source = narrowed_source
             best_key = narrowed_key

@@ -6,10 +6,10 @@ import { resolve } from "node:path";
 import type { PiPromptBundle } from "@server/core/shared/types";
 
 import {
+  conflictResolverPrompt,
   integrationResolverPrompt,
-  knowledgeCuratorPrompt,
+  librarianPrompt,
   prFixerPrompt,
-  prIndexerPrompt,
   prPreshipReviewPrompt,
   prSplitterPrompt,
   qaRepairPrompt,
@@ -28,7 +28,7 @@ import {
 } from "./kernel-catalog.js";
 import { loadKernelAgentsPayload } from "./kernel-preview.js";
 import { defaultKernelTurnPrompt } from "./kernel-context.js";
-import { resolveAgentToolIds } from "@server/core/tools/index.js";
+import { defaultLibrarianToolProfile, resolveAgentToolIds } from "@server/core/tools/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
 const sampleRepoRoot = resolve(repoRoot, "apps/server/testdata/smoke_repo");
@@ -54,6 +54,43 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         initialBoardPath: resolve(sampleStateDir, "board.json"),
         workerLogDir: resolve(sampleStateDir, "workers"),
       });
+    case "conflict-resolver": {
+      const claim = {
+        claim_id: "sample-incoming-claim",
+        worker_state_id: "sample-worker-state",
+        checkpoint_id: "sample-checkpoint",
+        target_id: "sample-target",
+        target_symbol: "ftDemo_Target",
+        source_paths: ["src/melee/ft/chara/ftDemo.c"],
+        write_set: ["src/melee/ft/chara/ftDemo.c", "src/melee/ft/chara/ftDemo.h"],
+        validation_state: "tentative" as const,
+        metadata: { widening_ids: ["sample-widening"] },
+      };
+      const scopedChecks = { passed: true, checks: [], metadata: { scope: "touched-files" } };
+      return conflictResolverPrompt({
+        request: {
+          schema_version: "melee_conflict_resolver_request_v1",
+          integration_item_id: "sample-merge-conflict",
+          conflict_group_id: "worker-output:sample-merge-conflict",
+          isolated_worktree: { path: "/tmp/sample-conflict", base_revision: "aaaa", session_revision: "bbbb" },
+          session_worktree_path: sampleRepoRoot,
+          incoming: {
+            claim,
+            scoped_checks: scopedChecks,
+            patch: { path: "/tmp/sample.patch", text: null, sha256: "1234" },
+          },
+          current: {
+            claim: { ...claim, claim_id: "sample-current-claim", validation_state: "confirmed" },
+            scoped_checks: scopedChecks,
+            branch_state: { head_revision: "bbbb", status_porcelain: "", diff: null, metadata: {} },
+          },
+          conflict_paths: ["src/melee/ft/chara/ftDemo.h"],
+          metadata: { merge_on_finish: true },
+        },
+        repoRoot: sampleRepoRoot,
+        stateDir: sampleStateDir,
+      });
+    }
     case "integration-resolver":
       return integrationResolverPrompt({
         integrationItem: {
@@ -79,19 +116,6 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
           explicit_write_set: ["src/melee/ft/chara/ftDemo.c"],
         },
         queueSummary: { queued_items: 1, conflict_groups: 1 },
-        repoRoot: sampleRepoRoot,
-        stateDir: sampleStateDir,
-      });
-    case "pr-indexer":
-      return prIndexerPrompt({
-        prContext: {
-          schema_version: "pr_context_v1",
-          object_id: "sample-pr-1",
-          pr: { number: 1, title: "Sample PR" },
-          changed_files: [{ path: "src/melee/ft/chara/ftDemo.c" }],
-          human_text_excerpt: "Match ftDemo target.",
-          diff_excerpt: "diff --git a/src/melee/ft/chara/ftDemo.c b/src/melee/ft/chara/ftDemo.c",
-        },
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
       });
@@ -135,11 +159,31 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
       });
-    case "knowledge-curator":
-      return knowledgeCuratorPrompt({
-        curatorContext: {
-          batch_id: "sample-curator-batch",
-          records: [{ evidence_refs: ["worker:sample"], lesson: "Prefer local source evidence." }],
+    case "librarian":
+      return librarianPrompt({
+        librarianBatch: {
+          batch_id: "sample-librarian-batch",
+          kind: "worker_run",
+          worker_state: {
+            id: "sample-worker-state",
+            target_key: "src/melee/ft/chara/ftDemo.c:ftDemo_Target",
+            baseline_score: 91.25,
+            best_score: 97.5,
+            exact: false,
+          },
+          checkpoints: [
+            {
+              kind: "checkpoint",
+              id: "sample-checkpoint",
+              attempt_index: 1,
+              new_score: 97.5,
+              delta: 6.25,
+              exact_match: false,
+              improved_over_baseline: true,
+              validation_time: "2026-08-10T00:00:00Z",
+            },
+          ],
+          transcripts: [],
         },
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
@@ -185,6 +229,8 @@ describe("meleeKernelAgentCatalog", () => {
     const registeredIds = Object.keys(agentRegistry) as KernelAgentId[];
 
     expect(() => assertMeleeKernelCatalogComplete()).not.toThrow();
+    expect(KERNEL_AGENT_IDS).toHaveLength(9);
+    expect(meleeKernelAgentCatalog).toHaveLength(9);
     expect([...KERNEL_AGENT_IDS].sort()).toEqual(registeredIds.sort());
     expect(new Set(meleeKernelAgentCatalog.map((entry) => entry.id)).size).toBe(meleeKernelAgentCatalog.length);
   });
@@ -198,6 +244,18 @@ describe("meleeKernelAgentCatalog", () => {
       expect(entry.tools).toEqual(resolveAgentToolIds(entry.role));
       expect(entry.toolProfile).toBe(entry.role);
     }
+
+    expect(meleeKernelAgent("librarian").tools).toEqual([...defaultLibrarianToolProfile]);
+    expect(defaultLibrarianToolProfile).toEqual([
+      "code_graph_search",
+      "past_prs_search",
+      "decomp_standards_context",
+      "decomp_standards_proposals",
+      "review_lint_scan",
+      "smashwiki_search",
+      "smashwiki_get_page",
+      "ledger_search",
+    ]);
   });
 
   test("describes worker output as a runner validation handoff in the catalog", () => {
@@ -280,8 +338,12 @@ describe("meleeKernelAgentCatalog", () => {
       graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
     });
     const worker = payload.agents.find((agent) => agent.name === "worker");
+    const librarian = payload.agents.find((agent) => agent.name === "librarian");
     const rendered = `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
 
+    expect(payload.agents).toHaveLength(9);
+    expect(payload.warnings).toEqual([]);
+    expect(librarian?.tools).toEqual([...defaultLibrarianToolProfile]);
     expect(worker).toBeDefined();
     expect(rendered).toContain("return a handoff JSON");
     expect(rendered).toContain("Do not treat non-100% progress as failure");

@@ -8,6 +8,7 @@ import {
   applyQaLintToValidation,
   captureWorkerChangeBaseline,
   compareWorkerUnitSnapshots,
+  extendWorkerChangeBaselineSourceSnapshot,
   QA_LINT_REPAIR_INSTRUCTION,
   qaLintFromInvocation,
   qaLintRepairReasons,
@@ -235,9 +236,14 @@ describe("qaLintRepairReasons", () => {
       "qa_lint_finding: error unrolled_assert at src/melee/gr/ground.c:99 — open-coded assert [standard: global_standard:assert-report-macros] excerpt: __assert(...)",
     );
     expect(reasons[2]).toBe(QA_LINT_REPAIR_INSTRUCTION);
-    expect(QA_LINT_REPAIR_INSTRUCTION).toBe(
-      "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match (owning-header declarations, project assert/report macros, established inline helpers); if the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.",
-    );
+    // The standing instruction must not recommend cross-file idioms the worker
+    // cannot ship: edits outside the one-file write set are dropped at patch
+    // capture, so the compliant path for e.g. an owning-header declaration is a
+    // blocker note, not a source-local shim.
+    expect(QA_LINT_REPAIR_INSTRUCTION).not.toContain("owning-header declarations,");
+    expect(QA_LINT_REPAIR_INSTRUCTION).toContain("inside your claimed write set");
+    expect(QA_LINT_REPAIR_INSTRUCTION).toContain("dropped at patch capture");
+    expect(QA_LINT_REPAIR_INSTRUCTION).toContain('state "exact requires cross-file edit to <path>" in your note\'s blockers');
   });
 
   test("formats warning findings as repair reasons", () => {
@@ -316,6 +322,84 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
     // No build system in the temp repo, so the objdiff baseline itself fails —
     // the source snapshot must survive that.
     expect(baseline.snapshot).toBeNull();
+  });
+});
+
+describe("extendWorkerChangeBaselineSourceSnapshot", () => {
+  async function setupGitRepo(): Promise<{ repoRoot: string; outputDir: string; baseline: WorkerChangeBaseline }> {
+    const root = await mkdtemp(join(tmpdir(), "qa-l1-extend-"));
+    const repoRoot = join(root, "repo");
+    const outputDir = join(root, "validation");
+    const sourceSnapshotDir = join(outputDir, "pre_worker_source");
+    await mkdir(join(repoRoot, "src/melee/ft"), { recursive: true });
+    await mkdir(sourceSnapshotDir, { recursive: true });
+    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.c"), "int a;\n");
+    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.h"), "void ftCo_800C8E5C(void);\n");
+    const { runCommand } = await import("@server/infrastructure/shell");
+    for (const command of [
+      ["git", "init"],
+      ["git", "add", "-A"],
+      ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "base"],
+    ]) {
+      const result = await runCommand(repoRoot, command);
+      if (result.exitCode !== 0) throw new Error(`${command.join(" ")} failed: ${result.stderr}`);
+    }
+    // The worker edits the header AFTER the pre-worker snapshot was captured.
+    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.h"), "void ftCo_800C8E5C(void);\nvoid ftCo_NewProto(void);\n");
+    const baseline: WorkerChangeBaseline = {
+      status: "snapshot_unavailable",
+      reasons: [],
+      snapshot: null,
+      sourceSnapshotDir,
+      sourceSnapshotPaths: ["src/melee/ft/ftcoll.c"],
+    };
+    return { repoRoot, outputDir, baseline };
+  }
+
+  test("adds pre-worker HEAD content for out-of-write-set paths and appends them to the snapshot list", async () => {
+    const { outputDir, repoRoot, baseline } = await setupGitRepo();
+    const added = await extendWorkerChangeBaselineSourceSnapshot({
+      repoRoot,
+      baseline,
+      extraPaths: ["src/melee/ft/ftcoll.h", "src/melee/ft/ftcoll.c", "src/missing.c", "../escape.c"],
+    });
+    // ftcoll.c is already snapshotted; missing/escape paths are skipped.
+    expect(added).toEqual(["src/melee/ft/ftcoll.h"]);
+    expect(baseline.sourceSnapshotPaths).toEqual(["src/melee/ft/ftcoll.c", "src/melee/ft/ftcoll.h"]);
+    // The snapshot holds the PRE-worker (HEAD) content, not the edited worktree content.
+    expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/ft/ftcoll.h"), "utf8")).toBe("void ftCo_800C8E5C(void);\n");
+  });
+
+  test("a baseline without a snapshot dir (dry run) is a no-op", async () => {
+    const baseline: WorkerChangeBaseline = { status: "snapshot_unavailable", reasons: [], snapshot: null };
+    expect(await extendWorkerChangeBaselineSourceSnapshot({ repoRoot: "/tmp/nowhere", baseline, extraPaths: ["src/a.h"] })).toEqual([]);
+    expect(baseline.sourceSnapshotPaths).toBeUndefined();
+  });
+
+  test("the extended snapshot feeds the QA lint diff with the out-of-write-set edit", async () => {
+    const { outputDir, repoRoot, baseline } = await setupGitRepo();
+    await extendWorkerChangeBaselineSourceSnapshot({ repoRoot, baseline, extraPaths: ["src/melee/ft/ftcoll.h"] });
+    const seenOptions: RunQaScanDiffOptions[] = [];
+    const validation = await validateWorkerChange({
+      repoRoot,
+      outputDir,
+      attemptIndex: 0,
+      baseline,
+      target: { unit: "melee/ft/ftcoll.c", symbol: "ftCo_800C8E5C", source_path: "src/melee/ft/ftcoll.c" },
+      dryRun: false,
+      shouldRun: true,
+      claimedExact: false,
+      orchestratorRoot: "/tmp/orchestrator",
+      qaScanRunner: async (options: RunQaScanDiffOptions): Promise<QaScanInvocation> => {
+        seenOptions.push(options);
+        return invocation();
+      },
+    });
+    expect(seenOptions).toHaveLength(1);
+    const patch = await readFile(seenOptions[0].diffFile ?? "", "utf8");
+    expect(patch).toContain("diff --git a/src/melee/ft/ftcoll.h b/src/melee/ft/ftcoll.h");
+    expect(patch).toContain("+void ftCo_NewProto(void);");
+    expect(validation.qaLint?.status).toBe("clean");
   });
 });
 

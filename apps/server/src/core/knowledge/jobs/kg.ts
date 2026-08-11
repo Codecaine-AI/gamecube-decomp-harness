@@ -3,8 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
-import { knowledgeCuratorPrompt } from "@server/core/agent-catalog/agents/knowledge/curator";
-import { prIndexerPrompt } from "@server/core/agent-catalog/agents/knowledge/pr-indexer";
+import { librarianPrompt } from "@server/core/agent-catalog/agents/knowledge/librarian";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import {
   agentSharedStateEnrichmentPath,
@@ -30,6 +29,7 @@ import {
   readSourceRegistry,
   readSourceRegistryEntries,
   readToolRegistry,
+  readToolRegistryEntries,
   rebuildKnowledgeGraph,
   searchKnowledgeGraph,
   sourceUpdateProposalRecords,
@@ -320,7 +320,11 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
   );
   const agentReview = await runKnowledgeStep(options, "curator_agent_review", { repo_root: repoRoot }, () => maybeRunCuratorAgent(globals, args, curator.output_path));
   const dataSheetFacts = await runKnowledgeStep(options, "data_sheet_facts", { repo_root: repoRoot }, () =>
-    booleanArg(args, "--no-data-sheet-facts") ? skipSummary("data_sheet_facts", "--no-data-sheet-facts") : runDataSheetFacts(repoRoot),
+    booleanArg(args, "--no-data-sheet-facts")
+      ? skipSummary("data_sheet_facts", "--no-data-sheet-facts")
+      : booleanArg(args, "--data-sheet-facts")
+        ? runDataSheetFacts(repoRoot)
+        : skipSummary("data_sheet_facts", "skipped_by_default_deprecated_source (pass --data-sheet-facts to run)"),
   );
   const rebuild = await runKnowledgeStep(options, "rebuild_graph", { repo_root: repoRoot, command: ["rebuildKnowledgeGraph"] }, () =>
     booleanArg(args, "--no-rebuild")
@@ -378,19 +382,28 @@ async function runDataSheetFacts(repoRoot: string): Promise<SpawnSummary> {
 }
 
 async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMaintenanceOptions = {}): Promise<SpawnSummary[]> {
-  const runners = [
-    ["ghidra", "run_headless_probe.py"],
-    ["opseq", "extract_opcode_sequences.py"],
-    ["mismatch_db", "analyze_objdiff_mismatches.py"],
-    ["mwcc_debug", "probe_mwcc_compiler.py"],
-  ] as const;
+  const registryEntries = readToolRegistryEntries();
+  const configuredRunners = readToolRegistry().flatMap((tool, index) => {
+    const entry = registryEntries[index] as ({ knowledge_runner?: unknown } & Record<string, unknown>) | undefined;
+    return typeof entry?.knowledge_runner === "string" ? [[tool.id, entry.knowledge_runner] as const] : [];
+  });
+  const runnerListFallbackReason = configuredRunners.length === 0 ? "tool_registry_has_no_knowledge_runners" : undefined;
+  const runners = configuredRunners.length > 0
+    ? configuredRunners
+    : [
+        ["ghidra", "run_headless_probe.py"],
+        ["opseq", "extract_opcode_sequences.py"],
+        ["mismatch_db", "analyze_objdiff_mismatches.py"],
+        ["mwcc_debug", "probe_mwcc_compiler.py"],
+      ] as const;
   return Promise.all(
     runners.map(async ([toolId, scriptName]) => {
       const resolved = resolveRegisteredTool(context, toolId);
       const repo = toolRunnerRepoRoot(context, toolId);
       const repoRoot = repo.repoRoot;
+      const fallbackReason = [repo.fallbackReason, runnerListFallbackReason].filter(Boolean).join("; ") || undefined;
       const command = ["python3", resolve(resolved.toolRoot, "runners", scriptName), "--repo-root", repoRoot];
-      return runKnowledgeStep(options, "tool_runner", { tool: toolId, command, repo_root: repoRoot, reason: repo.fallbackReason }, async () => {
+      return runKnowledgeStep(options, "tool_runner", { tool: toolId, command, repo_root: repoRoot, reason: fallbackReason }, async () => {
       const proc = Bun.spawn(command, {
         cwd: packageRoot(),
         env: { ...Bun.env, ...resolved.env },
@@ -405,7 +418,7 @@ async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMai
         stdout,
         stderr,
         repo_root: repoRoot,
-        fallback_reason: repo.fallbackReason,
+        fallback_reason: fallbackReason,
       };
       if (exitCode !== 0) {
         const error = stderr || stdout || `command exited ${exitCode}`;
@@ -463,6 +476,18 @@ export async function kgMaintain(globals: GlobalArgs, args: Map<string, string |
   console.log(JSON.stringify(await runKnowledgeMaintenance(globals, args), null, 2));
 }
 
+function prIndexerCompatibleRawOutput(rawText: string): string {
+  try {
+    const parsed = JSON.parse(rawText) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return rawText;
+    const prIndex = (parsed as Record<string, unknown>).pr_index;
+    if (!prIndex || typeof prIndex !== "object" || Array.isArray(prIndex)) return rawText;
+    return JSON.stringify(prIndex, null, 2);
+  } catch {
+    return rawText;
+  }
+}
+
 export async function kgPrIndexerAgent(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   configureKernelDatabaseFromArgs(args);
   const contextPath = stringArg(args, "--context-object", stringArg(args, "--input", ""));
@@ -478,7 +503,8 @@ export async function kgPrIndexerAgent(globals: GlobalArgs, args: Map<string, st
   const prepareIntake = booleanArg(args, "--prepare-intake");
   const kernelProjectId = stringArg(args, "--kernel-project-id", globals.project?.projectId ?? globals.projectId ?? "");
   const outputDir = stringArg(args, "--agent-output-dir", resolve(globals.stateDir, "pr_postmortems", runId));
-  const prompt = prIndexerPrompt({
+  const prompt = librarianPrompt({
+    door: "pr_indexing",
     prContext: context,
     repoRoot: globals.repoRoot,
     stateDir: globals.stateDir,
@@ -498,7 +524,7 @@ export async function kgPrIndexerAgent(globals: GlobalArgs, args: Map<string, st
 
   await mkdir(outputDir, { recursive: true });
   const result = await runPiAgent({
-    role: "pr-indexer",
+    role: "librarian",
     cwd: globals.repoRoot,
     prompt,
     outputDir,
@@ -536,11 +562,12 @@ export async function kgPrIndexerAgent(globals: GlobalArgs, args: Map<string, st
   });
 
   await mkdir(dirname(rawOutputPath), { recursive: true });
-  await writeFile(rawOutputPath, result.rawText);
+  await writeFile(rawOutputPath, result.dryRun ? result.rawText : prIndexerCompatibleRawOutput(result.rawText));
   recordPrIndexerSession(globals, runId, result);
 
   const summary = {
-    role: "pr-indexer",
+    role: "librarian",
+    door: "pr_indexing",
     pr: prNumber || null,
     runId,
     itemId,
@@ -554,7 +581,7 @@ export async function kgPrIndexerAgent(globals: GlobalArgs, args: Map<string, st
   };
   console.log(JSON.stringify(summary, null, 2));
   if (result.failed || result.providerError) {
-    throw new Error(`pr-indexer agent failed: ${result.error ?? result.providerError ?? "unknown failure"}`);
+    throw new Error(`librarian pr_indexing door failed: ${result.error ?? result.providerError ?? "unknown failure"}`);
   }
 }
 
@@ -573,7 +600,8 @@ export async function kgKnowledgeIntakeAgent(globals: GlobalArgs, args: Map<stri
   const deterministicSourceProposals = sourceUpdateProposalRecords(deterministicRecords);
   const deterministicAppend = appendCuratedKnowledgeRecords(enrichmentPath, [...deterministicRecords, ...deterministicSourceProposals]);
   const outputDir = stringArg(args, "--agent-output-dir", resolve(globals.stateDir, "knowledge_intake", runId, prNumber ? `pr-${prNumber}` : "manual"));
-  const prompt = knowledgeCuratorPrompt({
+  const prompt = librarianPrompt({
+    door: "curation",
     repoRoot: globals.repoRoot,
     stateDir: globals.stateDir,
     project: globals.project,
@@ -582,14 +610,25 @@ export async function kgKnowledgeIntakeAgent(globals: GlobalArgs, args: Map<stri
       enrichment_path: enrichmentPath,
       postmortem_path: postmortemPath,
       pr: prNumber || null,
-      deterministic_records: deterministicRecords,
-      deterministic_source_update_proposals: deterministicSourceProposals,
-      curator_handoff: postmortem.curator_handoff ?? null,
+      deterministic_records: deterministicRecords.map((record) => ({
+        ...record,
+        kind: "curated_record",
+      })),
+      deterministic_source_update_proposals: deterministicSourceProposals.map((record) => ({
+        ...record,
+        kind: "curated_record",
+      })),
+      curator_handoff:
+        postmortem.curator_handoff &&
+        typeof postmortem.curator_handoff === "object" &&
+        !Array.isArray(postmortem.curator_handoff)
+          ? { kind: "postmortem", ...(postmortem.curator_handoff as Record<string, unknown>) }
+          : postmortem.curator_handoff ?? null,
     },
   });
 
   const result = await runPiAgent({
-    role: "knowledge-curator",
+    role: "librarian",
     cwd: globals.repoRoot,
     prompt,
     outputDir,
@@ -632,7 +671,8 @@ export async function kgKnowledgeIntakeAgent(globals: GlobalArgs, args: Map<stri
   const proposalRecords = parsed.object ? curatorAgentProposalRecords(parsed.object, result.outputPath) : [];
   const proposalAppend = proposalRecords.length > 0 ? appendCuratedKnowledgeRecords(enrichmentPath, proposalRecords) : null;
   const summary = {
-    role: "knowledge-curator",
+    role: "librarian",
+    door: "curation",
     pr: prNumber || null,
     runId,
     itemId,
@@ -649,7 +689,7 @@ export async function kgKnowledgeIntakeAgent(globals: GlobalArgs, args: Map<stri
   };
   console.log(JSON.stringify(summary, null, 2));
   if (result.failed || result.providerError) {
-    throw new Error(`knowledge-curator agent failed: ${result.error ?? result.providerError ?? "unknown failure"}`);
+    throw new Error(`librarian curation door failed: ${result.error ?? result.providerError ?? "unknown failure"}`);
   }
 }
 
@@ -802,10 +842,18 @@ function skipSummary(commandName: string, reason: string): SpawnSummary {
 }
 
 async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, string | true>, enrichmentPath: string): Promise<Record<string, unknown>> {
-  if (!booleanArg(args, "--run-curator-agent")) return { skipped: true, reason: "no --run-curator-agent" };
-  const recordLimit = Math.max(1, Math.floor(numberArg(args, "--curator-agent-record-limit", 40)));
-  const batchSize = Math.max(1, Math.floor(numberArg(args, "--curator-agent-batch-size", recordLimit)));
-  const jobs = Math.max(1, Math.floor(numberArg(args, "--curator-agent-jobs", 16)));
+  if (!booleanArg(args, "--run-curator-agent") && !booleanArg(args, "--run-librarian-curation")) {
+    return { skipped: true, reason: "no --run-curator-agent or --run-librarian-curation" };
+  }
+  const recordLimit = Math.max(
+    1,
+    Math.floor(numberArg(args, "--librarian-curation-record-limit", numberArg(args, "--curator-agent-record-limit", 40))),
+  );
+  const batchSize = Math.max(
+    1,
+    Math.floor(numberArg(args, "--librarian-curation-batch-size", numberArg(args, "--curator-agent-batch-size", recordLimit))),
+  );
+  const jobs = Math.max(1, Math.floor(numberArg(args, "--librarian-curation-jobs", numberArg(args, "--curator-agent-jobs", 16))));
   const records = readJsonlRecords(enrichmentPath, recordLimit);
   const batches = chunkRecords(records, batchSize);
   const outputDir = resolve(globals.stateDir, "knowledge_curator", new Date().toISOString().replace(/[:.]/g, "-"));
@@ -814,9 +862,10 @@ async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, strin
   const runId = stringArg(args, "--run-id", "");
   const reviewed = await mapLimit(batches, Math.min(jobs, batches.length || 1), async (batch, index) => {
     const result = await runPiAgent({
-      role: "knowledge-curator",
+      role: "librarian",
       cwd: globals.repoRoot,
-      prompt: knowledgeCuratorPrompt({
+      prompt: librarianPrompt({
+        door: "curation",
         repoRoot: globals.repoRoot,
         stateDir: globals.stateDir,
         project: globals.project,
@@ -825,7 +874,10 @@ async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, strin
           deterministic_record_count: deterministicRecordCount,
           batch_index: index + 1,
           batch_count: batches.length,
-          sampled_records: batch,
+          sampled_records: batch.map((record) => ({
+            ...record,
+            kind: "curated_record",
+          })),
         },
       }),
       outputDir,
@@ -931,7 +983,7 @@ function recordCuratorSession(globals: GlobalArgs, args: Map<string, string | tr
     addPiSession({
       store,
       runId,
-      role: "knowledge-curator",
+      role: "librarian",
       sessionId: result.sessionId,
       sessionFile: result.sessionFile,
       provider: globals.provider,
@@ -952,7 +1004,7 @@ function recordPrIndexerSession(globals: GlobalArgs, runId: string, result: Awai
     addPiSession({
       store,
       runId,
-      role: "pr-indexer",
+      role: "librarian",
       sessionId: result.sessionId,
       sessionFile: result.sessionFile,
       provider: globals.provider,
@@ -994,7 +1046,7 @@ function chunkRecords<T>(records: T[], batchSize: number): T[][] {
   return chunks;
 }
 
-async function mapLimit<T, U>(items: T[], limit: number, fn: (item: T, index: number) => Promise<U>): Promise<U[]> {
+export async function mapLimit<T, U>(items: T[], limit: number, fn: (item: T, index: number) => Promise<U>): Promise<U[]> {
   const results = new Array<U>(items.length);
   let nextIndex = 0;
   async function worker(): Promise<void> {

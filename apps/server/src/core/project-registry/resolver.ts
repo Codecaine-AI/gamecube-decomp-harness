@@ -145,9 +145,6 @@ const defaultKnowledge: Required<ProjectKnowledgeConfig> = {
   globalSources: [
     "past_prs",
     "decomp_standards",
-    "ssbm_data_sheet",
-    "powerpc_docs",
-    "external_mirrors",
     "path_facts",
   ],
   projectSources: ["code_graph"],

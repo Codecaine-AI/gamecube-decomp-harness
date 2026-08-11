@@ -42,7 +42,6 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
   const dataSheetData = sourceDataRoot("ssbm_data_sheet");
   const dataSheetCsvDir = resolve(dataSheetData, "csv");
   const dataSheetGeneratedDir = resolve(dataSheetData, "generated");
-  const powerpcData = sourceDataRoot("powerpc_docs");
   const externalMirrorsData = sourceDataRoot("external_mirrors");
   const scripts = options.scripts;
   const activeSources = readSourceRegistry();
@@ -178,7 +177,6 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
       ],
       data_sheet_generated_index: resolve(dataSheetData, "..", "indexes", "codebase_facts.jsonl"),
       data_sheet_refresh_command: `${sourceScriptCommand("ssbm_data_sheet", "commands/build_codebase_facts.py")} --repo-root ${projectRepoRoot} --json`,
-      powerpc_index: resolve(powerpcData, "indexes/powerpc_pdf_pages.csv"),
       external_hint_indexes: [
         resolve(externalMirrorsData, "training_mode/indexes/gtme01_map_symbols.csv"),
         resolve(externalMirrorsData, "m_ex/indexes/header_symbols.csv"),
@@ -245,11 +243,6 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
           command: `${sourceScriptCommand("decomp_standards", "api/search.py")} --query <term> --limit 10 --json`,
           cwd: packageRoot(),
           purpose: "operator/curator focused lookup over global standards that are otherwise injected into worker context",
-        },
-        {
-          command: `${sourceScriptCommand("path_facts", "api/resolve_for_path.py")} --path <source_path> --limit 5 --json`,
-          cwd: packageRoot(),
-          purpose: "resolve bounded path-scoped decomp hints selected for worker packets",
         },
         {
           command: "python3 projects/<id>/knowledge/sources/<section>/<source_id>/api/status.py --json",
@@ -334,29 +327,9 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
         purpose: "search past PR summaries, comments, reviews, and diffs",
       },
       {
-        command: `${sourceScriptCommand("discord_knowledge", "api/search.py")} --query <compiler_or_review_term> --limit 10 --json`,
-        cwd: packageRoot(),
-        purpose: "search Discord-derived compiler and workflow knowledge with citations",
-      },
-      {
-        command: `${sourceScriptCommand("discord_knowledge", "api/semantic_search.py")} --query <question> --limit 10 --json`,
-        cwd: packageRoot(),
-        purpose: "semantic RAG lookup over vectorized Discord-derived compiler and workflow knowledge",
-      },
-      {
         command: `${sourceScriptCommand("ssbm_data_sheet", "api/search.py")} --query <address_or_offset_or_id> --limit 10 --json`,
         cwd: packageRoot(),
         purpose: "search normalized data-sheet cells with row and CSV provenance",
-      },
-      {
-        command: `${sourceScriptCommand("powerpc_docs", "api/lookup_instruction.py")} --mnemonic <mnemonic> --limit 10 --json`,
-        cwd: packageRoot(),
-        purpose: "look up PowerPC PDF page chunks for ABI and instruction questions",
-      },
-      {
-        command: `${sourceScriptCommand("powerpc_docs", "api/semantic_search.py")} --query <question> --limit 10 --json`,
-        cwd: packageRoot(),
-        purpose: "semantic RAG lookup over vectorized PowerPC ABI, compiler-guide, and ISA page chunks",
       },
       {
         command: "python3 toolpacks/gamecube-decomp/research/mismatch_db/api/search.py --query <mismatch_pattern> --limit 10 --json",
@@ -376,7 +349,7 @@ export function resourceMap(repoRoot: string, options: ResourceMapOptions): Reco
       {
         command: "bun run kg:maintain -- --run-pr-agent --pr-jobs 16 --no-tool-runners --no-tool-index --no-data-sheet-facts --no-rebuild",
         cwd: packageRoot(),
-        purpose: "run kernel-backed pr-indexer postmortems for missing, draft, or failed records in the orchestrator-owned PR dump",
+        purpose: "run the kernel-backed librarian pr_indexing door for missing, draft, or failed postmortems in the orchestrator-owned PR dump",
       },
       {
         command: "python3 configure.py --require-protos --wrapper build/tools/wibo",

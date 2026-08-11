@@ -339,55 +339,6 @@ function compactFunction(fn: Record<string, unknown>): Record<string, unknown> {
   });
 }
 
-function compactMismatchPattern(
-  pattern: Record<string, unknown>,
-): Record<string, unknown> {
-  return compactObject({
-    pattern_id:
-      optionalString(pattern.pattern_id) ?? optionalString(pattern.id),
-    title: optionalString(pattern.title),
-    category: optionalString(pattern.category),
-    symptoms: stringArray(pattern.symptoms, 4),
-    tactics: stringArray(pattern.tactics, 4),
-    evidence_count: optionalNumber(pattern.evidence_count),
-    evidence_refs: stringArray(pattern.linked_evidence_refs, 4),
-    linked_evidence: asRecordArray(pattern.linked_evidence)
-      .slice(0, 3)
-      .map((evidence) =>
-        compactObject({
-          title: optionalString(evidence.title),
-          kind: optionalString(evidence.kind),
-          evidence_ref: optionalString(evidence.evidence_ref),
-          unit: optionalString(evidence.unit),
-          symbol: optionalString(evidence.symbol),
-          pr: evidence.pr ?? null,
-        }),
-      ),
-  });
-}
-
-function compactTouchingPr(
-  pr: Record<string, unknown>,
-): Record<string, unknown> {
-  return compactObject({
-    pr: pr.pr ?? pr.number ?? pr.id ?? null,
-    title: optionalString(pr.title) ?? optionalString(pr.summary),
-    author: optionalString(pr.author),
-    merged_at: optionalString(pr.merged_at) ?? optionalString(pr.date),
-    role: optionalString(pr.role),
-  });
-}
-
-function compactResourceHit(
-  hit: Record<string, unknown>,
-): Record<string, unknown> {
-  return compactObject({
-    source_id: optionalString(hit.source_id),
-    title: optionalString(hit.title),
-    evidence_ref: optionalString(hit.evidence_ref),
-  });
-}
-
 function compactToolHit(
   hit: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -406,25 +357,9 @@ function compactToolHit(
   });
 }
 
-function compactPathFact(
-  fact: Record<string, unknown>,
-): Record<string, unknown> {
-  return compactObject({
-    id: optionalString(fact.id),
-    title: optionalString(fact.title),
-    directory: optionalString(fact.directory),
-    strength: optionalString(fact.strength),
-    summary: optionalString(fact.summary),
-    evidence_refs: stringArray(fact.evidence_refs, 4),
-    watched_paths: stringArray(fact.watched_paths, 4),
-    slice_ref: fact.slice_ref ?? null,
-  });
-}
-
 function fileCardFromPacket(packet: Record<string, unknown>): {
   card: Record<string, unknown>;
   graphDb: string | null;
-  pathFacts: Record<string, unknown>;
   status: string | null;
   reason: string | null;
 } {
@@ -434,7 +369,6 @@ function fileCardFromPacket(packet: Record<string, unknown>): {
   return {
     card: Object.keys(nestedFileCard).length ? nestedFileCard : rawFileCard,
     graphDb: optionalString(knowledgeContext.graph_db),
-    pathFacts: asRecord(knowledgeContext.path_facts),
     status: optionalString(knowledgeContext.status),
     reason: optionalString(knowledgeContext.reason),
   };
@@ -541,33 +475,30 @@ function compactTargetGraphFileCard(
         functionName(fn) === targetSymbol ||
         optionalString(fn.symbol) === targetSymbol,
     ) ?? null;
-  const sameFileFunctions = functions
-    .filter((fn) => fn !== targetFunction)
-    .slice(0, contextBudget === "full" ? 10 : contextBudget === "compact" ? 5 : 0);
+  const sameFileFunctions = functions.filter((fn) => fn !== targetFunction);
   const prHistory = asRecord(card.pr_history);
-  const mismatchPatterns = asRecordArray(card.mismatch_patterns)
-    .slice(0, contextBudget === "full" ? 6 : contextBudget === "compact" ? 3 : 0)
-    .map(compactMismatchPattern);
-  const touchingPrs = asRecordArray(prHistory.touching_prs)
-    .slice(0, contextBudget === "full" ? 6 : contextBudget === "compact" ? 2 : 0)
-    .map(compactTouchingPr);
-  const resourceHits = asRecordArray(card.resource_hits)
-    .slice(0, contextBudget === "full" ? 8 : contextBudget === "compact" ? 3 : 0)
-    .map(compactResourceHit);
-  const toolHits = asRecordArray(card.tool_hits)
-    .filter((hit) => optionalString(hit.tool_id) === "opseq")
-    .slice(0, contextBudget === "full" ? 8 : contextBudget === "compact" ? 4 : 2)
-    .map(compactToolHit);
-  const pathFacts = asRecordArray(fromPacket.pathFacts.facts)
-    .slice(0, contextBudget === "full" ? 5 : contextBudget === "compact" ? 3 : 1)
-    .map(compactPathFact);
+  const mismatchPatterns = asRecordArray(card.mismatch_patterns);
+  const touchingPrs = asRecordArray(prHistory.touching_prs);
+  const resourceHits = asRecordArray(card.resource_hits);
+  const opseqAnalogs = asRecordArray(card.tool_hits).filter(
+    (hit) => optionalString(hit.tool_id) === "opseq",
+  );
+  const topOpseqAnalog = opseqAnalogs.reduce<Record<string, unknown> | null>(
+    (best, hit) => {
+      if (!best) return hit;
+      const bestScore = optionalNumber(best.score) ?? Number.NEGATIVE_INFINITY;
+      const hitScore = optionalNumber(hit.score) ?? Number.NEGATIVE_INFINITY;
+      return hitScore > bestScore ? hit : best;
+    },
+    null,
+  );
   const unitNames = asRecordArray(card.units)
     .map((unit) => optionalString(unit.unit) ?? optionalString(unit.name))
     .filter((unit): unit is string => Boolean(unit));
   const sameFileSymbols = sameFileFunctions
     .map((fn) => optionalString(fn.symbol) ?? functionName(fn))
     .filter(Boolean)
-    .slice(0, 10);
+    .slice(0, 8);
   const mismatchQueries = mismatchPatterns
     .map((pattern) => optionalString(pattern.title))
     .filter((title): title is string => Boolean(title))
@@ -595,26 +526,55 @@ function compactTargetGraphFileCard(
         ]
       : []),
   ];
+  const attachmentCounts = {
+    same_file_functions: sameFileFunctions.length,
+    mismatch_patterns: mismatchPatterns.length,
+    touching_prs: touchingPrs.length,
+    resources: resourceHits.length,
+    opseq_analogs: opseqAnalogs.length,
+    review_risks: asRecordArray(prHistory.review_risks).length,
+    tactics: asRecordArray(prHistory.tactics).length,
+  };
+  const hasGraphContext =
+    functions.length > 0 ||
+    Object.values(attachmentCounts).some((count) => count > 0);
+  const cardSourcePath = optionalString(card.source_path) ?? sourcePath;
+  const authority =
+    "Graph-derived context. Current source, headers, objdiff, and validation output outrank this summary.";
+  const pastPrSearchTerms = [targetSymbol, sourcePath, ...mismatchQueries]
+    .filter(Boolean)
+    .slice(0, 8);
+  const searchLeads = (queries: Array<Record<string, unknown>>) => ({
+    symbols: {
+      source_path: cardSourcePath,
+      units: unitNames.slice(0, 4),
+      target_symbol: targetSymbol,
+      same_file_symbols: sameFileSymbols,
+    },
+    target_function: targetFunction,
+    top_opseq_analog: topOpseqAnalog ? compactToolHit(topOpseqAnalog) : null,
+    attachment_counts: attachmentCounts,
+    follow_up_queries: queries,
+    past_prs: {
+      search_terms: pastPrSearchTerms,
+    },
+  });
+  const noContextNote = !hasGraphContext
+    ? "Graph file card had no attached functions, patterns, PRs, resources, opseq analogs, review risks, or tactics for this source path."
+    : null;
 
   if (contextBudget === "minimal") {
     return compactObject({
       status: "ready",
       source: "code_graph_file_card",
       context_budget: contextBudget,
-      source_path: optionalString(card.source_path) ?? sourcePath,
-      has_graph_context: Boolean(targetFunction || toolHits.length > 0 || pathFacts.length > 0),
-      search_leads: {
-        symbols: {
-          source_path: optionalString(card.source_path) ?? sourcePath,
-          target_symbol: targetSymbol,
-        },
-        target_function: targetFunction,
-        opseq_analogs: toolHits,
-        path_facts: pathFacts,
-        follow_up_queries: followUpQueries.slice(0, 3),
-      },
-      compaction_note:
-        "Minimal context budget after provider context-window rejection. Use local source and graph/search tools for additional context.",
+      authority,
+      graph_db: loaded.graphDb,
+      source_path: cardSourcePath,
+      editability: asRecord(card.editability),
+      has_graph_context: hasGraphContext,
+      search_leads: searchLeads(followUpQueries.slice(0, 3)),
+      no_context_note: noContextNote,
     });
   }
 
@@ -622,51 +582,13 @@ function compactTargetGraphFileCard(
     status: "ready",
     source: "code_graph_file_card",
     context_budget: contextBudget,
-    authority:
-      "Graph-derived context. Current source, headers, objdiff, and validation output outrank this summary.",
+    authority,
     graph_db: loaded.graphDb,
-    source_path: optionalString(card.source_path) ?? sourcePath,
-    has_graph_context: Boolean(
-      functions.length > 0 ||
-      mismatchPatterns.length > 0 ||
-      touchingPrs.length > 0 ||
-      resourceHits.length > 0 ||
-      toolHits.length > 0 ||
-      pathFacts.length > 0,
-    ),
+    source_path: cardSourcePath,
     editability: asRecord(card.editability),
-    search_leads: {
-      symbols: {
-        source_path: optionalString(card.source_path) ?? sourcePath,
-        units: unitNames.slice(0, 8),
-        target_symbol: targetSymbol,
-        same_file_symbols: sameFileSymbols,
-      },
-      target_function: targetFunction,
-      same_file_functions: sameFileFunctions,
-      mismatch_patterns: mismatchPatterns,
-      past_prs: {
-        touching_prs: touchingPrs,
-        search_terms: [targetSymbol, sourcePath, ...mismatchQueries]
-          .filter(Boolean)
-          .slice(0, 8),
-      },
-      resources: resourceHits,
-      opseq_analogs: toolHits,
-      path_facts: pathFacts,
-      review_risks: asRecordArray(prHistory.review_risks).slice(0, contextBudget === "full" ? 6 : 2),
-      tactics: asRecordArray(prHistory.tactics).slice(0, contextBudget === "full" ? 6 : 2),
-      follow_up_queries: followUpQueries,
-    },
-    no_context_note:
-      functions.length === 0 &&
-      mismatchPatterns.length === 0 &&
-      touchingPrs.length === 0 &&
-      resourceHits.length === 0 &&
-      toolHits.length === 0 &&
-      pathFacts.length === 0
-        ? "Graph file card had no attached functions, patterns, PRs, resources, opseq analogs, or path facts for this source path."
-        : null,
+    has_graph_context: hasGraphContext,
+    search_leads: searchLeads(followUpQueries),
+    no_context_note: noContextNote,
   });
 }
 

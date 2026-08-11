@@ -290,6 +290,73 @@ def test_negative_assert_macro_header(melee_checkout):
     assert payload["findings"] == []
 
 
+NUMERIC_SYMBOL_METADATA_DIFF = """\
+diff --git a/src/melee/gm/x.c b/src/melee/gm/x.c
+index 1111111..2222222 100644
+--- a/src/melee/gm/x.c
++++ b/src/melee/gm/x.c
+@@ -10,3 +10,3 @@ void caller(void)
+-    small_value = 1;
+-    large_value = 2;
+-    if (0) {
++    small_value = lbl_804D38F4;
++    large_value = lbl_803F0000;
++    if (gm_80169238(arg)) {
+"""
+
+
+def test_numeric_literal_symbol_metadata_suppresses_mutable_data_and_function_calls(
+    tmp_path: Path,
+):
+    symbols = tmp_path / "config" / "GALE01" / "symbols.txt"
+    symbols.parent.mkdir(parents=True)
+    symbols.write_text(
+        "lbl_804D38F4 = .sdata:0x804D38F4; // type:object size:0x4 scope:global\n"
+        "lbl_803F0000 = .data:0x803F0000; // type:object size:0x4 scope:global\n"
+        "gm_80169238 = .text:0x80169238; // type:function size:0x2C scope:global\n",
+        encoding="utf-8",
+    )
+    file_diffs = scan_diff.parse_unified_diff(NUMERIC_SYMBOL_METADATA_DIFF)
+
+    findings = scan_diff.collect_findings(file_diffs, tmp_path, "diff")
+
+    assert not [
+        finding
+        for finding in findings
+        if finding["rule_id"] == "numeric_literal_to_symbol"
+    ], json.dumps(findings, indent=2)
+
+
+BARE_PROTOTYPE_CONTEXT_DIFF = """\
+diff --git a/src/melee/gm/x.c b/src/melee/gm/x.c
+index 1111111..2222222 100644
+--- a/src/melee/gm/x.c
++++ b/src/melee/gm/x.c
+@@ -1,7 +1,10 @@
+ #if 0
++u32 Disabled_801C1DAC(void);
+ #endif
++u32 Ground_801C1DAC(void);
++static u32 LocalHelper_801C1DB0(void);
+ void caller(void)
+ {
++    Ground_801C1DAC(arg);
+ }
+"""
+
+
+def test_bare_local_prototype_uses_context_and_ignores_calls():
+    file_diffs = scan_diff.parse_unified_diff(BARE_PROTOTYPE_CONTEXT_DIFF)
+
+    findings = scan_diff.collect_findings(file_diffs, Path("."), "diff")
+
+    prototypes = [
+        finding for finding in findings if finding["rule_id"] == "bare_local_prototype"
+    ]
+    assert len(prototypes) == 1, json.dumps(findings, indent=2)
+    assert prototypes[0]["detail"]["symbol"] == "Ground_801C1DAC"
+
+
 def test_hardened_rules_smoke_flags_real_gate_path(melee_checkout):
     """Every hardened rule added by the 2026-06-12 audit fires through
     scan_diff.py, not just the isolated rule helpers."""

@@ -13,23 +13,23 @@ import {
   rootContextLoaderDeclaration,
 } from "@server/core/agent-catalog/kernel-context.js";
 import workerKernelAgent from "@server/core/agent-catalog/agents/running/worker/agent.js";
+import conflictResolverKernelAgent from "@server/core/agent-catalog/agents/running/conflict-resolver/agent.js";
 import integrationResolverKernelAgent from "@server/core/agent-catalog/agents/running/integration-resolver/agent.js";
-import prIndexerKernelAgent from "@server/core/agent-catalog/agents/knowledge/pr-indexer/agent.js";
 import prReviewerKernelAgent from "@server/core/agent-catalog/agents/pr/reviewer/agent.js";
 import prFixerKernelAgent from "@server/core/agent-catalog/agents/pr/fixer/agent.js";
 import prSplitterKernelAgent from "@server/core/agent-catalog/agents/pr/splitter/agent.js";
-import knowledgeCuratorKernelAgent from "@server/core/agent-catalog/agents/knowledge/curator/agent.js";
+import librarianKernelAgent from "@server/core/agent-catalog/agents/knowledge/librarian/agent.js";
 import reconcileKernelAgent from "@server/core/agent-catalog/agents/pr/reconcile/agent.js";
 import qaRepairKernelAgent from "@server/core/agent-catalog/agents/pr/qa-repair/agent.js";
 
 export const KERNEL_AGENT_IDS = [
   "worker",
+  "conflict-resolver",
   "integration-resolver",
-  "pr-indexer",
   "pr-reviewer",
   "pr-fixer",
   "pr-splitter",
-  "knowledge-curator",
+  "librarian",
   "reconcile",
   "qa-repair",
 ] as const satisfies readonly RegisteredAgentId[];
@@ -124,12 +124,12 @@ type KernelAgentViewerContext = NonNullable<KernelAgentViewerDefinition["context
 const ROOT_CONTEXT_LOADERS = [ROOT_CONTEXT_LOADER_KIND] as const;
 const typedAgentDefinitions = {
   worker: workerKernelAgent,
+  "conflict-resolver": conflictResolverKernelAgent,
   "integration-resolver": integrationResolverKernelAgent,
-  "pr-indexer": prIndexerKernelAgent,
   "pr-reviewer": prReviewerKernelAgent,
   "pr-fixer": prFixerKernelAgent,
   "pr-splitter": prSplitterKernelAgent,
-  "knowledge-curator": knowledgeCuratorKernelAgent,
+  librarian: librarianKernelAgent,
   reconcile: reconcileKernelAgent,
   "qa-repair": qaRepairKernelAgent,
 } as const satisfies Record<KernelAgentId, TypedAgentDefinition>;
@@ -285,6 +285,21 @@ export const meleeKernelAgentCatalog = [
       "Worker has no structured output contract. The runner may parse final assistant text as an advisory validation handoff, but lifecycle status, validation, reports, and best-record selection stay runner-owned.",
     ),
   }),
+  catalogEntry("conflict-resolver", {
+    group: "running",
+    phase: "integration",
+    promptPaths: promptPaths(
+      "apps/server/src/core/agent-catalog/agents/running/conflict-resolver/agent.ts",
+      "apps/server/src/core/agent-catalog/agents/running/conflict-resolver/prompt.ts",
+    ),
+    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "merge-on-finish-conflict"],
+    resultContract: resultContract(
+      "melee_conflict_resolver_result_v1",
+      null,
+      "validateConflictResolverAgentResult",
+      "Conflict resolver results are validated and applied by the serial worker-output queue; every failure falls back to operator-visible conflict state.",
+    ),
+  }),
   catalogEntry("integration-resolver", {
     group: "running",
     phase: "integration",
@@ -299,22 +314,6 @@ export const meleeKernelAgentCatalog = [
       "apps/server/src/core/agent-catalog/agents/running/integration-resolver/schema.json",
       "validateIntegrationResolverAgentResult",
       "Integration resolver results are validated before runner-owned queue status updates and epoch acceptance.",
-    ),
-  }),
-  catalogEntry("pr-indexer", {
-    group: "knowledge",
-    phase: "pr-index",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/knowledge/pr-indexer/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/knowledge/pr-indexer/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/knowledge/pr-indexer/schema.json",
-    ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "pr-index-context"],
-    resultContract: resultContract(
-      "melee_pr_postmortem_v1",
-      "apps/server/src/core/agent-catalog/agents/knowledge/pr-indexer/schema.json",
-      null,
-      "Current PR postmortem output is schema-described and handed to the curator pipeline.",
     ),
   }),
   catalogEntry("pr-reviewer", {
@@ -365,20 +364,20 @@ export const meleeKernelAgentCatalog = [
       "PR split plans are validated before slice worktrees/publication.",
     ),
   }),
-  catalogEntry("knowledge-curator", {
+  catalogEntry("librarian", {
     group: "knowledge",
     phase: "knowledge-curation",
     promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/knowledge/curator/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/knowledge/curator/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/knowledge/curator/schema.json",
+      "apps/server/src/core/agent-catalog/agents/knowledge/librarian/agent.ts",
+      "apps/server/src/core/agent-catalog/agents/knowledge/librarian/prompt.ts",
+      "apps/server/src/core/agent-catalog/agents/knowledge/librarian/schema.json",
     ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "curator-context"],
+    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "librarian-context"],
     resultContract: resultContract(
-      "knowledge_curator_v1",
-      "apps/server/src/core/agent-catalog/agents/knowledge/curator/schema.json",
+      "librarian_v1",
+      "apps/server/src/core/agent-catalog/agents/knowledge/librarian/schema.json",
       null,
-      "Curator output is schema-described and remains proposal/acceptance input for harness-owned knowledge routing.",
+      "Librarian output is schema-described; learnings and attempt overlays are appended to the knowledge ledger by the harness-owned condense job.",
     ),
   }),
   catalogEntry("reconcile", {

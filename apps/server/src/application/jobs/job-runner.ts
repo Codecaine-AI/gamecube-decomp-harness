@@ -2,6 +2,7 @@ import { basename, dirname } from "node:path";
 
 import { closeDefaultMeleeKernelRuntime, resetDefaultMeleeKernelRuntimeForTests } from "@server/infrastructure/kernel/bridge/runtime";
 import { loadLocalEnv } from "@server/infrastructure/env";
+import { configureGlobalCompileJobserver } from "@server/infrastructure/shell/global-compile-jobserver";
 import { parse } from "@server/core/project-registry/runtime-options.js";
 import { babysit } from "@server/core/session-runtime/phases/running/jobs/babysit.js";
 import { checkpointRun } from "@server/core/session-runtime/phases/pr/jobs/checkpoint-run.js";
@@ -27,6 +28,9 @@ import {
   kgSources,
   kgStatus,
 } from "@server/core/knowledge/jobs/kg.js";
+import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
+import { kgLibrarianCorroborate } from "@server/core/knowledge/jobs/librarian-corroborate.js";
+import { kgLibrarianBackfill } from "@server/core/knowledge/jobs/librarian-backfill.js";
 import { epochRun } from "@server/core/session-runtime/phases/running/epochs/epoch-run.js";
 import { integrationResolve } from "@server/core/session-runtime/phases/running/integration/index.js";
 import { recoverClaims } from "@server/core/session-runtime/phases/running/jobs/recover-claims.js";
@@ -47,6 +51,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       filenames: [basename(globals.project.localEnvPath)],
     });
   }
+  await configureGlobalCompileJobserver();
 
   try {
     if (command === "init-run") await initRun(globals, args);
@@ -72,6 +77,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "kg-status") await kgStatus(globals, args);
     else if (command === "kg-import-agent-state") await kgImportAgentState(args);
     else if (command === "kg-curate") await kgCurate(globals, args);
+    else if (command === "kg-librarian-condense") await kgLibrarianCondense(globals, args);
+    else if (command === "kg-librarian-corroborate") await kgLibrarianCorroborate(globals, args);
+    else if (command === "kg-librarian-backfill") await kgLibrarianBackfill(globals, args);
     else if (command === "kg-maintain") await kgMaintain(globals, args);
     else if (command === "kg-pr-indexer-agent") await kgPrIndexerAgent(globals, args);
     else if (command === "kg-knowledge-intake-agent") await kgKnowledgeIntakeAgent(globals, args);

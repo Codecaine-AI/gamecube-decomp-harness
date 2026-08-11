@@ -8,11 +8,13 @@ import {
 } from "@server/core/knowledge/paths";
 import type { RunProjectMetadata } from "@server/core/shared/types";
 import { runCommand } from "@server/infrastructure/shell";
+import { resolveStateToolArtifact, resolveToolPlatform, type ToolPlatform } from "./platform.js";
 
 export interface ToolRuntimeContext {
   project?: RunProjectMetadata;
   repoRoot?: string;
   stateDir?: string;
+  toolPlatform?: ToolPlatform;
   worktreeId?: string;
   claimId?: string;
   packet?: Record<string, unknown>;
@@ -134,9 +136,8 @@ function projectToolsConfig(paths: ProjectRuntimePaths): ProjectToolConfig {
   };
 }
 
-function projectWiboPath(stateDir: string): string | null {
-  const path = resolve(stateDir, "tools", "wibo");
-  return existsSync(path) ? path : null;
+function projectWiboPath(stateDir: string, toolPlatform: ToolPlatform): string | null {
+  return resolveStateToolArtifact({ stateDir, name: "wibo", platform: toolPlatform });
 }
 
 function normalizeToolEntry(entry: string | ToolpackToolEntry): ToolpackToolEntry {
@@ -278,7 +279,8 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
     ORCH_TOOL_BINDING_PATH: bindingPath,
     ORCH_TOOL_IMPL_ROOT: resolve(packRoot, "_impl/gamecube"),
   };
-  const wibo = projectWiboPath(paths.stateDir);
+  const toolPlatform = resolveToolPlatform({ targetPlatform: context.toolPlatform });
+  const wibo = projectWiboPath(paths.stateDir, toolPlatform);
   if (wibo) env.MWCC_WIBO = wibo;
   for (const [key, value] of Object.entries(binding.env ?? {})) {
     env[key] = replaceTokens(value, tokens);

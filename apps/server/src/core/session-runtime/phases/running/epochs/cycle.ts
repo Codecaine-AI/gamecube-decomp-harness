@@ -11,7 +11,22 @@ import { blockingWorkerOutputIntegrationCount } from "@server/core/session-runti
 import { addEvent } from "@server/core/session-runtime/run-state/events.js";
 import { activeLockedSourcePaths, admitPriorityTargets } from "@server/core/session-runtime/run-state/targets.js";
 import { processWorkerOutputIntegrationQueue } from "@server/core/session-runtime/phases/running/integration/worker-output-queue.js";
+import { processWriteSetIntegrationFlags } from "@server/core/session-runtime/phases/running/integration/write-set-options.js";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
+import {
+  isHostToolPlatform,
+  requiredStateToolArtifactError,
+  resolveStateToolArtifact,
+  resolveToolPlatform,
+  type ToolPlatform,
+} from "@server/core/tools/platform.js";
+import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
+import {
+  isCleanGlobalRegression,
+  runConfirmationPass,
+  type ConfirmationCandidate,
+  type ConfirmationPassResult,
+} from "./confirmation-pass.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
 const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state"];
@@ -20,9 +35,13 @@ export interface EpochCycleOptions {
   baseRef?: string;
   /** Shell command run in the epoch worktree before the report build; "" skips it. */
   configureCommand?: string;
+  /** Overrides the default-off merge/widening confirmation flag gate. */
+  confirmationPass?: boolean;
   label?: string | null;
   /** Untracked build inputs symlinked from the live repo into the worktree (e.g. orig assets). */
   linkPaths?: string[];
+  /** Uses merge-on-finish queue semantics while draining boundary leftovers. */
+  mergeOnFinish?: boolean;
   projectId?: string | null;
   /** Above this many regressed report rows the cycle pauses instead of admitting repairs. */
   regressionPauseThreshold?: number;
@@ -35,6 +54,7 @@ export interface EpochCycleOptions {
   /** When false the cycle plans regression repair but does not admit targets. */
   requeueRegressions?: boolean;
   stateDirRelative?: string | null;
+  toolPlatform?: ToolPlatform;
   worktreeDir: string;
   /**
    * When provided, the review_lint QA scan runs against the epoch worktree
@@ -72,6 +92,7 @@ export interface EpochCycleResult {
   buildSteps: { name: string; command: string[]; exitCode: number }[];
   commitSha: string | null;
   committed: boolean;
+  confirmation?: ConfirmationPassResult;
   durationMs: number;
   label: string | null;
   lockedPathsExcluded: string[];
@@ -207,14 +228,20 @@ async function runConfigure(worktreeDir: string, command: string): Promise<void>
   }
 }
 
-async function seedEpochWibo(worktreeDir: string, stateDir: string): Promise<boolean> {
-  if (process.platform !== "darwin" && process.platform !== "linux") return false;
-  const source = resolve(stateDir, "tools", "wibo");
-  if (!existsSync(source)) return false;
+async function seedEpochWibo(worktreeDir: string, stateDir: string, toolPlatform: ToolPlatform): Promise<boolean> {
+  const source = resolveStateToolArtifact({ stateDir, name: "wibo", platform: toolPlatform });
+  if (!source) {
+    if (!isHostToolPlatform(toolPlatform)) {
+      throw requiredStateToolArtifactError({ stateDir, name: "wibo", platform: toolPlatform });
+    }
+    return false;
+  }
   const destination = resolve(worktreeDir, "build", "tools", "wibo");
+  if (!isHostToolPlatform(toolPlatform)) await rm(destination, { recursive: true, force: true });
   await mkdir(dirname(destination), { recursive: true });
   await copyFile(source, destination);
   await chmod(destination, 0o755).catch(() => {});
+  installMwccCacheShim(worktreeDir);
   return true;
 }
 
@@ -260,6 +287,87 @@ function sourcePathByUnit(reportPath: string): Map<string, string> {
     // Missing or malformed report: repair candidates without a source path are skipped.
   }
   return map;
+}
+
+function regressionSourcePaths(report: RegressionReport, reportPath: string): string[] {
+  const sources = sourcePathByUnit(reportPath);
+  return [
+    ...report.brokenMatches,
+    ...report.fuzzyRegressions,
+  ]
+    .map((entry) => sources.get(entry.unitName))
+    .filter((path): path is string => Boolean(path));
+}
+
+async function restoreProbePatches(worktreeDir: string, removed: ConfirmationCandidate[]): Promise<void> {
+  for (const candidate of [...removed].reverse()) {
+    if (!candidate.patchPath) continue;
+    const restored = await git(worktreeDir, ["apply", candidate.patchPath]);
+    if (!restored.ok) throw new Error(`confirmation probe could not restore ${candidate.integrationId}: ${restored.text}`);
+  }
+}
+
+async function probeWithoutCandidates(params: {
+  candidates: ConfirmationCandidate[];
+  reportPath: string;
+  reportChangesPath: string;
+  runId: string;
+  toolPlatform: ToolPlatform;
+  worktreeDir: string;
+}): Promise<boolean> {
+  const ordered = [...params.candidates].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  const removed: ConfirmationCandidate[] = [];
+  try {
+    for (const candidate of ordered) {
+      if (!candidate.patchPath || !existsSync(candidate.patchPath)) return false;
+      const check = await git(params.worktreeDir, ["apply", "--reverse", "--check", candidate.patchPath]);
+      if (!check.ok) return false;
+      const reverse = await git(params.worktreeDir, ["apply", "--reverse", candidate.patchPath]);
+      if (!reverse.ok) return false;
+      removed.push(candidate);
+    }
+    // Report reuse is keyed by HEAD. Removing the generated report forces the
+    // probe to observe these uncommitted reverse-applies as well.
+    await rm(params.reportPath, { force: true });
+    await forceReportRun(params.worktreeDir, { resetBaseline: false, toolPlatform: params.toolPlatform });
+    const report = await readRegressionReport(params.reportChangesPath, `Confirmation probe for run ${params.runId}`, 50);
+    return isCleanGlobalRegression(report);
+  } finally {
+    await restoreProbePatches(params.worktreeDir, removed);
+  }
+}
+
+async function revertConfirmationCandidate(repoRoot: string, candidate: ConfirmationCandidate): Promise<{ ok: boolean; revision?: string | null; error?: string }> {
+  if (!candidate.patchPath || !existsSync(candidate.patchPath)) {
+    return { ok: false, error: `patch is missing: ${candidate.patchPath ?? "(none)"}` };
+  }
+  const paths = [...new Set(candidate.writeSet.filter(Boolean))];
+  if (paths.length === 0) return { ok: false, error: "candidate write set is empty" };
+  const check = await git(repoRoot, ["apply", "--reverse", "--check", candidate.patchPath]);
+  if (!check.ok) return { ok: false, error: `reverse apply check failed: ${check.text}` };
+  const reverse = await git(repoRoot, ["apply", "--reverse", candidate.patchPath]);
+  if (!reverse.ok) return { ok: false, error: `reverse apply failed: ${reverse.text}` };
+  const stage = await git(repoRoot, ["add", "--", ...paths]);
+  if (!stage.ok) {
+    await git(repoRoot, ["apply", candidate.patchPath]);
+    await git(repoRoot, ["add", "--", ...paths]);
+    return { ok: false, error: `revert staging failed: ${stage.text}` };
+  }
+  const commit = await git(repoRoot, [
+    "commit",
+    "--no-verify",
+    "-m",
+    `confirmation: revert regressed integration ${candidate.integrationId.slice(0, 8)}`,
+    "--",
+    ...paths,
+  ]);
+  if (!commit.ok) {
+    await git(repoRoot, ["apply", candidate.patchPath]);
+    await git(repoRoot, ["add", "--", ...paths]);
+    return { ok: false, error: `revert commit failed: ${commit.text}` };
+  }
+  const head = await git(repoRoot, ["rev-parse", "HEAD"]);
+  return { ok: true, revision: head.ok ? head.text : null };
 }
 
 function isSectionRow(entry: ReportEntry): boolean {
@@ -398,6 +506,8 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const reportRelPath = options.reportRelPath ?? "build/GALE01/report.json";
   const reportChangesRelPath = options.reportChangesRelPath ?? "build/GALE01/report_changes.json";
   const baselineRelPath = options.baselineRelPath ?? "build/GALE01/baseline.json";
+  const toolPlatform = resolveToolPlatform({ targetPlatform: options.toolPlatform });
+  const confirmationEnabled = options.confirmationPass ?? processWriteSetIntegrationFlags().confirmationPass;
   epochProgress(store, runId, {
     label,
     phase: "integration_drain",
@@ -407,6 +517,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const integrationDrain = await processWorkerOutputIntegrationQueue({
     dryRun: false,
     limit: 64,
+    mergeOnFinish: options.mergeOnFinish,
     repoRoot,
     sessionId: runId,
     stateDir,
@@ -435,7 +546,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     message: `committing epoch snapshot with ${lockedPaths.length} locked path(s) excluded`,
     locked_path_count: lockedPaths.length,
   });
-  const snapshot = await commitEpochSnapshot({
+  let snapshot = await commitEpochSnapshot({
     repoRoot,
     excludePaths: lockedPaths,
     stateDirRelative,
@@ -473,7 +584,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     commitSha: snapshot.commitSha,
     linkPaths: options.linkPaths ?? ["orig"],
   });
-  const hasLocalWibo = await seedEpochWibo(options.worktreeDir, stateDir);
+  const hasLocalWibo = await seedEpochWibo(options.worktreeDir, stateDir, toolPlatform);
   const configureCommand = hasLocalWibo
     ? configureCommandWithLocalWrapper(options.configureCommand ?? "python3 configure.py --require-protos", "build/tools/wibo")
     : (options.configureCommand ?? "python3 configure.py --require-protos");
@@ -504,14 +615,20 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     reset_baseline: !existsSync(worktreeBaselinePath),
     worktree_dir: options.worktreeDir,
   });
-  const buildResult = await forceReportRun(options.worktreeDir, { resetBaseline: !existsSync(worktreeBaselinePath) });
+  let buildResult = await forceReportRun(options.worktreeDir, {
+    resetBaseline: !existsSync(worktreeBaselinePath),
+    toolPlatform,
+  });
   epochProgress(store, runId, {
     label,
     phase: "report_build",
     status: "finished",
-    message: `report build finished with ${buildResult.steps.length} step(s)`,
+    message: buildResult.reusedReport
+      ? `report reused; report changes finished with ${buildResult.steps.length} step(s)`
+      : `report build finished with ${buildResult.steps.length} step(s)`,
     step_count: buildResult.steps.length,
     failed_step_count: buildResult.steps.filter((step) => step.exitCode !== 0).length,
+    report_reused: buildResult.reusedReport === true,
   });
 
   const worktreeReportPath = resolve(options.worktreeDir, reportRelPath);
@@ -524,10 +641,10 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     report_path: worktreeReportPath,
     report_changes_path: worktreeChangesPath,
   });
-  const regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint for run ${runId}`, 50);
-  const measures = reportMeasures(worktreeReportPath);
-  const matchedCodeValue = Number(measures.matched_code_percent);
-  const matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
+  let regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint for run ${runId}`, 50);
+  let measures = reportMeasures(worktreeReportPath);
+  let matchedCodeValue = Number(measures.matched_code_percent);
+  let matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
   epochProgress(store, runId, {
     label,
     phase: "report_read",
@@ -536,6 +653,96 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     matched_code_percent: matchedCodePercent,
     regressed_functions: regressionReport.brokenMatches.length + regressionReport.fuzzyRegressions.length,
   });
+
+  let confirmation: ConfirmationPassResult | undefined;
+  if (confirmationEnabled && !buildResult.resetBaseline) {
+    epochProgress(store, runId, {
+      label,
+      phase: "confirmation_pass",
+      status: "started",
+      message: "confirming tentative worker integrations against the epoch global comparison",
+      report_changes_path: worktreeChangesPath,
+    });
+    const runPass = () =>
+      runConfirmationPass({
+        enabled: true,
+        store,
+        sessionId: runId,
+        global: {
+          clean: isCleanGlobalRegression(regressionReport),
+          buildId: snapshot.commitSha ?? `epoch:${label ?? runId}`,
+          reportPath: worktreeChangesPath,
+          regressionPaths: regressionSourcePaths(regressionReport, worktreeReportPath),
+        },
+        deps: {
+          probeWithout: (candidates) =>
+            probeWithoutCandidates({
+              candidates,
+              reportPath: worktreeReportPath,
+              reportChangesPath: worktreeChangesPath,
+              runId,
+              toolPlatform,
+              worktreeDir: options.worktreeDir,
+            }),
+          revertLive: (candidate) => revertConfirmationCandidate(repoRoot, candidate),
+        },
+      });
+
+    confirmation = await runPass();
+    if (confirmation.requiresBoundaryRecheck) {
+      const blamed = confirmation;
+      const revertedHead = await git(repoRoot, ["rev-parse", "HEAD"]);
+      if (!revertedHead.ok || !revertedHead.text) throw new Error(`confirmation recheck could not resolve live HEAD: ${revertedHead.text}`);
+      snapshot = { ...snapshot, commitSha: revertedHead.text, committed: true };
+      await ensureEpochWorktree({
+        repoRoot,
+        worktreeDir: options.worktreeDir,
+        commitSha: revertedHead.text,
+        linkPaths: options.linkPaths ?? ["orig"],
+      });
+      await rm(worktreeReportPath, { force: true });
+      const recheckBuild = await forceReportRun(options.worktreeDir, { resetBaseline: false, toolPlatform });
+      buildResult = { ...recheckBuild, steps: [...buildResult.steps, ...recheckBuild.steps] };
+      regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch confirmation recheck for run ${runId}`, 50);
+      measures = reportMeasures(worktreeReportPath);
+      matchedCodeValue = Number(measures.matched_code_percent);
+      matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
+      const rechecked = await runPass();
+      confirmation = {
+        ...rechecked,
+        status: rechecked.status === "confirmed" || rechecked.status === "no_tentatives" ? "regressed" : rechecked.status,
+        confirmedIds: [...new Set([...blamed.confirmedIds, ...rechecked.confirmedIds])],
+        regressedId: blamed.regressedId,
+        probes: blamed.probes,
+        requiresBoundaryRecheck: false,
+        reasons: [...blamed.reasons, ...rechecked.reasons],
+      };
+    } else if (confirmation.probes.length > 0) {
+      // Probes restore source files, but their generated report reflects the
+      // last removal. Rebuild the original snapshot before publishing it.
+      await rm(worktreeReportPath, { force: true });
+      const restoredBuild = await forceReportRun(options.worktreeDir, { resetBaseline: false, toolPlatform });
+      buildResult = { ...restoredBuild, steps: [...buildResult.steps, ...restoredBuild.steps] };
+      regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint restored after confirmation probes for run ${runId}`, 50);
+      measures = reportMeasures(worktreeReportPath);
+      matchedCodeValue = Number(measures.matched_code_percent);
+      matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
+    }
+    epochProgress(store, runId, {
+      label,
+      phase: "confirmation_pass",
+      status: confirmation.status === "unattributed" ? "warning" : "finished",
+      message: `confirmation pass ${confirmation.status}`,
+      confirmation,
+    });
+  } else if (confirmationEnabled) {
+    epochProgress(store, runId, {
+      label,
+      phase: "confirmation_pass",
+      status: "skipped",
+      message: "confirmation pass waits for a pre-existing rolling baseline",
+    });
+  }
 
   const artifactDir = resolve(stateDir, "epochs", artifactTimestamp());
   await mkdir(artifactDir, { recursive: true });
@@ -774,6 +981,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     buildSteps: compactSteps(buildResult),
     commitSha: snapshot.commitSha,
     committed: snapshot.committed,
+    ...(confirmation ? { confirmation } : {}),
     durationMs: Date.now() - startedAt,
     label,
     lockedPathsExcluded: lockedPaths,

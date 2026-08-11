@@ -21,6 +21,7 @@ from typing import Any
 
 import _qa_rules
 import check_extern_ownership
+import symbol_metadata
 from _qa_rules import (
     ADDRESS_DATA_REPAIR_HINT,
     ADDRESS_NAME_RE,
@@ -600,4 +601,51 @@ def enrich_extern_in_c_findings(
     return result
 
 
-POST_SCAN_HOOKS = [enrich_extern_in_c_findings]
+def gate_numeric_literal_to_symbol_findings(
+    findings: list[dict[str, Any]],
+    repo,
+    mode: str,
+    file_diffs: list[dict[str, Any]],
+    merge_base: str | None = None,
+) -> list[dict[str, Any]]:
+    """Drop numeric-promotion findings for functions and mutable data.
+
+    Unknown symbols stay flagged so newly introduced data anchors still get
+    reviewed. Repository or symbols.txt absence likewise fails open.
+    """
+
+    if repo is None:
+        return findings
+
+    result: list[dict[str, Any]] = []
+    for finding in findings:
+        if finding.get("rule_id") != "numeric_literal_to_symbol":
+            result.append(finding)
+            continue
+
+        detail = finding.get("detail") or {}
+        replacement = detail.get("replacement")
+        info = symbol_metadata.symbol_info(repo, replacement) if replacement else None
+        if info is None:
+            result.append(finding)
+            continue
+
+        section = info["section"]
+        symbol_type = info["type"]
+        if symbol_type == "function" or section in {".text", ".data", ".sdata"}:
+            continue
+
+        finding = dict(finding)
+        finding["detail"] = {
+            **detail,
+            "symbol_section": section,
+            "symbol_type": symbol_type,
+        }
+        result.append(finding)
+    return result
+
+
+POST_SCAN_HOOKS = [
+    enrich_extern_in_c_findings,
+    gate_numeric_literal_to_symbol_findings,
+]

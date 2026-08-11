@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { immediateTransaction, now, withBusyRetry, writeSetHash, type StateStore } from "@server/core/orchestrator-state";
+import type { WriteSetEntry } from "./write-set-categories.js";
 
 export type EpochTargetStatus = "admitted" | "claimed" | "finished";
 export type TargetClaimStatus = "active" | "closed";
@@ -15,6 +16,7 @@ export interface ClaimedTarget {
   targetId: string;
   target: Record<string, unknown>;
   writeSet: string[];
+  writeSetEntries: WriteSetEntry[];
   worktreePath?: string | null;
   ttl: string;
 }
@@ -43,6 +45,8 @@ export interface WorkerCheckpointInput {
   artifactPath?: string | null;
   patchPath?: string | null;
   diffPath?: string | null;
+  writeSet?: string[];
+  validationState?: "tentative" | "confirmed" | "regressed";
   failureReasons?: string[];
   metadata?: Record<string, unknown>;
 }
@@ -54,6 +58,8 @@ export interface WorkerCheckpointRecord extends WorkerCheckpointInput {
   improvedOverBaseline: boolean;
   selectable: boolean;
   selected: boolean;
+  writeSet: string[];
+  validationState: "tentative" | "confirmed" | "regressed";
 }
 
 export interface WorkerStateCloseInput {
@@ -76,7 +82,62 @@ function parseStringArray(value: unknown): string[] {
   }
 }
 
+function parseWriteSetEntries(value: unknown): WriteSetEntry[] {
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    if (!value.trim()) return [];
+    try {
+      parsed = JSON.parse(value) as unknown;
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  const entries: WriteSetEntry[] = [];
+  for (const candidate of parsed) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const record = candidate as Record<string, unknown>;
+    const path = typeof record.path === "string" ? record.path.trim() : "";
+    const category = record.category;
+    const rung = record.rung;
+    const addedBy = record.addedBy;
+    if (
+      !path ||
+      !["target-source", "config-metadata", "owning-header", "foreign-source", "other"].includes(String(category)) ||
+      ![1, 2, 3, 4].includes(Number(rung)) ||
+      (addedBy !== "claim" && addedBy !== "widening")
+    ) {
+      continue;
+    }
+    entries.push({
+      path,
+      category: category as WriteSetEntry["category"],
+      rung: Number(rung) as WriteSetEntry["rung"],
+      addedBy,
+      ...(typeof record.wideningId === "string" && record.wideningId ? { wideningId: record.wideningId } : {}),
+    });
+  }
+  return entries;
+}
+
+/** Normalize pre-widening rows whose flat write set predates typed entries. */
+export function normalizeWriteSetEntries(entriesValue: unknown, flatWriteSetValue: unknown): WriteSetEntry[] {
+  const entries = parseWriteSetEntries(entriesValue);
+  if (entries.length > 0) return entries;
+  return parseStringArray(flatWriteSetValue).map((path) => ({
+    path,
+    category: "target-source",
+    rung: 1,
+    addedBy: "claim",
+  }));
+}
+
 function jsonArray(value: string[]): string {
+  return JSON.stringify(value);
+}
+
+function jsonWriteSetEntries(value: WriteSetEntry[]): string {
   return JSON.stringify(value);
 }
 
@@ -94,6 +155,7 @@ function targetKey(unit: string, symbol: string): string {
 
 function epochTargetToClaim(row: Record<string, unknown>, params: { claimId: string; workerStateId: string; workerId: string; ttl: string }): ClaimedTarget {
   const sourcePath = String(row.source_path ?? "");
+  const writeSetEntries: WriteSetEntry[] = [{ path: sourcePath, category: "target-source", rung: 1, addedBy: "claim" }];
   return {
     claimId: params.claimId,
     workerStateId: params.workerStateId,
@@ -117,7 +179,8 @@ function epochTargetToClaim(row: Record<string, unknown>, params: { claimId: str
       priority: Number(row.priority),
       reason: String(row.reason ?? ""),
     },
-    writeSet: [sourcePath],
+    writeSet: writeSetEntries.map((entry) => entry.path),
+    writeSetEntries,
     worktreePath: null,
     ttl: params.ttl,
   };
@@ -148,6 +211,7 @@ export function activeClaimsForSession(store: StateStore, sessionId: string): Ac
               target_claims.heartbeat_at,
               target_claims.claimed_at,
               target_claims.write_set_json,
+              target_claims.write_set_entries_json,
               worker_state.id AS worker_state_id,
               epoch_targets.id AS epoch_target_id,
               epoch_targets.epoch_id,
@@ -171,36 +235,40 @@ export function activeClaimsForSession(store: StateStore, sessionId: string): Ac
         .all(sessionId) as Record<string, unknown>[],
   );
 
-  return rows.map((row) => ({
-    claimId: String(row.claim_id),
-    workerStateId: String(row.worker_state_id),
-    epochTargetId: String(row.epoch_target_id),
-    epochId: String(row.epoch_id),
-    sessionId: String(row.session_id),
-    workerId: String(row.worker_id),
-    baseRev: String(row.base_rev ?? "unknown"),
-    worktreePath: row.worktree_path == null ? null : String(row.worktree_path),
-    ttl: String(row.ttl),
-    heartbeatAt: String(row.heartbeat_at),
-    claimedAt: String(row.claimed_at),
-    targetId: String(row.epoch_target_id),
-    target: {
-      target_id: String(row.epoch_target_id),
-      epoch_target_id: String(row.epoch_target_id),
-      unit: String(row.unit),
-      symbol: String(row.symbol),
-      source_path: String(row.source_path),
-      size: Number(row.size),
-      fuzzy: Number(row.baseline_score),
-      matched: null,
-      complete: null,
-      risk: null,
-      target_status: String(row.target_status),
-      priority: Number(row.priority),
-      reason: String(row.reason ?? ""),
-    },
-    writeSet: parseStringArray(row.write_set_json),
-  }));
+  return rows.map((row) => {
+    const writeSetEntries = normalizeWriteSetEntries(row.write_set_entries_json, row.write_set_json);
+    return {
+      claimId: String(row.claim_id),
+      workerStateId: String(row.worker_state_id),
+      epochTargetId: String(row.epoch_target_id),
+      epochId: String(row.epoch_id),
+      sessionId: String(row.session_id),
+      workerId: String(row.worker_id),
+      baseRev: String(row.base_rev ?? "unknown"),
+      worktreePath: row.worktree_path == null ? null : String(row.worktree_path),
+      ttl: String(row.ttl),
+      heartbeatAt: String(row.heartbeat_at),
+      claimedAt: String(row.claimed_at),
+      targetId: String(row.epoch_target_id),
+      target: {
+        target_id: String(row.epoch_target_id),
+        epoch_target_id: String(row.epoch_target_id),
+        unit: String(row.unit),
+        symbol: String(row.symbol),
+        source_path: String(row.source_path),
+        size: Number(row.size),
+        fuzzy: Number(row.baseline_score),
+        matched: null,
+        complete: null,
+        risk: null,
+        target_status: String(row.target_status),
+        priority: Number(row.priority),
+        reason: String(row.reason ?? ""),
+      },
+      writeSet: writeSetEntries.map((entry) => entry.path),
+      writeSetEntries,
+    };
+  });
 }
 
 export function workerStateHasExecutionEvidence(store: StateStore, workerStateId: string): boolean {
@@ -264,6 +332,7 @@ export function claimNextEpochTarget(params: {
     const claimId = randomUUID();
     const workerStateId = randomUUID();
     const writeSet = [sourcePath];
+    const writeSetEntries: WriteSetEntry[] = [{ path: sourcePath, category: "target-source", rung: 1, addedBy: "claim" }];
     const ttl = new Date(Date.now() + Math.trunc(params.ttlSeconds) * 1000).toISOString();
     const claimedAt = now();
     const key = targetKey(String(target.unit), String(target.symbol));
@@ -296,6 +365,9 @@ export function claimNextEpochTarget(params: {
             UPDATE target_claims
             SET worker_id = ?,
                 base_rev = ?,
+                write_set_json = ?,
+                write_set_hash = ?,
+                write_set_entries_json = ?,
                 worktree_path = NULL,
                 ttl = ?,
                 heartbeat_at = ?,
@@ -306,13 +378,25 @@ export function claimNextEpochTarget(params: {
             WHERE id = ?
           `,
         )
-        .run(params.workerId, params.baseRev ?? "unknown", ttl, claimedAt, claimedAt, reusableClaimId);
+        .run(
+          params.workerId,
+          params.baseRev ?? "unknown",
+          jsonArray(writeSet),
+          writeSetHash(writeSet),
+          jsonWriteSetEntries(writeSetEntries),
+          ttl,
+          claimedAt,
+          claimedAt,
+          reusableClaimId,
+        );
       params.store.db
         .query(
           `
             UPDATE worker_state
             SET worker_id = ?,
                 lifecycle_status = 'running',
+                write_set_json = ?,
+                write_set_entries_json = ?,
                 worker_session_ids_json = '[]',
                 artifact_dir = ?,
                 worktree_path = NULL,
@@ -327,7 +411,15 @@ export function claimNextEpochTarget(params: {
             WHERE id = ?
           `,
         )
-        .run(params.workerId, params.artifactDir ?? null, claimedAt, finiteOrNull(Number(target.baseline_score)), reusableWorkerStateId);
+        .run(
+          params.workerId,
+          jsonArray(writeSet),
+          jsonWriteSetEntries(writeSetEntries),
+          params.artifactDir ?? null,
+          claimedAt,
+          finiteOrNull(Number(target.baseline_score)),
+          reusableWorkerStateId,
+        );
       params.store.db.query("UPDATE epoch_targets SET status = 'claimed', claimed_at = ?, finished_at = NULL WHERE id = ?").run(claimedAt, String(target.id));
       return epochTargetToClaim(target, { claimId: reusableClaimId, workerStateId: reusableWorkerStateId, workerId: params.workerId, ttl });
     }
@@ -337,10 +429,10 @@ export function claimNextEpochTarget(params: {
         `
           INSERT INTO target_claims (
             id, session_id, epoch_id, epoch_target_id, worker_id, base_rev,
-            write_set_json, write_set_hash, worktree_path, ttl, heartbeat_at,
+            write_set_json, write_set_hash, write_set_entries_json, worktree_path, ttl, heartbeat_at,
             status, claimed_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
         `,
       )
       .run(
@@ -352,6 +444,7 @@ export function claimNextEpochTarget(params: {
         params.baseRev ?? "unknown",
         jsonArray(writeSet),
         writeSetHash(writeSet),
+        jsonWriteSetEntries(writeSetEntries),
         null,
         ttl,
         claimedAt,
@@ -363,10 +456,10 @@ export function claimNextEpochTarget(params: {
         `
           INSERT INTO worker_state (
             id, session_id, epoch_id, epoch_target_id, target_claim_id, worker_id,
-            target_key, lifecycle_status, write_set_json, worker_session_ids_json,
+            target_key, lifecycle_status, write_set_json, write_set_entries_json, worker_session_ids_json,
             artifact_dir, started_at, baseline_score, best_score, exact, summary_json
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, '[]', ?, ?, ?, ?, 0, '{}')
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, '[]', ?, ?, ?, ?, 0, '{}')
         `,
       )
       .run(
@@ -378,6 +471,7 @@ export function claimNextEpochTarget(params: {
         params.workerId,
         key,
         jsonArray(writeSet),
+        jsonWriteSetEntries(writeSetEntries),
         params.artifactDir ?? null,
         claimedAt,
         finiteOrNull(Number(target.baseline_score)),
@@ -386,6 +480,57 @@ export function claimNextEpochTarget(params: {
 
     params.store.db.query("UPDATE epoch_targets SET status = 'claimed', claimed_at = ? WHERE id = ?").run(claimedAt, String(target.id));
     return epochTargetToClaim(target, { claimId, workerStateId, workerId: params.workerId, ttl });
+  });
+}
+
+export function widenClaimWriteSet(
+  store: StateStore,
+  claimId: string,
+  entries: WriteSetEntry[],
+): { writeSet: string[]; entries: WriteSetEntry[] } {
+  return immediateTransaction(store.db, () => {
+    const row = store.db
+      .query(
+        `
+          SELECT target_claims.write_set_json, target_claims.write_set_entries_json
+          FROM target_claims
+          WHERE target_claims.id = ?
+            AND target_claims.status = 'active'
+        `,
+      )
+      .get(claimId) as Record<string, unknown> | undefined;
+    if (!row) throw new Error(`Active target claim not found: ${claimId}`);
+
+    const merged = normalizeWriteSetEntries(row.write_set_entries_json, row.write_set_json);
+    const existingPaths = new Set(merged.map((entry) => entry.path));
+    for (const entry of entries) {
+      const path = entry.path.trim();
+      if (!path || existingPaths.has(path)) continue;
+      merged.push({ ...entry, path });
+      existingPaths.add(path);
+    }
+    const writeSet = merged.map((entry) => entry.path);
+    const entriesJson = jsonWriteSetEntries(merged);
+    store.db
+      .query(
+        `
+          UPDATE target_claims
+          SET write_set_json = ?, write_set_hash = ?, write_set_entries_json = ?
+          WHERE id = ? AND status = 'active'
+        `,
+      )
+      .run(jsonArray(writeSet), writeSetHash(writeSet), entriesJson, claimId);
+    const updated = store.db
+      .query(
+        `
+          UPDATE worker_state
+          SET write_set_json = ?, write_set_entries_json = ?
+          WHERE target_claim_id = ? AND lifecycle_status = 'running'
+        `,
+      )
+      .run(jsonArray(writeSet), entriesJson, claimId);
+    if (updated.changes !== 1) throw new Error(`Running worker state not found for active claim: ${claimId}`);
+    return { writeSet, entries: merged };
   });
 }
 
@@ -456,6 +601,9 @@ function checkpointFromRow(row: Record<string, unknown>): WorkerCheckpointRecord
     artifactPath: row.artifact_path == null ? null : String(row.artifact_path),
     patchPath: row.patch_path == null ? null : String(row.patch_path),
     diffPath: row.diff_path == null ? null : String(row.diff_path),
+    writeSet: parseStringArray(row.write_set_json),
+    validationState:
+      row.validation_state === "confirmed" || row.validation_state === "regressed" ? row.validation_state : "tentative",
     failureReasons: parseStringArray(row.failure_reasons_json),
     metadata: {},
   };
@@ -513,9 +661,9 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
             attempt_index, validation_time, old_score, new_score, delta, exact_match,
             hard_gates_passed, improved_over_baseline, selectable, selected,
             build_status, qa_status, objdiff_status, validation_status, artifact_path,
-            patch_path, diff_path, failure_reasons_json, metadata_json
+            patch_path, diff_path, write_set_json, validation_state, failure_reasons_json, metadata_json
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
       )
       .run(
@@ -541,6 +689,8 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
         input.artifactPath ?? null,
         input.patchPath ?? null,
         input.diffPath ?? null,
+        jsonArray(input.writeSet ?? []),
+        input.validationState ?? "tentative",
         JSON.stringify(input.failureReasons ?? []),
         jsonObject(input.metadata ?? {}),
       );
@@ -562,6 +712,8 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
     improvedOverBaseline,
     selectable,
     selected: false,
+    writeSet: input.writeSet ?? [],
+    validationState: input.validationState ?? "tentative",
   };
 }
 

@@ -1,0 +1,41 @@
+{
+  "id": "callgraph",
+  "title": "Call graph lookup",
+  "trust_tier": "tool_evidence",
+  "description": "Look up binary-ground-truth caller/callee edges and symbolized data-reference edges generated from build/GALE01/asm, joined to report.json function metadata.",
+  "operation_mode": "live_runner_v2",
+  "runner_status": "live_smoke_required",
+  "status_message": "Live runner v2: call edges and data-reference edges are generated locally from build/GALE01/asm by toolpacks/gamecube-decomp/research/callgraph/runners/extract_call_graph.py.",
+  "limitations": [
+    "Call edges include symbolic bl instructions only; indirect calls are not resolved.",
+    "Data-reference edges include symbolized @ha, @h, @l, @sda21, and @sda2 relocations on non-branch instructions; rerun after rebuilding asm/report outputs."
+  ],
+  "commands": {
+    "status": "python3 toolpacks/gamecube-decomp/research/callgraph/api/status.py --repo-root <repo_root> --json",
+    "callers_of": "python3 toolpacks/gamecube-decomp/research/callgraph/api/callers_of.py --symbol <symbol> --direction callers",
+    "runner": "python3 toolpacks/gamecube-decomp/research/callgraph/runners/extract_call_graph.py --repo-root <repo_root>"
+  },
+  "capabilities": [
+    "caller_callee_lookup",
+    "data_reference_lookup"
+  ],
+  "category": "research",
+  "path": "research/callgraph",
+  "process_role": "call_graph_lookup",
+  "usage": {
+    "invocation_mode": "on_demand",
+    "mutates_source": false,
+    "blocks_on_failure": false,
+    "triggers": [
+      "needs_callers_or_callees",
+      "needs_data_xrefs",
+      "function_role_unknown"
+    ],
+    "outputs": [
+      "call_edges",
+      "data_ref_edges",
+      "caller_callee_lookup"
+    ],
+    "agent_guidance": "Use binary-ground-truth call and data-reference edges to orient a function before editing."
+  }
+}

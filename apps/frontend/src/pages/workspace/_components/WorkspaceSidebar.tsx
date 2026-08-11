@@ -1,4 +1,4 @@
-import { Activity, Bot, ChevronLeft, ChevronRight, ClipboardCheck, Home, ListTree, Palette, Settings } from "@/icons";
+import { Activity, Bot, ChevronLeft, ChevronRight, ClipboardCheck, Database, Home, ListTree, Palette, Settings } from "@/icons";
 import type { ReactNode } from "react";
 import { type AppRoute, type WorkspaceSection, WORKSPACE_SECTIONS } from "@/routing";
 import { NavItem } from "@/components/primitives";
@@ -10,6 +10,7 @@ const SECTION_ICONS: Record<WorkspaceSection, ReactNode> = {
   sessions: <ListTree size={18} />,
   agents: <Bot size={18} />,
   trace: <Activity size={18} />,
+  knowledge: <Database size={18} />,
   settings: <Settings size={18} />,
   style: <Palette size={18} />,
 };
@@ -23,6 +24,7 @@ function workspaceSection(id: WorkspaceSection) {
 const SESSION_WORKSPACE_SECTIONS = (["overview", "sessions"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const CONFIG_WORKSPACE_SECTIONS = (["standards", "settings"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const AGENT_WORKSPACE_SECTIONS = (["agents", "trace"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
+const KNOWLEDGE_WORKSPACE_SECTIONS = (["knowledge"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const STYLE_WORKSPACE_SECTION = workspaceSection("style");
 
 export function WorkspaceSidebar({
@@ -94,6 +96,22 @@ export function WorkspaceSidebar({
                 <span className="sr-only">{item.label}</span>
               </button>
             ))}
+            <div className="my-1 h-px w-5 shrink-0 bg-line2 max-[780px]:mx-1 max-[780px]:my-0 max-[780px]:h-5 max-[780px]:w-px" role="separator" />
+            {KNOWLEDGE_WORKSPACE_SECTIONS.map((item) => (
+              <button
+                aria-current={route.section === item.id ? "page" : undefined}
+                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center border ${
+                  route.section === item.id ? "border-up/60 bg-up/[0.03] text-up" : "border-line bg-card text-soft hover:border-line2 hover:bg-raised"
+                }`}
+                key={item.id}
+                onClick={() => nav.goToSection(item.id)}
+                title={item.label}
+                type="button"
+              >
+                {SECTION_ICONS[item.id]}
+                <span className="sr-only">{item.label}</span>
+              </button>
+            ))}
           </nav>
           <div className="mt-auto flex w-full shrink-0 flex-col items-center gap-2 border-t border-line2 py-2 max-[780px]:ml-auto max-[780px]:mt-0 max-[780px]:w-auto max-[780px]:border-l max-[780px]:border-t-0 max-[780px]:px-2 max-[780px]:py-0">
             <button
@@ -150,6 +168,17 @@ export function WorkspaceSidebar({
               ))}
               <div className="my-1 border-t border-line2" role="separator" />
               {AGENT_WORKSPACE_SECTIONS.map((item) => (
+                <NavItem
+                  active={route.section === item.id}
+                  description={item.description}
+                  icon={SECTION_ICONS[item.id]}
+                  key={item.id}
+                  label={item.label}
+                  onClick={() => nav.goToSection(item.id)}
+                />
+              ))}
+              <div className="my-1 border-t border-line2" role="separator" />
+              {KNOWLEDGE_WORKSPACE_SECTIONS.map((item) => (
                 <NavItem
                   active={route.section === item.id}
                   description={item.description}

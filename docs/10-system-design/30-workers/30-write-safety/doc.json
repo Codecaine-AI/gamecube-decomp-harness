@@ -12,19 +12,26 @@
           "write-safety",
           "target-claims",
           "write-sets",
+          "write-set-widening",
           "workspaces",
           "validation",
+          "validation-state",
           "integration",
+          "merge-on-finish",
           "tool-slots"
         ]
       },
       "children": [
-        "b-35-write-safety-write-safety-1",
         "b-35-write-safety-target-claim-write-sets-2",
         "b-35-write-safety-write-safety-starts-with-3",
         "b-35-write-safety-claim-rule-4",
         "b-35-write-safety-before-editing-a-worker-5",
         "b-35-write-safety-text-6",
+        "b-35-write-safety-write-set-categories-25",
+        "b-35-write-safety-the-necessity-ladder-26",
+        "b-35-write-safety-widening-requests-travel-27",
+        "b-35-write-safety-recycled-targets-reset-28",
+        "b-35-write-safety-rollout-controls-29",
         "b-35-write-safety-workspace-rule-7",
         "b-35-write-safety-the-main-checkout-remain-8",
         "b-35-write-safety-worker-output-integratio-9",
@@ -37,25 +44,14 @@
         "b-35-write-safety-worker-worktrees-isolate-16",
         "b-35-write-safety-runner-owned-ninja-valid-17",
         "b-35-write-safety-these-pools-do-not-weake-18",
+        "b-35-write-safety-validation-state-30",
+        "b-35-write-safety-scoped-checks-bank-31",
         "b-35-write-safety-risk-rules-19",
         "b-35-write-safety-risk-rule-20",
         "b-35-write-safety-related-21",
         "b-35-write-safety-durable-state-and-event-22",
         "b-35-write-safety-score-integration-and-p-23"
       ]
-    },
-    "b-35-write-safety-write-safety-1": {
-      "id": "b-35-write-safety-write-safety-1",
-      "type": "heading",
-      "props": {
-        "level": 1
-      },
-      "text": [
-        {
-          "insert": "Write Safety"
-        }
-      ],
-      "children": []
     },
     "b-35-write-safety-target-claim-write-sets-2": {
       "id": "b-35-write-safety-target-claim-write-sets-2",
@@ -74,7 +70,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Write safety starts with explicit target-claim write sets and isolated worker\nworkspaces. The state substrate records who owns a target, what paths that\nworker may touch, and which validation checkpoints are safe to integrate."
+          "insert": "Write safety starts with category-typed target-claim write sets and isolated\nworker workspaces. The state substrate records who owns a target, which approved\npaths and categories that worker may touch, and whether a banked checkpoint is\ntentative, confirmed, or regressed."
         }
       ],
       "children": []
@@ -98,7 +94,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Before editing, a worker receives a target claim with an explicit write set.\nThe worker must not edit outside that write set. If the work discovers that\nanother file is genuinely required, that expansion becomes explicit evidence\nfor the runner and integration path rather than an implicit side effect."
+          "insert": "Before editing, a worker receives a target claim whose initial write set contains\nthe target source. The worker edits only approved paths. A necessary path outside\nthat set requires a handoff-note widening request with lower-rung evidence; an\nunrequested path is categorized, recorded in telemetry, and returned as a repair\nreason instead of being silently dropped or allowed to bank."
         }
       ],
       "children": []
@@ -115,19 +111,136 @@
             "text": "claim target for one worker"
           },
           {
-            "text": "create worker state with explicit write set"
+            "text": "create worker state with category-typed target-source write set"
           },
           {
-            "text": "worker edits only claimed paths in its own workspace"
+            "text": "worker tries in-slice typing and edits approved paths in its workspace"
           },
           {
-            "text": "runner validates current workspace and records a checkpoint"
+            "text": "handoff note carries a widening request when a lower rung fails"
           },
           {
-            "text": "integration applies the selected checkpoint after validation"
+            "text": "runner decides the request or returns categorized repair feedback"
+          },
+          {
+            "text": "runner validates the touched compile blast and records a tentative checkpoint"
+          },
+          {
+            "text": "integration follows the configured finish mode; the boundary confirms or regresses"
           }
         ]
       },
+      "children": []
+    },
+    "b-35-write-safety-write-set-categories-25": {
+      "id": "b-35-write-safety-write-set-categories-25",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Write-Set Categories And Necessity Ladder"
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-the-necessity-ladder-26": {
+      "id": "b-35-write-safety-the-necessity-ladder-26",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Rung | Category | Allowed Scope | Evidence Required |\n| --- | --- | --- | --- |\n| 1 | target-source | The target `.c`; type in-slice code to the existing foreign interface first. | Target compile and objdiff evidence. |\n| 2 | config-metadata | The relevant `symbols.txt` or `splits.txt`. | The rung-1 failure, affected symbol or address range, and measured target result. |\n| 3 | owning-header | The canonical header that owns the mismatched declaration or type. | Rung-1 and rung-2 failures, declaration-owner evidence, and measured target result. |\n| 4 | foreign-source | The foreign `.c` that owns the definition. | Every lower-rung failure, definition-owner evidence, measured target result, and the affected-consumer scope. |"
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-widening-requests-travel-27": {
+      "id": "b-35-write-safety-widening-requests-travel-27",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Widening requests travel through the worker handoff note. A request names one\ncategory, its exact paths, the mismatched declaration or symbol, the expected\nowner, objdiff evidence, and why each lower rung failed. The runner approves,\ndenies, defers, or routes it. Approval expands the live claim and returns a\ncontinuation instruction; the other decisions return their reason and preserve\nthe best honest lower-rung result. Foreign-source requests remain routed for\ncross-module handling rather than receiving automatic approval."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-recycled-targets-reset-28": {
+      "id": "b-35-write-safety-recycled-targets-reset-28",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A recycled or re-picked-up target resets to the target-source entry. Its next\nworker must re-earn config-metadata or owning-header widening with current\nevidence. Historical requests and decisions remain available as telemetry but\ndo not carry authorization into the new claim."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-rollout-controls-29": {
+      "id": "b-35-write-safety-rollout-controls-29",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Both controls default off. "
+        },
+        {
+          "insert": "--write-set-widening=off|shadow|config|header",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " keeps grants target-only in "
+        },
+        {
+          "insert": "off",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", records decisions without applying them in "
+        },
+        {
+          "insert": "shadow",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", enables config-metadata grants in "
+        },
+        {
+          "insert": "config",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and enables config-metadata plus owning-header grants in "
+        },
+        {
+          "insert": "header",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". "
+        },
+        {
+          "insert": "--merge-on-finish",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " keeps the integration queue when off and enables immediate serial application into session ancestry when on."
+        }
+      ],
       "children": []
     },
     "b-35-write-safety-workspace-rule-7": {
@@ -173,7 +286,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Worker outputs move through an integration queue before they affect the current\nepoch/session root. The normal path is deterministic: apply the selected\ncheckpoint patch, record the disposition, and leave the integration resolver\nout of the loop. The resolver is only for failed applies, same-file conflicts,\nor conflict groups that need source-level reconciliation."
+          "insert": "Worker output integration is serial in both modes. With merge-on-finish off,\nselected checkpoints wait in the integration queue. With it on, a checkpoint\nthat passes scoped checks is applied immediately into the current session\nancestry when the worker finishes. A clean application records a tentative\nintegration. A conflict invokes the conflict-resolver agent with both claims,\ntheir evidence, and scoped-check results; an unresolved conflict falls back to\nan operator-visible conflict state."
         }
       ],
       "children": []
@@ -199,33 +312,35 @@
             "text": "runner validation"
           },
           {
-            "text": "`worker_checkpoints`"
+            "text": "tentative selected checkpoint"
           },
           {
-            "text": "selected checkpoint"
-          },
-          {
-            "text": "worker-output integration queue",
+            "text": "configured serial integration",
             "steps": [
               {
-                "text": "clean apply",
+                "text": "merge-on-finish on: apply into session ancestry"
+              },
+              {
+                "text": "merge-on-finish off: enqueue, then apply"
+              },
+              {
+                "text": "conflict",
                 "steps": [
                   {
-                    "text": "a clean apply produces both results below",
-                    "kind": "note"
+                    "text": "conflict-resolver agent"
                   },
                   {
-                    "text": "integration record"
-                  },
-                  {
-                    "text": "current epoch/session root",
-                    "steps": [
-                      {
-                        "text": "epoch rebuild + report"
-                      }
-                    ]
+                    "text": "operator-visible conflict if unresolved"
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "text": "current session ancestry",
+            "steps": [
+              {
+                "text": "epoch boundary confirmation pass"
               }
             ]
           }
@@ -239,7 +354,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Same-file concurrency is expected to be rare but allowed. It is handled at\nintegration time, not by preventing workers from starting."
+          "insert": "Same-file and shared-support concurrency is expected to be rare but allowed.\nWorkers proceed in isolated workspaces; collisions are handled by serial\nintegration and the conflict-resolver agent rather than path locks that prevent\nworkers from starting."
         }
       ],
       "children": []
@@ -252,7 +367,7 @@
       },
       "text": [
         {
-          "insert": "worker A worktree                worker B worktree\n  target: file.c::fn_a             target: file.c::fn_b\n  patch: file.c hunk A             patch: file.c hunk B\n        |                                |\n        v                                v\n  selected checkpoint              selected checkpoint\n        |                                |\n        +-----------> integration queue <+\n                         |\n                         v\n                apply against current root\n                         |\n             +-----------+-----------+\n             |                       |\n             v                       v\n        applies cleanly        apply conflict / merge conflict\n             |                       |\n             v                       v\n   record applied output       conflict queue item\n             |                       |\n             |                       v\n             |              integration-resolver agent\n             |                       |\n             |                       v\n             +-------------> resolved source in root\n                                     |\n                                     v\n                         focused validation + epoch gate"
+          "insert": "worker A worktree                worker B worktree\n  scoped checks pass                 scoped checks pass\n        |                                   |\n        v                                   v\n tentative checkpoint                tentative checkpoint\n        |                                   |\n        +-------> configured serial integration <------+\n                             |\n                 +-----------+-----------+\n                 |                       |\n                 v                       v\n            clean apply              merge conflict\n                 |                       |\n                 v                       v\n       current session ancestry   conflict-resolver agent\n                 |                       |\n                 |                +------+-------+\n                 |                |              |\n                 |                v              v\n                 |          resolved apply   operator-visible\n                 |                |            conflict\n                 +----------------+\n                             |\n                             v\n                 epoch boundary global check\n                    |                    |\n                    v                    v\n                 confirmed       blame + revert + regressed"
         }
       ],
       "children": []
@@ -263,7 +378,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The integration queue item carries the selected checkpoint metadata, patch\npaths, explicit write sets, failed apply evidence, conflict paths, and target\nidentity. The runner owns queue mutation, final acceptance, and epoch truth; the\nintegration resolver only edits inside the supplied conflict group and returns\nworker-output dispositions."
+          "insert": "The integration record carries checkpoint metadata, patch paths, category-typed\nwrite sets, widening decisions, scoped-check evidence, conflict paths, target\nidentity, and validation state. The runner owns serial application and boundary\ntruth. The conflict-resolver agent edits only the supplied conflict group and\nreturns a resolved patch or an operator-visible conflict disposition."
         }
       ],
       "children": []
@@ -354,7 +469,31 @@
       "props": {},
       "text": [
         {
-          "insert": "These pools do not weaken write isolation: each command still runs against the\nclaim's own worktree and write set. They only cap concurrent compiler/tool\npressure so a large worker pool keeps making progress without turning every\nvalidation boundary into a machine-wide stampede."
+          "insert": "These pools do not weaken write isolation: each command still runs against the\nclaim's own worktree and approved, category-typed write set. They only cap\nconcurrent compiler/tool pressure so a large worker pool keeps making progress\nwithout turning every validation boundary into a machine-wide stampede."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-validation-state-30": {
+      "id": "b-35-write-safety-validation-state-30",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Validation State"
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-scoped-checks-bank-31": {
+      "id": "b-35-write-safety-scoped-checks-bank-31",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Compile checks follow the touched set. Target-source and foreign-source edits\nrebuild and compare their units; an owning-header edit adds its owner and direct\nincluders; config metadata adds units whose address ranges are affected and\ncompares their section measures. A passing improvement banks and integrates as\ntentative. The epoch boundary runs the global build and zero-regression report:\na clean result confirms the tentative window, while a regression triggers blame\nattribution, reverts the guilty change, marks it regressed, and confirms the\nclean remainder."
         }
       ],
       "children": []
@@ -378,7 +517,7 @@
       "props": {},
       "text": [
         {
-          "insert": "| Risk | Rule |\n| --- | --- |\n| Two workers edit the same file | Allow concurrent isolated workspaces; integrate only selected checkpoints through explicit write sets. |\n| Header/data owner edits | Start with explicit write sets and widen to dependent files or target groups when evidence shows invalidation risk. |\n| Stale patch base | Score integration checks "
+          "insert": "| Risk | Rule |\n| --- | --- |\n| Two workers edit the same file | Allow concurrent isolated workspaces; integrate selected checkpoints serially and route collisions through the conflict-resolver agent. |\n| Header/data owner edits | Climb the four-rung necessity ladder, require lower-rung and owner evidence, and expand compile checks with the touched set. |\n| Unrequested out-of-set edits | Categorize the paths, record telemetry, and issue a repair reason; never bank a silently narrowed patch. |\n| Stale patch base | Score integration checks "
         },
         {
           "insert": "base_rev",
@@ -387,7 +526,7 @@
           }
         },
         {
-          "insert": "; stale patches are rebased, revalidated, or rejected. |\n| Shared build/tool pressure | Use worker-local worktrees plus epoch-scoped Ninja and tool slot pools; tune pool sizes before raising the worker count. |\n| Shared CSV/artifact races | Workers write shards; reducers own shared summaries, charts, and merged artifacts. |\n| Bad integration | Run patch apply checks, narrow objdiff, neighbor/unit checks when needed, then update the baseline only after validation. |"
+          "insert": "; stale patches are rebased, revalidated, or rejected. |\n| Shared build/tool pressure | Use worker-local worktrees plus epoch-scoped Ninja and tool slot pools; tune pool sizes before raising the worker count. |\n| Shared CSV/artifact races | Workers write shards; reducers own shared summaries, charts, and merged artifacts. |\n| Bad integration | Bank scoped-check passes as tentative; confirm them only at a clean boundary, or attribute, revert, and mark the guilty change regressed. |"
         }
       ],
       "children": []

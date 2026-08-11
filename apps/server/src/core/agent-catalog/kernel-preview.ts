@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
 import {
+  conflictResolverPrompt,
   integrationResolverPrompt,
-  knowledgeCuratorPrompt,
+  librarianPrompt,
   prFixerPrompt,
-  prIndexerPrompt,
   prPreshipReviewPrompt,
   prSplitterPrompt,
   qaRepairPrompt,
@@ -134,6 +134,48 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         initialBoardPath: resolve(paths.stateDir, "runs/kernel-viewer/snapshots/initial_board.json"),
         workerLogDir: resolve(paths.stateDir, "runs/kernel-viewer/worker_logs/sample"),
       });
+    case "conflict-resolver": {
+      const claim = {
+        claim_id: "kernel-viewer-incoming-claim",
+        worker_state_id: "kernel-viewer-worker-state",
+        checkpoint_id: "kernel-viewer-checkpoint",
+        target_id: "kernel-viewer-target",
+        target_symbol: "ftDemo_KernelViewerSample",
+        source_paths: ["src/melee/ft/chara/ftDemo.c"],
+        write_set: ["src/melee/ft/chara/ftDemo.c", "src/melee/ft/chara/ftDemo.h"],
+        validation_state: "tentative" as const,
+        metadata: { widening_ids: ["kernel-viewer-widening"] },
+      };
+      const scopedChecks = { passed: true, checks: [], metadata: { scope: "touched-files" } };
+      return conflictResolverPrompt({
+        request: {
+          schema_version: "melee_conflict_resolver_request_v1",
+          integration_item_id: "kernel-viewer-merge-conflict",
+          conflict_group_id: "worker-output:kernel-viewer-merge-conflict",
+          isolated_worktree: {
+            path: resolve(paths.stateDir, "kernel-viewer/conflict-worktree"),
+            base_revision: "aaaaaaaa",
+            session_revision: "bbbbbbbb",
+          },
+          session_worktree_path: paths.repoRoot,
+          incoming: {
+            claim,
+            scoped_checks: scopedChecks,
+            patch: { path: resolve(paths.stateDir, "kernel-viewer/incoming.patch"), text: null, sha256: "1234" },
+          },
+          current: {
+            claim: { ...claim, claim_id: "kernel-viewer-current-claim", validation_state: "confirmed" },
+            scoped_checks: scopedChecks,
+            branch_state: { head_revision: "bbbbbbbb", status_porcelain: "", diff: null, metadata: {} },
+          },
+          conflict_paths: ["src/melee/ft/chara/ftDemo.h"],
+          metadata: { merge_on_finish: true },
+        },
+        repoRoot: paths.repoRoot,
+        stateDir: paths.stateDir,
+        project,
+      });
+    }
     case "integration-resolver":
       return integrationResolverPrompt({
         integrationItem: {
@@ -159,20 +201,6 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           explicit_write_set: ["src/melee/ft/chara/ftDemo.c"],
         },
         queueSummary: { queued_items: 1, conflict_groups: 1 },
-        repoRoot: paths.repoRoot,
-        stateDir: paths.stateDir,
-        project,
-      });
-    case "pr-indexer":
-      return prIndexerPrompt({
-        prContext: {
-          schema_version: "pr_context_v1",
-          object_id: "kernel-viewer-pr",
-          pr: { number: 0, title: "Kernel viewer sample PR" },
-          changed_files: [{ path: "src/melee/ft/chara/ftDemo.c" }],
-          human_text_excerpt: "Match a focused ftDemo target while preserving local style.",
-          diff_excerpt: "diff --git a/src/melee/ft/chara/ftDemo.c b/src/melee/ft/chara/ftDemo.c",
-        },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
         project,
@@ -228,16 +256,31 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         stateDir: paths.stateDir,
         project,
       });
-    case "knowledge-curator":
-      return knowledgeCuratorPrompt({
-        curatorContext: {
-          batch_id: "kernel-viewer-curator-batch",
-          records: [
+    case "librarian":
+      return librarianPrompt({
+        librarianBatch: {
+          batch_id: "kernel-viewer-librarian-batch",
+          kind: "worker_run",
+          worker_state: {
+            id: "kernel-viewer-worker-state",
+            target_key: "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c:ftKb_SpecialHi_Enter",
+            baseline_score: 62.5,
+            best_score: 87.5,
+            exact: false,
+          },
+          checkpoints: [
             {
-              evidence_refs: ["worker:kernel-viewer"],
-              lesson: "Prefer local source evidence before broad source-shape rewrites.",
+              kind: "checkpoint",
+              id: "kernel-viewer-checkpoint-1",
+              attempt_index: 1,
+              new_score: 87.5,
+              delta: 25.0,
+              exact_match: false,
+              improved_over_baseline: true,
+              validation_time: "2026-08-10T00:00:00Z",
             },
           ],
+          transcripts: [],
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,

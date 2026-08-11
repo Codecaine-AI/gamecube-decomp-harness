@@ -1,0 +1,589 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-knowledge-20-per-target-20-search-indexes",
+  "title": "Search indexes — per-target sweep axes",
+  "root": "b-55-kgr-35-20si-root",
+  "blocks": {
+    "b-55-kgr-35-20si-root": {
+      "id": "b-55-kgr-35-20si-root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-55-kgr-35-20si-intro",
+        "b-55-kgr-40-2",
+        "b-55-kgr-40-decision-graph-extension-scope",
+        "b-55-kgr-40-3",
+        "b-55-kgr-40-7",
+        "b-55-kgr-si-pipeline-h",
+        "b-55-kgr-si-pipeline-p",
+        "b-55-kgr-si-pipeline-table",
+        "b-55-kgr-35-20si-files-h2",
+        "b-55-kgr-35-20si-file-opseq",
+        "b-55-kgr-35-20si-file-ghidra",
+        "b-55-kgr-35-20si-file-siblings",
+        "b-55-kgr-35-20si-file-crosswalk"
+      ]
+    },
+    "b-55-kgr-35-20si-intro": {
+      "id": "b-55-kgr-35-20si-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Computed attachments each target carries, each one a different way to reach related targets: structural similarity (opseq analogs), binary analysis (ghidra), naming (siblings), and wiki mapping (crosswalk). No processing pipelines — every index is regenerated per epoch alongside the code graph."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-40-2": {
+      "id": "b-55-kgr-40-2",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Axis",
+          "Edge",
+          "Source",
+          "Exists today?"
+        ],
+        "rows": [
+          [
+            "Structural",
+            [
+              {
+                "insert": "ANALOGOUS_TO",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "opseq similarity",
+            "yes"
+          ],
+          [
+            "Relational",
+            [
+              {
+                "insert": "CALLS",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " / "
+              },
+              {
+                "insert": "REFERENCES_DATA",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "checkout parse (clang AST or heuristic)",
+            [
+              {
+                "insert": "no — biggest build item",
+                "attributes": {
+                  "bold": true
+                }
+              }
+            ]
+          ],
+          [
+            "Nominal",
+            [
+              {
+                "insert": "SIBLING_OF",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "naming conventions ("
+              },
+              {
+                "insert": "ftKb_",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " prefixes, per-character dirs, move-suffix patterns)"
+              }
+            ],
+            "implicit only"
+          ],
+          [
+            "Historical",
+            "co-attempted · same failure class",
+            "attempt ledger",
+            "partial (PR co-touch)"
+          ],
+          [
+            "Semantic",
+            [
+              {
+                "insert": "HAS_LEARNING",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " shared learnings / wiki evidence"
+              }
+            ],
+            "knowledge ledger (§3)",
+            "no"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-55-kgr-40-decision-graph-extension-scope": {
+      "id": "b-55-kgr-40-decision-graph-extension-scope",
+      "type": "callout",
+      "props": {
+        "title": "Decision (2026-08-10) — graph extension scope",
+        "tone": "decision"
+      },
+      "text": [
+        {
+          "insert": "Stage the biggest build item: add "
+        },
+        {
+          "insert": "CALLS",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "REFERENCES_DATA",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " first — they come out of the same extraction pass (identifier → known function/data symbol) and are what injection ranking needs. Defer "
+        },
+        {
+          "insert": "USES_TYPE",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": it requires real type resolution (clang territory) and no worker surface consumes it yet."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-40-3": {
+      "id": "b-55-kgr-40-3",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Multi-hop inference — answering \"what does this do\" without authored descriptions",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-55-kgr-40-4",
+        "b-55-kgr-40-5",
+        "b-55-kgr-40-6"
+      ]
+    },
+    "b-55-kgr-40-4": {
+      "id": "b-55-kgr-40-4",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Unknown function → "
+        },
+        {
+          "insert": "CALLED_BY",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " Brinstar map-init → so it's stage-loading machinery."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-40-5": {
+      "id": "b-55-kgr-40-5",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "→ "
+        },
+        {
+          "insert": "SIBLING_OF",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " matched equivalent in "
+        },
+        {
+          "insert": "grkongo.c",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-40-6": {
+      "id": "b-55-kgr-40-6",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "→ its "
+        },
+        {
+          "insert": "ANALOGOUS_TO",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " hit is 100% → read that source and the attempt that matched it."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-40-7": {
+      "id": "b-55-kgr-40-7",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Why this is drift-proof",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-55-kgr-40-8",
+        "b-55-kgr-40-9"
+      ]
+    },
+    "b-55-kgr-40-8": {
+      "id": "b-55-kgr-40-8",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The first four axes need no one to have written anything."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-40-9": {
+      "id": "b-55-kgr-40-9",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The semantic axis strengthens as learnings accumulate from work."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-si-pipeline-h": {
+      "id": "b-55-kgr-si-pipeline-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The standard build pipeline"
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-si-pipeline-p": {
+      "id": "b-55-kgr-si-pipeline-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every index is built the same way (the opseq template): an extractor reads build outputs and writes JSONL indexes under "
+        },
+        {
+          "insert": "projects/melee/shared/tool-data/<index>/indexes/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; a graph builder reads those and emits edges plus per-target facts. All of them rebuild at epoch boundaries — no mid-epoch full builds."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-si-pipeline-table": {
+      "id": "b-55-kgr-si-pipeline-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Index",
+          "Extractor input",
+          "Output",
+          "Edges / facts",
+          "Status"
+        ],
+        "rows": [
+          [
+            "opseq analogs",
+            [
+              {
+                "insert": "asm/*.s",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + "
+              },
+              {
+                "insert": "report.json",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "4 JSONL indexes (fingerprints, sequences, neighbors)",
+            [
+              {
+                "insert": "ANALOGOUS_TO",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + analog profiles"
+              }
+            ],
+            "live — needs epoch-boundary refresh"
+          ],
+          [
+            "calls / data refs",
+            [
+              {
+                "insert": "asm/*.s",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " symbolized "
+              },
+              {
+                "insert": "bl",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "/data sites + "
+              },
+              {
+                "insert": "report.json",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "calls.jsonl / data_refs.jsonl",
+            [
+              {
+                "insert": "CALLS",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " · "
+              },
+              {
+                "insert": "REFERENCES_DATA",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "approved — new extractor"
+          ],
+          [
+            "ghidra xrefs",
+            [
+              {
+                "insert": "analyzeHeadless",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " over "
+              },
+              {
+                "insert": "main.elf",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "xrefs.jsonl cache rows",
+            "cross-check facts for asm-derived edges",
+            "approved — build out the half-baked toolpack"
+          ],
+          [
+            "siblings",
+            "project-config rule table (bootstrapped from tree-guide + crosswalk)",
+            "sibling pairs",
+            [
+              {
+                "insert": "SIBLING_OF",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "approved — config bootstrap first"
+          ],
+          [
+            "crosswalk",
+            [
+              {
+                "insert": "crosswalk.jsonl",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " glob rows"
+              }
+            ],
+            "path → wiki titles",
+            "boot-resolver lookups",
+            "live — extend to gr*/it* per decision"
+          ]
+        ],
+        "title": "Index build matrix"
+      },
+      "children": []
+    },
+    "b-55-kgr-35-20si-files-h2": {
+      "id": "b-55-kgr-35-20si-files-h2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Files"
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-35-20si-file-opseq": {
+      "id": "b-55-kgr-35-20si-file-opseq",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Opseq analogs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-per-target/20-search-indexes/10-opseq-analogs"
+            }
+          }
+        },
+        {
+          "insert": " — Instruction-sequence similarity → ANALOGOUS_TO edges; analog list with match status at boot."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-35-20si-file-ghidra": {
+      "id": "b-55-kgr-35-20si-file-ghidra",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Ghidra exports (proposed)",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-per-target/20-search-indexes/20-ghidra"
+            }
+          }
+        },
+        {
+          "insert": " — Target-generated analysis feeding CALLS/data-ref cross-checks and evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-35-20si-file-siblings": {
+      "id": "b-55-kgr-35-20si-file-siblings",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Siblings",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-per-target/20-search-indexes/30-siblings"
+            }
+          }
+        },
+        {
+          "insert": " — Naming-convention SIBLING_OF edges from project-config rules interpreted by a generic builder."
+        }
+      ],
+      "children": []
+    },
+    "b-55-kgr-35-20si-file-crosswalk": {
+      "id": "b-55-kgr-35-20si-file-crosswalk",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Crosswalk",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-per-target/20-search-indexes/40-crosswalk"
+            }
+          }
+        },
+        {
+          "insert": " — Mechanical path → wiki-titles table with a boot-time resolver; ft · gr* · it* scope."
+        }
+      ],
+      "children": []
+    }
+  }
+}

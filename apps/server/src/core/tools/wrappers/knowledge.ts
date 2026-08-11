@@ -1,21 +1,21 @@
 /**
  * Source-specific Pi tools for each knowledge silo.
  *
- * The model should choose the source it needs, such as Discord, PowerPC docs,
- * external mirrors, or SSBM data sheets, instead of sending every query through
- * one generic lookup endpoint.
+ * The model should choose the source it needs, such as external mirrors or SSBM
+ * data sheets, instead of sending every query through one generic lookup endpoint.
  */
-import { globalStandardsContext, resolvePathFactsContext } from "@server/core/knowledge";
+import { globalStandardsContext } from "@server/core/knowledge";
+import { searchLedgerLearnings, type LearningScope } from "@server/core/knowledge/ledger.js";
 import { graphFileCard, graphSearch, runSourceApi } from "../runtime/execution.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 
 const sourceContextToolRoles = [
   "worker",
+  "conflict-resolver",
   "integration-resolver",
-  "pr-indexer",
   "pr-splitter",
-  "knowledge-curator",
+  "librarian",
   "pr-fixer",
   "reconcile",
   "qa-repair",
@@ -35,16 +35,6 @@ const fileCardParameters = {
   type: "object",
   properties: {
     source_path: { type: "string", description: "Project-relative source file path." },
-  },
-  required: ["source_path"],
-  additionalProperties: false,
-};
-
-const pathFactsParameters = {
-  type: "object",
-  properties: {
-    source_path: { type: "string", description: "Project-relative source file path." },
-    limit: { type: "number", description: "Maximum path facts to return." },
   },
   required: ["source_path"],
   additionalProperties: false,
@@ -81,23 +71,29 @@ const externalSymbolParameters = {
   additionalProperties: false,
 };
 
-const powerpcInstructionParameters = {
+const smashWikiPageParameters = {
   type: "object",
   properties: {
-    mnemonic: { type: "string", description: "PowerPC instruction mnemonic such as stwu, rlwinm, fcmpo, or cror." },
-    limit: { type: "number", description: "Maximum documentation chunks to return." },
+    title: { type: "string", description: "Mirrored SmashWiki page title." },
+    section: { type: "string", description: "Print only the section fuzzy-matching this heading." },
+    sections: { type: "boolean", description: "List section headings only." },
   },
-  required: ["mnemonic"],
+  required: ["title"],
   additionalProperties: false,
 };
 
-const termsParameters = {
+const ledgerSearchParameters = {
   type: "object",
   properties: {
-    terms: { type: "string", description: "Space-separated terms to expand into source-specific topic lookups." },
+    query: { type: "string", description: "Candidate statement, symbol, file, or topic to corroborate or refute." },
+    scope: {
+      type: "string",
+      enum: ["symbol", "file", "area", "general"],
+      description: "Optional learning scope to filter after joining ledger records.",
+    },
     limit: { type: "number", description: "Maximum results to return. Values are clamped to a small safe bound." },
   },
-  required: ["terms"],
+  required: ["query"],
   additionalProperties: false,
 };
 
@@ -247,33 +243,6 @@ export const pastPrsSearchToolRegistration = sourceSearchTool({
   graphBacked: true,
 });
 
-/** Tool for searching Discord-derived compiler and workflow knowledge. */
-export const discordKnowledgeSearchToolRegistration = sourceSearchTool({
-  id: "discord_knowledge_search",
-  sourceId: "discord_knowledge",
-  label: "Discord Knowledge Search",
-  purpose: "Search Discord-derived compiler, workflow, and decomp discussion notes.",
-  description: "Search Discord-derived knowledge chunks for compiler behavior, review warnings, workflow tips, and decomp folklore.",
-  guidance: "Use discord_knowledge_search for community notes, compiler anecdotes, or review/workflow advice; verify against local source and objdiff.",
-});
-
-/** Tool for topic-style Discord lookup when the query starts as loose terms. */
-export const discordKnowledgeTopicsToolRegistration = fixedSourceApiTool({
-  id: "discord_knowledge_topics_for_terms",
-  sourceId: "discord_knowledge",
-  label: "Discord Topics For Terms",
-  purpose: "Expand compiler, review, or workflow terms into Discord-derived topic hits.",
-  description: "Search Discord-derived knowledge with the topics-for-terms API.",
-  guidance: "Use discord_knowledge_topics_for_terms when you have several loose compiler/review terms and want topic-style Discord hits before a narrower search.",
-  parameters: termsParameters,
-  scriptName: "topics_for_terms.py",
-  args(params) {
-    const terms = String(params.terms ?? "").trim();
-    if (!terms) return { status: "missing_terms" };
-    return ["--terms", terms, "--limit", String(boundedLimit(params.limit)), "--json"];
-  },
-});
-
 /** Tool for searching normalized SSBM data sheet rows. */
 export const ssbmDataSheetSearchToolRegistration = sourceSearchTool({
   id: "ssbm_data_sheet_search",
@@ -318,33 +287,6 @@ export const ssbmDataSheetOffsetLookupToolRegistration = fixedSourceApiTool({
     const args = ["--offset", offset, "--limit", String(boundedLimit(params.limit)), "--json"];
     if (type) args.push("--type", type);
     return args;
-  },
-});
-
-/** Tool for searching indexed PowerPC reference documentation. */
-export const powerpcDocsSearchToolRegistration = sourceSearchTool({
-  id: "powerpc_docs_search",
-  sourceId: "powerpc_docs",
-  label: "PowerPC Docs Search",
-  purpose: "Search indexed PowerPC PDF/docs chunks for ABI and instruction behavior.",
-  description: "Search PowerPC documentation chunks for ABI, registers, instructions, branches, conversions, and condition-register behavior.",
-  guidance: "Use powerpc_docs_search for ABI, register, stack-frame, condition-register, branch, conversion, and instruction documentation questions.",
-});
-
-/** Tool for exact PowerPC mnemonic lookup. */
-export const powerpcInstructionLookupToolRegistration = fixedSourceApiTool({
-  id: "powerpc_instruction_lookup",
-  sourceId: "powerpc_docs",
-  label: "PowerPC Instruction Lookup",
-  purpose: "Look up documentation chunks for one PowerPC instruction mnemonic.",
-  description: "Lookup a PowerPC instruction mnemonic in indexed PDF/documentation pages.",
-  guidance: "Use powerpc_instruction_lookup when the question is a concrete mnemonic such as stwu, rlwinm, fcmpo, fcmpu, cror, or mtctr.",
-  parameters: powerpcInstructionParameters,
-  scriptName: "lookup_instruction.py",
-  args(params) {
-    const mnemonic = String(params.mnemonic ?? "").trim();
-    if (!mnemonic) return { status: "missing_mnemonic" };
-    return ["--mnemonic", mnemonic, "--limit", String(boundedLimit(params.limit)), "--json"];
   },
 });
 
@@ -410,60 +352,84 @@ export const decompStandardsContextToolRegistration: AgentToolRegistration = {
   },
 };
 
-/** Tool for resolving accepted path-scoped facts for one source path. */
-export const pathFactsResolveToolRegistration: AgentToolRegistration = {
-  id: "path_facts_resolve",
-  purpose: "Resolve bounded path-scoped decomp facts for one source path.",
-  allowedRoles: [...sourceContextToolRoles],
-  capabilities: ["path_facts", "path_scoped_context"],
-  create(): PiToolDefinition {
+/** Tool for searching mirrored SmashWiki pages and sections. */
+export const smashWikiSearchToolRegistration = sourceSearchTool({
+  id: "smashwiki_search",
+  sourceId: "smashwiki",
+  label: "SmashWiki Search",
+  purpose: "Search mirrored SmashWiki page titles, summaries, and sections for game-mechanics evidence.",
+  description: "Search the mirrored SmashWiki corpus for game mechanics, character moves, hitboxes, and technique names.",
+  guidance: "Use smashwiki_search to ground game-mechanics terms, character moves, hitboxes, and technique names in mirrored wiki evidence.",
+});
+
+/** Tool for retrieving a mirrored SmashWiki page, section, or section list. */
+export const smashWikiGetPageToolRegistration = fixedSourceApiTool({
+  id: "smashwiki_get_page",
+  sourceId: "smashwiki",
+  label: "SmashWiki Get Page",
+  purpose: "Read a mirrored SmashWiki page, one fuzzy-matched section, or its section headings.",
+  description: "Retrieve a mirrored SmashWiki page by title, optionally narrowing to one section or listing its headings.",
+  guidance: "Use smashwiki_get_page after search to inspect the exact mirrored page or section that grounds a game-mechanics claim.",
+  parameters: smashWikiPageParameters,
+  scriptName: "get_page.py",
+  args(params) {
+    const title = String(params.title ?? "").trim();
+    if (!title) return { status: "missing_title" };
+    const args = ["--title", title];
+    const section = String(params.section ?? "").trim();
+    if (section) args.push("--section", section);
+    if (params.sections) args.push("--sections");
+    return args;
+  },
+});
+
+/** Tool for corroborating candidate learnings against the project knowledge ledger. */
+export const ledgerSearchToolRegistration: AgentToolRegistration = {
+  id: "ledger_search",
+  purpose: "Search past ledger learnings to corroborate or refute candidate statements before emitting them.",
+  allowedRoles: ["librarian"],
+  capabilities: ["knowledge_ledger", "learning_search"],
+  create(context): PiToolDefinition {
     return {
-      name: "path_facts_resolve",
-      label: "Path Facts Resolve",
-      description: "Resolve graph-owned path-scoped facts and hints for one project-relative source path.",
-      promptSnippet: "path_facts_resolve: resolve bounded path-scoped decomp facts for one source path.",
-      promptGuidelines: ["Use path_facts_resolve when a target source path needs scoped facts or directory-slice hints."],
-      parameters: pathFactsParameters,
+      name: "ledger_search",
+      label: "Knowledge Ledger Search",
+      description: "Search project ledger learnings and their subjects, provenance, status, and confidence.",
+      promptSnippet: "ledger_search: search past learnings to corroborate or refute a candidate statement by judgment.",
+      promptGuidelines: [
+        "Use ledger_search before emitting a candidate learning so existing statements can corroborate, refute, or deduplicate it by judgment.",
+      ],
+      parameters: ledgerSearchParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const sourcePath = String(params.source_path ?? "").trim();
-        if (!sourcePath) return jsonToolResult("path_facts_resolve", { status: "missing_source_path" });
-        return jsonToolResult("path_facts_resolve", {
-          status: "ok",
-          source_path: sourcePath,
-          result: resolvePathFactsContext(sourcePath, boundedLimit(params.limit, 5, 10)),
+        const query = String(params.query ?? "").trim();
+        if (!query) return jsonToolResult("ledger_search", { status: "missing_query" });
+        const scope = typeof params.scope === "string" ? (params.scope as LearningScope) : undefined;
+        return jsonToolResult("ledger_search", {
+          ...searchLedgerLearnings({
+            query,
+            scope,
+            limit: boundedLimit(params.limit),
+            projectId: context.project?.projectId ?? "melee",
+          }),
         });
       },
     };
   },
 };
 
-/** Tool for listing proposal-only path fact updates. */
-export const pathFactsProposalsToolRegistration = proposalSourceApiTool({
-  id: "path_facts_proposals",
-  sourceId: "path_facts",
-  label: "Path Facts Proposals",
-  purpose: "List pending proposal records for path-scoped decomp facts.",
-  description: "Return proposal-only records that could become path facts after validation.",
-  guidance: "Use path_facts_proposals when curating or reviewing path-fact updates; workers should treat proposal rows as unaccepted hints.",
-});
-
 /** All knowledge-source Pi tool registrations, kept reusable across agent profiles. */
 export const knowledgeToolRegistrations = [
   codeGraphFileCardToolRegistration,
   codeGraphSearchToolRegistration,
   pastPrsSearchToolRegistration,
-  discordKnowledgeSearchToolRegistration,
-  discordKnowledgeTopicsToolRegistration,
   ssbmDataSheetSearchToolRegistration,
   ssbmDataSheetAddressLookupToolRegistration,
   ssbmDataSheetOffsetLookupToolRegistration,
-  powerpcDocsSearchToolRegistration,
-  powerpcInstructionLookupToolRegistration,
   externalMirrorsSearchToolRegistration,
   externalSymbolLookupToolRegistration,
   decompStandardsProposalsToolRegistration,
   decompStandardsContextToolRegistration,
-  pathFactsResolveToolRegistration,
-  pathFactsProposalsToolRegistration,
+  smashWikiSearchToolRegistration,
+  smashWikiGetPageToolRegistration,
+  ledgerSearchToolRegistration,
 ] as const;

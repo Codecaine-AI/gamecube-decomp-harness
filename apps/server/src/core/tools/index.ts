@@ -11,9 +11,9 @@ export {
   availableToolsPromptXml,
   buildAgentTools,
   defaultAgentToolProfiles,
+  defaultConflictResolverToolProfile,
   defaultIntegrationResolverToolProfile,
-  defaultKnowledgeCuratorToolProfile,
-  defaultPrIndexerToolProfile,
+  defaultLibrarianToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
@@ -21,3 +21,12 @@ export {
   resolveAgentToolIds,
 } from "./profiles/index.js";
 export type { AgentToolProfileInput, AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition, PiToolResult } from "./types.js";
+export {
+  hostToolPlatform,
+  isHostToolPlatform,
+  resolveStateToolArtifact,
+  resolveToolPlatform,
+  stateToolArtifactCandidates,
+  TOOL_PLATFORMS,
+  type ToolPlatform,
+} from "./platform.js";

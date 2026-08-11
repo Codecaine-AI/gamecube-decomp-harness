@@ -1,0 +1,27 @@
+{
+  "id": "discord_raw",
+  "title": "Discord raw archive (timestamped)",
+  "kind": "raw_archive",
+  "trust_tier": "historical",
+  "freshness": "refreshable",
+  "section": "rag_search",
+  "active": true,
+  "access_modes": ["raw_messages", "evidence_lookup"],
+  "description": "raw timestamped Discord messages pulled via CLI; workers never search it directly — the daily extraction pipeline mines learnings with message-level evidence refs (per docs/10-system-design/55-knowledge-graph-redesign/50-inputs/20-discord decision 2026-08-10); librarian consumes data/raw/ JSONL directly.",
+  "data_paths": [
+    "projects/melee/knowledge/sources/rag_search/discord_raw/data/raw"
+  ],
+  "commands": {
+    "backfill": "python3 commands/sync_via_discord_cli.py --bootstrap",
+    "cron": "python3 commands/sync_via_discord_cli.py --since-yesterday",
+    "backfill_direct_api": "python3 commands/pull_all.py",
+    "cron_direct_api": "python3 commands/pull_all.py --since-yesterday",
+    "pull_channel": "python3 commands/pull_channel.py --channel-id <id>",
+    "status": "python3 commands/status.py"
+  },
+  "provenance": {
+    "origin": "Discord API v10 via discord-cli (kabi-discord-cli, user token) or direct bot-token puller; guild in config/channels.json",
+    "authority": "community conversation — historical hints, outranked by source/assembly/objdiff",
+    "access": "discord-cli uses a saved user token from discord auth --save; direct API access requires DISCORD_TOKEN in environment and supports bot-token auth by default or raw user-token auth with --user-token"
+  }
+}

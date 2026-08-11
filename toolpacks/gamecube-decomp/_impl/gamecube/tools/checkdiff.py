@@ -21,7 +21,10 @@ result:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -44,10 +47,44 @@ SRC_ROOT = ROOT / "src"
 TOOLS = Path(__file__).resolve().parent
 
 
+# Observed MWCC 1.2.5n diagnostics for missing declarations. The third form is
+# also present in the compiler's diagnostic string table and covers constants
+# whose declarations are missing from the current include set.
+MWCC_MISSING_SYMBOL_PATTERNS = (
+    re.compile(r"\bfunction has no prototype\b", re.IGNORECASE),
+    re.compile(r"\bundefined identifier\b", re.IGNORECASE),
+    re.compile(r"\bundefined symbol\b", re.IGNORECASE),
+)
+EXACT_MATCH_PERCENT = 99.99999
+
+
+def needs_include_diagnosis(compiler_output: str) -> bool:
+    """Whether MWCC failed in a way fix_includes.py can potentially repair."""
+    return any(pattern.search(compiler_output) for pattern in MWCC_MISSING_SYMBOL_PATTERNS)
+
+
+def _emit_compile_output(stdout: str, stderr: str) -> None:
+    """Replay direct_compile output on the streams where callers expect it."""
+    sys.stdout.write(stdout)
+    sys.stderr.write(stderr)
+
+
 def build_unit(obj_path: str) -> Optional[CompiledObject]:
-    """Fix includes, then compile the translation unit.
-    Returns the temporary object on success."""
+    """Compile a TU, diagnosing includes only for MWCC missing-symbol errors."""
     c_file = SRC_ROOT / f"{obj_path}.c"
+
+    compile_stdout = io.StringIO()
+    compile_stderr = io.StringIO()
+    with contextlib.redirect_stdout(compile_stdout), contextlib.redirect_stderr(compile_stderr):
+        compiled = direct_compile(obj_path)
+    if compiled is not None:
+        _emit_compile_output(compile_stdout.getvalue(), compile_stderr.getvalue())
+        return compiled
+
+    compiler_output = compile_stdout.getvalue() + compile_stderr.getvalue()
+    if not needs_include_diagnosis(compiler_output):
+        _emit_compile_output(compile_stdout.getvalue(), compile_stderr.getvalue())
+        return None
 
     fix_includes = TOOLS / "fix_includes.py"
     result = subprocess.run(
@@ -60,6 +97,8 @@ def build_unit(obj_path: str) -> Optional[CompiledObject]:
         print(result.stderr.decode(), file=sys.stderr)
         return None
 
+    # The first failure is superseded by the include diagnosis. If the fixer
+    # found nothing, this retry emits the same compile diagnostics as before.
     return direct_compile(obj_path)
 
 
@@ -68,15 +107,13 @@ def run_diff(
     candidate_obj: Path,
     func_name: str,
     capture: bool = False,
-    strict: bool = False,
+    strict: bool = True,
 ):
     """Run objdiff-cli. Returns CompletedProcess.
 
-    The relaxed mode (default) ignores data-relocation symbol diffs so the
-    instruction diff stays readable while data splitting is incomplete. The
-    strict mode scores exactly like the official runner/report pipeline; PASS
-    verdicts must come from the strict score, otherwise a function can read
-    "100%" here while the official score is still below exact.
+    Strict mode (the default) scores exactly like the official runner/report
+    pipeline. Callers that specifically need the instruction-focused view can
+    pass strict=False to ignore data-relocation symbol diffs.
     """
     ref_obj = f"./build/GALE01/obj/{obj_path}.o"
     command = [
@@ -99,22 +136,14 @@ def run_diff(
     )
 
 
-def strict_match_percent(obj_path: str, candidate_obj: Path, func_name: str) -> Optional[float]:
-    """Official-equivalent score for one function (no relocation relaxation)."""
-    result = run_diff(obj_path, candidate_obj, func_name, capture=True, strict=True)
-    if result.returncode != 0:
-        return None
-    return symbol_match_percent(result.stdout, func_name)
-
-
 def verdict_line(func_name: str, strict_percent: Optional[float], relaxed_percent: Optional[float]) -> tuple[str, bool]:
     """One-line PASS/FAIL verdict driven by the strict (official) score."""
     if strict_percent is None:
         return f"{func_name}: ERROR (objdiff JSON did not include match_percent)", False
-    passed = strict_percent >= 99.99999
+    passed = strict_percent >= EXACT_MATCH_PERCENT
     if passed:
         return f"{func_name}: PASS ({strict_percent:.5f}%)", True
-    if relaxed_percent is not None and relaxed_percent >= 99.99999:
+    if relaxed_percent is not None and relaxed_percent >= EXACT_MATCH_PERCENT:
         return (
             f"{func_name}: FAIL ({strict_percent:.5f}% official; instructions match but "
             "relocation/data references still differ, so the official score is below exact)",
@@ -283,8 +312,12 @@ def check_single(func_name: str, full_diff: bool) -> int:
     if result.returncode != 0:
         print(result.stdout, end="")
         return result.returncode
-    relaxed_percent = symbol_match_percent(result.stdout, func_name)
-    strict_percent = strict_match_percent(obj_path, compiled.obj, func_name)
+    strict_percent = symbol_match_percent(result.stdout, func_name)
+    relaxed_percent = None
+    if strict_percent is not None and strict_percent < EXACT_MATCH_PERCENT:
+        relaxed_result = run_diff(obj_path, compiled.obj, func_name, capture=True, strict=False)
+        if relaxed_result.returncode == 0:
+            relaxed_percent = symbol_match_percent(relaxed_result.stdout, func_name)
     line, passed = verdict_line(func_name, strict_percent, relaxed_percent)
     print(line)
     if strict_percent is None:
@@ -314,13 +347,18 @@ def check_multiple(func_names: list[str]) -> int:
 
         for func_name in funcs:
             result = run_diff(obj_path, compiled.obj, func_name, capture=True)
-            relaxed_percent = symbol_match_percent(result.stdout, func_name) if result.returncode == 0 else None
-            strict_percent = strict_match_percent(obj_path, compiled.obj, func_name)
+            strict_percent = symbol_match_percent(result.stdout, func_name) if result.returncode == 0 else None
             if strict_percent is None:
-                label = "objdiff error" if result.returncode != 0 else "unknown"
+                relaxed_result = run_diff(obj_path, compiled.obj, func_name, capture=True, strict=False)
+                label = "objdiff error" if relaxed_result.returncode != 0 else "unknown"
                 print(f"{func_name}: ERROR ({label})")
                 rc = 1
                 continue
+            relaxed_percent = None
+            if strict_percent < EXACT_MATCH_PERCENT:
+                relaxed_result = run_diff(obj_path, compiled.obj, func_name, capture=True, strict=False)
+                if relaxed_result.returncode == 0:
+                    relaxed_percent = symbol_match_percent(relaxed_result.stdout, func_name)
             line, passed = verdict_line(func_name, strict_percent, relaxed_percent)
             print(line if not passed else f"{func_name}: PASS")
             if not passed:

@@ -16,6 +16,7 @@ import { createPrWorktreeService } from "@server/core/session-runtime/phases/pr/
 import { handleHandoffApiRoute } from "@server/api/routes/handoff";
 import { handleKernelApiRoute, handleKernelReadRoute } from "@server/api/routes/kernel";
 import { handleKnowledgeApiRoute } from "@server/api/routes/knowledge";
+import { handleKnowledgeLearningsApiRoute } from "@server/api/routes/knowledge-learnings";
 import { createStandardsService } from "@server/core/knowledge/standards";
 import { sourceRoot } from "@server/core/knowledge";
 import { createProcessControlRuntime } from "@server/core/session-runtime/phases/running/process-control/runtime";
@@ -509,6 +510,9 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     requestPaths: projectContext.requestPaths,
   });
   if (knowledge) return knowledge;
+
+  const knowledgeLearnings = await handleKnowledgeLearningsApiRoute(req, url, { json });
+  if (knowledgeLearnings) return knowledgeLearnings;
 
   const processControl = await handleProcessControlApiRoute(req, url, {
     drainManaged: processControlRuntime.drainManaged,

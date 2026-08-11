@@ -15,3 +15,11 @@ resolves the Homebrew Ghidra/OpenJDK install, runs `analyzeHeadless` against
 `build_tool_indexes.py` also generates `indexes/symbol_lookup.jsonl` from local
 code-graph/source-symbol evidence for symbol/address/file lookup. Those rows
 are supplemental; live readiness comes from the headless runner smoke.
+
+## Xref export
+
+`python3 toolpacks/gamecube-decomp/research/ghidra/runners/export_xrefs.py --repo-root <repo_root>`
+runs a separate headless project and writes `indexes/xrefs.jsonl`,
+`cache/export_xrefs_status.json`, and `cache/ghidra_export_xrefs.log` under the
+tool storage root. Use `--limit <rows>` to retain a bounded prefix or `0` for
+all exported references.

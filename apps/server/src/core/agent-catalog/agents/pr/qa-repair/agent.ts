@@ -12,7 +12,6 @@ export const agent = defineAgent({
       "code_graph_file_card",
       "code_graph_search",
       "past_prs_search",
-      "path_facts_resolve",
       "mismatch_db_search",
       "checkdiff_run",
       "checkdiff_summary",

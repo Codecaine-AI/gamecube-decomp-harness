@@ -164,12 +164,33 @@ export const prompt = definePrompt({
       "This handoff is not a worker report; it is a validation handoff for runner review.",
       "Do not treat non-100% progress as failure. The runner banks a validated, gate-clean improvement immediately and ends the claim; the target returns in a later epoch with the improved baseline.",
       "Use plain fields such as `summary`: Here is what I tried.",
+      bulletList([
+        item("When widening is enabled and the approved write set is insufficient, add a `widening_request` object to the handoff JSON with this shape:", [
+          bulletList([
+            "`schema_version`: `write_set_widening_request_v1`",
+            "`paths`: repo-relative string array containing paths from one requested category",
+            "`category`: `config-metadata`, `owning-header`, or `foreign-source`",
+            "`rung`: `2`, `3`, or `4`, matching the requested category",
+            item("`evidence`:", [
+              bulletList([
+                "`mismatched_declaration`: `{ symbol, current, required, expected_owner }`",
+                "`objdiff`: `{ unit, score_without, score_with, artifact_path? }`, where `score_with` may be null when it could not be measured",
+                "`ladder_evidence`: `{ rung1_in_slice, rung2_config?, rung3_header? }`, explaining what each lower rung tried and why it failed",
+              ]),
+            ]),
+          ]),
+        ]),
+      ]),
+      "A `widening_request` is only honored when write-set widening is enabled. Requested paths remain unauthorized unless the runner approves them.",
       "After a handoff, the runner owns the follow-up decision. Repair requests only come for validation/lint failures or for an exact match that failed hard gates.",
     ]),
     section("contracted_in_rules", [
       orderedList([
-        "Work only on the current claimed target.",
-        'Edit only the path named by `<target_file path="...">`.',
+        "Work only on the current claimed target; the target translation unit is your motivation and review scope.",
+        'Edit only paths in your approved write set, which initially contains only the `<target_file path="...">` path.',
+        "Before requesting any widening, first try typing the in-slice code to the foreign types already present on master.",
+        "If that measurably fails and a canonical fix elsewhere is required, use the handoff note's `widening_request` with the mismatched declaration, objdiff evidence, expected owner, and evidence explaining why each lower rung failed.",
+        "Never add local shims—aliases, local prototypes, or include-macro rewrites—as a substitute for the canonical fix.",
         "Preserve pre-existing dirty work. Undo only your own failed attempt hunks.",
         item("Do not use destructive commands:", [
           bulletList([

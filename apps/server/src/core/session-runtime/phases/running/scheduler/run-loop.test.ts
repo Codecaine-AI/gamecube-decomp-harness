@@ -21,6 +21,7 @@ import {
   forceFinishActiveEpoch,
   integrationResolverLockPaths,
   selectIntegrationResolverBatch,
+  workerCommand,
 } from "./run-loop.js";
 
 const tempDirs: string[] = [];
@@ -86,6 +87,45 @@ describe("evaluateFastKnowledgeMaintenanceDecision", () => {
         running: true,
       }),
     ).toMatchObject({ action: "defer", reason: "report_count", reportDue: true, timeDue: true });
+  });
+});
+
+describe("workerCommand write-set feature forwarding", () => {
+  const globals = {
+    repoRoot: "/repo",
+    stateDir: "/state",
+    dryRunAgents: false,
+    provider: "provider",
+    model: "model",
+    thinkingLevel: "medium",
+  };
+  const params = {
+    runId: "run-1",
+    workerId: "worker-1",
+    baseRev: "base",
+    ttlSeconds: 1_800,
+    thinkingLevel: "medium",
+    postReturnCheckCommand: "",
+    workerConfigureCommand: "",
+    graphDbPath: "/state/knowledge.sqlite",
+  };
+
+  test("adds neither flag on the legacy path", () => {
+    const command = workerCommand(globals, {
+      ...params,
+      writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false },
+    });
+    expect(command).not.toContain("--merge-on-finish");
+    expect(command).not.toContain("--write-set-widening");
+  });
+
+  test("forwards widening mode and merge-on-finish to the worker child", () => {
+    const command = workerCommand(globals, {
+      ...params,
+      writeSetFlags: { mergeOnFinish: true, writeSetWidening: "header", confirmationPass: true },
+    });
+    expect(command.slice(command.indexOf("--write-set-widening"))).toContain("header");
+    expect(command).toContain("--merge-on-finish");
   });
 });
 

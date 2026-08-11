@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildQaRepairQueue, type QaRepairQueueItem } from "@server/core/validation/qa/repair-lane";
 import type { QaScanFinding, QaScanResult } from "@server/core/validation/qa";
+import type { WideningRequest } from "@server/core/session-runtime/run-state/write-set-categories";
 import {
   QA_REPAIR_AGENT_SCHEMA_VERSION,
   qaRepairPrompt,
@@ -101,6 +102,50 @@ describe("validateQaRepairAgentResult", () => {
     expect(validated.result?.validation[0]?.status).toBe("passed");
   });
 
+  test("preserves a valid widening request for runner policy", () => {
+    const wideningRequest: WideningRequest = {
+      schema_version: "write_set_widening_request_v1",
+      paths: ["include/melee/gr/grsmoke.h"],
+      category: "owning-header",
+      rung: 3,
+      evidence: {
+        mismatched_declaration: {
+          symbol: "grSmoke_801C57F0",
+          current: "void grSmoke_801C57F0(void*);",
+          required: "void grSmoke_801C57F0(HSD_GObj*);",
+          expected_owner: "include/melee/gr/grsmoke.h",
+        },
+        objdiff: {
+          unit: "melee/gr/grsmoke",
+          score_without: 96.5,
+          score_with: null,
+          artifact_path: "artifacts/grsmoke.objdiff.json",
+        },
+        ladder_evidence: {
+          rung1_in_slice: "Typed the call to the existing declaration; the argument setup still mismatched.",
+          rung2_config: "The mismatch is a declaration issue, not address-range metadata.",
+        },
+      },
+    };
+    const validated = validateQaRepairAgentResult({
+      schema_version: QA_REPAIR_AGENT_SCHEMA_VERSION,
+      item_id: "src-melee-gr-grsmoke",
+      source_path: "src/melee/gr/grsmoke.c",
+      outcome: "needs_rework",
+      score_impact: "unknown",
+      summary: "Canonical repair requires the owning header.",
+      edits: [],
+      validation: [{ command: "objdiff", status: "passed", artifact_path: "artifacts/grsmoke.objdiff.json", notes: "Measured rung 1." }],
+      finding_dispositions: [{ rule_id: "m2c_residue_names", line: 23, disposition: "left_with_evidence", evidence: "Awaiting write-set authorization." }],
+      remaining_findings: [{ rule_id: "m2c_residue_names", line: 23, reason: "Owning declaration is mismatched." }],
+      risks: [],
+      widening_request: wideningRequest,
+    });
+
+    expect(validated.errors).toEqual([]);
+    expect(validated.result?.widening_request).toEqual(wideningRequest);
+  });
+
   test("rejects malformed result objects", () => {
     const validated = validateQaRepairAgentResult({
       schema_version: "wrong",
@@ -141,8 +186,23 @@ describe("qaRepairPrompt", () => {
     expect(promptOnly).toContain("requirement violation");
     expect(promptOnly.toLowerCase()).toContain("llm_review");
     expect(promptOnly).toContain("scanner error");
-    expect(promptOnly).toContain("Do not edit headers");
-    expect(promptOnly).toContain("Header edits are outside this repair lane and will be rolled back");
+    expect(promptOnly).toContain("target translation unit is the motivation and review scope");
+    expect(promptOnly).toContain("A widening_request is honored only when widening is enabled");
+    expect(promptOnly).toContain("Rung 1 — target-source");
+    expect(promptOnly).toContain("Rung 2 — config-metadata");
+    expect(promptOnly).toContain("Rung 3 — owning-header");
+    expect(promptOnly).toContain("Rung 4 — foreign-source");
+    expect(promptOnly).toContain("typing the in-slice code to master's existing foreign declarations and types");
+    expect(promptOnly).toContain("authorized_write_set");
+    expect(promptOnly).toContain("Never add local shims");
+    expect(promptOnly).toContain("widening-related blocked outcome");
+    expect(promptOnly).toContain('"schema_version": "write_set_widening_request_v1"');
+    expect(promptOnly).toContain('"mismatched_declaration"');
+    expect(promptOnly).toContain('"objdiff"');
+    expect(promptOnly).toContain('"expected_owner"');
+    expect(promptOnly).toContain('"ladder_evidence"');
+    expect(promptOnly).not.toContain("Do not edit headers");
+    expect(promptOnly).not.toContain("Header edits are outside this repair lane and will be rolled back");
     expect(promptOnly).toContain("process those targets one at a time");
     expect(promptOnly).toContain("record its current source shape");
     expect(promptOnly).toContain("you MUST run the available compile tool and objdiff/checkdiff score tool scoped to that function");

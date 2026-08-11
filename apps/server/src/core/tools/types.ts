@@ -7,6 +7,7 @@
  * project context.
  */
 import type { RunProjectMetadata, RuntimeAgentRole } from "@server/core/shared/types";
+import type { ToolPlatform } from "./platform.js";
 
 export interface AgentToolRuntimeContext {
   role: RuntimeAgentRole;
@@ -14,6 +15,7 @@ export interface AgentToolRuntimeContext {
   repoRoot: string;
   stateDir?: string;
   project?: RunProjectMetadata;
+  toolPlatform?: ToolPlatform;
   worktreeId?: string;
   packet?: Record<string, unknown>;
   initialBoardPath?: string;

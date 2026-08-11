@@ -9,6 +9,7 @@ from pathlib import Path
 
 import conftest  # noqa: F401  (inserts api/ into sys.path)
 import _qa_rules
+import symbol_metadata
 
 
 # ---------------------------------------------------------------------------
@@ -354,6 +355,149 @@ def test_define_alias_identifier_expression_and_canonical_macro_all_error():
     assert kinds["FTCO_800A9CB4_ABS"] == ("canonical_macro_clone", "error")
 
 
+def test_define_alias_flags_function_macro_prototype_shims():
+    hunk = _hardened_hunk(
+        "#define fn_80174468(a, b, c, d, e, f) \\\n"
+        "    fn_80174468(s32 slot, HSD_Text* text1, /* ... */)\n"
+        '#include "gmresult.h"\n'
+        "#undef fn_80174468\n"
+        "#define fn_80174469(a, b) fn_80174469(s32 slot, HSD_Text* text1)\n"
+    )
+    findings = _qa_rules.check_define_alias(hunk)
+    by_macro = {finding["detail"]["macro"]: finding for finding in findings}
+    assert set(by_macro) == {"fn_80174468", "fn_80174469"}
+    for name, finding in by_macro.items():
+        assert finding["detail"] == {
+            "macro": name,
+            "target": name,
+            "kind": "function_macro_shim",
+        }
+        assert "prototype shim around an include" in finding["message"]
+
+
+def test_define_alias_flags_function_macro_referencing_address_symbol():
+    findings = _qa_rules.check_define_alias(
+        _hardened_hunk("#define CALL_TARGET(x) gm_80169238(x)\n")
+    )
+    assert len(findings) == 1
+    assert findings[0]["detail"] == {
+        "macro": "CALL_TARGET",
+        "target": "gm_80169238",
+        "kind": "function_macro_shim",
+    }
+
+
+def test_define_alias_flags_function_macro_referencing_named_global():
+    findings = _qa_rules.check_define_alias(
+        _hardened_hunk("#define AUX_SIZE() HSD_AudioGetAuxHeapSize()\n")
+    )
+    assert len(findings) == 1
+    assert findings[0]["detail"] == {
+        "macro": "AUX_SIZE",
+        "target": "HSD_AudioGetAuxHeapSize",
+        "kind": "function_macro_shim",
+    }
+
+
+def test_define_alias_allows_sanctioned_and_benign_function_macros():
+    hunk = _hardened_hunk(
+        "#define M2C_FIELD(obj, type, offset) (*(type*) ((u8*) (obj) + (offset)))\n"
+        "#define SQ(x) ((x) * (x))\n"
+        "#define APPLY(fn, x) fn(x)\n"
+    )
+    assert _qa_rules.check_define_alias(hunk) == []
+
+
+# ---------------------------------------------------------------------------
+# bare_local_prototype.
+# ---------------------------------------------------------------------------
+
+
+def _bare_prototypes(text: str):
+    hunk = {
+        "file": "src/melee/gm/x.c",
+        "added": [(i + 1, line) for i, line in enumerate(text.splitlines())],
+        "removed": [],
+    }
+    return _qa_rules.check_bare_local_prototype(hunk)
+
+
+def test_bare_local_prototype_flags_file_and_block_scope_declarations():
+    findings = _bare_prototypes(
+        "u32 Ground_801C1DAC(void);\n"
+        "    const struct Foo* Ground_801C1DC0(s32 slot, HSD_Text* text);\n"
+    )
+    assert [finding["detail"]["symbol"] for finding in findings] == [
+        "Ground_801C1DAC",
+        "Ground_801C1DC0",
+    ]
+    assert findings[0]["detail"] == {
+        "symbol": "Ground_801C1DAC",
+        "return_type": "u32",
+        "params": "void",
+        "kind": "bare_prototype",
+    }
+    assert "owning header" in findings[0]["message"]
+
+
+def test_bare_local_prototype_rejects_declaration_lookalikes():
+    text = (
+        "static u32 Helper_80123456(void);\n"
+        "static inline void h(void);\n"
+        "const static u32 QualifiedStatic_80123450(void);\n"
+        "extern u32 x(void);\n"
+        "inline extern u32 QualifiedExtern_80123451(void);\n"
+        "typedef u32 (*Fn)(void);\n"
+        "Ground_801C1DAC(arg);\n"
+        "foo(a, b);\n"
+        "u32 x = foo();\n"
+        "return foo(x);\n"
+        "u32 (*fp)(void);\n"
+        "u32 f(void) {\n"
+    )
+    assert _bare_prototypes(text) == []
+
+
+def test_bare_local_prototype_skips_multiline_comments():
+    assert _bare_prototypes(
+        "/* Disabled declaration copied for reference:\n"
+        "u32 Commented_80123456(void);\n"
+        "*/\n"
+    ) == []
+
+
+def test_bare_local_prototype_skips_if_zero_and_macro_lines():
+    text = (
+        "#if 0\n"
+        "u32 Disabled_80123456(void);\n"
+        "#if SOMETHING\n"
+        "u32 Nested_80123457(void);\n"
+        "#endif\n"
+        "#endif\n"
+        "#define DECLARE_PROTO() u32 Macro_80123458(void);\n"
+        "#define DECLARE_MORE() \\\n"
+        "    u32 Continued_80123459(void); \\\n"
+    )
+    assert _bare_prototypes(text) == []
+
+
+def test_bare_local_prototype_skips_existing_distant_if_zero_context():
+    source = (
+        "#if 0\n"
+        "/* enough unchanged lines that a normal diff hunk omits #if 0 */\n"
+        "\n\n\n\n\n\n"
+        "u32 Disabled_80123456(void);\n"
+        "#endif\n"
+    )
+    hunk = {
+        "file": "src/melee/gm/x.c",
+        "added": [(9, "u32 Disabled_80123456(void);")],
+        "removed": [],
+        "post_file_text": source,
+    }
+    assert _qa_rules.check_bare_local_prototype(hunk) == []
+
+
 def test_novel_pragma_warns_only_outside_established_set():
     hunk = _hardened_hunk("#pragma dont_inline on\n#pragma inline_depth(4)\n")
     findings = _qa_rules.check_novel_pragma(hunk)
@@ -438,6 +582,83 @@ def test_numeric_literal_to_symbol_requires_numeric_in_removed():
         "removed": ["    foo(existing_symbol);"],
     }
     assert _qa_rules.check_numeric_literal_to_symbol(hunk) == []
+
+
+def _numeric_metadata_hook():
+    return next(
+        hook
+        for hook in _qa_rules.post_scan_hooks()
+        if hook.__name__ == "gate_numeric_literal_to_symbol_findings"
+    )
+
+
+def _numeric_finding(symbol: str) -> dict:
+    return {
+        "rule_id": "numeric_literal_to_symbol",
+        "severity": "error",
+        "file": "src/melee/gm/x.c",
+        "line": 10,
+        "excerpt": f"value = {symbol};",
+        "message": "numeric literal promoted",
+        "standard_id": "global_standard:literals-and-data-ownership",
+        "detail": {"replacement": symbol},
+    }
+
+
+def test_numeric_literal_symbol_metadata_filters_mutable_data_and_functions(
+    tmp_path: Path,
+):
+    symbols = tmp_path / "config" / "GALE01" / "symbols.txt"
+    symbols.parent.mkdir(parents=True)
+    symbols.write_text(
+        "lbl_804D38F4 = .sdata:0x804D38F4; // type:object size:0x4 scope:global\n"
+        "lbl_803F0000 = .data:0x803F0000; // type:object size:0x4 scope:global\n"
+        "gm_80169238 = .text:0x80169238; // type:function size:0x30 scope:global\n"
+        "init_80003100 = .init:0x80003100; // type:function size:0x10 scope:global\n",
+        encoding="utf-8",
+    )
+    findings = [
+        _numeric_finding("lbl_804D38F4"),
+        _numeric_finding("lbl_803F0000"),
+        _numeric_finding("gm_80169238"),
+        _numeric_finding("init_80003100"),
+    ]
+    assert _numeric_metadata_hook()(findings, tmp_path, "diff", [], None) == []
+
+
+def test_numeric_literal_symbol_metadata_keeps_sdata2_and_unknown(tmp_path: Path):
+    symbols = tmp_path / "config" / "GALE01" / "symbols.txt"
+    symbols.parent.mkdir(parents=True)
+    symbols.write_text(
+        "lbl_804D9000 = .sdata2:0x804D9000; // type:object size:0x4 scope:global\n",
+        encoding="utf-8",
+    )
+    findings = [
+        _numeric_finding("lbl_804D9000"),
+        _numeric_finding("fresh_804D9004"),
+    ]
+    result = _numeric_metadata_hook()(findings, tmp_path, "diff", [], None)
+    assert [finding["detail"]["replacement"] for finding in result] == [
+        "lbl_804D9000",
+        "fresh_804D9004",
+    ]
+    assert result[0]["detail"]["symbol_section"] == ".sdata2"
+    assert result[0]["detail"]["symbol_type"] == "object"
+    assert result[1]["detail"] == {"replacement": "fresh_804D9004"}
+
+
+def test_numeric_literal_symbol_metadata_missing_file_fails_open(tmp_path: Path):
+    findings = [_numeric_finding("lbl_804D38F4")]
+    result = _numeric_metadata_hook()(findings, tmp_path, "diff", [], None)
+    assert result == findings
+    assert _numeric_metadata_hook()(findings, None, "diff", [], None) == findings
+
+
+def test_melee_symbol_metadata_resolves_known_function(melee_checkout: Path):
+    info = symbol_metadata.symbol_info(melee_checkout, "gm_80169238")
+    assert info is not None
+    assert info["section"] == ".text"
+    assert info["type"] == "function"
 
 
 def test_string_literal_to_symbol_carries_restore_hint_without_sdata2_tool():
@@ -594,7 +815,13 @@ def test_type_erasing_cast_stays_warning_and_carries_llm_review():
 
 
 def test_sdk_excludes_skip_vendor_paths_but_not_melee_paths():
-    excluded_rules = {"extern_in_c", "volatile_local_tactic", "register_keyword", "inline_asm"}
+    excluded_rules = {
+        "extern_in_c",
+        "bare_local_prototype",
+        "volatile_local_tactic",
+        "register_keyword",
+        "inline_asm",
+    }
     for rule_id in excluded_rules:
         rule = next(r for r in _qa_rules.RULES if r["rule_id"] == rule_id)
         assert rule["excludes"] == _qa_rules.SDK_PATH_EXCLUDES, rule_id

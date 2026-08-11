@@ -151,6 +151,7 @@ export function ensureSchema(db: Database): void {
       worker_id TEXT NOT NULL,
       base_rev TEXT,
       write_set_json TEXT NOT NULL DEFAULT '[]',
+      write_set_entries_json TEXT NOT NULL DEFAULT '[]',
       write_set_hash TEXT,
       worktree_path TEXT,
       ttl TEXT,
@@ -174,6 +175,7 @@ export function ensureSchema(db: Database): void {
       target_key TEXT NOT NULL,
       lifecycle_status TEXT NOT NULL,
       write_set_json TEXT NOT NULL DEFAULT '[]',
+      write_set_entries_json TEXT NOT NULL DEFAULT '[]',
       worker_session_ids_json TEXT NOT NULL DEFAULT '[]',
       artifact_dir TEXT,
       worktree_path TEXT,
@@ -212,9 +214,11 @@ export function ensureSchema(db: Database): void {
       qa_status TEXT,
       objdiff_status TEXT,
       validation_status TEXT NOT NULL,
+      validation_state TEXT NOT NULL DEFAULT 'tentative',
       artifact_path TEXT,
       patch_path TEXT,
       diff_path TEXT,
+      write_set_json TEXT NOT NULL DEFAULT '[]',
       failure_reasons_json TEXT NOT NULL DEFAULT '[]',
       metadata_json TEXT NOT NULL DEFAULT '{}'
     );
@@ -225,20 +229,30 @@ export function ensureSchema(db: Database): void {
     CREATE INDEX IF NOT EXISTS worker_checkpoints_epoch_target
       ON worker_checkpoints (epoch_id, epoch_target_id);
 
-    CREATE TABLE IF NOT EXISTS epoch_verdicts (
+    CREATE TABLE IF NOT EXISTS write_set_widenings (
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL,
       epoch_id TEXT NOT NULL,
-      epoch_target_id TEXT NOT NULL,
-      verdict TEXT NOT NULL,
-      report_path TEXT,
+      target_claim_id TEXT NOT NULL,
+      worker_state_id TEXT NOT NULL,
+      attempt_index INTEGER NOT NULL,
+      category TEXT NOT NULL,
+      rung INTEGER NOT NULL,
+      requested_paths_json TEXT NOT NULL DEFAULT '[]',
+      approved_paths_json TEXT NOT NULL DEFAULT '[]',
       evidence_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL,
+      decided_by TEXT,
+      decision_reason TEXT,
+      validation_tier INTEGER,
+      validation_evidence_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL,
-      UNIQUE(epoch_id, epoch_target_id)
+      decided_at TEXT,
+      validated_at TEXT
     );
 
-    CREATE INDEX IF NOT EXISTS epoch_verdicts_session_epoch
-      ON epoch_verdicts (session_id, epoch_id, verdict);
+    CREATE INDEX IF NOT EXISTS write_set_widenings_session
+      ON write_set_widenings (session_id, status, created_at);
 
     CREATE TABLE IF NOT EXISTS facts (
       id TEXT PRIMARY KEY,
@@ -293,6 +307,7 @@ export function ensureSchema(db: Database): void {
       apply_stdout_path TEXT,
       apply_stderr_path TEXT,
       write_set_json TEXT NOT NULL DEFAULT '[]',
+      validation_state TEXT NOT NULL DEFAULT 'tentative',
       conflict_paths_json TEXT NOT NULL DEFAULT '[]',
       failure_reasons_json TEXT NOT NULL DEFAULT '[]',
       metadata_json TEXT NOT NULL DEFAULT '{}',
@@ -414,5 +429,10 @@ export function ensureSchema(db: Database): void {
   ensureColumn(db, "runs", "project_descriptor_path", "TEXT");
   ensureColumn(db, "runs", "project_local_override_path", "TEXT");
   ensureColumn(db, "pi_sessions", "target_claim_id", "TEXT");
+  ensureColumn(db, "target_claims", "write_set_entries_json", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(db, "worker_state", "write_set_entries_json", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(db, "worker_checkpoints", "write_set_json", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(db, "worker_checkpoints", "validation_state", "TEXT NOT NULL DEFAULT 'tentative'");
+  ensureColumn(db, "worker_output_integrations", "validation_state", "TEXT NOT NULL DEFAULT 'tentative'");
   ensureColumn(db, "project_sessions", "kernel_trace_json", "TEXT NOT NULL DEFAULT '{}'");
 }

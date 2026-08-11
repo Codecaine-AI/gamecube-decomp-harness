@@ -36,7 +36,14 @@ import { publishSessionDraftPr } from "@server/core/session-runtime/phases/runni
 import { integrationResolve } from "@server/core/session-runtime/phases/running/integration";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
-import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import {
+  booleanArg,
+  numberArg,
+  stringArg,
+  writeSetIntegrationFlags,
+  type GlobalArgs,
+  type WriteSetIntegrationFlags,
+} from "@server/core/project-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/session-runtime/phases/running/jobs/shared.js";
 import {
   derivedSchedulerCandidateWindow,
@@ -50,6 +57,12 @@ import type { WorkerCycleResult } from "@server/core/session-runtime/phases/runn
 import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
 import { recoverActiveClaims } from "@server/core/session-runtime/phases/running/jobs/recover-claims.js";
 import { workerTtlSeconds } from "@server/core/session-runtime/phases/running/worker-ttl.js";
+import {
+  isHostToolPlatform,
+  requiredStateToolArtifactError,
+  resolveStateToolArtifact,
+  resolveToolPlatform,
+} from "@server/core/tools/platform.js";
 
 interface WorkerError {
   workerId: string;
@@ -540,6 +553,8 @@ function knowledgeMaintenanceArgs(args: Map<string, string | true>, runId: strin
   const next = new Map<string, string | true>([["--run-id", runId]]);
   for (const key of [
     "--agent-state-enrichment",
+    "--curator-agent-batch-size",
+    "--curator-agent-jobs",
     "--curator-agent-record-limit",
     "--graph-db",
     "--knowledge-curator-enrichment",
@@ -657,27 +672,34 @@ function shellQuote(value: string): string {
 }
 
 function defaultConfigureCommand(globals: Pick<GlobalArgs, "repoRoot" | "stateDir">): string {
+  const toolPlatform = resolveToolPlatform();
   const localWibo = resolve(globals.repoRoot, "build", "tools", "wibo");
-  if ((process.platform === "darwin" || process.platform === "linux") && existsSync(localWibo)) {
+  if (isHostToolPlatform(toolPlatform) && existsSync(localWibo)) {
     return "python3 configure.py --require-protos --wrapper build/tools/wibo";
   }
-  const wibo = resolve(globals.stateDir, "tools", "wibo");
-  if ((process.platform === "darwin" || process.platform === "linux") && existsSync(wibo)) {
+  const wibo = resolveStateToolArtifact({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
+  if (wibo) {
     return `python3 configure.py --require-protos --wrapper ${shellQuote(wibo)}`;
+  }
+  if (!isHostToolPlatform(toolPlatform)) {
+    throw requiredStateToolArtifactError({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
   }
   return "python3 configure.py --require-protos";
 }
 
 function workerProcessEnv(globals: Pick<GlobalArgs, "stateDir">): Record<string, string | undefined> {
   const env: Record<string, string | undefined> = { ...Bun.env };
-  const wibo = resolve(globals.stateDir, "tools", "wibo");
-  if ((process.platform === "darwin" || process.platform === "linux") && existsSync(wibo)) {
+  const toolPlatform = resolveToolPlatform();
+  const wibo = resolveStateToolArtifact({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
+  if (wibo) {
     env.MWCC_WIBO = wibo;
+  } else if (!isHostToolPlatform(toolPlatform)) {
+    throw requiredStateToolArtifactError({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
   }
   return env;
 }
 
-function workerCommand(
+export function workerCommand(
   globals: GlobalArgs,
   params: {
     runId: string;
@@ -688,6 +710,7 @@ function workerCommand(
     postReturnCheckCommand: string;
     workerConfigureCommand: string;
     graphDbPath: string;
+    writeSetFlags: WriteSetIntegrationFlags;
   },
 ): string[] {
   const bin = resolve(orchestratorRoot(), "apps/server/src/job-runner.ts");
@@ -720,6 +743,10 @@ function workerCommand(
   if (params.postReturnCheckCommand) command.push("--post-return-check-command", params.postReturnCheckCommand);
   if (params.workerConfigureCommand) command.push("--worker-configure-command", params.workerConfigureCommand);
   command.push("--graph-db", params.graphDbPath);
+  if (params.writeSetFlags.writeSetWidening !== "off") {
+    command.push("--write-set-widening", params.writeSetFlags.writeSetWidening);
+  }
+  if (params.writeSetFlags.mergeOnFinish) command.push("--merge-on-finish");
   return command;
 }
 
@@ -734,6 +761,7 @@ async function runWorkerProcess(
     postReturnCheckCommand: string;
     workerConfigureCommand: string;
     graphDbPath: string;
+    writeSetFlags: WriteSetIntegrationFlags;
   },
   procRegistry?: Set<{ kill: (signal?: number) => void; exited: Promise<number> }>,
 ): Promise<WorkerCycleResult> {
@@ -839,7 +867,18 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     const ttlSeconds = workerTtlSeconds(globals, args);
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
+    const writeSetFlags = writeSetIntegrationFlags(args);
+    if (writeSetFlags.mergeOnFinish || writeSetFlags.writeSetWidening !== "off") {
+      const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
+        merge_on_finish: writeSetFlags.mergeOnFinish,
+        write_set_widening: writeSetFlags.writeSetWidening,
+        confirmation_pass: writeSetFlags.confirmationPass,
+        created_by: "run-loop",
+      });
+      markEventHandled(store, flagEvent);
+    }
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
+    const librarianOnWorkerFinish = booleanArg(args, "--librarian-on-worker-finish");
     const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
     const workerConfigureCommand = stringArg(args, "--worker-configure-command", defaultConfigureCommand(globals));
     const maintenanceIntervalMs = knowledgeMaintenanceIntervalMs(globals, args);
@@ -876,6 +915,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     let lastFastMaintenanceReportIso = latestFastRefreshFinishedAt(store, runId, run.createdAt);
     let runningFastKnowledgeMaintenance: Promise<void> | null = null;
     let pendingFastKnowledgeMaintenance = false;
+    let lastLibrarianWorkerFinishIso = new Date().toISOString();
     const launchIntegrationResolver = (record: WorkerOutputIntegrationRecord, lockPaths: string[]): void => {
       if (!record.itemPath || runningIntegrationResolvers.has(record.id)) return;
       console.error(`[run-loop] resolving worker integration conflict ${record.id} (${record.targetKey ?? "unknown target"})`);
@@ -1008,9 +1048,11 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 console.error(`[run-loop] epoch ${epochOrdinal}: ${trigger}; snapshotting and rebuilding report`);
                 const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
                   baseRef: globals.project?.baseRef,
+                  confirmationPass: writeSetFlags.confirmationPass,
                   configureCommand: epochConfigureCommand,
                   label: `epoch-${epochOrdinal}`,
                   linkPaths: epochLinkPaths,
+                  mergeOnFinish: writeSetFlags.mergeOnFinish,
                   projectId: globals.project?.projectId ?? globals.projectId ?? null,
                   qaScan: { orchestratorRoot: packageRoot() },
                   regressionPauseThreshold: epochPauseThreshold,
@@ -1212,6 +1254,58 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         }
         if (result.after) lastSchedulerEpoch = result.after;
         didWork = true;
+      }
+
+      if (librarianOnWorkerFinish) {
+        const finishedWorkers = withBusyRetry(
+          () =>
+            store.db
+              .query(
+                `
+                  SELECT id, ended_at
+                  FROM worker_state
+                  WHERE session_id = ?
+                    AND ended_at IS NOT NULL
+                    AND ended_at > ?
+                  ORDER BY ended_at ASC
+                `,
+              )
+              .all(runId, lastLibrarianWorkerFinishIso) as Array<{ id: string; ended_at: string }>,
+        );
+        for (const row of finishedWorkers) {
+          if (row.ended_at > lastLibrarianWorkerFinishIso) lastLibrarianWorkerFinishIso = row.ended_at;
+          const command = [
+            "bun",
+            resolve(orchestratorRoot(), "apps/server/src/job-runner.ts"),
+            "--repo-root",
+            globals.repoRoot,
+            "--state-dir",
+            globals.stateDir,
+            "--provider",
+            globals.provider,
+            "--model",
+            globals.model,
+            "--thinking-level",
+            globals.thinkingLevel,
+          ];
+          if (globals.projectId) command.splice(2, 0, "--project", globals.projectId);
+          if (globals.dryRunAgents) command.push("--dry-run-agents");
+          if (globals.agentTimeoutSeconds != null) command.push("--agent-timeout-seconds", String(globals.agentTimeoutSeconds));
+          command.push("kg-librarian-condense", "--worker-state-id", row.id, "--run-id", runId);
+          try {
+            const proc = Bun.spawn(command, { cwd: orchestratorRoot(), stdout: "ignore", stderr: "ignore" });
+            proc.unref?.();
+          } catch (error) {
+            console.error(
+              `[run-loop] failed to enqueue librarian condensation for worker ${row.id}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            continue;
+          }
+          addEvent(store, runId, "librarian_condense_enqueued" as Parameters<typeof addEvent>[2], "run-loop", {
+            worker_state_id: row.id,
+            created_by: "run-loop",
+          });
+        }
       }
 
       if (
@@ -1471,6 +1565,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             postReturnCheckCommand,
             workerConfigureCommand,
             graphDbPath,
+            writeSetFlags,
           },
           runningWorkerProcs,
         )

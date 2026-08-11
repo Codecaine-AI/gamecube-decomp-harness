@@ -44,9 +44,7 @@ export {
   globalStandardsContext,
   globalStandardsPromptXml,
   loadStandardExamples,
-  resolvePathFactsContext,
   standardExamplesPromptXml,
-  type PathFactResolution,
   type StandardExampleSelector,
 } from "./decomp-context.js";
 export * from "./graph/index.js";

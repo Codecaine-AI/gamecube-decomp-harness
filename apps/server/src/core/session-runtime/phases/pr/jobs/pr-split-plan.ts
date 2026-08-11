@@ -43,6 +43,12 @@ export interface PrChangedFile {
   sources: ChangeSource[];
 }
 
+export interface PrSupportAssignment {
+  path: string;
+  sliceId: string;
+  reason?: string;
+}
+
 interface RawChangedFile {
   path: string;
   oldPath?: string;
@@ -52,6 +58,8 @@ interface RawChangedFile {
 
 interface ChangeGroup {
   id: string;
+  /** Deterministic source-group ids proven to have been merged into this group. */
+  memberIds: string[];
   displayName: string;
   scope: string;
   category: "shared" | "subsystem" | "support";
@@ -80,6 +88,8 @@ export interface PrSplitSlice {
   fileCount: number;
   files: PrChangedFile[];
   pathspecs: string[];
+  supportFiles?: PrChangedFile[];
+  supportPathspecs?: string[];
   statusCounts: Record<string, number>;
   sources: ChangeSource[];
   independence: PrSliceIndependence;
@@ -132,6 +142,7 @@ interface BuildPlanOptions {
   lanes?: PrLaneSets | null;
   shipFilter?: PrShipFilter | null;
   warnings?: string[];
+  supportAssignments?: PrSupportAssignment[];
 }
 
 function splitZ(output: string): string[] {
@@ -225,7 +236,7 @@ function isReviewableSourceLikePath(path: string): boolean {
   return extension === "c" || extension === "h" || extension === "s" || extension === "inc";
 }
 
-function groupForPath(path: string, groupMode: GroupMode): Omit<ChangeGroup, "files"> {
+function groupForPath(path: string, groupMode: GroupMode): Omit<ChangeGroup, "files" | "memberIds"> {
   const parts = normalizePath(path).split("/").filter(Boolean);
   if (groupMode === "top-dir") {
     const id = sanitizeId(parts[0] ?? "root") || "root";
@@ -305,6 +316,93 @@ function mergeChanges(changes: RawChangedFile[]): PrChangedFile[] {
   return Array.from(byPath.values()).sort((left, right) => left.path.localeCompare(right.path));
 }
 
+interface ResolvedSupportFile {
+  assignment: PrSupportAssignment;
+  file: PrChangedFile;
+}
+
+function supportAssignmentTarget<T extends { id: string; memberIds?: string[]; lane?: PrLane | null }>(
+  targets: T[],
+  assignment: PrSupportAssignment,
+): T {
+  const exact = targets.find((target) => target.id === assignment.sliceId);
+  const provenMembers = targets.filter((target) => target.memberIds?.includes(assignment.sliceId));
+  const shippingMembers = provenMembers.filter((target) => target.lane !== "local");
+  const mergedMatches = exact ? [exact] : shippingMembers.length > 0 ? shippingMembers : provenMembers;
+  if (mergedMatches.length === 1) return mergedMatches[0];
+  if (mergedMatches.length > 1) {
+    throw new Error(
+      `Support file ${assignment.path} targets slice "${assignment.sliceId}", but that id matches multiple final slices: ${mergedMatches.map((target) => target.id).join(", ")}.`,
+    );
+  }
+  throw new Error(
+    `Support file ${assignment.path} targets unknown slice "${assignment.sliceId}"; final slice ids are: ${targets.map((target) => target.id).join(", ") || "(none)"}.`,
+  );
+}
+
+function resolveSupportFilesForTargets<T extends { id: string; memberIds?: string[]; lane?: PrLane | null }>(
+  targets: T[],
+  files: PrChangedFile[],
+  assignments: PrSupportAssignment[],
+): Map<string, ResolvedSupportFile[]> {
+  const filesByPath = new Map(files.map((file) => [normalizePath(file.path), file]));
+  const seenAssignments = new Set<string>();
+  const byTargetId = new Map<string, ResolvedSupportFile[]>();
+  for (const rawAssignment of assignments) {
+    const assignment = {
+      ...rawAssignment,
+      path: normalizePath(rawAssignment.path),
+      sliceId: rawAssignment.sliceId.trim(),
+      reason: rawAssignment.reason?.trim() || undefined,
+    };
+    if (!assignment.path || !assignment.sliceId) {
+      throw new Error("Support assignments require non-empty path and sliceId values.");
+    }
+    const assignmentKey = `${assignment.path}\0${assignment.sliceId}`;
+    if (seenAssignments.has(assignmentKey)) {
+      throw new Error(`Support file ${assignment.path} is assigned to slice "${assignment.sliceId}" more than once.`);
+    }
+    seenAssignments.add(assignmentKey);
+    const file = filesByPath.get(assignment.path);
+    if (!file) {
+      throw new Error(`Support file ${assignment.path} is not present in the collected changes.`);
+    }
+    const target = supportAssignmentTarget(targets, assignment);
+    if (target.lane === "local") {
+      throw new Error(
+        `Support file ${assignment.path} targets local-only slice "${target.id}"; support files must attach to a shipping match slice.`,
+      );
+    }
+    const resolved = byTargetId.get(target.id) ?? [];
+    if (!resolved.some((entry) => entry.file.path === file.path)) resolved.push({ assignment, file });
+    byTargetId.set(target.id, resolved);
+  }
+  for (const resolved of byTargetId.values()) {
+    resolved.sort((left, right) => left.file.path.localeCompare(right.file.path));
+  }
+  return byTargetId;
+}
+
+function supportWarning(resolved: ResolvedSupportFile): string {
+  return `Declared support file ${resolved.file.path} attached: ${resolved.assignment.reason ?? "operator-declared support for this slice's match"}`;
+}
+
+function addSupportIndependenceDetails(independence: PrSliceIndependence, supportFiles: PrChangedFile[]): PrSliceIndependence {
+  if (supportFiles.length === 0) return independence;
+  const paths = supportFiles.map((file) => file.path).sort();
+  return {
+    ...independence,
+    reasons: [...independence.reasons, `carries ${supportFiles.length} declared support file(s): ${paths.join(", ")}`],
+    requiredChecks: [
+      ...independence.requiredChecks,
+      "confirm each support edit's primary motivation is a match in this slice's target translation unit",
+      "verify whole-unit objdiff shows zero codegen movement in every touched foreign translation unit",
+      "confirm upstream CI parity for the slice with its support files",
+      "verify merge-order safety (git merge-tree both orders) against any other open slice touching the same support file(s)",
+    ],
+  };
+}
+
 function statusCounts(files: PrChangedFile[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const file of files) {
@@ -346,6 +444,7 @@ function mergeSmallMatchGroups(groups: ChangeGroup[], minFilesPerPr: number, max
     const ordered = [...bin].sort(sortGroups);
     return {
       id: ordered.map((member) => member.id).join("-"),
+      memberIds: [...new Set(ordered.flatMap((member) => member.memberIds))],
       displayName: ordered.map((member) => member.displayName).join(" + "),
       scope: ordered.map((member) => member.scope).join(", "),
       category: "subsystem" as const,
@@ -382,7 +481,7 @@ function maybeSplitLargeGroup(group: ChangeGroup, maxFilesPerPr: number): Change
 }
 
 function commandsForSlice(slice: Omit<PrSplitSlice, "commands" | "isolationCommands">, baseRef: string, headRef: string): string[] {
-  const pathspecs = slice.pathspecs.map(shellQuote).join(" ");
+  const pathspecs = [...slice.pathspecs, ...(slice.supportPathspecs ?? [])].map(shellQuote).join(" ");
   return [
     `git switch -c ${shellQuote(slice.branchName)} ${shellQuote(baseRef)}`,
     `git diff --binary ${shellQuote(`${baseRef}...${headRef}`)} -- ${pathspecs} | git apply --index`,
@@ -401,7 +500,7 @@ function isolationCommandsForSlice(
   slice: Omit<PrSplitSlice, "commands" | "isolationCommands">,
   options: Pick<BuildPlanOptions, "baseRef" | "headRef" | "repoRoot" | "sliceCheckCommand">,
 ): string[] {
-  const pathspecs = slice.pathspecs.map(shellQuote).join(" ");
+  const pathspecs = [...slice.pathspecs, ...(slice.supportPathspecs ?? [])].map(shellQuote).join(" ");
   const tempPrefix = `melee-pr-${sanitizeId(slice.id) || "slice"}-XXXXXX`;
   return [
     `SLICE_DIR="$(mktemp -d "\${TMPDIR:-/tmp}/${tempPrefix}")"`,
@@ -412,7 +511,7 @@ function isolationCommandsForSlice(
   ];
 }
 
-function classifyIndependence(group: ChangeGroup, files: PrChangedFile[], maxFilesPerPr: number): PrSliceIndependence {
+function classifyIndependence(group: ChangeGroup, files: PrChangedFile[], supportFiles: PrChangedFile[], maxFilesPerPr: number): PrSliceIndependence {
   const reasons: string[] = [];
   const requiredChecks = [
     "apply this slice to a fresh branch or worktree based on the selected base ref",
@@ -431,45 +530,52 @@ function classifyIndependence(group: ChangeGroup, files: PrChangedFile[], maxFil
     files.every((file) => isScopedToMeleeSubsystem(file.path, subsystemId) && isReviewableSourceLikePath(file.path));
   const hasCrossCuttingHeader = files.some((file) => extensionForPath(file.path) === "h" && !isScopedToMeleeSubsystem(file.path, subsystemId));
 
-  if (files.length > maxFilesPerPr) {
-    reasons.push(`slice has ${files.length} files, above --max-files-per-pr=${maxFilesPerPr}`);
-    return { kind: "needs-merge", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] };
+  const result = (independence: PrSliceIndependence): PrSliceIndependence => addSupportIndependenceDetails(independence, supportFiles);
+
+  const totalFileCount = files.length + supportFiles.length;
+  if (totalFileCount > maxFilesPerPr) {
+    reasons.push(
+      supportFiles.length > 0
+        ? `slice has ${totalFileCount} files including declared support, above --max-files-per-pr=${maxFilesPerPr}`
+        : `slice has ${totalFileCount} files, above --max-files-per-pr=${maxFilesPerPr}`,
+    );
+    return result({ kind: "needs-merge", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] });
   }
 
   if (hasGeneratedOrBuildPath) {
     reasons.push("contains build, generated, config, symbol, split, or CI-adjacent files");
-    return { kind: "shared-prep", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] };
+    return result({ kind: "shared-prep", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] });
   }
 
   if (group.category === "shared") {
     reasons.push("changes are outside a Melee subsystem directory");
-    return { kind: "shared-prep", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] };
+    return result({ kind: "shared-prep", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] });
   }
 
   if (group.category === "support") {
     reasons.push("support-library changes may affect multiple Melee subsystem slices");
-    return { kind: "shared-prep", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] };
+    return result({ kind: "shared-prep", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] });
   }
 
   if (hasCrossCuttingHeader) {
     reasons.push("contains headers or declarations outside this slice's Melee subsystem");
-    return { kind: "stacked", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] };
+    return result({ kind: "stacked", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] });
   }
 
   if (hasDeletionOrRename) {
     reasons.push("contains deletes or renames that may affect references outside the directory slice");
-    return { kind: "stacked", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] };
+    return result({ kind: "stacked", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] });
   }
 
   if (allScopedSourceLike) {
     reasons.push(`all files are source/header-like paths scoped to ${group.scope}`);
     if (hasWorktree) reasons.push("worktree changes still need to be committed or stashed before final isolation validation");
     if (hasUntracked) reasons.push("untracked files must be intentionally added before final isolation validation");
-    return { kind: "independent", verified: false, confidence: "medium", reasons, requiredChecks, possibleDependencies: [] };
+    return result({ kind: "independent", verified: false, confidence: "medium", reasons, requiredChecks, possibleDependencies: [] });
   }
 
   reasons.push("slice is subsystem-scoped but includes files outside the normal source/header isolation pattern");
-  return { kind: "stacked", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] };
+  return result({ kind: "stacked", verified: false, confidence: "low", reasons, requiredChecks, possibleDependencies: [] });
 }
 
 function lanePathMatcher(paths: string[]): (changedPath: string) => boolean {
@@ -577,14 +683,17 @@ function splitGroupByLane(group: ChangeGroup, lanes: PrLaneSets, shipFilter: PrS
 
 export function buildPrSplitPlanFromChanges(changes: RawChangedFile[], options: BuildPlanOptions): PrSplitPlan {
   const files = mergeChanges(changes);
+  const supportAssignments = options.supportAssignments ?? [];
+  const supportPaths = new Set(supportAssignments.map((assignment) => normalizePath(assignment.path)));
   const groups = new Map<string, ChangeGroup>();
   for (const file of files) {
+    if (supportPaths.has(file.path)) continue;
     const groupKey = groupForPath(file.path, options.groupMode);
     const existing = groups.get(groupKey.id);
     if (existing) {
       existing.files.push(file);
     } else {
-      groups.set(groupKey.id, { ...groupKey, files: [file] });
+      groups.set(groupKey.id, { ...groupKey, memberIds: [groupKey.id], files: [file] });
     }
   }
 
@@ -593,41 +702,56 @@ export function buildPrSplitPlanFromChanges(changes: RawChangedFile[], options: 
   const shipFilter = options.shipFilter ?? null;
   const splitGroups = lanes ? Array.from(groups.values()).flatMap((group) => splitGroupByLane(group, lanes, shipFilter)) : Array.from(groups.values());
   const laneGroups = lanes ? mergeSmallMatchGroups(splitGroups, options.minFilesPerPr ?? 1, options.maxFilesPerPr) : splitGroups;
-  const slicesWithoutCommands: Array<Omit<PrSplitSlice, "commands" | "isolationCommands">> = laneGroups
+  const finalGroups = laneGroups
     .sort(sortGroups)
-    .flatMap((group) => maybeSplitLargeGroup(group, options.maxFilesPerPr))
-    .map((group) => {
-      const groupWarnings: string[] = [...(group.laneWarnings ?? [])];
-      if (group.files.length > options.maxFilesPerPr) {
-        groupWarnings.push(`This slice has ${group.files.length} files, above --max-files-per-pr=${options.maxFilesPerPr}; split it manually if review still feels heavy.`);
-      }
-      if (group.files.some((file) => file.sources.includes("worktree"))) {
-        groupWarnings.push("This slice includes worktree changes; commit or stash them before using the patch workflow from HEAD.");
-      }
-      if (group.files.some((file) => file.statuses.some((status) => status.startsWith("??")))) {
-        groupWarnings.push("This slice includes untracked files; add them intentionally before opening a PR.");
-      }
-      const directories = Array.from(new Set(group.files.map((file) => directoryForPath(file.path)))).sort();
-      const pathspecs = group.files.map((file) => file.path).sort();
-      const branchPart = sanitizeId(group.id) || "shared";
-      const independence = classifyIndependence(group, group.files, options.maxFilesPerPr);
-      return {
-        id: group.id,
-        displayName: group.displayName,
-        title: titleFor(options.titlePrefix, group.displayName),
-        branchName: `${options.branchPrefix.replace(/\/+$/g, "")}/${branchPart}`,
-        lane: group.lane ?? null,
-        scope: group.scope,
-        directories,
-        fileCount: group.files.length,
-        files: group.files,
-        pathspecs,
-        statusCounts: statusCounts(group.files),
-        sources: sliceSources(group.files),
-        independence,
-        warnings: groupWarnings,
-      };
-    });
+    .flatMap((group) => maybeSplitLargeGroup(group, options.maxFilesPerPr));
+  const resolvedSupportBySlice = resolveSupportFilesForTargets(finalGroups, files, supportAssignments);
+  const slicesWithoutCommands: Array<Omit<PrSplitSlice, "commands" | "isolationCommands">> = finalGroups.map((group) => {
+    const resolvedSupport = resolvedSupportBySlice.get(group.id) ?? [];
+    const supportFiles = resolvedSupport.map((entry) => entry.file);
+    const allSliceFiles = [...group.files, ...supportFiles];
+    const groupWarnings: string[] = [...(group.laneWarnings ?? [])];
+    if (allSliceFiles.length > options.maxFilesPerPr) {
+      groupWarnings.push(
+        supportFiles.length > 0
+          ? `This slice has ${allSliceFiles.length} files including declared support, above --max-files-per-pr=${options.maxFilesPerPr}; split it manually if review still feels heavy.`
+          : `This slice has ${allSliceFiles.length} files, above --max-files-per-pr=${options.maxFilesPerPr}; split it manually if review still feels heavy.`,
+      );
+    }
+    if (allSliceFiles.some((file) => file.sources.includes("worktree"))) {
+      groupWarnings.push("This slice includes worktree changes; commit or stash them before using the patch workflow from HEAD.");
+    }
+    if (allSliceFiles.some((file) => file.statuses.some((status) => status.startsWith("??")))) {
+      groupWarnings.push("This slice includes untracked files; add them intentionally before opening a PR.");
+    }
+    groupWarnings.push(...resolvedSupport.map(supportWarning));
+    const directories = Array.from(new Set(allSliceFiles.map((file) => directoryForPath(file.path)))).sort();
+    const pathspecs = group.files.map((file) => file.path).sort();
+    const branchPart = sanitizeId(group.id) || "shared";
+    const independence = classifyIndependence(group, group.files, supportFiles, options.maxFilesPerPr);
+    return {
+      id: group.id,
+      displayName: group.displayName,
+      title: titleFor(options.titlePrefix, group.displayName),
+      branchName: `${options.branchPrefix.replace(/\/+$/g, "")}/${branchPart}`,
+      lane: group.lane ?? null,
+      scope: group.scope,
+      directories,
+      fileCount: allSliceFiles.length,
+      files: group.files,
+      pathspecs,
+      ...(supportFiles.length > 0
+        ? {
+            supportFiles,
+            supportPathspecs: supportFiles.map((file) => file.path),
+          }
+        : {}),
+      statusCounts: statusCounts(allSliceFiles),
+      sources: sliceSources(allSliceFiles),
+      independence,
+      warnings: groupWarnings,
+    };
+  });
 
   const slices = slicesWithoutCommands.map((slice) => ({
     ...slice,
@@ -673,6 +797,14 @@ function planFileMap(plan: PrSplitPlan): Map<string, PrChangedFile> {
   const files = new Map<string, PrChangedFile>();
   for (const slice of plan.slices) {
     for (const file of slice.files) files.set(normalizePath(file.path), file);
+  }
+  return files;
+}
+
+function planSupportFileMap(plan: PrSplitPlan): Map<string, PrChangedFile> {
+  const files = new Map<string, PrChangedFile>();
+  for (const slice of plan.slices) {
+    for (const file of slice.supportFiles ?? []) files.set(normalizePath(file.path), file);
   }
   return files;
 }
@@ -828,16 +960,24 @@ function applySplitterProposalToPlan(
   seedPlan: PrSplitPlan,
   proposal: AgentPrSplitterPlan,
   artifacts: NonNullable<PrSplitPlan["splitterArtifacts"]>,
-  options: Pick<BuildPlanOptions, "branchPrefix" | "sliceCheckCommand">,
+  options: Pick<BuildPlanOptions, "branchPrefix" | "sliceCheckCommand" | "supportAssignments">,
 ): PrSplitPlan {
   const fileMap = planFileMap(seedPlan);
+  const supportFileMap = planSupportFileMap(seedPlan);
+  const supportAssignments =
+    options.supportAssignments ??
+    seedPlan.slices.flatMap((slice) => (slice.supportFiles ?? []).map((file) => ({ path: file.path, sliceId: slice.id })));
+  const resolvedSupportBySlice = resolveSupportFilesForTargets(proposal.slices, [...supportFileMap.values()], supportAssignments);
   const slicesWithoutCommands: Array<Omit<PrSplitSlice, "commands" | "isolationCommands">> = proposal.slices.map((slice) => {
     const files = slice.files
       .map((file) => fileMap.get(normalizePath(file)))
       .filter((file): file is PrChangedFile => Boolean(file))
       .sort((left, right) => left.path.localeCompare(right.path));
     const pathspecs = files.map((file) => file.path);
-    const independence: PrSliceIndependence = {
+    const resolvedSupport = resolvedSupportBySlice.get(slice.id) ?? [];
+    const supportFiles = resolvedSupport.map((entry) => entry.file);
+    const allSliceFiles = [...files, ...supportFiles];
+    let independence = addSupportIndependenceDetails({
       kind: slice.independence_kind,
       verified: false,
       confidence: proposal.confidence >= 0.75 ? "medium" : "low",
@@ -850,7 +990,18 @@ function applySplitterProposalToPlan(
         ...slice.validation_notes,
       ]),
       possibleDependencies: slice.depends_on,
-    };
+    }, supportFiles);
+    if (allSliceFiles.length > seedPlan.maxFilesPerPr) {
+      independence = {
+        ...independence,
+        kind: "needs-merge",
+        confidence: "low",
+        reasons: uniqueStrings([
+          `slice has ${allSliceFiles.length} files including declared support, above --max-files-per-pr=${seedPlan.maxFilesPerPr}`,
+          ...independence.reasons,
+        ]),
+      };
+    }
     return {
       id: slice.id,
       displayName: slice.display_name,
@@ -858,14 +1009,20 @@ function applySplitterProposalToPlan(
       branchName: `${options.branchPrefix.replace(/\/+$/g, "")}/${sanitizeId(slice.id) || "slice"}`,
       lane: slice.lane,
       scope: slice.scope,
-      directories: Array.from(new Set(files.map((file) => directoryForPath(file.path)))).sort(),
-      fileCount: files.length,
+      directories: Array.from(new Set(allSliceFiles.map((file) => directoryForPath(file.path)))).sort(),
+      fileCount: allSliceFiles.length,
       files,
       pathspecs,
-      statusCounts: statusCounts(files),
-      sources: sliceSources(files),
+      ...(supportFiles.length > 0
+        ? {
+            supportFiles,
+            supportPathspecs: supportFiles.map((file) => file.path),
+          }
+        : {}),
+      statusCounts: statusCounts(allSliceFiles),
+      sources: sliceSources(allSliceFiles),
       independence,
-      warnings: seedWarningsForFiles(seedPlan, pathspecs),
+      warnings: [...seedWarningsForFiles(seedPlan, pathspecs), ...resolvedSupport.map(supportWarning)],
     };
   });
   const slices = slicesWithoutCommands.map((slice) => ({
@@ -917,8 +1074,20 @@ async function applyPrSplitterStrategy(params: {
   plan: PrSplitPlan;
   branchPrefix: string;
   sliceCheckCommand: string;
+  supportAssignments?: PrSupportAssignment[];
   runner?: PrSplitterAgentRunner;
 }): Promise<PrSplitPlan> {
+  if ((params.supportAssignments?.length ?? 0) > 0) {
+    return {
+      ...params.plan,
+      planningStrategy: "agent",
+      splitterApplied: false,
+      warnings: uniqueStrings([
+        ...params.plan.warnings,
+        "Agent regrouping skipped because explicit support-file ownership is pinned to deterministic slice provenance.",
+      ]),
+    };
+  }
   const outputDirArg = stringArg(params.args, "--agent-output-dir", "");
   const outputDir = outputDirArg ? resolve(params.globals.repoRoot, outputDirArg) : resolve(params.globals.stateDir, "pr_splitter", artifactTimestamp());
   await mkdir(outputDir, { recursive: true });
@@ -1003,6 +1172,7 @@ async function applyPrSplitterStrategy(params: {
   return applySplitterProposalToPlan(params.plan, validated.plan, artifacts, {
     branchPrefix: params.branchPrefix,
     sliceCheckCommand: params.sliceCheckCommand,
+    supportAssignments: params.supportAssignments,
   });
 }
 
@@ -1173,6 +1343,10 @@ export function renderPrSplitPlan(plan: PrSplitPlan): string {
     }
     lines.push("Files:");
     for (const file of slice.files) lines.push(renderFileLine(file));
+    if ((slice.supportFiles?.length ?? 0) > 0) {
+      lines.push("Support files:");
+      for (const file of slice.supportFiles ?? []) lines.push(renderFileLine(file));
+    }
     lines.push("Commands:");
     for (const command of slice.commands) lines.push(`  ${command}`);
     lines.push("Isolation check:");
@@ -1195,6 +1369,29 @@ async function laneSetsFromCheckpoint(path: string): Promise<PrLaneSets> {
     else if (item.disposition === "improvement_candidate") improvementPaths.push(sourcePath);
   }
   return { matchPaths, improvementPaths };
+}
+
+async function supportAssignmentsFromMap(path: string): Promise<PrSupportAssignment[]> {
+  const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
+  const payload = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  if (!payload || !Array.isArray(payload.assignments)) {
+    throw new Error(`Support map ${path} must be a JSON object with an assignments array.`);
+  }
+  return payload.assignments.map((value, index) => {
+    const assignment = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+    const assignmentPath = typeof assignment?.path === "string" ? normalizePath(assignment.path) : "";
+    const sliceId =
+      typeof assignment?.slice_id === "string"
+        ? assignment.slice_id.trim()
+        : typeof assignment?.sliceId === "string"
+          ? assignment.sliceId.trim()
+          : "";
+    if (!assignmentPath || !sliceId) {
+      throw new Error(`Support map ${path} assignment ${index + 1} requires non-empty path and slice_id (or sliceId) strings.`);
+    }
+    const reason = typeof assignment?.reason === "string" ? assignment.reason.trim() : "";
+    return { path: assignmentPath, sliceId, ...(reason ? { reason } : {}) };
+  });
 }
 
 export async function prSplitPlan(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
@@ -1224,6 +1421,10 @@ export async function prSplitPlan(globals: GlobalArgs, args: Map<string, string 
   const includeUntracked = !booleanArg(args, "--no-untracked");
   const checkpointPath = stringArg(args, "--checkpoint", "");
   let lanes = checkpointPath ? await laneSetsFromCheckpoint(resolve(checkpointPath)) : null;
+  const supportMapArg = stringArg(args, "--support-map", "");
+  const supportAssignments = supportMapArg
+    ? await supportAssignmentsFromMap(resolve(globals.repoRoot, supportMapArg))
+    : undefined;
 
   // The regression report is the build-level truth for what the branch ships:
   // every new exact match belongs in the match lane even when this run's
@@ -1290,9 +1491,10 @@ export async function prSplitPlan(globals: GlobalArgs, args: Map<string, string 
     lanes,
     shipFilter,
     warnings: collected.warnings,
+    supportAssignments,
   });
   if (planningStrategy === "agent" && plan.slices.length > 0) {
-    plan = await applyPrSplitterStrategy({ globals, args, plan, branchPrefix, sliceCheckCommand });
+    plan = await applyPrSplitterStrategy({ globals, args, plan, branchPrefix, sliceCheckCommand, supportAssignments });
   }
   // The output file is always the human-readable plan; --json only changes
   // what stdout carries so callers can parse slice/lane data.

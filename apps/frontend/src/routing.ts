@@ -19,7 +19,7 @@
 // Legacy ?page=<old> and ?view=workspace&section=<old> values map onto the new
 // structure so existing bookmarks and deep links keep working.
 
-export type WorkspaceSection = "overview" | "standards" | "sessions" | "agents" | "trace" | "settings" | "style";
+export type WorkspaceSection = "overview" | "standards" | "sessions" | "agents" | "trace" | "knowledge" | "settings" | "style";
 export type StandardsView = "edit" | "rendered";
 export type SessionStage = "prepare" | "run" | "pr" | "done";
 export type SessionSubPage = SessionStage | "summary" | "review" | "artifacts";
@@ -36,6 +36,7 @@ export const WORKSPACE_SECTIONS: ReadonlyArray<{ id: WorkspaceSection; label: st
   { id: "sessions", label: "Sessions", description: "Active session, run/PR phases, and history." },
   { id: "agents", label: "Agents", description: "Prompt previews, agent catalog migration, and recent agent execution identity." },
   { id: "trace", label: "Trace", description: "Kernel container tree, trace events, agent runs, and session lineage." },
+  { id: "knowledge", label: "Knowledge", description: "Browse the learning ledger: search, filter by scope/origin/status, and inspect evidence." },
   { id: "settings", label: "Settings", description: "Project paths, overrides, and validation defaults." },
   { id: "style", label: "Style", description: "Global grain texture controls." },
 ];
