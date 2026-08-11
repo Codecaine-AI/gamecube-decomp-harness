@@ -1,0 +1,1478 @@
+---
+url: "https://www.daytona.io/docs/en/python-sdk/sync/sandbox/"
+title: "Sandbox | Daytona"
+---
+
+[Skip to content](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#_top)
+
+Copy for LLM[View as Markdown](https://www.daytona.io/docs/en/python-sdk/sync/sandbox.md)Open
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandbox) Sandbox
+
+[Section titled “Sandbox”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandbox)
+
+```
+@with_events
+
+class Sandbox(SandboxDto)
+```
+
+Represents a Daytona Sandbox.
+
+**Attributes**:
+
+- `fs` _FileSystem_ \- File system operations interface.
+- `git` _Git_ \- Git operations interface.
+- `process` _Process_ \- Process execution interface.
+- `computer_use` _ComputerUse_ \- Computer use operations interface for desktop automation.
+- `code_interpreter` _CodeInterpreter_ \- Stateful interpreter interface for executing code.
+Currently supports only Python. For other languages, use the `process.code_run` interface.
+- `id` _str_ \- Unique identifier for the Sandbox.
+- `name` _str_ \- Name of the Sandbox.
+- `organization_id` _str_ \- Organization ID of the Sandbox.
+- `snapshot` _str \| None_ \- Daytona snapshot used to create the Sandbox.
+- `user` _str_ \- OS user running in the Sandbox.
+- `env` _dict\[str, str\] \| None_ \- Environment variables set in the Sandbox (not returned by list
+results; call `refresh_data()` on each item to populate).
+- `labels` _dict\[str, str\]_ \- Custom labels attached to the Sandbox.
+- `public` _bool_ \- Whether the Sandbox is publicly accessible.
+- `target` _str_ \- Target location of the runner where the Sandbox runs.
+- `cpu` _int_ \- Number of CPUs allocated to the Sandbox.
+- `gpu` _int_ \- Number of GPUs allocated to the Sandbox.
+- `memory` _int_ \- Amount of memory allocated to the Sandbox in GiB.
+- `disk` _int_ \- Amount of disk space allocated to the Sandbox in GiB.
+- `state` _SandboxState \| None_ \- Current state of the Sandbox (e.g., “started”, “stopped”).
+- `error_reason` _str \| None_ \- Error message if Sandbox is in error state.
+- `recoverable` _bool \| None_ \- Whether the Sandbox error is recoverable.
+- `backup_state` _str \| None_ \- Current state of Sandbox backup.
+- `backup_created_at` _str \| None_ \- When the backup was created (not returned by list results;
+call `refresh_data()` on each item to populate).
+- `auto_stop_interval` _int \| None_ \- Auto-stop interval in minutes.
+- `auto_pause_interval` _int \| None_ \- Auto-pause interval in minutes (0 means disabled).
+Only supported for sandbox classes that support pausing.
+At most one of auto\_stop\_interval and auto\_pause\_interval may be non-zero.
+- `auto_archive_interval` _int \| None_ \- Auto-archive interval in minutes.
+- `auto_delete_interval` _int \| None_ \- Auto-delete interval in minutes.
+- `volumes` _list\[SandboxVolume\] \| None_ \- Volumes attached to the Sandbox (not returned by list
+results; call `refresh_data()` on each item to populate).
+- `build_info` _BuildInfo \| None_ \- Build information for the Sandbox if it was created from
+dynamic build (not returned by list results; call `refresh_data()` on each item to populate).
+- `created_at` _str \| None_ \- When the Sandbox was created.
+- `updated_at` _str \| None_ \- When the Sandbox was last updated.
+- `last_activity_at` _str \| None_ \- When the Sandbox last had activity.
+- `auto_destroy_at` _str \| None_ \- When the Sandbox will be automatically destroyed (only set when a TTL
+is configured).
+- `network_block_all` _bool \| None_ \- Whether to block all network access for the Sandbox
+(not returned by list results; call `refresh_data()` on each item to populate).
+- `network_allow_list` _str \| None_ \- Comma-separated list of allowed CIDR network addresses for
+the Sandbox (not returned by list results; call `refresh_data()` on each item to populate).
+- `domain_allow_list` _str \| None_ \- Comma-separated list of allowed domains for
+the Sandbox (not returned by list results; call `refresh_data()` on each item to populate).
+- `toolbox_proxy_url` _str_ \- The toolbox proxy URL for the Sandbox.
+
+##### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#env-dictstr-str--none) env: `dict[str, str] | None`
+
+[Section titled “env: dict\[str, str\] \| None”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#env-dictstr-str--none)
+
+```
+env = None
+```
+
+pyright: ignore\[reportRedeclaration\]
+
+##### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#network_block_all-bool--none) network\_block\_all: `bool | None`
+
+[Section titled “network\_block\_all: bool \| None”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#network_block_all-bool--none)
+
+```
+network_block_all = None
+```
+
+pyright: ignore\[reportRedeclaration\]
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandbox__init__) Sandbox.\_\_init\_\_
+
+[Section titled “Sandbox.\_\_init\_\_”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandbox__init__)
+
+```
+def __init__(sandbox_dto: SandboxDto | SandboxListItem,
+
+             toolbox_api: ApiClient,
+
+             sandbox_api: SandboxApi,
+
+             language: str,
+
+             subscription_manager: SyncEventSubscriptionManager,
+
+             http_client: httpx.Client,
+
+             analytics_api_url_provider: Callable[[], str | None]
+
+             | None = None)
+```
+
+Initialize a new Sandbox instance.
+
+**Arguments**:
+
+- `sandbox_dto` _SandboxDto \| SandboxListItem_ \- The sandbox data from the API.
+- `toolbox_api` _ApiClient_ \- API client for toolbox operations.
+- `sandbox_api` _SandboxApi_ \- API client for Sandbox operations.
+- `subscription_manager` \- SyncEventSubscriptionManager for real-time updates.
+- `http_client` _httpx.Client_ \- Shared pooled client for file transfers.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxrefresh_data) Sandbox.refresh\_data
+
+[Section titled “Sandbox.refresh\_data”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxrefresh_data)
+
+```
+@intercept_errors(message_prefix="Failed to refresh sandbox data: ")
+
+@with_instrumentation()
+
+def refresh_data(request_timeout: float | None = None) -> None
+```
+
+Refreshes the Sandbox data from the API.
+
+**Arguments**:
+
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Example**:
+
+```
+sandbox.refresh_data()
+
+print(f"Sandbox {sandbox.id}:")
+
+print(f"State: {sandbox.state}")
+
+print(f"Resources: {sandbox.cpu} CPU, {sandbox.memory} GiB RAM")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxget_user_home_dir) Sandbox.get\_user\_home\_dir
+
+[Section titled “Sandbox.get\_user\_home\_dir”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxget_user_home_dir)
+
+```
+@intercept_errors(message_prefix="Failed to get user home directory: ")
+
+@with_instrumentation()
+
+def get_user_home_dir() -> str
+```
+
+Gets the user’s home directory path inside the Sandbox.
+
+**Returns**:
+
+- `str` \- The absolute path to the user’s home directory inside the Sandbox.
+
+**Example**:
+
+```
+user_home_dir = sandbox.get_user_home_dir()
+
+print(f"Sandbox user home: {user_home_dir}")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxget_work_dir) Sandbox.get\_work\_dir
+
+[Section titled “Sandbox.get\_work\_dir”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxget_work_dir)
+
+```
+@intercept_errors(message_prefix="Failed to get working directory path: ")
+
+@with_instrumentation()
+
+def get_work_dir() -> str
+```
+
+Gets the working directory path inside the Sandbox.
+
+**Returns**:
+
+- `str` \- The absolute path to the Sandbox working directory. Uses the WORKDIR specified in
+the Dockerfile if present, or falling back to the user’s home directory if not.
+
+**Example**:
+
+```
+work_dir = sandbox.get_work_dir()
+
+print(f"Sandbox working directory: {work_dir}")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxget_metrics_latest) Sandbox.get\_metrics\_latest
+
+[Section titled “Sandbox.get\_metrics\_latest”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxget_metrics_latest)
+
+```
+@intercept_errors(message_prefix="Failed to get sandbox metrics: ")
+
+@with_instrumentation()
+
+def get_metrics_latest() -> SandboxMetrics
+```
+
+Gets the most recent resource usage sample directly from the Sandbox daemon.
+
+Unlike :meth:`get_metrics`, which returns aggregated historical samples, this returns
+the single current reading without going through the telemetry backend.
+
+**Returns**:
+
+- `SandboxMetrics` \- The current CPU, memory, and disk usage sample for the Sandbox.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxget_metrics) Sandbox.get\_metrics
+
+[Section titled “Sandbox.get\_metrics”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxget_metrics)
+
+```
+@intercept_errors(message_prefix="Failed to get sandbox metrics: ")
+
+@with_instrumentation()
+
+def get_metrics(start: datetime | None = None,
+
+                end: datetime | None = None) -> list[SandboxMetrics]
+```
+
+Gets historical time-series resource usage metrics for the Sandbox.
+
+When the deployment runs a dedicated Analytics API, metrics are fetched from it
+directly; otherwise they are fetched through the control-plane telemetry proxy.
+
+**Arguments**:
+
+- `start` _datetime \| None_ \- Start of the time range. Defaults to the Sandbox
+creation time.
+- `end` _datetime \| None_ \- End of the time range. Defaults to the current time.
+
+**Returns**:
+
+- `list[SandboxMetrics]` \- Time-ordered usage samples over the requested range.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxcreate_lsp_server) Sandbox.create\_lsp\_server
+
+[Section titled “Sandbox.create\_lsp\_server”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxcreate_lsp_server)
+
+```
+@with_instrumentation()
+
+def create_lsp_server(language_id: LspLanguageId | LspLanguageIdLiteral,
+
+                      path_to_project: str) -> LspServer
+```
+
+Creates a new Language Server Protocol (LSP) server instance.
+
+The LSP server provides language-specific features like code completion,
+diagnostics, and more.
+
+**Arguments**:
+
+- `language_id` _LspLanguageId \| LspLanguageIdLiteral_ \- The language server type (e.g., LspLanguageId.PYTHON).
+- `path_to_project` _str_ \- Path to the project root directory. Relative paths are resolved
+based on the sandbox working directory.
+
+**Returns**:
+
+- `LspServer` \- A new LSP server instance configured for the specified language.
+
+**Example**:
+
+```
+lsp = sandbox.create_lsp_server("python", "workspace/project")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxset_labels) Sandbox.set\_labels
+
+[Section titled “Sandbox.set\_labels”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxset_labels)
+
+```
+@intercept_errors(message_prefix="Failed to set labels: ")
+
+@with_instrumentation()
+
+def set_labels(labels: dict[str, str],
+
+               request_timeout: float | None = None) -> dict[str, str]
+```
+
+Sets labels for the Sandbox.
+
+Labels are key-value pairs that can be used to organize and identify Sandboxes.
+
+**Arguments**:
+
+- `labels` _dict\[str, str\]_ \- Dictionary of key-value pairs representing Sandbox labels.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Returns**:
+
+dict\[str, str\]: Dictionary containing the updated Sandbox labels.
+
+**Example**:
+
+```
+new_labels = sandbox.set_labels({
+
+    "project": "my-project",
+
+    "environment": "development",
+
+    "team": "backend"
+
+})
+
+print(f"Updated labels: {new_labels}")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxdownload_url) Sandbox.download\_url
+
+[Section titled “Sandbox.download\_url”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxdownload_url)
+
+```
+@intercept_errors(message_prefix="Failed to create download URL: ")
+
+@with_instrumentation()
+
+def download_url(path: str, ttl_seconds: int | None = None) -> str
+```
+
+Creates a pre-signed URL for downloading a file from the Sandbox.
+
+The URL works with any HTTP client without auth headers and stays valid across
+sandbox restarts (downloads succeed only while the sandbox is running). The signing
+key is cached locally for up to 15 seconds; if the key was rotated from another
+client, URLs may be rejected until the cache refreshes.
+
+**Arguments**:
+
+- `path` _str_ \- Path to the file in the Sandbox.
+- `ttl_seconds` _int \| None_ \- How long the URL stays valid, in seconds.
+Defaults to 3600. Zero or negative means the URL never expires.
+
+**Returns**:
+
+- `str` \- Pre-signed download URL.
+
+**Example**:
+
+```
+url = sandbox.download_url("/home/user/report.pdf")
+```
+
+```
+curl "$url" -o report.pdf
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxupload_url) Sandbox.upload\_url
+
+[Section titled “Sandbox.upload\_url”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxupload_url)
+
+```
+@intercept_errors(message_prefix="Failed to create upload URL: ")
+
+@with_instrumentation()
+
+def upload_url(path: str, ttl_seconds: int | None = None) -> str
+```
+
+Creates a pre-signed URL for uploading a file to the Sandbox.
+
+Send a POST request with the file as multipart/form-data. The URL works with any
+HTTP client without auth headers. The signing key is cached locally for up to
+15 seconds; if the key was rotated from another client, URLs may be rejected
+until the cache refreshes.
+
+**Arguments**:
+
+- `path` _str_ \- Destination path for the uploaded file in the Sandbox.
+- `ttl_seconds` _int \| None_ \- How long the URL stays valid, in seconds.
+Defaults to 3600. Zero or negative means the URL never expires.
+
+**Returns**:
+
+- `str` \- Pre-signed upload URL.
+
+**Example**:
+
+```
+url = sandbox.upload_url("/home/user/data.bin")
+```
+
+```
+curl -X POST -F "file=@local.bin" "$url"
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxrotate_signing_key) Sandbox.rotate\_signing\_key
+
+[Section titled “Sandbox.rotate\_signing\_key”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxrotate_signing_key)
+
+```
+@intercept_errors(message_prefix="Failed to rotate signing key: ")
+
+@with_instrumentation()
+
+def rotate_signing_key() -> None
+```
+
+Rotates the sandbox signing key, invalidating all previously signed URLs.
+
+**Example**:
+
+```
+sandbox.rotate_signing_key()
+
+# all URLs created before this call now return 401
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxstart) Sandbox.start
+
+[Section titled “Sandbox.start”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxstart)
+
+```
+@intercept_errors(message_prefix="Failed to start sandbox: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def start(timeout: float | None = 60)
+```
+
+Starts the Sandbox and waits for it to be ready.
+
+**Arguments**:
+
+- `timeout` _float \| None_ \- Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative. If sandbox fails to start or times out.
+
+**Example**:
+
+```
+sandbox = daytona.get("my-sandbox-id")
+
+sandbox.start(timeout=40)  # Wait up to 40 seconds
+
+print("Sandbox started successfully")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxrecover) Sandbox.recover
+
+[Section titled “Sandbox.recover”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxrecover)
+
+```
+@intercept_errors(message_prefix="Failed to recover sandbox: ")
+
+@with_timeout()
+
+def recover(timeout: float | None = 60)
+```
+
+Recovers the Sandbox from a recoverable error and waits for it to be ready.
+
+**Arguments**:
+
+- `timeout` _float \| None_ \- Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative. If sandbox fails to recover or times out.
+
+**Example**:
+
+```
+sandbox = daytona.get("my-sandbox-id")
+
+sandbox.recover(timeout=40)  # Wait up to 40 seconds
+
+print("Sandbox recovered successfully")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxstop) Sandbox.stop
+
+[Section titled “Sandbox.stop”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxstop)
+
+```
+@intercept_errors(message_prefix="Failed to stop sandbox: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def stop(timeout: float | None = 60, force: bool = False)
+```
+
+Stops the Sandbox and waits for it to be fully stopped.
+
+**Arguments**:
+
+- `timeout` _float \| None_ \- Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+- `force` _bool_ \- If True, uses SIGKILL instead of SIGTERM to stop the sandbox. Default is False.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative; If sandbox fails to stop or times out
+
+**Example**:
+
+```
+sandbox = daytona.get("my-sandbox-id")
+
+sandbox.stop()
+
+print("Sandbox stopped successfully")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxdelete) Sandbox.delete
+
+[Section titled “Sandbox.delete”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxdelete)
+
+```
+@intercept_errors(message_prefix="Failed to remove sandbox: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def delete(timeout: float | None = 60, wait: bool = False) -> None
+```
+
+Deletes the Sandbox.
+
+By default returns as soon as the deletion request is accepted (fire-and-forget).
+Pass `wait=True` to block until the Sandbox reaches the ‘destroyed’ state.
+
+**Arguments**:
+
+- `timeout` _float \| None_ \- Timeout (in seconds) for the request and, when `wait`
+is True, for reaching ‘destroyed’. 0 means no timeout. Default is 60 seconds.
+- `wait` _bool_ \- If True, wait until the Sandbox is destroyed. Defaults to False.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxwait_for_sandbox_start) Sandbox.wait\_for\_sandbox\_start
+
+[Section titled “Sandbox.wait\_for\_sandbox\_start”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxwait_for_sandbox_start)
+
+```
+@intercept_errors(
+
+    message_prefix="Failure during waiting for sandbox to start: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def wait_for_sandbox_start(timeout: float | None = 60) -> None
+```
+
+Waits for the Sandbox to reach the ‘started’ state.
+
+**Arguments**:
+
+- `timeout` _float \| None_ \- Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative; If Sandbox fails to start or times out;
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxwait_for_sandbox_stop) Sandbox.wait\_for\_sandbox\_stop
+
+[Section titled “Sandbox.wait\_for\_sandbox\_stop”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxwait_for_sandbox_stop)
+
+```
+@intercept_errors(
+
+    message_prefix="Failure during waiting for sandbox to stop: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def wait_for_sandbox_stop(timeout: float | None = 60) -> None
+```
+
+Waits for the Sandbox to reach the ‘stopped’ state.
+Treats destroyed as stopped to cover ephemeral sandboxes that are automatically deleted after stopping.
+
+**Arguments**:
+
+- `timeout` _float \| None_ \- Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative. If Sandbox fails to stop or times out.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxset_autostop_interval) Sandbox.set\_autostop\_interval
+
+[Section titled “Sandbox.set\_autostop\_interval”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxset_autostop_interval)
+
+```
+@intercept_errors(message_prefix="Failed to set auto-stop interval: ")
+
+@with_instrumentation()
+
+def set_autostop_interval(interval: int,
+
+                          request_timeout: float | None = None) -> None
+```
+
+Sets the auto-stop interval for the Sandbox.
+
+The Sandbox will automatically stop after being idle (no new events) for the specified interval.
+Events include any state changes or interactions with the Sandbox through the SDK.
+Interactions using Sandbox Previews are not included.
+
+**Arguments**:
+
+- `interval` _int_ \- Number of minutes of inactivity before auto-stopping.
+Set to 0 to disable auto-stop. Defaults to 15.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Raises**:
+
+- `DaytonaValidationError` \- If interval is negative
+
+**Example**:
+
+```
+# Auto-stop after 1 hour
+
+sandbox.set_autostop_interval(60)
+
+# Or disable auto-stop
+
+sandbox.set_autostop_interval(0)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxset_auto_pause_interval) Sandbox.set\_auto\_pause\_interval
+
+[Section titled “Sandbox.set\_auto\_pause\_interval”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxset_auto_pause_interval)
+
+```
+@intercept_errors(message_prefix="Failed to set auto-pause interval: ")
+
+@with_instrumentation()
+
+def set_auto_pause_interval(interval: int) -> None
+```
+
+Sets the auto-pause interval for the Sandbox.
+
+The Sandbox will automatically pause after being idle (no new events) for the specified interval.
+Only supported for sandbox classes that support pausing.
+
+**Arguments**:
+
+- `interval` _int_ \- Number of minutes of inactivity before auto-pausing.
+Set to 0 to disable auto-pause.
+
+**Raises**:
+
+- `DaytonaValidationError` \- If interval is negative
+
+**Example**:
+
+```
+# Auto-pause after 1 hour
+
+sandbox.set_auto_pause_interval(60)
+
+# Or disable auto-pause
+
+sandbox.set_auto_pause_interval(0)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxset_ttl) Sandbox.set\_ttl
+
+[Section titled “Sandbox.set\_ttl”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxset_ttl)
+
+```
+@intercept_errors(message_prefix="Failed to set TTL: ")
+
+@with_instrumentation()
+
+def set_ttl(ttl_minutes: int, request_timeout: float | None = None) -> None
+```
+
+Sets the TTL (time to live) for the Sandbox.
+
+The Sandbox will be destroyed after the specified number of minutes, counted as
+wall-clock time from the current moment, regardless of its state (started, stopped,
+paused, or archived). Setting to 0 disables the TTL.
+
+**Arguments**:
+
+- `ttl_minutes` _int_ \- Number of minutes until the Sandbox is destroyed.
+Set to 0 to disable the TTL.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Raises**:
+
+- `DaytonaValidationError` \- If ttl\_minutes is negative
+
+**Example**:
+
+```
+# Set TTL to 1 hour
+
+sandbox.set_ttl(60)
+
+# Or disable TTL
+
+sandbox.set_ttl(0)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxset_auto_archive_interval) Sandbox.set\_auto\_archive\_interval
+
+[Section titled “Sandbox.set\_auto\_archive\_interval”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxset_auto_archive_interval)
+
+```
+@intercept_errors(message_prefix="Failed to set auto-archive interval: ")
+
+@with_instrumentation()
+
+def set_auto_archive_interval(interval: int,
+
+                              request_timeout: float | None = None) -> None
+```
+
+Sets the auto-archive interval for the Sandbox.
+
+The Sandbox will automatically archive after being continuously stopped for the specified interval.
+
+**Arguments**:
+
+- `interval` _int_ \- Number of minutes after which a continuously stopped Sandbox will be auto-archived.
+Set to 0 for the maximum interval. Default is 7 days.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Raises**:
+
+- `DaytonaValidationError` \- If interval is negative
+
+**Example**:
+
+```
+# Auto-archive after 1 hour
+
+sandbox.set_auto_archive_interval(60)
+
+# Or use the maximum interval
+
+sandbox.set_auto_archive_interval(0)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxset_auto_delete_interval) Sandbox.set\_auto\_delete\_interval
+
+[Section titled “Sandbox.set\_auto\_delete\_interval”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxset_auto_delete_interval)
+
+```
+@intercept_errors(message_prefix="Failed to set auto-delete interval: ")
+
+@with_instrumentation()
+
+def set_auto_delete_interval(interval: int,
+
+                             request_timeout: float | None = None) -> None
+```
+
+Sets the auto-delete interval for the Sandbox.
+
+The Sandbox will automatically delete after being continuously stopped for the specified interval.
+
+**Arguments**:
+
+- `interval` _int_ \- Number of minutes after which a continuously stopped Sandbox will be auto-deleted.
+Set to negative value to disable auto-delete. Set to 0 to delete immediately upon stopping.
+By default, auto-delete is disabled.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Example**:
+
+```
+# Auto-delete after 1 hour
+
+sandbox.set_auto_delete_interval(60)
+
+# Or delete immediately upon stopping
+
+sandbox.set_auto_delete_interval(0)
+
+# Or disable auto-delete
+
+sandbox.set_auto_delete_interval(-1)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxupdate_network_settings) Sandbox.update\_network\_settings
+
+[Section titled “Sandbox.update\_network\_settings”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxupdate_network_settings)
+
+```
+@intercept_errors(message_prefix="Failed to update network settings: ")
+
+@with_instrumentation()
+
+def update_network_settings(*,
+
+                            network_block_all: bool | None = None,
+
+                            network_allow_list: str | None = None,
+
+                            domain_allow_list: str | None = None,
+
+                            request_timeout: float | None = None) -> None
+```
+
+Updates outbound network policy on the runner (block all, restore access, or CIDR allow list).
+
+**Arguments**:
+
+- `network_block_all` \- When `True`, blocks all outbound traffic. When `False`, restores general
+outbound access (and clears a stored allow list).
+- `network_allow_list` \- Comma-separated IPv4 CIDRs to allow; implies not blocking all.
+- `domain_allow_list` \- Comma-separated domains to allow; implies not blocking all.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Raises**:
+
+- `DaytonaValidationError` \- If neither argument is set.
+
+**Example**:
+
+```
+sandbox.update_network_settings(network_block_all=True)
+
+sandbox.update_network_settings(network_block_all=False)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxupdate_secrets) Sandbox.update\_secrets
+
+[Section titled “Sandbox.update\_secrets”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxupdate_secrets)
+
+```
+@intercept_errors(message_prefix="Failed to update secrets: ")
+
+@with_instrumentation()
+
+def update_secrets(secrets: dict[str, str]) -> None
+```
+
+Updates the set of vault secrets mounted in the Sandbox, replacing the previously mounted set.
+
+Attached, detached and rotated secrets take effect for outbound requests within seconds.
+New environment variables only become visible to processes spawned after the update, and a
+Sandbox created without any secrets must be restarted for newly attached secrets to work.
+
+**Arguments**:
+
+- `secrets` _dict\[str, str\]_ \- Map of environment variable name to the name of an existing
+organization Secret. Pass an empty dict to detach all secrets.
+
+**Example**:
+
+```
+sandbox.update_secrets({"ANTHROPIC_API_KEY": "anthropic-prod"})
+
+sandbox.update_secrets({})  # detach all
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxupdate_env) Sandbox.update\_env
+
+[Section titled “Sandbox.update\_env”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxupdate_env)
+
+```
+@intercept_errors(message_prefix="Failed to update environment: ")
+
+@with_instrumentation()
+
+def update_env(env: dict[str, str], *, unset: list[str] | None = None) -> None
+```
+
+Updates the Sandbox daemon’s process environment.
+
+Newly spawned processes, sessions and PTYs inherit the change; already-running processes
+keep their environment.
+
+**Arguments**:
+
+- `env` _dict\[str, str\]_ \- Environment variables to set.
+- `unset` _list\[str\] \| None_ \- Environment variable names to remove before `env` is applied.
+
+**Example**:
+
+```
+sandbox.update_env({"MY_VAR": "value"}, unset=["OLD_VAR"])
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxget_preview_link) Sandbox.get\_preview\_link
+
+[Section titled “Sandbox.get\_preview\_link”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxget_preview_link)
+
+```
+@intercept_errors(message_prefix="Failed to get preview link: ")
+
+@with_instrumentation()
+
+def get_preview_link(port: int,
+
+                     request_timeout: float | None = None) -> PortPreviewUrl
+```
+
+Retrieves the preview link for the sandbox at the specified port. If the port is closed,
+it will be opened automatically. For private sandboxes, a token is included to grant access
+to the URL.
+
+**Arguments**:
+
+- `port` _int_ \- The port to open the preview link on.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Returns**:
+
+- `PortPreviewUrl` \- The response object for the preview link, which includes the `url`
+and the `token` (to access private sandboxes).
+
+**Example**:
+
+```
+preview_link = sandbox.get_preview_link(3000)
+
+print(f"Preview URL: {preview_link.url}")
+
+print(f"Token: {preview_link.token}")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxcreate_signed_preview_url) Sandbox.create\_signed\_preview\_url
+
+[Section titled “Sandbox.create\_signed\_preview\_url”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxcreate_signed_preview_url)
+
+```
+@intercept_errors(message_prefix="Failed to create signed preview url: ")
+
+def create_signed_preview_url(
+
+        port: int,
+
+        expires_in_seconds: int | None = None,
+
+        request_timeout: float | None = None) -> SignedPortPreviewUrl
+```
+
+Creates a signed preview URL for the sandbox at the specified port.
+
+**Arguments**:
+
+- `port` _int_ \- The port to open the preview link on.
+- `expires_in_seconds` _int \| None_ \- The number of seconds the signed preview
+url will be valid for. Defaults to 60 seconds.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Returns**:
+
+- `SignedPortPreviewUrl` \- The response object for the signed preview url.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxexpire_signed_preview_url) Sandbox.expire\_signed\_preview\_url
+
+[Section titled “Sandbox.expire\_signed\_preview\_url”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxexpire_signed_preview_url)
+
+```
+@intercept_errors(message_prefix="Failed to expire signed preview url: ")
+
+def expire_signed_preview_url(port: int,
+
+                              token: str,
+
+                              request_timeout: float | None = None) -> None
+```
+
+Expires a signed preview URL for the sandbox at the specified port.
+
+**Arguments**:
+
+- `port` _int_ \- The port to expire the signed preview url on.
+- `token` _str_ \- The token to expire the signed preview url on.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxarchive) Sandbox.archive
+
+[Section titled “Sandbox.archive”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxarchive)
+
+```
+@intercept_errors(message_prefix="Failed to archive sandbox: ")
+
+@with_instrumentation()
+
+def archive(request_timeout: float | None = None) -> None
+```
+
+Archives the sandbox, making it inactive and preserving its state. When sandboxes are
+archived, the entire filesystem state is moved to cost-effective object storage, making it
+possible to keep sandboxes available for an extended period. The tradeoff between archived
+and stopped states is that starting an archived sandbox takes more time, depending on its size.
+Sandbox must be stopped before archiving.
+
+**Arguments**:
+
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxresize) Sandbox.resize
+
+[Section titled “Sandbox.resize”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxresize)
+
+```
+@intercept_errors(message_prefix="Failed to resize sandbox: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def resize(resources: Resources, timeout: float | None = 60) -> None
+```
+
+Resizes the Sandbox resources.
+
+Changes the CPU, memory, or disk allocation. Hot resize (on a running Sandbox) accepts
+only CPU and memory increases. Disk resize requires a stopped Sandbox; disk can only
+grow. GPU is not resizable — to change GPU, create a new Sandbox.
+
+**Arguments**:
+
+- `resources` _Resources_ \- New resource configuration. Only cpu, memory, and disk are
+applied; setting gpu or gpu\_type raises an error.
+- `timeout` _Optional\[float\]_ \- Timeout in seconds for the resize operation. 0 means no
+timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If hot-resize constraints are violated, disk resize is attempted on
+a running Sandbox, disk decrease is attempted, no fields are provided, gpu or
+gpu\_type is set, or the operation times out.
+
+**Example**:
+
+```
+sandbox.resize(Resources(cpu=4, memory=8))
+
+sandbox.stop()
+
+sandbox.resize(Resources(cpu=2, memory=4, disk=30))
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxwait_for_resize_complete) Sandbox.wait\_for\_resize\_complete
+
+[Section titled “Sandbox.wait\_for\_resize\_complete”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxwait_for_resize_complete)
+
+```
+@intercept_errors(
+
+    message_prefix="Failure during waiting for resize to complete: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def wait_for_resize_complete(timeout: float | None = 60) -> None
+```
+
+Waits for the Sandbox resize operation to complete.
+
+**Arguments**:
+
+- `timeout` _Optional\[float\]_ \- Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative. If resize operation times out.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxcreate_ssh_access) Sandbox.create\_ssh\_access
+
+[Section titled “Sandbox.create\_ssh\_access”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxcreate_ssh_access)
+
+```
+@intercept_errors(message_prefix="Failed to create SSH access: ")
+
+@with_instrumentation()
+
+def create_ssh_access(expires_in_minutes: int | None = None,
+
+                      request_timeout: float | None = None) -> SshAccessDto
+```
+
+Creates an SSH access token for the sandbox.
+
+**Arguments**:
+
+- `expires_in_minutes` _int \| None_ \- The number of minutes the SSH access token will be valid for.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxrevoke_ssh_access) Sandbox.revoke\_ssh\_access
+
+[Section titled “Sandbox.revoke\_ssh\_access”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxrevoke_ssh_access)
+
+```
+@intercept_errors(message_prefix="Failed to revoke SSH access: ")
+
+@with_instrumentation()
+
+def revoke_ssh_access(token: str,
+
+                      request_timeout: float | None = None) -> None
+```
+
+Revokes an SSH access token for the sandbox.
+
+**Arguments**:
+
+- `token` _str_ \- The token to revoke.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxvalidate_ssh_access) Sandbox.validate\_ssh\_access
+
+[Section titled “Sandbox.validate\_ssh\_access”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxvalidate_ssh_access)
+
+```
+@intercept_errors(message_prefix="Failed to validate SSH access: ")
+
+@with_instrumentation()
+
+def validate_ssh_access(
+
+        token: str,
+
+        request_timeout: float | None = None) -> SshAccessValidationDto
+```
+
+Validates an SSH access token for the sandbox.
+
+**Arguments**:
+
+- `token` _str_ \- The token to validate.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxrefresh_activity) Sandbox.refresh\_activity
+
+[Section titled “Sandbox.refresh\_activity”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxrefresh_activity)
+
+```
+@intercept_errors(message_prefix="Failed to refresh sandbox activity: ")
+
+def refresh_activity(request_timeout: float | None = None) -> None
+```
+
+Refreshes the sandbox activity to reset the timer for automated lifecycle management actions.
+
+This method updates the sandbox’s last activity timestamp without changing its state.
+It is useful for keeping long-running sessions alive while there is still user activity.
+
+**Arguments**:
+
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Example**:
+
+```
+sandbox.refresh_activity()
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxfork) Sandbox.fork
+
+[Section titled “Sandbox.fork”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxfork)
+
+```
+@intercept_errors(message_prefix="Failed to fork sandbox: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def fork(name: str | None = None, timeout: float | None = 60) -> "Sandbox"
+```
+
+Forks the Sandbox, creating a new Sandbox with an identical filesystem.
+
+The forked Sandbox is a copy-on-write clone of the original. It starts
+with the same disk contents but operates independently from that point on.
+
+**Arguments**:
+
+- `name` _str \| None_ \- Optional name for the forked Sandbox. If not provided, a unique name will be generated.
+- `timeout` _float \| None_ \- Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+**Returns**:
+
+- `Sandbox` \- The forked Sandbox.
+
+**Raises**:
+
+- `DaytonaError` \- If the fork operation fails or times out.
+
+**Example**:
+
+```
+sandbox = daytona.get("my-sandbox")
+
+forked = sandbox.fork(name="my-fork")
+
+print(f"Forked sandbox: {forked.id}")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxcreate_snapshot) Sandbox.create\_snapshot
+
+[Section titled “Sandbox.create\_snapshot”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxcreate_snapshot)
+
+```
+@intercept_errors(message_prefix="Failed to create snapshot: ")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def create_snapshot(name: str, timeout: float | None = 60) -> None
+```
+
+Creates a snapshot from the current state of the Sandbox.
+
+This captures the Sandbox’s filesystem into a reusable snapshot that can be
+used to create new Sandboxes. The Sandbox will temporarily enter a
+‘snapshotting’ state and return to its previous state when complete.
+
+**Arguments**:
+
+- `name` _str_ \- Name for the new snapshot.
+- `timeout` _float \| None_ \- Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If the snapshot operation fails or times out.
+
+**Example**:
+
+```
+sandbox = daytona.get("my-sandbox")
+
+sandbox.create_snapshot("my-snapshot")
+
+print("Snapshot created successfully")
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxpause) Sandbox.pause
+
+[Section titled “Sandbox.pause”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxpause)
+
+```
+@intercept_errors(message_prefix="Failed to pause sandbox")
+
+@with_timeout()
+
+@with_instrumentation()
+
+def pause(timeout: float = 60) -> None
+```
+
+Pauses the Sandbox, freezing all running processes.
+
+The Sandbox will enter a ‘pausing’ state and transition to ‘paused’ when
+complete. While paused, the Sandbox retains its state in memory but does
+not consume CPU cycles.
+
+**Arguments**:
+
+- `timeout` \- Maximum time to wait in seconds. 0 means no timeout.
+Defaults to 60-second timeout.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative or the operation fails/times out.
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#resources) Resources
+
+[Section titled “Resources”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#resources)
+
+```
+@dataclass
+
+class Resources()
+```
+
+Resources configuration for Sandbox.
+
+**Attributes**:
+
+- `cpu` _int \| None_ \- Number of CPU cores to allocate.
+- `memory` _int \| None_ \- Amount of memory in GiB to allocate.
+- `disk` _int \| None_ \- Amount of disk space in GiB to allocate.
+- `gpu` _int \| None_ \- Number of GPUs to allocate.
+- `gpu_type` _GpuType \| list\[GpuType\] \| None_ \- Preferred GPU type for the Sandbox.
+
+**Example**:
+
+```
+resources = Resources(
+
+    cpu=2,
+
+    memory=4,  # 4GiB RAM
+
+    disk=20,   # 20GiB disk
+
+    gpu=1,
+
+    gpu_type=GpuType.H100,
+
+)
+
+params = CreateSandboxFromImageParams(
+
+    image=Image.debian_slim("3.12"),
+
+    language="python",
+
+    resources=resources
+
+)
+```
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#listsandboxesquery) ListSandboxesQuery
+
+[Section titled “ListSandboxesQuery”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#listsandboxesquery)
+
+```
+@dataclass
+
+class ListSandboxesQuery()
+```
+
+Query parameters for filtering and sorting when listing Sandboxes.
+
+**Attributes**:
+
+- `limit` \- Per-page fetch size. Does NOT limit the total number of
+Sandboxes returned.
+- `id` \- Filter by ID prefix (case-insensitive).
+- `name` \- Filter by name prefix (case-insensitive).
+- `labels` \- Filter by labels.
+- `states` \- Filter by states.
+- `snapshots` \- Filter by snapshot names.
+- `targets` \- Filter by targets.
+- `min_cpu` \- Filter by minimum CPU.
+- `max_cpu` \- Filter by maximum CPU.
+- `min_memory_gib` \- Filter by minimum memory in GiB.
+- `max_memory_gib` \- Filter by maximum memory in GiB.
+- `min_disk_gib` \- Filter by minimum disk space in GiB.
+- `max_disk_gib` \- Filter by maximum disk space in GiB.
+- `is_public` \- Filter by public status.
+- `is_recoverable` \- Filter by recoverable status.
+- `created_at_after` _datetime_ \- Include sandboxes created after this timestamp.
+- `created_at_before` _datetime_ \- Include sandboxes created before this timestamp.
+- `last_activity_after` _datetime_ \- Include sandboxes with last activity after this timestamp.
+- `last_activity_before` _datetime_ \- Include sandboxes with last activity before this timestamp.
+- `auto_destroy_at_after` _datetime_ \- Include sandboxes scheduled for auto destroy after this timestamp.
+- `auto_destroy_at_before` _datetime_ \- Include sandboxes scheduled for auto destroy before this timestamp.
+- `sort` \- Field to sort by.
+- `order` \- Sort direction.
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandboxmetrics) SandboxMetrics
+
+[Section titled “SandboxMetrics”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandboxmetrics)
+
+```
+@dataclass
+
+class SandboxMetrics()
+```
+
+A single point-in-time sample of historical Sandbox resource usage.
+
+Each instance corresponds to one aggregation bucket returned by the telemetry
+backend. Use :meth:`Sandbox.get_metrics` to fetch a time-ordered list of these,
+or :meth:`Sandbox.get_metrics_latest` for the current sample.
+
+**Attributes**:
+
+- `cpu_count` _int_ \- Number of CPU cores allocated to the Sandbox.
+- `cpu_used_pct` _float_ \- CPU utilization as a percentage of the allocated limit.
+- `disk_total` _int_ \- Total disk space in bytes.
+- `disk_used` _int_ \- Used disk space in bytes.
+- `mem_total` _int_ \- Total memory in bytes.
+- `mem_used` _int_ \- Used memory in bytes.
+- `mem_cache` _int_ \- Memory used by the page cache in bytes.
+- `timestamp` _datetime_ \- Timestamp of this sample.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#sandbox_metrics_from_system_metrics) sandbox\_metrics\_from\_system\_metrics
+
+[Section titled “sandbox\_metrics\_from\_system\_metrics”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#sandbox_metrics_from_system_metrics)
+
+```
+def sandbox_metrics_from_system_metrics(
+
+        system_metrics: _SystemMetrics) -> SandboxMetrics
+```
+
+Converts a live daemon `SystemMetrics` snapshot into a `SandboxMetrics` sample.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/\#pivot_sandbox_metrics) pivot\_sandbox\_metrics
+
+[Section titled “pivot\_sandbox\_metrics”](https://www.daytona.io/docs/en/python-sdk/sync/sandbox/#pivot_sandbox_metrics)
+
+```
+def pivot_sandbox_metrics(
+
+    points: Iterable[tuple[str | None, str | None, float | None]]
+
+) -> list[SandboxMetrics]
+```
+
+Buckets `(metric_name, timestamp, value)` triples by timestamp into `SandboxMetrics` samples.

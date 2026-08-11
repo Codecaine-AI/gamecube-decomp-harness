@@ -39,7 +39,7 @@ One JSON object per line:
 
 All nine seed records use `detector.type: "agent_exhibit"`: the deterministic
 coverage for these findings already lives in review_lint's built-in rules
-(`extern_literal_anchor`, `string_literal_to_symbol`, `packed_string_blob`,
+(`extern_in_c`, `string_literal_to_symbol`, `packed_string_blob`,
 `unrolled_assert`, plus the ownership checks in `scan_diff.py`).
 `agent_exhibit` records feed the L3 preship review prompt as retrieval
 exhibits; they do not add deterministic gate rules.
@@ -86,8 +86,7 @@ Authoring metadata we additionally record (ignored by the loader):
 - Hunks with fewer than `MIN_TOMBSTONE_TOKENS` (12) tokens are never checked,
   so one-line rejected hunks (e.g. a lone
   `extern const f32 lbl_804DA60C;`) cannot be tombstoned; those cases are
-  covered by the deterministic rules (`new_data_anchor`,
-  `extern_literal_anchor`, etc.) instead.
+  covered by the deterministic rules (`extern_in_c`, etc.) instead.
 - `scan_diff.py` ref mode diffs with `--unified=5`; compute shingles from
   hunks of a `git diff --unified=5` so hunk-merging behavior matches.
 

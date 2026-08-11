@@ -19,6 +19,7 @@ type WorkerStateOutcome =
   | "claim_deadline"
   | "cold_attempt_budget_exhausted"
   | "improvement_followup_budget_exhausted"
+  | "improvement_banked"
   | "gate_failed_exact_followup_budget_exhausted"
   | "accepted_or_no_repair_reasons"
   | "dry_run"
@@ -1144,6 +1145,7 @@ function workerStateStopReasonEndstate(workerState: JsonObject): WorkerStateOutc
   if (stopReason === "claim_deadline") return "claim_deadline";
   if (stopReason === "cold_attempt_budget_exhausted") return "cold_attempt_budget_exhausted";
   if (stopReason === "improvement_followup_budget_exhausted") return "improvement_followup_budget_exhausted";
+  if (stopReason === "improvement_banked") return "improvement_banked";
   if (stopReason === "gate_failed_exact_followup_budget_exhausted") return "gate_failed_exact_followup_budget_exhausted";
   if (stopReason === "accepted_or_no_repair_reasons") return "accepted_or_no_repair_reasons";
   if (stopReason === "dry_run") return "dry_run";
@@ -1205,6 +1207,7 @@ function workerStateOutcomeCounts(workerStates: JsonObject[]): JsonObject {
     claim_deadline: 0,
     cold_attempt_budget_exhausted: 0,
     improvement_followup_budget_exhausted: 0,
+    improvement_banked: 0,
     gate_failed_exact_followup_budget_exhausted: 0,
     accepted_or_no_repair_reasons: 0,
     dry_run: 0,

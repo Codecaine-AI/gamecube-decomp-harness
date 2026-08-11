@@ -30,7 +30,12 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
     const candidateRerank = normalizeCandidateRerankMode(
       typeof candidateRerankArg === "string" ? candidateRerankArg : globals.project?.dashboard.candidateRerank,
     );
-    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, candidateWindow, { candidateRerank, graphDbPath });
+    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, candidateWindow, {
+      candidateRerank,
+      graphDbPath,
+      predictorDbPath: store.path,
+      predictorSessionId: run.id,
+    });
     const schedulableSources = new Set(snapshot.candidates.map((candidate) => candidate.sourcePath).filter(Boolean)).size;
 
     await mkdir(resolve(globals.stateDir, "runs", run.id, "snapshots"), { recursive: true });

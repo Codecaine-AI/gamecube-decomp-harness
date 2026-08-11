@@ -1,0 +1,1789 @@
+---
+url: "https://www.daytona.io/docs/en/snapshots/"
+title: "Snapshots | Daytona"
+---
+
+[Skip to content](https://www.daytona.io/docs/en/snapshots/#_top)
+
+# Snapshots
+
+Copy for LLM[View as Markdown](https://www.daytona.io/docs/en/snapshots.md)Open
+
+Snapshots are persistent, point-in-time captures of sandbox state, including the filesystem, installed packages, dependencies, and settings. A snapshot saves a sandbox’s state so you can restore it later, and any number of new sandboxes can start from the same snapshot.
+
+Daytona provides default snapshots for creating sandboxes. You can also create snapshots from images, capture the state of existing sandboxes, or create warm pools for a snapshot:
+
+- [**Create snapshots from an image**](https://www.daytona.io/docs/en/snapshots/#create-snapshots): define the base operating system, language runtimes, packages, and project-level setup in an image or Dockerfile, and Daytona builds it into a snapshot you can use to create sandboxes
+- [**Create snapshots from a sandbox**](https://www.daytona.io/docs/en/snapshots/#create-snapshot-from-sandbox): captures and persists a sandbox’s current state; container sandboxes capture filesystem state only ( **cold snapshots**), VM sandboxes capture filesystem and memory state ( **hot snapshots**)
+- [**Warm pools**](https://www.daytona.io/docs/en/warm-pools): keep a configured number of pre-created, running sandboxes built from a snapshot; matching sandbox create requests claim one warm sandbox from the pool instantly instead of provisioning a new sandbox
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#default-snapshots) Default snapshots
+
+[Section titled “Default snapshots”](https://www.daytona.io/docs/en/snapshots/#default-snapshots)
+
+| **Snapshot** | **vCPU** | **Memory** | **Storage** | **GPU** | **Sandbox Class** |
+| --- | --- | --- | --- | --- | --- |
+| **`daytona-small`** | 1 | 1GiB | 3GiB |  | Container |
+| **`daytona-medium`** | 2 | 4GiB | 8GiB |  | Container |
+| **`daytona-large`** | 4 | 8GiB | 10GiB |  | Container |
+| **`daytona-gpu`** | 1 | 1GiB | 1GiB | 1 | GPU |
+| **`daytona-vm-small`** | 1 | 1GiB | 3GiB |  | Linux VM |
+| **`daytona-vm-medium`** | 2 | 4GiB | 8GiB |  | Linux VM |
+| **`daytona-vm-large`** | 4 | 8GiB | 10GiB |  | Linux VM |
+| **`windows-small`** | 1 | 4GiB | 30GiB |  | Windows |
+| **`windows-medium`** | 2 | 8GiB | 50GiB |  | Windows |
+| **`windows-large`** | 4 | 16GiB | 50GiB |  | Windows |
+
+1. Go to [Daytona Sandboxes ↗](https://app.daytona.io/dashboard/sandboxes)
+2. Click **Create Sandbox**
+3. Select a **`snapshot`**
+4. Click **Create**
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1414)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1415)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1416)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1417)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1418)
+- [CLI](https://www.daytona.io/docs/en/snapshots/#tab-panel-1419)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1420)
+
+```
+from daytona import Daytona, CreateSandboxFromSnapshotParams
+
+daytona = Daytona()
+
+sandbox = daytona.create(
+
+    CreateSandboxFromSnapshotParams(
+
+        snapshot="daytona-small",
+
+    )
+
+)
+```
+
+```
+import { Daytona } from '@daytona/sdk'
+
+const daytona = new Daytona()
+
+const sandbox = await daytona.create({
+
+  snapshot: 'daytona-small',
+
+})
+```
+
+```
+require 'daytona'
+
+daytona = Daytona::Daytona.new
+
+sandbox = daytona.create(
+
+  Daytona::CreateSandboxFromSnapshotParams.new(
+
+    snapshot: 'daytona-small'
+
+  )
+
+)
+```
+
+```
+package main
+
+import (
+
+  "context"
+
+  "github.com/daytona/clients/sdk-go/pkg/daytona"
+
+  "github.com/daytona/clients/sdk-go/pkg/types"
+
+)
+
+func main() {
+
+  client, _ := daytona.NewClient()
+
+  ctx := context.Background()
+
+  params := types.SnapshotParams{
+
+    Snapshot: "daytona-small",
+
+  }
+
+  _, _ = client.Create(ctx, params)
+
+}
+```
+
+```
+import io.daytona.sdk.Daytona;
+
+import io.daytona.sdk.Sandbox;
+
+import io.daytona.sdk.model.CreateSandboxFromSnapshotParams;
+
+public class App {
+
+    public static void main(String[] args) {
+
+        try (Daytona daytona = new Daytona()) {
+
+            CreateSandboxFromSnapshotParams params = new CreateSandboxFromSnapshotParams();
+
+            params.setSnapshot("daytona-small");
+
+            Sandbox sandbox = daytona.create(params);
+
+        }
+
+    }
+
+}
+```
+
+```
+daytona create --snapshot daytona-small
+```
+
+```
+curl 'https://app.daytona.io/api/sandbox' \
+
+  --request POST \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+
+  --data '{
+
+  "snapshot": "daytona-small"
+
+}'
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#create-snapshots) Create snapshots
+
+[Section titled “Create snapshots”](https://www.daytona.io/docs/en/snapshots/#create-snapshots)
+
+Create a snapshot.
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+2. Click **Create Snapshot**
+3. Enter the snapshot **`name`** and **`image`** of any publicly accessible image or container registry
+
+   - **Snapshot name**: identifier used to reference the snapshot
+   - **Snapshot image**: base image for the snapshot, must include either a tag or a digest (e.g., **`ubuntu:22.04`**); the **`latest`**/ **`lts`**/ **`stable`** tags are not supported
+4. Click **Create**
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1421)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1422)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1423)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1424)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1425)
+- [CLI](https://www.daytona.io/docs/en/snapshots/#tab-panel-1426)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1427)
+
+```
+from daytona import Daytona, CreateSnapshotParams
+
+daytona = Daytona()
+
+snapshot = daytona.snapshot.create(
+
+    CreateSnapshotParams(name="my-awesome-snapshot", image="ubuntu:22.04"),
+
+)
+```
+
+```
+import { Daytona } from "@daytona/sdk";
+
+const daytona = new Daytona();
+
+const snapshot = await daytona.snapshot.create({
+
+  name: "my-awesome-snapshot",
+
+  image: "python:3.12",
+
+});
+```
+
+```
+require 'daytona'
+
+daytona = Daytona::Daytona.new
+
+snapshot = daytona.snapshot.create(
+
+  Daytona::CreateSnapshotParams.new(name: 'my-awesome-snapshot', image: 'python:3.12')
+
+)
+```
+
+```
+package main
+
+import (
+
+  "context"
+
+  "github.com/daytona/clients/sdk-go/pkg/daytona"
+
+  "github.com/daytona/clients/sdk-go/pkg/types"
+
+)
+
+func main() {
+
+  client, _ := daytona.NewClient()
+
+  ctx := context.Background()
+
+  snapshot, logCh, _ := client.Snapshot.Create(ctx, &types.CreateSnapshotParams{
+
+    Name:  "my-awesome-snapshot",
+
+    Image: "python:3.12",
+
+  })
+
+  for range logCh {
+
+  }
+
+  _ = snapshot
+
+}
+```
+
+```
+import io.daytona.sdk.Daytona;
+
+import io.daytona.sdk.model.Snapshot;
+
+final class CreateSnapshot {
+
+    public static void main(String[] args) {
+
+        try (Daytona daytona = new Daytona()) {
+
+            Snapshot snapshot = daytona.snapshot().create("my-awesome-snapshot", "python:3.12");
+
+        }
+
+    }
+
+}
+```
+
+```
+daytona snapshot create my-awesome-snapshot --image python:3.11-slim --cpu 2 --memory 4
+```
+
+```
+curl https://app.daytona.io/api/snapshots \
+
+  --request POST \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_SECRET_TOKEN' \
+
+  --data '{
+
+    "name": "my-awesome-snapshot",
+
+    "imageName": "python:3.11-slim",
+
+    "cpu": 2,
+
+    "memory": 4
+
+  }'
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#vm-snapshots) VM snapshots
+
+[Section titled “VM snapshots”](https://www.daytona.io/docs/en/snapshots/#vm-snapshots)
+
+Daytona provides methods to create VM snapshots for **Linux VM** and **Windows**.
+
+VM snapshots are used to create [VM sandboxes](https://www.daytona.io/docs/en/sandboxes#vm-sandboxes). VM snapshots are distinct from container snapshots and cannot be used to create container sandboxes. VM snapshots support VM-only capabilities such as [creating a snapshot from a sandbox](https://www.daytona.io/docs/en/snapshots/#create-snapshot-from-sandbox).
+
+- [Linux VM](https://www.daytona.io/docs/en/snapshots/#tab-panel-1490)
+- [Windows](https://www.daytona.io/docs/en/snapshots/#tab-panel-1491)
+
+Create a Linux VM snapshot.
+
+1. Create a snapshot from a base **`image`**
+2. Set the snapshot’s sandbox class to **`LINUX_VM`**
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1428)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1429)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1430)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1431)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1432)
+- [CLI](https://www.daytona.io/docs/en/snapshots/#tab-panel-1433)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1434)
+
+```
+from daytona import Daytona, CreateSnapshotParams, SandboxClass
+
+daytona = Daytona()
+
+snapshot = daytona.snapshot.create(
+
+    CreateSnapshotParams(
+
+        name="my-vm-snapshot",
+
+        image="ubuntu:22.04",
+
+        sandbox_class=SandboxClass.LINUX_VM,
+
+    )
+
+)
+```
+
+```
+import { Daytona, SandboxClass } from "@daytona/sdk";
+
+const daytona = new Daytona();
+
+const snapshot = await daytona.snapshot.create({
+
+  name: "my-vm-snapshot",
+
+  image: "ubuntu:22.04",
+
+  sandboxClass: SandboxClass.LINUX_VM,
+
+});
+```
+
+```
+require 'daytona'
+
+daytona = Daytona::Daytona.new
+
+snapshot = daytona.snapshot.create(
+
+  Daytona::CreateSnapshotParams.new(
+
+    name: 'my-vm-snapshot',
+
+    image: 'ubuntu:22.04',
+
+    sandbox_class: DaytonaApiClient::SandboxClass::LINUX_VM
+
+  )
+
+)
+```
+
+```
+package main
+
+import (
+
+  "context"
+
+  "github.com/daytona/clients/sdk-go/pkg/daytona"
+
+  "github.com/daytona/clients/sdk-go/pkg/types"
+
+)
+
+func main() {
+
+  client, _ := daytona.NewClient()
+
+  ctx := context.Background()
+
+  sandboxClass := types.SandboxClassLinuxVM
+
+  snapshot, logCh, _ := client.Snapshot.Create(ctx, &types.CreateSnapshotParams{
+
+    Name:         "my-vm-snapshot",
+
+    Image:        "ubuntu:22.04",
+
+    SandboxClass: &sandboxClass,
+
+  })
+
+  for range logCh {
+
+  }
+
+  _ = snapshot
+
+}
+```
+
+```
+import io.daytona.sdk.Daytona;
+
+import io.daytona.api.client.model.SandboxClass;
+
+import io.daytona.sdk.model.Snapshot;
+
+final class CreateVmSnapshot {
+
+    public static void main(String[] args) {
+
+        try (Daytona daytona = new Daytona()) {
+
+            Snapshot snapshot = daytona.snapshot().create("my-vm-snapshot", "ubuntu:22.04", SandboxClass.LINUX_VM);
+
+        }
+
+    }
+
+}
+```
+
+```
+daytona snapshot create my-vm-snapshot --image ubuntu:22.04 --sandbox-class linux-vm
+```
+
+```
+curl https://app.daytona.io/api/snapshots \
+
+  --request POST \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_SECRET_TOKEN' \
+
+  --data '{
+
+    "name": "my-vm-snapshot",
+
+    "imageName": "ubuntu:22.04",
+
+    "sandboxClass": "linux-vm"
+
+  }'
+```
+
+Windows snapshots are used to create [Windows sandboxes](https://www.daytona.io/docs/en/sandboxes#vm-sandboxes). They cannot be created from a base image. They are produced only through the [snapshot from sandbox](https://www.daytona.io/docs/en/snapshots/#create-snapshot-from-sandbox) by starting from an existing Windows sandbox and capturing its current state as a snapshot.
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#gpu-snapshots) GPU snapshots
+
+[Section titled “GPU snapshots”](https://www.daytona.io/docs/en/snapshots/#gpu-snapshots)
+
+Create a GPU snapshot. GPU snapshots are used to create [GPU sandboxes](https://www.daytona.io/docs/en/sandboxes#gpu-sandboxes).
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+
+2. Click **Create Snapshot**
+
+3. Enter the snapshot **`name`** and **`image`**
+
+4. Select the **`Allocate GPU`** checkbox
+
+5. Specify the **`GPU type`**(s):
+   - **`NVIDIA H100`**
+   - **`NVIDIA H200`**
+   - **`NVIDIA RTX PRO 6000`**
+   - **`NVIDIA RTX 4090`**
+   - **`NVIDIA RTX 5090`**
+6. Click **Create**
+
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1435)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1436)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1437)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1438)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1439)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1440)
+
+```
+from daytona import CreateSnapshotParams, Daytona, Image, Resources
+
+daytona = Daytona()
+
+snapshot = daytona.snapshot.create(
+
+    CreateSnapshotParams(
+
+        name="my-gpu-snapshot",
+
+        image=Image.base("python:3.12"),
+
+        resources=Resources(cpu=1, memory=1, disk=1, gpu=1),
+
+    ),
+
+)
+```
+
+```
+import { Daytona } from "@daytona/sdk";
+
+const daytona = new Daytona();
+
+const snapshot = await daytona.snapshot.create({
+
+  name: "my-gpu-snapshot",
+
+  image: "python:3.12",
+
+  resources: { cpu: 1, memory: 1, disk: 1, gpu: 1 },
+
+});
+```
+
+```
+require 'daytona'
+
+daytona = Daytona::Daytona.new
+
+snapshot = daytona.snapshot.create(
+
+  Daytona::CreateSnapshotParams.new(
+
+    name: 'my-gpu-snapshot',
+
+    image: 'python:3.12',
+
+    resources: Daytona::Resources.new(cpu: 1, memory: 1, disk: 1, gpu: 1)
+
+  )
+
+)
+```
+
+```
+package main
+
+import (
+
+  "context"
+
+  "github.com/daytona/clients/sdk-go/pkg/daytona"
+
+  "github.com/daytona/clients/sdk-go/pkg/types"
+
+)
+
+func main() {
+
+  client, _ := daytona.NewClient()
+
+  ctx := context.Background()
+
+  snapshot, logCh, _ := client.Snapshot.Create(ctx, &types.CreateSnapshotParams{
+
+    Name:  "my-gpu-snapshot",
+
+    Image: "python:3.12",
+
+    Resources: &types.Resources{
+
+      CPU: 1,
+
+      Memory: 1,
+
+      Disk: 1,
+
+      GPU: 1,
+
+    },
+
+  })
+
+  for range logCh {
+
+  }
+
+  _ = snapshot
+
+}
+```
+
+```
+import io.daytona.sdk.Daytona;
+
+import io.daytona.sdk.Image;
+
+import io.daytona.sdk.model.Resources;
+
+import io.daytona.sdk.model.Snapshot;
+
+final class CreateGpuSnapshot {
+
+    public static void main(String[] args) {
+
+        try (Daytona daytona = new Daytona()) {
+
+            Resources resources = new Resources();
+
+            resources.setCpu(1);
+
+            resources.setMemory(1);
+
+            resources.setDisk(1);
+
+            resources.setGpu(1);
+
+            Snapshot snapshot = daytona.snapshot().create(
+
+                "my-gpu-snapshot",
+
+                Image.base("python:3.12"),
+
+                resources,
+
+                null
+
+            );
+
+        }
+
+    }
+
+}
+```
+
+```
+curl https://app.daytona.io/api/snapshots \
+
+  --request POST \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_SECRET_TOKEN' \
+
+  --data '{
+
+    "name": "my-gpu-snapshot",
+
+    "imageName": "python:3.12",
+
+    "cpu": 1,
+
+    "memory": 1,
+
+    "disk": 1,
+
+    "gpu": 1
+
+  }'
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#create-snapshot-from-sandbox) Create snapshot from sandbox
+
+[Section titled “Create snapshot from sandbox”](https://www.daytona.io/docs/en/snapshots/#create-snapshot-from-sandbox)
+
+Create a snapshot from a running or stopped sandbox.
+
+- [Container](https://www.daytona.io/docs/en/snapshots/#tab-panel-1487)
+- [Linux VM](https://www.daytona.io/docs/en/snapshots/#tab-panel-1488)
+- [Windows](https://www.daytona.io/docs/en/snapshots/#tab-panel-1489)
+
+Container sandboxes capture filesystem state only ( **cold snapshot**):
+
+| **Snapshot type** | **Include memory** | **Snapshot contents** | **Required sandbox state** |
+| --- | --- | --- | --- |
+| Cold | **`false`** (default) | Filesystem only | Stopped |
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1441)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1442)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1443)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1444)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1445)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1446)
+
+```
+sandbox._experimental_create_snapshot("my-snapshot")
+```
+
+```
+await sandbox._experimental_createSnapshot('my-snapshot')
+```
+
+```
+sandbox.experimental_create_snapshot(name: 'my-snapshot')
+```
+
+```
+err := sandbox.ExperimentalCreateSnapshot(ctx, "my-snapshot")
+
+if err != nil {
+
+    return err
+
+}
+```
+
+```
+sandbox.experimentalCreateSnapshot("my-snapshot");
+```
+
+```
+curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}/snapshot' \
+
+  --request POST \
+
+  --header 'X-Daytona-Organization-ID: YOUR_ORGANIZATION_ID' \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+
+  --data '{
+
+  "name": "my-snapshot",
+
+  "includeMemory": false
+
+}'
+```
+
+Linux VM sandboxes capture filesystem state only ( **cold snapshot**) or filesystem and memory state ( **hot snapshot**) through the `includeMemory` parameter:
+
+| **Snapshot type** | **Include memory** | **Snapshot contents** | **Required sandbox state** |
+| --- | --- | --- | --- |
+| Cold | **`false`** (default) | Filesystem only | Stopped |
+| Hot | **`true`** | Filesystem and memory | Started |
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1447)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1448)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1449)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1450)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1451)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1452)
+
+```
+# Cold snapshot (filesystem only, sandbox stopped)
+
+sandbox._experimental_create_snapshot("my-snapshot")
+
+# Hot snapshot (filesystem and memory, sandbox running)
+
+sandbox._experimental_create_snapshot("my-vm-snapshot", include_memory=True)
+```
+
+```
+// Cold snapshot (filesystem only, sandbox stopped)
+
+await sandbox._experimental_createSnapshot('my-snapshot')
+
+// Hot snapshot (filesystem and memory, sandbox running)
+
+await sandbox._experimental_createSnapshot('my-vm-snapshot', 60, true)
+```
+
+```
+# Cold snapshot (filesystem only, sandbox stopped)
+
+sandbox.experimental_create_snapshot(name: 'my-snapshot')
+
+# Hot snapshot (filesystem and memory, sandbox running)
+
+sandbox.experimental_create_snapshot(name: 'my-vm-snapshot', include_memory: true)
+```
+
+```
+// Cold snapshot (filesystem only, sandbox stopped)
+
+err := sandbox.ExperimentalCreateSnapshot(ctx, "my-snapshot")
+
+if err != nil {
+
+    return err
+
+}
+
+// Hot snapshot (filesystem and memory, sandbox running)
+
+err = sandbox.ExperimentalCreateSnapshotWithMemory(ctx, "my-vm-snapshot", 60*time.Second)
+
+if err != nil {
+
+    return err
+
+}
+```
+
+```
+// Cold snapshot (filesystem only, sandbox stopped)
+
+sandbox.experimentalCreateSnapshot("my-snapshot");
+
+// Hot snapshot (filesystem and memory, sandbox running)
+
+sandbox.experimentalCreateSnapshot("my-vm-snapshot", 60, true);
+```
+
+```
+# Cold snapshot (filesystem only, sandbox stopped)
+
+curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}/snapshot' \
+
+  --request POST \
+
+  --header 'X-Daytona-Organization-ID: YOUR_ORGANIZATION_ID' \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+
+  --data '{
+
+  "name": "my-snapshot",
+
+  "includeMemory": false
+
+}'
+
+# Hot snapshot (filesystem and memory, sandbox running)
+
+curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}/snapshot' \
+
+  --request POST \
+
+  --header 'X-Daytona-Organization-ID: YOUR_ORGANIZATION_ID' \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+
+  --data '{
+
+  "name": "my-vm-snapshot",
+
+  "includeMemory": true
+
+}'
+```
+
+Windows sandboxes capture filesystem state only ( **cold snapshot**) or filesystem and memory state ( **hot snapshot**) through the `includeMemory` parameter:
+
+| **Snapshot type** | **Include memory** | **Snapshot contents** | **Required sandbox state** |
+| --- | --- | --- | --- |
+| Cold | **`false`** (default) | Filesystem only | Stopped |
+| Hot | **`true`** | Filesystem and memory | Started |
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1453)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1454)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1455)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1456)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1457)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1458)
+
+```
+# Cold snapshot (filesystem only, sandbox stopped)
+
+sandbox._experimental_create_snapshot("my-snapshot")
+
+# Hot snapshot (filesystem and memory, sandbox running)
+
+sandbox._experimental_create_snapshot("my-vm-snapshot", include_memory=True)
+```
+
+```
+// Cold snapshot (filesystem only, sandbox stopped)
+
+await sandbox._experimental_createSnapshot('my-snapshot')
+
+// Hot snapshot (filesystem and memory, sandbox running)
+
+await sandbox._experimental_createSnapshot('my-vm-snapshot', 60, true)
+```
+
+```
+# Cold snapshot (filesystem only, sandbox stopped)
+
+sandbox.experimental_create_snapshot(name: 'my-snapshot')
+
+# Hot snapshot (filesystem and memory, sandbox running)
+
+sandbox.experimental_create_snapshot(name: 'my-vm-snapshot', include_memory: true)
+```
+
+```
+// Cold snapshot (filesystem only, sandbox stopped)
+
+err := sandbox.ExperimentalCreateSnapshot(ctx, "my-snapshot")
+
+if err != nil {
+
+    return err
+
+}
+
+// Hot snapshot (filesystem and memory, sandbox running)
+
+err = sandbox.ExperimentalCreateSnapshotWithMemory(ctx, "my-vm-snapshot", 60*time.Second)
+
+if err != nil {
+
+    return err
+
+}
+```
+
+```
+// Cold snapshot (filesystem only, sandbox stopped)
+
+sandbox.experimentalCreateSnapshot("my-snapshot");
+
+// Hot snapshot (filesystem and memory, sandbox running)
+
+sandbox.experimentalCreateSnapshot("my-vm-snapshot", 60, true);
+```
+
+```
+# Cold snapshot (filesystem only, sandbox stopped)
+
+curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}/snapshot' \
+
+  --request POST \
+
+  --header 'X-Daytona-Organization-ID: YOUR_ORGANIZATION_ID' \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+
+  --data '{
+
+  "name": "my-snapshot",
+
+  "includeMemory": false
+
+}'
+
+# Hot snapshot (filesystem and memory, sandbox running)
+
+curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}/snapshot' \
+
+  --request POST \
+
+  --header 'X-Daytona-Organization-ID: YOUR_ORGANIZATION_ID' \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+
+  --data '{
+
+  "name": "my-vm-snapshot",
+
+  "includeMemory": true
+
+}'
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#snapshots-from-private-registries) Snapshots from private registries
+
+[Section titled “Snapshots from private registries”](https://www.daytona.io/docs/en/snapshots/#snapshots-from-private-registries)
+
+Create a snapshot from images from private container registries.
+
+1. Go to [Daytona Registries ↗](https://app.daytona.io/dashboard/registries)
+
+2. Click **Add Registry** and select your provider:
+   - [Docker Hub](https://www.daytona.io/docs/en/snapshots/#docker-hub)
+   - [Google Artifact Registry](https://www.daytona.io/docs/en/snapshots/#google-artifact-registry)
+   - [GitHub Container Registry](https://www.daytona.io/docs/en/snapshots/#github-container-registry)
+   - [Amazon ECR](https://www.daytona.io/docs/en/snapshots/#amazon-elastic-container-registry)
+3. Enter the required fields
+
+4. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+
+5. Click **Create Snapshot**
+
+6. Enter the snapshot **`name`** and the full **`image`** reference, including the registry host and repository (e.g. **`my-registry.com/<repo>/custom-alpine:3.21`**)
+
+
+#### [\#](https://www.daytona.io/docs/en/snapshots/\#docker-hub) Docker Hub
+
+[Section titled “Docker Hub”](https://www.daytona.io/docs/en/snapshots/#docker-hub)
+
+Create a snapshot from Docker Hub images.
+
+1. Go to [Daytona Registries ↗](https://app.daytona.io/dashboard/registries)
+
+2. Click **Add Registry** and select the **Docker Hub** tab
+
+3. Input the following fields:
+   - **Username**: your Docker Hub username (the account with access to the image)
+   - **Personal Access Token**: a [Docker Hub PAT](https://docs.docker.com/security/access-tokens/); not your account password
+   - **Registry URL**: auto-filled with **`docker.io`** and not shown in the form
+4. Create the snapshot using the full image reference
+
+**`docker.io/<username>/<image>:<tag>`**
+
+
+#### [\#](https://www.daytona.io/docs/en/snapshots/\#google-artifact-registry) Google Artifact Registry
+
+[Section titled “Google Artifact Registry”](https://www.daytona.io/docs/en/snapshots/#google-artifact-registry)
+
+Create a snapshot from images from Google Artifact Registry.
+
+1. Go to [Daytona Registries ↗](https://app.daytona.io/dashboard/registries),
+
+2. Click **Add Registry** and select the **Google** tab
+
+3. Input the following fields:
+   - **Registry URL**: the base URL for your region
+
+     **`https://<region>-docker.pkg.dev`**
+
+   - **Service Account JSON Key**: the contents of your service account key JSON file
+
+   - **Google Cloud Project ID**: your GCP project ID
+
+   - **Username**: auto-filled with **`_json_key`** (required by Google for service-account auth)
+4. Create the snapshot using the full image reference
+
+**`<region>-docker.pkg.dev/<project>/<repo>/<image>:<tag>`**
+
+
+#### [\#](https://www.daytona.io/docs/en/snapshots/\#github-container-registry) GitHub Container Registry
+
+[Section titled “GitHub Container Registry”](https://www.daytona.io/docs/en/snapshots/#github-container-registry)
+
+Create a snapshot from images from GitHub Container Registry.
+
+1. Go to [Daytona Registries ↗](https://app.daytona.io/dashboard/registries),
+
+2. Click **Add Registry** and select the **GitHub** tab
+
+3. Input the following fields:
+   - **GitHub Username**: the account with access to the image
+   - **Personal Access Token**: a [GitHub PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) with **`read:packages`** scope (and **`write:packages`** / **`delete:packages`** for pushing or deleting)
+   - **Registry URL**: auto-filled with **`ghcr.io`** and not shown in the form
+4. Create the snapshot using the full image reference
+
+**`ghcr.io/<owner>/<image>:<tag>`**
+
+
+#### [\#](https://www.daytona.io/docs/en/snapshots/\#amazon-ecr) Amazon ECR
+
+[Section titled “Amazon ECR”](https://www.daytona.io/docs/en/snapshots/#amazon-ecr)
+
+Create a snapshot from images from Amazon Elastic Container Registry.
+
+Daytona pulls private ECR images via cross-account IAM role assumption. You create a role in your AWS account that trusts Daytona’s broker principal, and Daytona assumes it on every pull to fetch a short-lived ECR token.
+
+- **Daytona Broker ARN**
+
+The IAM principal Daytona uses to assume into your role. Self-hosted: substitute the IAM role your API pods assume (e.g. via IRSA).
+
+`arn:aws:iam::967657494466:role/DaytonaEcrCredentialBroker`
+
+- **External ID**
+
+Your Daytona organization ID, visible in the dashboard URL (`/dashboard/<orgId>/...`) and on your organization settings page.
+
+
+1. Create an IAM role in your AWS account
+
+
+   - **Trust policy**
+
+```
+{
+
+  "Version": "2012-10-17",
+
+  "Statement": [{\
+\
+    "Effect": "Allow",\
+\
+    "Principal": { "AWS": "arn:aws:iam::967657494466:role/DaytonaEcrCredentialBroker" },\
+\
+    "Action": "sts:AssumeRole",\
+\
+    "Condition": {\
+\
+      "StringEquals": {\
+\
+        "sts:ExternalId": "<YOUR_EXTERNAL_ID>"\
+\
+      }\
+\
+    }\
+\
+  }]
+
+}
+```
+
+   - **Permissions policy (read-only on ECR)**
+
+```
+{
+
+  "Version": "2012-10-17",
+
+  "Statement": [{\
+\
+    "Effect": "Allow",\
+\
+    "Action": [\
+\
+      "ecr:GetAuthorizationToken",\
+\
+      "ecr:BatchCheckLayerAvailability",\
+\
+      "ecr:GetDownloadUrlForLayer",\
+\
+      "ecr:BatchGetImage"\
+\
+    ],\
+\
+    "Resource": "*"\
+\
+  }]
+
+}
+```
+
+2. Go to [Daytona Registries ↗](https://app.daytona.io/dashboard/registries)
+
+3. Click **Add Registry** and select the **Amazon ECR** tab
+
+4. Input the following fields:
+
+
+   - **Registry URL**: **`<account_id>.dkr.ecr.<region>.amazonaws.com`**
+   - **Role ARN**: the role you created in step 1
+
+Password is not used for ECR. Daytona resolves credentials server-side by assuming the role you created in step 1, using your organization ID as the **`AssumeRole ExternalId`**.
+
+5. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+
+6. Click **Create Snapshot**
+
+7. Enter the snapshot **`name`** and the full **`image`** reference
+
+**`<account_id>.dkr.ecr.<region>.amazonaws.com/<repo>/<image>:<tag>`**
+
+8. (Optional) Harden the trust policy
+
+Daytona sends a `daytona-<orgId>-pull` session name on every AssumeRole call. You can require it in your trust policy for CloudTrail audit visibility. Add inside `Condition`:
+
+
+
+```
+"StringLike": {
+
+     "sts:RoleSessionName": "daytona-<YOUR_EXTERNAL_ID>-*"
+
+}
+```
+
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#snapshots-from-local-images) Snapshots from local images
+
+[Section titled “Snapshots from local images”](https://www.daytona.io/docs/en/snapshots/#snapshots-from-local-images)
+
+Create a snapshot from local images or from local Dockerfiles.
+
+Daytona expects the local image to be built for AMD64 architecture. Therefore, the `--platform=linux/amd64` flag is required when building the Docker image if your machine is running on a different architecture.
+
+1. Ensure the image and tag you want to use is available
+
+```
+docker images
+```
+
+2. Create a snapshot and push it to Daytona:
+
+```
+daytona snapshot push custom-alpine:3.21 --name alpine-minimal
+```
+
+Alternatively, use the `--dockerfile` flag under `create` to pass the path to the Dockerfile you want to use and Daytona will build the snapshot for you. The `COPY`/`ADD` commands will be automatically parsed and added to the context. To manually add files to the context, use the `--context` flag.
+
+```
+daytona snapshot create my-awesome-snapshot --dockerfile ./Dockerfile
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#get-snapshot) Get snapshot
+
+[Section titled “Get snapshot”](https://www.daytona.io/docs/en/snapshots/#get-snapshot)
+
+Get a snapshot by name.
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1459)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1460)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1461)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1462)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1463)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1464)
+
+```
+daytona.snapshot.get("my-awesome-snapshot")
+```
+
+```
+await daytona.snapshot.get('my-awesome-snapshot')
+```
+
+```
+daytona.snapshot.get('my-awesome-snapshot')
+```
+
+```
+_, err := client.Snapshots.Get(ctx, "my-awesome-snapshot")
+```
+
+```
+daytona.snapshot().get("my-awesome-snapshot");
+```
+
+```
+curl https://app.daytona.io/api/snapshots/my-awesome-snapshot \
+
+  --header 'Authorization: Bearer YOUR_SECRET_TOKEN'
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#list-snapshots) List snapshots
+
+[Section titled “List snapshots”](https://www.daytona.io/docs/en/snapshots/#list-snapshots)
+
+List snapshots and view their details.
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1465)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1466)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1467)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1468)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1469)
+- [CLI](https://www.daytona.io/docs/en/snapshots/#tab-panel-1470)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1471)
+
+```
+daytona.snapshot.list(page=2, limit=10)
+```
+
+```
+await daytona.snapshot.list(2, 10)
+```
+
+```
+daytona.snapshot.list(page: 2, limit: 10)
+```
+
+```
+page, limit := 2, 10
+
+_, err := client.Snapshots.List(ctx, &page, &limit)
+```
+
+```
+daytona.snapshot().list(2, 10);
+```
+
+```
+# List snapshots with pagination
+
+daytona snapshot list --page 2 --limit 10
+```
+
+```
+curl 'https://app.daytona.io/api/snapshots?page=2&limit=10' \
+
+  --header 'Authorization: Bearer YOUR_SECRET_TOKEN'
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#activate-snapshots) Activate snapshots
+
+[Section titled “Activate snapshots”](https://www.daytona.io/docs/en/snapshots/#activate-snapshots)
+
+Activate an inactive snapshot.
+
+Snapshots automatically become inactive after 2 weeks of not being used.
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+2. Click the three dots at the end of the row for the snapshot you want to activate
+3. Click the **Activate** button
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1472)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1473)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1474)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1475)
+
+```
+daytona.snapshot.activate("my-awesome-snapshot")
+```
+
+```
+await daytona.snapshot.activate("my-awesome-snapshot")
+```
+
+```
+daytona.snapshot.activate('my-awesome-snapshot')
+```
+
+```
+curl https://app.daytona.io/api/snapshots/my-inactive-snapshot/activate \
+
+  --request POST \
+
+  --header 'Authorization: Bearer YOUR_SECRET_TOKEN'
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#deactivate-snapshots) Deactivate snapshots
+
+[Section titled “Deactivate snapshots”](https://www.daytona.io/docs/en/snapshots/#deactivate-snapshots)
+
+Deactivate a snapshot.
+
+Deactivated snapshots are not available for new sandboxes. Deactivating a snapshot also pauses top-ups of its [warm pools](https://www.daytona.io/docs/en/warm-pools); the pool reports the reason in its `errorReason` field.
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+2. Click the three dots at the end of the row for the snapshot you want to deactivate
+3. Click the **Deactivate** button
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#delete-snapshots) Delete snapshots
+
+[Section titled “Delete snapshots”](https://www.daytona.io/docs/en/snapshots/#delete-snapshots)
+
+Delete a snapshot.
+
+Deleted snapshots cannot be recovered. Deleting a snapshot also deletes its [warm pools](https://www.daytona.io/docs/en/warm-pools) and destroys their unclaimed warm sandboxes.
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+2. Click the three dots at the end of the row for the snapshot you want to delete
+3. Click the **Delete** button
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1476)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1477)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1478)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1479)
+- [Java](https://www.daytona.io/docs/en/snapshots/#tab-panel-1480)
+- [CLI](https://www.daytona.io/docs/en/snapshots/#tab-panel-1481)
+- [API](https://www.daytona.io/docs/en/snapshots/#tab-panel-1482)
+
+```
+daytona.snapshot.delete(daytona.snapshot.get("my-awesome-snapshot"))
+```
+
+```
+await daytona.snapshot.delete(await daytona.snapshot.get("my-awesome-snapshot"))
+```
+
+```
+daytona.snapshot.delete(daytona.snapshot.get('my-awesome-snapshot'))
+```
+
+```
+snapshot, err := client.Snapshots.Get(ctx, "my-awesome-snapshot")
+
+err = client.Snapshots.Delete(ctx, snapshot)
+```
+
+```
+daytona.snapshot().delete(daytona.snapshot().get("my-awesome-snapshot").getId());
+```
+
+```
+daytona snapshot delete my-awesome-snapshot
+```
+
+```
+curl https://app.daytona.io/api/snapshots/my-awesome-snapshot \
+
+  --request DELETE \
+
+  --header 'Authorization: Bearer YOUR_SECRET_TOKEN'
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#snapshot-lifecycle) Snapshot lifecycle
+
+[Section titled “Snapshot lifecycle”](https://www.daytona.io/docs/en/snapshots/#snapshot-lifecycle)
+
+A snapshot can have several different states. Each state reflects the snapshot’s current status.
+
+- **Pending**: the snapshot creation has been requested
+- **Building**: the snapshot is being built
+- **Pulling**: the snapshot image is being pulled from a registry
+- **Active**: the snapshot is ready to use for creating sandboxes
+- **Inactive**: the snapshot is deactivated; must be explicitly [activated](https://www.daytona.io/docs/en/snapshots/#activate-snapshots) before use
+- **Error**: the snapshot creation failed
+- **Build Failed**: the snapshot build process failed
+- **Removing**: the snapshot is being deleted
+
+Default snapshots include pre-installed Python and Node.js packages.
+
+| **Package** | **Version** |
+| --- | --- |
+| **`anthropic`** | v0.76.0 |
+| **`beautifulsoup4`** | v4.14.3 |
+| **`claude-agent-sdk`** | v0.1.22 |
+| **`openai-agents`** | v0.15.1 |
+| **`daytona`** | v0.134.0 |
+| **`django`** | v6.0.1 |
+| **`flask`** | v3.1.2 |
+| **`huggingface-hub`** | v0.36.0 |
+| **`instructor`** | v1.14.4 |
+| **`keras`** | v3.13.0 |
+| **`langchain`** | v1.2.7 |
+| **`llama-index`** | v0.14.13 |
+| **`matplotlib`** | v3.10.8 |
+| **`numpy`** | v2.4.1 |
+| **`ollama`** | v0.6.1 |
+| **`openai`** | v2.33.0 |
+| **`opencv-python`** | v4.13.0.90 |
+| **`pandas`** | v2.3.3 |
+| **`pillow`** | v12.1.0 |
+| **`pipx`** | v1.8.0 |
+| **`pydantic-ai`** | v1.47.0 |
+| **`python-lsp-server`** | v1.14.0 |
+| **`requests`** | v2.32.5 |
+| **`scikit-learn`** | v1.8.0 |
+| **`scipy`** | v1.17.0 |
+| **`seaborn`** | v0.13.2 |
+| **`sqlalchemy`** | v2.0.46 |
+| **`torch`** | v2.10.0 |
+| **`transformers`** | v4.57.6 |
+| **`uv`** | v0.9.26 |
+
+Show more
+
+| **Package** | **Version** |
+| --- | --- |
+| **`@anthropic-ai/claude-code`** | v2.1.19 |
+| **`@openai/codex`** | v0.128.0 |
+| **`bun`** | v1.3.6 |
+| **`openclaw`** | v2026.2.1 |
+| **`opencode-ai`** | v1.1.35 |
+| **`ts-node`** | v10.9.2 |
+| **`typescript`** | v5.9.3 |
+| **`typescript-language-server`** | v5.1.3 |
+
+Show more
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#run-docker-in-a-sandbox) Run Docker in a sandbox
+
+[Section titled “Run Docker in a sandbox”](https://www.daytona.io/docs/en/snapshots/#run-docker-in-a-sandbox)
+
+Sandboxes can run Docker containers inside them ( **Docker-in-Docker**), enabling you to build, test, and deploy containerized applications.
+
+Agents can interact with these services since they run within the same sandbox environment, providing better isolation and security compared to external service dependencies.
+
+- Run databases (PostgreSQL, Redis, MySQL) and other services
+- Build and test containerized applications
+- Deploy microservices and their dependencies
+- Create isolated development environments with full container orchestration
+
+##### [\#](https://www.daytona.io/docs/en/snapshots/\#create-a-docker-in-docker-snapshot) Create a Docker-in-Docker snapshot
+
+[Section titled “Create a Docker-in-Docker snapshot”](https://www.daytona.io/docs/en/snapshots/#create-a-docker-in-docker-snapshot)
+
+Daytona provides an option to create a snapshot with Docker support using pre-built Docker-in-Docker images as a base or by manually installing Docker in a custom image.
+
+###### Using pre-built images
+
+[Section titled “Using pre-built images”](https://www.daytona.io/docs/en/snapshots/#using-pre-built-images)
+
+The following base images are widely used for creating Docker-in-Docker snapshots or can be used as a base for a custom Dockerfile:
+
+- **`docker:28.3.3-dind`**: official Docker-in-Docker image (Alpine-based, lightweight)
+- **`docker:28.3.3-dind-rootless`**: rootless Docker-in-Docker for enhanced security
+- **`docker:28.3.2-dind-alpine3.22`**: Docker-in-Docker image with Alpine 3.22
+
+**Manual installation**
+
+Alternatively, install Docker manually in a custom Dockerfile:
+
+```
+FROM ubuntu:22.04
+
+# Install Docker using the official install script
+
+RUN curl -fsSL https://get.docker.com | VERSION=28.3.3 sh -
+```
+
+##### [\#](https://www.daytona.io/docs/en/snapshots/\#run-docker-compose-in-a-sandbox) Run Docker Compose in a sandbox
+
+[Section titled “Run Docker Compose in a sandbox”](https://www.daytona.io/docs/en/snapshots/#run-docker-compose-in-a-sandbox)
+
+Define and run multi-container applications. With Docker-in-Docker enabled in a Daytona sandbox, you can use Docker Compose to orchestrate services like databases, caches, and application containers.
+
+1. Create a Docker-in-Docker snapshot with one of the [pre-built images](https://www.daytona.io/docs/en/snapshots/#using-pre-built-images)
+2. Run Docker Compose services inside a sandbox
+
+- [Python](https://www.daytona.io/docs/en/snapshots/#tab-panel-1483)
+- [TypeScript](https://www.daytona.io/docs/en/snapshots/#tab-panel-1484)
+- [Ruby](https://www.daytona.io/docs/en/snapshots/#tab-panel-1485)
+- [Go](https://www.daytona.io/docs/en/snapshots/#tab-panel-1486)
+
+```
+from daytona import Daytona, CreateSandboxFromSnapshotParams
+
+# Initialize the Daytona client
+
+daytona = Daytona()
+
+# Create a sandbox from a Docker-in-Docker snapshot
+
+sandbox = daytona.create(CreateSandboxFromSnapshotParams(snapshot='docker-dind'))
+
+# Create a docker-compose.yml file
+
+compose_content = '''
+
+services:
+
+  web:
+
+    image: nginx:alpine
+
+    ports:
+
+      - "8080:80"
+
+'''
+
+sandbox.fs.upload_file(compose_content.encode(), 'docker-compose.yml')
+
+# Start Docker Compose services
+
+result = sandbox.process.exec('docker compose -p demo up -d')
+
+print(result.result)
+
+# Check running services
+
+result = sandbox.process.exec('docker compose -p demo ps')
+
+print(result.result)
+
+# Clean up
+
+sandbox.process.exec('docker compose -p demo down')
+```
+
+```
+import { Daytona } from '@daytona/sdk'
+
+// Initialize the Daytona client
+
+const daytona = new Daytona()
+
+// Create a sandbox from a Docker-in-Docker snapshot
+
+const sandbox = await daytona.create({ snapshot: 'docker-dind' })
+
+// Create a docker-compose.yml file
+
+const composeContent = `
+
+services:
+
+  web:
+
+    image: nginx:alpine
+
+    ports:
+
+      - "8080:80"
+
+`
+
+await sandbox.fs.uploadFile(Buffer.from(composeContent), 'docker-compose.yml')
+
+// Start Docker Compose services
+
+let result = await sandbox.process.executeCommand('docker compose -p demo up -d')
+
+console.log(result.result)
+
+// Check running services
+
+result = await sandbox.process.executeCommand('docker compose -p demo ps')
+
+console.log(result.result)
+
+// Clean up
+
+await sandbox.process.executeCommand('docker compose -p demo down')
+```
+
+```
+require 'daytona'
+
+# Initialize the Daytona client
+
+daytona = Daytona::Daytona.new
+
+# Create a sandbox from a Docker-in-Docker snapshot
+
+sandbox = daytona.create(Daytona::CreateSandboxFromSnapshotParams.new(snapshot: 'docker-dind'))
+
+# Create a docker-compose.yml file
+
+compose_content = <<~YAML
+
+services:
+
+  web:
+
+    image: nginx:alpine
+
+    ports:
+
+      - "8080:80"
+
+YAML
+
+sandbox.fs.upload_file(compose_content, 'docker-compose.yml')
+
+# Start Docker Compose services
+
+result = sandbox.process.exec(command: 'docker compose -p demo up -d')
+
+puts result.result
+
+# Check running services
+
+result = sandbox.process.exec(command: 'docker compose -p demo ps')
+
+puts result.result
+
+# Clean up
+
+sandbox.process.exec(command: 'docker compose -p demo down')
+```
+
+```
+package main
+
+import (
+
+  "context"
+
+  "fmt"
+
+  "github.com/daytona/clients/sdk-go/pkg/daytona"
+
+  "github.com/daytona/clients/sdk-go/pkg/types"
+
+)
+
+func main() {
+
+  ctx := context.Background()
+
+  // Initialize the Daytona client
+
+  client, _ := daytona.NewDaytona(nil)
+
+  // Create a sandbox from a Docker-in-Docker snapshot
+
+  sandbox, _ := client.Create(ctx, &types.CreateSandboxFromSnapshotParams{
+
+    Snapshot: daytona.Ptr("docker-dind"),
+
+  }, nil)
+
+  // Create a docker-compose.yml file
+
+  composeContent := `
+
+services:
+
+  web:
+
+    image: nginx:alpine
+
+    ports:
+
+      - "8080:80"
+
+`
+
+  sandbox.Fs.UploadFile(ctx, []byte(composeContent), "docker-compose.yml")
+
+  // Start Docker Compose services
+
+  result, _ := sandbox.Process.ExecuteCommand(ctx, "docker compose -p demo up -d", nil)
+
+  fmt.Println(result.Result)
+
+  // Check running services
+
+  result, _ = sandbox.Process.ExecuteCommand(ctx, "docker compose -p demo ps", nil)
+
+  fmt.Println(result.Result)
+
+  // Clean up
+
+  sandbox.Process.ExecuteCommand(ctx, "docker compose -p demo down", nil)
+
+}
+```
+
+## [\#](https://www.daytona.io/docs/en/snapshots/\#run-kubernetes-in-a-sandbox) Run Kubernetes in a sandbox
+
+[Section titled “Run Kubernetes in a sandbox”](https://www.daytona.io/docs/en/snapshots/#run-kubernetes-in-a-sandbox)
+
+Sandboxes can run a Kubernetes cluster inside the sandbox. Kubernetes runs entirely inside the sandbox and is removed when the sandbox is deleted, keeping environments secure and reproducible.
+
+The snippet installs and starts a k3s cluster inside a sandbox and lists all running pods:
+
+```
+import { Daytona } from '@daytona/sdk'
+
+import { setTimeout } from 'timers/promises'
+
+// Initialize the Daytona client
+
+const daytona = new Daytona()
+
+// Create the sandbox instance
+
+const sandbox = await daytona.create()
+
+// Run the k3s installation script
+
+const response = await sandbox.process.executeCommand(
+
+  'curl -sfL https://get.k3s.io | sh -'
+
+)
+
+// Run k3s
+
+const sessionName = 'k3s-server'
+
+await sandbox.process.createSession(sessionName)
+
+const k3s = await sandbox.process.executeSessionCommand(sessionName, {
+
+  command: 'sudo /usr/local/bin/k3s server',
+
+  async: true,
+
+})
+
+// Give time to k3s to fully start
+
+await setTimeout(30000)
+
+// Get all pods
+
+const pods = await sandbox.process.executeCommand(
+
+  'sudo /usr/local/bin/kubectl get pod -A'
+
+)
+
+console.log(pods.result)
+```

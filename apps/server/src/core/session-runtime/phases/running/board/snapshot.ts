@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import type { BoardMeasures, BoardRankBreakdown, BoardSnapshot, CandidateRerankMode, TargetCandidate } from "@server/core/shared/types/index.js";
+import type { BoardModelScoring } from "@server/core/shared/types/board.js";
 import { candidateFromReportFunction, closenessPriority, closenessScore, objdiffSourceMap } from "./candidates.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
+import { spawnPredictorScorer, type ModelRerankMode, type PredictorScorer } from "./predictor.js";
 
 const HIGH_ACCURACY_BONUS_WEIGHT = 0.4;
 const ACCURACY_READINESS_READINESS_WEIGHT = 0.35;
@@ -18,6 +20,9 @@ function readJson(path: string): JsonObject {
 export interface LoadBoardSnapshotOptions {
   candidateRerank?: CandidateRerankMode;
   codeGraphFunctionsIndexPath?: string;
+  predictorDbPath?: string;
+  predictorScorer?: PredictorScorer;
+  predictorSessionId?: string;
   rankFeatureProvider?: BoardRankFeatureProvider;
 }
 
@@ -107,6 +112,7 @@ export function loadBoardSnapshot(repoRoot: string, limit: number, options: Load
 
   rankBoardCandidates(candidates, options.rankFeatureProvider, options.candidateRerank ?? "priority");
   candidates.sort((left, right) => right.priority - left.priority);
+  const modelScoring = applyModelRerank(candidates, options);
   const measures = asObject(report.measures) as BoardMeasures;
   return {
     generatedAt: new Date().toISOString(),
@@ -114,6 +120,7 @@ export function loadBoardSnapshot(repoRoot: string, limit: number, options: Load
     objdiffPath,
     measures,
     candidates: candidates.slice(0, limit),
+    ...(modelScoring ? { modelScoring } : {}),
   };
 }
 
@@ -190,6 +197,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
 
   rankBoardCandidates(candidates, options.rankFeatureProvider, options.candidateRerank ?? "priority");
   candidates.sort((left, right) => right.priority - left.priority);
+  const modelScoring = applyModelRerank(candidates, options);
   const measures: BoardMeasures = {
     matched_functions_percent: percent(matchedFunctions, totalFunctions),
     matched_code_percent: percent(matchedBytes, totalBytes),
@@ -202,6 +210,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
     objdiffPath: "",
     measures,
     candidates: candidates.slice(0, limit),
+    ...(modelScoring ? { modelScoring } : {}),
   };
 }
 
@@ -227,7 +236,93 @@ export function normalizeCandidateRerankMode(value: unknown): CandidateRerankMod
   if (normalized === "opseq_hot_lane" || normalized === "opsec_hot_lane" || normalized === "opseq_matched" || normalized === "opsec_matched") {
     return "opseq_hot_lane";
   }
+  if (normalized === "model_win_95" || normalized === "model_win95") return "model_win_95";
+  if (normalized === "model_win_90" || normalized === "model_win90") return "model_win_90";
+  if (
+    normalized === "model_match_focus" ||
+    normalized === "model_matchfocus" ||
+    normalized === "model_match" ||
+    normalized === "model_match_30" ||
+    normalized === "model_match30"
+  ) {
+    return "model_match_focus";
+  }
   return "priority";
+}
+
+export function isModelRerankMode(mode: CandidateRerankMode | undefined): mode is ModelRerankMode {
+  return mode === "model_win_95" || mode === "model_win_90" || mode === "model_match_focus";
+}
+
+export function modelRerankScoreKey(mode: ModelRerankMode): "p_win" | "p_match" {
+  return mode === "model_match_focus" ? "p_match" : "p_win";
+}
+
+export function modelAdmissionCap(mode: CandidateRerankMode | undefined, candidateCount: number): number | null {
+  if (!isModelRerankMode(mode) || candidateCount <= 0) return null;
+  const fraction = mode === "model_win_95" ? 0.8785 : mode === "model_win_90" ? 0.811 : 0.3;
+  return Math.ceil(fraction * candidateCount);
+}
+
+export function refreshBoardRerankMode(mode: CandidateRerankMode | undefined): CandidateRerankMode | undefined {
+  return isModelRerankMode(mode) ? "priority" : mode;
+}
+
+function applyModelRerank(candidates: TargetCandidate[], options: LoadBoardSnapshotOptions): BoardModelScoring | undefined {
+  const mode = options.candidateRerank;
+  if (!isModelRerankMode(mode)) return undefined;
+
+  let scores: ReturnType<PredictorScorer>;
+  try {
+    const scorer =
+      options.predictorScorer ??
+      spawnPredictorScorer({
+        dbPath: options.predictorDbPath,
+        sessionId: options.predictorSessionId,
+      });
+    scores = scorer(candidates, mode);
+  } catch (error) {
+    const warning = `scorer threw: ${error instanceof Error ? error.message : String(error)}`;
+    console.error(`[board] model rerank unavailable (${warning}); falling back to priority order`);
+    return { mode, applied: false, warning };
+  }
+
+  if (!scores || Object.keys(scores).length === 0) {
+    const warning = scores ? "scorer returned an empty score map" : "scorer failed";
+    console.error(`[board] model rerank unavailable (${warning}); falling back to priority order`);
+    return { mode, applied: false, warning };
+  }
+
+  const scoreKey = modelRerankScoreKey(mode);
+  let scoredCount = 0;
+  let missingCount = 0;
+  for (const candidate of candidates) {
+    const rank = candidate.rank;
+    if (!rank) continue;
+    const score = scores[`${candidate.unit}::${candidate.symbol}`];
+    if (!score) {
+      rank.p_win = 0;
+      rank.p_match = 0;
+      missingCount += 1;
+      continue;
+    }
+    rank.p_win = score.p_win;
+    rank.p_match = score.p_match;
+    rank.explanation.push(`model_rerank=${mode} p_win=${score.p_win.toFixed(4)} p_match=${score.p_match.toFixed(4)}`);
+    scoredCount += 1;
+  }
+
+  candidates.sort((left, right) => {
+    const scoreDifference = (right.rank?.[scoreKey] ?? 0) - (left.rank?.[scoreKey] ?? 0);
+    return scoreDifference || right.priority - left.priority;
+  });
+  return {
+    mode,
+    applied: true,
+    score_key: scoreKey,
+    scored_count: scoredCount,
+    missing_count: missingCount,
+  };
 }
 
 function rankBoardCandidates(candidates: TargetCandidate[], rankFeatureProvider?: BoardRankFeatureProvider, candidateRerank: CandidateRerankMode = "priority"): void {

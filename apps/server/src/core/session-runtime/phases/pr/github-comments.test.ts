@@ -89,28 +89,36 @@ describe("tiered GitHub comments", () => {
     const inline = commands[0]!;
     expect(inline).toContain("line=10");
     const body = inline.find((part) => part.startsWith("body="))!.slice("body=".length);
-    expect(body).toContain("Rule: m2c_goto_label");
-    expect(body).toContain("Lead occurrence.");
+    expect(body).toContain("**`m2c_goto_label`**");
+    expect(body).toContain("> Lead occurrence.");
     expect(body).toContain("Also at lines: 20, 30");
+    expect(body).not.toContain(" | ");
     for (const row of findings) expect(body).toContain(commentMarker(row));
   });
 
-  test("renders exact, fuzzy, and reverted match context", () => {
+  test("renders exact, fuzzy, and reverted match context as a header plus bullets", () => {
     expect(renderMatchContext({
       function: "ExactFn",
       fuzzy_percent: 100,
       exact: true,
       repair_reverted: null,
-    })).toBe("`ExactFn` — exact match (100%); changing this shape risks the match");
+    })).toBe([
+      "**Match context:** in `ExactFn`",
+      "",
+      "- **exact match (100%)**; changing this shape risks the match",
+    ].join("\n"));
 
     expect(renderMatchContext({
       function: "FuzzyFn",
       fuzzy_percent: 91.25,
       exact: false,
       repair_reverted: "the exact-match score regressed",
-    })).toBe(
-      "`FuzzyFn` — improvement-lane (fuzzy 91.25%); safe to change at some score cost; an automated fix attempt was **reverted**: the exact-match score regressed",
-    );
+    })).toBe([
+      "**Match context:** in `FuzzyFn`",
+      "",
+      "- improvement-lane (fuzzy 91.25%); safe to change at some score cost",
+      "- an automated fix attempt was **reverted**: the exact-match score regressed",
+    ].join("\n"));
   });
 
   test("posts all tier-2 entries in one collapsed issue comment and skips tier 3", async () => {
@@ -140,6 +148,11 @@ describe("tiered GitHub comments", () => {
     expect(records[0]?.status).toBe("posted_top_level");
     expect(bodies[0]).toContain("<details>");
     expect(bodies[0]).toContain("Already investigated by the repair pipeline — kept as-is with evidence");
+    expect(bodies[0]).toContain("**`m2c_goto_label`** at `src/melee/gm/gmtest.c:11`");
+    expect(bodies[0]).toContain("> Replace the generated control-flow shape.");
+    expect(bodies[0]).toContain("Evidence:\n\n> The report remains exact.");
+    expect(bodies[0]).toContain("Evidence:\n\n> The owning header confirms the type.");
+    expect(bodies[0]).not.toContain(" | ");
     for (const row of tierTwo) expect(bodies[0]).toContain(commentMarker(row));
     expect(bodies[0]).not.toContain(commentMarker(finding({ line: 13, tier: 3 })));
   });

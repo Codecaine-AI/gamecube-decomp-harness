@@ -1,0 +1,676 @@
+---
+url: "https://www.daytona.io/docs/en/python-sdk/async/async-daytona/"
+title: "AsyncDaytona | Daytona"
+---
+
+[Skip to content](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#_top)
+
+Copy for LLM[View as Markdown](https://www.daytona.io/docs/en/python-sdk/async/async-daytona.md)Open
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytona) AsyncDaytona
+
+[Section titled “AsyncDaytona”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytona)
+
+```
+class AsyncDaytona()
+```
+
+Main class for interacting with the Daytona API.
+
+This class provides asynchronous methods to create, manage, and interact with Daytona Sandboxes.
+It can be initialized either with explicit configuration or using environment variables.
+
+**Attributes**:
+
+- `volume` _AsyncVolumeService_ \- Service for managing volumes.
+- `snapshot` _AsyncSnapshotService_ \- Service for managing snapshots.
+- `secret` _AsyncSecretService_ \- Service for managing secrets.
+
+**Example**:
+
+Using environment variables:
+
+```
+async with AsyncDaytona() as daytona:  # Uses DAYTONA_API_KEY, DAYTONA_API_URL
+
+    sandbox = await daytona.create()
+```
+
+Using explicit configuration:
+
+```
+config = DaytonaConfig(
+
+    api_key="your-api-key",
+
+    api_url="https://your-api.com",
+
+    target="us"
+
+)
+
+try:
+
+    daytona = AsyncDaytona(config)
+
+    sandbox = await daytona.create()
+
+finally:
+
+    await daytona.close()
+```
+
+Using OpenTelemetry tracing:
+
+```
+config = DaytonaConfig(
+
+    api_key="your-api-key",
+
+    experimental={"otelEnabled": True}
+
+)
+
+async with AsyncDaytona(config) as daytona:
+
+    sandbox = await daytona.create()
+
+    # All SDK operations will be traced
+
+# OpenTelemetry traces are flushed on close
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytona__init__) AsyncDaytona.\_\_init\_\_
+
+[Section titled “AsyncDaytona.\_\_init\_\_”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytona__init__)
+
+```
+def __init__(config: DaytonaConfig | None = None)
+```
+
+Initializes Daytona instance with optional configuration.
+
+If no config is provided, reads from environment variables:
+
+- `DAYTONA_API_KEY`: Required API key for authentication
+- `DAYTONA_API_URL`: Required api URL
+- `DAYTONA_TARGET`: Optional target environment (if not provided, default region for the organization is used)
+
+**Arguments**:
+
+- `config` _DaytonaConfig \| None_ \- Object containing api\_key, api\_url, and target.
+
+**Raises**:
+
+- `DaytonaError` \- If API key is not provided either through config or environment variables
+
+**Example**:
+
+```
+from daytona import Daytona, DaytonaConfig
+
+# Using environment variables
+
+daytona1 = AsyncDaytona()
+
+await daytona1.close()
+
+# Using explicit configuration
+
+config = DaytonaConfig(
+
+    api_key="your-api-key",
+
+    api_url="https://your-api.com",
+
+    target="us"
+
+)
+
+daytona2 = AsyncDaytona(config)
+
+await daytona2.close()
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytona__aenter__) AsyncDaytona.\_\_aenter\_\_
+
+[Section titled “AsyncDaytona.\_\_aenter\_\_”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytona__aenter__)
+
+```
+async def __aenter__()
+```
+
+Async context manager entry.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytona__aexit__) AsyncDaytona.\_\_aexit\_\_
+
+[Section titled “AsyncDaytona.\_\_aexit\_\_”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytona__aexit__)
+
+```
+async def __aexit__(exc_type: type[BaseException] | None = None,
+
+                    exc_value: BaseException | None = None,
+
+                    traceback: TracebackType | None = None)
+```
+
+Async context manager exit - ensures proper cleanup.
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytonaclose) AsyncDaytona.close
+
+[Section titled “AsyncDaytona.close”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytonaclose)
+
+```
+async def close()
+```
+
+Close the HTTP session and clean up resources.
+
+This method should be called when you’re done using the AsyncDaytona instance
+to properly close the underlying HTTP sessions and avoid resource leaks.
+
+**Example**:
+
+```
+daytona = AsyncDaytona()
+
+try:
+
+    sandbox = await daytona.create()
+
+    # ... use sandbox ...
+
+finally:
+
+    await daytona.close()
+```
+
+Or better yet, use as async context manager:
+
+```
+async with AsyncDaytona() as daytona:
+
+    sandbox = await daytona.create()
+
+    # ... use sandbox ...
+
+# Automatically closed
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytonacreate) AsyncDaytona.create
+
+[Section titled “AsyncDaytona.create”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytonacreate)
+
+```
+@overload
+
+async def create(params: CreateSandboxFromSnapshotParams | None = None,
+
+                 *,
+
+                 timeout: float = 60) -> AsyncSandbox
+```
+
+Creates Sandboxes from specified or default snapshot. You can specify various parameters,
+including language, image, environment variables, and volumes.
+
+**Arguments**:
+
+- `params` _CreateSandboxFromSnapshotParams \| None_ \- Parameters for Sandbox creation. If not provided,
+defaults to default Daytona snapshot and Python language.
+- `timeout` _float_ \- Timeout (in seconds) for sandbox creation. 0 means no timeout.
+Default is 60 seconds.
+
+**Returns**:
+
+- `Sandbox` \- The created Sandbox instance.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout, auto\_stop\_interval or auto\_archive\_interval is negative;
+If sandbox fails to start or times out
+
+**Example**:
+
+Create a default Python Sandbox:
+
+```
+sandbox = await daytona.create()
+```
+
+Create a custom Sandbox:
+
+```
+params = CreateSandboxFromSnapshotParams(
+
+    language="python",
+
+    snapshot="my-snapshot-id",
+
+    env_vars={"DEBUG": "true"},
+
+    auto_stop_interval=0,
+
+    auto_archive_interval=60,
+
+    auto_delete_interval=120
+
+)
+
+sandbox = await daytona.create(params, timeout=40)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytonacreate-1) AsyncDaytona.create
+
+[Section titled “AsyncDaytona.create”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytonacreate-1)
+
+```
+@overload
+
+async def create(
+
+    params: CreateSandboxFromImageParams | None = None,
+
+    *,
+
+    timeout: float = 60,
+
+    on_snapshot_create_logs: Callable[[str], None] | None = None
+
+) -> AsyncSandbox
+```
+
+Creates Sandboxes from specified image available on some registry or declarative Daytona Image.
+You can specify various parameters, including resources, language, image, environment variables,
+and volumes. Daytona creates snapshot from provided image and uses it to create Sandbox.
+
+**Arguments**:
+
+- `params` _CreateSandboxFromImageParams \| None_ \- Parameters for Sandbox creation from image.
+- `timeout` _float_ \- Timeout (in seconds) for sandbox creation. 0 means no timeout.
+Default is 60 seconds.
+- `on_snapshot_create_logs` _Callable\[\[str\], None\] \| None_ \- This callback function
+handles snapshot creation logs.
+
+**Returns**:
+
+- `Sandbox` \- The created Sandbox instance.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout, auto\_stop\_interval or auto\_archive\_interval is negative;
+If sandbox fails to start or times out
+
+**Example**:
+
+Create a default Python Sandbox from image:
+
+```
+sandbox = await daytona.create(CreateSandboxFromImageParams(image="debian:12.9"))
+```
+
+Create a custom Sandbox from declarative Image definition:
+
+```
+declarative_image = (
+
+    Image.base("alpine:3.18")
+
+    .pipInstall(["numpy", "pandas"])
+
+    .env({"MY_ENV_VAR": "My Environment Variable"})
+
+)
+
+params = CreateSandboxFromImageParams(
+
+    language="python",
+
+    image=declarative_image,
+
+    env_vars={"DEBUG": "true"},
+
+    resources=Resources(cpu=2, memory=4),
+
+    auto_stop_interval=0,
+
+    auto_archive_interval=60,
+
+    auto_delete_interval=120
+
+)
+
+sandbox = await daytona.create(
+
+    params,
+
+    timeout=40,
+
+    on_snapshot_create_logs=lambda chunk: print(chunk, end=""),
+
+)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytonadelete) AsyncDaytona.delete
+
+[Section titled “AsyncDaytona.delete”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytonadelete)
+
+```
+@with_instrumentation()
+
+async def delete(sandbox: AsyncSandbox,
+
+                 timeout: float = 60,
+
+                 wait: bool = False) -> None
+```
+
+Deletes a Sandbox.
+
+By default returns as soon as the deletion request is accepted (fire-and-forget).
+Pass `wait=True` to block until the Sandbox reaches the ‘destroyed’ state.
+
+**Arguments**:
+
+- `sandbox` _Sandbox_ \- The Sandbox instance to delete.
+- `timeout` _float_ \- Timeout (in seconds) for the request and, when `wait`
+is True, for reaching ‘destroyed’. 0 means no timeout. Default is 60 seconds.
+- `wait` _bool_ \- If True, wait until the Sandbox is destroyed. Defaults to False.
+
+**Raises**:
+
+- `DaytonaError` \- If sandbox fails to delete or times out
+
+**Example**:
+
+```
+sandbox = await daytona.create()
+
+# ... use sandbox ...
+
+await daytona.delete(sandbox)  # Clean up when done
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytonaget) AsyncDaytona.get
+
+[Section titled “AsyncDaytona.get”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytonaget)
+
+```
+@intercept_errors(message_prefix="Failed to get sandbox: ")
+
+@with_instrumentation()
+
+async def get(sandbox_id_or_name: str,
+
+              request_timeout: float | None = None) -> AsyncSandbox
+```
+
+Gets a Sandbox by its ID or name.
+
+**Arguments**:
+
+- `sandbox_id_or_name` _str_ \- The ID or name of the Sandbox to retrieve.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Returns**:
+
+- `Sandbox` \- The Sandbox instance.
+
+**Raises**:
+
+- `DaytonaError` \- If sandbox\_id\_or\_name is not provided.
+
+**Example**:
+
+```
+sandbox = await daytona.get("my-sandbox-id-or-name")
+
+print(sandbox.state)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytonalist) AsyncDaytona.list
+
+[Section titled “AsyncDaytona.list”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytonalist)
+
+```
+@intercept_errors(message_prefix="Failed to list sandboxes: ")
+
+@with_instrumentation()
+
+async def list(
+
+        query: ListSandboxesQuery | None = None,
+
+        request_timeout: float | None = None) -> AsyncIterator[AsyncSandbox]
+```
+
+Iterates over Sandboxes matching the given query.
+
+**Arguments**:
+
+- `query` \- Optional filters, sorting, and per-page size.
+- `request_timeout` _float \| None_ \- Optional client-side request timeout in seconds. Client-side
+only. It bounds how long the SDK waits for the HTTP response and does not cancel
+the operation on the server. Positive values under 1 second are rounded up to 1
+second; 0 disables the client-side timeout and negative values are rejected.
+
+**Yields**:
+
+- `AsyncSandbox` \- Each Sandbox matching the query.
+
+**Example**:
+
+```
+from daytona import ListSandboxesQuery
+
+async for sandbox in daytona.list(ListSandboxesQuery(labels={"env": "dev"})):
+
+    print(sandbox.id)
+```
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytonastart) AsyncDaytona.start
+
+[Section titled “AsyncDaytona.start”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytonastart)
+
+```
+@with_instrumentation()
+
+async def start(sandbox: AsyncSandbox, timeout: float = 60) -> None
+```
+
+Starts a Sandbox and waits for it to be ready.
+
+**Arguments**:
+
+- `sandbox` _Sandbox_ \- The Sandbox to start.
+- `timeout` _float_ \- Optional timeout in seconds to wait for the Sandbox to start.
+0 means no timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative; If Sandbox fails to start or times out
+
+#### [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#asyncdaytonastop) AsyncDaytona.stop
+
+[Section titled “AsyncDaytona.stop”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#asyncdaytonastop)
+
+```
+@with_instrumentation()
+
+async def stop(sandbox: AsyncSandbox, timeout: float = 60) -> None
+```
+
+Stops a Sandbox and waits for it to be stopped.
+
+**Arguments**:
+
+- `sandbox` _Sandbox_ \- The sandbox to stop
+- `timeout` _float_ \- Optional timeout (in seconds) for sandbox stop.
+0 means no timeout. Default is 60 seconds.
+
+**Raises**:
+
+- `DaytonaError` \- If timeout is negative; If Sandbox fails to stop or times out
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#codelanguage) CodeLanguage
+
+[Section titled “CodeLanguage”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#codelanguage)
+
+```
+class CodeLanguage(str, Enum)
+```
+
+Programming languages supported by Daytona
+
+**Enum Members**:
+
+- `PYTHON` (“python”)
+- `TYPESCRIPT` (“typescript”)
+- `JAVASCRIPT` (“javascript”)
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#daytonaconfig) DaytonaConfig
+
+[Section titled “DaytonaConfig”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#daytonaconfig)
+
+```
+class DaytonaConfig(BaseModel)
+```
+
+Configuration options for initializing the Daytona client.
+
+**Attributes**:
+
+- `api_key` _str \| None_ \- API key for authentication with the Daytona API. If not set, it must be provided
+via the environment variable `DAYTONA_API_KEY`, or a JWT token must be provided instead.
+
+- `jwt_token` _str \| None_ \- JWT token for authentication with the Daytona API. If not set, it must be provided
+via the environment variable `DAYTONA_JWT_TOKEN`, or an API key must be provided instead.
+
+- `organization_id` _str \| None_ \- Organization ID used for JWT-based authentication. Required if a JWT token
+is provided, and must be set either here or in the environment variable `DAYTONA_ORGANIZATION_ID`.
+
+- `api_url` _str \| None_ \- URL of the Daytona API. Defaults to `'https://app.daytona.io/api'` if not set
+here or in the environment variable `DAYTONA_API_URL`.
+
+- `server_url` _str \| None_ \- Deprecated. Use `api_url` instead. This property will be removed
+in a future version.
+
+- `target` _str \| None_ \- Target runner location for the Sandbox. Default region for the organization is used
+if not set here or in the environment variable `DAYTONA_TARGET`.
+
+- `connection_pool_maxsize` _int \| None_ \- Maximum number of simultaneous HTTP connections
+the SDK will open. Defaults to 250. Set to `None` to remove the limit, which is
+recommended when running many concurrent long-lived operations like `process.exec`.
+
+- `otel_enabled` _bool \| None_ \- Enable OpenTelemetry tracing for SDK operations. Defaults
+to `None`, which falls back to the `DAYTONA_OTEL_ENABLED` environment variable.
+
+- `use_deprecated_polling` _bool \| None_ \- Observe sandbox state by legacy polling instead
+of WebSocket event streaming. Defaults to `False` (event streaming). Can also be
+enabled via the `DAYTONA_USE_DEPRECATED_POLLING` environment variable.
+
+.. deprecated::
+Polling-only mode will be removed in a future release; event streaming is the
+default and falls back to polling automatically when WebSockets are unavailable.
+
+- `_experimental` _dict\[str, any\] \| None_ \- Configuration for experimental features.
+
+
+**Example**:
+
+```
+config = DaytonaConfig(api_key="your-api-key")
+```
+
+```
+config = DaytonaConfig(jwt_token="your-jwt-token", organization_id="your-organization-id")
+```
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#createsandboxbaseparams) CreateSandboxBaseParams
+
+[Section titled “CreateSandboxBaseParams”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#createsandboxbaseparams)
+
+```
+class CreateSandboxBaseParams(BaseModel)
+```
+
+Base parameters for creating a new Sandbox.
+
+**Attributes**:
+
+- `name` _str \| None_ \- Name of the Sandbox.
+- `language` _CodeLanguage \| CodeLanguageLiteral \| None_ \- Programming language for the Sandbox.
+Defaults to “python”.
+- `os_user` _str \| None_ \- OS user for the Sandbox.
+- `env_vars` _dict\[str, str\] \| None_ \- Environment variables to set in the Sandbox.
+- `labels` _dict\[str, str\] \| None_ \- Custom labels for the Sandbox.
+- `public` _bool \| None_ \- Whether the Sandbox should be public.
+- `timeout` _float \| None_ \- Timeout in seconds for Sandbox to be created and started.
+- `auto_stop_interval` _int \| None_ \- Interval in minutes after which Sandbox will
+automatically stop if no Sandbox event occurs during that time. Default is 15 minutes
+(for sandbox classes that support pausing, auto-pause defaults to 60 minutes instead
+and auto-stop is disabled). 0 means no auto-stop.
+- `auto_pause_interval` _int \| None_ \- Auto-pause interval in minutes (0 means disabled).
+Only supported for sandbox classes that support pausing.
+Not allowed for ephemeral sandboxes. At most one of auto\_stop\_interval and
+auto\_pause\_interval may be non-zero. For non-ephemeral sandbox classes that
+support pausing, defaults to 60 minutes (with auto-stop disabled) when
+neither interval is provided.
+- `auto_archive_interval` _int \| None_ \- Interval in minutes after which a continuously stopped Sandbox will
+automatically archive. Default is 7 days.
+0 means the maximum interval will be used.
+- `auto_delete_interval` _int \| None_ \- Interval in minutes after which a continuously stopped Sandbox will
+automatically be deleted. By default, auto-delete is disabled.
+Negative value means disabled, 0 means delete immediately upon stopping.
+- `ttl_minutes` _int \| None_ \- Maximum time to live in minutes, counted as wall-clock time since
+creation regardless of sandbox state. When it elapses the sandbox is destroyed, even if
+it is stopped, paused, or archived. 0 means disabled.
+- `volumes` _list\[VolumeMount\] \| None_ \- List of volumes mounts to attach to the Sandbox.
+- `secrets` _dict\[str, str\] \| None_ \- Map of environment variable name to the name of an existing
+organization Secret to mount into the Sandbox. The env var is set to the Secret’s opaque
+placeholder, not the plaintext; the real value is substituted transparently on outbound
+requests to the Secret’s allowed hosts. Every referenced Secret name must already exist
+in the organization.
+- `network_block_all` _bool \| None_ \- Whether to block all network access for the Sandbox.
+- `network_allow_list` _str \| None_ \- Comma-separated list of allowed CIDR network addresses for the Sandbox.
+- `domain_allow_list` _str \| None_ \- Comma-separated list of allowed domains for the Sandbox.
+- `ephemeral` _bool \| None_ \- Whether the Sandbox should be ephemeral.
+If True, auto\_delete\_interval will be set to 0.
+- `linked_sandbox` _str \| None_ \- ID or name of an existing Sandbox to link the new Sandbox to. The new
+Sandbox will be scheduled on the same runner as the linked Sandbox so a local network can be
+established between them. Linked Sandboxes must be
+ephemeral (auto\_delete\_interval=0) and cannot themselves be linked to another Sandbox.
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#createsandboxfromimageparams) CreateSandboxFromImageParams
+
+[Section titled “CreateSandboxFromImageParams”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#createsandboxfromimageparams)
+
+```
+class CreateSandboxFromImageParams(CreateSandboxBaseParams)
+```
+
+Parameters for creating a new Sandbox from an image.
+
+**Attributes**:
+
+- `image` _str \| Image_ \- Custom Docker image to use for the Sandbox. If an Image object is provided,
+the image will be dynamically built.
+- `resources` _Resources \| None_ \- Resource configuration for the Sandbox. If not provided, sandbox will
+have default resources.
+
+## [\#](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/\#createsandboxfromsnapshotparams) CreateSandboxFromSnapshotParams
+
+[Section titled “CreateSandboxFromSnapshotParams”](https://www.daytona.io/docs/en/python-sdk/async/async-daytona/#createsandboxfromsnapshotparams)
+
+```
+class CreateSandboxFromSnapshotParams(CreateSandboxBaseParams)
+```
+
+Parameters for creating a new Sandbox from a snapshot.
+
+**Attributes**:
+
+- `snapshot` _str \| None_ \- Name of the snapshot to use for the Sandbox.

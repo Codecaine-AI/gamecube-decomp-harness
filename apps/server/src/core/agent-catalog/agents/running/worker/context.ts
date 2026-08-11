@@ -717,18 +717,19 @@ function decompStandardsBudgetXml(contextBudget: WorkerPromptContextBudget): str
   const rules =
     mode === "summary"
       ? [
-          "Preserve local style and original-author source shapes.",
-          "Prefer nearby solved source evidence over broad rewrites.",
-          "Avoid destructive resets and preserve pre-existing dirty work.",
-          "Validate retained edits with runner/checkdiff/build/review evidence.",
-          "Do not hand-pack strings/data when normal source ownership is available.",
+          "Local style and original-author source shapes are required; deviating source is rejected.",
+          "Nearby solved source evidence is required before any broad rewrite.",
+          "Destructive resets are not allowed; pre-existing dirty work must be preserved.",
+          "Retained edits must be validated with runner/checkdiff/build/review evidence.",
+          "Hand-packing strings/data when normal source ownership is available is rejected.",
         ]
       : [
-          "Preserve local style, pre-existing dirty work, and runner evidence.",
+          "Local style, pre-existing dirty work, and runner evidence are required.",
           "Read local standards/source if a choice is ambiguous.",
         ];
   return [
     `    <decomp_standards context_budget="${contextBudget}" compacted="true">`,
+    `        <instruction>${xmlText("These are mandatory requirements enforced by lint and review. Repair every finding before an attempt is accepted; if an llm_review advisory is kept, justify it in the attempt summary.")}</instruction>`,
     ...rules.map((rule) => `        <rule>${xmlText(rule)}</rule>`),
     "    </decomp_standards>",
   ].join("\n");

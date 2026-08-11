@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
-import { packageRoot, sourceDataRoot, sourceRoot } from "./paths.js";
+import { packageRoot, sourceDataRoot, sourceRoot, sourceStorageRoot } from "./paths.js";
 import { readJsonl } from "./graph/util.js";
+import { readOrderedSliceRecords, standardsSlicesRoot } from "./standards-files.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -78,9 +79,11 @@ export function globalStandardsContext(): Record<string, unknown> {
 }
 
 export function loadStandardExamples(): JsonRecord[] {
-  return readJsonl(
-    resolve(sourceDataRoot("decomp_standards"), "examples.jsonl"),
-  );
+  return readOrderedSliceRecords<JsonRecord>(
+    standardsSlicesRoot(sourceStorageRoot("decomp_standards")),
+    "examples.jsonl",
+    "examples",
+  ).map((item) => item.record);
 }
 
 export function standardExamplesPromptXml(
@@ -139,8 +142,9 @@ export function globalStandardsPromptXml(): string {
   const lines = [
     "<decomp_standards>",
     "    <instruction>",
-    "        Use each standard as an example-backed source-quality pattern: read the description,",
-    "        compare the bad/preferred code pair, and apply the same transformation only when local evidence supports it.",
+    "        These standards are mandatory requirements enforced by lint and review, not preferences.",
+    "        Read each description and its bad/preferred code pair, apply the required transformation, and repair every finding before an attempt is accepted.",
+    "        Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error.",
     "    </instruction>",
   ];
 
@@ -223,9 +227,11 @@ export function resolvePathFactsContext(
 }
 
 function loadGlobalStandards(): JsonRecord[] {
-  return readJsonl(
-    resolve(sourceDataRoot("decomp_standards"), "standards.jsonl"),
-  );
+  return readOrderedSliceRecords<JsonRecord>(
+    standardsSlicesRoot(sourceStorageRoot("decomp_standards")),
+    "standards.jsonl",
+    "standards",
+  ).map((item) => item.record);
 }
 
 function examplesByStandardId(

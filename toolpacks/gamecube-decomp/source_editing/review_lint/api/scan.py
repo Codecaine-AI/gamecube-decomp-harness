@@ -147,7 +147,12 @@ def inline_pointer_findings(text: str) -> list[dict[str, Any]]:
     return findings
 
 
-def qa_text_findings(text: str, rule_ids: set[str], source_ref: str) -> list[dict[str, Any]]:
+def qa_text_findings(
+    text: str,
+    rule_ids: set[str],
+    source_ref: str,
+    surface: str | None = None,
+) -> list[dict[str, Any]]:
     """Whole-file advisory pass for the diff-aware QA rules.
 
     Whole-file scans cannot do paired-line or ownership analysis (that is
@@ -157,17 +162,18 @@ def qa_text_findings(text: str, rule_ids: set[str], source_ref: str) -> list[dic
 
     findings: list[dict[str, Any]] = []
     path = source_ref if source_ref != "<text>" else None
-    for finding in _qa_rules.scan_text_as_hunk(text, rule_ids, path=path):
-        findings.append(
-            {
-                "rule_id": finding["rule_id"],
-                "line": finding["line"],
-                "snippet": finding["excerpt"],
-                "message": finding["message"],
-                "severity": finding["severity"],
-                "standard_id": finding.get("standard_id"),
-            }
-        )
+    for finding in _qa_rules.scan_text_as_hunk(text, rule_ids, path=path, surface=surface):
+        entry = {
+            "rule_id": finding["rule_id"],
+            "line": finding["line"],
+            "snippet": finding["excerpt"],
+            "message": finding["message"],
+            "severity": finding["severity"],
+            "standard_id": finding.get("standard_id"),
+        }
+        if finding.get("detail") is not None:
+            entry["detail"] = finding["detail"]
+        findings.append(entry)
     return findings
 
 
@@ -181,6 +187,15 @@ def main() -> None:
         choices=("all", "type_erasing_casts", "inline_pointer_vars", "qa_text", *QA_TEXT_RULES),
         default="all",
         help="Rule group to run. 'qa_text' runs the diff-gate QA rules in advisory whole-file mode (not part of 'all' to keep existing behavior).",
+    )
+    parser.add_argument(
+        "--surface",
+        choices=sorted(_qa_rules.QA_SURFACES),
+        default=None,
+        help=(
+            "Resolve per-surface severities for QA rules that declare a "
+            "'surfaces' map. Default: base severity (backward compatible)."
+        ),
     )
     parser.add_argument("--json", action="store_true", help="Emit JSON output.")
     args = parser.parse_args()
@@ -202,9 +217,9 @@ def main() -> None:
     if args.rule in {"all", "inline_pointer_vars"}:
         findings.extend(inline_pointer_findings(text))
     if args.rule == "qa_text":
-        findings.extend(qa_text_findings(text, set(QA_TEXT_RULES), source_ref))
+        findings.extend(qa_text_findings(text, set(QA_TEXT_RULES), source_ref, args.surface))
     elif args.rule in QA_TEXT_RULES:
-        findings.extend(qa_text_findings(text, {args.rule}, source_ref))
+        findings.extend(qa_text_findings(text, {args.rule}, source_ref, args.surface))
 
     print_json(
         {

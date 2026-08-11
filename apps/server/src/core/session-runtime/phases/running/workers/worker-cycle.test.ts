@@ -543,7 +543,7 @@ describe("workerContinuationDecision", () => {
     const decision = workerContinuationDecision({
       attemptIndex: 4,
       checkpoints,
-      repairReasons: ["runner checkpoint was not exact"],
+      repairReasons: ["runner validation: build failed"],
       dryRun: false,
       claimDeadlineMs: futureDeadline,
     });
@@ -559,7 +559,7 @@ describe("workerContinuationDecision", () => {
     const decision = workerContinuationDecision({
       attemptIndex: 3,
       checkpoints,
-      repairReasons: ["runner checkpoint was not exact"],
+      repairReasons: ["runner validation: build failed"],
       dryRun: false,
       claimDeadlineMs: futureDeadline,
     });
@@ -568,74 +568,63 @@ describe("workerContinuationDecision", () => {
     expect(decision.continueReason).toBe("cold_attempt_budget_available");
   });
 
-  test("allows three follow-up checkpoints after an early selectable improvement", () => {
+  test("banks a selectable improvement immediately even with unresolved repair reasons", () => {
     const checkpoints = [
       continuationCheckpoint(0),
       continuationCheckpoint(1, { hardGatesPassed: true, selectable: true, newScore: 81 }),
-      continuationCheckpoint(2, { hardGatesPassed: true, selectable: true, newScore: 80.5 }),
-      continuationCheckpoint(3, { hardGatesPassed: true, selectable: true, newScore: 80.75 }),
     ];
     const decision = workerContinuationDecision({
-      attemptIndex: 3,
+      attemptIndex: 1,
       checkpoints,
-      repairReasons: ["runner checkpoint was not exact"],
-      dryRun: false,
-      claimDeadlineMs: futureDeadline,
-    });
-
-    expect(decision.shouldContinue).toBe(true);
-    expect(decision.continueReason).toBe("post_improvement_followup");
-    expect(decision.followUpsSinceBest).toBe(2);
-  });
-
-  test("stops after three follow-up checkpoints without a new best", () => {
-    const checkpoints = [
-      continuationCheckpoint(0),
-      continuationCheckpoint(1, { hardGatesPassed: true, selectable: true, newScore: 81 }),
-      continuationCheckpoint(2, { hardGatesPassed: true, selectable: true, newScore: 80.5 }),
-      continuationCheckpoint(3, { hardGatesPassed: true, selectable: true, newScore: 80.75 }),
-      continuationCheckpoint(4, { hardGatesPassed: true, selectable: true, newScore: 80.9 }),
-    ];
-    const decision = workerContinuationDecision({
-      attemptIndex: 4,
-      checkpoints,
-      repairReasons: ["runner checkpoint was not exact"],
+      repairReasons: ["runner validation: build failed"],
       dryRun: false,
       claimDeadlineMs: futureDeadline,
     });
 
     expect(decision.shouldContinue).toBe(false);
-    expect(decision.exhausted).toBe(true);
-    expect(decision.stopReason).toBe("improvement_followup_budget_exhausted");
-    expect(decision.followUpsSinceBest).toBe(3);
+    expect(decision.exhausted).toBe(false);
+    expect(decision.stopReason).toBe("improvement_banked");
+    expect(decision.latestBestAttemptIndex).toBe(1);
   });
 
-  test("a new best resets the follow-up budget", () => {
+  test("banks a selectable improvement when there are no repair reasons", () => {
     const checkpoints = [
       continuationCheckpoint(0),
       continuationCheckpoint(1, { hardGatesPassed: true, selectable: true, newScore: 81 }),
-      continuationCheckpoint(2, { hardGatesPassed: true, selectable: true, newScore: 82 }),
-      continuationCheckpoint(3, { hardGatesPassed: true, selectable: true, newScore: 81.5 }),
-      continuationCheckpoint(4, { hardGatesPassed: true, selectable: true, newScore: 81.75 }),
     ];
     const decision = workerContinuationDecision({
-      attemptIndex: 4,
+      attemptIndex: 1,
       checkpoints,
-      repairReasons: ["runner checkpoint was not exact"],
+      repairReasons: [],
       dryRun: false,
       claimDeadlineMs: futureDeadline,
     });
 
-    expect(decision.shouldContinue).toBe(true);
-    expect(decision.latestBestAttemptIndex).toBe(2);
-    expect(decision.followUpsSinceBest).toBe(2);
+    expect(decision.shouldContinue).toBe(false);
+    expect(decision.exhausted).toBe(false);
+    expect(decision.stopReason).toBe("improvement_banked");
+  });
+
+  test("keeps the plain stop reason when there are no repair reasons and no best checkpoint", () => {
+    const checkpoints = [continuationCheckpoint(0)];
+    const decision = workerContinuationDecision({
+      attemptIndex: 0,
+      checkpoints,
+      repairReasons: [],
+      dryRun: false,
+      claimDeadlineMs: futureDeadline,
+    });
+
+    expect(decision.shouldContinue).toBe(false);
+    expect(decision.exhausted).toBe(false);
+    expect(decision.stopReason).toBe("accepted_or_no_repair_reasons");
   });
 
   test("accepted exact checkpoints stop immediately", () => {
     const decision = workerContinuationDecision({
       attemptIndex: 1,
       checkpoints: [continuationCheckpoint(1, { exactMatch: true, hardGatesPassed: true, selectable: true, newScore: 100 })],
-      repairReasons: ["runner checkpoint was not exact"],
+      repairReasons: ["runner validation: build failed"],
       dryRun: false,
       claimDeadlineMs: futureDeadline,
     });

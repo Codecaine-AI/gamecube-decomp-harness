@@ -3,6 +3,8 @@ import { DEFAULT_TOOL_CONCURRENCY, DEFAULT_WORKER_TIMEOUT_SECONDS, normalizeTool
 
 const RUN_SETTINGS_KEY = "runSettings.v1";
 const THINKING_LEVEL_SETTINGS_VERSION = 2;
+// Bump to invalidate saved maxWorkers/epochSize/model when their defaults change.
+const RUN_SETTINGS_VERSION = 3;
 const DEFAULT_THINKING_LEVEL = "xhigh";
 
 export function schedulingForWorkers(workers: number) {
@@ -26,6 +28,7 @@ type SavedRunSettings = Pick<
   | "toolConcurrency"
 > & {
   thinkingLevelVersion?: number;
+  settingsVersion?: number;
 };
 
 function loadRunSettings(): Partial<SavedRunSettings> {
@@ -34,16 +37,20 @@ function loadRunSettings(): Partial<SavedRunSettings> {
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const settings: Partial<SavedRunSettings> = {};
-    if (typeof parsed.maxWorkers === "number" && parsed.maxWorkers > 0) settings.maxWorkers = Math.trunc(parsed.maxWorkers);
+    // Saved values written before the current settings version predate the
+    // full-epoch/12-worker/gpt-5.6-sol defaults; drop them so the new
+    // defaults win until the user saves again.
+    const currentVersion = parsed.settingsVersion === RUN_SETTINGS_VERSION;
+    if (currentVersion && typeof parsed.maxWorkers === "number" && parsed.maxWorkers > 0) settings.maxWorkers = Math.trunc(parsed.maxWorkers);
     if (typeof parsed.provider === "string" && parsed.provider) settings.provider = parsed.provider;
-    if (typeof parsed.model === "string" && parsed.model) settings.model = parsed.model;
+    if (currentVersion && typeof parsed.model === "string" && parsed.model) settings.model = parsed.model === "gpt-5.5" ? "gpt-5.6-sol" : parsed.model;
     if (typeof parsed.thinkingLevel === "string" && parsed.thinkingLevel) {
       settings.thinkingLevel =
         parsed.thinkingLevel === "medium" && parsed.thinkingLevelVersion !== THINKING_LEVEL_SETTINGS_VERSION
           ? DEFAULT_THINKING_LEVEL
           : parsed.thinkingLevel;
     }
-    if (typeof parsed.epochSize === "string" && parsed.epochSize) settings.epochSize = parsed.epochSize;
+    if (currentVersion && typeof parsed.epochSize === "string" && parsed.epochSize) settings.epochSize = parsed.epochSize;
     if (typeof parsed.candidateWindow === "string" && parsed.candidateWindow) settings.candidateWindow = parsed.candidateWindow;
     if (typeof parsed.candidateRerank === "string" && parsed.candidateRerank) settings.candidateRerank = parsed.candidateRerank;
     if (typeof parsed.integrationResolverConcurrency === "number" && parsed.integrationResolverConcurrency > 0) {
@@ -65,6 +72,7 @@ export function saveRunSettings(form: FormState) {
       model: form.model,
       thinkingLevel: form.thinkingLevel,
       thinkingLevelVersion: THINKING_LEVEL_SETTINGS_VERSION,
+      settingsVersion: RUN_SETTINGS_VERSION,
       epochSize: form.epochSize,
       candidateWindow: form.candidateWindow,
       candidateRerank: form.candidateRerank,
@@ -95,14 +103,14 @@ const defaultForm: FormState = {
   stateDir: "",
   graphDbPath: "",
   processName: "melee-live",
-  ...schedulingForWorkers(20),
-  epochSize: "64",
+  ...schedulingForWorkers(12),
+  epochSize: "full",
   candidateWindow: "128",
   candidateRerank: "opseq_hot_lane",
   integrationResolverConcurrency: 4,
   goalValue: 100,
   provider: "codex-lb",
-  model: "gpt-5.5",
+  model: "gpt-5.6-sol",
   thinkingLevel: DEFAULT_THINKING_LEVEL,
   agentTimeoutSeconds: DEFAULT_WORKER_TIMEOUT_SECONDS,
   toolConcurrency: DEFAULT_TOOL_CONCURRENCY,

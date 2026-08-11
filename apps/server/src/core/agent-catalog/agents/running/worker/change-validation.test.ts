@@ -21,7 +21,7 @@ import type { WorkerRunnerValidation } from "./runner-validation.js";
 
 function finding(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
   return {
-    rule_id: "extern_literal_anchor",
+    rule_id: "extern_in_c",
     severity: "error",
     file: "src/melee/ft/ftcoll.c",
     line: 42,
@@ -229,14 +229,14 @@ describe("qaLintRepairReasons", () => {
     const reasons = qaLintRepairReasons(qaLint);
     expect(reasons).toHaveLength(3);
     expect(reasons[0]).toBe(
-      "qa_lint_finding: error extern_literal_anchor at src/melee/ft/ftcoll.c:42 — extern-for-literal anchor referencing TU-owned data [standard: global_standard:literals-and-data-ownership] excerpt: extern const f32 lbl_804DA60C;",
+      "qa_lint_finding: error extern_in_c at src/melee/ft/ftcoll.c:42 — extern-for-literal anchor referencing TU-owned data [standard: global_standard:literals-and-data-ownership] excerpt: extern const f32 lbl_804DA60C;",
     );
     expect(reasons[1]).toBe(
       "qa_lint_finding: error unrolled_assert at src/melee/gr/ground.c:99 — open-coded assert [standard: global_standard:assert-report-macros] excerpt: __assert(...)",
     );
     expect(reasons[2]).toBe(QA_LINT_REPAIR_INSTRUCTION);
     expect(QA_LINT_REPAIR_INSTRUCTION).toBe(
-      "Remove every QA lint finding; a lower match % without it is the correct outcome. Do not re-add maintainer-rejected patterns.",
+      "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match (owning-header declarations, project assert/report macros, established inline helpers); if the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.",
     );
   });
 
@@ -372,6 +372,7 @@ describe("validateWorkerChange QA lint integration", () => {
     expect(seenOptions).toHaveLength(1);
     expect(seenOptions[0].repoRoot).toBe(repoRoot);
     expect(seenOptions[0].orchestratorRoot).toBe("/tmp/orchestrator");
+    expect(seenOptions[0].surface).toBe("worker");
     const scanPath = seenOptions[0].diffFile ?? "";
     expect(scanPath).toBe(resolve(outputDir, "attempt-0.qa_diff.patch"));
     expect(validation.qaLint?.scanPath).toBe(scanPath);

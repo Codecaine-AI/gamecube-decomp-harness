@@ -1,4 +1,4 @@
-export type CandidateRerankMode = "priority" | "opseq_hot_lane";
+export type CandidateRerankMode = "priority" | "opseq_hot_lane" | "model_win_95" | "model_win_90" | "model_match_focus";
 
 export interface BoardMeasures {
   fuzzy_match_percent?: number;
@@ -33,7 +33,18 @@ export interface BoardRankBreakdown {
   risk_penalty: number;
   graph_score: number;
   total_priority: number;
+  p_win?: number;
+  p_match?: number;
   explanation: string[];
+}
+
+export interface BoardModelScoring {
+  mode: CandidateRerankMode;
+  applied: boolean;
+  score_key?: "p_win" | "p_match";
+  scored_count?: number;
+  missing_count?: number;
+  warning?: string;
 }
 
 export interface TargetCandidate {
@@ -53,4 +64,5 @@ export interface BoardSnapshot {
   objdiffPath: string;
   measures: BoardMeasures;
   candidates: TargetCandidate[];
+  modelScoring?: BoardModelScoring;
 }

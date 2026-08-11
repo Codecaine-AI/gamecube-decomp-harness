@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { modelAdmissionCap } from "@server/core/session-runtime/phases/running/board/index.js";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
@@ -117,6 +118,13 @@ describe("epoch size parsing", () => {
 });
 
 describe("epoch admission selection", () => {
+  test("computes model admission caps", () => {
+    expect(modelAdmissionCap("model_win_95", 435)).toBe(Math.ceil(0.8785 * 435));
+    expect(modelAdmissionCap("model_win_90", 200)).toBe(163);
+    expect(modelAdmissionCap("model_match_focus", 10)).toBe(3);
+    expect(modelAdmissionCap("priority", 435)).toBeNull();
+  });
+
   test("round-robins targets by source file while admitting duplicates", () => {
     const selected = selectEpochAdmissionCandidates({
       candidates: [
@@ -157,12 +165,52 @@ describe("epoch admission selection", () => {
     });
     expect(full.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_3", "fn_2"]);
 
+    const capped = selectEpochAdmissionCandidates({
+      candidates: [candidate(1, "src/a.c"), candidate(2, "src/a.c"), candidate(3, "src/b.c")],
+      size: { mode: "full", value: null },
+      admissionCap: 2,
+    });
+    expect(capped.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_3"]);
+
+    const uncapped = selectEpochAdmissionCandidates({
+      candidates: [candidate(1, "src/a.c"), candidate(2, "src/a.c"), candidate(3, "src/b.c")],
+      size: { mode: "full", value: null },
+      admissionCap: null,
+    });
+    expect(uncapped.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_3", "fn_2"]);
+
     const empty = selectEpochAdmissionCandidates({ candidates: [], size: { mode: "full", value: null } });
     expect(empty.selected).toEqual([]);
   });
 });
 
 describe("scheduler epoch and worker state lifecycle", () => {
+  test("caps persisted full-mode admissions", () => {
+    const { store } = tempState();
+    try {
+      const run = createRun(store, "matched_code_percent", 100, 2);
+      const epoch = startSchedulerEpoch(store, run.id, {
+        size: { mode: "full", value: null },
+        workerPoolSize: 2,
+        candidateWindow: 16,
+      });
+      const admission = admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: [candidate(1, "src/a.c"), candidate(2, "src/b.c"), candidate(3, "src/c.c")],
+        size: { mode: "full", value: null },
+        workerPoolSize: 2,
+        admissionCap: 2,
+      });
+
+      expect(admission).toMatchObject({ admitted: 2, candidateCount: 3, admissionCap: 2 });
+      expect(count(store, "SELECT COUNT(*) AS count FROM epoch_targets WHERE epoch_id = ?", epoch.id)).toBe(2);
+      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 2, available: 2, remaining: 2 });
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("persists fixed admission and claims admitted targets directly", () => {
     const { store } = tempState();
     try {

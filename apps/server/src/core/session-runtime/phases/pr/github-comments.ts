@@ -95,44 +95,54 @@ export function commentMarker(finding: CommentableFinding): string {
   return `<!-- ${COMMENT_MARKER_PREFIX}:${stableHash(material)} -->`;
 }
 
+/** Renders free-form (AI-generated) prose as a markdown block quote, preserving line breaks. */
+function blockQuote(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .map((line) => (line ? `> ${line}` : ">"))
+    .join("\n");
+}
+
 export function renderCommentBody(finding: CommentableFinding, marker: string, prNumber: number): string {
+  const metadata = [
+    `- Source: ${finding.source}`,
+    `- Severity: ${finding.severity}`,
+  ];
+  if (finding.ruleId) metadata.push(`- Rule: \`${finding.ruleId}\``);
+  if (finding.standardId) metadata.push(`- Standard: \`${finding.standardId}\``);
+  if (finding.artifactPath) metadata.push(`- Artifact: \`${finding.artifactPath}\``);
   const lines = [
     marker,
     "Automated draft PR QA could not fully clear this finding.",
     "",
-    `Source: ${finding.source}`,
-    `Severity: ${finding.severity}`,
+    ...metadata,
   ];
-  if (finding.ruleId) lines.push(`Rule: ${finding.ruleId}`);
-  if (finding.standardId) lines.push(`Standard: ${finding.standardId}`);
   if (finding.llmReview) {
     lines.push(
       "",
       "This is a requirement check that awaits reviewer judgment, not an optional suggestion. The deterministic scanner flagged it as advisory (llm_review) because a human reviewer must decide whether the retained shape is acceptable. Resolve it by fixing the source or by recording an explicit reviewer decision that it is acceptable.",
     );
   }
-  lines.push("", finding.message);
-  if (finding.suggestedFix) lines.push("", `Suggested follow-up: ${finding.suggestedFix}`);
-  if (finding.artifactPath) lines.push("", `Artifact: \`${finding.artifactPath}\``);
+  lines.push("", blockQuote(finding.message));
+  if (finding.suggestedFix) lines.push("", "Suggested follow-up:", "", blockQuote(finding.suggestedFix));
   lines.push("", `After fixing or intentionally accepting this, rerun \`make pr-draft-qa PR=${prNumber}\`.`);
   return `${lines.join("\n")}\n`;
 }
 
 export function renderMatchContext(context: LedgerMatchContext | null | undefined): string {
-  const parts: string[] = [];
-  if (context?.function) parts.push(`\`${context.function}\``);
+  const header = context?.function ? `**Match context:** in \`${context.function}\`` : "**Match context:**";
+  const bullets: string[] = [];
   if (context?.exact === true) {
-    parts.push("exact match (100%); changing this shape risks the match");
+    bullets.push("- **exact match (100%)**; changing this shape risks the match");
   } else if (context?.fuzzy_percent !== null && context?.fuzzy_percent !== undefined) {
-    parts.push(`improvement-lane (fuzzy ${context.fuzzy_percent}%); safe to change at some score cost`);
+    bullets.push(`- improvement-lane (fuzzy ${context.fuzzy_percent}%); safe to change at some score cost`);
   } else {
-    parts.push("match status unavailable");
+    bullets.push("- match status unavailable");
   }
-  let rendered = parts.join(" — ");
   if (context?.repair_reverted) {
-    rendered += `; an automated fix attempt was **reverted**: ${context.repair_reverted}`;
+    bullets.push(`- an automated fix attempt was **reverted**: ${context.repair_reverted}`);
   }
-  return rendered;
+  return [header, "", ...bullets].join("\n");
 }
 
 function findingRule(finding: CommentableFinding): string {
@@ -142,7 +152,7 @@ function findingRule(finding: CommentableFinding): string {
 export function renderGroupedCommentBody(findings: CommentableFinding[], markers: string[]): string {
   const sorted = [...findings].sort((left, right) => (left.line ?? Number.MAX_SAFE_INTEGER) - (right.line ?? Number.MAX_SAFE_INTEGER));
   const lead = sorted[0];
-  if (!lead) return `${markers.join("\n")}\n`;
+  if (!lead) return `${markers.join("")}\n`;
   const leadLine = lead.line;
   const extraLines = [...new Set(
     sorted
@@ -150,12 +160,14 @@ export function renderGroupedCommentBody(findings: CommentableFinding[], markers
       .filter((line): line is number => line !== null && line !== leadLine),
   )].sort((left, right) => left - right);
   const lines = [
-    `Rule: ${findingRule(lead)}`,
+    `**\`${findingRule(lead)}\`**`,
     "",
-    lead.message,
+    blockQuote(lead.message),
   ];
-  if (extraLines.length > 0) lines.push("", `Also at lines: ${extraLines.join(", ")}`);
-  lines.push("", `**Match context:** ${renderMatchContext(lead.matchContext)}`, "", ...markers);
+  if (extraLines.length > 0) {
+    lines.push("", `Also at ${extraLines.length === 1 ? "line" : "lines"}: ${extraLines.join(", ")}`);
+  }
+  lines.push("", renderMatchContext(lead.matchContext), "", markers.join(""));
   return `${lines.join("\n")}\n`;
 }
 
@@ -167,10 +179,11 @@ function renderTierTwoBody(findings: CommentableFinding[], markers: string[]): s
   ];
   for (const finding of findings) {
     const location = finding.file ? `${finding.file}${finding.line ? `:${finding.line}` : ""}` : "top-level";
-    lines.push(`- \`${location}\` — ${findingRule(finding)}: ${finding.message}`);
-    if (finding.evidence) lines.push(`  - Evidence: ${finding.evidence}`);
+    lines.push(`**\`${findingRule(finding)}\`** at \`${location}\``, "", blockQuote(finding.message));
+    if (finding.evidence) lines.push("", "Evidence:", "", blockQuote(finding.evidence));
+    lines.push("");
   }
-  lines.push("", ...markers, "", "</details>");
+  lines.push(markers.join(""), "", "</details>");
   return `${lines.join("\n")}\n`;
 }
 

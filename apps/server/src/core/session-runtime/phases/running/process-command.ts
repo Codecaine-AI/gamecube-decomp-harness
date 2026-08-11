@@ -94,7 +94,7 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   const { body, graphDbPath, noRefillBatch, project, repoRoot, runId, serverJobPath, stateDir } = input;
   const name = processName(project?.processName ?? body.processName);
   const provider = text(body.provider, "codex-lb");
-  const model = text(body.model, "gpt-5.5");
+  const model = text(body.model, "gpt-5.6-sol");
   const thinkingLevel = text(body.thinkingLevel, "xhigh");
   const normalScheduling = runningScheduling(body.maxWorkers);
   const maxWorkers = normalScheduling.maxWorkers;

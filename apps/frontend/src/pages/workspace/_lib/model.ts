@@ -27,15 +27,18 @@ export function schedulingForWorkers(
   };
 }
 
-export const workerCountOptions = [1, 2, 4, 8, 16, 20, 32, 64] as const;
+export const workerCountOptions = [1, 2, 4, 8, 12, 16, 20, 32, 64] as const;
 
-export const epochSizeOptions = [4, 8, 16, 32, 64, 128, 256, 512, 1024] as const;
+export const epochSizeOptions = [4, 8, 16, 32, 64, 128, 256, 512, 1024, { label: "Full board", value: "full" }] as const;
 
 export const candidateWindowOptions = [32, 64, 128, 256, 512, 1024] as const;
 
 export const candidateRerankOptions = [
   { label: "Priority", value: "priority" },
   { label: "OPSEC hot lane", value: "opseq_hot_lane" },
+  { label: "Model: win 95% capture", value: "model_win_95" },
+  { label: "Model: win 90% capture", value: "model_win_90" },
+  { label: "Model: match focus (top 30%)", value: "model_match_focus" },
 ] as const;
 
 export const resolverConcurrencyOptions = [1, 2, 4, 8] as const;
@@ -43,7 +46,7 @@ export const resolverConcurrencyOptions = [1, 2, 4, 8] as const;
 export const candidateWindowTooltip =
   "How many top-ranked board candidates the scheduler rechecks when building an epoch. Keep it at or above the epoch size; larger windows let the OPSEC/opseq rerank pull likely matches into smaller batches after each rebuild.";
 
-export const candidateRerankTooltip = "Priority uses the normal board score. OPSEC hot lane adds a matched-opseq analog bonus so likely exact matches can rise from deeper in the candidate window.";
+export const candidateRerankTooltip = "Priority uses the normal board score. OPSEC hot lane adds a matched-opseq analog bonus so likely exact matches can rise from deeper in the candidate window. Model modes rank candidates with the trained admission predictor (p_win or p_match) and, on full-board epochs, cap admission to the top slice of the candidate window.";
 
 export const resolverConcurrencyTooltip =
   "How many integration resolver agents may run at once. Same-file conflicts stay serialized; different-file conflicts can resolve in parallel.";

@@ -1,0 +1,149 @@
+---
+url: "https://www.daytona.io/docs/en/warm-pools/"
+title: "Warm Pools | Daytona"
+---
+
+[Skip to content](https://www.daytona.io/docs/en/warm-pools/#_top)
+
+# Warm Pools
+
+Copy for LLM[View as Markdown](https://www.daytona.io/docs/en/warm-pools.md)Open
+
+Warm pools keep a configured number of pre-created, running sandboxes built from a [snapshot](https://www.daytona.io/docs/en/snapshots) in a specific [region](https://www.daytona.io/docs/en/regions). When you create a sandbox that matches a pool, Daytona hands over a warm sandbox instead of provisioning a new one, so the sandbox is available instantly.
+
+A sandbox create request claims a warm sandbox when all of the following match the pool:
+
+- The same snapshot
+- The same target region
+- The snapshot’s default resources (CPU, memory, and disk)
+- The default OS user (`daytona`)
+- No custom environment variables, volumes, or secrets
+
+When a request claims a warm sandbox, Daytona applies the name, labels, auto-stop, auto-pause, auto-archive, and auto-delete intervals, and network settings from the create request, and creates a new warm sandbox in the background to keep the pool at its configured size.
+
+An organization can have one warm pool per snapshot per region. Warm sandboxes count against your organization quota, so the pool size multiplied by the snapshot’s resources must fit within your region quota.
+
+## [\#](https://www.daytona.io/docs/en/warm-pools/\#create-a-warm-pool) Create a warm pool
+
+[Section titled “Create a warm pool”](https://www.daytona.io/docs/en/warm-pools/#create-a-warm-pool)
+
+Create a warm pool for a snapshot.
+
+The snapshot must be active and available in the target region. Creating a second pool for the same snapshot and region returns a `409` error.
+
+| **Parameter** | **Required** | **Description** |
+| --- | --- | --- |
+| **`snapshot`** | Yes | Snapshot ID or name to keep warm sandboxes for |
+| **`pool`** | Yes | Number of warm sandboxes to keep ready; minimum **`1`**, capped by the organization quota |
+| **`target`** | No | Target region for the warm pool; defaults to the organization default region |
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+2. Click the snapshot you want to create a warm pool for
+3. In the **Warm Pool** section, select a region and enter the **Pool size**
+4. Click **Add warm pool**
+
+- [API](https://www.daytona.io/docs/en/warm-pools/#tab-panel-1658)
+
+```
+curl 'https://app.daytona.io/api/warm-pools' \
+
+  --request POST \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+
+  --data '{
+
+  "snapshot": "my-snapshot",
+
+  "pool": 3,
+
+  "target": "us"
+
+}'
+```
+
+## [\#](https://www.daytona.io/docs/en/warm-pools/\#list-warm-pools) List warm pools
+
+[Section titled “List warm pools”](https://www.daytona.io/docs/en/warm-pools/#list-warm-pools)
+
+List the warm pools in your organization. Each pool reports the desired size (`pool`) and the number of warm sandboxes currently ready (`currentSize`). If Daytona cannot fill the pool, for example because the snapshot is no longer active, the `errorReason` field explains why.
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+2. Click a snapshot to see its warm pools per region in the **Warm Pool** section
+
+- [API](https://www.daytona.io/docs/en/warm-pools/#tab-panel-1659)
+
+```
+curl 'https://app.daytona.io/api/warm-pools' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY'
+```
+
+## [\#](https://www.daytona.io/docs/en/warm-pools/\#resize-a-warm-pool) Resize a warm pool
+
+[Section titled “Resize a warm pool”](https://www.daytona.io/docs/en/warm-pools/#resize-a-warm-pool)
+
+Resize a warm pool to change the desired number of warm sandboxes. Daytona converges the pool to the new size in the background: it creates warm sandboxes when the pool is below the target and destroys the newest unclaimed ones when it is above. Setting `pool` to `0` drains the pool without deleting its configuration.
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+2. Click the snapshot to resize the warm pool for
+3. In the **Warm Pool** section, click **Edit**
+4. Enter the new **Pool size** and click **Save**
+
+- [API](https://www.daytona.io/docs/en/warm-pools/#tab-panel-1660)
+
+```
+curl 'https://app.daytona.io/api/warm-pools/{warmPoolId}' \
+
+  --request PATCH \
+
+  --header 'Content-Type: application/json' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+
+  --data '{
+
+  "pool": 5
+
+}'
+```
+
+## [\#](https://www.daytona.io/docs/en/warm-pools/\#delete-a-warm-pool) Delete a warm pool
+
+[Section titled “Delete a warm pool”](https://www.daytona.io/docs/en/warm-pools/#delete-a-warm-pool)
+
+Delete a warm pool and destroy all of its unclaimed warm sandboxes. Sandboxes already claimed from the pool are not affected. Deleting a snapshot also deletes its warm pools.
+
+1. Go to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
+2. Click the snapshot to delete the warm pool for
+3. In the **Warm Pool** section, click the trash icon
+4. Click **Delete** to confirm
+
+- [API](https://www.daytona.io/docs/en/warm-pools/#tab-panel-1661)
+
+```
+curl 'https://app.daytona.io/api/warm-pools/{warmPoolId}' \
+
+  --request DELETE \
+
+  --header 'Authorization: Bearer YOUR_API_KEY'
+```
+
+## [\#](https://www.daytona.io/docs/en/warm-pools/\#list-warm-sandboxes) List warm sandboxes
+
+[Section titled “List warm sandboxes”](https://www.daytona.io/docs/en/warm-pools/#list-warm-sandboxes)
+
+Unclaimed warm sandboxes are excluded from sandbox listings by default. Set the `includeWarm` query parameter to include them. While a sandbox waits in a pool, its `warmPoolId` field holds the id of the pool; the field is cleared when the sandbox is claimed.
+
+1. Go to [Daytona Sandboxes ↗](https://app.daytona.io/dashboard/sandboxes)
+2. Enable the **Warm pool** filter; warm sandboxes show a **Warm** badge next to their name
+
+- [API](https://www.daytona.io/docs/en/warm-pools/#tab-panel-1662)
+
+```
+curl 'https://app.daytona.io/api/sandbox?includeWarm=true' \
+
+  --header 'Authorization: Bearer YOUR_API_KEY'
+```

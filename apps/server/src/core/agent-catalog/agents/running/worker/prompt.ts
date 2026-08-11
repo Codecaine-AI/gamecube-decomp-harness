@@ -162,9 +162,9 @@ export const prompt = definePrompt({
     section("runner_validation_handoff", [
       "When ready for the runner to check your work (when matched, improved, or meaningfully attempted but stalled), return a handoff JSON.",
       "This handoff is not a worker report; it is a validation handoff for runner review.",
-      "Do not treat non-100% progress as failure. The runner can build, score, checkpoint, and send a repair request for the next turn.",
+      "Do not treat non-100% progress as failure. The runner banks a validated, gate-clean improvement immediately and ends the claim; the target returns in a later epoch with the improved baseline.",
       "Use plain fields such as `summary`: Here is what I tried.",
-      "After a handoff, the runner owns the follow-up decision and will tell you whether to stop, repair, or keep going.",
+      "After a handoff, the runner owns the follow-up decision. Repair requests only come for validation/lint failures or for an exact match that failed hard gates.",
     ]),
     section("contracted_in_rules", [
       orderedList([

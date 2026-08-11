@@ -98,9 +98,9 @@ describe("dashboard read model", () => {
       const run = createRun(store, "matched_code_percent", 100, 1);
       runId = run.id;
       const epoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 5 },
+        size: { mode: "fixed", value: 6 },
         workerPoolSize: 1,
-        candidateWindow: 5,
+        candidateWindow: 6,
       });
       admitEpochTargets(store, {
         epochId: epoch.id,
@@ -111,8 +111,9 @@ describe("dashboard read model", () => {
           { unit: "unit", symbol: "session_failed_fn", sourcePath: "src/session_failed.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
           { unit: "unit", symbol: "validation_fn", sourcePath: "src/validation.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
           { unit: "unit", symbol: "tool_fn", sourcePath: "src/tool.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
+          { unit: "unit", symbol: "banked_fn", sourcePath: "src/banked.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
         ],
-        size: { mode: "fixed", value: 5 },
+        size: { mode: "fixed", value: 6 },
         workerPoolSize: 1,
       });
 
@@ -174,6 +175,17 @@ describe("dashboard read model", () => {
           },
         },
       });
+
+      const bankedClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-banked", baseRev: "base" });
+      closeWorkerState(store, {
+        workerStateId: bankedClaim!.workerStateId,
+        lifecycleStatus: "finished",
+        summary: {
+          continuation_attempts: {
+            stop_reason: "improvement_banked",
+          },
+        },
+      });
     } finally {
       store.db.close();
     }
@@ -191,6 +203,7 @@ describe("dashboard read model", () => {
     expect(counts.worker_session_failed).toBe(1);
     expect(counts.validation_failed).toBe(1);
     expect(counts.agent_tool_error).toBe(1);
+    expect(counts.improvement_banked).toBe(1);
   });
 
   test("scopes active claim activity to the current recycled claim window", async () => {

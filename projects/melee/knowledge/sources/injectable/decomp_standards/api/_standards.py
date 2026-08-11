@@ -28,21 +28,48 @@ def descriptor() -> dict[str, Any]:
     return json.loads((source_root() / "source.json").read_text(encoding="utf-8"))
 
 
+def standards_root() -> Path:
+    """Root of the per-family slice directories (standards/<family>/)."""
+
+    return storage_root() / "standards"
+
+
+def order_path() -> Path:
+    """Explicit record-order manifest (preserves the legacy flat-file order)."""
+
+    return standards_root() / "order.json"
+
+
 def data_path() -> Path:
-    return storage_root() / "data" / "standards.jsonl"
+    return standards_root()
 
 
 def index_path() -> Path:
     return storage_root() / "indexes" / "standards.jsonl"
 
 
-def enrichment_path() -> Path:
-    return project_knowledge_root(source_root()) / "resource_graph" / "enrichments" / "knowledge_curator_updates.jsonl"
+def load_order() -> dict[str, list[str]]:
+    path = order_path()
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
 
 
-def load_records() -> list[dict[str, Any]]:
+def slice_dirs() -> list[Path]:
+    root = standards_root()
+    if not root.is_dir():
+        return []
+    families = [str(item) for item in load_order().get("families", [])]
+    rank = {family: index for index, family in enumerate(families)}
+    dirs = [path for path in root.iterdir() if path.is_dir()]
+    return sorted(dirs, key=lambda path: (rank.get(path.name, len(rank)), path.name))
+
+
+def _read_jsonl_records(path: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    path = data_path()
     if not path.exists():
         return rows
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -50,6 +77,39 @@ def load_records() -> list[dict[str, Any]]:
             continue
         rows.append(json.loads(line))
     return rows
+
+
+def _ordered_union(file_name: str, order_key: str) -> list[dict[str, Any]]:
+    """Union of standards/*/<file_name> in the explicit order.json order.
+
+    Records missing from order.json are appended after the ordered ones, in
+    canonical family order then file order, so new slice records still load
+    deterministically.
+    """
+
+    loaded: list[dict[str, Any]] = []
+    for slice_dir in slice_dirs():
+        loaded.extend(_read_jsonl_records(slice_dir / file_name))
+    order = [str(item) for item in load_order().get(order_key, [])]
+    rank = {record_id: index for index, record_id in enumerate(order)}
+    by_id = {str(record.get("id")): record for record in loaded}
+    ordered = [by_id[record_id] for record_id in order if record_id in by_id]
+    ordered.extend(
+        record for record in loaded if str(record.get("id")) not in rank
+    )
+    return ordered
+
+
+def enrichment_path() -> Path:
+    return project_knowledge_root(source_root()) / "resource_graph" / "enrichments" / "knowledge_curator_updates.jsonl"
+
+
+def load_records() -> list[dict[str, Any]]:
+    return _ordered_union("standards.jsonl", "standards")
+
+
+def load_examples() -> list[dict[str, Any]]:
+    return _ordered_union("examples.jsonl", "examples")
 
 
 def record_text(record: dict[str, Any]) -> str:

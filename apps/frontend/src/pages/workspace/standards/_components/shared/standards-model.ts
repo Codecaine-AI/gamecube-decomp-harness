@@ -17,7 +17,7 @@ export const STANDARD_FAMILY_OPTIONS = [
   "pipeline_owned_verification",
 ];
 export const STANDARD_DISPOSITION_OPTIONS = ["", "active", "merged", "workflow_only"];
-export const STANDARD_SEVERITY_OPTIONS = ["", "repair_required", "review_required", "evidence_required", "workflow_context", "workflow_only"];
+export const STANDARD_SEVERITY_OPTIONS = ["", "required", "workflow_context", "workflow_only"];
 export const STANDARD_QA_OPTIONS = [
   "",
   "hard_lint",
@@ -96,7 +96,7 @@ export function createStandardDraft(): StandardRecord {
     status: "accepted",
     family: "authored_source_shape",
     disposition: "active",
-    severity: "review_required",
+    severity: "required",
     qaEnforcement: "pre_ship_review",
     workerFacing: true,
     qaRuleIds: [],

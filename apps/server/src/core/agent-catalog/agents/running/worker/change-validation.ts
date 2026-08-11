@@ -8,6 +8,30 @@ import type { WorkerRunnerValidation } from "./runner-validation.js";
 
 const SCORE_EPSILON = 0.000001;
 const EXACT_SCORE = 99.99999;
+
+// The board/report pipeline scores units with the project's objdiff report
+// config (build.ninja `objdiff_report_args`, e.g. functionRelocDiffs=data_value).
+// Worker unit diffs must score with the same config: a mismatch lets a worker
+// baseline read 100 while the board reads <100, which strands the target in an
+// unwinnable accept loop (nothing can improve over a baseline of 100).
+const objdiffReportConfigCache = new Map<string, string[]>();
+async function objdiffReportConfigArgs(repoRoot: string): Promise<string[]> {
+  const cached = objdiffReportConfigCache.get(repoRoot);
+  if (cached) return cached;
+  let args: string[] = [];
+  try {
+    const ninja = await readFile(resolve(repoRoot, "build.ninja"), "utf8");
+    const line = ninja.match(/^objdiff_report_args\s*=\s*(.+)$/m);
+    const tokens = line ? line[1].trim().split(/\s+/).filter(Boolean) : [];
+    for (let i = 0; i + 1 < tokens.length; i += 1) {
+      if (tokens[i] === "--config" || tokens[i] === "-c") args.push("--config", tokens[i + 1]);
+    }
+  } catch {
+    args = [];
+  }
+  objdiffReportConfigCache.set(repoRoot, args);
+  return args;
+}
 const DEFAULT_WORKER_NINJA_CONCURRENCY = 12;
 const WORKER_NINJA_SLOT_STALE_MS = 60 * 60 * 1000;
 const WORKER_NINJA_SLOT_MISSING_OWNER_STALE_MS = 30 * 1000;
@@ -405,7 +429,7 @@ export async function captureWorkerChangeBaseline(params: {
   const diffPath = resolve(params.outputDir, "pre_worker_unit_diff.json");
   const unitDiff = await runValidationCommand(
     params.repoRoot,
-    ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", unit, "--format", "json-pretty", "-o", diffPath],
+    ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", unit, ...(await objdiffReportConfigArgs(params.repoRoot)), "--format", "json-pretty", "-o", diffPath],
     resolve(params.outputDir, "pre_worker_unit_diff.stdout.txt"),
     resolve(params.outputDir, "pre_worker_unit_diff.stderr.txt"),
   );
@@ -602,7 +626,7 @@ export function qaLintFromInvocation(invocation: QaScanInvocation, scanPath: str
 }
 
 export const QA_LINT_REPAIR_INSTRUCTION =
-  "Remove every QA lint finding; a lower match % without it is the correct outcome. Do not re-add maintainer-rejected patterns.";
+  "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match (owning-header declarations, project assert/report macros, established inline helpers); if the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.";
 
 function qaLintRequiresRepair(qaLint: WorkerQaLint | null | undefined): qaLint is WorkerQaLint {
   return qaLint?.status === "violations" || qaLint?.status === "warnings";
@@ -731,6 +755,7 @@ async function runWorkerQaLintScan(params: {
     repoRoot: params.repoRoot,
     orchestratorRoot: params.orchestratorRoot,
     diffFile: scanPath,
+    surface: "worker",
   });
   return qaLintFromInvocation(invocation, scanPath);
 }
@@ -829,7 +854,7 @@ async function validateWorkerScoreChange(
   const diffPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.json`);
   const unitDiff = await runValidationCommand(
     params.repoRoot,
-    ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", unit, "--format", "json-pretty", "-o", diffPath],
+    ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", unit, ...(await objdiffReportConfigArgs(params.repoRoot)), "--format", "json-pretty", "-o", diffPath],
     resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.stdout.txt`),
     resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.stderr.txt`),
   );

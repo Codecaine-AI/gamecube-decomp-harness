@@ -1,6 +1,6 @@
 import { asObject, numberValue, type ToolConcurrencySettings } from "./format";
 
-export const DEFAULT_WORKER_TIMEOUT_SECONDS = 1800;
+export const DEFAULT_WORKER_TIMEOUT_SECONDS = 3600;
 
 export const DEFAULT_TOOL_CONCURRENCY: ToolConcurrencySettings = {
   checkdiff: 20,

@@ -41,7 +41,7 @@ def test_symbol_may_be_sdata2_uses_full_project_range():
 
 
 # ---------------------------------------------------------------------------
-# extern_literal_anchor declaration regex.
+# extern_in_c declaration detection.
 # ---------------------------------------------------------------------------
 
 
@@ -51,42 +51,82 @@ def _externs(text: str):
         "added": [(i + 1, line) for i, line in enumerate(text.splitlines())],
         "removed": [],
     }
-    return _qa_rules.check_extern_literal_anchor(hunk)
+    return _qa_rules.check_extern_in_c(hunk)
 
 
-def test_extern_decl_both_const_orders_and_arrays():
+def test_extern_in_c_flags_object_externs_of_any_type():
     findings = _externs(
         "extern const f32 lbl_804DA60C;\n"
         "extern float const ftColl_804D82E0;\n"
         "extern f32 lbl_804DA5C8;\n"
         "extern char un_803FF074[0xA8];\n"
+        "extern ClassicStageEntry lbl_803D9910[65];\n"  # struct type counts too
+        "extern int plain_counter;\n"  # non-address-style names count too
     )
-    assert len(findings) == 4
-    severities = {f["detail"]["symbol"]: f["severity"] for f in findings}
-    assert severities["lbl_804DA60C"] == "warning"
-    assert severities["ftColl_804D82E0"] == "warning"
-    assert severities["un_803FF074"] == "error"
+    assert len(findings) == 6
+    by_symbol = {f["detail"]["symbol"]: f for f in findings}
+    assert set(by_symbol) == {
+        "lbl_804DA60C",
+        "ftColl_804D82E0",
+        "lbl_804DA5C8",
+        "un_803FF074",
+        "lbl_803D9910",
+        "plain_counter",
+    }
+    for finding in findings:
+        # Severity comes from the rule entry (error); partials do not override.
+        assert "severity" not in finding
+        assert finding["detail"]["kind"] == "object"
+        assert "Externs in .c files are not allowed" in finding["message"]
+    assert by_symbol["lbl_804DA60C"]["detail"]["ctype"] == "f32"
+    assert by_symbol["lbl_804DA60C"]["detail"]["address"] == "0x804DA60C"
+    assert by_symbol["plain_counter"]["detail"]["address"] is None
 
 
-def test_extern_decl_ignores_initializers_and_other_types():
+def test_extern_in_c_rule_severity_is_error_for_all_extern_kinds():
+    rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "extern_in_c")
+    assert rule["severity"] == "error"
+    hunk = {
+        "file": "src/melee/gm/x.c",
+        "added": [
+            (1, "extern const f32 lbl_804DA60C;"),
+            (2, "extern int SomeFunc(int arg);"),
+            (3, "    extern u8 block_scope_obj[];"),
+        ],
+        "removed": [],
+    }
+    findings = _qa_rules.run_rules_on_hunk([rule], hunk)
+    assert [f["severity"] for f in findings] == ["error", "error", "error"]
+
+
+def test_extern_in_c_skips_initializers_definitions_and_extern_c():
     findings = _externs(
-        "extern const f32 lbl_804DA60C = 1.0f;\n"  # initializer -> not a pure anchor
-        "extern ClassicStageEntry lbl_803D9910[65];\n"  # struct type -> ignored
+        "extern const f32 lbl_804DA60C = 1.0f;\n"  # initializer -> definition
         "const f32 lbl_804DA60C = 1.0f;\n"  # definition, not extern
+        'extern "C" {\n'  # linkage block, not a declaration
+        "#define EXT_DECL(n) extern f32 n; \\\n"  # macro definition line
+        "    extern f32 in_macro_continuation; \\\n"  # continuation line
     )
     assert findings == []
 
 
-def test_function_extern_visibility_warns_on_function_prototype():
+def test_extern_in_c_flags_function_externs_file_and_block_scope():
     hunk = {
         "file": "src/sysdolphin/baselib/cobj.c",
-        "added": [(808, "    extern int HSD_CObjGetUpVector(HSD_CObj* cobj, Vec3* up);")],
+        "added": [
+            (808, "    extern int HSD_CObjGetUpVector(HSD_CObj* cobj, Vec3* up);"),
+            (900, "extern void HSD_CObjThink(void);"),
+        ],
         "removed": [],
     }
-    findings = _qa_rules.check_function_extern_visibility(hunk)
-    assert len(findings) == 1
+    findings = _qa_rules.check_extern_in_c(hunk)
+    assert len(findings) == 2
     assert findings[0]["detail"]["symbol"] == "HSD_CObjGetUpVector"
+    assert findings[0]["detail"]["kind"] == "function"
     assert findings[0]["detail"]["return_type"] == "int"
+    # Function externs route to the matching-tactics standard.
+    assert findings[0]["standard_id"] == "global_standard:matching-tactics-need-evidence"
+    assert findings[1]["detail"]["symbol"] == "HSD_CObjThink"
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +284,7 @@ def test_register_keyword_and_inline_asm():
     assert len(_qa_rules.check_inline_asm(hunk)) == 1
 
 
-def test_m2c_residue_names_error_and_sp_warning():
+def test_m2c_residue_names_error_and_sp_warning_with_llm_review():
     hunk = _hardened_hunk("    s32 temp_r30 = var_r4 + phi_f1;\n    Vec3 sp24;\n")
     findings = _qa_rules.run_rules_on_hunk(
         [rule for rule in _qa_rules.RULES if rule["rule_id"] == "m2c_residue_names"],
@@ -255,15 +295,20 @@ def test_m2c_residue_names_error_and_sp_warning():
     assert severities["var_r4"] == "error"
     assert severities["phi_f1"] == "error"
     assert severities["sp24"] == "warning"
+    # Only the advisory spNN subcase routes to LLM review.
+    by_name = {f["detail"]["name"]: f for f in findings}
+    assert by_name["sp24"]["detail"]["llm_review"] is True
+    assert "llm_review" not in by_name["temp_r30"]["detail"]
 
 
-def test_m2c_goto_label_errors_block_labels_and_warns_other_gotos():
+def test_m2c_goto_label_errors_block_labels_and_plain_gotos():
     hunk = _hardened_hunk("    goto block_30;\nblock_30:\n    goto cleanup;\n")
     findings = _qa_rules.run_rules_on_hunk(
         [rule for rule in _qa_rules.RULES if rule["rule_id"] == "m2c_goto_label"],
         hunk,
     )
-    assert [f["severity"] for f in findings] == ["error", "error", "warning"]
+    # Plain (non-block_N) gotos are hard errors too under the strict policy.
+    assert [f["severity"] for f in findings] == ["error", "error", "error"]
 
 
 def test_m2c_field_and_type_erasing_casts():
@@ -293,7 +338,7 @@ def test_address_named_static_data_flags_new_address_symbol_defs():
     assert findings[0]["detail"]["symbol"] == "grSmoke_804D0000"
 
 
-def test_define_alias_identifier_expression_and_canonical_macro_warning():
+def test_define_alias_identifier_expression_and_canonical_macro_all_error():
     hunk = _hardened_hunk(
         "#define old_name new_name\n"
         "#define tm ((TmData*) arg0)\n"
@@ -305,7 +350,8 @@ def test_define_alias_identifier_expression_and_canonical_macro_warning():
     assert kinds["old_name"] == ("identifier_alias", "error")
     assert kinds["tm"] == ("expression_alias", "error")
     assert kinds["block_idx_table"] == ("expression_alias", "error")
-    assert kinds["FTCO_800A9CB4_ABS"] == ("canonical_macro_clone", "warning")
+    # Canonical macro clones are hard errors too under the strict policy.
+    assert kinds["FTCO_800A9CB4_ABS"] == ("canonical_macro_clone", "error")
 
 
 def test_novel_pragma_warns_only_outside_established_set():
@@ -495,6 +541,82 @@ def test_stage_ground_var_owner_allows_corneria_arwing_owner():
         "removed": [],
     }
     assert _qa_rules.check_stage_ground_var_owner(hunk) == []
+
+
+# ---------------------------------------------------------------------------
+# Surfaces, llm_review, and path excludes.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_severity_defaults_to_base_without_surface_or_map():
+    assert _qa_rules.resolve_severity("error", None, None) == "error"
+    assert _qa_rules.resolve_severity("error", None, "worker") == "error"
+    assert _qa_rules.resolve_severity("error", {"pr_gate": "warning"}, "worker") == "error"
+    assert _qa_rules.resolve_severity("error", {"pr_gate": "warning"}, "pr_gate") == "warning"
+
+
+def test_run_rules_on_hunk_resolves_surface_severity():
+    rule = {
+        "rule_id": "surface_demo",
+        "severity": "error",
+        "standard_id": None,
+        "pattern": _qa_rules.re.compile(r"\bDEMO\b"),
+        "message": "demo",
+        "applies_to": ["src/**/*.c"],
+        "surfaces": {"worker": "warning", "pr_gate": "error"},
+    }
+    hunk = {"file": "src/melee/gm/x.c", "added": [(1, "DEMO;")], "removed": []}
+    assert _qa_rules.run_rules_on_hunk([rule], hunk)[0]["severity"] == "error"
+    assert (
+        _qa_rules.run_rules_on_hunk([rule], hunk, surface="worker")[0]["severity"]
+        == "warning"
+    )
+    assert (
+        _qa_rules.run_rules_on_hunk([rule], hunk, surface="pr_gate")[0]["severity"]
+        == "error"
+    )
+
+
+def test_type_erasing_cast_stays_warning_and_carries_llm_review():
+    rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "type_erasing_cast")
+    assert rule["severity"] == "warning"
+    assert rule["llm_review"] is True
+    hunk = {
+        "file": "src/melee/gm/x.c",
+        "added": [(1, "    data = (u8*) data;")],
+        "removed": [],
+    }
+    for surface in (None, "worker", "pr_gate"):
+        findings = _qa_rules.run_rules_on_hunk([rule], hunk, surface=surface)
+        assert len(findings) == 1
+        assert findings[0]["severity"] == "warning"
+        assert findings[0]["detail"]["llm_review"] is True
+
+
+def test_sdk_excludes_skip_vendor_paths_but_not_melee_paths():
+    excluded_rules = {"extern_in_c", "volatile_local_tactic", "register_keyword", "inline_asm"}
+    for rule_id in excluded_rules:
+        rule = next(r for r in _qa_rules.RULES if r["rule_id"] == rule_id)
+        assert rule["excludes"] == _qa_rules.SDK_PATH_EXCLUDES, rule_id
+    rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "extern_in_c")
+    added = [(1, "extern f32 lbl_804DA60C;")]
+    for sdk_path in (
+        "src/dolphin/os/OSAlarm.c",
+        "src/MSL/mem.c",
+        "src/MetroTRK/mem_TRK.c",
+        "src/Runtime/runtime.c",
+    ):
+        hunk = {"file": sdk_path, "added": added, "removed": []}
+        assert _qa_rules.run_rules_on_hunk([rule], hunk) == [], sdk_path
+    for src_path in ("src/melee/gm/x.c", "src/sysdolphin/baselib/cobj.c"):
+        hunk = {"file": src_path, "added": added, "removed": []}
+        assert len(_qa_rules.run_rules_on_hunk([rule], hunk)) == 1, src_path
+
+
+def test_path_excluded_never_excludes_pathless_hunks():
+    assert not _qa_rules.path_excluded(None, _qa_rules.SDK_PATH_EXCLUDES)
+    assert _qa_rules.path_excluded("src/MSL/mem.c", _qa_rules.SDK_PATH_EXCLUDES)
+    assert not _qa_rules.path_excluded("src/melee/gm/x.c", _qa_rules.SDK_PATH_EXCLUDES)
 
 
 # ---------------------------------------------------------------------------

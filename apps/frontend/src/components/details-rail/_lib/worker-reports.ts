@@ -8,6 +8,7 @@ export type WorkerStateOutcome =
   | "claim_deadline"
   | "cold_attempt_budget_exhausted"
   | "improvement_followup_budget_exhausted"
+  | "improvement_banked"
   | "gate_failed_exact_followup_budget_exhausted"
   | "accepted_or_no_repair_reasons"
   | "dry_run"
@@ -42,6 +43,7 @@ export const reportFilters: Array<{ description: string; id: WorkerStateFilter; 
   { id: "claim_deadline", label: "Claim Deadline", description: "Repair/continuation stopped because the claim deadline was reached." },
   { id: "cold_attempt_budget_exhausted", label: "Cold Budget", description: "No selectable checkpoint was found before the cold-attempt budget ran out." },
   { id: "improvement_followup_budget_exhausted", label: "Improvement Tail", description: "A best checkpoint existed, but follow-up repair attempts after it were exhausted." },
+  { id: "improvement_banked", label: "Improvement Banked", description: "A validated improvement was accepted and the worker closed to free the slot; the target retries in a later epoch from the improved baseline." },
   { id: "gate_failed_exact_followup_budget_exhausted", label: "Gate-Exact Tail", description: "An exact-scoring attempt failed gates, and its repair tail was exhausted." },
   { id: "accepted_or_no_repair_reasons", label: "No Repair Reasons", description: "The runner stopped because there were no repair reasons to continue with." },
   { id: "dry_run", label: "Dry Run", description: "The worker stopped at the dry-run boundary." },
@@ -222,6 +224,7 @@ function reportStopReasonEndstate(report: JsonObject): WorkerStateOutcome | null
   if (stopReason === "claim_deadline") return "claim_deadline";
   if (stopReason === "cold_attempt_budget_exhausted") return "cold_attempt_budget_exhausted";
   if (stopReason === "improvement_followup_budget_exhausted") return "improvement_followup_budget_exhausted";
+  if (stopReason === "improvement_banked") return "improvement_banked";
   if (stopReason === "gate_failed_exact_followup_budget_exhausted") return "gate_failed_exact_followup_budget_exhausted";
   if (stopReason === "accepted_or_no_repair_reasons") return "accepted_or_no_repair_reasons";
   if (stopReason === "dry_run") return "dry_run";
@@ -289,6 +292,7 @@ function emptyReportCounts(): Record<WorkerStateFilter, number> {
     claim_deadline: 0,
     cold_attempt_budget_exhausted: 0,
     improvement_followup_budget_exhausted: 0,
+    improvement_banked: 0,
     gate_failed_exact_followup_budget_exhausted: 0,
     accepted_or_no_repair_reasons: 0,
     dry_run: 0,
@@ -361,7 +365,7 @@ export function reportBorderClass(report: JsonObject): string {
   if (outcome.startsWith("recovered_")) return "border-l-warn";
   if (outcome === "cancelled") return "border-l-purple";
   if (outcome === "exact") return "border-l-up";
-  if (outcome === "finished" || outcome === "accepted_or_no_repair_reasons") return "border-l-cyan";
+  if (outcome === "finished" || outcome === "accepted_or_no_repair_reasons" || outcome === "improvement_banked") return "border-l-cyan";
   return "border-l-purple";
 }
 
@@ -374,6 +378,7 @@ export function reportFinishLabel(report: JsonObject): string {
   if (outcome === "claim_deadline") return "claim deadline";
   if (outcome === "cold_attempt_budget_exhausted") return "cold budget";
   if (outcome === "improvement_followup_budget_exhausted") return "improvement tail";
+  if (outcome === "improvement_banked") return "improvement banked";
   if (outcome === "gate_failed_exact_followup_budget_exhausted") return "gate-exact tail";
   if (outcome === "accepted_or_no_repair_reasons") return "no repair reasons";
   if (outcome === "dry_run") return "dry run";
@@ -404,6 +409,7 @@ export function reportOutcomeDescription(report: JsonObject): string {
   if (outcome === "claim_deadline") return "Claim Deadline: repair/continuation stopped because the claim deadline was reached.";
   if (outcome === "cold_attempt_budget_exhausted") return "Cold Budget: no selectable checkpoint was found before the cold-attempt budget ran out.";
   if (outcome === "improvement_followup_budget_exhausted") return "Improvement Tail: follow-up attempts after the best checkpoint were exhausted.";
+  if (outcome === "improvement_banked") return "Improvement Banked: the runner accepted a validated improvement and closed the worker so the slot could move to the next target; the target retries in a later epoch from the improved baseline.";
   if (outcome === "gate_failed_exact_followup_budget_exhausted") return "Gate-Exact Tail: an exact-scoring attempt failed gates and its repair tail was exhausted.";
   if (outcome === "accepted_or_no_repair_reasons") return "No Repair Reasons: the runner stopped because it had no repair reasons to continue with.";
   if (outcome === "dry_run") return "Dry Run: the worker stopped at the dry-run boundary.";

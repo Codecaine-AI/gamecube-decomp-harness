@@ -6,6 +6,8 @@ Worker-facing commands:
 - `python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/scan.py --file <path> --json`
 - `python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/scan.py --text '<source snippet>' --json`
 - `python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py --repo <melee-root> --base origin/master --gate --json`
+  (optional `--surface worker|pr_gate` resolves per-surface severities for
+  rules that declare a `surfaces` map; omitted = base severities)
 - `python3 toolpacks/gamecube-decomp/source_editing/review_lint/api/sdata2_order_helper.py --repo-root <melee-root> --source <path> [--symbol <label>] --json`
 
 Use `--rule all`, `--rule type_erasing_casts`, or

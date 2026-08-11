@@ -420,7 +420,48 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
       await runCli(["git", "clean", "-fd", "--", "src", "include", "config"], params.baselineWorktree);
     }
     if (!report) throw new Error("Slice verification did not produce a regression report.");
+    if (issues.status === "issues") {
+      // The upstream image reports issues already present on pristine master
+      // (e.g. types.h static_asserts); a slice only fails on issues it adds.
+      const baselineIssues = await checkCodeIssues(params.baselineWorktree);
+      if (baselineIssues.status === "issues" || baselineIssues.status === "clean") {
+        const pristineCounts = new Map<string, number>();
+        for (const entry of issueEntries(baselineIssues.output)) pristineCounts.set(entry, (pristineCounts.get(entry) ?? 0) + 1);
+        const added = issueEntries(issues.output).filter((entry) => {
+          const remaining = pristineCounts.get(entry) ?? 0;
+          if (remaining <= 0) return true;
+          pristineCounts.set(entry, remaining - 1);
+          return false;
+        });
+        if (added.length === 0) {
+          issues = {
+            status: "clean",
+            output: `master-parity: every reported issue is pre-existing on pristine ${params.baseSha.slice(0, 10)}\n${outputTail(issues.output, 1200)}`,
+            files: [],
+          };
+        } else {
+          issues = { ...issues, output: `new vs pristine baseline:\n${added.join("\n")}\n\nfull output:\n${issues.output}` };
+        }
+      }
+    }
     return { report, issues };
+  }
+
+  // Flatten a check-issues tree into "file :: message" entries, ignoring line
+  // numbers so unrelated edits in the same header do not shift parity.
+  function issueEntries(output: string): string[] {
+    const entries: string[] = [];
+    let file = "";
+    for (const line of output.split("\n")) {
+      const fileMatch = line.match(/^\s+((?:src|include)\/\S+) \(\d+\)$/);
+      if (fileMatch) {
+        file = fileMatch[1];
+        continue;
+      }
+      const issueMatch = line.match(/^\s+\d+:\d+: (.+)$/);
+      if (issueMatch && file) entries.push(`${file} :: ${issueMatch[1].trim()}`);
+    }
+    return entries.sort();
   }
 
   function sliceValidationSummary(report: RegressionReport, issues: CodeIssuesResult): JsonObject {

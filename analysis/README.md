@@ -35,6 +35,11 @@ current attempt-tail and Pi worker tool-contribution work.
   for the new epoch 20/21 sweep, including early-kill threshold tables by
   no-win attempt count and elapsed time. The epoch 21 rows are an active-run
   snapshot.
+- `reports/early-kill-signals-epochs26-34-2026-07-13.md`: early-kill signal
+  efficiency analysis for epochs 26–34, comparing attempt-count baselines with
+  score, checkpoint-kind, validation-status, failure-mode, and combination
+  predicates. Includes censored active workers and a companion row-level
+  `.dataset.csv` audit table.
 - `reports/legacy-tool-contribution-2026-06-30.html`: all replayable legacy
   worker transcript runs, analyzed with the newer contribution framing at lease
   level.
@@ -72,6 +77,17 @@ bun analysis/scripts/analyze-fresh-tool-distribution.mjs \
   --out analysis/reports/fresh-tool-distribution-xhigh-epochs20-21-snapshot-$(date +%F).html
 ```
 
+Refresh the epoch 26–34 early-kill signal analysis:
+
+```bash
+bun analysis/scripts/analyze-early-kill-signals.mjs \
+  --run 53d5b342-c066-48fc-aa49-dd78b69dc2ac \
+  --min-epoch 26 \
+  --max-epoch 34 \
+  --include-active \
+  --out analysis/reports/early-kill-signals-epochs26-34-$(date +%F).md
+```
+
 Refresh the legacy Pi worker replay:
 
 ```bash
@@ -103,7 +119,7 @@ Validate generated artifacts:
 
 ```bash
 for f in analysis/reports/*.stats.json; do python3 -m json.tool "$f" >/dev/null; done
-rg -n "\\{\\{|TODO|Traceback|nan" analysis/reports/*.html
+rg -n "\\{\\{|TODO|Traceback|NaN|nan" analysis/reports/*.html analysis/reports/*.md
 ```
 
-`rg` returning no rows for the HTML check is expected.
+`rg` returning no rows for the report artifact check is expected.

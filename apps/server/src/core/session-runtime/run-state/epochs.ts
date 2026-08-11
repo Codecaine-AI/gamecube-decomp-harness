@@ -48,6 +48,7 @@ export interface EpochAdmissionResult {
   skippedExisting: number;
   skippedMissingSource: number;
   size: EpochSizeSpec;
+  admissionCap?: number | null;
 }
 
 export interface ExistingEpochAdmissionResult {
@@ -165,13 +166,15 @@ export function selectEpochAdmissionCandidates(params: {
   candidates: TargetCandidate[];
   existingKeys?: Set<string>;
   size: EpochSizeSpec;
+  admissionCap?: number | null;
 }): {
   selected: TargetCandidate[];
   skippedExisting: number;
   skippedMissingSource: number;
 } {
   const existingKeys = params.existingKeys ?? new Set<string>();
-  const limit = params.size.mode === "full" ? Number.POSITIVE_INFINITY : Math.max(0, params.size.value ?? 0);
+  let limit = params.size.mode === "full" ? Infinity : Math.max(0, params.size.value ?? 0);
+  if (params.admissionCap != null) limit = Math.min(limit, Math.max(0, Math.floor(params.admissionCap)));
   const eligible: AdmissionCandidate[] = [];
   let skippedExisting = 0;
   let skippedMissingSource = 0;
@@ -330,6 +333,7 @@ export function admitEpochTargets(
     size: EpochSizeSpec;
     workerPoolSize: number;
     allowPreviouslyFinished?: boolean;
+    admissionCap?: number | null;
   },
 ): EpochAdmissionResult {
   const insertTarget = store.db.query(
@@ -357,6 +361,7 @@ export function admitEpochTargets(
         allowPreviouslyFinished: params.allowPreviouslyFinished,
       }),
       size: params.size,
+      admissionCap: params.admissionCap,
     });
     const admittedAt = now();
     selected.selected.forEach((candidate, index) => {
@@ -385,6 +390,7 @@ export function admitEpochTargets(
       skippedExisting: selected.skippedExisting,
       skippedMissingSource: selected.skippedMissingSource,
       size: params.size,
+      admissionCap: params.admissionCap,
     };
   });
 }

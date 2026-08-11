@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, packageRoot, resourceGraphDbPath } from "@server/core/knowledge";
+import { refreshBoardRerankMode } from "@server/core/session-runtime/phases/running/board";
 import { loadExactTargetKeys } from "@server/core/session-runtime/phases/running/board/snapshot.js";
 import {
   activeClaimsForSession,
@@ -1132,7 +1133,10 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
               console.error(
                 `[run-loop] epoch ${nextEpoch.progress.ordinal}: admitted ${nextEpoch.progress.admitted}/${nextEpoch.progress.size.mode === "full" ? "full" : nextEpoch.progress.size.value} ` +
                   `targets from candidate window ${schedulerEpochConfig.candidateWindow} (${schedulerEpochConfig.candidateRerank ?? "priority"}), ` +
-                  `${nextEpoch.progress.available} available, ${nextEpoch.priorityRefreshes} refreshed`,
+                  `${nextEpoch.progress.available} available, ${nextEpoch.priorityRefreshes} refreshed` +
+                  (nextEpoch.admissionCap
+                    ? `, capped ${nextEpoch.admissionCap.candidateCount} -> ${nextEpoch.admissionCap.cap} (${nextEpoch.admissionCap.mode})`
+                    : ""),
               );
               lastSchedulerEpoch = nextEpoch.progress;
               epochAdmissions += (nextEpoch.admission?.admitted ?? 0) + (nextEpoch.existingAdmission?.admitted ?? 0);
@@ -1161,6 +1165,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                   available: nextEpoch.progress.available,
                   candidate_rerank: schedulerEpochConfig.candidateRerank ?? "priority",
                   candidate_window: schedulerEpochConfig.candidateWindow,
+                  admission_cap: nextEpoch.admissionCap,
                   size: nextEpoch.progress.size,
                   created_by: "run-loop",
                 });
@@ -1278,7 +1283,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 if (epoch) {
                   recordSchedulerEpochFastRefresh(store, epoch.id);
                   const board = loadKnowledgeBoardSnapshot(globals.repoRoot, schedulerEpochConfig.candidateWindow, {
-                    candidateRerank: schedulerEpochConfig.candidateRerank,
+                    candidateRerank: refreshBoardRerankMode(schedulerEpochConfig.candidateRerank),
                     graphDbPath,
                   });
                   priorityRefreshes = refreshEpochTargetPriorities(store, {
@@ -1373,7 +1378,10 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
               console.error(
                 `[run-loop] epoch ${epochResult.progress.ordinal}: admitted ${admittedNow} new target(s); ` +
                   `${epochResult.progress.admitted}/${epochResult.progress.size.mode === "full" ? "full" : epochResult.progress.size.value} admitted, ` +
-                  `${epochResult.progress.available} available, candidate window ${schedulerEpochConfig.candidateWindow}`,
+                  `${epochResult.progress.available} available, candidate window ${schedulerEpochConfig.candidateWindow}` +
+                  (epochResult.admissionCap
+                    ? `, capped ${epochResult.admissionCap.candidateCount} -> ${epochResult.admissionCap.cap} (${epochResult.admissionCap.mode})`
+                    : ""),
               );
               addEvent(store, runId, "epoch_admitted", "run-loop", {
                 epoch_id: epochResult.epoch.id,
@@ -1383,6 +1391,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 available: epochResult.progress.available,
                 candidate_rerank: schedulerEpochConfig.candidateRerank ?? "priority",
                 candidate_window: schedulerEpochConfig.candidateWindow,
+                admission_cap: epochResult.admissionCap,
                 size: epochResult.progress.size,
                 created_by: "run-loop",
               });

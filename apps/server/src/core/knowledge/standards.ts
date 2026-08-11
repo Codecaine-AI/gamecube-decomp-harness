@@ -1,7 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { globalStandardsContext, globalStandardsPromptXml } from "@server/core/knowledge/decomp-context";
-import { knowledgeSourcesRoot, projectKnowledgeRoot, resourceGraphRoot, sourceDataRoot } from "@server/core/knowledge/paths";
+import { knowledgeSourcesRoot, projectKnowledgeRoot, resourceGraphRoot, sourceStorageRoot } from "@server/core/knowledge/paths";
+import {
+  listStandardsSliceFiles,
+  readOrderedSliceRecords,
+  standardsOrderPath,
+  standardsSliceFilePath,
+  standardsSlicesRoot,
+} from "@server/core/knowledge/standards-files";
 import type { ProjectSummary, ResolvedProject } from "@server/core/project-registry";
 
 export type JsonObject = Record<string, unknown>;
@@ -136,19 +143,13 @@ function sourceRegistryPathForProject(project: ResolvedProject | null | undefine
   return sourceId;
 }
 
-function sourceDataRootForProject(project: ResolvedProject | null | undefined, sourceId: string): string {
-  return resolve(knowledgeRootForProject(project), "sources", sourceRegistryPathForProject(project, sourceId), "data");
+function sourceStorageRootForProject(project: ResolvedProject | null | undefined, sourceId: string): string {
+  return resolve(knowledgeRootForProject(project), "sources", sourceRegistryPathForProject(project, sourceId));
 }
 
-function standardsPaths(project: ResolvedProject | null | undefined): {
-  examplesPath: string;
-  standardsPath: string;
-} {
-  const standardsDataRoot = project ? sourceDataRootForProject(project, "decomp_standards") : sourceDataRoot("decomp_standards");
-  return {
-    standardsPath: resolve(standardsDataRoot, "standards.jsonl"),
-    examplesPath: resolve(standardsDataRoot, "examples.jsonl"),
-  };
+function standardsRootForProject(project: ResolvedProject | null | undefined): string {
+  const storageRoot = project ? sourceStorageRootForProject(project, "decomp_standards") : sourceStorageRoot("decomp_standards");
+  return standardsSlicesRoot(storageRoot);
 }
 
 function standardExampleDescription(example: StandardExampleFileRecord): string[] {
@@ -232,7 +233,7 @@ function standardsPromptXmlFromRecords(records: StandardsFileRecord[], examples:
   const examplesByStandard = examplesByStandardId(examples);
   const lines = [
     "<decomp_standards>",
-    "    <instruction>Use each standard as an example-backed source-quality pattern: read the description, compare the bad/preferred code pair, and apply the same transformation only when local evidence supports it.</instruction>",
+    "    <instruction>These standards are mandatory requirements enforced by lint and review, not preferences. Read each description and its bad/preferred code pair, apply the required transformation, and repair every finding before an attempt is accepted. Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error.</instruction>",
     "    <authority>Current source, headers, symbols, splits, assembly, objdiff, and regression output outrank global standards and path facts.</authority>",
   ];
   for (const record of accepted) {
@@ -285,26 +286,41 @@ function validateStandardEdit(edit: StandardEdit): string[] {
 }
 
 export function createStandardsService(deps: StandardsServiceDeps): StandardsService {
-  function readStandardsFile(path: string): StandardsFileRecord[] {
-    if (!existsSync(path)) return [];
-    return readFileSync(path, "utf8")
-      .split(/\r?\n/)
-      .filter((line) => line.trim())
-      .map((line) => JSON.parse(line) as StandardsFileRecord);
+  function readStandardsRecords(standardsRoot: string): StandardsFileRecord[] {
+    return readOrderedSliceRecords<StandardsFileRecord>(standardsRoot, "standards.jsonl", "standards").map((item) => item.record);
   }
 
-  function readStandardExamplesFile(path: string): StandardExampleFileRecord[] {
-    if (!existsSync(path)) return [];
-    return readFileSync(path, "utf8")
-      .split(/\r?\n/)
-      .filter((line) => line.trim())
-      .map((line) => JSON.parse(line) as StandardExampleFileRecord);
+  function readStandardExampleRecords(standardsRoot: string): StandardExampleFileRecord[] {
+    return readOrderedSliceRecords<StandardExampleFileRecord>(standardsRoot, "examples.jsonl", "examples").map((item) => item.record);
   }
 
-  function writeStandardsFile(path: string, records: StandardsFileRecord[]): void {
-    const body = `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, body);
+  function writeStandardsSlices(standardsRoot: string, records: StandardsFileRecord[]): void {
+    const byFamily = new Map<string, StandardsFileRecord[]>();
+    for (const record of records) {
+      const family = stringValue(record.family).trim() || "uncategorized";
+      const items = byFamily.get(family) ?? [];
+      items.push(record);
+      byFamily.set(family, items);
+    }
+    // Rewrite every existing slice file plus any newly needed family so a
+    // record whose family changed does not linger in its old slice.
+    const targets = new Set<string>(byFamily.keys());
+    for (const file of listStandardsSliceFiles(standardsRoot, "standards.jsonl")) {
+      targets.add(basename(dirname(file)));
+    }
+    for (const family of targets) {
+      const items = byFamily.get(family) ?? [];
+      const path = standardsSliceFilePath(standardsRoot, family, "standards.jsonl");
+      const body = items.length ? `${items.map((record) => JSON.stringify(record)).join("\n")}\n` : "";
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, body);
+    }
+    // Keep the explicit load order in sync (records arrive sorted by id,
+    // mirroring the pre-slice flat-file write behavior).
+    const orderPath = standardsOrderPath(standardsRoot);
+    const manifest = existsSync(orderPath) ? asObject(JSON.parse(readFileSync(orderPath, "utf8"))) : {};
+    manifest.standards = records.map((record) => record.id);
+    writeFileSync(orderPath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
 
   function standardsInventory(project: ResolvedProject | null): JsonObject {
@@ -344,17 +360,17 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
   }
 
   function loadStandardsPayload(project: ResolvedProject | null): JsonObject {
-    const paths = standardsPaths(project);
-    const records = readStandardsFile(paths.standardsPath);
-    const examples = readStandardExamplesFile(paths.examplesPath);
+    const standardsRoot = standardsRootForProject(project);
+    const records = readStandardsRecords(standardsRoot);
+    const examples = readStandardExampleRecords(standardsRoot);
     const examplesByStandard = examplesByStandardId(examples);
     const warnings: string[] = [];
-    if (records.length === 0) warnings.push(`No standards found at ${paths.standardsPath}.`);
-    if (examples.length === 0) warnings.push(`No standard examples found at ${paths.examplesPath}.`);
+    if (records.length === 0) warnings.push(`No standards found under ${standardsRoot}.`);
+    if (examples.length === 0) warnings.push(`No standard examples found under ${standardsRoot}.`);
     return {
       project: project ? deps.projectToSummary(project) : null,
-      sourcePath: paths.standardsPath,
-      examplesPath: paths.examplesPath,
+      sourcePath: standardsRoot,
+      examplesPath: standardsRoot,
       records: records.map((record) => ({
         id: record.id,
         title: record.title,
@@ -384,11 +400,11 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
   }
 
   function applyStandardEdit(rawEdit: unknown, project: ResolvedProject | null = null): JsonObject {
-    const paths = standardsPaths(project);
+    const standardsRoot = standardsRootForProject(project);
     const edit = asObject(rawEdit) as unknown as StandardEdit;
     const errors = validateStandardEdit(edit);
     if (errors.length > 0) return { ok: false, errors };
-    const records = readStandardsFile(paths.standardsPath);
+    const records = readStandardsRecords(standardsRoot);
     const index = records.findIndex((record) => record.id === edit.id);
     const existing = index >= 0 ? records[index] : null;
     const merged: StandardsFileRecord = existing
@@ -439,9 +455,9 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
     if (index >= 0) records[index] = merged;
     else records.push(merged);
     records.sort((a, b) => a.id.localeCompare(b.id));
-    writeStandardsFile(paths.standardsPath, records);
+    writeStandardsSlices(standardsRoot, records);
     deps.appendLog("ui", `standards ${edit.id} ${existing ? "updated" : "created"} via Knowledge Base`);
-    return { ok: true, savedId: edit.id, sourcePath: paths.standardsPath };
+    return { ok: true, savedId: edit.id, sourcePath: standardsRoot };
   }
 
   return {

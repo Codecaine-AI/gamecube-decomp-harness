@@ -388,6 +388,34 @@ def read_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
     return records
 
 
+def read_standards_slices(standards_root: Path) -> list[dict[str, Any]]:
+    """Read the decomp_standards slice union (standards/<family>/standards.jsonl).
+
+    Records are emitted in the explicit ``order.json`` order (the legacy
+    flat-file order); records missing from the manifest are appended after in
+    family/file order.
+    """
+
+    if not standards_root.is_dir():
+        return []
+    order_manifest = read_json(standards_root / "order.json", {})
+    families = [str(item) for item in order_manifest.get("families", [])]
+    family_rank = {family: index for index, family in enumerate(families)}
+    slice_dirs = sorted(
+        (path for path in standards_root.iterdir() if path.is_dir()),
+        key=lambda path: (family_rank.get(path.name, len(family_rank)), path.name),
+    )
+    loaded: list[dict[str, Any]] = []
+    for slice_dir in slice_dirs:
+        loaded.extend(read_jsonl(slice_dir / "standards.jsonl"))
+    order = [str(item) for item in order_manifest.get("standards", [])]
+    rank = {record_id: index for index, record_id in enumerate(order)}
+    by_id = {str(record.get("id")): record for record in loaded}
+    ordered = [by_id[record_id] for record_id in order if record_id in by_id]
+    ordered.extend(record for record in loaded if str(record.get("id")) not in rank)
+    return ordered
+
+
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -1024,8 +1052,8 @@ def string_list(value: Any) -> list[str]:
 
 
 def global_standards_xml() -> str:
-    standards_path = ORCHESTRATOR_ROOT / "knowledge" / "sources" / "injectable" / "decomp_standards" / "data" / "standards.jsonl"
-    records = [record for record in read_jsonl(standards_path) if record.get("status") == "accepted"] if standards_path.exists() else []
+    standards_root = ORCHESTRATOR_ROOT / "knowledge" / "sources" / "injectable" / "decomp_standards" / "standards"
+    records = [record for record in read_standards_slices(standards_root) if record.get("status") == "accepted"]
     lines = [
         "<decomp_standards>",
         "    <instruction>All code changes must conform to the following standards.</instruction>",

@@ -7,7 +7,7 @@ import { tools } from "./tools.js";
 export const agent = defineAgent({
   name: "worker",
   description: "Execute one claimed Melee decomp target while the runner owns checkpoints and lifecycle state.",
-  model: "codex-lb/gpt-5.5",
+  model: "codex-lb/gpt-5.6-sol",
   coreTools: [
       "code_graph_file_card",
       "code_graph_search",
@@ -37,7 +37,7 @@ export const agent = defineAgent({
   canSpawnSubagent: false,
   variables: {},
   runInBackground: false,
-  thinking: "medium",
+  thinking: "xhigh",
   prompt,
   context,
   tools,

@@ -1,4 +1,5 @@
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
+import { modelAdmissionCap, refreshBoardRerankMode } from "@server/core/session-runtime/phases/running/board";
 import { loadExactTargetKeys, normalizeCandidateRerankMode } from "@server/core/session-runtime/phases/running/board/snapshot.js";
 import type { CandidateRerankMode } from "@server/core/shared/types/board.js";
 import {
@@ -65,6 +66,7 @@ export interface SchedulerEpochEnsureResult {
   progress: EpochProgressSummary;
   candidateWindow: number;
   boardExhausted: boolean;
+  admissionCap: { mode: CandidateRerankMode; candidateCount: number; cap: number } | null;
 }
 
 function nonNegativeInt(value: number): number {
@@ -167,6 +169,7 @@ export function ensureSchedulerEpochFromBoard(params: {
   let admission: EpochAdmissionResult | undefined;
   let existingAdmission: ExistingEpochAdmissionResult | undefined;
   let boardExhausted = false;
+  let admissionCap: { mode: CandidateRerankMode; candidateCount: number; cap: number } | null = null;
 
   const remaining = progress.admitted === 0 ? remainingFixedAdmission(params.config.size, progress) : 0;
   if (remaining > 0) {
@@ -176,7 +179,22 @@ export function ensureSchedulerEpochFromBoard(params: {
     const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, admissionCandidateWindow, {
       candidateRerank: params.config.candidateRerank,
       graphDbPath: params.graphDbPath,
+      predictorDbPath: params.store.path,
+      predictorSessionId: params.runId,
     });
+    if (params.config.size.mode === "full" && board.modelScoring) {
+      if (board.modelScoring.applied) {
+        const cap = modelAdmissionCap(params.config.candidateRerank, board.candidates.length);
+        if (cap != null) {
+          admissionCap = { mode: params.config.candidateRerank!, candidateCount: board.candidates.length, cap };
+          console.error(`[scheduler] epoch admission capped ${board.candidates.length} -> ${cap} (${params.config.candidateRerank})`);
+        }
+      } else {
+        console.error(
+          `[scheduler] model rerank unavailable (${board.modelScoring.warning ?? "scorer failed"}); falling back to priority order without cap`,
+        );
+      }
+    }
     const passSize: EpochSizeSpec = params.config.size.mode === "full" ? params.config.size : { mode: "fixed", value: remaining };
     admission = combineEpochAdmissions(
       admission,
@@ -186,6 +204,7 @@ export function ensureSchedulerEpochFromBoard(params: {
         candidates: board.candidates,
         size: passSize,
         workerPoolSize: params.config.workerPoolSize,
+        admissionCap: admissionCap?.cap ?? null,
       }),
     );
     boardExhausted = board.candidates.length < admissionCandidateWindow;
@@ -193,7 +212,7 @@ export function ensureSchedulerEpochFromBoard(params: {
   }
 
   const refreshBoard = loadKnowledgeBoardSnapshot(params.globals.repoRoot, candidateWindow, {
-    candidateRerank: params.config.candidateRerank,
+    candidateRerank: refreshBoardRerankMode(params.config.candidateRerank),
     graphDbPath: params.graphDbPath,
   });
   const priorityRefreshes = refreshEpochTargetPriorities(params.store, {
@@ -206,7 +225,7 @@ export function ensureSchedulerEpochFromBoard(params: {
   });
   epoch = activeSchedulerEpoch(params.store, params.runId) ?? epoch;
   progress = schedulerEpochProgress(params.store, epoch.id);
-  return { epoch, admission, existingAdmission, availabilityRefresh, priorityRefreshes, progress, candidateWindow, boardExhausted };
+  return { epoch, admission, existingAdmission, availabilityRefresh, priorityRefreshes, progress, candidateWindow, boardExhausted, admissionCap };
 }
 
 export async function runSchedulerTick(globals: GlobalArgs, args: Map<string, string | true>): Promise<SchedulerTickResult> {

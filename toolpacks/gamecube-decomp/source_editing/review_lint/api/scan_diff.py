@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Diff-aware QA ship gate: scan a unified diff for maintainer-rejected patterns.
 
-Runs the review_lint QA rules (extern-literal anchors, same-TU function
-externs, string-literal-to-symbol swaps, packed string blobs, unrolled asserts,
-banned patterns, resubmission tombstones) against the ADDED lines of a diff
-only, so pre-existing upstream code is never flagged.
+Runs the review_lint QA rules (externs in .c files, string-literal-to-symbol
+swaps, packed string blobs, unrolled asserts, banned patterns, resubmission
+tombstones) against the ADDED lines of a diff only, so pre-existing upstream
+code is never flagged.
+
+`--surface worker|pr_gate` resolves per-surface severities for rules that
+declare a "surfaces" map; without it every finding keeps its base severity
+(fully backward compatible).
 
 Output contract (mirrors apps/server/src/core/validation/qa/scan-diff.ts):
   stdout: JSON {tool, operation, status, repo, base, findings, counts}
@@ -27,12 +31,13 @@ sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _qa_rules
-import check_extern_ownership
 
 HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 GLOBAL_APPLIES_TO = ["src/**/*.c"]
 MOVED_LINE_DOWNGRADE_RULES = {
-    "same_tu_function_extern",
+    # The melee tree still carries hundreds of legacy externs in .c files;
+    # code moved within a file must not hard-fail the gate.
+    "extern_in_c",
     "unrolled_assert",
     "fake_assert_macro",
     "assert_idiom_downgrade",
@@ -47,6 +52,9 @@ MOVED_LINE_DOWNGRADE_RULES = {
     "m2c_field_use",
     "define_alias",
     "novel_pragma",
+    "codegen_pragma",
+    "volatile_local_tactic",
+    "pointer_offset_arithmetic",
     "type_erasing_cast",
 }
 
@@ -160,55 +168,6 @@ def post_diff_file_text(
         return None
 
 
-def has_in_file_definition(file_text: str, symbol: str) -> bool:
-    """Check whether the TU defines (not just declares extern) the symbol."""
-
-    clean = _qa_rules.strip_comments_and_strings(file_text)
-    name = re.escape(symbol)
-    init_re = re.compile(
-        r"^\s*(?:static\s+)?(?:(?:const|volatile)\s+)*"
-        r"(?:f32|f64|float|double|char|u8|s8|u16|s16|u32|s32|int|unsigned|signed|long|short)\b"
-        rf"[\w \t*]*?\b{name}\s*(?:\[[^\]]*\])?\s*(?:=(?!=)|;)"
-    )
-    for line in clean.splitlines():
-        if "extern" in line:
-            continue
-        if init_re.match(line):
-            return True
-    return False
-
-
-def has_function_definition(file_text: str, symbol: str) -> bool:
-    """Check whether the TU defines a function with this symbol name."""
-
-    clean = _qa_rules.strip_comments_and_strings(file_text)
-    name = re.escape(symbol)
-    return_type = (
-        r"(?:(?:static|inline|const|volatile|signed|unsigned|long|short|"
-        r"struct\s+[A-Za-z_]\w*|enum\s+[A-Za-z_]\w*|union\s+[A-Za-z_]\w*|"
-        r"[A-Za-z_]\w*)[ \t*]+)+"
-    )
-    fn_re = re.compile(
-        rf"(?m)^[ \t]*(?!extern\b){return_type}\b{name}\s*\([^;{{}}]*\)\s*\{{"
-    )
-    return fn_re.search(clean) is not None
-
-
-def brace_depth_before_line(file_text: str, line_no: int) -> int:
-    """Approximate C brace depth immediately before a 1-based line number."""
-
-    clean = _qa_rules.strip_comments_and_strings(file_text)
-    depth = 0
-    for idx, line in enumerate(clean.splitlines(), start=1):
-        if idx >= line_no:
-            break
-        depth += line.count("{")
-        depth -= line.count("}")
-        if depth < 0:
-            depth = 0
-    return depth
-
-
 def symbol_in_diff_base(
     file_diffs: list[dict[str, Any]], rel_path: str, symbol: str
 ) -> bool:
@@ -269,175 +228,6 @@ def symbol_existed_in_base(
         if base_text is not None:
             return re.search(rf"\b{re.escape(symbol)}\b", base_text) is not None
     return symbol_in_diff_base(file_diffs, rel_path, symbol)
-
-
-def evaluate_extern_findings(
-    findings: list[dict[str, Any]],
-    repo: Path,
-    mode: str,
-    file_diffs: list[dict[str, Any]],
-    merge_base: str | None = None,
-) -> list[dict[str, Any]]:
-    """Apply ownership analysis to extern_literal_anchor float warnings.
-
-    - definition elsewhere in the same TU AND the symbol existed in the base
-      file -> forward declaration of moved data (accepted ftcoll style), drop.
-    - definition elsewhere in the same TU but the symbol is entirely new in
-      this diff -> new_data_anchor error (the extern + brand-new definition
-      invents a data anchor to force data ordering; rejected gm_1832 style).
-    - no in-TU definition, encoded address inside the TU's own data ranges
-      -> self_tu_extern error.
-    - otherwise -> legitimate cross-TU reference, keep as warning.
-    """
-
-    file_text_cache: dict[str, str | None] = {}
-    base_text_cache: dict[str, str | None] = {}
-    result: list[dict[str, Any]] = []
-    for finding in findings:
-        if finding["rule_id"] != "extern_literal_anchor":
-            result.append(finding)
-            continue
-        detail = finding.get("detail") or {}
-        ctype = detail.get("ctype")
-        if ctype not in _qa_rules.FLOAT_TYPES:
-            result.append(finding)
-            continue
-        rel_path = finding["file"]
-        symbol = detail.get("symbol", "")
-        if rel_path not in file_text_cache:
-            file_text_cache[rel_path] = post_diff_file_text(
-                repo, rel_path, mode, file_diffs
-            )
-        file_text = file_text_cache[rel_path]
-        if file_text and symbol and has_in_file_definition(file_text, symbol):
-            if symbol_existed_in_base(
-                repo, rel_path, symbol, mode, file_diffs, merge_base, base_text_cache
-            ):
-                # Forward declaration of pre-existing data the TU still
-                # defines later (definition moved within the file): clean.
-                continue
-            # The extern, its uses, AND the definition are all new in this
-            # diff: an invented data anchor to force data ordering.
-            standard = "global_standard:literals-and-data-ownership"
-            finding = dict(finding)
-            finding["rule_id"] = "new_data_anchor"
-            finding["severity"] = "error"
-            finding["standard_id"] = standard
-            finding["message"] = (
-                f"`extern {ctype} {symbol}` introduces a brand-new data anchor: "
-                "the symbol did not exist in the base file and this diff adds "
-                "the extern, its use, and the definition together. Do not "
-                '"Create static literals or globals solely to force data order" '
-                '— "using an extern to make a function match is just due to '
-                'data ordering". '
-                f"{_qa_rules.STANDARD_TITLES[standard]}."
-            )
-            finding["detail"] = _qa_rules.data_ordering_repair_detail(
-                {**detail, "verdict": "new_data_anchor"},
-                source_ref=rel_path,
-                source_shape="new_data_anchor",
-                hint=_qa_rules.ADDRESS_DATA_REPAIR_HINT,
-                include_sdata2_tool=_qa_rules.symbol_may_be_sdata2(symbol),
-                symbols=[symbol],
-            )
-            result.append(finding)
-            continue
-        address = _qa_rules.address_from_name(symbol)
-        if address is not None and check_extern_ownership.tu_owns_address(
-            repo, rel_path, address
-        ):
-            finding = dict(finding)
-            finding["rule_id"] = "self_tu_extern"
-            finding["severity"] = "error"
-            finding["message"] = (
-                f"`extern {ctype} {symbol}` references data this TU owns "
-                f"(0x{address:08X} is inside its own section ranges in splits.txt). "
-                "Externing your own data dodges data ordering; define the constant "
-                "in binary order instead. "
-                f"{_qa_rules.STANDARD_TITLES['global_standard:literals-and-data-ownership']}."
-            )
-            finding["detail"] = _qa_rules.data_ordering_repair_detail(
-                {**detail, "verdict": "confirmed_self_tu"},
-                source_ref=rel_path,
-                source_shape="self_tu_extern",
-                hint=_qa_rules.NUMERIC_DATA_REPAIR_HINT,
-                include_sdata2_tool=_qa_rules.symbol_may_be_sdata2(symbol),
-                symbols=[symbol],
-            )
-            result.append(finding)
-        else:
-            finding = dict(finding)
-            finding["detail"] = _qa_rules.data_ordering_repair_detail(
-                {**detail, "verdict": "cross_tu_ok"},
-                source_ref=rel_path,
-                source_shape="extern_literal_anchor:cross_tu",
-                hint=(
-                    "Keep this extern only with real cross-TU ownership evidence. "
-                    "If it is just preserving a numeric literal match, restore the "
-                    "inline literal and use an isolated .sdata2 order helper only "
-                    "for a pure ordering gap."
-                ),
-                include_sdata2_tool=_qa_rules.symbol_may_be_sdata2(symbol),
-                symbols=[symbol],
-            )
-            result.append(finding)
-    return result
-
-
-def evaluate_function_extern_findings(
-    findings: list[dict[str, Any]],
-    repo: Path,
-    mode: str,
-    file_diffs: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Escalate function externs that name same-TU definitions.
-
-    A local function extern can make MWCC treat an already-defined same-TU
-    helper as opaque at that point, changing inline-boundary decisions. That is
-    the cobj.c/CObjGetUpVector class of regression: the match is achieved by
-    hiding visibility rather than by reconstructing authored source structure.
-    """
-
-    file_text_cache: dict[str, str | None] = {}
-    result: list[dict[str, Any]] = []
-    for finding in findings:
-        if finding["rule_id"] != "function_extern_visibility":
-            result.append(finding)
-            continue
-        detail = finding.get("detail") or {}
-        symbol = str(detail.get("symbol") or "")
-        rel_path = finding["file"]
-        if rel_path not in file_text_cache:
-            file_text_cache[rel_path] = post_diff_file_text(
-                repo, rel_path, mode, file_diffs
-            )
-        file_text = file_text_cache[rel_path]
-        if file_text and symbol and has_function_definition(file_text, symbol):
-            scope = "block" if brace_depth_before_line(file_text, finding["line"]) > 0 else "file"
-            standard = "global_standard:matching-tactics-need-evidence"
-            escalated = dict(finding)
-            escalated["rule_id"] = "same_tu_function_extern"
-            escalated["severity"] = "error"
-            escalated["standard_id"] = standard
-            escalated["message"] = (
-                f"`extern` declaration for same-TU function `{symbol}` can hide "
-                "the function body from MWCC and change inline-boundary decisions. "
-                "Do not use local function externs as matching tactics; preserve "
-                "the normal declaration/body visibility and try small inline helper "
-                "layers or source reshaping instead. "
-                f"{_qa_rules.STANDARD_TITLES[standard]}."
-            )
-            escalated["detail"] = {
-                **detail,
-                "verdict": "same_tu_function_extern",
-                "scope": scope,
-            }
-            result.append(escalated)
-            continue
-        finding = dict(finding)
-        finding["detail"] = {**detail, "verdict": "cross_tu_or_unknown"}
-        result.append(finding)
-    return result
 
 
 def added_line_text_by_location(file_diffs: list[dict[str, Any]]) -> dict[tuple[str, int], str]:
@@ -539,6 +329,7 @@ def collect_findings(
     repo: Path,
     mode: str,
     merge_base: str | None = None,
+    surface: str | None = None,
 ) -> list[dict[str, Any]]:
     """Run all rules (built-ins, banned patterns, tombstones) over the diff."""
 
@@ -556,13 +347,17 @@ def collect_findings(
         )
         for hunk in record["hunks"]:
             hunk_for_rules = {**hunk, "file_removed_hsd_asserts": file_removed_hsd_asserts}
-            findings.extend(_qa_rules.run_rules_on_hunk(rules, hunk_for_rules))
+            findings.extend(
+                _qa_rules.run_rules_on_hunk(rules, hunk_for_rules, surface=surface)
+            )
             for partial in _qa_rules.check_tombstones(hunk, tombstones):
                 finding = {"file": record["file"], **partial}
                 finding["excerpt"] = finding["excerpt"][:240]
                 findings.append(finding)
-    findings = evaluate_extern_findings(findings, repo, mode, file_diffs, merge_base)
-    findings = evaluate_function_extern_findings(findings, repo, mode, file_diffs)
+    # Slice-owned post-scan analysis (e.g. extern ownership analysis picking
+    # the extern_in_c repair path), in canonical slice order.
+    for hook in _qa_rules.post_scan_hooks():
+        findings = hook(findings, repo, mode, file_diffs, merge_base)
     findings = downgrade_moved_line_findings(findings, repo, mode, file_diffs, merge_base)
     findings.sort(key=lambda f: (f["file"], f["line"], f["rule_id"]))
     return findings
@@ -591,6 +386,15 @@ def main() -> int:
         "--include-worktree",
         action="store_true",
         help="Diff the worktree against the merge-base instead of HEAD.",
+    )
+    parser.add_argument(
+        "--surface",
+        choices=sorted(_qa_rules.QA_SURFACES),
+        default=None,
+        help=(
+            "Resolve per-surface severities for rules that declare a "
+            "'surfaces' map. Default: base severity (backward compatible)."
+        ),
     )
     parser.add_argument(
         "--gate",
@@ -646,7 +450,7 @@ def main() -> int:
             if record["file"] in wanted
             or any(record["file"].startswith(p.rstrip("/") + "/") for p in wanted)
         ]
-    findings = collect_findings(file_diffs, repo, mode, merge_base)
+    findings = collect_findings(file_diffs, repo, mode, merge_base, surface=args.surface)
 
     errors = sum(1 for f in findings if f["severity"] == "error")
     warnings = sum(1 for f in findings if f["severity"] == "warning")

@@ -443,9 +443,9 @@ export function workerPiSessionRetryDecision(params: {
 }
 
 export const WORKER_ATTEMPT_TAIL_POLICY = {
-  mode: "bounded_attempt_tail_v1",
+  mode: "bounded_attempt_tail_v2",
   maxColdAttempts: 5,
-  followUpAttemptsAfterBest: 3,
+  followUpAttemptsAfterBest: 0,
   followUpAttemptsAfterGateFailedExact: 3,
 } as const;
 
@@ -553,6 +553,7 @@ export function workerContinuationDecision(params: {
   if (!shouldRequestWorkerRepairAfterAttempt(params)) {
     if (params.dryRun) return stop("dry_run", false);
     if (stoppedByDeadline) return stop("claim_deadline", false);
+    if (best.attemptIndex != null) return stop("improvement_banked", false);
     return stop("accepted_or_no_repair_reasons", false);
   }
 
@@ -565,11 +566,7 @@ export function workerContinuationDecision(params: {
   }
 
   if (best.attemptIndex != null) {
-    const followUps = attemptIndex - best.attemptIndex;
-    if (followUps >= WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterBest) {
-      return stop("improvement_followup_budget_exhausted", true);
-    }
-    return resume("post_improvement_followup");
+    return stop("improvement_banked", false);
   }
 
   if (attemptIndex + 1 >= WORKER_ATTEMPT_TAIL_POLICY.maxColdAttempts) {
@@ -1884,7 +1881,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         oldScore: runnerValidation.target?.before ?? null,
         newScore: runnerValidation.target?.after ?? null,
         exactMatch: Boolean(runnerValidation.target?.exact),
-        hardGatesPassed: runnerValidation.status === "passed",
+        hardGatesPassed: runnerValidation.status === "passed" && reviewLint.status !== "failed",
         buildStatus: runnerValidationCompiled(runnerValidation) ? "compiled" : "not_compiled",
         qaStatus: runnerValidation.qaLint?.status ?? null,
         objdiffStatus: runnerValidation.target ? "available" : null,
@@ -1929,20 +1926,17 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         event_type: runnerValidation.status === "passed" ? "runner_validation_passed" : runnerValidation.status === "skipped" ? "runner_validation_skipped" : "runner_validation_rejected",
         unit: targetUnit,
         symbol: targetSymbol,
-        summary: clampSummary(`runner validation ${runnerValidation.status}${runnerValidation.reasons.length > 0 ? `: ${runnerValidation.reasons.join("; ")}` : ""}`),
+        summary: clampSummary(
+          `runner validation ${runnerValidation.status}${runnerValidation.reasons.length > 0 ? `: ${runnerValidation.reasons.join("; ")}` : ""}${
+            reviewLint.status === "failed" ? `; review lint failed (checkpoint not selectable)${reviewLint.reasons.length > 0 ? `: ${reviewLint.reasons.join("; ")}` : ""}` : ""
+          }`,
+        ),
         score: runnerValidation.target
           ? { before: runnerValidation.target.before, after: runnerValidation.target.after, exact: runnerValidation.target.exact }
           : undefined,
         artifact_path: runnerValidation.summaryPath,
       });
       const repairReasons = workerAttemptRepairReasons({ writeSetDiffChanged, runnerValidation, reviewLint });
-      if (!result.providerError && runnerValidation.status === "passed" && !runnerValidation.target?.exact) {
-        const before = runnerValidation.target?.before;
-        const after = runnerValidation.target?.after;
-        repairReasons.push(
-          `runner checkpoint was not exact${typeof before === "number" && typeof after === "number" ? ` (${before.toFixed(5)} -> ${after.toFixed(5)})` : ""}; continue the same target toward exact match`,
-        );
-      }
       const continuationDecision = workerContinuationDecision({
         attemptIndex,
         checkpoints: workerCheckpointsForWorkerState(store, claimed.workerStateId),
@@ -1999,8 +1993,8 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       const repairFeedbackPath = resolve(validationDir, `attempt-${attemptIndex}.repair_request.json`);
       const repairInstruction =
         continuationDecision.continueReason === "gate_failed_exact_repair"
-          ? "The runner measured an exact target score, but hard gates failed, so this is a bounded gate-repair continuation. Keep the retained useful edits, repair the runner-listed gate failures without reintroducing QA findings, preserve pre-existing dirty work, and return a compact validation-ready JSON note. Do not use whole-file destructive reset/restore/checkout/clean commands."
-          : "The runner checkpointed the current worktree under the bounded attempt-tail policy and has not accepted an exact match. Keep retained useful edits, fix any runner-listed validation issues, preserve pre-existing dirty work, and continue only if there is a concrete path to a new best or exact. Return a compact validation-ready JSON note when you want the runner to checkpoint again. Do not use whole-file destructive reset/restore/checkout/clean commands.";
+          ? "The runner measured an exact target score, but hard gates failed, so this is a bounded gate-repair continuation. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom (owning-header declarations, project assert/report macros, established inline helpers — not banned pragmas, .c externs, or open-coded asserts). If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff — if no gate-clean improvement is possible, state that in your note's blockers (e.g. 'exact requires banned pattern X') so the runner can close the target. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands."
+          : "The runner checkpointed the current worktree under the bounded attempt-tail policy, but the checkpoint is not yet acceptable. Fix the runner-listed validation/review-lint issues; a validated, gate-clean improvement will be banked immediately and the worker closed. Keep retained useful edits, preserve pre-existing dirty work, and return a compact validation-ready JSON note when you want the runner to checkpoint again. Do not use whole-file destructive reset/restore/checkout/clean commands.";
       repairRequest = {
         attempt: attemptIndex + 1,
         previous_agent_output_path: result.outputPath,
@@ -2067,7 +2061,9 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       (bestCheckpoint?.exactMatch
         ? `Runner selected exact checkpoint ${bestCheckpoint.id}.`
         : bestCheckpoint
-          ? `Runner timeout selected best prior checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}).`
+          ? finalEvaluation.continuationDecision.stopReason === "improvement_banked"
+            ? `Runner banked improvement checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}) and closed the worker.`
+            : `Runner timeout selected best prior checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}).`
           : "Runner timeout selected baseline because no checkpoint passed hard gates and improved over baseline.");
     const workerStateSummary = {
       session_id: runId,

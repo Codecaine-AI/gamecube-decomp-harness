@@ -230,8 +230,10 @@ describe("workerPrompt", () => {
     expect(systemPrompt).toContain("return a handoff JSON");
     expect(systemPrompt).toContain("This handoff is not a worker report");
     expect(systemPrompt).toContain("Do not treat non-100% progress as failure");
+    expect(systemPrompt).toContain("banks a validated, gate-clean improvement immediately and ends the claim");
     expect(systemPrompt).toContain("Here is what I tried.");
     expect(systemPrompt).toContain("the runner owns the follow-up decision");
+    expect(systemPrompt).toContain("Repair requests only come for validation/lint failures or for an exact match that failed hard gates");
     expect(systemPrompt).not.toContain("<checkpoint_note>");
     expect(understandFile).toBeGreaterThanOrEqual(0);
     expect(referencePass).toBeGreaterThan(understandFile);

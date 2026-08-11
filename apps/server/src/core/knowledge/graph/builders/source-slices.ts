@@ -1,6 +1,12 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, relative, resolve } from "node:path";
 import { sourceDataRoot, sourceStorageRoot } from "../../paths.js";
+import {
+  listStandardsSliceFiles,
+  readOrderedSliceRecords,
+  standardsOrderPath,
+  standardsSlicesRoot,
+} from "../../standards-files.js";
 import { fileEntityId } from "./code-graph.js";
 import type { GraphEdge, GraphEntity, GraphFact, GraphRecords, SearchChunk, TrustTier } from "../types.js";
 import { filesFingerprint, shortHash, stableJson, truncate } from "../util.js";
@@ -250,18 +256,23 @@ export function buildExternalMirrorsGraphRecords(): GraphRecords | null {
 
 export function buildDecompStandardsGraphRecords(): GraphRecords | null {
   const sourceId = "decomp_standards";
-  const dataRoot = sourceDataRoot(sourceId);
-  const dataFile = resolve(dataRoot, "standards.jsonl");
-  const examplesFile = resolve(dataRoot, "examples.jsonl");
+  const standardsRoot = standardsSlicesRoot(sourceStorageRoot(sourceId));
+  const standardRows = readOrderedSliceRecords(standardsRoot, "standards.jsonl", "standards");
+  const exampleRows = readOrderedSliceRecords(standardsRoot, "examples.jsonl", "examples");
+  const inputPaths = [
+    standardsOrderPath(standardsRoot),
+    ...listStandardsSliceFiles(standardsRoot, "standards.jsonl"),
+    ...listStandardsSliceFiles(standardsRoot, "examples.jsonl"),
+  ].filter((path) => existsSync(path));
   const examplesByStandard = new Map<string, Record<string, unknown>[]>();
-  for (const example of readJsonlObjects(examplesFile)) {
+  for (const { record: example } of exampleRows) {
     const standardId = stringField(example, "standard_id");
     if (!standardId) continue;
     const items = examplesByStandard.get(standardId) ?? [];
     items.push(example);
     examplesByStandard.set(standardId, items);
   }
-  const records = readJsonlObjects(dataFile).map((row) => {
+  const records = standardRows.map(({ record: row, file: rowFile }) => {
     const examples = examplesByStandard.get(stringField(row, "id")) ?? [];
     const text = compactText([
       stringField(row, "title"),
@@ -291,7 +302,7 @@ export function buildDecompStandardsGraphRecords(): GraphRecords | null {
       id: stringField(row, "id") || shortHash(text),
       title: `Decomp standard: ${stringField(row, "title") || stringField(row, "id")}`,
       text,
-      evidenceRef: arrayField(row, "evidence_refs").join(";") || dataFile,
+      evidenceRef: arrayField(row, "evidence_refs").join(";") || rowFile,
       payload: { source_id: sourceId, record: row, examples },
       linkedFilePaths: extractLinkedFilePaths(text),
       entityType: "decomp_standard",
@@ -302,7 +313,7 @@ export function buildDecompStandardsGraphRecords(): GraphRecords | null {
     sourceId,
     trustTier: "reference",
     indexFileName: "standards.jsonl",
-    inputPaths: [dataFile, examplesFile],
+    inputPaths,
     records,
     defaultEntityType: "decomp_standard",
     factType: "decomp_standard",

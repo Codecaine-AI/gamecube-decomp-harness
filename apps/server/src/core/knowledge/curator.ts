@@ -371,7 +371,11 @@ function existingCuratedKnowledgeRecords(path: string): CuratedKnowledgeRecord[]
 }
 
 function preservedCuratorAgentRecords(path: string): CuratedKnowledgeRecord[] {
-  return existingCuratedKnowledgeRecords(path).filter((record) => record.id.startsWith("source_update_proposal:curator_agent:"));
+  return existingCuratedKnowledgeRecords(path).filter(
+    (record) =>
+      record.id.startsWith("source_update_proposal:curator_agent:") ||
+      record.id.startsWith("source_update_proposal:preship_reviewer:"),
+  );
 }
 
 function isCuratedKnowledgeRecord(value: unknown): value is CuratedKnowledgeRecord {

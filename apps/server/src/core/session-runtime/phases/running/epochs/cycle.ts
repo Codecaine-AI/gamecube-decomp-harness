@@ -94,7 +94,7 @@ interface GitResult {
 async function git(cwd: string, args: string[]): Promise<GitResult> {
   const proc = Bun.spawn(["git", "-C", cwd, ...args], { stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
-  return { ok: exitCode === 0, text: exitCode === 0 ? stdout.trimEnd() : stderr.trim() };
+  return { ok: exitCode === 0, text: exitCode === 0 ? stdout.trimEnd() : [stderr.trim(), stdout.trim()].filter(Boolean).join("\n") };
 }
 
 function artifactTimestamp(): string {
@@ -132,7 +132,8 @@ async function commitEpochSnapshot(params: {
   if (!add.ok) {
     warning = `git add failed: ${add.text}`;
   } else {
-    const commit = await git(params.repoRoot, ["commit", "-m", params.message]);
+    // Snapshot commits are internal checkpoints, and target-repo pre-commit hooks (e.g. formatters that modify files) must not abort them.
+    const commit = await git(params.repoRoot, ["commit", "--no-verify", "-m", params.message]);
     if (commit.ok) committed = true;
     else if (!/nothing to commit|nothing added to commit/.test(commit.text)) warning = `git commit failed: ${commit.text}`;
   }
@@ -440,7 +441,15 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     stateDirRelative,
     message: `epoch(${runId.slice(0, 8)}): ${label ?? artifactTimestamp()}`,
   });
-  if (snapshot.warning) console.error(`[epoch] ${snapshot.warning}`);
+  if (snapshot.warning) {
+    console.error(`[epoch] ${snapshot.warning}`);
+    epochProgress(store, runId, {
+      label,
+      phase: "snapshot_commit",
+      status: "warning",
+      message: `epoch snapshot commit failed: ${snapshot.warning.slice(0, 500)}`,
+    });
+  }
   if (!snapshot.commitSha) throw new Error("epoch commit failed: could not resolve HEAD");
   epochProgress(store, runId, {
     label,

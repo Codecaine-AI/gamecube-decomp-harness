@@ -1,5 +1,5 @@
-import { Fragment, useState } from "react";
-import { pct, type Dashboard } from "@/lib/format";
+import { Fragment, useId, useState } from "react";
+import type { Dashboard } from "@/lib/format";
 import { MarkTooltip } from "./mark-tooltip";
 import { chartModel } from "../_lib/chart-model";
 import type { ChartMark } from "../_lib/types";
@@ -13,23 +13,49 @@ function markLabelTransform(mark: ChartMark): string {
 export function TimelineChart({ dashboard }: { dashboard: Dashboard | null }) {
   const model = chartModel(dashboard);
   const [hovered, setHovered] = useState<number | null>(null);
+  const areaGradientId = useId();
+  const markLabels = model.marks.map((mark) => mark.matched.toFixed(2));
+  const showLabel = model.marks.map(() => false);
+  let lastVisibleLabel: { x: number; text: string } | null = null;
+  model.marks.forEach((mark, index) => {
+    const text = markLabels[index];
+    const visible = lastVisibleLabel === null || mark.x - lastVisibleLabel.x >= 8 || text !== lastVisibleLabel.text;
+    showLabel[index] = visible;
+    if (visible) lastVisibleLabel = { x: mark.x, text };
+  });
+
   return (
-    <div className="px-2.5 py-2.5">
       <div className="relative h-[230px] border border-line bg-card">
-        {[25, 50, 75].map((grid) => (
-          <span className="absolute top-0 bottom-0 w-px bg-line" key={grid} style={{ left: `${grid}%` }} />
-        ))}
         {model.hasLine ? (
           <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-            <polygon fill="var(--color-up)" fillOpacity="0.08" points={model.areaPoints} />
+            {/* The fill tapers from the line down to transparent so the area
+                reads as a glow under the line instead of a solid band. */}
+            <defs>
+              <linearGradient id={areaGradientId} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-up)" stopOpacity="0.3" />
+                <stop offset="70%" stopColor="var(--color-up)" stopOpacity="0.14" />
+                <stop offset="100%" stopColor="var(--color-up)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <polygon fill={`url(#${areaGradientId})`} points={model.areaPoints} />
             <polyline fill="none" points={model.linePoints} stroke="var(--color-up)" strokeOpacity="0.9" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
           </svg>
         ) : null}
         {model.marks.map((mark, index) => (
           <Fragment key={`${mark.kind}-${index}`}>
-            {mark.kind === "epoch" ? (
-              <span className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-faint" style={{ left: `${mark.x}%` }} />
-            ) : null}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute z-[1] w-px -translate-x-1/2"
+              style={{
+                left: `${mark.x}%`,
+                top: `calc(${mark.y}% + 7px)`,
+                bottom: 0,
+                backgroundImage: "linear-gradient(to bottom, var(--color-up) 55%, transparent 55%)",
+                backgroundSize: "1px 5px",
+                maskImage: "linear-gradient(to bottom, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.22) 60%, transparent 100%)",
+                WebkitMaskImage: "linear-gradient(to bottom, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.22) 60%, transparent 100%)",
+              }}
+            />
             <span
               className="group absolute z-[2] -translate-x-1/2 -translate-y-1/2 cursor-default p-2"
               onMouseEnter={() => setHovered(index)}
@@ -42,22 +68,18 @@ export function TimelineChart({ dashboard }: { dashboard: Dashboard | null }) {
                 }`}
               />
             </span>
-            <span
-              className={`pointer-events-none absolute whitespace-nowrap text-[10px] ${hovered === index ? "text-fg" : "text-soft"}`}
-              style={{ left: `${mark.x}%`, top: `calc(${mark.y}% - 22px)`, transform: markLabelTransform(mark) }}
-            >
-              {pct(mark.matched)}
-            </span>
+            {showLabel[index] ? (
+              <span
+                className={`pointer-events-none absolute whitespace-nowrap text-[10px] ${hovered === index ? "text-fg" : "text-soft"}`}
+                style={{ left: `${mark.x}%`, top: `calc(${mark.y}% - 22px)`, transform: markLabelTransform(mark) }}
+              >
+                {markLabels[index]}
+              </span>
+            ) : null}
           </Fragment>
         ))}
         {hovered !== null && model.marks[hovered] ? <MarkTooltip mark={model.marks[hovered]} /> : null}
         {!model.hasRun ? <span className="absolute inset-0 flex items-center justify-center text-xs text-dim">No run yet.</span> : null}
       </div>
-      <div className="mt-1 grid grid-cols-3 text-[10px] text-dim">
-        <span>{model.timeLabels[0]} (start)</span>
-        <span className="text-center">{model.timeLabels[1]}</span>
-        <span className="text-right">{model.timeLabels[2]} (now)</span>
-      </div>
-    </div>
   );
 }
