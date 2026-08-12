@@ -33,11 +33,11 @@
       },
       "children": [
         "b-01-session-operating-flow-target-high-level-melee-2",
-        "b-01-session-operating-flow-this-is-the-first-read-f-3",
-        "b-01-session-operating-flow-everything-centers-on-a-4",
         "b-01-session-operating-flow-the-target-runtime-uses-5",
         "b-01-session-operating-flow-full-session-shape-6",
         "b-01-session-operating-flow-text-7",
+        "b-session-flow-lineage-decision",
+        "b-session-flow-lineage-why-heading",
         "b-01-session-operating-flow-the-important-guarantee-8",
         "b-01-session-operating-flow-the-new-session-operator-9",
         "b-01-session-operating-flow-if-an-active-or-blocked-10",
@@ -156,29 +156,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Target high-level Melee decomp harness flow from project session startup through autonomous epochs, PR preparation, review, kernel-backed tracing, and next-session sync/intake."
-        }
-      ],
-      "children": []
-    },
-    "b-01-session-operating-flow-this-is-the-first-read-f-3": {
-      "id": "b-01-session-operating-flow-this-is-the-first-read-f-3",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "This is the first-read flow for the Melee decomp harness. It describes the\nsystem the harness should become, not the exact current implementation."
-        }
-      ],
-      "children": []
-    },
-    "b-01-session-operating-flow-everything-centers-on-a-4": {
-      "id": "b-01-session-operating-flow-everything-centers-on-a-4",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Everything centers on a project session. A session captures one upstream\nbaseline, runs autonomous worker epochs against that baseline, then turns the\nsurviving work into reviewable PRs. The same session owns the whole path from\nsync to PR review; a new autonomous session starts only after the current PR\nwork has been resolved and the next session boundary has synchronized the\nmerged upstream work into local state and knowledge."
+          "insert": "ProjectSession is the durable container for the Melee decomp harness from baseline sync through autonomous epochs, PR campaigns, review, kernel-backed tracing, and later sync boundaries. It owns the session worktree, head_revision, and the ordered timeline that explains head movement and evidence. Run, PR, and sync are child workflows; only the active workflow holding the dispatch lease may dispatch workers or mutate its allowed checkout surfaces."
         }
       ],
       "children": []
@@ -189,16 +167,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The target runtime uses "
-        },
-        {
-          "insert": "agent-kernel",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " as the agent execution and\nobservability substrate. The harness still owns Melee-specific workflow\nsemantics: scheduling, target claims, scoring, validation, PR lanes, standards, and\nknowledge. The kernel owns reusable agent runtime concerns: cataloged agent\ndefinitions, context assembly, Pi session lifecycle, subagent lineage, trace\nevents, token accounting, read APIs, and viewer primitives."
+          "insert": "The runtime uses agent-kernel as the agent execution and observability substrate. The harness owns Melee-specific workflow semantics: scheduling, target claims, scoring, validation, PR campaigns, standards, and knowledge. The kernel owns reusable agent runtime concerns: cataloged agent definitions, context assembly, Pi session lifecycle, subagent lineage, trace events, token accounting, read APIs, and viewer primitives."
         }
       ],
       "children": []
@@ -222,13 +191,16 @@
       "props": {
         "steps": [
           {
-            "text": "Project session",
+            "text": "ProjectSession",
             "steps": [
               {
-                "text": "New session started",
+                "text": "Open from baseline sync",
                 "steps": [
                   {
-                    "text": "Register or resume the kernel app session root"
+                    "text": "Create the durable session worktree and register or resume the kernel app session root"
+                  },
+                  {
+                    "text": "Pin original_baseline_revision and initialize head_revision"
                   }
                 ]
               },
@@ -254,7 +226,7 @@
                     "text": "Reset and build the session baseline"
                   },
                   {
-                    "text": "Treat this as the fixed starting point for the session",
+                    "text": "The baseline becomes the immutable original_baseline_revision",
                     "kind": "note"
                   }
                 ]
@@ -289,44 +261,56 @@
                 ]
               },
               {
-                "text": "Start run mode",
+                "text": "Run workflow acquires the dispatch lease",
                 "steps": [
                   {
-                    "text": "Repeat epoch loop until a run bound or manual stop"
+                    "text": "Repeat the epoch loop until a run bound or manual stop"
                   },
                   {
-                    "text": "Emit scheduler, worker, validation, and knowledge trace events"
+                    "text": "Publish each integration commit with its epoch_completed timeline entry as one transaction"
+                  },
+                  {
+                    "text": "Pin save-point evidence to the resulting commit"
                   }
                 ]
               },
               {
-                "text": "Enter PR mode",
+                "text": "PR campaign activates under the dispatch lease",
                 "steps": [
                   {
-                    "text": "Stop autonomous worker scheduling"
+                    "text": "Follow the PR-campaign contract that owns pr_phase recording for lease acquisition and release"
                   },
                   {
                     "text": "Review, fix, validate, split, and publish draft PRs"
                   },
                   {
-                    "text": "Emit PR split, review, repair, and publication trace events"
+                    "text": "Keep the PR campaign durable while it is inactive between review activations"
                   }
                 ]
               },
               {
-                "text": "Complete session",
+                "text": "Sync workflow acquires the dispatch lease when upstream moves",
                 "steps": [
                   {
-                    "text": "Verify PR work is merged, closed, or explicitly carried forward"
+                    "text": "Follow the sync contract that owns atomic publish and remote_application recording"
                   },
                   {
-                    "text": "Preserve carry-forward work"
+                    "text": "Resume the surviving run or PR campaign against the new head_revision"
+                  }
+                ]
+              },
+              {
+                "text": "Close by explicit operator action",
+                "steps": [
+                  {
+                    "text": "Require the dispatch lease to be free"
                   },
                   {
-                    "text": "Clear the active session gate"
+                    "text": "Require a clean worktree and a fresh named save point at head_revision"
                   },
                   {
-                    "text": "Close the kernel session container tree"
+                    "text": "Keep the session open indefinitely when no close is requested",
+                    "kind": "note"
                   }
                 ]
               }
@@ -336,13 +320,41 @@
       },
       "children": []
     },
+    "b-session-flow-lineage-decision": {
+      "id": "b-session-flow-lineage-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — ProjectSession owns head lineage; save points anchor evidence",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "The ProjectSession timeline defines head lineage and evidence through epoch_completed, remote_application, pr_phase, and save_point entries. The session container records epoch_completed and save_point entries, the PR-campaign and sync contracts own pr_phase and remote_application recording, and save points remain evidence anchors pinned to existing commits."
+        }
+      ],
+      "children": []
+    },
+    "b-session-flow-lineage-why-heading": {
+      "id": "b-session-flow-lineage-why-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Why Head Lineage and Evidence Split"
+        }
+      ],
+      "children": []
+    },
     "b-01-session-operating-flow-the-important-guarantee-8": {
       "id": "b-01-session-operating-flow-the-important-guarantee-8",
       "type": "paragraph",
       "props": {},
       "text": [
         {
-          "insert": "The important guarantee is that the baseline stays stable while workers are\ncreating evidence. Pulling upstream, merged-PR intake, and baseline movement are\nsession-boundary actions, not background events inside an active run."
+          "insert": "Head movement and evidence have different failure policies. The epoch boundary records its integration commit and epoch_completed entry as one durable step, while the sync workflow contract assigns the same atomicity to remote_application publication. A save-point hook records only evidence against an existing commit; failure raises a durable session blocker and staleness flag without blocking the triggering boundary."
         }
       ],
       "children": []
@@ -353,43 +365,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The New Session operator action creates the canonical project session at the\nstart of the boundary and opens that session's Prepare page immediately. The\nPrepare page exposes the boundary as explicit operator gates. Git Sync checks\nthe upstream head, fetches the configured remote, updates the canonical\nproject "
-        },
-        {
-          "insert": "worktrees/upstream-current",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " source tree to the latest upstream SHA,\ncreates the session integration worktree at\n"
-        },
-        {
-          "insert": "worktrees/sessions/<sessionUuid>/current",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " from that same SHA, and discovers\nmerged PRs before any baseline reset begins. A repeat sync is idempotent: it\nreuses a clean session branch worktree that is already checked out for the\nsession, including a legacy "
-        },
-        {
-          "insert": "sessions/<sessionUuid>/source",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " location, and only\nfast-forwards that session branch when the existing head is an ancestor of the\nrequested baseline. The completed gate remains\nrepeatable as an explicit resync action and shows the upstream head, whether the\nhead moved, the newly discovered merged-PR count, and the upstream-current and\nsession-current locations. It also records a separate PR-index debt snapshot so\nan unchanged repository can still show that merged PR postmortems are behind\nagent indexing. Sync Intake trace events record the start of Git Sync, the\nupstream/worktree result, the PR-index debt snapshot, and final completion or\nfailure under the session's Prepare tree. It must not rebase PR branches or\nmutate the control checkout during New Session preparation. PR Intake then\nindexes newly merged upstream PRs\nplus missing local PR records/postmortems, and its gate shows how many merged\nPRs still need agent indexing before the baseline can move. Knowledge refresh\nruns after that intake so graph facts include the new PR artifacts. Baseline\ncalculation resets and reports from "
-        },
-        {
-          "insert": "upstream-current",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ",\nwhich is the canonical upstream comparison point for the session. Only after\nthe baseline is ready does the operator choose worker configuration and start\nrun mode from the session current worktree."
+          "insert": "The New Session operator action opens the Prepare page for the baseline sync that creates the ProjectSession. The Prepare gates check the upstream head, fetch the configured remote, update the project worktrees/upstream-current source tree, create worktrees/sessions/<sessionUuid>/current from the same SHA, discover merged PRs, index missing PR records and postmortems, refresh knowledge, and calculate the baseline before run configuration begins. A repeated preparation sync reuses a clean session branch and only fast-forwards it when its head is an ancestor of the requested baseline. It reports upstream movement, PR-index debt, worktree locations, and trace events without rebasing PR branches or mutating the control checkout."
         }
       ],
       "children": []
@@ -400,7 +376,7 @@
       "props": {},
       "text": [
         {
-          "insert": "If an active or blocked canonical project session already exists, the session\ngate owns the next action. The overview opens the existing session and exposes\nthe blocking reasons instead of presenting a new-session start path. A\nduplicate New Session request is refused with the active session identity so\nthe operator lands on the current preparing, running, or PR state rather than\nsilently creating or reusing a session under a new label. Starting another\nsession requires completing or explicitly resolving the active session gate."
+          "insert": "If an active, blocked, or closing ProjectSession exists, the session gate owns the next action. The overview opens that session and its blockers instead of offering another session identity. Closing requires an explicit operator action while no workflow holds the dispatch lease, the worktree is clean at head_revision, and a fresh named save point anchors that head."
         }
       ],
       "children": []
@@ -424,7 +400,7 @@
       },
       "text": [
         {
-          "insert": "Canonical State Row"
+          "insert": "Durable ProjectSession State"
         }
       ],
       "children": []
@@ -435,25 +411,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The server persists the active workflow answer in SQLite "
-        },
-        {
-          "insert": "project_sessions",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ".\nThat row is the canonical project-session state root. Existing run rows, PR\nrecords, save points, process files, and kernel traces still own their detailed\nfacts, but "
-        },
-        {
-          "insert": "project_sessions",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " owns the session lifecycle, phase/subphase,\noperator gates, blockers, process recovery identity, and trace root pointers."
+          "insert": "ProjectSession is the durable project-session state root, and project_sessions is its persisted projection. Detailed run, PR campaign, process, evidence, and kernel-trace records retain their domain facts. ProjectSession owns the session lifecycle, worktree identity, original baseline, head_revision, ordered timeline, blockers, staleness, operator gates, process recovery identity, and trace root pointers."
         }
       ],
       "children": []
@@ -464,34 +422,7 @@
       "props": {},
       "text": [
         {
-          "insert": "During the migration from legacy runs to canonical project sessions, the\ndashboard can still show a legacy "
-        },
-        {
-          "insert": "runs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " row as the active session when no\n"
-        },
-        {
-          "insert": "project_sessions",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " row exists. A settled legacy run is closed by recording a\nsave point, marking "
-        },
-        {
-          "insert": "runs.status = complete",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and then starting a new canonical\nproject session. This closeout is not merged-PR intake; merged upstream work is\nintaken during the next session's sync/start phase."
+          "insert": "The dashboard may project a legacy runs row when no ProjectSession row exists. Closing a settled legacy run records a save point against its existing commit, marks runs.status = complete, and leaves merged-upstream intake to the session sync workflow."
         }
       ],
       "children": []
@@ -513,7 +444,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Once a legacy run is complete, its handoff files, ship-set status, QA reports,\nand historical PR records are inert session history. The dashboard may present\nthem as artifacts, but they do not create PR Mode and do not block the next\nsession gate. A new session is blocked only by an active canonical session,\nlive workers, active claims, a dirty campaign head, or unresolved current PR\nwork."
+          "insert": "A completed legacy run's handoff files, ship-set status, QA reports, and historical PR records are inert session history. They remain visible as artifacts but do not create a PR campaign or block the next session gate. A new session is blocked only by an active ProjectSession, live workers, active claims, a dirty PR campaign head, or unresolved current PR work."
         }
       ],
       "children": []
@@ -524,7 +455,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The stable columns are:"
+          "insert": "The persisted session projection exposes:"
         }
       ],
       "children": []
@@ -537,7 +468,7 @@
       },
       "text": [
         {
-          "insert": "project_sessions\n  id\n  project_id\n  session_uuid\n  status\n  phase\n  active_run_id\n  base_ref\n  base_sha\n  preparing_state_json\n  running_state_json\n  pr_state_json\n  complete_state_json\n  process_state_json\n  kernel_trace_json\n  created_at\n  updated_at\n  completed_at"
+          "insert": "project_sessions\n  id\n  project_id\n  session_uuid\n  status                  idle | active | blocked | complete | closing | closed\n  phase                   preparing | running | pr | complete\n  active_run_id\n  base_ref\n  base_sha\n  revision\n  head_revision\n  trace_id\n  blockers_json\n  save_point_stale\n  caused_by_event_id\n  preparing_state_json\n  running_state_json\n  pr_state_json\n  complete_state_json\n  process_state_json\n  kernel_trace_json\n  created_at\n  updated_at\n  completed_at\n  closed_at"
         }
       ],
       "children": []
@@ -548,34 +479,7 @@
       "props": {},
       "text": [
         {
-          "insert": "At most one row with "
-        },
-        {
-          "insert": "status in ('active', 'blocked')",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " may exist per project.\nThe stored "
-        },
-        {
-          "insert": "subphase",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " lives inside the active phase JSON object, never as a\ntop-level canonical column. API and dashboard payloads may expose a derived\n"
-        },
-        {
-          "insert": "activeSubphase",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " for rendering."
+          "insert": "At most one project_sessions row with status active, blocked, or closing may exist per project. The stored subphase lives inside the active phase JSON object, never as a top-level canonical column. API and dashboard payloads may expose a derived activeSubphase for rendering."
         }
       ],
       "children": []
@@ -1147,7 +1051,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The project keeps one canonical upstream worktree and each session gets its own\ncurrent integration worktree. The upstream worktree is the stable baseline\nsource of truth: it answers \"what is upstream now?\" for baseline builds and\nlater comparisons. The session current worktree records the session's ordered\nancestry of tentative and confirmed integrations and becomes the branch point\nfor later workers and PR handoff. With --merge-on-finish enabled, a passing\nworker result is applied there serially as soon as the worker finishes. The flag\ndefaults off, so integration otherwise remains an epoch-boundary action."
+          "insert": "ProjectSession owns the current integration worktree, whose checked-out commit is head_revision. The project upstream worktree remains the baseline source for comparisons. The session runtime records epoch_completed head movement on the timeline, while the sync workflow contract owns remote_application publication against the same current worktree. Worker and PR worktrees branch from that lineage without becoming alternate session heads."
         }
       ],
       "children": []
@@ -1224,7 +1128,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The shape should stay clear:"
+          "insert": "The worktree hierarchy keeps shared lineage separate from isolated work:"
         }
       ],
       "children": []
@@ -1237,7 +1141,7 @@
       },
       "text": [
         {
-          "insert": "one canonical upstream baseline worktree for the project;"
+          "insert": "The project upstream worktree provides the canonical upstream baseline."
         }
       ],
       "children": []
@@ -1250,7 +1154,7 @@
       },
       "text": [
         {
-          "insert": "one session current integration worktree for the active session;"
+          "insert": "The ProjectSession current worktree carries head_revision and the ordered integration ancestry."
         }
       ],
       "children": []
@@ -1263,7 +1167,7 @@
       },
       "text": [
         {
-          "insert": "isolated worker worktrees under the epoch that spawned them;"
+          "insert": "Each worker uses an isolated worktree under the epoch that spawned it."
         }
       ],
       "children": []
@@ -1276,7 +1180,7 @@
       },
       "text": [
         {
-          "insert": "isolated PR worktrees when review slices are prepared."
+          "insert": "Each PR campaign prepares review slices in isolated PR worktrees."
         }
       ],
       "children": []
@@ -1377,7 +1281,11 @@
                     "kind": "note"
                   },
                   {
-                    "text": "routing and save point",
+                    "text": "commit confirmed integration and record epoch_completed in one transaction",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "pin save-point evidence to the resulting commit",
                     "kind": "note"
                   }
                 ]
@@ -1522,7 +1430,10 @@
                     "text": "Move every item to its authoritative lane"
                   },
                   {
-                    "text": "Save the boundary"
+                    "text": "Publish the integration commit and epoch_completed entry in one transaction; fail the boundary loudly if either write fails"
+                  },
+                  {
+                    "text": "Pin save-point evidence to the existing commit; on failure, raise a session blocker and staleness without failing the completed epoch"
                   }
                 ]
               },
@@ -1549,7 +1460,7 @@
       "props": {},
       "text": [
         {
-          "insert": "This keeps the shape explicit: scoped worker checks bank tentative evidence, and\nthe epoch-boundary global comparison changes it to confirmed or regressed. Only\nconfirmed integrations become authoritative inputs to PR preparation."
+          "insert": "Scoped worker checks bank tentative evidence, and the epoch-boundary global comparison classifies it as confirmed or regressed. A successful boundary publishes the confirmed integration commit and epoch_completed entry together, then advances ProjectSession.head_revision. Save-point evidence may describe that existing commit, but it never creates or advances it."
         }
       ],
       "children": []
@@ -1935,7 +1846,7 @@
       },
       "text": [
         {
-          "insert": "epoch boundary routing and save points;"
+          "insert": "transactional epoch_completed publication and save-point evidence anchors;"
         }
       ],
       "children": []
@@ -1948,7 +1859,7 @@
       },
       "text": [
         {
-          "insert": "PR checkpoint, QA, split, review, repair, publication, and next-session sync."
+          "insert": "PR campaign activation, checkpoint, QA, split, review, repair, and publication, plus the pr_phase and remote_application boundaries defined by the PR-campaign and sync workflow contracts."
         }
       ],
       "children": []
@@ -2145,7 +2056,7 @@
       "props": {},
       "text": [
         {
-          "insert": "At the end of an epoch, the system confirms or regresses tentative worker\noutput and turns the result into durable lanes."
+          "insert": "At the end of an epoch, the run classifies tentative worker output and publishes confirmed head movement through the ProjectSession transaction."
         }
       ],
       "children": []
@@ -2189,71 +2100,56 @@
                 ]
               },
               {
-                "text": "Move exact matches",
+                "text": "Route confirmed and rejected evidence",
                 "steps": [
                   {
-                    "text": "confirmed ship candidates",
+                    "text": "exact matches become confirmed ship candidates",
                     "kind": "note"
                   },
                   {
-                    "text": "remove from future scheduling",
-                    "kind": "note"
-                  }
-                ]
-              },
-              {
-                "text": "Move non-exact improvements",
-                "steps": [
-                  {
-                    "text": "carry-forward evidence",
+                    "text": "non-exact improvements become carry-forward evidence",
                     "kind": "note"
                   },
                   {
-                    "text": "high-value future targets",
-                    "kind": "note"
-                  }
-                ]
-              },
-              {
-                "text": "Move regressions",
-                "steps": [
-                  {
-                    "text": "repair priority",
+                    "text": "regressions return to repair priority",
                     "kind": "note"
                   },
                   {
-                    "text": "fix before shipping or route out of ship set",
+                    "text": "fact needs, stalls, and rejected work enter their authoritative lanes",
                     "kind": "note"
                   }
                 ]
               },
               {
-                "text": "Move fact needs",
+                "text": "Publish head movement",
                 "steps": [
                   {
-                    "text": "knowledge, tool, or research lanes",
-                    "kind": "note"
-                  }
-                ]
-              },
-              {
-                "text": "Move stalls",
-                "steps": [
-                  {
-                    "text": "cooldown unless new evidence appears",
-                    "kind": "note"
-                  }
-                ]
-              },
-              {
-                "text": "Move rejected work",
-                "steps": [
-                  {
-                    "text": "negative evidence",
+                    "text": "create the integration commit and epoch_completed entry in one durable transaction",
                     "kind": "note"
                   },
                   {
-                    "text": "standards or QA lessons when relevant",
+                    "text": "advance head_revision only when the transaction succeeds",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "fail the epoch boundary loudly when the transaction fails",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Anchor boundary evidence",
+                "steps": [
+                  {
+                    "text": "pin the save point to the existing integration commit",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "raise a session blocker and staleness flag if the anchor fails",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "do not roll back or block the completed epoch boundary",
                     "kind": "note"
                   }
                 ]
@@ -2273,7 +2169,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The epoch boundary is the point where \"maybe\" becomes \"known enough to schedule\nfrom.\" Scoped checks make an integration tentative; the clean global comparison\nconfirms it. When the comparison regresses, blame is attributed within the\ntentative window, the guilty change is reverted and marked regressed, and the\nremaining changes confirm. Because later workers branch from session current,\ndependencies follow ordinary session ancestry and the revert re-establishes the\nboundary baseline."
+          "insert": "The global comparison converts tentative work into confirmed or regressed work. Confirmed head movement becomes durable only when the integration commit and epoch_completed timeline entry both exist; failure fails the boundary loudly. A later save point adds reports, board state, and score evidence against that commit without changing session ancestry."
         }
       ],
       "children": []
@@ -2297,7 +2193,7 @@
       "props": {},
       "text": [
         {
-          "insert": "PR mode begins when the operator stops autonomous worker scheduling. No new run\nworkers enter the session branch while the system is preparing reviewable\noutput, and only confirmed integrations are eligible for the ship set. This is\nseparate from merged-PR intake: merged upstream work is pulled and folded into\nknowledge at the next session's start/sync boundary, not by a PR-mode\nworker-drain action."
+          "insert": "A PR campaign is the durable review-cycle workflow. The PR-campaign workflow contract assigns pr_phase recording to each lease-holding activation and release. The campaign remains durable during review, and only confirmed integrations are eligible for the ship set."
         }
       ],
       "children": []
@@ -2307,14 +2203,17 @@
       "type": "process-outline",
       "props": {
         "steps": [
+          {
+            "text": "PR campaign activation",
+            "steps": [
               {
-                "text": "PR mode",
-                "steps": [
-                  {
-                    "text": "Select confirmed integrations only"
-                  },
-                  {
-                    "text": "Full build to see the whole session delta",
+                "text": "Acquire the dispatch lease under the PR-campaign contract that owns pr_phase activation"
+              },
+              {
+                "text": "Select confirmed integrations only"
+              },
+              {
+                "text": "Full build to see the whole session delta",
                 "steps": [
                   {
                     "text": "report all code, data, and build changes"
@@ -2376,7 +2275,7 @@
                 "text": "Final PR-phase build",
                 "steps": [
                   {
-                    "text": "prove the reviewed/fixed session state still builds"
+                    "text": "prove the reviewed and fixed session state still builds"
                   },
                   {
                     "text": "make sure regressions and QA findings are resolved or routed"
@@ -2403,6 +2302,9 @@
                     "kind": "note"
                   }
                 ]
+              },
+              {
+                "text": "Release the dispatch lease under the PR-campaign contract that owns pr_phase release"
               }
             ]
           }
@@ -2589,10 +2491,13 @@
                     "text": "decide whether reviewer comments should become standards examples"
                   },
                   {
-                    "text": "intake merged PRs"
+                    "text": "intake merged PRs through the sync workflow"
                   },
                   {
-                    "text": "update knowledge before the next session"
+                    "text": "follow the sync contract that owns remote_application publication"
+                  },
+                  {
+                    "text": "update knowledge before the interrupted workflow resumes"
                   }
                 ]
               }
@@ -2632,7 +2537,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Not everything from a run ships. The session should preserve useful local work\nwithout confusing it with PR-ready work."
+          "insert": "ProjectSession preserves useful local work without confusing it with PR-ready work."
         }
       ],
       "children": []
@@ -2656,16 +2561,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Merged PR intake closes the loop. After PRs merge, the project fetches\nupstream, advances "
-        },
-        {
-          "insert": "worktrees/upstream-current",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", indexes what merged, updates\nthe knowledge system, makes carry-forward rebases explicit when they are\nneeded, and only then allows the next baseline capture."
+          "insert": "Merged-PR intake runs inside the sync intake path while ProjectSession remains the durable container. The path acquires the dispatch lease, fetches upstream, advances worktrees/upstream-current, indexes merged work, updates knowledge, creates its boundary-owned commit, and then anchors save-point evidence. The sync workflow contract owns staged reconciliation, remote_application recording, and transactional head_revision publication. The session stays open for later run, PR campaign, and sync activations until an operator explicitly closes it."
         }
       ],
       "children": []
