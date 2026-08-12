@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { CandidateRerankMode, TargetCandidate } from "@server/core/shared/types/index.js";
 import { immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
+import {
+  recordEpochCompletedInTransaction,
+  recordDeferredSavePointEvidenceDurably,
+  type DeferredSavePointEvidence,
+} from "@server/core/project-session";
+import type { JsonObject } from "@server/core/project-state";
 
 export type EpochSizeMode = "fixed" | "full";
 export type EpochStatus = "active" | "completed" | "error" | "exhausted" | "paused";
@@ -39,6 +45,19 @@ export interface SchedulerEpochCloseResult {
   status: string;
   finishedCount: number;
   closedAt: string;
+}
+
+export interface SchedulerEpochIntegrationResult {
+  commandId: string;
+  correlationId?: string;
+  integrationCommit: string;
+  occurredAt?: string;
+  payload?: JsonObject;
+  projectId?: string;
+  runId: string;
+  scoreDelta?: number | null;
+  sessionUuid?: string;
+  spanId?: string;
 }
 
 export interface EpochAdmissionResult {
@@ -290,6 +309,7 @@ export function closeSchedulerEpoch(
     status: EpochStatus;
     boundaryStatus?: string | null;
     routingSummary?: Record<string, unknown>;
+    integration?: SchedulerEpochIntegrationResult;
   },
 ): SchedulerEpochCloseResult {
   const closedAt = now();
@@ -314,6 +334,14 @@ export function closeSchedulerEpoch(
         `,
       )
       .run(params.status, params.boundaryStatus ?? params.status, JSON.stringify(params.routingSummary ?? {}), closedAt, epochId);
+    if (params.integration) {
+      recordEpochCompletedInTransaction(store.db, {
+        ...params.integration,
+        actor: "runner",
+        epochId,
+        occurredAt: params.integration.occurredAt ?? closedAt,
+      });
+    }
     const updated = store.db.query("SELECT finished_count, status FROM epochs WHERE id = ?").get(epochId) as Record<string, unknown>;
     return {
       epochId,
@@ -322,6 +350,47 @@ export function closeSchedulerEpoch(
       closedAt,
     };
   });
+}
+
+/**
+ * Accepts the head-advancing epoch boundary before appending its save-point
+ * evidence. Both events share the run workflow correlation while their spans
+ * remain operation-specific.
+ */
+export function closeSchedulerEpochWithEvidence(
+  store: StateStore,
+  epochId: string,
+  params: {
+    status: EpochStatus;
+    boundaryStatus?: string | null;
+    routingSummary?: Record<string, unknown>;
+    integration: SchedulerEpochIntegrationResult;
+    savePointEvidence: DeferredSavePointEvidence;
+    workflowCorrelationId: string;
+  },
+): SchedulerEpochCloseResult {
+  const closed = closeSchedulerEpoch(store, epochId, {
+    status: params.status,
+    boundaryStatus: params.boundaryStatus,
+    routingSummary: params.routingSummary,
+    integration: {
+      ...params.integration,
+      correlationId: params.workflowCorrelationId,
+      spanId: params.integration.spanId ?? `span-epoch-integrated-${randomUUID()}`,
+    },
+  });
+  const common = {
+    actor: "runner" as const,
+    correlationId: params.workflowCorrelationId,
+    projectId: params.integration.projectId,
+    sessionUuid: params.integration.sessionUuid,
+  };
+  recordDeferredSavePointEvidenceDurably(store, params.savePointEvidence, {
+    ...common,
+    commandId: `command-epoch-save-point-${randomUUID()}`,
+    spanId: `span-save-point-${randomUUID()}`,
+  });
+  return closed;
 }
 
 export function admitEpochTargets(

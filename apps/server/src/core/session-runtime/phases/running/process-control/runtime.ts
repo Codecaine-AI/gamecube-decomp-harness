@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { initializeProjectState, releaseDispatch, requestDispatch } from "@server/core/project-state";
 import { buildRunningProcessCommand, runningScheduling, type RunningProcessCommandPlan } from "@server/core/session-runtime/phases/running/process-command";
 import { type ManagedProcessController, type ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
 import { activeSchedulerEpoch, addEvent, getLatestRun, getRun, openState, schedulerEpochProgress, setRunDesiredWorkers } from "@server/core/session-runtime/run-state";
@@ -170,14 +172,50 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
       if (deps.processController.hasActiveProcess(stateDir).active) {
         return deps.json({ error: "process already running", process: deps.processStatus(stateDir, project) }, { status: 409 });
       }
-      if (runId) {
-        const requestedWorkers = runningScheduling(body.maxWorkers).maxWorkers;
+      if (!runId) {
+        return deps.json({ error: "No run found. Initialize a run before starting workers.", process: deps.processStatus(stateDir, project) }, { status: 409 });
+      }
+
+      const requestedWorkers = runningScheduling(body.maxWorkers).maxWorkers;
+      let acquiredLease: { leaseId: string; projectId: string } | null = null;
+      try {
         const store = openState(stateDir);
         try {
           const currentRun = getRun(store, runId) ?? run;
           if (currentRun && currentRun.status !== "active") {
             return deps.json({ error: `Run ${currentRun.id} is ${currentRun.status}; resume it before starting workers.`, run: currentRun, process: deps.processStatus(stateDir, project) }, { status: 409 });
           }
+          if (!currentRun) {
+            return deps.json({ error: `Run not found: ${runId}`, process: deps.processStatus(stateDir, project) }, { status: 409 });
+          }
+
+          const projectId = project?.projectId ?? currentRun.project?.projectId ?? stringValue(body.projectId).trim();
+          if (!projectId) {
+            return deps.json({ error: `Run ${runId} has no project id; dispatch authority cannot be acquired.`, process: deps.processStatus(stateDir, project) }, { status: 409 });
+          }
+          initializeProjectState(store, { projectId, traceId: `trace-project-${projectId}` });
+          const dispatch = requestDispatch(store, {
+            kind: "run",
+            workflowId: runId,
+            reason: stringValue(body.reason, "start managed run process"),
+            commandId: stringValue(body.commandId, `command-run-start-${randomUUID()}`),
+            correlationId: runId,
+            actor: "operator",
+            projectId,
+          });
+          if (dispatch.queued) {
+            return deps.json(
+              {
+                error: `Dispatch lease is held by ${dispatch.blockedBy.kind}:${dispatch.blockedBy.workflow_id}; run ${runId} was queued.`,
+                queued: true,
+                blockedBy: dispatch.blockedBy,
+                process: deps.processStatus(stateDir, project),
+              },
+              { status: 409 },
+            );
+          }
+          acquiredLease = { leaseId: dispatch.leaseId, projectId };
+
           // The worker pool clamps --max-workers to the run's desired_workers,
           // so align the run record with the requested size before spawning.
           if (currentRun && currentRun.desiredWorkers !== requestedWorkers) {
@@ -187,11 +225,28 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
         } finally {
           store.db.close();
         }
+        command.push("--lease-id", acquiredLease.leaseId);
+        const env = toolConcurrencyEnvFromInput(body.toolConcurrency);
+        if (Object.keys(env).length > 0) deps.appendLog("ui", `tool concurrency env: ${Object.keys(env).sort().join(", ")}`);
+        deps.processController.spawn({ command, env, name, project, stateDir });
+      } catch (error) {
+        if (acquiredLease) {
+          const store = openState(stateDir);
+          try {
+            releaseDispatch(store, {
+              leaseId: acquiredLease.leaseId,
+              projectId: acquiredLease.projectId,
+              commandId: `command-run-start-failed-${randomUUID()}`,
+              correlationId: runId,
+              actor: "operator",
+            });
+          } finally {
+            store.db.close();
+          }
+        }
+        throw error;
       }
-      const env = toolConcurrencyEnvFromInput(body.toolConcurrency);
-      if (Object.keys(env).length > 0) deps.appendLog("ui", `tool concurrency env: ${Object.keys(env).sort().join(", ")}`);
-      deps.processController.spawn({ command, env, name, project, stateDir });
-      return deps.json({ started: true, project: project ? deps.projectToSummary(project) : null, command, process: deps.processStatus(stateDir, project) });
+      return deps.json({ started: true, leaseId: acquiredLease.leaseId, project: project ? deps.projectToSummary(project) : null, command, process: deps.processStatus(stateDir, project) });
     },
   };
 }

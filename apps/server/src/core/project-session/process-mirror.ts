@@ -59,9 +59,11 @@ export function createProjectSessionProcessMirror(deps: ProjectSessionProcessMir
     const store = openState(params.stateDir);
     try {
       let record = params.createIfMissing
-        ? getOrCreateActiveProjectSession(store.db, {
+          ? getOrCreateActiveProjectSession(store.db, {
             projectId: identity.id,
             baseRef: identity.baseRef,
+            actor: "runner",
+            worktreeIdentity: params.repoRoot ?? identity.repoRoot ?? undefined,
           })
         : getActiveProjectSession(store.db, identity.id);
       if (!record) return;

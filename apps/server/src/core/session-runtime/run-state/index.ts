@@ -4,6 +4,7 @@ export {
   admitExistingEpochTargets,
   admitEpochTargets,
   closeSchedulerEpoch,
+  closeSchedulerEpochWithEvidence,
   epochSizeLabel,
   parseEpochSize,
   recordSchedulerEpochFastRefresh,
@@ -20,6 +21,7 @@ export {
   type EpochSizeSpec,
   type SchedulerEpochCloseResult,
   type SchedulerEpochConfig,
+  type SchedulerEpochIntegrationResult,
   type SchedulerEpochRecord,
 } from "./epochs.js";
 export { addEvent, markEventHandled, nextUnhandledEvent } from "./events.js";

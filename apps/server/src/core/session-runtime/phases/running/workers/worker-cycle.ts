@@ -1674,6 +1674,8 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
   const toolPlatform = resolveToolPlatform();
   const store = openState(globals.stateDir);
   try {
+    const leaseId = stringArg(args, "--lease-id", "").trim();
+    if (!leaseId) throw new Error("worker requires --lease-id");
     const runId = stringArg(args, "--run-id", getLatestRun(store)?.id ?? "");
     if (!runId) throw new Error("No run found. Run init-run first.");
     const run = getRun(store, runId);
@@ -1690,7 +1692,14 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     const writeSetWideningMode = writeSetFlags.writeSetWidening;
     const schedulerEpoch = activeSchedulerEpoch(store, runId);
     if (!schedulerEpoch) throw new Error(`No active epoch with admitted targets for session ${runId}`);
-    const claimed = claimNextEpochTarget({ store, sessionId: runId, workerId, baseRev, ttlSeconds });
+    const claimed = claimNextEpochTarget({
+      store,
+      sessionId: runId,
+      workerId,
+      baseRev,
+      ttlSeconds,
+      leaseId,
+    });
     if (!claimed) throw new Error(`No admitted epoch targets available for session ${runId}`);
     let currentWriteSet = [...claimed.writeSet];
     let currentEntries = [...claimed.writeSetEntries];

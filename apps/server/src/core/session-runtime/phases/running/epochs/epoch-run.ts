@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { runEpochCycle } from "@server/core/session-runtime/phases/running/epochs";
 import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
+import { recordDeferredSavePointEvidenceDurably, recordEpochCompleted } from "@server/core/project-session";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 import { publishSessionDraftPr } from "./session-draft-pr.js";
 import { writeSetIntegrationFlags } from "@server/core/session-runtime/phases/running/integration/write-set-options.js";
@@ -16,11 +18,13 @@ export async function epochRun(globals: GlobalArgs, args: Map<string, string | t
   try {
     const runId = stringArg(args, "--run-id", getLatestRun(store)?.id ?? "");
     if (!runId) throw new Error("No run found. Run init-run first.");
+    const epochId = stringArg(args, "--epoch-id", "") || `manual-epoch-${randomUUID()}`;
     const writeSetFlags = writeSetIntegrationFlags(args);
     const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
       baseRef: globals.project?.baseRef,
       confirmationPass: writeSetFlags.confirmationPass,
       configureCommand: stringArg(args, "--configure-command", "python3 configure.py --require-protos"),
+      epochId,
       label: stringArg(args, "--label", "") || null,
       linkPaths: stringArg(args, "--link-paths", "orig")
         .split(",")
@@ -34,6 +38,29 @@ export async function epochRun(globals: GlobalArgs, args: Map<string, string | t
       reportChangesRelPath: globals.project?.validation.reportChangesPath,
       requeueRegressions: !booleanArg(args, "--no-requeue"),
       worktreeDir: stringArg(args, "--worktree", resolve(globals.stateDir, "epoch_worktree")),
+    });
+    if (!result.commitSha) throw new Error("Manual epoch integration commit is missing");
+    const projectId = globals.project?.projectId ?? globals.projectId;
+    recordEpochCompleted(store, {
+      projectId,
+      epochId,
+      runId,
+      integrationCommit: result.commitSha,
+      scoreDelta: result.scoreDelta,
+      commandId: `command-epoch-integrated-${randomUUID()}`,
+      correlationId: runId,
+      spanId: `span-epoch-integrated-${randomUUID()}`,
+      actor: "runner",
+    });
+    const evidenceContext = {
+      projectId,
+      correlationId: runId,
+      actor: "runner" as const,
+    };
+    recordDeferredSavePointEvidenceDurably(store, result.savePointEvidence, {
+      ...evidenceContext,
+      commandId: `command-epoch-save-point-${randomUUID()}`,
+      spanId: `span-save-point-${randomUUID()}`,
     });
     const publish = booleanArg(args, "--no-session-draft-pr")
       ? null

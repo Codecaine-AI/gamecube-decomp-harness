@@ -7,6 +7,7 @@ import { getLatestRun, openState } from "@server/core/session-runtime/run-state"
 import type { ProjectSummary, ResolvedProject } from "@server/core/project-registry";
 import type { ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
 import type { ReportRunOptions, ReportRunResult } from "@server/core/validation/report";
+import type { BoundarySavePointResult } from "@server/core/session-runtime/phases/pr/save-points-runtime";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -50,7 +51,7 @@ export interface PreparingRuntimeDeps {
   activeSessionPrBlockers: (stateDir: string) => string[];
   appendLog: (stream: ProcessLogLine["stream"], text: string) => void;
   beginOperation: (name: string, label: string, stepNames: string[]) => void;
-  boundarySavePoint: (paths: PreparingRuntimeProjectContext, trigger: string, label?: string) => Promise<JsonObject | null>;
+  boundarySavePoint: (paths: PreparingRuntimeProjectContext, trigger: string, label?: string) => Promise<BoundarySavePointResult>;
   endOperation: (error?: unknown) => void;
   hasActiveProcess: (stateDir: string) => { active: boolean; name?: unknown };
   kernelDatabaseUrl?: () => string | null;

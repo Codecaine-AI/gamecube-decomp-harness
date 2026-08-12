@@ -1,12 +1,16 @@
+import { randomUUID } from "node:crypto";
+import type { Database } from "bun:sqlite";
 import { runningScheduling } from "@server/core/session-runtime/phases/running/process-command";
 import { createRunCheckpoint, shipsInPr, type RunCheckpointResult } from "@server/core/session-runtime/phases/pr/checkpoint";
 import { getRun, openState, updateRunStatus } from "@server/core/session-runtime/run-state";
-import { projectSessionView, type PreparingPhaseState, type ProjectSessionPatch, type ProjectSessionView } from "@server/core/project-session";
-import { getActiveProjectSession, getOrCreateActiveProjectSession, getProjectSessionBySelector, updateProjectSession } from "@server/core/project-session/store";
+import { projectSessionView, type PreparingPhaseState, type ProjectSessionPatch, type ProjectSessionRecord, type ProjectSessionView } from "@server/core/project-session";
+import { getActiveProjectSession, getOrCreateActiveProjectSession, getProjectSessionBySelector, transitionProjectSession } from "@server/core/project-session/store";
 import { forceReportRun } from "@server/core/validation/report";
 import { canonicalProcessName } from "@server/core/project-session/process-identity";
 import type { ResolvedProject } from "@server/core/project-registry";
 import { now as currentTime } from "@server/core/orchestrator-state";
+import { withDispatchLease, type DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
+import { commitBoundaryWorktree } from "@server/core/session-runtime/phases/pr/boundary-commit.js";
 import { completePreparing, setPreparingSubphase } from "./index.js";
 import {
   boolValue,
@@ -60,6 +64,34 @@ function projectSessionSelector(body: JsonObject, projectId: string): { id?: str
   };
 }
 
+function acceptPreparingTransition(
+  db: Database,
+  record: ProjectSessionRecord,
+  patch: ProjectSessionPatch,
+  eventType: string,
+  at: string,
+): ProjectSessionView {
+  return projectSessionView(
+    transitionProjectSession(db, record.id, {
+      actor: "runner",
+      commandId: `command-${eventType.replaceAll(".", "-")}-${randomUUID()}`,
+      correlationId: patch.active_run_id ?? record.active_run_id ?? record.session_uuid,
+      eventType,
+      expectedRevision: record.revision,
+      occurredAt: at,
+      patch,
+      payload: {
+        previous_phase: record.phase,
+        previous_status: record.status,
+        phase: patch.phase ?? record.phase,
+        status: patch.status ?? record.status,
+      },
+      projectId: record.project_id,
+      sessionUuid: record.session_uuid,
+    }),
+  );
+}
+
 function ensureFreshProjectSession(paths: PreparingRuntimeProjectContext, body: JsonObject): ProjectSessionView | null {
   const projectId = projectIdFromContext(paths, body);
   if (!projectId) return null;
@@ -72,18 +104,30 @@ function ensureFreshProjectSession(paths: PreparingRuntimeProjectContext, body: 
         projectId,
         baseRef: paths.project?.baseRef ?? (stringValue(body.baseRef) || null),
         baseSha: stringValue(body.baseSha) || null,
+        actor: "runner",
+        worktreeIdentity: paths.repoRoot,
       });
     if (record.phase !== "preparing") {
       throw new Error(`Cannot prepare a fresh run while project session ${record.session_uuid} is in ${record.phase} phase.`);
     }
     const at = currentTime();
-    record = updateProjectSession(
+    record = transitionProjectSession(
       store.db,
       record.id,
-      setPreparingSubphase(record, at, "sync_intake", {
-        detail: "Checking upstream and syncing intake before baseline.",
-      }),
-      at,
+      {
+        actor: "runner",
+        commandId: `command-session-preparing-subphase-${randomUUID()}`,
+        correlationId: record.active_run_id ?? record.session_uuid,
+        eventType: "session.preparing_subphase_updated",
+        expectedRevision: record.revision,
+        occurredAt: at,
+        patch: setPreparingSubphase(record, at, "sync_intake", {
+          detail: "Checking upstream and syncing intake before baseline.",
+        }),
+        payload: { subphase: "sync_intake" },
+        projectId: record.project_id,
+        sessionUuid: record.session_uuid,
+      },
     );
     return projectSessionView(record);
   } finally {
@@ -125,16 +169,15 @@ function updateFreshProjectSessionSubphase(
     const record = getProjectSessionBySelector(store.db, selector);
     if (!record) return session;
     const at = currentTime();
-    return projectSessionView(
-      updateProjectSession(
-        store.db,
-        record.id,
-        {
-          ...setPreparingSubphase(record, at, subphase, { detail, data }),
-          ...patch,
-        },
-        at,
-      ),
+    return acceptPreparingTransition(
+      store.db,
+      record,
+      {
+        ...setPreparingSubphase(record, at, subphase, { detail, data }),
+        ...patch,
+      },
+      "session.preparing_subphase_updated",
+      at,
     );
   } finally {
     store.db.close();
@@ -240,7 +283,7 @@ function completeFreshProjectSession(paths: PreparingRuntimeProjectContext, body
     const at = currentTime();
     const patch = completePreparing(record, at, completion);
     patch.active_run_id = activeRunId || record.active_run_id;
-    return projectSessionView(updateProjectSession(store.db, record.id, patch, at));
+    return acceptPreparingTransition(store.db, record, patch, "session.preparing_completed", at);
   } finally {
     store.db.close();
   }
@@ -296,8 +339,9 @@ async function runSyncMergedPrIntakeForPrepare(
   deps: PreparingRuntimeDeps,
   paths: PreparingRuntimeProjectContext,
   dryRunAgents: boolean,
+  revalidateLease?: DispatchLeaseRevalidator,
 ): Promise<GitSyncResult> {
-  const gitSync = await runGitIntakeForPrepare(deps, paths);
+  const gitSync = await runGitIntakeForPrepare(deps, paths, "", revalidateLease);
   const prIndex = await runPrIndexForPrepare(deps, paths, gitSync.mergedPrs, dryRunAgents);
   gitSync.steps.push(...prIndex.steps.map((step) => ({ ...step })));
   return gitSync;
@@ -312,7 +356,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
   initRunCommand: (body: JsonObject) => { command: string[]; repoRoot: string; stateDir: string; graphDbPath: string; project: ResolvedProject | null };
   state: () => PreparingRuntimeState;
   syncGitForPrepare: (body: JsonObject) => Promise<JsonObject>;
-  syncMergedPrIntakeForPrepare: (paths: PreparingRuntimeProjectContext, dryRunAgents: boolean) => Promise<GitSyncResult>;
+  syncMergedPrIntakeForPrepare: (paths: PreparingRuntimeProjectContext, dryRunAgents: boolean, revalidateLease?: DispatchLeaseRevalidator) => Promise<GitSyncResult>;
   syncProjectIntake: (body: JsonObject) => Promise<JsonObject>;
 } {
   const runReport = deps.runReport ?? forceReportRun;
@@ -808,6 +852,22 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             metadata: { ...reportRun, repoRoot: baselineRepoRoot },
           });
           deps.operationStep("save point");
+          const boundaryCommit = await withDispatchLease(
+            baselinePaths,
+            {
+              kind: "run",
+              projectId: projectIdFromContext(paths, body),
+              reason: `commit prepared baseline for ${projectSession.sessionUuid}`,
+              workflowId: `run-prepare:${projectSession.sessionUuid}`,
+            },
+            async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+              message: "boundary(init): prepare baseline",
+              repoRoot: baselineRepoRoot,
+              revalidateLease,
+              runGit: deps.runGit,
+              stateDir: paths.stateDir,
+            }),
+          );
           const savePoint = await deps.boundarySavePoint(baselinePaths, "init", "prepare baseline");
           session = updateFreshProjectSessionSubphase(
             paths,
@@ -822,6 +882,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
                 reportRun,
                 repoRoot: baselineRepoRoot,
                 resetReport,
+                boundaryCommit,
                 savePoint,
               },
             },
@@ -836,6 +897,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
               repoRoot: baselineRepoRoot,
               reportRun,
               resetReport,
+              boundaryCommit,
               savePoint,
             },
           });
@@ -849,6 +911,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             stateDir: paths.stateDir,
             reportRun,
             resetReport,
+            boundaryCommit,
             savePoint,
           };
         } catch (error) {
@@ -1001,6 +1064,22 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
         if (result.exitCode !== 0) {
           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
         }
+        const boundaryCommit = await withDispatchLease(
+          init,
+          {
+            kind: "run",
+            projectId: projectIdFromContext(projectPaths, body),
+            reason: `commit initialized run for ${sessionUuid || "current session"}`,
+            workflowId: `run-init:${sessionUuid || projectIdFromContext(projectPaths, body)}`,
+          },
+          async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+            message: "boundary(init): initialize run",
+            repoRoot: init.repoRoot,
+            revalidateLease,
+            runGit: deps.runGit,
+            stateDir: init.stateDir,
+          }),
+        );
         const savePoint = await deps.boundarySavePoint({ ...projectPaths, repoRoot: init.repoRoot }, "init");
         const activeRunId = latestRunId(init.stateDir);
         const payload = {
@@ -1009,6 +1088,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           repoRoot: init.repoRoot,
           parsed: parseCliJsonOutput(result.stdout),
           savePoint,
+          boundaryCommit,
           activeRunId,
           ...result,
         };
@@ -1023,6 +1103,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             repoRoot: init.repoRoot,
             workerConfig: workerConfigFromBody(body, init.project?.dashboard),
             savePoint,
+            boundaryCommit,
           },
         });
         return payload;
@@ -1518,8 +1599,8 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
       }
     },
 
-    async syncMergedPrIntakeForPrepare(paths, dryRunAgents): Promise<GitSyncResult> {
-      return runSyncMergedPrIntakeForPrepare(deps, paths, dryRunAgents);
+    async syncMergedPrIntakeForPrepare(paths, dryRunAgents, revalidateLease): Promise<GitSyncResult> {
+      return runSyncMergedPrIntakeForPrepare(deps, paths, dryRunAgents, revalidateLease);
     },
 
     async syncProjectIntake(body): Promise<JsonObject> {
@@ -1528,9 +1609,19 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
       }
       projectSyncActive = true;
       const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
-      const { repoRoot, stateDir } = paths;
-        deps.beginOperation("sync", "Sync Merged PRs", ["fetch upstream", "update upstream current", "discover merged PRs", "PR intake agents", "knowledge graph rebuild", "save point"]);
       try {
+        return await withDispatchLease(
+          paths,
+          {
+            beginHandoffOnQueue: true,
+            kind: "sync",
+            workflowId: `sync-intake:${paths.project?.projectId ?? stringValue(body.projectId)}`,
+            reason: "sync merged PR intake",
+          },
+          async (_leaseId, revalidateLease) => {
+            const { repoRoot, stateDir } = paths;
+        deps.beginOperation("sync", "Sync Merged PRs", ["fetch upstream", "update upstream current", "discover merged PRs", "PR intake agents", "knowledge graph rebuild", "save point"]);
+            try {
         const active = deps.hasActiveProcess(stateDir);
         if (active.active) {
           const activeName = stringValue(active.name, paths.project?.processName ?? "melee-live");
@@ -1557,10 +1648,18 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           status: "started",
           detail: paths.project?.baseRef ?? "origin/master",
         });
-        const gitSync = await runGitIntakeForPrepare(deps, paths);
+        revalidateLease();
+        const gitSync = await runGitIntakeForPrepare(deps, paths, "", revalidateLease);
         if (gitSync.mergedPrs.length === 0) {
           deps.appendLog("ui", "merged PR intake skipped: no newly merged PRs found after git sync");
           deps.operationStep("save point", "no newly merged PRs; intake skipped");
+          const boundaryCommit = await commitBoundaryWorktree({
+            message: `boundary(sync): ${gitSync.afterRef ?? "current"}`,
+            repoRoot,
+            revalidateLease,
+            runGit: deps.runGit,
+            stateDir,
+          });
           const skippedSavePoint = await deps.boundarySavePoint(paths, "sync", `sync ${gitSync.afterRef ?? ""}`.trim());
           await deps.submitWorkflowEvent(paths, {
             kind: "sync-intake",
@@ -1579,6 +1678,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             synced: true,
             skippedIntake: true,
             savePoint: skippedSavePoint,
+            boundaryCommit,
             reason: "no_newly_merged_prs",
             project: paths.project ? deps.projectToSummary(paths.project) : null,
             repoRoot,
@@ -1650,6 +1750,13 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           throw error;
         }
         deps.operationStep("save point");
+        const boundaryCommit = await commitBoundaryWorktree({
+          message: `boundary(sync): ${gitSync.afterRef ?? "current"}`,
+          repoRoot,
+          revalidateLease,
+          runGit: deps.runGit,
+          stateDir,
+        });
         const syncSavePoint = await deps.boundarySavePoint(paths, "sync", `sync ${gitSync.afterRef ?? ""}`.trim());
         await deps.submitWorkflowEvent(paths, {
           kind: "sync-intake",
@@ -1667,6 +1774,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
         return {
           synced: true,
           savePoint: syncSavePoint,
+          boundaryCommit,
           project: paths.project ? deps.projectToSummary(paths.project) : null,
           repoRoot,
           stateDir,
@@ -1677,17 +1785,20 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           steps: [...gitSync.steps, ...intakeSteps, ...knowledgeSteps],
           createdAt: new Date().toISOString(),
         };
-      } catch (error) {
-        await deps.submitWorkflowEvent(paths, {
-          kind: "sync-intake",
-          operation: "syncProjectIntake",
-          status: "failed",
-          metadata: {
-            error: error instanceof Error ? error.message : String(error),
+            } catch (error) {
+              await deps.submitWorkflowEvent(paths, {
+                kind: "sync-intake",
+                operation: "syncProjectIntake",
+                status: "failed",
+                metadata: {
+                  error: error instanceof Error ? error.message : String(error),
+                },
+              }).catch(() => null);
+              deps.endOperation(error);
+              throw error;
+            }
           },
-        }).catch(() => null);
-        deps.endOperation(error);
-        throw error;
+        );
       } finally {
         projectSyncActive = false;
       }

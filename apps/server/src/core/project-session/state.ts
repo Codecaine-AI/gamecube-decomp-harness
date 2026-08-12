@@ -15,7 +15,7 @@ import {
   type RunningPhaseState,
 } from "./types.js";
 
-const ACTIVE_STATUSES = new Set<ProjectSessionStatus>(["active", "blocked"]);
+const ACTIVE_STATUSES = new Set<ProjectSessionStatus>(["active", "blocked", "closing"]);
 
 export function defaultPreparingState(now: string): PreparingPhaseState {
   return {
@@ -80,6 +80,9 @@ function blockerList(value: unknown): ProjectSessionBlocker[] {
       code: typeof item.code === "string" && item.code ? item.code : "unknown",
       message: typeof item.message === "string" && item.message ? item.message : "Unspecified blocker",
       source: typeof item.source === "string" ? item.source : undefined,
+      source_kind: typeof item.source_kind === "string" ? item.source_kind : undefined,
+      source_id: typeof item.source_id === "string" ? item.source_id : undefined,
+      recoverable: typeof item.recoverable === "boolean" ? item.recoverable : undefined,
       severity: item.severity === "info" || item.severity === "warning" || item.severity === "error" ? item.severity : undefined,
     }));
 }
@@ -171,6 +174,12 @@ export function createProjectSessionRecord(input: Required<Pick<CreateProjectSes
     active_run_id: input.activeRunId ?? null,
     base_ref: input.baseRef ?? null,
     base_sha: input.baseSha ?? null,
+    revision: 0,
+    head_revision: input.baseSha ?? null,
+    trace_id: input.traceId ?? `trace-session-${input.sessionUuid}`,
+    blockers_json: [],
+    save_point_stale: false,
+    caused_by_event_id: null,
     preparing_state_json: defaultPreparingState(input.now),
     running_state_json: defaultRunningState(),
     pr_state_json: defaultPrState(),
@@ -180,6 +189,7 @@ export function createProjectSessionRecord(input: Required<Pick<CreateProjectSes
     created_at: input.now,
     updated_at: input.now,
     completed_at: null,
+    closed_at: null,
   };
 }
 
@@ -200,6 +210,7 @@ export function projectSessionBlockers(record: ProjectSessionRecord): ProjectSes
   const seen = new Set<string>();
   const blockers: ProjectSessionBlocker[] = [];
   for (const blocker of [
+    ...record.blockers_json,
     ...record.preparing_state_json.blockers,
     ...record.running_state_json.blockers,
     ...record.pr_state_json.blockers,
@@ -224,7 +235,7 @@ export function projectSessionGates(record: ProjectSessionRecord): ProjectSessio
     can_prepare_prs: record.status === "active" && (record.phase === "running" || record.phase === "pr") && runningStopped && !activeBlockers,
     can_publish_prs: record.status === "active" && record.phase === "pr" && finalBuildComplete && !unresolvedPrBlockers,
     can_mark_complete: record.status === "active" && record.phase === "pr" && record.pr_state_json.status === "complete" && !unresolvedPrBlockers,
-    can_start_next: record.status === "complete" && record.phase === "complete",
+    can_start_next: record.status === "closed",
     force_to_pr_available:
       (record.status === "active" || record.status === "blocked") &&
       record.phase === "running" &&
@@ -246,6 +257,11 @@ export function projectSessionView(record: ProjectSessionRecord): ProjectSession
     activeRunId: record.active_run_id,
     baseRef: record.base_ref,
     baseSha: record.base_sha,
+    revision: record.revision,
+    headRevision: record.head_revision,
+    traceId: record.trace_id,
+    savePointStale: record.save_point_stale,
+    causedByEventId: record.caused_by_event_id,
     phases: {
       preparing: record.preparing_state_json,
       running: record.running_state_json,
@@ -259,6 +275,7 @@ export function projectSessionView(record: ProjectSessionRecord): ProjectSession
     createdAt: record.created_at,
     updatedAt: record.updated_at,
     completedAt: record.completed_at,
+    closedAt: record.closed_at,
   };
 }
 

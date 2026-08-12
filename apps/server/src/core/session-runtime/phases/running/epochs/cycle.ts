@@ -6,6 +6,8 @@ import { readRegressionReport, type RegressionReport, type ReportEntry } from "@
 import { runQaScanDiff, type QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 import { forceReportRun, trustedReportFromRegressionReport, type ReportRunResult } from "@server/core/validation/report";
 import { addSavePoint, ensureCampaign, type SavePointRecord } from "@server/core/session-runtime/phases/pr/state";
+import type { DeferredSavePointEvidence } from "@server/core/project-session";
+import type { BoundarySavePointResult } from "@server/core/session-runtime/phases/pr/save-points-runtime.js";
 import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
 import { blockingWorkerOutputIntegrationCount } from "@server/core/session-runtime/run-state";
 import { addEvent } from "@server/core/session-runtime/run-state/events.js";
@@ -37,6 +39,8 @@ export interface EpochCycleOptions {
   configureCommand?: string;
   /** Overrides the default-off merge/widening confirmation flag gate. */
   confirmationPass?: boolean;
+  /** Durable scheduler epoch identity for session timeline evidence. */
+  epochId?: string;
   label?: string | null;
   /** Untracked build inputs symlinked from the live repo into the worktree (e.g. orig assets). */
   linkPaths?: string[];
@@ -103,7 +107,10 @@ export interface EpochCycleResult {
   regressions: EpochRegressionSummary;
   repair: EpochRepairResult;
   reportCopiedToRepo: boolean;
+  savePoint: BoundarySavePointResult;
+  savePointEvidence: DeferredSavePointEvidence;
   savePointId: string | null;
+  scoreDelta: number;
   worktreeDir: string;
 }
 
@@ -885,6 +892,10 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   });
 
   let savePoint: SavePointRecord | null = null;
+  let savePointResult: BoundarySavePointResult = { ok: false, savePointId: null, blockerRaised: false };
+  let savePointEvidence: DeferredSavePointEvidence;
+  const integrationCommit = snapshot.commitSha;
+  if (!integrationCommit) throw new Error("epoch integration commit is missing before save-point evidence");
   try {
     epochProgress(store, runId, {
       label,
@@ -904,7 +915,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       runId,
       triggerKind: "epoch",
       label,
-      commitSha: snapshot.commitSha,
+      commitSha: integrationCommit,
       branch: branch.ok ? branch.text : null,
       baseRef: options.baseRef ?? null,
       committed: snapshot.committed,
@@ -914,6 +925,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       reportChangesPath: resolve(artifactDir, "report_changes.json"),
       artifactDir,
       payload: {
+        commit_reason: snapshot.committed ? null : snapshot.warning ? "commit_failed" : "nothing_to_commit",
         epoch: true,
         measures,
         qa_gate: qaGate,
@@ -957,6 +969,24 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       ) as unknown as Record<string, unknown>,
       createdAt: savePoint.createdAt,
     });
+    savePointEvidence = {
+      status: "recorded",
+      savePointId: savePoint.id,
+      commitSha: integrationCommit,
+      triggerKind: "epoch",
+      headlineScore: matchedCodePercent,
+      artifactPaths: [
+        resolve(artifactDir, "report.json"),
+        resolve(artifactDir, "report_changes.json"),
+      ],
+      payload: {
+        committed: snapshot.committed,
+        commit_reason: snapshot.committed ? null : snapshot.warning ? "commit_failed" : "nothing_to_commit",
+        epoch_id: options.epochId ?? null,
+        run_id: runId,
+      },
+    };
+    savePointResult = { ok: true, savePointId: savePoint.id, blockerRaised: false };
     epochProgress(store, runId, {
       label,
       phase: "save_point",
@@ -966,12 +996,23 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       artifact_dir: artifactDir,
     });
   } catch (error) {
-    console.error(`[epoch] failed to record save point: ${error instanceof Error ? error.message : String(error)}`);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[epoch] failed to record save point: ${message}`);
+    savePointEvidence = {
+      status: "failed",
+      triggerKind: "epoch",
+      sourceKind: "epoch",
+      sourceId: options.epochId ?? label ?? runId,
+      message,
+    };
+    // Persistence occurs after the head-advancing epoch transition. The
+    // scheduler/manual caller records this failure to SQLite or the spool.
+    savePointResult = { ok: false, savePointId: null, blockerRaised: true };
     epochProgress(store, runId, {
       label,
       phase: "save_point",
       status: "warning",
-      message: `failed to record save point: ${error instanceof Error ? error.message : String(error)}`,
+      message: `failed to record save point: ${message}`,
       artifact_dir: artifactDir,
     });
   }
@@ -991,7 +1032,10 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     regressions: plan.summary,
     repair,
     reportCopiedToRepo,
-    savePointId: savePoint?.id ?? null,
+    savePoint: savePointResult,
+    savePointEvidence,
+    savePointId: savePointResult.savePointId,
+    scoreDelta: regressionReport.summary.matchedCodePercentDelta,
     worktreeDir: options.worktreeDir,
   };
   await writeFile(resolve(artifactDir, "summary.json"), `${JSON.stringify(result, null, 2)}\n`);

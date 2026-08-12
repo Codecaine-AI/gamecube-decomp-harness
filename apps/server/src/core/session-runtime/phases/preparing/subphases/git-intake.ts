@@ -5,6 +5,7 @@ import {
   type PreparingRuntimeDeps,
   type PreparingRuntimeProjectContext,
 } from "../runtime-shared.js";
+import type { DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
 import { ensurePrepareWorktrees } from "./worktrees.js";
 
 export function parseBaseRef(baseRef: string): { branch: string; remote: string } {
@@ -30,6 +31,7 @@ export async function syncProjectGitAndFindMergedPrs(
   deps: PreparingRuntimeDeps,
   paths: PreparingRuntimeProjectContext,
   sessionUuid = "",
+  revalidateLease?: DispatchLeaseRevalidator,
 ): Promise<GitSyncResult> {
   const baseRef = paths.project?.baseRef ?? "origin/master";
   const { remote } = parseBaseRef(baseRef);
@@ -46,6 +48,7 @@ export async function syncProjectGitAndFindMergedPrs(
   ];
 
   deps.appendLog("ui", `git fetch ${remote} started`);
+  revalidateLease?.();
   const fetch = await deps.runGit(paths.repoRoot, ["fetch", "--prune", remote], { failureHint: `Unable to fetch ${remote}` });
   deps.appendLog("ui", `git fetch ${remote} complete`);
   steps.push({ name: "git_fetch", command: ["git", "fetch", "--prune", remote], exitCode: fetch.exitCode, stdout: outputTail(fetch.stdout, 2000), stderr: outputTail(fetch.stderr, 2000) });
@@ -56,7 +59,8 @@ export async function syncProjectGitAndFindMergedPrs(
   const branch = branchResult.stdout.trim() || "(detached)";
 
   deps.appendLog("ui", `prepare upstream-current worktree update started: ${baseRef} @ ${afterRef.slice(0, 10)}`);
-  const worktrees = await ensurePrepareWorktrees(deps, paths, afterRef, sessionUuid);
+  revalidateLease?.();
+  const worktrees = await ensurePrepareWorktrees(deps, paths, afterRef, sessionUuid, revalidateLease);
   deps.appendLog("ui", `prepare upstream-current worktree ready: ${worktrees.upstreamWorktreePath}`);
   if (worktrees.sessionCurrentWorktreePath) deps.appendLog("ui", `prepare session current worktree ready: ${worktrees.sessionCurrentWorktreePath}`);
   steps.push(...worktrees.steps);
@@ -94,9 +98,10 @@ export async function runGitIntakeForPrepare(
   deps: PreparingRuntimeDeps,
   paths: PreparingRuntimeProjectContext,
   sessionUuid = "",
+  revalidateLease?: DispatchLeaseRevalidator,
 ): Promise<GitSyncResult> {
   deps.operationStep("fetch upstream");
-  const gitSync = await syncProjectGitAndFindMergedPrs(deps, paths, sessionUuid);
+  const gitSync = await syncProjectGitAndFindMergedPrs(deps, paths, sessionUuid, revalidateLease);
   deps.operationStepDetail(
     "fetch upstream",
     gitSync.beforeRef === gitSync.afterRef

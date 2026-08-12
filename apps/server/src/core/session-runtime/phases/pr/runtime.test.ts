@@ -5,6 +5,19 @@ import { join } from "node:path";
 
 import { createHandoffRuntime, type HandoffRuntimeDeps } from "./runtime.js";
 import type { RegressionReport } from "@server/core/validation/objdiff/report.js";
+import {
+  DispatchLeaseUnavailableError,
+} from "@server/core/session-runtime/dispatch-guard.js";
+import {
+  getProjectState,
+  initializeProjectState,
+  listProjectEvents,
+  recoverDispatch,
+  releaseDispatch,
+  requestDispatch,
+  StaleLeaseError,
+} from "@server/core/project-state";
+import { openState } from "@server/core/orchestrator-state";
 
 const cleanupPaths: string[] = [];
 
@@ -33,6 +46,10 @@ function runtimeFixture(
   supportFiles?: string[],
   peers: Array<Record<string, unknown>> = [],
   hasLocalSource = true,
+  onVerify?: () => void | Promise<void>,
+  localStatus = "local_only",
+  boundaryStatus = "",
+  boundaryCommitFails = false,
 ) {
   const repoRoot = process.cwd();
   const stateDir = tempDir("pr-runtime-state-");
@@ -56,7 +73,7 @@ function runtimeFixture(
     files,
     ...(supportFiles?.length ? { supportFiles } : {}),
     status: "planned",
-    local: { status: "local_only" },
+    local: { status: localStatus },
   };
   const records = [record, ...peers];
   const calls: {
@@ -66,8 +83,9 @@ function runtimeFixture(
     events: Array<Record<string, unknown>>;
     merge: number;
     order: string[];
+    boundaryOrder: string[];
     publish: number;
-  } = { events: [], merge: 0, order: [], publish: 0 };
+  } = { boundaryOrder: [], events: [], merge: 0, order: [], publish: 0 };
 
   const deps = {
     appendLog: () => {},
@@ -109,12 +127,13 @@ function runtimeFixture(
           ? { commitSha: "head-sha", patchPath: "/tmp/local.patch", source: "local_branch", worktreePath: "" }
           : null;
       },
-      rebuildProductionBaseline: async () => ({}),
+      rebuildProductionBaseline: async () => ({ baseSha: "base-sha" }),
       remoteOwner: () => "fork-owner",
       sliceValidationSummary: () => ({ status: "passed", issuesCheck: "clean", newMatches: 1 }),
       verifyPrSliceInBaseline: async (params: Record<string, unknown>) => {
         calls.order.push("isolate");
         calls.verify = params;
+        await onVerify?.();
         return { issues: { status: "clean" as const, output: "", files: [] }, report: cleanReport() };
       },
       verifySupportMergeOrder: async (params: Record<string, unknown>) => {
@@ -123,33 +142,77 @@ function runtimeFixture(
         calls.mergeArgs = params;
         return {};
       },
-      verifyShipSet: async () => ({}),
+      verifyShipSet: async () => ({ status: "pr_ready", newMatches: 1, files: 1, shippedFiles: ["src/melee/gm/gmtest.c"], droppedFiles: {} }),
     },
     processControl: { drainManaged: async () => ({}) },
     projectToSummary: () => ({}),
     resolveDashboardProject: () => ({
       repoRoot,
       stateDir,
-      project: { projectId: "melee", baseRef: "origin/master" },
+      project: {
+        projectId: "melee",
+        baseRef: "origin/master",
+        validation: { qaTarget: "changes_all" },
+        pr: {
+          branchPrefix: "pr-split",
+          groupMode: "melee-subsystem",
+          improvementMinGainPoints: 0,
+          improvementMinMatchedBytes: 0,
+          maxFilesPerPr: 30,
+          splitStrategy: "deterministic",
+          titlePrefix: "Melee decomp",
+        },
+      },
     }),
-    runCli: async (command: string[]) => command[0] === "gh"
-      ? { exitCode: 0, stdout: "https://example.test/pr/123\n", stderr: "" }
-      : { exitCode: 0, stdout: "", stderr: "" },
-    runGit: async () => ({ exitCode: 0, stdout: "head-sha\n", stderr: "" }),
+    runCli: async (command: string[]) => {
+      if (command[0] === "gh") return { exitCode: 0, stdout: "https://example.test/pr/123\n", stderr: "" };
+      if (command.includes("pr-split-plan")) {
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({
+            slices: [{ id: "gm", lane: "match", pathspecs: ["src/melee/gm/gmtest.c"] }],
+          }),
+          stderr: "",
+        };
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    },
+    runGit: async (_repoRoot: string, args: string[]) => {
+      if (args[0] === "status") {
+        calls.boundaryOrder.push("status");
+        return { exitCode: 0, stdout: boundaryStatus, stderr: "" };
+      }
+      if (args[0] === "add" || args[0] === "commit" || args[0] === "rev-parse") {
+        calls.boundaryOrder.push(args[0]);
+      }
+      if (args[0] === "commit" && boundaryCommitFails) {
+        return { exitCode: 1, stdout: "", stderr: "commit hook rejected" };
+      }
+      return { exitCode: 0, stdout: args[0] === "rev-parse" ? "head-sha\n" : "", stderr: "" };
+    },
     savePoints: {
-      boundarySavePoint: async () => null,
+      boundarySavePoint: async () => {
+        calls.boundaryOrder.push("save-point");
+        return { ok: true, savePointId: "save-point-1", blockerRaised: false };
+      },
       createSavePoint: async () => ({}),
-      parseCliJsonOutput: () => ({}),
+      parseCliJsonOutput: (stdout: string) => stdout.trim() ? JSON.parse(stdout) as Record<string, unknown> : {},
     },
     serverJobPath: "/server-job.ts",
     submitWorkflowEvent: async (_paths: unknown, event: Record<string, unknown>) => {
       calls.events.push(event);
       return null;
     },
-    syncMergedPrIntakeForPrepare: async () => ({}) as never,
+    syncMergedPrIntakeForPrepare: async () => ({
+      afterRef: "after-sha",
+      beforeRef: "before-sha",
+      branch: "main",
+      mergedPrs: [],
+      steps: [],
+    }) as never,
   } as unknown as HandoffRuntimeDeps;
 
-  return { branch, calls, runtime: createHandoffRuntime(deps) };
+  return { branch, calls, runtime: createHandoffRuntime(deps), stateDir };
 }
 
 describe("openPrForSlice support manifests", () => {
@@ -225,5 +288,252 @@ describe("openPrForSlice support manifests", () => {
     expect(calls.verify).toBeUndefined();
     expect(calls.merge).toBe(0);
     expect(calls.publish).toBe(0);
+  });
+});
+
+describe("PR dispatch lease fencing", () => {
+  test("pause commits boundary work before anchoring the resulting HEAD", async () => {
+    const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "local_only", " M src/melee/gm/gmtest.c\n");
+    const store = openState(stateDir);
+    try {
+      store.db.query(
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z')`,
+      ).run();
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const dispatch = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-pause-run",
+        kind: "run",
+        projectId: "melee",
+        reason: "pause boundary test",
+        workflowId: "run-1",
+      });
+      if (dispatch.queued) throw new Error("expected run lease acquisition");
+    } finally {
+      store.db.close();
+    }
+
+    await expect(runtime.pauseRunForPr({ runId: "run-1" })).resolves.toMatchObject({
+      paused: true,
+      boundaryCommit: { committed: true, headRevision: "head-sha" },
+      savePoint: { ok: true },
+    });
+    expect(calls.boundaryOrder).toEqual(["status", "add", "commit", "rev-parse", "save-point"]);
+  });
+
+  test("pause fails loudly and never records an anchor when its boundary commit fails", async () => {
+    const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "local_only", " M src/melee/gm/gmtest.c\n", true);
+    const store = openState(stateDir);
+    try {
+      store.db.query(
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z')`,
+      ).run();
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const dispatch = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-pause-run-failure",
+        kind: "run",
+        projectId: "melee",
+        reason: "pause boundary failure test",
+        workflowId: "run-1",
+      });
+      if (dispatch.queued) throw new Error("expected run lease acquisition");
+    } finally {
+      store.db.close();
+    }
+
+    await expect(runtime.pauseRunForPr({ runId: "run-1" })).rejects.toThrow("boundary git commit failed");
+    expect(calls.boundaryOrder).toEqual(["status", "add", "commit"]);
+    expect(calls.boundaryOrder).not.toContain("save-point");
+  });
+
+  test("ship commits its boundary before recording the ship anchor", async () => {
+    const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "local_only", " M src/melee/gm/gmtest.c\n");
+    const store = openState(stateDir);
+    try {
+      store.db.query(
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z')`,
+      ).run();
+    } finally {
+      store.db.close();
+    }
+
+    const result = await runtime.preparePrHandoff({ runId: "run-1", autoReconcile: false });
+    expect(result).toMatchObject({
+      prepared: true,
+      boundaryCommit: { committed: true, headRevision: "head-sha" },
+      savePoint: { ok: true },
+    });
+    expect(calls.boundaryOrder.slice(-5)).toEqual(["status", "add", "commit", "rev-parse", "save-point"]);
+  });
+
+  test("refuses prepare-local while another workflow holds the lease", async () => {
+    const { branch, calls, runtime, stateDir } = runtimeFixture();
+    const store = openState(stateDir);
+    try {
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const run = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-run-start",
+        kind: "run",
+        projectId: "melee",
+        reason: "start run",
+        workflowId: "run-1",
+      });
+      if (run.queued) throw new Error("expected run lease acquisition");
+    } finally {
+      store.db.close();
+    }
+
+    await expect(runtime.prepareLocalPr({ prBranch: branch, runId: "run-1" })).rejects.toBeInstanceOf(
+      DispatchLeaseUnavailableError,
+    );
+    expect(calls.order).toEqual([]);
+
+    const next = openState(stateDir);
+    try {
+      expect(getProjectState(next, "melee")?.queued_dispatch_requests).toContainEqual(
+        expect.objectContaining({ kind: "pr", workflow_id: "pr-local:run-1" }),
+      );
+    } finally {
+      next.db.close();
+    }
+  });
+
+  test("refuses prepare-local-batch while another workflow holds the lease", async () => {
+    const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "not_prepared");
+    const store = openState(stateDir);
+    try {
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const run = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-run-start",
+        kind: "run",
+        projectId: "melee",
+        reason: "start run",
+        workflowId: "run-1",
+      });
+      if (run.queued) throw new Error("expected run lease acquisition");
+    } finally {
+      store.db.close();
+    }
+
+    await expect(runtime.prepareLocalPrBatch({ runId: "run-1" })).rejects.toBeInstanceOf(
+      DispatchLeaseUnavailableError,
+    );
+    expect(calls.order).toEqual([]);
+  });
+
+  test("aborts before the next mutation when recovery replaces the lease mid-callback", async () => {
+    let stateDir = "";
+    const fixture = runtimeFixture(undefined, [], true, () => {
+      const store = openState(stateDir);
+      try {
+        const current = getProjectState(store, "melee")?.active_workflow;
+        if (!current) throw new Error("expected active PR lease during verification");
+        recoverDispatch(store, {
+          actor: "operator",
+          cancelledSubjectIds: [],
+          commandId: "command-recover-stale-pr",
+          leaseId: current.lease_id,
+          projectId: "melee",
+          recoveryReason: "test replacement",
+        });
+        const replacement = requestDispatch(store, {
+          actor: "operator",
+          commandId: "command-sync-replacement",
+          kind: "sync",
+          projectId: "melee",
+          reason: "replace stale PR callback",
+          workflowId: "sync-replacement",
+        });
+        if (replacement.queued) throw new Error("expected replacement lease acquisition");
+      } finally {
+        store.db.close();
+      }
+    });
+    stateDir = fixture.stateDir;
+
+    await expect(
+      fixture.runtime.prepareLocalPr({ prBranch: fixture.branch, runId: "run-1" }),
+    ).rejects.toBeInstanceOf(StaleLeaseError);
+    expect(fixture.calls.order).toEqual(["isolate"]);
+
+    const store = openState(stateDir);
+    try {
+      expect(getProjectState(store, "melee")?.active_workflow).toMatchObject({
+        kind: "sync",
+        workflow_id: "sync-replacement",
+        status: "active",
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("queues an operator PR activation, drains the run, and hands the lease to PR", async () => {
+    const { runtime, stateDir } = runtimeFixture();
+    const store = openState(stateDir);
+    let runLeaseId = "";
+    try {
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const run = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-run-start",
+        correlationId: "run-1",
+        kind: "run",
+        projectId: "melee",
+        reason: "start run",
+        workflowId: "run-1",
+      });
+      if (run.queued) throw new Error("expected run lease acquisition");
+      runLeaseId = run.leaseId;
+    } finally {
+      store.db.close();
+    }
+
+    await expect(runtime.preparePrHandoff({ runId: "run-1" })).rejects.toBeInstanceOf(
+      DispatchLeaseUnavailableError,
+    );
+
+    const drainingStore = openState(stateDir);
+    try {
+      expect(getProjectState(drainingStore, "melee")?.active_workflow).toMatchObject({
+        kind: "run",
+        lease_id: runLeaseId,
+        status: "draining",
+        requested_handoff: {
+          target_kind: "pr",
+          target_workflow_id: "pr-handoff:run-1",
+        },
+      });
+      const handedOff = releaseDispatch(drainingStore, {
+        actor: "guardian",
+        commandId: "command-run-settled",
+        correlationId: "run-1",
+        leaseId: runLeaseId,
+        projectId: "melee",
+      });
+      expect(handedOff.active_workflow).toMatchObject({
+        kind: "pr",
+        status: "active",
+        workflow_id: "pr-handoff:run-1",
+      });
+      expect(handedOff.active_workflow?.lease_id).not.toBe(runLeaseId);
+      expect(handedOff.queued_dispatch_requests).toEqual([]);
+      expect(listProjectEvents(drainingStore.db).map((event) => event.eventType)).toEqual([
+        "project.dispatch_requested",
+        "project.dispatch_acquired",
+        "project.dispatch_requested",
+        "project.dispatch_drain_started",
+        "project.dispatch_released",
+        "project.dispatch_acquired",
+      ]);
+    } finally {
+      drainingStore.db.close();
+    }
   });
 });

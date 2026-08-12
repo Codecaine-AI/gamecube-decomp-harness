@@ -11,6 +11,9 @@ import { getLatestRun, getRun, openState, admitPriorityTargets, updateRunStatus 
 import { compactCheckpointResult, type GitSyncResult } from "@server/core/session-runtime/phases/preparing/runtime";
 import { readRegressionReport, type RegressionReport } from "@server/core/validation/objdiff/report";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
+import { withDispatchLease, type DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
+import { commitBoundaryWorktree } from "./boundary-commit.js";
+import { getProjectState, requireLease } from "@server/core/project-state";
 import type { SavePointRuntime } from "./save-points-runtime.js";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 import type { ProjectRuntimeContext, ProjectSummary, ResolvedProject } from "@server/core/project-registry";
@@ -65,7 +68,7 @@ export interface HandoffRuntimeDeps {
   };
   prWorktrees: {
     assertSliceVerificationClean: (branch: string, validation: JsonObject) => void;
-    ensureOpenPrBaseline: (paths: ProjectRuntimeContext) => Promise<JsonObject>;
+    ensureOpenPrBaseline: (paths: ProjectRuntimeContext, revalidateLease?: DispatchLeaseRevalidator) => Promise<JsonObject>;
     prepareLocalPrWorkspace: (params: {
       baseSha: string;
       branch: string;
@@ -75,16 +78,17 @@ export interface HandoffRuntimeDeps {
       patchPath: string;
       record: JsonObject;
       repoRoot: string;
+      revalidateLease?: DispatchLeaseRevalidator;
       runId: string;
       stateDir: string;
       title: string;
     }) => Promise<JsonObject>;
-    publishPatchToFork: (params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; patchPath: string; repoRoot: string; title: string }) => Promise<void>;
+    publishPatchToFork: (params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; patchPath: string; repoRoot: string; revalidateLease?: DispatchLeaseRevalidator; title: string }) => Promise<void>;
     readyLocalPrSource: (params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; record: JsonObject; repoRoot: string; stateDir: string }) => Promise<JsonObject | null>;
-    rebuildProductionBaseline: (paths: ProjectRuntimeContext) => Promise<JsonObject>;
+    rebuildProductionBaseline: (paths: ProjectRuntimeContext, revalidateLease?: DispatchLeaseRevalidator) => Promise<JsonObject>;
     remoteOwner: (repoRoot: string, remote: string) => string;
     sliceValidationSummary: (report: RegressionReport, issues: CodeIssuesResult) => JsonObject;
-    verifyPrSliceInBaseline: (params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string }) => Promise<{ issues: CodeIssuesResult; report: RegressionReport }>;
+    verifyPrSliceInBaseline: (params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string; revalidateLease?: DispatchLeaseRevalidator }) => Promise<{ issues: CodeIssuesResult; report: RegressionReport }>;
     verifySupportMergeOrder: (params: {
       repoRoot: string;
       branch: string;
@@ -93,7 +97,7 @@ export interface HandoffRuntimeDeps {
       supportFiles: string[];
       others: Array<{ branch: string; sliceId: string; files: string[]; supportFiles: string[] }>;
     }) => Promise<JsonObject>;
-    verifyShipSet: (paths: ProjectRuntimeContext, baseline: JsonObject, matchPathspecs: string[]) => Promise<JsonObject>;
+    verifyShipSet: (paths: ProjectRuntimeContext, baseline: JsonObject, matchPathspecs: string[], options?: { revalidateLease?: DispatchLeaseRevalidator; sourceRef?: string }) => Promise<JsonObject>;
   };
   processControl: {
     drainManaged: (body: JsonObject) => Promise<JsonObject>;
@@ -105,7 +109,7 @@ export interface HandoffRuntimeDeps {
   savePoints: SavePointRuntime;
   serverJobPath: string;
   submitWorkflowEvent: (paths: ProjectRuntimeContext, input: WorkflowEventInput) => Promise<JsonObject | null>;
-  syncMergedPrIntakeForPrepare: (paths: ProjectRuntimeContext, dryRunAgents: boolean) => Promise<GitSyncResult>;
+  syncMergedPrIntakeForPrepare: (paths: ProjectRuntimeContext, dryRunAgents: boolean, revalidateLease?: DispatchLeaseRevalidator) => Promise<GitSyncResult>;
 }
 
 export interface HandoffRuntime {
@@ -381,11 +385,44 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     }
   }
 
-  async function pauseRunForPr(body: JsonObject): Promise<JsonObject> {
+  function currentRunLeaseRevalidator(paths: ProjectRuntimeContext, runId: string): DispatchLeaseRevalidator {
+    const projectId = paths.project?.projectId;
+    if (!projectId) throw new Error("Pause boundary commit requires a project id for dispatch fencing");
+    const store = openState(paths.stateDir);
+    let leaseId = "";
+    try {
+      const lease = getProjectState(store, projectId)?.active_workflow;
+      if (!lease || lease.kind !== "run" || lease.workflow_id !== runId) {
+        throw new Error(`Pause boundary commit requires the current run dispatch lease for ${runId}`);
+      }
+      leaseId = lease.lease_id;
+      requireLease(store, leaseId, projectId);
+    } finally {
+      store.db.close();
+    }
+    return () => {
+      const next = openState(paths.stateDir);
+      try {
+        return requireLease(next, leaseId, projectId);
+      } finally {
+        next.db.close();
+      }
+    };
+  }
+
+  async function pauseRunForPr(body: JsonObject, revalidateLease?: DispatchLeaseRevalidator): Promise<JsonObject> {
     const paths = resolveDashboardProject(body, { useDefaultProject: true });
     const { repoRoot, stateDir } = paths;
     const runId = activeRunIdFromBody(body, stateDir);
+    const validateBoundaryLease = revalidateLease ?? currentRunLeaseRevalidator(paths, runId);
     const drain = await processControl.drainManaged({ ...body, repoRoot, stateDir, runId });
+    const boundaryCommit = await commitBoundaryWorktree({
+      message: `boundary(pause): run ${runId}`,
+      repoRoot,
+      revalidateLease: validateBoundaryLease,
+      runGit: deps.runGit,
+      stateDir,
+    });
     const store = openState(stateDir);
     let run: ReturnType<typeof updateRunStatus>;
     try {
@@ -395,7 +432,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       store.db.close();
     }
     const savePoint = await savePoints.boundarySavePoint(paths, "pause");
-    return { paused: true, project: paths.project ? projectToSummary(paths.project) : null, repoRoot, stateDir, run, drain, savePoint };
+    return { paused: true, project: paths.project ? projectToSummary(paths.project) : null, repoRoot, stateDir, run, drain, boundaryCommit, savePoint };
   }
 
   function resumeRunForPr(body: JsonObject): JsonObject {
@@ -808,7 +845,11 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     });
   }
 
-  async function prepareLocalPrForBranch(body: JsonObject, branch: string): Promise<JsonObject> {
+  async function prepareLocalPrForBranch(
+    body: JsonObject,
+    branch: string,
+    revalidateLease: DispatchLeaseRevalidator,
+  ): Promise<JsonObject> {
     const paths = resolveDashboardProject(body, { useDefaultProject: true });
     const { repoRoot, stateDir } = paths;
     assertHandoffIdle(stateDir, "Prepare local PR");
@@ -843,12 +884,14 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         local: { ...asObject(current.local), status: "preparing", prepStartedAt: new Date().toISOString(), error: "" },
       }));
       operationStep("verify slice locally", `${supportFiles.length > 0 ? `${files.length}+${supportFiles.length}` : files.length} file(s) onto baseline ${baseSha.slice(0, 10)}`);
+      revalidateLease();
       const { report, issues } = await prWorktrees.verifyPrSliceInBaseline({
         baseSha,
         baselineWorktree,
         files,
         ...(supportFiles.length > 0 ? { supportFiles } : {}),
         patchPath,
+        revalidateLease,
       });
       const validation = prWorktrees.sliceValidationSummary(report, issues);
       prWorktrees.assertSliceVerificationClean(branch, validation);
@@ -856,6 +899,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
 
       operationStep("prepare local worktree", branch);
       const title = stringValue(record.title, `Melee decomp: ${stringValue(record.displayName, branch)}`);
+      revalidateLease();
       const prepared = await prWorktrees.prepareLocalPrWorkspace({
         baseSha,
         branch,
@@ -865,6 +909,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         patchPath,
         record: { ...record, baseSha, validation },
         repoRoot,
+        revalidateLease,
         runId,
         stateDir,
         title,
@@ -924,7 +969,23 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
   async function prepareLocalPr(body: JsonObject): Promise<JsonObject> {
     const branch = stringValue(body.prBranch);
     if (!branch) throw new Error("Prepare local PR needs prBranch (the slice's branch name).");
-    return withOperation(PREPARE_LOCAL_PR_OPERATION, `Prepare Local PR — ${branch}`, ["verify slice locally", "prepare local worktree"], () => prepareLocalPrForBranch(body, branch));
+    const paths = resolveDashboardProject(body, { useDefaultProject: true });
+    const runId = activeRunIdFromBody(body, paths.stateDir);
+    return withDispatchLease(
+      paths,
+      {
+        kind: "pr",
+        workflowId: `pr-local:${runId}`,
+        reason: `prepare local PR workspace for ${branch}`,
+      },
+      (_leaseId, revalidateLease) =>
+        withOperation(
+          PREPARE_LOCAL_PR_OPERATION,
+          `Prepare Local PR — ${branch}`,
+          ["verify slice locally", "prepare local worktree"],
+          () => prepareLocalPrForBranch(body, branch, revalidateLease),
+        ),
+    );
   }
 
   async function setPrReviewState(body: JsonObject): Promise<JsonObject> {
@@ -966,13 +1027,20 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       .filter((record) => prRecords.prRecordMatchesRun(record, runId) && stringValue(record.status, "planned") === "planned" && stringValue(asObject(record.local).status, "not_prepared") === "not_prepared" && stringValue(record.branch))
       .slice(0, limit);
     if (candidates.length === 0) throw new Error("No planned PR slices need local preparation.");
-    return withOperation(PREPARE_LOCAL_BATCH_OPERATION, `Prepare Local Batch — next ${candidates.length}`, candidates.map((record) => stringValue(record.branch)), async () => {
+    return withDispatchLease(
+      paths,
+      {
+        kind: "pr",
+        workflowId: `pr-local:${runId}`,
+        reason: `prepare local PR batch for run ${runId}`,
+      },
+      (_leaseId, revalidateLease) => withOperation(PREPARE_LOCAL_BATCH_OPERATION, `Prepare Local Batch — next ${candidates.length}`, candidates.map((record) => stringValue(record.branch)), async () => {
       const results: JsonObject[] = [];
       for (const record of candidates) {
         const branch = stringValue(record.branch);
         operationStep(branch, "local workspace preparation");
         try {
-          const result = await prepareLocalPrForBranch(body, branch);
+          const result = await prepareLocalPrForBranch(body, branch, revalidateLease);
           results.push({ branch, prepared: true, record: asObject(result.record) });
           operationStepDetail(branch, "local ready");
         } catch (error) {
@@ -985,7 +1053,8 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       const preparedCount = results.filter((result) => result.prepared === true).length;
       if (preparedCount === 0) throw new Error(`No local PR workspaces prepared; all ${results.length} slice(s) failed. See Logs.`);
       return { preparedCount, failedCount: results.length - preparedCount, results, prs: prRecords.normalizePrRecordsPayload(prRecords.readPrRecords(paths.stateDir)) };
-    });
+      }),
+    );
   }
 
   async function openPrForSlice(body: JsonObject): Promise<JsonObject> {
@@ -1026,7 +1095,14 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       }
     }
     const steps = ["prepare baseline", "prepare source patch", "verify slice in isolation", "check code issues", "publish branch", "create draft PR", "sync PR records"];
-    return withOperation("open-pr", `Open PR — ${stringValue(record.displayName, branch)}`, steps, async () => {
+    return withDispatchLease(
+      paths,
+      {
+        kind: "pr",
+        workflowId: `pr-publish:${publicationRunId || branch}`,
+        reason: `publish PR slice ${branch}`,
+      },
+      (_leaseId, revalidateLease) => withOperation("open-pr", `Open PR — ${stringValue(record.displayName, branch)}`, steps, async () => {
       await deps.submitWorkflowEvent(paths, {
         kind: "pr-publication",
         operation: "openPrForSlice",
@@ -1043,7 +1119,8 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       });
       const baseRef = paths.project?.baseRef ?? "origin/master";
       operationStep("prepare baseline", baseRef);
-      const baselineStatus = await prWorktrees.ensureOpenPrBaseline(paths);
+      revalidateLease();
+      const baselineStatus = await prWorktrees.ensureOpenPrBaseline(paths, revalidateLease);
       const baseSha = stringValue(baselineStatus.baseSha);
       const baselineWorktree = stringValue(baselineStatus.worktreeDir);
       const baselineJson = baselineWorktree ? resolve(baselineWorktree, "build/GALE01/baseline.json") : "";
@@ -1103,12 +1180,14 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         });
       }
       operationStep("verify slice in isolation", `${supportFiles.length > 0 ? `${files.length}+${supportFiles.length}` : files.length} file(s) onto baseline ${baseSha.slice(0, 10)}`);
+      revalidateLease();
       const { report, issues } = await prWorktrees.verifyPrSliceInBaseline({
         baseSha,
         baselineWorktree,
         files,
         ...(supportFiles.length > 0 ? { supportFiles } : {}),
         patchPath: patchToApply,
+        revalidateLease,
       });
       if (report.regressions.length > 0 || report.brokenMatches.length > 0 || report.fuzzyRegressions.length > 0) {
         failOperationStep("verify slice in isolation");
@@ -1137,6 +1216,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
           validation: prWorktrees.sliceValidationSummary(report, issues),
         }));
         operationStep("publish branch", `fork/${branch}`);
+        revalidateLease();
         const push =
           stringValue(localSource.source) === "local_worktree"
             ? await runCli(["git", "push", "--force-with-lease", "-u", "fork", `HEAD:${branch}`], stringValue(localSource.worktreePath))
@@ -1144,6 +1224,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         if (push.exitCode !== 0) throw new Error(`git push failed (${push.exitCode}): ${outputTail(push.stderr, 1500)}`);
       } else {
         operationStep("publish branch", branch);
+        revalidateLease();
         await prWorktrees.publishPatchToFork({
           baseSha,
           branch,
@@ -1151,11 +1232,13 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
           ...(supportFiles.length > 0 ? { supportFiles } : {}),
           patchPath: patchToApply,
           repoRoot,
+          revalidateLease,
           title,
         });
       }
 
       operationStep("create draft PR", `${repoSlug} <- ${forkOwner}:${branch}`);
+      revalidateLease();
       const bodyDir = resolve(stateDir, "pr_handoff", "pr_bodies");
       mkdirSync(bodyDir, { recursive: true });
       const bodyPath = resolve(bodyDir, `${branch.replace(/[^A-Za-z0-9_.-]+/g, "-")}.md`);
@@ -1186,6 +1269,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         ...(issues.status === "clean" ? ["- Passed the upstream `check-issues` lint locally (same container as CI's Issues job)."] : []),
       ];
       writeFileSync(bodyPath, `${bodyLines.join("\n")}\n`, "utf8");
+      revalidateLease();
       const create = await runCli(
         ["gh", "pr", "create", "--repo", repoSlug, "--head", `${forkOwner}:${branch}`, "--draft", "--title", title, "--body-file", bodyPath],
         stringValue(localSource?.worktreePath) || repoRoot,
@@ -1233,7 +1317,8 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         },
       });
       return { opened: true, branch, record: updated, prs };
-    });
+      }),
+    );
   }
 
   async function openAllPlannedPrs(body: JsonObject): Promise<JsonObject> {
@@ -1341,7 +1426,6 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     const paths = resolveDashboardProject(body, { useDefaultProject: true });
     const stateDir = paths.stateDir;
     const runId = activeRunIdFromBody(body, stateDir);
-    assertHandoffIdle(stateDir, "Prepare handoff");
     const prepareSteps = [
       "stop worker scheduling",
       "fetch upstream",
@@ -1361,21 +1445,34 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       "sync PR records",
       "save point",
     ];
-    return withOperation("prepare", "Prepare Handoff", prepareSteps, async () => {
+    return withDispatchLease(
+      paths,
+      {
+        beginHandoffOnQueue: true,
+        kind: "pr",
+        workflowId: `pr-handoff:${runId}`,
+        reason: `prepare PR handoff for run ${runId}`,
+      },
+      (_leaseId, revalidateLease) => withOperation("prepare", "Prepare Handoff", prepareSteps, async () => {
+      assertHandoffIdle(stateDir, "Prepare handoff");
       operationStep("stop worker scheduling");
-      const pause = body.pauseBeforeHandoff !== false ? await pauseRunForPr(body) : null;
+      const pause = body.pauseBeforeHandoff !== false ? await pauseRunForPr(body, revalidateLease) : null;
 
-      const gitSync = await deps.syncMergedPrIntakeForPrepare(paths, boolValue(body.dryRunAgents));
+      revalidateLease();
+      const gitSync = await deps.syncMergedPrIntakeForPrepare(paths, boolValue(body.dryRunAgents), revalidateLease);
 
       operationStep("rebuild production baseline");
-      const baseline = await prWorktrees.rebuildProductionBaseline(paths);
+      revalidateLease();
+      const baseline = await prWorktrees.rebuildProductionBaseline(paths, revalidateLease);
       recordHandoffStatus(paths, runId, "baseline", baseline);
       operationStepDetail("rebuild production baseline", `${stringValue(baseline.baseSha).slice(0, 10)} ${baseline.cached ? "(cached)" : "(full build)"}`);
 
+      revalidateLease();
       const qa = await runPrQa({ ...body, stateDir, runId });
       const regressionReport = await regressionReportFromChanges(paths.repoRoot);
       const reworkEntries = regressionReport ? [...regressionReport.brokenMatches, ...regressionReport.fuzzyRegressions] : [];
       const reworkSymbols = [...new Set(reworkEntries.map((entry) => entry.itemName).filter(Boolean))];
+      revalidateLease();
       const checkpoint = await checkpointRunForPr({ ...body, stateDir, runId }, reworkSymbols);
       if (reworkSymbols.length > 0) {
         operationStepDetail("checkpoint", `${reworkSymbols.length} regressed symbol(s) moved to needs_rework`);
@@ -1402,6 +1499,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       }
 
       const branchVerdict = stringValue(asObject(qa.prPromotion).status, stringValue(qa.status, "unknown"));
+      revalidateLease();
       const qaRepair = await runQaRepairForPr({ ...body, stateDir, runId });
       const qaRepairShipStatusPath = stringValue(qaRepair.shipStatusPath);
 
@@ -1410,7 +1508,8 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
 
       const matchPathspecs = asArray(splitPlan.matchPathspecs).map((path) => stringValue(path)).filter(Boolean);
       operationStep("verify ship set", `${matchPathspecs.length} match file(s) onto baseline ${stringValue(baseline.baseSha).slice(0, 10)}`);
-      let ship = await prWorktrees.verifyShipSet(paths, baseline, matchPathspecs);
+      revalidateLease();
+      let ship = await prWorktrees.verifyShipSet(paths, baseline, matchPathspecs, { revalidateLease });
       recordHandoffStatus(paths, runId, "ship", ship);
       let shipStatus = stringValue(ship.status);
       const shipDetail = (): string =>
@@ -1426,8 +1525,10 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
 
       if (shipStatus !== "pr_ready" && body.autoReconcile !== false) {
         operationStep("reconcile & re-verify", "ship set blocked - reconcile agent fix loop");
+        revalidateLease();
         await runReconcile({ ...body, stateDir, runId, mode: "ship-validate" });
-        ship = await prWorktrees.verifyShipSet(paths, baseline, matchPathspecs);
+        revalidateLease();
+        ship = await prWorktrees.verifyShipSet(paths, baseline, matchPathspecs, { revalidateLease });
         recordHandoffStatus(paths, runId, "ship", ship);
         shipStatus = stringValue(ship.status);
         operationStepDetail("reconcile & re-verify", shipDetail());
@@ -1474,8 +1575,15 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       }
 
       operationStep("save point", "hard save point - session handoff");
+      const boundaryCommit = await commitBoundaryWorktree({
+        message: `boundary(ship): handoff ${stringValue(baseline.baseSha).slice(0, 10)}`,
+        repoRoot: paths.repoRoot,
+        revalidateLease,
+        runGit: deps.runGit,
+        stateDir,
+      });
       const savePoint = await savePoints.boundarySavePoint(paths, "ship", `handoff ${stringValue(baseline.baseSha).slice(0, 10)}`);
-      if (savePoint) operationStepDetail("save point", `ship save point at ${stringValue(asObject(savePoint).commitSha).slice(0, 10) || "HEAD"}`);
+      if (savePoint.ok) operationStepDetail("save point", `ship save point recorded (${savePoint.savePointId})`);
 
       return {
         prepared: true,
@@ -1483,6 +1591,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         blockedAt: null,
         runId,
         pause,
+        boundaryCommit,
         prRecords: prRecordsPayload,
         savePoint,
         gitSync: { beforeRef: gitSync.beforeRef, afterRef: gitSync.afterRef, branch: gitSync.branch, mergedPrs: gitSync.mergedPrs },
@@ -1496,7 +1605,8 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         splitPlan: finalSplitPlan,
         ship,
       };
-    });
+      }),
+    );
   }
 
   return {

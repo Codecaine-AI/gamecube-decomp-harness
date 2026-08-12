@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
+import { releaseDispatch } from "@server/core/project-state";
 import { getLatestRun, openState, statusSnapshot } from "@server/core/session-runtime/run-state";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 
@@ -95,6 +96,7 @@ const SYSTEM_ARG_ALLOWLIST = new Set([
   "--idle-sleep-ms",
   "--knowledge-curator-enrichment",
   "--knowledge-maintenance-interval-ms",
+  "--lease-id",
   "--long-tail-replan-ms",
   "--max-idle-iterations",
   "--max-iterations",
@@ -383,6 +385,7 @@ async function recoverAfterIncident(
 }
 
 export async function runBabysit(globals: GlobalArgs, args: Map<string, string | true>): Promise<BabysitResult> {
+  const leaseId = stringArg(args, "--lease-id", "");
   const commandName = systemCommandArg(args);
   const maxRestarts = Math.max(0, numberArg(args, "--max-restarts", 0));
   const maxSystemRuns = Math.max(0, numberArg(args, "--max-system-runs", 0));
@@ -462,6 +465,20 @@ export async function runBabysit(globals: GlobalArgs, args: Map<string, string |
   } finally {
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
+    if (leaseId) {
+      const store = openState(globals.stateDir);
+      try {
+        releaseDispatch(store, {
+          leaseId,
+          projectId: globals.project?.projectId ?? globals.projectId,
+          commandId: `command-run-release-${randomUUID()}`,
+          correlationId: stringArg(args, "--run-id", leaseId),
+          actor: "guardian",
+        });
+      } finally {
+        store.db.close();
+      }
+    }
   }
 }
 

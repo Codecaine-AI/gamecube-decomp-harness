@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { requireActiveLease } from "@server/core/project-state";
 import { immediateTransaction, now, withBusyRetry, writeSetHash, type StateStore } from "@server/core/orchestrator-state";
 import type { WriteSetEntry } from "./write-set-categories.js";
 
@@ -289,11 +290,13 @@ export function claimNextEpochTarget(params: {
   baseRev?: string;
   ttlSeconds: number;
   artifactDir?: string | null;
+  leaseId?: string;
 }): ClaimedTarget | null {
   if (!Number.isFinite(params.ttlSeconds) || params.ttlSeconds <= 0) {
     throw new Error("claimNextEpochTarget requires a positive ttlSeconds value");
   }
   return immediateTransaction(params.store.db, () => {
+    if (params.leaseId) requireActiveLease(params.store, params.leaseId);
     const target = params.store.db
       .query(
         `

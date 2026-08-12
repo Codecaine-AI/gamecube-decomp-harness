@@ -6,6 +6,7 @@ import {
   type PreparingRuntimeDeps,
   type PreparingRuntimeProjectContext,
 } from "../runtime-shared.js";
+import type { DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
 
 export interface PrepareWorktreePaths {
   mainWorktreePath: string;
@@ -119,7 +120,9 @@ async function listedWorktreeForBranch(
   paths: PreparingRuntimeProjectContext,
   branch: string,
   steps: JsonObject[],
+  revalidateLease?: DispatchLeaseRevalidator,
 ): Promise<GitWorktreeEntry | null> {
+  revalidateLease?.();
   await deps.runGit(paths.repoRoot, ["worktree", "prune"], { check: false });
   const list = await deps.runGit(paths.repoRoot, ["worktree", "list", "--porcelain"], { check: false });
   steps.push({
@@ -211,6 +214,7 @@ async function ensureWorktreeAtSessionSha(
   sha: string,
   steps: JsonObject[],
   stepPrefix: string,
+  revalidateLease?: DispatchLeaseRevalidator,
 ): Promise<void> {
   await assertCleanExistingWorktree(deps, worktreePath, "session current");
   const head = await deps.runGit(worktreePath, ["rev-parse", "--verify", "HEAD"], { check: false });
@@ -241,6 +245,7 @@ async function ensureWorktreeAtSessionSha(
     throw new Error(`Session branch ${branch} is checked out at ${worktreePath} but ${currentSha.slice(0, 10)} cannot fast-forward to requested baseline ${sha.slice(0, 10)}.`);
   }
 
+  revalidateLease?.();
   const merge = await deps.runGit(worktreePath, ["merge", "--ff-only", sha], { check: false });
   steps.push({
     name: `${stepPrefix}_fast_forward_session_branch`,
@@ -261,6 +266,7 @@ async function ensureDetachedWorktree(
   worktreePath: string,
   sha: string,
   label: string,
+  revalidateLease?: DispatchLeaseRevalidator,
 ): Promise<{ linkedAssets: number; steps: JsonObject[] }> {
   const steps: JsonObject[] = [];
   mkdirSync(dirname(worktreePath), { recursive: true });
@@ -268,7 +274,9 @@ async function ensureDetachedWorktree(
     if (existsSync(worktreePath)) {
       throw new Error(`${label} worktree path exists but is not a Git worktree: ${worktreePath}`);
     }
+    revalidateLease?.();
     await deps.runGit(paths.repoRoot, ["worktree", "prune"], { check: false });
+    revalidateLease?.();
     const add = await deps.runGit(paths.repoRoot, ["worktree", "add", "--detach", worktreePath, sha], { check: false });
     steps.push({
       name: `add_${label}_worktree`,
@@ -282,6 +290,7 @@ async function ensureDetachedWorktree(
     }
   } else {
     await assertCleanExistingWorktree(deps, worktreePath, label);
+    revalidateLease?.();
     const checkout = await deps.runGit(worktreePath, ["checkout", "--detach", sha], { check: false });
     steps.push({
       name: `checkout_${label}_worktree`,
@@ -304,11 +313,12 @@ async function ensureSessionWorktree(
   worktreePath: string,
   branch: string,
   sha: string,
+  revalidateLease?: DispatchLeaseRevalidator,
 ): Promise<{ linkedAssets: number; steps: JsonObject[]; worktreePath: string }> {
   const steps: JsonObject[] = [];
   mkdirSync(dirname(worktreePath), { recursive: true });
   if (existsSync(resolve(worktreePath, ".git"))) {
-    await ensureWorktreeAtSessionSha(deps, worktreePath, branch, sha, steps, "reuse");
+    await ensureWorktreeAtSessionSha(deps, worktreePath, branch, sha, steps, "reuse", revalidateLease);
     steps.push({
       name: "reuse_session_worktree",
       worktreePath,
@@ -320,12 +330,12 @@ async function ensureSessionWorktree(
     if (existsSync(worktreePath)) {
       throw new Error(`Session current worktree path exists but is not a Git worktree: ${worktreePath}`);
     }
-    const existing = await listedWorktreeForBranch(deps, paths, branch, steps);
+    const existing = await listedWorktreeForBranch(deps, paths, branch, steps, revalidateLease);
     if (existing?.path) {
       if (!existsSync(resolve(existing.path, ".git"))) {
         throw new Error(`Session branch ${branch} is already registered at ${existing.path}, but that path is not a usable Git worktree.`);
       }
-      await ensureWorktreeAtSessionSha(deps, existing.path, branch, sha, steps, "reuse_existing");
+      await ensureWorktreeAtSessionSha(deps, existing.path, branch, sha, steps, "reuse_existing", revalidateLease);
       steps.push({
         name: "reuse_existing_session_branch_worktree",
         branch,
@@ -341,6 +351,7 @@ async function ensureSessionWorktree(
     const addArgs = branchAlreadyExists
       ? ["worktree", "add", worktreePath, branch]
       : ["worktree", "add", "-b", branch, worktreePath, sha];
+    revalidateLease?.();
     const add = await deps.runGit(paths.repoRoot, addArgs, { check: false });
     steps.push({
       name: "add_session_worktree",
@@ -352,7 +363,7 @@ async function ensureSessionWorktree(
     if (add.exitCode !== 0) {
       throw new Error(`Unable to create session worktree (${add.exitCode ?? "signal"}): ${outputTail(add.stderr || add.stdout, 2000)}`);
     }
-    await ensureWorktreeAtSessionSha(deps, worktreePath, branch, sha, steps, branchAlreadyExists ? "attached_existing" : "created");
+    await ensureWorktreeAtSessionSha(deps, worktreePath, branch, sha, steps, branchAlreadyExists ? "attached_existing" : "created", revalidateLease);
   }
   return { linkedAssets: linkGameAssets(paths.repoRoot, worktreePath), steps, worktreePath };
 }
@@ -362,13 +373,14 @@ export async function ensurePrepareWorktrees(
   paths: PreparingRuntimeProjectContext,
   baseSha: string,
   sessionUuid = "",
+  revalidateLease?: DispatchLeaseRevalidator,
 ): Promise<PrepareWorktreeResult> {
   const locations = prepareWorktreePaths(paths, sessionUuid);
-  const main = await ensureDetachedWorktree(deps, paths, locations.upstreamWorktreePath, baseSha, "upstream_current");
+  const main = await ensureDetachedWorktree(deps, paths, locations.upstreamWorktreePath, baseSha, "upstream_current", revalidateLease);
   const steps = [...main.steps];
   let linkedAssets = main.linkedAssets;
   if (locations.sessionCurrentWorktreePath && locations.sessionBranch) {
-    const session = await ensureSessionWorktree(deps, paths, locations.sessionCurrentWorktreePath, locations.sessionBranch, baseSha);
+    const session = await ensureSessionWorktree(deps, paths, locations.sessionCurrentWorktreePath, locations.sessionBranch, baseSha, revalidateLease);
     steps.push(...session.steps);
     linkedAssets += session.linkedAssets;
     locations.sessionCurrentWorktreePath = session.worktreePath;

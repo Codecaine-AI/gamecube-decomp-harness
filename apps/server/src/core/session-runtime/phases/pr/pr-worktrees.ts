@@ -11,6 +11,7 @@ import {
 } from "@server/core/tools/platform.js";
 import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
 import type { RegressionReport } from "@server/core/validation/objdiff/report";
+import type { DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -201,7 +202,10 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     updatePrRecord,
   } = deps;
 
-  async function rebuildProductionBaseline(paths: Context): Promise<JsonObject> {
+  async function rebuildProductionBaseline(
+    paths: Context,
+    revalidateLease?: DispatchLeaseRevalidator,
+  ): Promise<JsonObject> {
     const { repoRoot } = paths;
     const baseRef = paths.project?.baseRef ?? "origin/master";
     const baseSha = (await runGit(repoRoot, ["rev-parse", "--verify", baseRef], { failureHint: `Unable to resolve ${baseRef}` })).stdout.trim();
@@ -218,6 +222,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     if (!cached) {
       if (!existsSync(worktreeDir)) {
         appendLog("ui", `baseline worktree add ${worktreeDir} @ ${baseSha.slice(0, 10)}`);
+        revalidateLease?.();
         await runGit(repoRoot, ["worktree", "add", "--detach", worktreeDir, baseSha], { failureHint: "Unable to add the baseline worktree" });
       }
       // Original game assets under orig/ are gitignored (only .gitkeep skeleton
@@ -262,7 +267,10 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     return status as unknown as JsonObject;
   }
 
-  async function ensureOpenPrBaseline(paths: Context): Promise<JsonObject> {
+  async function ensureOpenPrBaseline(
+    paths: Context,
+    revalidateLease?: DispatchLeaseRevalidator,
+  ): Promise<JsonObject> {
     const baseRef = paths.project?.baseRef ?? "origin/master";
     const baseSha = (await runGit(paths.repoRoot, ["rev-parse", "--verify", baseRef], { failureHint: `Unable to resolve ${baseRef}` })).stdout.trim();
     const status = readJsonObject(resolve(paths.stateDir, "pr_handoff", "baseline_status.json"));
@@ -277,14 +285,14 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
           ? `baseline cache is missing at ${worktreeDir}`
           : "baseline cache is missing";
     appendLog("ui", `open draft: ${reason}; rebuilding production baseline`);
-    return rebuildProductionBaseline(paths);
+    return rebuildProductionBaseline(paths, revalidateLease);
   }
 
   async function verifyShipSet(
     paths: Context,
     baseline: JsonObject,
     matchPathspecs: string[],
-    options: { sourceRef?: string } = {},
+    options: { revalidateLease?: DispatchLeaseRevalidator; sourceRef?: string } = {},
   ): Promise<JsonObject> {
     const { repoRoot, stateDir } = paths;
     const worktreeDir = stringValue(baseline.worktreeDir);
@@ -324,6 +332,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
       let issues: CodeIssuesResult;
       try {
         appendLog("ui", `ship-set round ${round}: applying ${pathspecs.length} match file(s) onto the baseline worktree`);
+        options.revalidateLease?.();
         const apply = await runCli(["git", "apply", patchPath], worktreeDir);
         if (apply.exitCode !== 0) throw new Error(`Ship-set patch did not apply cleanly (${apply.exitCode}): ${outputTail(apply.stderr, 2000)}`);
         const build = await runCli(["ninja", "changes_all"], worktreeDir);
@@ -335,7 +344,9 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
         if (issues.status === "issues") appendLog("ui", `ship-set round ${round}: code issues in ${issues.files.join(", ") || "(unattributed)"}\n${outputTail(issues.output, 2000)}`);
       } finally {
         // Restore the cached worktree to its pristine base state for reuse.
+        options.revalidateLease?.();
         await runCli(["git", "reset", "--hard", baseSha], worktreeDir);
+        options.revalidateLease?.();
         await runCli(["git", "clean", "-fd", "--", "src", "include", "config"], worktreeDir);
       }
 
@@ -437,12 +448,13 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     return { status: "issues", output, files };
   }
 
-  async function verifyPrSliceInBaseline(params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string }): Promise<{ issues: CodeIssuesResult; report: RegressionReport }> {
+  async function verifyPrSliceInBaseline(params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string; revalidateLease?: DispatchLeaseRevalidator }): Promise<{ issues: CodeIssuesResult; report: RegressionReport }> {
     const allFiles = manifestFiles(params.files, params.supportFiles);
     const includeArgs = allFiles.map((file) => `--include=${file}`);
     let report: RegressionReport | null = null;
     let issues: CodeIssuesResult = { status: "unavailable", output: "verification did not reach code-issues", files: [] };
     try {
+      params.revalidateLease?.();
       const apply = await runCli(["git", "apply", ...includeArgs, params.patchPath], params.baselineWorktree);
       if (apply.exitCode !== 0) throw new Error(`Slice patch did not apply (${apply.exitCode}): ${outputTail(apply.stderr, 1500)}`);
       const build = await runCli(["ninja", "changes_all"], params.baselineWorktree);
@@ -454,10 +466,12 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
         issues = { status: "unavailable", output: "skipped — slice regressed in isolation", files: [] };
       }
     } finally {
+      params.revalidateLease?.();
       const reset = await runCli(["git", "reset", "--hard", params.baseSha], params.baselineWorktree);
       const cleanPaths = params.supportFiles?.length
         ? dedupeStrings(["src", "include", "config", ...params.supportFiles])
         : ["src", "include", "config"];
+      params.revalidateLease?.();
       const clean = await runCli(["git", "clean", "-fd", "--", ...cleanPaths], params.baselineWorktree);
       if (reset.exitCode !== 0 || clean.exitCode !== 0) {
         throw new Error(
@@ -626,6 +640,7 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     patchPath: string;
     record: JsonObject;
     repoRoot: string;
+    revalidateLease?: DispatchLeaseRevalidator;
     runId: string;
     stateDir: string;
     title: string;
@@ -645,23 +660,31 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
 
     mkdirSync(dirname(worktreePath), { recursive: true });
     if (!existsSync(resolve(worktreePath, ".git"))) {
+      params.revalidateLease?.();
       await runGit(params.repoRoot, ["worktree", "prune"], { check: false });
+      params.revalidateLease?.();
       const add = await runGit(params.repoRoot, ["worktree", "add", "-B", params.branch, worktreePath, params.baseSha], { check: false });
       if (add.exitCode !== 0) throw new Error(`git worktree add failed (${add.exitCode}): ${outputTail(add.stderr || add.stdout, 1500)}`);
     } else if (params.force) {
+      params.revalidateLease?.();
       const checkout = await runGit(worktreePath, ["checkout", "-B", params.branch, params.baseSha], { check: false });
       if (checkout.exitCode !== 0) throw new Error(`git checkout failed in local PR worktree (${checkout.exitCode}): ${outputTail(checkout.stderr || checkout.stdout, 1500)}`);
+      params.revalidateLease?.();
       await runGit(worktreePath, ["reset", "--hard", params.baseSha], { check: false });
+      params.revalidateLease?.();
       await runGit(worktreePath, ["clean", "-fd", "--", "src", "include", "config"], { check: false });
     }
 
     const origSource = resolve(params.repoRoot, "orig");
+    params.revalidateLease?.();
     if (existsSync(origSource)) linkMissingFiles(origSource, resolve(worktreePath, "orig"));
 
     const allFiles = manifestFiles(params.files, params.supportFiles);
     const includeArgs = allFiles.map((file) => `--include=${file}`);
+    params.revalidateLease?.();
     const apply = await runCli(["git", "apply", "--index", ...includeArgs, params.patchPath], worktreePath);
     if (apply.exitCode !== 0) throw new Error(`Patch apply failed in the local PR worktree (${apply.exitCode}): ${outputTail(apply.stderr, 1500)}`);
+    params.revalidateLease?.();
     const commit = await runCli(["git", "commit", "-m", params.title], worktreePath);
     if (commit.exitCode !== 0) throw new Error(`git commit failed in the local PR worktree (${commit.exitCode}): ${outputTail(commit.stderr || commit.stdout, 1500)}`);
     const head = await runGit(worktreePath, ["rev-parse", "HEAD"], { failureHint: "Unable to read local PR worktree HEAD" });
@@ -679,21 +702,27 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     };
   }
 
-  async function publishPatchToFork(params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; patchPath: string; repoRoot: string; title: string }): Promise<void> {
+  async function publishPatchToFork(params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; patchPath: string; repoRoot: string; revalidateLease?: DispatchLeaseRevalidator; title: string }): Promise<void> {
     const allFiles = manifestFiles(params.files, params.supportFiles);
     const includeArgs = allFiles.map((file) => `--include=${file}`);
     const worktreeDir = resolve(tmpdir(), `melee-pr-${params.branch.replace(/[^A-Za-z0-9_.-]+/g, "-")}`);
+    params.revalidateLease?.();
     if (existsSync(worktreeDir)) await runCli(["git", "worktree", "remove", "--force", worktreeDir], params.repoRoot);
+    params.revalidateLease?.();
     const add = await runCli(["git", "worktree", "add", "-B", params.branch, worktreeDir, params.baseSha], params.repoRoot);
     if (add.exitCode !== 0) throw new Error(`git worktree add failed (${add.exitCode}): ${outputTail(add.stderr, 1500)}`);
     try {
+      params.revalidateLease?.();
       const apply = await runCli(["git", "apply", "--index", ...includeArgs, params.patchPath], worktreeDir);
       if (apply.exitCode !== 0) throw new Error(`Patch apply failed in the PR worktree (${apply.exitCode}): ${outputTail(apply.stderr, 1500)}`);
+      params.revalidateLease?.();
       const commit = await runCli(["git", "commit", "-m", params.title], worktreeDir);
       if (commit.exitCode !== 0) throw new Error(`git commit failed (${commit.exitCode}): ${outputTail(commit.stderr || commit.stdout, 1500)}`);
+      params.revalidateLease?.();
       const push = await runCli(["git", "push", "--force-with-lease", "-u", "fork", params.branch], worktreeDir);
       if (push.exitCode !== 0) throw new Error(`git push failed (${push.exitCode}): ${outputTail(push.stderr, 1500)}`);
     } finally {
+      params.revalidateLease?.();
       await runCli(["git", "worktree", "remove", "--force", worktreeDir], params.repoRoot);
     }
   }

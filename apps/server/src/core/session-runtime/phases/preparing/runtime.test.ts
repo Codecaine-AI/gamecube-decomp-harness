@@ -8,6 +8,8 @@ import {
 } from "@server/core/session-runtime";
 import { getActiveProjectSession } from "@server/core/project-session/store";
 import { openState } from "@server/core/session-runtime/run-state";
+import { DispatchLeaseUnavailableError } from "@server/core/session-runtime/dispatch-guard.js";
+import { getProjectState, initializeProjectState, requestDispatch } from "@server/core/project-state";
 import type { PreparingRuntimeDeps, PreparingRuntimeProjectContext } from "./runtime-shared.js";
 import { createPreparingRuntime } from "./runtime.js";
 
@@ -68,7 +70,7 @@ describe("preparing runtime baseline", () => {
       activeSessionPrBlockers: () => [],
       appendLog: () => undefined,
       beginOperation: () => undefined,
-      boundarySavePoint: async () => null,
+      boundarySavePoint: async () => ({ ok: true, savePointId: "save-point-1", blockerRaised: false }),
       endOperation: () => undefined,
       hasActiveProcess: () => ({ active: false }),
       operationStep: () => undefined,
@@ -86,7 +88,7 @@ describe("preparing runtime baseline", () => {
       serverJobPath: resolve(root, "job-runner.ts"),
       sourceRoot: () => root,
       submitWorkflowEvent: async () => null,
-    } as PreparingRuntimeDeps);
+    } as unknown as PreparingRuntimeDeps);
 
     await expect(runtime.calculateBaselineForPrepare({ projectId: "melee", sessionUuid: "session-uuid" })).rejects.toThrow("missing build.ninja");
 
@@ -97,6 +99,73 @@ describe("preparing runtime baseline", () => {
       expect(record?.preparing_state_json.baseline?.status).toBe("failed");
       expect(record?.preparing_state_json.baseline?.error).toContain("missing build.ninja");
       expect(record?.preparing_state_json.baseline?.repoRoot).toBe(upstreamWorktreePath);
+    } finally {
+      nextStore.db.close();
+    }
+  });
+
+  test("operator sync activation queues behind the run and begins its handoff drain", async () => {
+    const root = tempDir();
+    const stateDir = resolve(root, "state");
+    const repoRoot = resolve(root, "repo");
+    const store = openState(stateDir);
+    try {
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const run = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-run-start",
+        kind: "run",
+        projectId: "melee",
+        reason: "start run",
+        workflowId: "run-1",
+      });
+      if (run.queued) throw new Error("expected run lease acquisition");
+    } finally {
+      store.db.close();
+    }
+
+    const paths: PreparingRuntimeProjectContext = {
+      graphDbPath: resolve(root, "graph.sqlite"),
+      project: { projectId: "melee" } as PreparingRuntimeProjectContext["project"],
+      repoRoot,
+      stateDir,
+    };
+    const runtime = createPreparingRuntime({
+      activeSessionPrBlockers: () => [],
+      appendLog: () => undefined,
+      beginOperation: () => undefined,
+      boundarySavePoint: async () => ({ ok: true, savePointId: "save-point-1", blockerRaised: false }),
+      endOperation: () => undefined,
+      hasActiveProcess: () => ({ active: true, name: "melee-live" }),
+      operationStep: () => undefined,
+      operationStepDetail: () => undefined,
+      packageRoot: root,
+      projectToSummary: () => ({}),
+      resolveDashboardProject: () => paths,
+      runCli: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+      runGit: async () => {
+        throw new Error("sync git mutation must not start before handoff acquisition");
+      },
+      runReport: async () => ({}),
+      serverJobPath: resolve(root, "job-runner.ts"),
+      sourceRoot: () => root,
+      submitWorkflowEvent: async () => null,
+    } as unknown as PreparingRuntimeDeps);
+
+    await expect(runtime.syncProjectIntake({ projectId: "melee" })).rejects.toBeInstanceOf(
+      DispatchLeaseUnavailableError,
+    );
+
+    const nextStore = openState(stateDir);
+    try {
+      expect(getProjectState(nextStore, "melee")?.active_workflow).toMatchObject({
+        kind: "run",
+        status: "draining",
+        requested_handoff: {
+          target_kind: "sync",
+          target_workflow_id: "sync-intake:melee",
+        },
+      });
     } finally {
       nextStore.db.close();
     }

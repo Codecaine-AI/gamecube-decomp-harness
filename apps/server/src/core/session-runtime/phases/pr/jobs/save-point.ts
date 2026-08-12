@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
@@ -9,14 +10,14 @@ import {
   type SavePointTrigger,
 } from "@server/core/session-runtime/phases/pr/state";
 import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
+import { recordSavePointAnchor } from "@server/core/project-session";
+import type { EventActor, JsonObject as ProjectEventJsonObject } from "@server/core/project-state/events.js";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { loadTrustedReportFile } from "@server/core/validation/report";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { COMMIT_EXCLUDES } from "../boundary-commit.js";
 
 const SAVE_POINT_TRIGGERS: SavePointTrigger[] = ["manual", "init", "pause", "checkpoint", "qa", "ship", "sync", "fresh", "epoch"];
-
-/** Paths never staged by a save-point commit: the nested orchestrator repo and generated state. */
-const COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state"];
 
 interface GitResult {
   ok: boolean;
@@ -34,11 +35,24 @@ function parseTrigger(value: string): SavePointTrigger {
   throw new Error(`--trigger must be one of: ${SAVE_POINT_TRIGGERS.join(", ")}`);
 }
 
+function parseActor(value: string): EventActor {
+  if (value === "operator" || value === "runner" || value === "agent" || value === "guardian" || value === "external_observer") {
+    return value;
+  }
+  throw new Error("--actor must be one of: operator, runner, agent, guardian, external_observer");
+}
+
 function excludedStatusLine(line: string, stateDirRelative: string | null): boolean {
-  const path = line.slice(3).trim().replace(/^"|"$/g, "");
+  const path = statusPath(line);
   if (COMMIT_EXCLUDES.some((excluded) => path === excluded || path.startsWith(`${excluded}/`))) return true;
   if (stateDirRelative && (path === stateDirRelative || path.startsWith(`${stateDirRelative}/`))) return true;
   return false;
+}
+
+function statusPath(line: string): string {
+  const path = line.slice(3).trim().replace(/^"|"$/g, "");
+  const renameTarget = path.includes(" -> ") ? path.slice(path.lastIndexOf(" -> ") + 4) : path;
+  return renameTarget.replace(/^"|"$/g, "");
 }
 
 function stateDirRelativeToRepo(repoRoot: string, stateDir: string): string | null {
@@ -48,28 +62,12 @@ function stateDirRelativeToRepo(repoRoot: string, stateDir: string): string | nu
 
 async function dirtyStatusLines(repoRoot: string, stateDirRelative: string | null): Promise<string[]> {
   const status = await git(repoRoot, ["status", "--short", "--ignore-submodules=all"]);
-  if (!status.ok) return [];
+  if (!status.ok) throw new Error(`save-point git status failed: ${status.text}`);
   return status.text
     .split("\n")
     .filter(Boolean)
-    .filter((line) => !excludedStatusLine(line, stateDirRelative));
-}
-
-async function commitWorktree(
-  repoRoot: string,
-  stateDirRelative: string | null,
-  message: string,
-): Promise<{ committed: boolean; warning: string | null }> {
-  const excludes = [...COMMIT_EXCLUDES, ...(stateDirRelative ? [stateDirRelative] : [])];
-  const addArgs = ["add", "-A", "--", ".", ...excludes.map((path) => `:(exclude)${path}`)];
-  const add = await git(repoRoot, addArgs);
-  if (!add.ok) return { committed: false, warning: `git add failed: ${add.text}` };
-  const commit = await git(repoRoot, ["commit", "-m", message]);
-  if (!commit.ok) {
-    const skipped = /nothing to commit|nothing added to commit/.test(commit.text);
-    return { committed: false, warning: skipped ? null : `git commit failed: ${commit.text}` };
-  }
-  return { committed: true, warning: null };
+    .filter((line) => !excludedStatusLine(line, stateDirRelative))
+    .map(statusPath);
 }
 
 export async function savePoint(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
@@ -83,26 +81,18 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
 
     const triggerKind = parseTrigger(stringArg(args, "--trigger", "manual"));
     const label = stringArg(args, "--label", "") || null;
+    const commandId = stringArg(args, "--command-id", `command-save-point-${randomUUID()}`);
+    const actor = parseActor(stringArg(args, "--actor", "operator"));
     const baseRef = stringArg(args, "--base-ref", globals.project?.baseRef ?? "origin/master");
-    const allowCommit = !booleanArg(args, "--no-commit");
     const stateDirRelative = stateDirRelativeToRepo(globals.repoRoot, globals.stateDir);
 
     const branchResult = await git(globals.repoRoot, ["rev-parse", "--abbrev-ref", "HEAD"]);
     const branch = branchResult.ok ? branchResult.text : null;
     const campaign = ensureCampaign(store, { projectId: globals.project?.projectId ?? globals.projectId ?? null, branch, baseRef });
 
-    let warning: string | null = null;
-    let committed = false;
-    const dirtyBefore = await dirtyStatusLines(globals.repoRoot, stateDirRelative);
-    if (dirtyBefore.length > 0 && allowCommit) {
-      const message = `savepoint(${triggerKind}): ${label ?? artifactTimestamp()}`;
-      const result = await commitWorktree(globals.repoRoot, stateDirRelative, message);
-      committed = result.committed;
-      warning = result.warning;
-    }
-    const dirtyAfter = committed ? await dirtyStatusLines(globals.repoRoot, stateDirRelative) : dirtyBefore;
-
+    const dirtyPaths = await dirtyStatusLines(globals.repoRoot, stateDirRelative);
     const head = await git(globals.repoRoot, ["rev-parse", "HEAD"]);
+    if (!head.ok || !head.text.trim()) throw new Error(`save-point HEAD resolution failed: ${head.text || "empty revision"}`);
     const base = await git(globals.repoRoot, ["rev-parse", baseRef]);
     const aheadOfBase = await git(globals.repoRoot, ["rev-list", "--count", `${baseRef}..HEAD`]);
 
@@ -171,8 +161,8 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
       branch,
       baseRef,
       baseSha: base.ok ? base.text : null,
-      worktreeDirty: dirtyAfter.length > 0,
-      committed,
+      worktreeDirty: dirtyPaths.length > 0,
+      committed: false,
       matchedCodePercent,
       reportPath,
       reportChangesPath,
@@ -180,8 +170,9 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
       artifactDir,
       payload: {
         ahead_of_base: aheadOfBase.ok ? Number(aheadOfBase.text) : null,
-        dirty_paths: dirtyAfter.slice(0, 100),
-        commit_warning: warning,
+        commit_reason: dirtyPaths.length > 0 ? "chose_not_to_commit" : "nothing_to_commit",
+        dirty_paths: dirtyPaths.slice(0, 100),
+        commit_warning: null,
         measures,
         measures_source: measuresSource,
       },
@@ -222,7 +213,22 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
       }
     }
 
-    console.log(JSON.stringify({ savePoint: record, campaign, warning }, null, 2));
+    recordSavePointAnchor(store, {
+      projectId: globals.project?.projectId ?? globals.projectId,
+      savePointId: record.id,
+      commitSha: record.commitSha ?? "",
+      triggerKind: record.triggerKind,
+      headlineScore: record.matchedCodePercent,
+      artifactPaths: [record.reportPath, record.reportChangesPath, record.boardSnapshotPath, record.artifactDir].filter(
+        (path): path is string => Boolean(path),
+      ),
+      payload: record.payload as ProjectEventJsonObject,
+      commandId,
+      actor,
+      occurredAt: record.createdAt,
+    });
+
+    console.log(JSON.stringify({ savePoint: record, campaign, warning: null }, null, 2));
   } finally {
     store.db.close();
   }

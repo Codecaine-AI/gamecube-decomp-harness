@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { getProjectState } from "@server/core/project-state";
 import { admitEpochTargets, createRun, openState, startSchedulerEpoch } from "@server/core/session-runtime/run-state";
 import type { ResolvedProject } from "@server/core/project-registry";
 import type { ManagedProcessController, StartManagedInput } from "@server/infrastructure/process-control/managed-process-controller";
@@ -149,18 +150,35 @@ describe("process control runtime", () => {
     });
 
     const response = await runtime.startManagedProcess({ projectId: "melee", runId: run.id, maxWorkers: 2 });
-    const payload = (await response.json()) as { command: string[] };
+    const payload = (await response.json()) as { command: string[]; leaseId: string };
     const repoRootFlag = payload.command.indexOf("--repo-root");
     const graphDbFlag = payload.command.indexOf("--graph-db");
+    const leaseFlag = payload.command.indexOf("--lease-id");
 
     expect(response.status).toBe(200);
     expect(payload.command.slice(repoRootFlag, repoRootFlag + 2)).toEqual(["--repo-root", sessionRepoRoot]);
     expect(payload.command.slice(graphDbFlag, graphDbFlag + 2)).toEqual(["--graph-db", sessionGraphDb]);
+    expect(payload.command.slice(leaseFlag, leaseFlag + 2)).toEqual(["--lease-id", payload.leaseId]);
     expect((spawned as StartManagedInput | null)?.command.slice(repoRootFlag, repoRootFlag + 2)).toEqual(["--repo-root", sessionRepoRoot]);
+
+    const verifyStore = openState(stateDir);
+    try {
+      expect(getProjectState(verifyStore, "melee")?.active_workflow).toMatchObject({
+        kind: "run",
+        workflow_id: run.id,
+        lease_id: payload.leaseId,
+        status: "active",
+      });
+    } finally {
+      verifyStore.db.close();
+    }
   });
 
   test("passes tool concurrency env overrides when starting a managed process", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
+    const store = openState(stateDir);
+    const run = createRun(store, "matched_code_percent", 100, 16, { projectId: "melee", stateDir });
+    store.db.close();
     let spawned: StartManagedInput | null = null;
     const processController = {
       hasActiveProcess: () => ({ active: false }),
@@ -210,6 +228,7 @@ describe("process control runtime", () => {
 
     const response = await runtime.startManagedProcess({
       projectId: "melee",
+      runId: run.id,
       maxWorkers: 16,
       toolConcurrency: {
         mwccDebug: 6,

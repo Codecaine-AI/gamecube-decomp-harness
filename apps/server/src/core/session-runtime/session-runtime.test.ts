@@ -9,13 +9,13 @@ import {
   finishPrFinalBuild,
   markPreparingComplete,
   markPrComplete,
-  markSessionComplete,
   startRunning,
   stopProjectSessionRun,
   updateRunningSubphase,
   updatePrSubphase,
 } from "@server/core/session-runtime";
 import { ensureSchema } from "@server/core/orchestrator-state/storage/ddl";
+import { listProjectEvents } from "@server/core/project-state";
 
 let tempDirs: string[] = [];
 
@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 describe("project session runtime", () => {
-  test("supports preparing -> running -> pr -> complete with phase completed_at markers", () => {
+  test("records one revision and event for each accepted phase transition", () => {
     const { db } = openTestDb();
     const created = createNewProjectSession(db, {
       projectId: "melee",
@@ -66,11 +66,18 @@ describe("project session runtime", () => {
     const prComplete = markPrComplete(db, { id: created.record.id }, { now: "2026-06-25T12:06:00.000Z" });
     expect(prComplete.view.phases.pr.completed_at).toBe("2026-06-25T12:06:00.000Z");
 
-    const complete = markSessionComplete(db, { id: created.record.id }, { completedBy: "test", now: "2026-06-25T12:07:00.000Z" });
-    expect(complete.view.status).toBe("complete");
-    expect(complete.view.phase).toBe("complete");
-    expect(complete.view.completedAt).toBe("2026-06-25T12:07:00.000Z");
-    expect(complete.view.gates.can_start_next).toBe(true);
+    expect(prComplete.view.revision).toBe(6);
+    const events = listProjectEvents(db, { projectId: "melee" });
+    expect(events.map((event) => event.eventType)).toEqual([
+      "session.opened",
+      "session.preparing_completed",
+      "session.running_started",
+      "session.running_stopped",
+      "session.pr_entered",
+      "session.pr_final_build_completed",
+      "session.pr_completed",
+    ]);
+    expect(prComplete.view.causedByEventId).toBe(events[6]!.eventId);
     db.close();
   });
 
@@ -163,6 +170,15 @@ describe("project session runtime", () => {
     expect(stopped.view.status).toBe("blocked");
     expect(stopped.view.phases.running.stop_reason).toBe("error");
     expect(stopped.view.gates.force_to_pr_available).toBe(true);
+    const blockedEvents = listProjectEvents(db, { projectId: "melee" });
+    expect(stopped.view.revision).toBe(3);
+    expect(blockedEvents.map((event) => event.eventType)).toEqual([
+      "session.opened",
+      "session.preparing_completed",
+      "session.running_started",
+      "session.running_stopped",
+    ]);
+    expect(stopped.view.causedByEventId).toBe(blockedEvents[3]!.eventId);
 
     const pr = enterPr(db, { id: created.record.id }, { force: true });
     expect(pr.view.status).toBe("active");

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, packageRoot, resourceGraphDbPath } from "@server/core/knowledge";
+import { heartbeatDispatch } from "@server/core/project-state";
 import { refreshBoardRerankMode } from "@server/core/session-runtime/phases/running/board";
 import { loadExactTargetKeys } from "@server/core/session-runtime/phases/running/board/snapshot.js";
 import {
@@ -13,6 +14,7 @@ import {
   blockedAdmittedTargetCount,
   closeWorkerState,
   closeSchedulerEpoch,
+  closeSchedulerEpochWithEvidence,
   getLatestRun,
   getRun,
   markEventHandled,
@@ -710,6 +712,7 @@ export function workerCommand(
     postReturnCheckCommand: string;
     workerConfigureCommand: string;
     graphDbPath: string;
+    leaseId: string;
     writeSetFlags: WriteSetIntegrationFlags;
   },
 ): string[] {
@@ -742,6 +745,8 @@ export function workerCommand(
   );
   if (params.postReturnCheckCommand) command.push("--post-return-check-command", params.postReturnCheckCommand);
   if (params.workerConfigureCommand) command.push("--worker-configure-command", params.workerConfigureCommand);
+  if (!params.leaseId.trim()) throw new Error("workerCommand requires a dispatch lease id");
+  command.push("--lease-id", params.leaseId);
   command.push("--graph-db", params.graphDbPath);
   if (params.writeSetFlags.writeSetWidening !== "off") {
     command.push("--write-set-widening", params.writeSetFlags.writeSetWidening);
@@ -761,6 +766,7 @@ async function runWorkerProcess(
     postReturnCheckCommand: string;
     workerConfigureCommand: string;
     graphDbPath: string;
+    leaseId: string;
     writeSetFlags: WriteSetIntegrationFlags;
   },
   procRegistry?: Set<{ kill: (signal?: number) => void; exited: Promise<number> }>,
@@ -842,6 +848,8 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
   process.once("SIGUSR1", drain);
 
   try {
+    const leaseId = stringArg(args, "--lease-id", "").trim();
+    if (!leaseId) throw new Error("run-loop requires --lease-id");
     const runId = stringArg(args, "--run-id", getLatestRun(store)?.id ?? "");
     if (!runId) throw new Error("No run found. Run init-run first.");
     const run = getRun(store, runId);
@@ -967,6 +975,14 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     };
 
     while (!stopRequested) {
+      const dispatchLease = heartbeatDispatch(store, {
+        leaseId,
+        projectId: globals.project?.projectId ?? globals.projectId,
+      });
+      if (dispatchLease.status === "draining") {
+        drainRequested = true;
+        stoppedReason = "draining";
+      }
       let didWork = false;
       const boundaryWorkPendingBeforeMaintenance = epochBoundaryWorkPending(store, runId);
       const blockingIntegrationsBeforeMaintenance = blockingWorkerOutputIntegrationCount(store, runId);
@@ -1050,6 +1066,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                   baseRef: globals.project?.baseRef,
                   confirmationPass: writeSetFlags.confirmationPass,
                   configureCommand: epochConfigureCommand,
+                  epochId: schedulerEpochId,
                   label: `epoch-${epochOrdinal}`,
                   linkPaths: epochLinkPaths,
                   mergeOnFinish: writeSetFlags.mergeOnFinish,
@@ -1102,7 +1119,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                   });
                   console.error(`[run-loop] epoch ${epochOrdinal}: paused on regressions; retrying in ${Math.round(epochRetryMs / 1000)}s`);
                   if (schedulerEpochId) {
-                    closeSchedulerEpoch(store, schedulerEpochId, {
+                    closeSchedulerEpochWithEvidence(store, schedulerEpochId, {
                       status: "paused",
                       boundaryStatus: "regression_pause",
                       routingSummary: {
@@ -1112,6 +1129,21 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                         repair: result.repair,
                         qa_gate: result.qaGate,
                       },
+                      integration: {
+                        projectId: globals.project?.projectId ?? globals.projectId,
+                        runId,
+                        integrationCommit: result.commitSha!,
+                        scoreDelta: result.scoreDelta,
+                        commandId: `command-epoch-integrated-${randomUUID()}`,
+                        correlationId: runId,
+                        payload: {
+                          ordinal: epochOrdinal,
+                          boundary_status: "regression_pause",
+                          save_point_id: result.savePointId,
+                        },
+                      },
+                      savePointEvidence: result.savePointEvidence,
+                      workflowCorrelationId: runId,
                     });
                   }
                   nextEpochAllowedMs = Date.now() + epochRetryMs;
@@ -1150,19 +1182,43 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
               }
 
               if (schedulerEpochId) {
-                closeSchedulerEpoch(store, schedulerEpochId, {
-                  status: "completed",
-                  boundaryStatus: globals.dryRunAgents ? "dry_run" : "success",
-                  routingSummary: {
-                    trigger,
-                    dry_run: globals.dryRunAgents,
-                    save_point_id: boundaryResult?.savePointId ?? null,
-                    matched_code_percent: boundaryResult?.matchedCodePercent ?? null,
-                    regressions: boundaryResult?.regressions ?? null,
-                    repair: boundaryResult?.repair ?? null,
-                    qa_gate: boundaryResult?.qaGate ?? null,
-                  },
-                });
+                const routingSummary = {
+                  trigger,
+                  dry_run: globals.dryRunAgents,
+                  save_point_id: boundaryResult?.savePointId ?? null,
+                  matched_code_percent: boundaryResult?.matchedCodePercent ?? null,
+                  regressions: boundaryResult?.regressions ?? null,
+                  repair: boundaryResult?.repair ?? null,
+                  qa_gate: boundaryResult?.qaGate ?? null,
+                };
+                if (boundaryResult?.commitSha) {
+                  closeSchedulerEpochWithEvidence(store, schedulerEpochId, {
+                    status: "completed",
+                    boundaryStatus: "success",
+                    routingSummary,
+                    integration: {
+                      projectId: globals.project?.projectId ?? globals.projectId,
+                      runId,
+                      integrationCommit: boundaryResult.commitSha,
+                      scoreDelta: boundaryResult.scoreDelta,
+                      commandId: `command-epoch-integrated-${randomUUID()}`,
+                      correlationId: runId,
+                      payload: {
+                        ordinal: epochOrdinal,
+                        boundary_status: "success",
+                        save_point_id: boundaryResult.savePointId,
+                      },
+                    },
+                    savePointEvidence: boundaryResult.savePointEvidence,
+                    workflowCorrelationId: runId,
+                  });
+                } else {
+                  closeSchedulerEpoch(store, schedulerEpochId, {
+                    status: "completed",
+                    boundaryStatus: "dry_run",
+                    routingSummary,
+                  });
+                }
               }
 
               const nextEpoch = ensureSchedulerEpochFromBoard({
@@ -1565,6 +1621,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             postReturnCheckCommand,
             workerConfigureCommand,
             graphDbPath,
+            leaseId,
             writeSetFlags,
           },
           runningWorkerProcs,

@@ -108,6 +108,7 @@ describe("workerCommand write-set feature forwarding", () => {
     postReturnCheckCommand: "",
     workerConfigureCommand: "",
     graphDbPath: "/state/knowledge.sqlite",
+    leaseId: "lease-run-1",
   };
 
   test("adds neither flag on the legacy path", () => {
@@ -126,6 +127,15 @@ describe("workerCommand write-set feature forwarding", () => {
     });
     expect(command.slice(command.indexOf("--write-set-widening"))).toContain("header");
     expect(command).toContain("--merge-on-finish");
+  });
+
+  test("forwards the scheduler dispatch lease to the worker child", () => {
+    const command = workerCommand(globals, {
+      ...params,
+      leaseId: "lease-run-1",
+      writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false },
+    });
+    expect(command.slice(command.indexOf("--lease-id"), command.indexOf("--lease-id") + 2)).toEqual(["--lease-id", "lease-run-1"]);
   });
 });
 
