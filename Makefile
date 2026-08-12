@@ -8,6 +8,8 @@ PR_QA_FLAGS ?=
 PR_QA_RUN_AGENTS ?= 1
 PR_QA_COMMENT ?= 1
 PR_QA_WAIT_CI ?= 0
+DOCS_PORT ?= 4800
+DOCS_API_PORT ?= 4801
 
 PROVIDER ?= codex-lb
 MODEL ?= gpt-5.6-sol
@@ -30,12 +32,13 @@ PR_QA_COMMENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_COMMENT)),--comment-unres
 PR_QA_CI_FLAG := $(if $(filter 1 true yes,$(PR_QA_WAIT_CI)),--wait-ci,)
 ORCH_GLOBAL_FLAGS := --repo-root "$(REPO_ROOT)" --state-dir "$(STATE_DIR)" $(DRY_FLAG) --provider "$(PROVIDER)" --model "$(MODEL)" --thinking-level "$(THINKING)" --agent-timeout-seconds "$(AGENT_TIMEOUT_SECONDS)"
 
-.PHONY: help install check smoke ui status init-run start dry-start recover-leases regression-check verify-ship-set pr-split-plan pr-draft-qa pr-session-review kg-status kg-maintain
+.PHONY: help install check smoke ui docs status init-run start dry-start recover-leases regression-check verify-ship-set pr-split-plan pr-draft-qa pr-session-review kg-status kg-maintain
 
 help:
 	@printf '%s\n' \
 	  'Common targets:' \
 	  '  make ui                 Start the hot-reloading dashboard at http://localhost:8787' \
+	  '  make docs               Start hot-reloading docs at http://localhost:$(DOCS_PORT)' \
 	  '  make status             Print orchestrator status for REPO_ROOT/STATE_DIR' \
 	  '  make init-run           Create a run with WORKERS/GOAL/CANDIDATE_LIMIT' \
 	  '  make start              Start babysit/run-loop for the current run' \
@@ -68,6 +71,14 @@ smoke:
 
 ui:
 	bun run ui:dev
+
+docs:
+	bun packages/docs-framework/packages/docs-cli/src/index.ts serve \
+	  --root docs \
+	  --dev \
+	  --port "$(DOCS_API_PORT)" \
+	  --ui-port "$(DOCS_PORT)" \
+	  --theme-locked
 
 status:
 	bun run server:job -- $(ORCH_GLOBAL_FLAGS) status

@@ -111,6 +111,7 @@ operational notes live in the docs.
 | `apps/frontend/` | React/Vite dashboard frontend. |
 | `apps/server/` | Bun API/static server plus server-owned jobs, process controls, run orchestration, validation, handoff, agents, tools, knowledge, project registry, platform helpers, smoke tests, and fixtures. |
 | `packages/agent-kernel/` | Symlinked external Agent Kernel workspace used by the server runtime. |
+| `packages/docs-framework/` | Pinned docs-system submodule: model, server, editor, workbench, CLI, and the maintained agent framework package. |
 | `projects/` | Tracked project descriptors plus ignored project-local checkout, state, graph, env, and session paths. |
 | `knowledge/` | Repo-level references, resources, indexes, graph state, and past-PR corpus. |
 | `docs/` | Foundation, system design, implementation details, runbooks, and preserved design artifacts. |
