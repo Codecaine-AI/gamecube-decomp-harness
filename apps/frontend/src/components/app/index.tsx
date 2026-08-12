@@ -4,6 +4,7 @@ import { asObject, numberValue, type Dashboard, type FormState, type JsonObject,
 import { useDashboardStream } from "@/hooks/useDashboardStream";
 import { DetailsRail, type DetailsTab } from "@/components/details-rail";
 import { ProjectWorkspace, type DashboardAction } from "@/pages/workspace";
+import { projectStateAction, projectStateReadModel } from "@/pages/workspace/_lib/model";
 import { type ImprovedMode, type WorkMode } from "@/pages/workspace/sessions/active/subphases/run/components/work-tables";
 import { type AppRoute, routeFromUrl, saveRoute } from "@/routing";
 import { loadGrainSettings, normalizeGrainSettings, saveGrainSettings, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
@@ -45,7 +46,7 @@ function sessionPhaseSummary(session: JsonObject): string {
 }
 
 function sessionScopedBody(body: JsonObject, projectSession: JsonObject): JsonObject {
-  const sessionUuid = String(projectSession.sessionUuid || projectSession.id || "");
+  const sessionUuid = String(projectSession.sessionUuid || projectSession.session_uuid || projectSession.id || "");
   return sessionUuid ? { ...body, sessionUuid, sessionId: sessionUuid } : body;
 }
 
@@ -355,12 +356,26 @@ export function App() {
       ) {
         return;
       }
+      if (nextAction === "sessionClose") {
+        const closeAction = projectStateAction(projectStateReadModel(currentDashboard), "session.close");
+        if (
+          closeAction?.confirmation_required &&
+          !window.confirm("Close this session?\n\nThis is a terminal action. The session will stop accepting workflows; the next baseline sync opens its successor.")
+        ) {
+          return;
+        }
+      }
+      if (nextAction === "openPr") {
+        const seriesName = String(payload?.prBranch || "this series");
+        if (!window.confirm(`Publish a draft PR upstream for series "${seriesName}"?\n\nThis will create the draft PR on GitHub.`)) return;
+      }
       setAction(nextAction);
       setErrorMessage("");
       if (operationActions.has(nextAction)) openLogsView();
       try {
         const body = { ...formBody(form, currentDashboard), ...payload };
         const projectSession = asObject(currentDashboard?.projectSession);
+        const projectStateSession = asObject(asObject(currentDashboard?.projectState).session);
         const projectSessionPhase = String(projectSession.phase || "");
         const markWorkersActive = async () => {
           if (projectSessionPhase !== "running") return;
@@ -468,6 +483,13 @@ export function App() {
           setRunDetails(null);
         } else if (nextAction === "completeRun") {
           await postJson("/api/run/complete", { ...body, force: true });
+          setRunDetails(null);
+          await manualRefresh();
+        } else if (nextAction === "sessionSavePoint") {
+          await postJson(projectSessionUrl("/api/project-session/save-point", form), sessionScopedBody(body, projectStateSession));
+          await manualRefresh();
+        } else if (nextAction === "sessionClose") {
+          await postJson(projectSessionUrl("/api/project-session/close", form), sessionScopedBody(body, projectStateSession));
           setRunDetails(null);
           await manualRefresh();
         } else if (nextAction === "pausePr") {

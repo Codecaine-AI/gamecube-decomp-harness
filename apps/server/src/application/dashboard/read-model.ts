@@ -6,7 +6,23 @@ import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/cor
 import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
 import { openState, statusSnapshot } from "@server/core/session-runtime/run-state";
 import { dashboardArtifactPayloads, latestDashboardArtifactPayload } from "@server/core/orchestrator-state";
+import {
+  getActiveProjectSession,
+  type CloseProjectSessionInput,
+  type ProjectSessionBlocker,
+  type ProjectSessionRecord,
+  type SessionTimelineEntry,
+} from "@server/core/project-session";
 import { activeProjectSessionProjection } from "@server/core/project-session/store";
+import { listSessionTimeline, unresolvedSavePointFailures } from "@server/core/project-session/timeline";
+import {
+  getProjectState,
+  latestSequence,
+  type Blocker,
+  type DispatchLease,
+  type QueuedDispatchRequest,
+} from "@server/core/project-state";
+import { listSavePoints, type SavePointRecord } from "@server/core/session-runtime/phases/pr/state";
 import { projectToSummary as defaultProjectToSummary, type ProjectRuntimeContext, type ResolvedProject } from "@server/core/project-registry";
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/session-runtime/phases/pr/artifacts";
 
@@ -43,6 +59,45 @@ type WorkerStateResult = "exact" | "improved" | "no_progress";
 type StopReason = "target_complete" | "stalled";
 
 export type DashboardProjectContext = ProjectRuntimeContext;
+
+export interface ActionProjection {
+  action_id: "session.close" | "session.save_point";
+  subject_kind: "session";
+  subject_id: string;
+  enabled: boolean;
+  blocked_by: Blocker[];
+  expected_transition: string;
+  confirmation_required: boolean;
+}
+
+export interface ProjectSessionActionState {
+  availableActions: ActionProjection[];
+  closeInput: Pick<CloseProjectSessionInput, "aheadOfBase" | "namedSavePointId" | "worktreeDirtyBeyondHead">;
+}
+
+const ALL_SESSION_EVIDENCE_LIMIT = Number.MAX_SAFE_INTEGER;
+
+export interface DashboardProjectState {
+  revision: number;
+  active_workflow: DispatchLease | null;
+  queued_dispatch_requests: QueuedDispatchRequest[];
+  session: {
+    session_uuid: string;
+    head_revision: string | null;
+    status: ProjectSessionRecord["status"];
+    latest_save_point: Pick<
+      SavePointRecord,
+      "id" | "triggerKind" | "label" | "commitSha" | "matchedCodePercent" | "createdAt"
+    > | null;
+    save_point_stale: boolean;
+    blockers: Blocker[];
+    timeline: SessionTimelineEntry[];
+  } | null;
+  session_blockers: Blocker[];
+  save_point_stale: boolean;
+  latest_event_sequence: number;
+  available_actions: ActionProjection[];
+}
 
 export interface DashboardReadModelDependencies {
   appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
@@ -97,6 +152,257 @@ function numberValue(value: unknown, fallback = 0): number {
     if (Number.isFinite(parsed)) return parsed;
   }
   return fallback;
+}
+
+function actionBlocker(
+  blocker: ProjectSessionBlocker,
+  fallback: { sourceKind: string; sourceId: string },
+): Blocker {
+  return {
+    code: blocker.code,
+    message: blocker.message,
+    source_kind: blocker.source_kind ?? blocker.source ?? fallback.sourceKind,
+    source_id: blocker.source_id ?? fallback.sourceId,
+    recoverable: blocker.recoverable ?? true,
+  };
+}
+
+function savePointByEntry(
+  savePoints: SavePointRecord[],
+  entry: SessionTimelineEntry | undefined,
+): SavePointRecord | null {
+  if (!entry) return null;
+  return savePoints.find((savePoint) => savePoint.id === entry.entry_id) ?? null;
+}
+
+function dedupeBlockers(blockers: Blocker[]): Blocker[] {
+  const seen = new Set<string>();
+  return blockers.filter((blocker) => {
+    const key = `${blocker.code}\0${blocker.source_kind}\0${blocker.source_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function sessionEvidenceState(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  campaign: JsonObject,
+  session: ProjectSessionRecord | null,
+  timeline: SessionTimelineEntry[],
+  savePoints: SavePointRecord[],
+): {
+  blockers: Blocker[];
+  freshNamedSavePoint: SavePointRecord | null;
+  latestSavePoint: SavePointRecord | null;
+  stale: boolean;
+  worktreeDirty: boolean;
+} {
+  const latestEntry = timeline.find((entry) => entry.entry_kind === "save_point");
+  const latestSavePoint = savePointByEntry(savePoints, latestEntry);
+  const worktreeDirty = asObject(campaign.head).dirty === true;
+  const spooled = unresolvedSavePointFailures(store, {
+    projectId,
+    sessionUuid: session?.session_uuid,
+  });
+  const blockers = dedupeBlockers([
+    ...(session?.blockers_json ?? []).map((blocker) =>
+      actionBlocker(blocker, { sourceKind: "session", sourceId: session?.session_uuid ?? projectId }),
+    ),
+    ...spooled.map((failure): Blocker => ({
+      code: "save_point_failed",
+      message: failure.message,
+      source_kind: failure.source_kind,
+      source_id: failure.source_id,
+      recoverable: true,
+    })),
+  ]);
+  const headRevision = session?.head_revision?.trim() ?? "";
+  const latestAnchorDrifted = Boolean(
+    latestEntry && (!latestSavePoint?.commitSha?.trim() || latestSavePoint.commitSha !== headRevision),
+  );
+  const freshNamedSavePoint = session && headRevision
+    ? timeline
+        .filter((entry) => entry.entry_kind === "save_point")
+        .map((entry) => savePointByEntry(savePoints, entry))
+        .find(
+          (savePoint) =>
+            Boolean(savePoint?.label?.trim()) && savePoint?.commitSha === headRevision,
+        ) ?? null
+    : null;
+  return {
+    blockers,
+    freshNamedSavePoint,
+    latestSavePoint,
+    stale: Boolean(session?.save_point_stale) || spooled.length > 0 || latestAnchorDrifted || worktreeDirty,
+    worktreeDirty,
+  };
+}
+
+function sessionActionState(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  campaign: JsonObject,
+  session: ProjectSessionRecord | null,
+  timeline: SessionTimelineEntry[],
+  savePoints: SavePointRecord[],
+): ProjectSessionActionState {
+  const projectState = getProjectState(store, projectId);
+  const subjectId = session?.session_uuid ?? projectId;
+  const inactiveBlockers: Blocker[] = session
+    ? session.status === "active" || session.status === "blocked"
+      ? []
+      : session.blockers_json.length > 0
+        ? session.blockers_json.map((blocker) =>
+            actionBlocker(blocker, { sourceKind: "session", sourceId: session.session_uuid }),
+          )
+        : [
+            {
+              code: "session_not_active",
+              message: `The project session is ${session.status}.`,
+              source_kind: "session",
+              source_id: session.session_uuid,
+              recoverable: false,
+            },
+          ]
+    : [
+        {
+          code: "session_not_active",
+          message: "No active project session exists.",
+          source_kind: "project",
+          source_id: projectId,
+          recoverable: true,
+        },
+      ];
+
+  const evidence = sessionEvidenceState(store, projectId, campaign, session, timeline, savePoints);
+  const head = asObject(campaign.head);
+  const aheadOfBaseKnown = typeof campaign.aheadOfBase === "number" && Number.isFinite(campaign.aheadOfBase);
+  const worktreeStateKnown = typeof head.dirty === "boolean";
+  const aheadOfBase = aheadOfBaseKnown ? Math.max(0, numberValue(campaign.aheadOfBase)) : 0;
+  const worktreeDirtyBeyondHead = evidence.worktreeDirty;
+  const closeBlockers: Blocker[] = [...inactiveBlockers, ...evidence.blockers];
+  if (session && projectState?.active_workflow) {
+    closeBlockers.push({
+      code: "dispatch_lease_held",
+      message: "A workflow still holds the dispatch lease.",
+      source_kind: "project",
+      source_id: projectId,
+      recoverable: true,
+    });
+  }
+  if (session && (evidence.stale || !evidence.freshNamedSavePoint)) {
+    closeBlockers.push({
+      code: "unshipped_work",
+      message: worktreeDirtyBeyondHead
+        ? "The worktree contains changes beyond the session head."
+        : evidence.stale
+          ? "Save-point evidence is stale or not anchored at the current session head."
+          : "A named save point at the current session head is required.",
+      source_kind: "session",
+      source_id: session.session_uuid,
+      recoverable: true,
+    });
+  }
+  if (session && (!aheadOfBaseKnown || !worktreeStateKnown)) {
+    closeBlockers.push({
+      code: "close_evidence_unavailable",
+      message: "Current worktree or upstream-distance evidence is unavailable.",
+      source_kind: "session",
+      source_id: session.session_uuid,
+      recoverable: true,
+    });
+  }
+
+  return {
+    availableActions: [
+      {
+        action_id: "session.save_point",
+        subject_kind: "session",
+        subject_id: subjectId,
+        enabled: inactiveBlockers.length === 0,
+        blocked_by: inactiveBlockers,
+        expected_transition: "evidence anchor recorded at the current commit",
+        confirmation_required: false,
+      },
+      {
+        action_id: "session.close",
+        subject_kind: "session",
+        subject_id: subjectId,
+        enabled: closeBlockers.length === 0,
+        blocked_by: closeBlockers,
+        expected_transition: "active → closed",
+        confirmation_required: true,
+      },
+    ],
+    closeInput: {
+      aheadOfBase,
+      namedSavePointId: evidence.freshNamedSavePoint?.id ?? null,
+      worktreeDirtyBeyondHead,
+    },
+  };
+}
+
+export function projectSessionActionState(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  campaign: JsonObject,
+): ProjectSessionActionState {
+  const session = getActiveProjectSession(store.db, projectId);
+  const timeline = session
+    ? listSessionTimeline(store.db, session.session_uuid, ALL_SESSION_EVIDENCE_LIMIT)
+    : [];
+  const savePoints = listSavePoints(store, ALL_SESSION_EVIDENCE_LIMIT);
+  return sessionActionState(store, projectId, campaign, session, timeline, savePoints);
+}
+
+export function buildProjectStateReadModel(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  campaign: JsonObject,
+): DashboardProjectState {
+  const canonical = getProjectState(store, projectId);
+  const session = getActiveProjectSession(store.db, projectId);
+  const allTimeline = session
+    ? listSessionTimeline(store.db, session.session_uuid, ALL_SESSION_EVIDENCE_LIMIT)
+    : [];
+  const timeline = allTimeline.slice(0, 20);
+  const savePoints = listSavePoints(store, ALL_SESSION_EVIDENCE_LIMIT);
+  const latestSavePointEntry = allTimeline.find((entry) => entry.entry_kind === "save_point");
+  const latestSavePoint = savePointByEntry(savePoints, latestSavePointEntry);
+  const actions = sessionActionState(store, projectId, campaign, session, allTimeline, savePoints);
+  const evidence = sessionEvidenceState(store, projectId, campaign, session, allTimeline, savePoints);
+
+  return {
+    revision: canonical?.revision ?? 0,
+    active_workflow: canonical?.active_workflow ?? null,
+    queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
+    session: session
+      ? {
+          session_uuid: session.session_uuid,
+          head_revision: session.head_revision,
+          status: session.status,
+          latest_save_point: latestSavePoint
+            ? {
+                id: latestSavePoint.id,
+                triggerKind: latestSavePoint.triggerKind,
+                label: latestSavePoint.label,
+                commitSha: latestSavePoint.commitSha,
+                matchedCodePercent: latestSavePoint.matchedCodePercent,
+                createdAt: latestSavePoint.createdAt,
+              }
+            : null,
+          save_point_stale: evidence.stale,
+          blockers: evidence.blockers,
+          timeline,
+        }
+      : null,
+    session_blockers: evidence.blockers,
+    save_point_stale: evidence.stale,
+    latest_event_sequence: latestSequence(store.db, projectId),
+    available_actions: actions.availableActions,
+  };
 }
 
 function percentLike(value: unknown): boolean {
@@ -243,10 +549,20 @@ function activeSessionRunId(projectSession: JsonObject | null): string {
   return stringValue(projectSession.activeRunId, stringValue(projectSession.active_run_id));
 }
 
-function activeSessionRepoRoot(projectSession: JsonObject | null, runId: string): string {
-  if (!projectSession || !runId || activeSessionRunId(projectSession) !== runId) return "";
+function activeSessionRepoRoot(projectSession: JsonObject | null): string {
+  if (!projectSession) return "";
   const sync = asObject(asObject(asObject(projectSession.phases).preparing).sync);
   return stringValue(sync.sessionCurrentWorktreePath, stringValue(sync.sessionWorktreePath));
+}
+
+export function dashboardAuthorityRepoRoot(
+  paths: Pick<DashboardProjectContext, "repoRoot" | "usePathOverrides">,
+  projectSession: JsonObject | null,
+  status: JsonObject,
+): string {
+  if (paths.usePathOverrides) return paths.repoRoot;
+  const run = asObject(status.run);
+  return activeSessionRepoRoot(projectSession) || stringValue(asObject(run.project).repoRoot, paths.repoRoot);
 }
 
 function activeSessionBaseline(projectSession: JsonObject | null, runId: string): JsonObject | null {
@@ -2108,7 +2424,7 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
     runDesiredWorkers = numberValue(run.desiredWorkers, 0);
     if (paths.project) projectSession = activeProjectSessionProjection(store.db, paths.project.projectId) as unknown as JsonObject | null;
     projectSession = enrichProjectSessionBaseline(projectSession);
-    if (!paths.usePathOverrides) repoRoot = activeSessionRepoRoot(projectSession, runId) || stringValue(asObject(run.project).repoRoot, repoRoot);
+    repoRoot = dashboardAuthorityRepoRoot(paths, projectSession, status);
   } finally {
     store.db.close();
   }
@@ -2158,9 +2474,27 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   const checkpoint = runId ? checkpointForRun(stateDir, runId) : null;
   const handoff = runId ? handoffForRun(stateDir, runId, checkpoint) : { checkpoint: null, qa: null, splitPlan: null };
   const epochs = runningEpochHistory(stateDir);
+  const projectId = paths.project?.projectId ?? stringValue(projectSession?.projectId);
+  let projectState: DashboardProjectState | null = null;
+  if (projectId) {
+    const projectStateStore = openState(stateDir);
+    try {
+      projectState = buildProjectStateReadModel(projectStateStore, projectId, campaign);
+    } finally {
+      projectStateStore.db.close();
+    }
+  }
+  if (projectSession && projectState?.session) {
+    projectSession = {
+      ...projectSession,
+      blockers: projectState.session.blockers,
+      savePointStale: projectState.session.save_point_stale,
+    };
+  }
   return {
     project: paths.project ? projectSummary(paths.project) : null,
     projectSession,
+    projectState,
     projectWarnings: paths.project?.warnings ?? [],
     repoRoot,
     configuredRepoRoot: paths.repoRoot,

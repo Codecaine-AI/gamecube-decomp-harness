@@ -469,6 +469,9 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
 
   const projectSession = await handleProjectSessionApiRoute(req, url, {
     baseRefForProject: (project) => (project as ResolvedProject | null)?.baseRef ?? "origin/master",
+    campaignStatus: campaignStatus.campaignStatus,
+    createSavePoint: savePoints.createSavePoint,
+    invalidateCampaignCache: campaignStatus.invalidateCampaignCache,
     json,
     projectIdForProject: (project) => (project as ResolvedProject | null)?.projectId ?? "",
     requestPaths: projectContext.requestPaths,

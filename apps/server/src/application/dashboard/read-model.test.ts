@@ -12,7 +12,14 @@ import {
   startSchedulerEpoch,
   type StateStore,
 } from "@server/core/session-runtime/run-state";
-import { createDashboardReadModel, type JsonObject } from "./read-model.js";
+import { createProjectSession, recordSavePointAnchor, recordSavePointFailureDurably } from "@server/core/project-session";
+import { initializeProjectState, requestDispatch } from "@server/core/project-state";
+import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
+import {
+  buildProjectStateReadModel,
+  createDashboardReadModel,
+  type JsonObject,
+} from "./read-model.js";
 
 const tempDirs: string[] = [];
 const TEST_WORKER_TIMEOUT_SECONDS = 1800;
@@ -37,6 +44,211 @@ afterAll(() => {
 });
 
 describe("dashboard read model", () => {
+  test("projects canonical authority, session evidence, queued dispatch, and server-owned actions", () => {
+    const { store } = tempState();
+    try {
+      createProjectSession(store.db, {
+        projectId: "melee",
+        sessionUuid: "session-1",
+        id: "project-session:session-1",
+        baseSha: "base-sha",
+      });
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const run = requestDispatch(store, {
+        projectId: "melee",
+        kind: "run",
+        workflowId: "run-1",
+        reason: "run",
+        commandId: "command-run",
+        actor: "operator",
+      });
+      expect(run.queued).toBeFalse();
+      requestDispatch(store, {
+        projectId: "melee",
+        kind: "sync",
+        workflowId: "sync-1",
+        reason: "sync",
+        commandId: "command-sync",
+        actor: "operator",
+      });
+      const campaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      const savePoint = addSavePoint(store, {
+        campaignId: campaign.id,
+        triggerKind: "manual",
+        label: "operator anchor",
+        commitSha: "base-sha",
+        matchedCodePercent: 98.5,
+      });
+      recordSavePointAnchor(store, {
+        projectId: "melee",
+        savePointId: savePoint.id,
+        commitSha: "base-sha",
+        triggerKind: "manual",
+        headlineScore: 98.5,
+        commandId: "command-save",
+        actor: "operator",
+      });
+
+      const view = buildProjectStateReadModel(store, "melee", {
+        aheadOfBase: 0,
+        head: { dirty: false },
+      });
+
+      expect(view.revision).toBe(3);
+      expect(view.active_workflow).toMatchObject({ kind: "run", workflow_id: "run-1", status: "active" });
+      expect(view.queued_dispatch_requests).toEqual([
+        expect.objectContaining({ kind: "sync", workflow_id: "sync-1" }),
+      ]);
+      expect(view.session).toMatchObject({
+        session_uuid: "session-1",
+        head_revision: "base-sha",
+        status: "active",
+        save_point_stale: false,
+        latest_save_point: {
+          id: savePoint.id,
+          triggerKind: "manual",
+          label: "operator anchor",
+          commitSha: "base-sha",
+          matchedCodePercent: 98.5,
+        },
+      });
+      expect(view.session?.timeline).toHaveLength(1);
+      expect(view.latest_event_sequence).toBe(5);
+      expect(view.available_actions).toEqual([
+        expect.objectContaining({
+          action_id: "session.save_point",
+          enabled: true,
+          blocked_by: [],
+          confirmation_required: false,
+        }),
+        expect.objectContaining({
+          action_id: "session.close",
+          enabled: false,
+          blocked_by: [expect.objectContaining({ code: "dispatch_lease_held" })],
+          confirmation_required: true,
+        }),
+      ]);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("marks a named anchor stale after session head drift while limiting the displayed timeline", () => {
+    const { store } = tempState();
+    try {
+      createProjectSession(store.db, {
+        projectId: "melee",
+        sessionUuid: "session-1",
+        id: "project-session:session-1",
+        baseSha: "base-sha",
+      });
+      const campaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      for (let index = 0; index < 25; index += 1) {
+        const savePoint = addSavePoint(store, {
+          campaignId: campaign.id,
+          triggerKind: "manual",
+          label: index === 0 ? "named anchor" : null,
+          commitSha: `commit-${index}`,
+        });
+        recordSavePointAnchor(store, {
+          projectId: "melee",
+          savePointId: savePoint.id,
+          commitSha: `commit-${index}`,
+          triggerKind: "manual",
+          commandId: `command-save-${index}`,
+          actor: "operator",
+        });
+      }
+
+      const view = buildProjectStateReadModel(store, "melee", {
+        aheadOfBase: 4,
+        head: { dirty: false },
+      });
+      expect(view.session?.timeline).toHaveLength(20);
+      expect(view.session?.save_point_stale).toBe(true);
+      expect(view.available_actions.find((action) => action.action_id === "session.close")).toMatchObject({
+        enabled: false,
+        blocked_by: [expect.objectContaining({ code: "unshipped_work" })],
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("refuses dirty work and accepts a fresh named anchor at the current head", () => {
+    const { store } = tempState();
+    try {
+      createProjectSession(store.db, {
+        projectId: "melee",
+        sessionUuid: "session-1",
+        id: "project-session:session-1",
+        baseSha: "head-1",
+      });
+      const campaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      const savePoint = addSavePoint(store, {
+        campaignId: campaign.id,
+        triggerKind: "manual",
+        label: "fresh anchor",
+        commitSha: "head-1",
+      });
+      recordSavePointAnchor(store, {
+        projectId: "melee",
+        savePointId: savePoint.id,
+        commitSha: "head-1",
+        triggerKind: "manual",
+        commandId: "command-save-fresh",
+        actor: "operator",
+      });
+
+      const dirty = buildProjectStateReadModel(store, "melee", {
+        aheadOfBase: 0,
+        head: { dirty: true },
+      });
+      expect(dirty.session?.save_point_stale).toBe(true);
+      expect(dirty.available_actions.find((action) => action.action_id === "session.close")?.enabled).toBe(false);
+
+      const clean = buildProjectStateReadModel(store, "melee", {
+        aheadOfBase: 4,
+        head: { dirty: false },
+      });
+      expect(clean.session?.save_point_stale).toBe(false);
+      expect(clean.available_actions.find((action) => action.action_id === "session.close")).toMatchObject({
+        enabled: true,
+        blocked_by: [],
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("surfaces a sessionless spooled failure as a blocker and stale evidence", () => {
+    const { store } = tempState();
+    try {
+      const failure = recordSavePointFailureDurably(store.stateDir, {
+        projectId: "melee",
+        triggerKind: "checkpoint",
+        sourceKind: "save_point_boundary",
+        sourceId: "checkpoint",
+        message: "capture unavailable",
+        commandId: "command-spooled-failure",
+        actor: "runner",
+      }, store);
+      expect(failure.storage).toBe("spool");
+
+      const view = buildProjectStateReadModel(store, "melee", {
+        aheadOfBase: 0,
+        head: { dirty: false },
+      });
+      expect(view.save_point_stale).toBe(true);
+      expect(view.session_blockers).toContainEqual(expect.objectContaining({ code: "save_point_failed" }));
+      expect(view.available_actions.find((action) => action.action_id === "session.close")?.blocked_by).toContainEqual(
+        expect.objectContaining({ code: "save_point_failed" }),
+      );
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("includes epoch status on epoch targets so stale admitted rows can be excluded from the active queue", () => {
     const { dir, store } = tempState();
     let runId = "";

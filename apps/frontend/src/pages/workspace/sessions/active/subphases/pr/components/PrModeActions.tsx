@@ -9,8 +9,15 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
   const prepareEnabled = view.handoffIdle && (view.runStatus === "active" || view.runStatus === "paused");
   const lockReason = prLockReason(view);
   const localPrepCount = view.prRecords.filter((record) => record.status === "planned" && record.localStatus === "not_prepared").length;
-  const draftCandidateCount = view.prRecords.filter(isDraftBatchCandidate).length;
-  const plannedCount = view.prRecords.filter((record) => record.status === "planned").length;
+  const draftCandidates = view.prRecords.filter(isDraftBatchCandidate);
+  const draftCandidateCount = draftCandidates.length;
+  const plannedRecords = view.prRecords.filter((record) => record.status === "planned");
+  const plannedCount = plannedRecords.length;
+  const confirmPublish = (records: typeof view.prRecords, action: DashboardAction) => {
+    const names = records.map((record) => record.displayName || record.branch).join(", ");
+    const count = records.length;
+    if (window.confirm(`Publish ${count} draft PR${count === 1 ? "" : "s"} upstream?\n\nSeries: ${names}\n\nThis will create the draft PR${count === 1 ? "" : "s"} on GitHub.`)) onAction(action);
+  };
   return (
     <PanelSection>
       <PanelTitle>Pipeline Actions</PanelTitle>
@@ -32,7 +39,7 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
           <Button disabled={busy || localPrepCount === 0 || Boolean(lockReason)} icon={<Hammer size={13} />} onClick={() => onAction("prepareLocalBatch")} title={lockReason || (localPrepCount > 0 ? "Prepare the next three planned PR slices in local worktrees without publishing drafts." : "No planned slices need local preparation.")} type="button">
             Prepare Next 3
           </Button>
-          <Button disabled={busy || draftCandidateCount === 0 || Boolean(lockReason)} icon={<GitPullRequest size={13} />} onClick={() => onAction("openDraftBatch")} title={lockReason || (draftCandidateCount > 0 ? "Open the next three local-ready or local-branch slices as GitHub drafts." : "No local draft candidates to open.")} tone={draftCandidateCount > 0 && !lockReason ? "primary" : undefined} type="button">
+          <Button disabled={busy || draftCandidateCount === 0 || Boolean(lockReason)} icon={<GitPullRequest size={13} />} onClick={() => confirmPublish(draftCandidates.slice(0, 3), "openDraftBatch")} title={lockReason || (draftCandidateCount > 0 ? "Open the next three local-ready or local-branch slices as GitHub drafts." : "No local draft candidates to open.")} tone={draftCandidateCount > 0 && !lockReason ? "primary" : undefined} type="button">
             Open Next 3
           </Button>
         </div>
@@ -63,7 +70,7 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
           <Button disabled={busy || !view.handoffIdle || view.runStatus !== "paused"} icon={<Wrench size={13} />} onClick={() => onAction("reconcile")} title={view.handoffIdle && view.runStatus === "paused" ? "Run reconcile against the latest QA report." : view.handoffReason || "Workers must be stopped for PR handoff."} type="button">
             Reconcile
           </Button>
-          <Button disabled={busy || plannedCount === 0 || Boolean(lockReason)} icon={<GitPullRequest size={13} />} onClick={() => onAction("openAllPrs")} title={lockReason || (plannedCount > 0 ? "Legacy path: open all planned slices as draft PRs." : "No planned real PR slices to open.")} type="button">
+          <Button disabled={busy || plannedCount === 0 || Boolean(lockReason)} icon={<GitPullRequest size={13} />} onClick={() => confirmPublish(plannedRecords, "openAllPrs")} title={lockReason || (plannedCount > 0 ? "Legacy path: open all planned slices as draft PRs." : "No planned real PR slices to open.")} type="button">
             Open All Drafts
           </Button>
         </div>

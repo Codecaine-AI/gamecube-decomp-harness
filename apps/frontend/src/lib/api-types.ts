@@ -61,6 +61,7 @@ export interface ToolConcurrencySettings {
 
 export interface Dashboard {
   project: ProjectSummary | null;
+  projectState?: JsonObject | null;
   projectSession?: JsonObject | null;
   projectWarnings?: string[];
   repoRoot: string;

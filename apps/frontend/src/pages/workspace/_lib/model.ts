@@ -1,6 +1,12 @@
 import { asArray, asObject, numberValue, shortId, text, type Dashboard, type FormState, type JsonObject, type UiConfig } from "@/lib/format";
 import { processView } from "@/lib/processView";
-import type { PrFlowRecord, SessionView } from "./types";
+import type {
+  PrFlowRecord,
+  ProjectStateActionProjection,
+  ProjectStateBlocker,
+  ProjectStateReadModel,
+  SessionView,
+} from "./types";
 
 function isLocalBranchPrRecord(record: PrFlowRecord): boolean {
   return record.sourceDetail === "local_branch_discovery" || /^codex\/split-\d{2}-/.test(record.branch);
@@ -83,6 +89,117 @@ function booleanValue(value: unknown, fallback = false): boolean {
     if (/^(0|false|no)$/i.test(value)) return false;
   }
   return fallback;
+}
+
+function projectStateBlocker(value: unknown): ProjectStateBlocker {
+  const blocker = asObject(value);
+  return {
+    code: text(blocker.code),
+    message: text(blocker.message),
+    source_kind: text(blocker.source_kind),
+    source_id: text(blocker.source_id),
+    recoverable: booleanValue(blocker.recoverable),
+  };
+}
+
+export function projectStateReadModel(dashboard: Dashboard | null): ProjectStateReadModel | null {
+  const raw = asObject(dashboard?.projectState);
+  if (Object.keys(raw).length === 0) return null;
+
+  const activeWorkflowRaw = asObject(raw.active_workflow);
+  const requestedHandoffRaw = asObject(activeWorkflowRaw.requested_handoff);
+  const sessionRaw = asObject(raw.session);
+  const latestSavePointRaw = asObject(sessionRaw.latest_save_point);
+  const activeWorkflow = Object.keys(activeWorkflowRaw).length > 0
+    ? {
+        kind: text(activeWorkflowRaw.kind) as "run" | "pr" | "sync",
+        workflow_id: text(activeWorkflowRaw.workflow_id),
+        lease_id: text(activeWorkflowRaw.lease_id),
+        status: text(activeWorkflowRaw.status) as "acquiring" | "active" | "draining" | "blocked" | "releasing",
+        acquired_at: text(activeWorkflowRaw.acquired_at),
+        heartbeat_at: text(activeWorkflowRaw.heartbeat_at),
+        ...(Object.keys(requestedHandoffRaw).length > 0
+          ? {
+              requested_handoff: {
+                target_kind: text(requestedHandoffRaw.target_kind) as "run" | "pr" | "sync",
+                target_workflow_id: text(requestedHandoffRaw.target_workflow_id),
+                reason: text(requestedHandoffRaw.reason),
+                requested_at: text(requestedHandoffRaw.requested_at),
+              },
+            }
+          : {}),
+        blockers: asArray(activeWorkflowRaw.blockers).map(projectStateBlocker),
+      }
+    : null;
+
+  const session = Object.keys(sessionRaw).length > 0
+    ? {
+        session_uuid: text(sessionRaw.session_uuid),
+        head_revision: text(sessionRaw.head_revision) || null,
+        status: text(sessionRaw.status),
+        latest_save_point: Object.keys(latestSavePointRaw).length > 0
+          ? {
+              id: text(latestSavePointRaw.id),
+              triggerKind: text(latestSavePointRaw.triggerKind),
+              label: text(latestSavePointRaw.label) || null,
+              commitSha: text(latestSavePointRaw.commitSha) || null,
+              matchedCodePercent: Number.isFinite(numberValue(latestSavePointRaw.matchedCodePercent, NaN))
+                ? numberValue(latestSavePointRaw.matchedCodePercent)
+                : null,
+              createdAt: text(latestSavePointRaw.createdAt),
+            }
+          : null,
+        save_point_stale: booleanValue(sessionRaw.save_point_stale),
+        timeline: asArray(sessionRaw.timeline).map((value) => {
+          const entry = asObject(value);
+          return {
+            id: numberValue(entry.id),
+            session_uuid: text(entry.session_uuid),
+            entry_kind: text(entry.entry_kind) as "epoch_completed" | "remote_application" | "pr_phase" | "save_point",
+            entry_id: text(entry.entry_id),
+            occurred_at: text(entry.occurred_at),
+            payload: asObject(entry.payload),
+            caused_by_event_id: text(entry.caused_by_event_id) || null,
+          };
+        }),
+      }
+    : null;
+
+  return {
+    revision: numberValue(raw.revision),
+    active_workflow: activeWorkflow,
+    queued_dispatch_requests: asArray(raw.queued_dispatch_requests).map((value) => {
+      const request = asObject(value);
+      return {
+        kind: text(request.kind) as "run" | "pr" | "sync",
+        workflow_id: text(request.workflow_id),
+        reason: text(request.reason),
+        requested_at: text(request.requested_at),
+        requested_by: text(request.requested_by),
+      };
+    }),
+    session,
+    latest_event_sequence: numberValue(raw.latest_event_sequence),
+    available_actions: asArray(raw.available_actions).map((value): ProjectStateActionProjection => {
+      const action = asObject(value);
+      return {
+        action_id: text(action.action_id),
+        subject_kind: text(action.subject_kind),
+        subject_id: text(action.subject_id),
+        enabled: booleanValue(action.enabled),
+        blocked_by: asArray(action.blocked_by).map(projectStateBlocker),
+        expected_transition: text(action.expected_transition),
+        confirmation_required: booleanValue(action.confirmation_required),
+      };
+    }),
+  };
+}
+
+export function projectStateAction(
+  projectState: ProjectStateReadModel | null,
+  actionId: string,
+): ProjectStateActionProjection | null {
+  return projectState?.available_actions.find((action) => action.action_id === actionId) ?? null;
 }
 
 function artifactStatus(value: JsonObject, keys: string[]): boolean {
@@ -213,6 +330,7 @@ function derivedPrRecords(dashboard: Dashboard | null, hasMeleePrFixture: boolea
 }
 
 export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig | null, form: FormState): SessionView {
+  const projectState = projectStateReadModel(dashboard);
   const project =
     dashboard?.project ??
     config?.availableProjects.find((item) => item.id === form.projectId) ??
@@ -266,7 +384,7 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
   const canonicalPhase = text(canonicalSession.phase);
   const canonicalSubphase = text(canonicalSession.activeSubphase);
   const canonicalStatus = text(canonicalSession.status);
-  const canonicalSessionId = text(canonicalSession.sessionUuid, text(canonicalSession.id));
+  const canonicalSessionId = projectState?.session?.session_uuid || text(canonicalSession.sessionUuid, text(canonicalSession.id));
   const canonicalBlockers = asArray(canonicalSession.blockers)
     .map(asObject)
     .map((blocker) => text(blocker.message, text(blocker.code)))
@@ -472,6 +590,7 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
     },
     process,
     project,
+    projectState,
     recommendedSub,
     runStatus,
     sessionStageStates,
