@@ -1,4 +1,12 @@
 import type { Database } from "bun:sqlite";
+import { runStorageMigrations } from "./migrations/index.js";
+
+export {
+  PROJECT_EVENTS_DDL,
+  PROJECT_STATE_DDL,
+  SCHEMA_MIGRATIONS_DDL,
+  SESSION_TIMELINE_ENTRIES_DDL,
+} from "./migrations/ddl.js";
 
 function columnNames(db: Database, table: string): Set<string> {
   const rows = db.query(`PRAGMA table_info(${table})`).all() as Array<Record<string, unknown>>;
@@ -19,7 +27,7 @@ export function configureConnection(db: Database): void {
   db.run("PRAGMA wal_autocheckpoint = 1000");
 }
 
-export function ensureSchema(db: Database): void {
+export function ensureLegacySchema(db: Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS runs (
       id TEXT PRIMARY KEY,
@@ -435,4 +443,9 @@ export function ensureSchema(db: Database): void {
   ensureColumn(db, "worker_checkpoints", "validation_state", "TEXT NOT NULL DEFAULT 'tentative'");
   ensureColumn(db, "worker_output_integrations", "validation_state", "TEXT NOT NULL DEFAULT 'tentative'");
   ensureColumn(db, "project_sessions", "kernel_trace_json", "TEXT NOT NULL DEFAULT '{}'");
+}
+
+export function ensureSchema(db: Database): void {
+  ensureLegacySchema(db);
+  runStorageMigrations(db);
 }

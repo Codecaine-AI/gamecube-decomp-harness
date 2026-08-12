@@ -1,19 +1,72 @@
 import { sql } from "drizzle-orm";
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { EventType, PiSessionStatus, RunStatus, RuntimeAgentRole } from "@server/core/shared/types";
 import type { WriteSetEntry } from "@server/core/session-runtime/run-state/write-set-categories.js";
 import type {
   CompletePhaseState,
   PreparingPhaseState,
+  ProjectSessionBlocker,
   ProjectSessionKernelTraceState,
   ProjectSessionPhase,
   ProjectSessionProcessState,
   ProjectSessionStatus,
   PrPhaseState,
   RunningPhaseState,
+  SessionTimelineEntryKind,
 } from "@server/core/project-session/types.js";
 
 export type JsonObject = Record<string, unknown>;
+export type ProjectEventActor = "operator" | "runner" | "agent" | "guardian" | "external_observer";
+
+export const schemaMigrations = sqliteTable("schema_migrations", {
+  version: integer("version").primaryKey(),
+  name: text("name").notNull(),
+  appliedAt: text("applied_at").notNull(),
+});
+
+export const projectEvents = sqliteTable(
+  "project_events",
+  {
+    sequence: integer("sequence").primaryKey({ autoIncrement: true }),
+    eventId: text("event_id").notNull().unique(),
+    eventType: text("event_type").notNull(),
+    schemaVersion: integer("schema_version").notNull().default(1),
+    projectId: text("project_id").notNull(),
+    subjectKind: text("subject_kind").notNull(),
+    subjectId: text("subject_id").notNull(),
+    correlationId: text("correlation_id").notNull(),
+    causationId: text("causation_id").notNull(),
+    traceId: text("trace_id").notNull(),
+    spanId: text("span_id").notNull(),
+    actor: text("actor").$type<ProjectEventActor>().notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    payloadJson: text("payload_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
+  },
+  (table) => [
+    index("project_events_subject_sequence").on(table.subjectKind, table.subjectId, table.sequence),
+    index("project_events_type_sequence").on(table.eventType, table.sequence),
+    index("project_events_correlation_sequence").on(table.correlationId, table.sequence),
+    check(
+      "project_events_actor_check",
+      sql`${table.actor} IN ('operator', 'runner', 'agent', 'guardian', 'external_observer')`,
+    ),
+  ],
+);
+
+export const projectState = sqliteTable("project_state", {
+  projectId: text("project_id").primaryKey(),
+  revision: integer("revision").notNull().default(0),
+  activeWorkflowJson: text("active_workflow_json", { mode: "json" }).$type<JsonObject>(),
+  queuedRequestsJson: text("queued_requests_json", { mode: "json" })
+    .$type<JsonObject[]>()
+    .notNull()
+    .default(sql`'[]'`),
+  blockersJson: text("blockers_json", { mode: "json" }).$type<JsonObject[]>().notNull().default(sql`'[]'`),
+  traceId: text("trace_id").notNull(),
+  causedByEventId: text("caused_by_event_id"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
 
 export const runs = sqliteTable("runs", {
   id: text("id").primaryKey(),
@@ -421,6 +474,12 @@ export const projectSessions = sqliteTable(
     activeRunId: text("active_run_id"),
     baseRef: text("base_ref"),
     baseSha: text("base_sha"),
+    revision: integer("revision").notNull().default(0),
+    headRevision: text("head_revision"),
+    traceId: text("trace_id"),
+    blockersJson: text("blockers_json", { mode: "json" }).$type<ProjectSessionBlocker[]>().notNull().default(sql`'[]'`),
+    savePointStale: integer("save_point_stale", { mode: "boolean" }).notNull().default(false),
+    causedByEventId: text("caused_by_event_id"),
     preparingStateJson: text("preparing_state_json", { mode: "json" }).$type<PreparingPhaseState>().notNull(),
     runningStateJson: text("running_state_json", { mode: "json" }).$type<RunningPhaseState>().notNull(),
     prStateJson: text("pr_state_json", { mode: "json" }).$type<PrPhaseState>().notNull(),
@@ -430,12 +489,38 @@ export const projectSessions = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     completedAt: text("completed_at"),
+    closedAt: text("closed_at"),
   },
   (table) => [
     index("project_sessions_project_updated").on(table.projectId, table.updatedAt),
     uniqueIndex("project_sessions_one_active_project")
       .on(table.projectId)
-      .where(sql`${table.status} IN ('active', 'blocked')`),
+      .where(sql`${table.status} IN ('active', 'blocked', 'closing')`),
+  ],
+);
+
+export const sessionTimelineEntries = sqliteTable(
+  "session_timeline_entries",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sessionUuid: text("session_uuid").notNull(),
+    entryKind: text("entry_kind").$type<SessionTimelineEntryKind>().notNull(),
+    entryId: text("entry_id").notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    payloadJson: text("payload_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
+    causedByEventId: text("caused_by_event_id"),
+  },
+  (table) => [
+    uniqueIndex("session_timeline_entries_session_kind_entry").on(
+      table.sessionUuid,
+      table.entryKind,
+      table.entryId,
+    ),
+    index("session_timeline_entries_session_order").on(table.sessionUuid, table.id),
+    check(
+      "session_timeline_entries_kind_check",
+      sql`${table.entryKind} IN ('epoch_completed', 'remote_application', 'pr_phase', 'save_point')`,
+    ),
   ],
 );
 
@@ -450,10 +535,14 @@ export const orchestratorStateSchema = {
   facts,
   integrations,
   piSessions,
+  projectEvents,
   projectSessions,
+  projectState,
   runCheckpoints,
   runs,
   savePoints,
+  schemaMigrations,
+  sessionTimelineEntries,
   targetClaims,
   targets,
   workerCheckpoints,
@@ -485,4 +574,11 @@ export type CampaignRow = typeof campaigns.$inferSelect;
 export type SavePointRow = typeof savePoints.$inferSelect;
 export type ProjectSessionRow = typeof projectSessions.$inferSelect;
 export type NewProjectSessionRow = typeof projectSessions.$inferInsert;
+export type SessionTimelineEntryRow = typeof sessionTimelineEntries.$inferSelect;
+export type NewSessionTimelineEntryRow = typeof sessionTimelineEntries.$inferInsert;
 export type DashboardArtifactRow = typeof dashboardArtifacts.$inferSelect;
+export type SchemaMigrationRow = typeof schemaMigrations.$inferSelect;
+export type ProjectEventRow = typeof projectEvents.$inferSelect;
+export type NewProjectEventRow = typeof projectEvents.$inferInsert;
+export type ProjectStateRow = typeof projectState.$inferSelect;
+export type NewProjectStateRow = typeof projectState.$inferInsert;
