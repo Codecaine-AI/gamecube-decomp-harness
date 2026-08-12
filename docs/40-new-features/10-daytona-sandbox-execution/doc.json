@@ -70,6 +70,17 @@
         "b-40-nf-day-59"
       ]
     },
+    "b-40-nf-day-intro": {
+      "id": "b-40-nf-day-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Workers move their execution — builds, permuter runs, file edits — into per-worker Daytona micro-VM sandboxes, while the agent process, knowledge system, and all orchestration stay on the host. This doc records the decided architecture, the lifecycle and cost strategy, and the open questions the proof of concept must answer."
+        }
+      ],
+      "children": []
+    },
     "b-40-nf-day-2": {
       "id": "b-40-nf-day-2",
       "type": "callout",
@@ -77,7 +88,6 @@
         "title": "Status: exploration complete, pre-implementation (August 2026)",
         "tone": "info"
       },
-      "children": [],
       "text": [
         {
           "insert": "Decision: pipe worker "
@@ -88,7 +98,8 @@
         {
           "insert": " into per-worker Daytona micro-VM sandboxes. The agent process itself — the model loop, knowledge tools, telemetry, orchestration — stays on the host. Sandboxes are hands, not brains."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-3": {
       "id": "b-40-nf-day-3",
@@ -96,18 +107,17 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "The Core Idea"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-4": {
       "id": "b-40-nf-day-4",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "A worker today is a Bun subprocess of the orchestrator running the Pi agent SDK in-process ("
@@ -121,13 +131,13 @@
         {
           "insert": "). Every tool the model calls is a JS closure inside that process. The heavy part of a worker's life — editing source, compiling TUs with MWCC, scoring with objdiff, running the source permuter — happens as shell subprocesses in a per-worker git worktree of the melee checkout."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-5": {
       "id": "b-40-nf-day-5",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "The change: those shell subprocesses and file operations execute inside a dedicated Daytona sandbox instead of on the host. The worker process on our machine is unchanged in every other respect. The model never knows the difference — it calls "
@@ -141,7 +151,8 @@
         {
           "insert": ", it gets stdout back."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-6": {
       "id": "b-40-nf-day-6",
@@ -189,12 +200,12 @@
       "id": "b-40-nf-day-7",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "16 concurrent workers = 16 concurrent sandboxes; the target is 64."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-8": {
       "id": "b-40-nf-day-8",
@@ -202,29 +213,28 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "What Runs Where"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-9": {
       "id": "b-40-nf-day-9",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "The routing rule: if it needs the build tree, it runs in the sandbox; if it needs a knowledge corpus, it runs locally on the host."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-10": {
       "id": "b-40-nf-day-10",
       "type": "structured-table",
       "props": {
-        "title": "Stays on the host (unchanged)",
         "columns": [
           "Component",
           "Why it stays"
@@ -258,7 +268,8 @@
             "Kernel Postgres (:55432), .pi-sessions tailer",
             "Orchestrator-only today; workers never connect"
           ]
-        ]
+        ],
+        "title": "Stays on the host (unchanged)"
       },
       "children": []
     },
@@ -266,7 +277,6 @@
       "id": "b-40-nf-day-11",
       "type": "structured-table",
       "props": {
-        "title": "Moves into the sandbox",
         "columns": [
           "Component",
           "Notes"
@@ -292,7 +302,8 @@
             "m2c_decompile and any corpus tool that also reads worktree files",
             "Per-tool audit: run sandbox-side or fetch the file via fs.downloadFile first"
           ]
-        ]
+        ],
+        "title": "Moves into the sandbox"
       },
       "children": []
     },
@@ -302,18 +313,17 @@
       "props": {
         "level": 3
       },
-      "children": [],
       "text": [
         {
           "insert": "The Implementation Seam"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-13": {
       "id": "b-40-nf-day-13",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "The model's "
@@ -327,7 +337,8 @@
         {
           "insert": " tool is already constructed with an injectable operations object:"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-14": {
       "id": "b-40-nf-day-14",
@@ -335,18 +346,17 @@
       "props": {
         "language": "typescript"
       },
-      "children": [],
       "text": [
         {
           "insert": "// kernel-pi-runner.ts:612-618\npi.registerTool(createBashToolDefinition(options.cwd, { operations: trackedBashOperations() }))"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-15": {
       "id": "b-40-nf-day-15",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "trackedBashOperations()",
@@ -393,7 +403,8 @@
         {
           "insert": ") — the worker-scoped call sites get the same treatment."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-16": {
       "id": "b-40-nf-day-16",
@@ -401,23 +412,23 @@
       "props": {
         "level": 3
       },
-      "children": [],
       "text": [
         {
           "insert": "File Tools Against a Remote Worktree"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-17": {
       "id": "b-40-nf-day-17",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "The sandbox is the single source of truth for the worktree — the host never holds a copy. Every tool that touches files crosses the wire, not just bash:"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-18": {
       "id": "b-40-nf-day-18",
@@ -456,7 +467,6 @@
       "id": "b-40-nf-day-19",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "Pi supports this cleanly: built-ins we can't redirect get excluded ("
@@ -488,21 +498,23 @@
         {
           "insert": ") and replaced with sandbox-backed registrations under the same tool names. Each op is one HTTPS round trip to the Toolbox API — tens of ms against multi-second model turns. If read-heavy loops show up in latency traces, a host-side read cache invalidated on any write/exec is the escape hatch."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-20": {
       "id": "b-40-nf-day-20",
       "type": "callout",
       "props": {
+        "kind": "note",
         "title": "Rejected: relocating the whole worker process into the VM",
-        "tone": "note"
+        "tone": "info"
       },
-      "children": [],
       "text": [
         {
           "insert": "Running job-runner.ts worker inside the sandbox was considered and rejected for v1. It drags along kernel Postgres reachability, codex-lb on a routable address, .pi-agent/models.json + local.env plaintext secrets in every sandbox, vendoring the out-of-tree packages/agent-kernel symlink, and the loss of in-process tool telemetry. Five problems instead of one. Possible as a later phase."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-21": {
       "id": "b-40-nf-day-21",
@@ -510,23 +522,23 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "What Is in a Sandbox"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-22": {
       "id": "b-40-nf-day-22",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "Three layers. Nothing intelligent ever enters: no model access, no knowledge corpora, no secrets, no orchestrator state."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-23": {
       "id": "b-40-nf-day-23",
@@ -534,12 +546,12 @@
       "props": {
         "level": 3
       },
-      "children": [],
       "text": [
         {
           "insert": "Layer 1 — Baked into the Snapshot (built once)"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-24": {
       "id": "b-40-nf-day-24",
@@ -586,7 +598,6 @@
       "id": "b-40-nf-day-25",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "The image is fully configured AND fully built at bake time ("
@@ -609,7 +620,8 @@
         {
           "insert": " is an incremental single-TU rebuild in seconds — today's 20-minute per-worker configure/bootstrap budget disappears. Measured payload ≈ 390 MB; with a slim Debian base plus tooling the image lands around 1 GB, comfortably inside the 10 GiB container disk cap with room for 3–5 GiB per-sandbox disk including build scratch."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-26": {
       "id": "b-40-nf-day-26",
@@ -617,12 +629,12 @@
       "props": {
         "level": 3
       },
-      "children": [],
       "text": [
         {
           "insert": "Layer 2 — Pushed per Worker at Claim Time (<10 MB, seconds)"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-27": {
       "id": "b-40-nf-day-27",
@@ -657,12 +669,12 @@
       "props": {
         "level": 3
       },
-      "children": [],
       "text": [
         {
           "insert": "Layer 3 — Flows During the Run"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-29": {
       "id": "b-40-nf-day-29",
@@ -670,7 +682,6 @@
       "props": {
         "ordered": false
       },
-      "children": [],
       "text": [
         {
           "insert": "Inbound: every model bash/edit → "
@@ -693,7 +704,8 @@
         {
           "insert": " calls; runner validation takes the same path."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-30": {
       "id": "b-40-nf-day-30",
@@ -701,7 +713,6 @@
       "props": {
         "ordered": false
       },
-      "children": [],
       "text": [
         {
           "insert": "Outbound: command output (streamed via "
@@ -724,7 +735,8 @@
         {
           "insert": ". Host-side integration is unchanged."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-31": {
       "id": "b-40-nf-day-31",
@@ -732,23 +744,23 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "Lifecycle Strategy: No Warm Pool, Stop While Thinking"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-32": {
       "id": "b-40-nf-day-32",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "Warm pools were evaluated and rejected. A create request only claims a warm sandbox with no custom env vars, volumes, or secrets and exact snapshot/region/resource match; warm sandboxes are running, so they bill CPU/RAM and hold tier quota while idle; the expensive startup step (configure + build) moves into the snapshot anyway; and warm pools are REST-only with no TypeScript SDK surface. On-demand creation from the pre-built snapshot (\"snapshot fan-out\") is Daytona's own recommended production pattern. Revisit only if worker lifecycles become short or bursty enough that creation latency dominates."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-33": {
       "id": "b-40-nf-day-33",
@@ -756,23 +768,23 @@
       "props": {
         "level": 3
       },
-      "children": [],
       "text": [
         {
           "insert": "Idle Economics: Stop While Thinking"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-34": {
       "id": "b-40-nf-day-34",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "A worker's sandbox is idle most of the time — the agent spends minutes of xhigh reasoning between tool calls. A stopped container bills disk only: vCPU/RAM are freed and released from tier quota while the filesystem stays on the runner for fast restart with all state preserved (agent edits, incremental ninja objects). Strategies at 64 workers × 2 vCPU with ~25% active duty cycle:"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-35": {
       "id": "b-40-nf-day-35",
@@ -815,12 +827,12 @@
       "id": "b-40-nf-day-36",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "The host-side worker process is the one awaiting codex-lb, so it knows exactly when the model is thinking — no guess-based timeout:"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-37": {
       "id": "b-40-nf-day-37",
@@ -853,12 +865,12 @@
         "title": "Constraints stop-while-thinking introduces",
         "tone": "warning"
       },
-      "children": [],
       "text": [
         {
           "insert": "Incompatible with ephemeral: true — ephemeral sandboxes self-delete on stop. Use normal sandboxes + ttlMinutes as crash backstop + explicit delete() at cycle end. Stopped containers still hold disk quota until archived: 64 × 5 GiB = 320 GiB is just over Tier 2's 300 GiB — either 4 GiB disk per sandbox (fits Tier 2) or Tier 3. Container stop does not preserve memory: running processes die, so long-lived background work must finish before stopping. Wake latency is undocumented — a first-class PoC measurement; if it comes back over 5–10 s, raise the idle threshold."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-39": {
       "id": "b-40-nf-day-39",
@@ -866,12 +878,12 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "Scale: 64 Concurrency"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-40": {
       "id": "b-40-nf-day-40",
@@ -906,12 +918,12 @@
       "id": "b-40-nf-day-41",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "2 vCPU per sandbox is likely right: the hot path is single-TU incremental compiles, not parallel builds; only the permuter benefits from more cores. Creation rate limits (300–600/min) are a non-issue at 64. BYOC (custom regions, no concurrent-resource limits) is the path past ~120 concurrency."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-42": {
       "id": "b-40-nf-day-42",
@@ -919,12 +931,12 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "Host Footprint: Before and After"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-43": {
       "id": "b-40-nf-day-43",
@@ -959,26 +971,27 @@
       "id": "b-40-nf-day-44",
       "type": "paragraph",
       "props": {},
-      "children": [],
       "text": [
         {
           "insert": "The host keeps only durable shared state: one session repo (6.3 GB), knowledge + graph (~7.5 GB), tool-data (592 MB), orchestrator SQLite. Scaling 16 → 64 workers adds approximately zero host disk and CPU; cleanup is delete() on a sandbox instead of worktree-prune hygiene. The filesystem-mutex concurrency machinery (.worker-ninja-slots, .worker-tool-slots, .git-worktree-add.lock) — which would silently break across VMs — becomes mostly unnecessary: each sandbox's CPU allocation enforces per-worker build concurrency, and host-side corpus-tool slots keep working because those tools stay local."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-45": {
       "id": "b-40-nf-day-45",
       "type": "callout",
       "props": {
+        "kind": "note",
         "title": "Known exception: the epoch boundary gauntlet",
-        "tone": "note"
+        "tone": "info"
       },
-      "children": [],
       "text": [
         {
           "insert": "At each epoch the run loop builds the entire game (ninja report.json + changes_all) in an epoch worktree on the host (epochs/cycle.ts). It is the biggest single build in the system and the last reason the host needs a full toolchain. Option: one larger, longer-lived sandbox per epoch boundary — same mechanics, different sizing. In PoC scope as a toggle, not required for v1."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-46": {
       "id": "b-40-nf-day-46",
@@ -986,22 +999,21 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "Daytona Surface We Use"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-47": {
       "id": "b-40-nf-day-47",
       "type": "interaction-surface",
       "props": {
-        "title": "SDK operations the orchestrator drives (@daytona/sdk)",
         "operations": [
           {
             "name": "daytona.create",
-            "kind": "command",
+            "kind": "action",
             "params": [
               {
                 "name": "snapshot",
@@ -1020,19 +1032,19 @@
           },
           {
             "name": "sandbox.start / sandbox.stop",
-            "kind": "command",
+            "kind": "action",
             "params": [],
             "returns": "wake/sleep around model thinking; stopped = disk-only billing, quota released"
           },
           {
             "name": "sandbox.delete",
-            "kind": "command",
+            "kind": "action",
             "params": [],
             "returns": "teardown at worker cycle end"
           },
           {
             "name": "process.createSession + executeSessionCommand",
-            "kind": "command",
+            "kind": "action",
             "params": [
               {
                 "name": "sessionId",
@@ -1051,7 +1063,7 @@
           },
           {
             "name": "fs.uploadFile / fs.downloadFile (+ bulk variants)",
-            "kind": "command",
+            "kind": "action",
             "params": [
               {
                 "name": "path",
@@ -1071,7 +1083,8 @@
             ],
             "returns": "fleet reconciliation and orphan sweeps (AsyncIterableIterator)"
           }
-        ]
+        ],
+        "title": "SDK operations the orchestrator drives (@daytona/sdk)"
       },
       "children": []
     },
@@ -1079,7 +1092,6 @@
       "id": "b-40-nf-day-48",
       "type": "structured-table",
       "props": {
-        "title": "Explicitly not used",
         "columns": [
           "Feature",
           "Why not"
@@ -1105,7 +1117,8 @@
             "networkAllowList",
             "workers need no internet at all (model calls are host-side) — networkBlockAll: true instead, strictly better isolation than today"
           ]
-        ]
+        ],
+        "title": "Explicitly not used"
       },
       "children": []
     },
@@ -1115,12 +1128,12 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "Open Questions"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-50": {
       "id": "b-40-nf-day-50",
@@ -1128,12 +1141,12 @@
       "props": {
         "ordered": true
       },
-      "children": [],
       "text": [
         {
           "insert": "Disk: container sandboxes cap at 10 GiB — the ~1 GB image plus build scratch fits, but measure real usage in the PoC."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-51": {
       "id": "b-40-nf-day-51",
@@ -1141,12 +1154,12 @@
       "props": {
         "ordered": true
       },
-      "children": [],
       "text": [
         {
           "insert": "CPU: 4 vCPU max per container sandbox vs today's 12-way shared ninja slots — per-build slower, fully parallel across workers."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-52": {
       "id": "b-40-nf-day-52",
@@ -1154,12 +1167,12 @@
       "props": {
         "ordered": true
       },
-      "children": [],
       "text": [
         {
           "insert": "Auto-stop fires after 15 min of inactivity even with processes running — set autoStopInterval: 0 and drive stops explicitly."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-53": {
       "id": "b-40-nf-day-53",
@@ -1167,12 +1180,12 @@
       "props": {
         "ordered": true
       },
-      "children": [],
       "text": [
         {
           "insert": "MWCC under wibo on Daytona's runners needs a smoke test — 32-bit PE binaries under wibo on their kernel is the one real toolchain porting risk."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-54": {
       "id": "b-40-nf-day-54",
@@ -1180,12 +1193,12 @@
       "props": {
         "ordered": true
       },
-      "children": [],
       "text": [
         {
           "insert": "Exec latency: every tool call is an HTTPS round trip — fine for builds, measure chatty read/grep loops; bulk fs ops and presigned URLs batch hot paths."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-55": {
       "id": "b-40-nf-day-55",
@@ -1193,12 +1206,12 @@
       "props": {
         "ordered": true
       },
-      "children": [],
       "text": [
         {
           "insert": "Snapshots auto-deactivate after 2 weeks unused — needs a keepalive/reactivate step in the runbook."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-56": {
       "id": "b-40-nf-day-56",
@@ -1206,12 +1219,12 @@
       "props": {
         "ordered": true
       },
-      "children": [],
       "text": [
         {
           "insert": "canonical_tool_paths exists=\"...\" in the worker packet is stat'd on the host today (worker/tool-paths.ts) and would lie about the sandbox — stat via the sandbox or trust the snapshot manifest."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-57": {
       "id": "b-40-nf-day-57",
@@ -1219,12 +1232,12 @@
       "props": {
         "ordered": true
       },
-      "children": [],
       "text": [
         {
           "insert": "Per-tool audit for corpus tools that also read worktree files (m2c_decompile notably)."
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-58": {
       "id": "b-40-nf-day-58",
@@ -1232,12 +1245,12 @@
       "props": {
         "level": 2
       },
-      "children": [],
       "text": [
         {
           "insert": "Next Step: Proof of Concept"
         }
-      ]
+      ],
+      "children": []
     },
     "b-40-nf-day-59": {
       "id": "b-40-nf-day-59",
@@ -1270,17 +1283,6 @@
           }
         ]
       },
-      "children": []
-    },
-    "b-40-nf-day-intro": {
-      "id": "b-40-nf-day-intro",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Workers move their execution — builds, permuter runs, file edits — into per-worker Daytona micro-VM sandboxes, while the agent process, knowledge system, and all orchestration stay on the host. This doc records the decided architecture, the lifecycle and cost strategy, and the open questions the proof of concept must answer."
-        }
-      ],
       "children": []
     }
   }
