@@ -1,0 +1,600 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-20-project-state-and-events-50-sync",
+  "title": "Conflict-Safe Sync Boundary",
+  "root": "b-sync-root",
+  "blocks": {
+    "b-sync-root": {
+      "id": "b-sync-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "sync",
+          "reconciliation",
+          "staging",
+          "remote-application",
+          "corpus-intake"
+        ]
+      },
+      "children": [
+        "b-project-activity-sync-p",
+        "b-project-activity-decision-intake-fold",
+        "b-project-sync-intake-heading",
+        "b-project-sync-intake-sources-p",
+        "b-sync-intake-other-sources-li",
+        "b-sync-intake-single-route-li",
+        "b-project-sync-intake-mechanics-p",
+        "b-sync-conflict-application-li",
+        "b-sync-knowledge-only-pass-li",
+        "b-project-sync-decision-staging",
+        "b-project-sync-staging-heading",
+        "b-project-sync-staging-lifecycle-p",
+        "b-project-sync-staging-cancellation-p",
+        "b-sync-cancel-before-publish-li",
+        "b-sync-crash-recovery-li",
+        "b-sync-post-publish-forward-li",
+        "b-project-sync-staging-pr-series-p",
+        "b-sync-pr-series-resolution-li",
+        "b-sync-pr-operator-block-li",
+        "b-sync-pr-atomic-publish-li",
+        "b-project-activity-sync-flow",
+        "b-project-sync-shape",
+        "b-project-sync-statuses"
+      ]
+    },
+    "b-project-activity-sync-p": {
+      "id": "b-project-activity-sync-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync is the operator-initiated intake-and-reconciliation workflow: one manual entry point that checks for merged upstream PRs, processes their evidence, and processes any staged corpora such as Discord. New upstream PRs can invalidate local assumptions, duplicate matches, and create source conflicts, so they are observed and queued immediately but reconciled only once sync holds the dispatch lease. Conflict resolution therefore happens once at a named boundary — including applying conflicting upstream changes into the active working session — instead of leaking into running or PR workers. A sync with no upstream movement is a knowledge-only pass: it publishes staged corpus knowledge and leaves the source baseline untouched."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-decision-intake-fold": {
+      "id": "b-project-activity-decision-intake-fold",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-11) — knowledge intake folds into sync",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "There is no standalone knowledge_intake workflow kind; run, pr, and sync are the only workflow kinds that may hold the dispatch lease. Every knowledge source other than always-on worker-result evidence is processed inside an operator-started sync."
+        }
+      ],
+      "children": []
+    },
+    "b-project-sync-intake-heading": {
+      "id": "b-project-sync-intake-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Knowledge Sources and Sync Intake"
+        }
+      ],
+      "children": []
+    },
+    "b-project-sync-intake-sources-p": {
+      "id": "b-project-sync-intake-sources-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker-result evidence is the only always-on knowledge input, and the background sink ingests it continuously:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-intake-other-sources-li": {
+      "id": "b-sync-intake-other-sources-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every other source — newly merged upstream PRs, staged corpora such as Discord, and all remaining knowledge sources — is processed only inside an operator-started sync rather than on a schedule."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-intake-single-route-li": {
+      "id": "b-sync-intake-single-route-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Intake that changes the executable source baseline is itself syncing, so this single manual entry point prevents the same merged-PR evidence from entering through two competing routes."
+        }
+      ],
+      "children": []
+    },
+    "b-project-sync-intake-mechanics-p": {
+      "id": "b-project-sync-intake-mechanics-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "When sync starts, it checks for upstream movement while processing merged-PR evidence and staged corpora:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-conflict-application-li": {
+      "id": "b-sync-conflict-application-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "If merged PRs conflict with local work, sync applies the upstream changes into the active working session and completes that application before publishing."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-knowledge-only-pass-li": {
+      "id": "b-sync-knowledge-only-pass-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "With no upstream movement, the same entry point becomes a knowledge-only pass that does not advance the source baseline."
+        }
+      ],
+      "children": []
+    },
+    "b-project-sync-decision-staging": {
+      "id": "b-project-sync-decision-staging",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — sync reconciles in staging and publishes atomically",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Sync never mutates the session worktree in place; reconciliation occurs in an isolated staging workspace. One atomic publish step advances the session head, records the remote-application boundary, marks invalidations, and pushes reconciled PR branches."
+        }
+      ],
+      "children": []
+    },
+    "b-project-sync-staging-heading": {
+      "id": "b-project-sync-staging-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Staging and the Atomic Publish"
+        }
+      ],
+      "children": []
+    },
+    "b-project-sync-staging-lifecycle-p": {
+      "id": "b-project-sync-staging-lifecycle-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "All reconciliation happens in the isolated staging workspace: the session history is rebased onto the new upstream, conflicts are resolved, and the reconciled state is revalidated before any head advances. In the typical mid-run flow, the run pauses, upstream is pulled down, reconciliation completes in staging, and only then do the heads advance."
+        }
+      ],
+      "children": []
+    },
+    "b-project-sync-staging-cancellation-p": {
+      "id": "b-project-sync-staging-cancellation-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Staging makes every pre-publish decision recoverable without disturbing the active session:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-cancel-before-publish-li": {
+      "id": "b-sync-cancel-before-publish-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Before publish, cancelling is free: staging is discarded, the session remains exactly as it was, and \"Not today\" stays available as an operator answer."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-crash-recovery-li": {
+      "id": "b-sync-crash-recovery-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "If sync crashes before publish, recovery can instead resume from the last durable stage or discard staging."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-post-publish-forward-li": {
+      "id": "b-sync-post-publish-forward-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Publish closes that recovery window; afterward there is no abort, and the system can only move forward."
+        }
+      ],
+      "children": []
+    },
+    "b-project-sync-staging-pr-series-p": {
+      "id": "b-project-sync-staging-pr-series-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The same staging boundary reconciles the open PR campaign's series alongside the session history:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-pr-series-resolution-li": {
+      "id": "b-sync-pr-series-resolution-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Most series rebase cleanly; agents handle the minor merge-conflict resolution that some series require inside staging, and minor mechanical conflicts auto-resolve."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-pr-operator-block-li": {
+      "id": "b-sync-pr-operator-block-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Any conflict the agents cannot resolve confidently blocks sync for operator resolution, so nothing ambiguous publishes without the operator."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-pr-atomic-publish-li": {
+      "id": "b-sync-pr-atomic-publish-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The atomic publish then advances the heads and pushes the reconciled branches to their upstream PRs as one boundary."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-sync-flow": {
+      "id": "b-project-activity-sync-flow",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "New upstream PRs are observed",
+            "steps": [
+              {
+                "text": "Record the upstream revision and PR identities"
+              },
+              {
+                "text": "Stage dumps, postmortem inputs, and a sync request"
+              },
+              {
+                "text": "Do not mutate the active workflow",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "The current active workflow hands off",
+            "steps": [
+              {
+                "text": "Stop new worker admission"
+              },
+              {
+                "text": "Drain or recover active workers and operations"
+              },
+              {
+                "text": "Write an immutable handoff snapshot"
+              },
+              {
+                "text": "Release the old lease"
+              }
+            ]
+          },
+          {
+            "text": "Sync acquires the dispatch lease",
+            "steps": [
+              {
+                "text": "Fetch and identify the complete upstream change set"
+              },
+              {
+                "text": "Process merged-PR evidence into staged knowledge"
+              },
+              {
+                "text": "Process staged corpora such as Discord into staged knowledge"
+              },
+              {
+                "text": "Rebase the session history, through its completed epochs, onto the new upstream revision in an isolated staging workspace"
+              },
+              {
+                "text": "Resolve merge conflicts against the session head — agents auto-resolve minor conflicts; ambiguous ones block sync for operator resolution"
+              },
+              {
+                "text": "Resolve duplicate matches and build failures"
+              },
+              {
+                "text": "Rebase the open PR campaign's series branches in staging and stage pushes to their upstream PRs"
+              },
+              {
+                "text": "Validate the reconciled staging state without rebuilding everything"
+              },
+              {
+                "text": "With no upstream movement, skip the rebase and run as a knowledge-only pass",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Publish the new boundary",
+            "steps": [
+              {
+                "text": "Publication starts only from the explicit, confirm-gated operator publish action; sync rests at validated until then",
+                "kind": "note"
+              },
+              {
+                "text": "Atomically advance canonical upstream and knowledge revisions"
+              },
+              {
+                "text": "Record a remote-application boundary in the session timeline — prior head, new head, resolved conflicts, score delta — referenced by the interrupted run when one is active"
+              },
+              {
+                "text": "Mark invalidated targets, checkpoints, and PR snapshots explicitly"
+              },
+              {
+                "text": "Push reconciled PR series branches to their upstream PRs"
+              },
+              {
+                "text": "Release sync authority; the run resumes and the scheduler recomputes next candidates against the new head"
+              },
+              {
+                "text": "A knowledge-only pass advances only the knowledge revision and records no boundary",
+                "kind": "note"
+              },
+              {
+                "text": "Before publish, cancelling discards staging and leaves the session untouched; after publish there is no abort",
+                "kind": "note"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-project-sync-shape": {
+      "id": "b-project-sync-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Sync workflow: intake identity, staging progress, PR-branch reconciliation, and the atomic publication record.",
+        "example": "{\n  \"sync_id\": \"sync-2026-08-11-02\",\n  \"project_id\": \"melee\",\n  \"session_id\": \"session-7\",\n  \"revision\": 41,\n  \"status\": \"reconciling\",\n  \"intake\": {\n    \"upstream_from\": \"upstream-9ac4\",\n    \"upstream_to\": \"upstream-9ba1\",\n    \"merged_pr_ids\": [\n      \"pr-2849\",\n      \"pr-2851\"\n    ],\n    \"corpus_batch_ids\": [\n      \"discord-2026-08\"\n    ],\n    \"knowledge_only\": false\n  },\n  \"staging\": {\n    \"workspace_id\": \"staging-sync-02\",\n    \"epochs_total\": 19,\n    \"epochs_applied\": 9,\n    \"minor_conflicts_resolved\": 3,\n    \"conflicts_awaiting_operator\": 1\n  },\n  \"pr_reconciliation\": [\n    {\n      \"series_id\": \"series-20\",\n      \"result\": \"auto_resolved\",\n      \"pushed\": false\n    }\n  ],\n  \"publication\": null,\n  \"created_at\": \"2026-08-11T19:02:00Z\",\n  \"latest_event_sequence\": 92830,\n  \"trace_id\": \"trace-sync-2026-08-11-02\",\n  \"blockers\": [\n    {\n      \"code\": \"conflict_needs_operator\",\n      \"message\": \"Upstream restructured a header epoch-9 matches depend on.\",\n      \"source_kind\": \"sync\",\n      \"source_id\": \"sync-2026-08-11-02\",\n      \"recoverable\": true\n    }\n  ]\n}",
+        "fields": [
+          {
+            "name": "sync_id",
+            "type": "SyncId"
+          },
+          {
+            "name": "project_id",
+            "type": "ProjectId"
+          },
+          {
+            "name": "session_id",
+            "type": "SessionId",
+            "description": "Owning session container."
+          },
+          {
+            "name": "revision",
+            "type": "integer"
+          },
+          {
+            "name": "status",
+            "type": "\"requested\" | \"ingesting\" | \"reconciling\" | \"validating\" | \"validated\" | \"publishing\" | \"published\" | \"blocked\" | \"cancelled\""
+          },
+          {
+            "name": "intake",
+            "type": "SyncIntake",
+            "description": "What this sync ingests. Captured when the operator starts sync.",
+            "fields": [
+              {
+                "name": "upstream_from",
+                "type": "SourceRevision",
+                "description": "Session head's upstream anchor before sync."
+              },
+              {
+                "name": "upstream_to",
+                "type": "SourceRevision",
+                "description": "Observed upstream target. Equals upstream_from on a knowledge-only pass."
+              },
+              {
+                "name": "merged_pr_ids",
+                "type": "UpstreamPrId[]"
+              },
+              {
+                "name": "corpus_batch_ids",
+                "type": "CorpusBatchId[]",
+                "description": "Staged corpora such as Discord awaiting publication."
+              },
+              {
+                "name": "knowledge_only",
+                "type": "boolean",
+                "description": "True when upstream did not move; reconciliation is skipped and only the knowledge revision advances."
+              }
+            ]
+          },
+          {
+            "name": "staging",
+            "type": "StagingProgress | null",
+            "description": "Isolated workspace where all reconciliation happens; null on a knowledge-only pass.",
+            "fields": [
+              {
+                "name": "workspace_id",
+                "type": "WorkspaceId"
+              },
+              {
+                "name": "epochs_total",
+                "type": "integer"
+              },
+              {
+                "name": "epochs_applied",
+                "type": "integer"
+              },
+              {
+                "name": "minor_conflicts_resolved",
+                "type": "integer"
+              },
+              {
+                "name": "conflicts_awaiting_operator",
+                "type": "integer"
+              }
+            ]
+          },
+          {
+            "name": "pr_reconciliation",
+            "type": "PrBranchReconciliation[]",
+            "description": "One entry per open PR series rebased alongside the session.",
+            "fields": [
+              {
+                "name": "series_id",
+                "type": "PrSeriesId"
+              },
+              {
+                "name": "result",
+                "type": "\"clean\" | \"auto_resolved\" | \"needs_operator\""
+              },
+              {
+                "name": "pushed",
+                "type": "boolean",
+                "description": "True once the reconciled branch is pushed to its upstream PR at publish."
+              }
+            ]
+          },
+          {
+            "name": "publication",
+            "type": "PublicationRecord | null",
+            "description": "Set by the atomic publish step; null until then.",
+            "fields": [
+              {
+                "name": "remote_application_id",
+                "type": "RemoteApplicationId",
+                "description": "Boundary recorded in the session timeline; absent on a knowledge-only pass."
+              },
+              {
+                "name": "prior_head",
+                "type": "SourceRevision"
+              },
+              {
+                "name": "new_head",
+                "type": "SourceRevision"
+              },
+              {
+                "name": "knowledge_revision",
+                "type": "KnowledgeRevision"
+              },
+              {
+                "name": "invalidated_ids",
+                "type": "string[]",
+                "description": "Targets, checkpoints, and PR snapshots explicitly invalidated by the boundary."
+              }
+            ]
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "latest_event_sequence",
+            "type": "integer"
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId"
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]"
+          }
+        ],
+        "name": "SyncState"
+      },
+      "children": []
+    },
+    "b-project-sync-statuses": {
+      "id": "b-project-sync-statuses",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Status",
+          "Meaning",
+          "Stable invariant"
+        ],
+        "rows": [
+          [
+            "requested",
+            "Upstream movement or staged corpora were observed and recorded; the operator has not started sync.",
+            "No lease is held; nothing is mutated."
+          ],
+          [
+            "ingesting",
+            "Merged-PR evidence and staged corpora are being processed into staged knowledge.",
+            "Source truth is unchanged; only staged knowledge grows."
+          ],
+          [
+            "reconciling",
+            "The staging workspace rebases the session history onto the new upstream; open PR series branches are rebased alongside.",
+            "The session worktree and head are untouched."
+          ],
+          [
+            "validating",
+            "The reconciled staging state is validated without rebuilding everything.",
+            "Publication cannot start until validation evidence exists."
+          ],
+          [
+            "validated",
+            "Reconciliation and validation are complete; sync rests until the operator triggers the confirm-gated publish action.",
+            "Nothing advances automatically; upstream movement after validation surfaces as a staleness blocker with re-validation available."
+          ],
+          [
+            "publishing",
+            "The atomic publish advances head and knowledge, records the boundary, marks invalidations, and pushes reconciled PR branches.",
+            "Publication is all-or-nothing; no partial boundary is observable."
+          ],
+          [
+            "published",
+            "The boundary is durable and sync authority is released.",
+            "Terminal."
+          ],
+          [
+            "blocked",
+            "Sync cannot proceed without operator conflict resolution or recovery.",
+            "The lease remains held; staging is preserved."
+          ],
+          [
+            "cancelled",
+            "The operator abandoned sync before publish; staging is discarded.",
+            "Terminal; the session is exactly as it was before sync started."
+          ]
+        ],
+        "title": "Sync status values"
+      },
+      "children": []
+    }
+  }
+}

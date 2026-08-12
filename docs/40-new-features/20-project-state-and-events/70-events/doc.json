@@ -1,0 +1,400 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-20-project-state-and-events-70-events",
+  "title": "State and Event Contract",
+  "root": "b-events-root",
+  "blocks": {
+    "b-events-root": {
+      "id": "b-events-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "events",
+          "tracing",
+          "correlation",
+          "causation"
+        ]
+      },
+      "children": [
+        "b-project-state-event-envelope-p",
+        "b-project-state-event-envelope-shape",
+        "b-project-events-decision-rule",
+        "b-project-events-transition-streams-heading",
+        "b-project-events-transition-catalog-p",
+        "b-project-events-transition-cause-li",
+        "b-project-events-transition-tables-li",
+        "b-project-events-explicit-payloads-li",
+        "b-project-events-series-streams-p",
+        "b-project-events-recovery-events-li",
+        "b-project-events-series-subjects-li",
+        "b-project-events-series-correlation-li",
+        "b-project-events-future-relaxation-p",
+        "b-project-activity-events"
+      ]
+    },
+    "b-project-state-event-envelope-p": {
+      "id": "b-project-state-event-envelope-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An event records an accepted fact. It carries enough identity and lineage to rebuild a timeline without using event payloads as replacement state snapshots."
+        }
+      ],
+      "children": []
+    },
+    "b-project-state-event-envelope-shape": {
+      "id": "b-project-state-event-envelope-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Ordered project event with subject, causation, correlation, actor, trace, and versioned payload.",
+        "example": "{\n  \"event_id\": \"event-92811\",\n  \"sequence\": 92811,\n  \"event_type\": \"project.dispatch_drain_started\",\n  \"schema_version\": 1,\n  \"project_id\": \"melee\",\n  \"subject_kind\": \"run\",\n  \"subject_id\": \"run-2026-08-11-01\",\n  \"correlation_id\": \"workflow-sync-request-22\",\n  \"causation_id\": \"command-request-sync-22\",\n  \"trace_id\": \"trace-run-2026-08-11-01\",\n  \"span_id\": \"span-drain-44\",\n  \"actor\": \"operator\",\n  \"occurred_at\": \"2026-08-11T18:41:30Z\",\n  \"payload\": {\n    \"target_kind\": \"sync\",\n    \"open_claims\": 2\n  }\n}",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "EventId"
+          },
+          {
+            "name": "sequence",
+            "type": "integer",
+            "description": "Monotonic project-local order."
+          },
+          {
+            "name": "event_type",
+            "type": "string"
+          },
+          {
+            "name": "schema_version",
+            "type": "integer"
+          },
+          {
+            "name": "project_id",
+            "type": "ProjectId"
+          },
+          {
+            "name": "subject_kind",
+            "type": "string"
+          },
+          {
+            "name": "subject_id",
+            "type": "string"
+          },
+          {
+            "name": "correlation_id",
+            "type": "CorrelationId",
+            "description": "Groups one user-visible workflow."
+          },
+          {
+            "name": "causation_id",
+            "type": "CommandId | EventId",
+            "description": "Immediate cause."
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId"
+          },
+          {
+            "name": "span_id",
+            "type": "SpanId"
+          },
+          {
+            "name": "actor",
+            "type": "\"operator\" | \"runner\" | \"agent\" | \"guardian\" | \"external_observer\""
+          },
+          {
+            "name": "occurred_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "payload",
+            "type": "event-specific object"
+          }
+        ],
+        "name": "EventEnvelope"
+      },
+      "children": []
+    },
+    "b-project-events-decision-rule": {
+      "id": "b-project-events-decision-rule",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — one event per accepted transition, with per-series PR subjects",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Every accepted revision of a durable state object is produced by exactly one event, and each PR series is its own event subject within the containing campaign."
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-transition-streams-heading": {
+      "id": "b-project-events-transition-streams-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Transition Catalogs and Per-Series Streams"
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-transition-catalog-p": {
+      "id": "b-project-events-transition-catalog-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The event_type names each transition semantically, and every accepted revision is produced by exactly one event:"
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-transition-cause-li": {
+      "id": "b-project-events-transition-cause-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "StateEnvelope.caused_by_event_id is therefore never null after creation: the revision always has one event to name as its cause."
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-transition-tables-li": {
+      "id": "b-project-events-transition-tables-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The status tables throughout this feature therefore double as the transition catalog; each row's entry and exit transitions define events mechanically, so per-status events are not separately enumerated in the event table."
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-explicit-payloads-li": {
+      "id": "b-project-events-explicit-payloads-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The table below is narrower: it lists the coordination, lifecycle, and recovery events whose payloads need explicit facts."
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-series-streams-p": {
+      "id": "b-project-events-series-streams-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every workflow has an explicit recovery event, and beyond recovery, event topology follows state topology:"
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-recovery-events-li": {
+      "id": "b-project-events-recovery-events-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The explicit recovery events are run.recovered for a run, sync.recovered for a sync, and pr.campaign_recovered for a PR campaign."
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-series-subjects-li": {
+      "id": "b-project-events-series-subjects-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The campaign is the containing PR workflow, while feedback, revision, approval, merge, and close events carry the individual series as subject_id."
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-series-correlation-li": {
+      "id": "b-project-events-series-correlation-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "correlation_id groups those per-series events under the campaign, and the individual subject still lets a consumer process one PR's stream in isolation."
+        }
+      ],
+      "children": []
+    },
+    "b-project-events-future-relaxation-p": {
+      "id": "b-project-events-future-relaxation-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Per-series triggers are the explicitly desired future relaxation. They react to the individual series streams and handle routine review changes more out-of-loop, while version 1 keeps fixer execution operator-gated per the PR-phase decision."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-events": {
+      "id": "b-project-activity-events",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Event",
+          "Subject",
+          "Required facts"
+        ],
+        "rows": [
+          [
+            "project.dispatch_requested",
+            "project",
+            "requested kind, workflow id, current lease holder, reason"
+          ],
+          [
+            "project.dispatch_acquired",
+            "project",
+            "kind, workflow id, lease id, state revision"
+          ],
+          [
+            "project.dispatch_drain_started",
+            "active workflow",
+            "lease id, target kind, open obligations"
+          ],
+          [
+            "project.dispatch_blocked",
+            "active workflow",
+            "blocker codes, source identities, recovery choices"
+          ],
+          [
+            "project.dispatch_released",
+            "project",
+            "old lease holder, handoff snapshot, terminal revision"
+          ],
+          [
+            "knowledge.job_enqueued",
+            "knowledge job",
+            "source class, provenance, execution class"
+          ],
+          [
+            "knowledge.revision_advanced",
+            "project knowledge",
+            "old revision, new revision, accepted job ids"
+          ],
+          [
+            "sync.boundary_published",
+            "sync workflow",
+            "upstream revision, knowledge revision, invalidations, validation evidence"
+          ],
+          [
+            "run.remote_applied",
+            "run",
+            "remote application id, prior head, new head, resolved conflicts, score delta"
+          ],
+          [
+            "run.recovered",
+            "run",
+            "recovery reason, cancelled claim ids, cancelled operation ids, resulting status"
+          ],
+          [
+            "run.epoch_integrated",
+            "run",
+            "epoch id, integration commit, score delta, new head"
+          ],
+          [
+            "pr.campaign_opened",
+            "pr campaign",
+            "source anchor, series count, publication batch size"
+          ],
+          [
+            "pr.batch_published",
+            "pr campaign",
+            "batch index, series ids, operator"
+          ],
+          [
+            "pr.series_published",
+            "pr series",
+            "upstream PR number, branch, batch index"
+          ],
+          [
+            "pr.feedback_ingested",
+            "pr series",
+            "work item ids, review source identities, ingesting actor"
+          ],
+          [
+            "pr.series_revised",
+            "pr series",
+            "resolved work item ids, pushed revision"
+          ],
+          [
+            "pr.series_merged",
+            "pr series",
+            "upstream PR number, merged upstream revision"
+          ],
+          [
+            "pr.series_closed",
+            "pr series",
+            "close reason, closing actor"
+          ],
+          [
+            "pr.campaign_recovered",
+            "pr campaign",
+            "recovery reason, cancelled subject ids, resulting status"
+          ],
+          [
+            "pr.campaign_closed",
+            "pr campaign",
+            "completed or abandoned, per-series terminal summary"
+          ],
+          [
+            "sync.requested",
+            "sync workflow",
+            "observed upstream revisions, merged PR ids, corpus batch ids"
+          ],
+          [
+            "sync.reconciliation_blocked",
+            "sync workflow",
+            "conflict identities, conflicts awaiting operator"
+          ],
+          [
+            "sync.recovered",
+            "sync workflow",
+            "staging preserved or discarded, resume stage, recovery reason"
+          ],
+          [
+            "sync.cancelled",
+            "sync workflow",
+            "discarded staging workspace id, untouched session head"
+          ],
+          [
+            "session.save_point_recorded",
+            "session",
+            "anchored commit, trigger kind, headline score, artifact paths"
+          ],
+          [
+            "session.save_point_failed",
+            "session",
+            "trigger kind, blocker code, staleness flag raised"
+          ],
+          [
+            "session.opened",
+            "session",
+            "baseline revision, worktree identity, opening sync id"
+          ],
+          [
+            "session.closed",
+            "session",
+            "final head, shipped and unshipped work summary, save point id, operator"
+          ]
+        ],
+        "title": "Project coordination events"
+      },
+      "children": []
+    }
+  }
+}

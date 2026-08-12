@@ -1,0 +1,1056 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-20-project-state-and-events-10-authority-and-actions",
+  "title": "Dispatch Authority and Actions",
+  "root": "b-authority-root",
+  "blocks": {
+    "b-authority-root": {
+      "id": "b-authority-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "project-state",
+          "dispatch-authority",
+          "state-machine",
+          "lease",
+          "operator-actions"
+        ]
+      },
+      "children": [
+        "b-authority-summary",
+        "b-project-state-common-envelope-h",
+        "b-project-state-common-envelope-p",
+        "b-env-identity-li",
+        "b-env-ordering-li",
+        "b-env-blockers-li",
+        "b-env-trace-li",
+        "b-project-state-common-envelope-uniformity-p",
+        "b-project-state-common-envelope-shape",
+        "b-project-activity-working-decision",
+        "b-project-activity-decision-dispatch-naming",
+        "b-project-activity-dispatch-exclusivity-h",
+        "b-project-activity-dispatch-exclusivity-p",
+        "b-excl-durable-li",
+        "b-excl-grant-li",
+        "b-excl-policy-li",
+        "b-project-activity-dispatch-exclusivity-rationale-p",
+        "b-project-activity-dispatch-lease-rename-li",
+        "b-project-activity-active-workflow-rename-li",
+        "b-project-activity-dispatch-event-rename-li",
+        "b-project-activity-controller-h",
+        "b-project-activity-controller-p",
+        "b-ps-compose-li",
+        "b-ps-active-li",
+        "b-ps-fence-li",
+        "b-ps-vocab-li",
+        "b-project-activity-controller-shape",
+        "b-project-activity-foreground-statuses",
+        "b-project-activity-actions-h",
+        "b-project-activity-actions",
+        "b-project-activity-decision-action-gating",
+        "b-project-activity-action-gating-h",
+        "b-project-activity-action-gating-mechanics-p",
+        "b-gate-outward-li",
+        "b-gate-discard-li",
+        "b-gate-terminal-li",
+        "b-project-activity-single-click-p",
+        "b-project-activity-sync-publish-gate-p",
+        "b-project-activity-action-matrix"
+      ]
+    },
+    "b-authority-summary": {
+      "id": "b-authority-summary",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every workflow in this feature — run, PR campaign, sync — is its own state machine, and this page defines what they share. The common envelope makes every durable state object readable by the same machinery; ProjectState composes those objects into the general state of the system; the dispatch lease decides which workflow may act on it. The operator action inventory at the end is what the UI projects from this state."
+        }
+      ],
+      "children": []
+    },
+    "b-project-state-common-envelope-h": {
+      "id": "b-project-state-common-envelope-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Common State Envelope"
+        }
+      ],
+      "children": []
+    },
+    "b-project-state-common-envelope-p": {
+      "id": "b-project-state-common-envelope-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run, PR campaign, sync, and session state are separate objects with separate status vocabularies, but the system has to order, trace, block, and display all of them the same way. The envelope is the shared layer that makes this work — every durable state object carries the same four things:"
+        }
+      ],
+      "children": []
+    },
+    "b-project-state-common-envelope-shape": {
+      "id": "b-project-state-common-envelope-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Shared metadata carried by every durable project state object.",
+        "example": "{\n  \"id\": \"run-2026-08-11-01\",\n  \"project_id\": \"melee\",\n  \"kind\": \"run\",\n  \"status\": \"draining\",\n  \"revision\": 288,\n  \"created_at\": \"2026-08-11T18:00:00Z\",\n  \"updated_at\": \"2026-08-11T18:42:08Z\",\n  \"trace_id\": \"trace-run-2026-08-11-01\",\n  \"caused_by_event_id\": \"event-92811\",\n  \"blockers\": []\n}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "StateObjectId",
+            "description": "Stable identity of the state object."
+          },
+          {
+            "name": "project_id",
+            "type": "ProjectId",
+            "description": "Owning project."
+          },
+          {
+            "name": "kind",
+            "type": "StateKind",
+            "description": "Domain state-machine kind."
+          },
+          {
+            "name": "status",
+            "type": "domain-specific enum",
+            "description": "A value owned by this state kind."
+          },
+          {
+            "name": "revision",
+            "type": "integer",
+            "description": "Monotonic accepted-transition version."
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId",
+            "description": "Root trace for the object."
+          },
+          {
+            "name": "caused_by_event_id",
+            "type": "EventId",
+            "required": false,
+            "description": "Event that produced the current revision."
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]",
+            "fields": [
+              {
+                "name": "code",
+                "type": "string"
+              },
+              {
+                "name": "message",
+                "type": "string"
+              },
+              {
+                "name": "source_kind",
+                "type": "string"
+              },
+              {
+                "name": "source_id",
+                "type": "string"
+              },
+              {
+                "name": "recoverable",
+                "type": "boolean"
+              }
+            ]
+          }
+        ],
+        "name": "StateEnvelope"
+      },
+      "children": []
+    },
+    "b-project-activity-working-decision": {
+      "id": "b-project-activity-working-decision",
+      "type": "callout",
+      "props": {
+        "kind": "proposal",
+        "title": "Working design — exclusive dispatch authority",
+        "tone": "info"
+      },
+      "text": [
+        {
+          "insert": "Exactly zero or one workflow holds the dispatch lease — the token that allows it to dispatch worker agents and mutate its allowed checkout surfaces. Background worker-result ingestion may continue regardless, because it consumes immutable evidence and never dispatches workers or touches the checkout."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-decision-dispatch-naming": {
+      "id": "b-project-activity-decision-dispatch-naming",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — ProjectState shows every workflow; \"foreground\" becomes active workflow + dispatch lease",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "The canonical project object is ProjectState, whose session, run, PR, and sync slots stay present so all three workflow states exist durably at once. Only the dispatch lease is exclusive: exactly one active workflow may use it to dispatch worker agents and mutate its allowed checkout surfaces."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-dispatch-exclusivity-h": {
+      "id": "b-project-activity-dispatch-exclusivity-h",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Why Only the Lease Is Exclusive"
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-dispatch-exclusivity-p": {
+      "id": "b-project-activity-dispatch-exclusivity-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "ProjectState keeps a slot for every workflow because all three exist durably at once; exclusivity lives in the dispatch lease alone:"
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-dispatch-lease-rename-li": {
+      "id": "b-project-activity-dispatch-lease-rename-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "foreground lease → dispatch lease."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-active-workflow-rename-li": {
+      "id": "b-project-activity-active-workflow-rename-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "foreground workflow → active workflow."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-dispatch-event-rename-li": {
+      "id": "b-project-activity-dispatch-event-rename-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "project.foreground_* events → project.dispatch_*."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-dispatch-exclusivity-rationale-p": {
+      "id": "b-project-activity-dispatch-exclusivity-rationale-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The retired foreground vocabulary implied the opposite — that inactive workflows stopped existing between activations — which is why it is gone. The old names map one-to-one onto the new:"
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-controller-h": {
+      "id": "b-project-activity-controller-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Canonical Project State"
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-controller-p": {
+      "id": "b-project-activity-controller-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "ProjectState is the top of the state tree: one object per project that answers what exists and who may act."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-controller-shape": {
+      "id": "b-project-activity-controller-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Canonical project state: the session, one always-present slot per workflow, the dispatch lease, background knowledge, and trace summary.",
+        "example": "{\n  \"project_id\": \"melee\",\n  \"revision\": 1842,\n  \"session\": {\n    \"session_id\": \"session-7\",\n    \"head_revision\": \"upstream-9ba1\"\n  },\n  \"run\": {\n    \"workflow_id\": \"run-2026-08-11-01\",\n    \"status\": \"draining\"\n  },\n  \"pr\": {\n    \"workflow_id\": \"pr-campaign-4\",\n    \"status\": \"in_review\"\n  },\n  \"sync\": {\n    \"workflow_id\": \"sync-2026-08-11-02\",\n    \"status\": \"requested\"\n  },\n  \"active_workflow\": {\n    \"kind\": \"run\",\n    \"workflow_id\": \"run-2026-08-11-01\",\n    \"lease_id\": \"lease-7f3b\",\n    \"status\": \"draining\",\n    \"acquired_at\": \"2026-08-11T18:00:00Z\",\n    \"heartbeat_at\": \"2026-08-11T18:42:08Z\",\n    \"requested_handoff\": {\n      \"target_kind\": \"sync\",\n      \"target_workflow_id\": \"sync-2026-08-11-02\",\n      \"reason\": \"upstream PRs merged\",\n      \"requested_at\": \"2026-08-11T18:41:30Z\"\n    },\n    \"blockers\": [\n      {\n        \"code\": \"active_claims\",\n        \"message\": \"Two worker claims must settle before sync.\",\n        \"source_kind\": \"run\",\n        \"source_id\": \"run-2026-08-11-01\",\n        \"recoverable\": true\n      }\n    ]\n  },\n  \"background_knowledge\": {\n    \"queued\": 6,\n    \"processing\": 1,\n    \"failed\": 0,\n    \"published_revision\": \"knowledge-381\",\n    \"oldest_pending_at\": \"2026-08-11T18:35:12Z\"\n  },\n  \"trace\": {\n    \"trace_id\": \"trace-project-melee\",\n    \"latest_event_sequence\": 92811,\n    \"active_operation_ids\": [\n      \"operation-run-drain-44\"\n    ]\n  },\n  \"updated_at\": \"2026-08-11T18:42:08Z\"\n}",
+        "fields": [
+          {
+            "name": "project_id",
+            "type": "ProjectId",
+            "description": "Stable project identity."
+          },
+          {
+            "name": "revision",
+            "type": "integer",
+            "description": "Monotonic state version used for ordering and stale-write protection."
+          },
+          {
+            "name": "session",
+            "type": "SessionSlot | null",
+            "description": "Active session identity and head. The SessionState object is canonical.",
+            "fields": [
+              {
+                "name": "session_id",
+                "type": "SessionId"
+              },
+              {
+                "name": "head_revision",
+                "type": "SourceRevision"
+              }
+            ]
+          },
+          {
+            "name": "run",
+            "type": "WorkflowSlot | null",
+            "description": "Always-present run slot: the current run's identity and status, mirrored for at-a-glance reads. The RunState object is canonical. Null only when no run exists in the session.",
+            "fields": [
+              {
+                "name": "workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "status",
+                "type": "domain-specific enum"
+              }
+            ]
+          },
+          {
+            "name": "pr",
+            "type": "WorkflowSlot | null",
+            "description": "Always-present PR slot mirroring the open campaign. The PrCampaignState object is canonical.",
+            "fields": [
+              {
+                "name": "workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "status",
+                "type": "domain-specific enum"
+              }
+            ]
+          },
+          {
+            "name": "sync",
+            "type": "WorkflowSlot | null",
+            "description": "Always-present sync slot mirroring the current or requested sync. The SyncState object is canonical.",
+            "fields": [
+              {
+                "name": "workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "status",
+                "type": "domain-specific enum"
+              }
+            ]
+          },
+          {
+            "name": "active_workflow",
+            "type": "DispatchLease | null",
+            "description": "The workflow currently holding the dispatch lease — the token that allows it to dispatch worker agents and mutate its allowed checkout surfaces. Null when no workflow is active; run, PR, and sync states all remain durable either way.",
+            "fields": [
+              {
+                "name": "kind",
+                "type": "\"run\" | \"pr\" | \"sync\""
+              },
+              {
+                "name": "workflow_id",
+                "type": "WorkflowId",
+                "description": "Owning domain workflow."
+              },
+              {
+                "name": "lease_id",
+                "type": "LeaseId",
+                "description": "Fencing token minted at acquisition; every worker-dispatch and source-mutation command must present the current lease id, so stale actors from a previous activation are refused."
+              },
+              {
+                "name": "status",
+                "type": "\"acquiring\" | \"active\" | \"draining\" | \"blocked\" | \"releasing\""
+              },
+              {
+                "name": "acquired_at",
+                "type": "timestamp"
+              },
+              {
+                "name": "heartbeat_at",
+                "type": "timestamp",
+                "description": "Liveness evidence used during recovery."
+              },
+              {
+                "name": "requested_handoff",
+                "type": "HandoffRequest",
+                "required": false,
+                "description": "Queued transition that begins after the current owner settles.",
+                "fields": [
+                  {
+                    "name": "target_kind",
+                    "type": "\"run\" | \"pr\" | \"sync\""
+                  },
+                  {
+                    "name": "target_workflow_id",
+                    "type": "WorkflowId"
+                  },
+                  {
+                    "name": "reason",
+                    "type": "string"
+                  },
+                  {
+                    "name": "requested_at",
+                    "type": "timestamp"
+                  }
+                ]
+              },
+              {
+                "name": "blockers",
+                "type": "Blocker[]",
+                "description": "Reasons the owner cannot settle or release authority.",
+                "fields": [
+                  {
+                    "name": "code",
+                    "type": "string"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string"
+                  },
+                  {
+                    "name": "source_kind",
+                    "type": "string"
+                  },
+                  {
+                    "name": "source_id",
+                    "type": "string"
+                  },
+                  {
+                    "name": "recoverable",
+                    "type": "boolean"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "background_knowledge",
+            "type": "BackgroundKnowledgeState",
+            "fields": [
+              {
+                "name": "queued",
+                "type": "integer"
+              },
+              {
+                "name": "processing",
+                "type": "integer"
+              },
+              {
+                "name": "failed",
+                "type": "integer"
+              },
+              {
+                "name": "published_revision",
+                "type": "KnowledgeRevision"
+              },
+              {
+                "name": "oldest_pending_at",
+                "type": "timestamp | null"
+              }
+            ]
+          },
+          {
+            "name": "trace",
+            "type": "TraceCursor",
+            "fields": [
+              {
+                "name": "trace_id",
+                "type": "TraceId"
+              },
+              {
+                "name": "latest_event_sequence",
+                "type": "integer"
+              },
+              {
+                "name": "active_operation_ids",
+                "type": "OperationId[]"
+              }
+            ]
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp"
+          }
+        ],
+        "name": "ProjectState"
+      },
+      "children": []
+    },
+    "b-project-activity-foreground-statuses": {
+      "id": "b-project-activity-foreground-statuses",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Status",
+          "Meaning",
+          "Stable invariant"
+        ],
+        "rows": [
+          [
+            "acquiring",
+            "The workflow is establishing authority and validating its start gates.",
+            "No domain worker has started."
+          ],
+          [
+            "active",
+            "The workflow owns dispatch and its allowed mutable resources.",
+            "Every guarded action carries the current lease id."
+          ],
+          [
+            "draining",
+            "No new domain work may start while active work settles.",
+            "The blocker list explains every remaining obligation."
+          ],
+          [
+            "blocked",
+            "The workflow cannot settle or safely continue without recovery or operator action.",
+            "The lease remains owned; another workflow cannot start."
+          ],
+          [
+            "releasing",
+            "Final state and handoff evidence are being committed.",
+            "The next workflow cannot acquire authority until release is durable."
+          ]
+        ],
+        "title": "Dispatch lease status values"
+      },
+      "children": []
+    },
+    "b-project-activity-actions-h": {
+      "id": "b-project-activity-actions-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Controller Actions"
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-actions": {
+      "id": "b-project-activity-actions",
+      "type": "interaction-surface",
+      "props": {
+        "operations": [
+          {
+            "name": "project.requestDispatch",
+            "description": "Queue a workflow for the dispatch lease, or acquire immediately when the lease is free.",
+            "params": [
+              {
+                "name": "kind",
+                "type": "\"run\" | \"pr\" | \"sync\""
+              },
+              {
+                "name": "workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "reason",
+                "type": "string"
+              }
+            ],
+            "returns": "ActionDecision",
+            "kind": "action"
+          },
+          {
+            "name": "project.beginDrain",
+            "description": "Disable new work for the active workflow and record the requested handoff.",
+            "params": [
+              {
+                "name": "lease_id",
+                "type": "LeaseId"
+              },
+              {
+                "name": "target_kind",
+                "type": "\"run\" | \"pr\" | \"sync\""
+              },
+              {
+                "name": "target_workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "reason",
+                "type": "string"
+              }
+            ],
+            "returns": "ProjectState",
+            "kind": "action"
+          },
+          {
+            "name": "project.releaseDispatch",
+            "description": "Commit handoff evidence and release the dispatch lease after all required obligations settle.",
+            "params": [
+              {
+                "name": "lease_id",
+                "type": "LeaseId"
+              },
+              {
+                "name": "handoff_snapshot_id",
+                "type": "SnapshotId",
+                "required": false
+              }
+            ],
+            "returns": "ProjectState",
+            "kind": "action"
+          },
+          {
+            "name": "project.recoverDispatch",
+            "description": "Break a stale or failed lease while recording cancelled work and required reconciliation.",
+            "params": [
+              {
+                "name": "lease_id",
+                "type": "LeaseId"
+              },
+              {
+                "name": "recovery_reason",
+                "type": "string"
+              },
+              {
+                "name": "cancelled_subject_ids",
+                "type": "string[]"
+              }
+            ],
+            "returns": "RecoveryResult",
+            "kind": "action"
+          },
+          {
+            "name": "project.getStateView",
+            "description": "Project canonical state into the active workflow, workflow summaries, background freshness, and available actions.",
+            "returns": "ProjectStateView",
+            "kind": "query"
+          }
+        ],
+        "title": "Project dispatch authority"
+      },
+      "children": []
+    },
+    "b-project-activity-decision-action-gating": {
+      "id": "b-project-activity-decision-action-gating",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — two-tier confirmation and an explicit sync publish gate",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "confirmation_required is true exactly when an action is outward-facing or irreversible: it pushes anything upstream, discards work, or is terminal. Sync rests at validated until the operator triggers its confirm-gated publish action."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-action-gating-h": {
+      "id": "b-project-activity-action-gating-h",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Confirmation and Publish Mechanics"
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-action-gating-mechanics-p": {
+      "id": "b-project-activity-action-gating-mechanics-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The rule is a single test — confirmation_required is true exactly when the action is outward-facing or irreversible:"
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-single-click-p": {
+      "id": "b-project-activity-single-click-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Everything else — pausing, resuming, draining, starting sync, entering PR work, recording a manual save point — is a single click gated only by blockers. Routine controls the operator hits constantly must never nag; the blocker list, not a dialog, explains when they are unavailable."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-sync-publish-gate-p": {
+      "id": "b-project-activity-sync-publish-gate-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync adds the one deliberate stop in the system: after validation passes it rests at validated, and only the operator's confirm-gated publish action crosses the point of no return. Upstream movement while it rests surfaces as a staleness blocker with re-validation available. The matrix below is the full v1 inventory; its Confirm column applies this rule."
+        }
+      ],
+      "children": []
+    },
+    "b-project-activity-action-matrix": {
+      "id": "b-project-activity-action-matrix",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Action",
+          "Enabled when",
+          "Blocked by",
+          "Expected result",
+          "Confirm"
+        ],
+        "rows": [
+          [
+            "run.start",
+            "the dispatch lease is free, the session is active, and run readiness passes",
+            "another workflow holds the dispatch lease; stale baseline; unresolved sync request",
+            "run lease becomes active",
+            "no"
+          ],
+          [
+            "run.pause",
+            "the run owns the lease",
+            "—",
+            "active → draining → paused once work settles",
+            "no"
+          ],
+          [
+            "run.resume",
+            "the run is paused and the dispatch lease is free",
+            "another workflow holds the dispatch lease; baseline invalidated by an unpublished sync",
+            "paused → active",
+            "no"
+          ],
+          [
+            "run.hard_stop",
+            "the run is active or draining",
+            "—",
+            "in-flight work is recovered or cancelled; the run becomes paused",
+            "yes"
+          ],
+          [
+            "run.cancel",
+            "the run is paused or failed",
+            "unsettled claims",
+            "run becomes cancelled (terminal)",
+            "yes"
+          ],
+          [
+            "run.recover",
+            "the run is failed or its lease is stale",
+            "—",
+            "orphaned work settles or cancels; failed → paused via run.recovered",
+            "yes"
+          ],
+          [
+            "pr.open_campaign",
+            "no campaign is open and a validated stable save point exists",
+            "an open campaign; no reproducible ship snapshot",
+            "campaign created in preparing",
+            "no"
+          ],
+          [
+            "pr.activate",
+            "a campaign exists and the dispatch lease is free",
+            "another workflow holds the dispatch lease",
+            "campaign → working; a pr_phase timeline entry opens",
+            "no"
+          ],
+          [
+            "pr.publish_batch",
+            "the campaign is working and the next batch is prepared and validated",
+            "unvalidated series; sync invalidation blockers",
+            "batch series prepared → published; PRs open upstream",
+            "yes"
+          ],
+          [
+            "pr.release",
+            "the campaign is working and fixers have settled",
+            "running fixers",
+            "campaign working → in_review; lease released",
+            "no"
+          ],
+          [
+            "pr.close_campaign",
+            "every series is merged or closed",
+            "non-terminal series",
+            "campaign becomes completed (terminal)",
+            "yes"
+          ],
+          [
+            "pr.abandon_campaign",
+            "the campaign is not terminal",
+            "—",
+            "campaign becomes abandoned (terminal)",
+            "yes"
+          ],
+          [
+            "pr.campaign_recover",
+            "an activation lease is stale or failed",
+            "—",
+            "pr.campaign_recovered; campaign returns to in_review",
+            "yes"
+          ],
+          [
+            "sync.start",
+            "the dispatch lease is free and the operator initiates it; upstream movement or staged corpora may exist but are not required to ask",
+            "another workflow holds the dispatch lease; a prior sync's staging awaiting a decision",
+            "sync requested → ingesting under the sync lease",
+            "no"
+          ],
+          [
+            "sync.resolve_conflict",
+            "sync is blocked with conflicts awaiting the operator",
+            "—",
+            "blocked → reconciling",
+            "no"
+          ],
+          [
+            "sync.publish",
+            "sync is validated",
+            "upstream moved after validation (staleness); missing validation evidence",
+            "validated → publishing → published; head advances atomically and PR branches push",
+            "yes"
+          ],
+          [
+            "sync.cancel",
+            "sync holds any pre-publish status",
+            "publish already committing",
+            "sync becomes cancelled; staging discarded; session untouched",
+            "yes"
+          ],
+          [
+            "sync.recover",
+            "a sync crashed before publish",
+            "—",
+            "resume from the last durable stage, or discard staging at the operator's choice",
+            "yes"
+          ],
+          [
+            "session.save_point",
+            "the session is active",
+            "—",
+            "evidence anchor recorded at the current commit",
+            "no"
+          ],
+          [
+            "session.close",
+            "the dispatch lease is free and no unshipped work would be orphaned",
+            "another workflow holds the dispatch lease; unshipped local work without a named save point",
+            "session becomes closed; the next baseline sync opens the successor",
+            "yes"
+          ],
+          [
+            "knowledge.process",
+            "the background queue has work",
+            "materializer lease or retry backoff",
+            "knowledge revision may advance",
+            "no"
+          ]
+        ],
+        "title": "Operator action inventory (v1)"
+      },
+      "children": []
+    },
+    "b-project-state-common-envelope-uniformity-p": {
+      "id": "b-project-state-common-envelope-uniformity-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The domain object supplies everything else: its own status enum and its own payload. That split is what keeps the machinery generic — ordering, stale-write protection, blocker display, and trace lookup are written once against the envelope, while each workflow page defines only its vocabulary and shape. A new state kind joins the system by wearing the envelope, not by teaching every consumer about itself."
+        }
+      ],
+      "children": []
+    },
+    "b-env-identity-li": {
+      "id": "b-env-identity-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Identity — id, project_id, and kind — names every object the same way, so a run, a campaign, a sync, and a session are addressed uniformly by every consumer."
+        }
+      ],
+      "children": []
+    },
+    "b-env-ordering-li": {
+      "id": "b-env-ordering-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Ordering is one rule everywhere: revision increments once per accepted transition, and caused_by_event_id names the event that produced it, which is what makes stale-write protection and history reconstruction generic."
+        }
+      ],
+      "children": []
+    },
+    "b-env-blockers-li": {
+      "id": "b-env-blockers-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Blockers share one shape, so any surface can explain why any object is stuck without knowing its domain."
+        }
+      ],
+      "children": []
+    },
+    "b-env-trace-li": {
+      "id": "b-env-trace-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The trace anchor (trace_id) ties every object into the same tracing fabric as its events and operations."
+        }
+      ],
+      "children": []
+    },
+    "b-excl-durable-li": {
+      "id": "b-excl-durable-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "A PR campaign in review does not stop existing while a run executes, and a requested sync is real state before it ever acquires the lease — so every slot stays visible."
+        }
+      ],
+      "children": []
+    },
+    "b-excl-grant-li": {
+      "id": "b-excl-grant-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The lease is the sole grant of the right to dispatch worker agents and mutate checkout surfaces, and exactly one workflow may hold it at a time."
+        }
+      ],
+      "children": []
+    },
+    "b-excl-policy-li": {
+      "id": "b-excl-policy-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Because one-at-a-time is lease policy rather than structure, the desired future run + PR concurrency is a policy change, not a reshape of ProjectState."
+        }
+      ],
+      "children": []
+    },
+    "b-ps-compose-li": {
+      "id": "b-ps-compose-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "It composes the active session and one slot per workflow — run, PR, and sync — where each slot mirrors just the identity and status of a workflow object that stays canonical for its own detail."
+        }
+      ],
+      "children": []
+    },
+    "b-ps-active-li": {
+      "id": "b-ps-active-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The active_workflow field carries the dispatch lease; when it is null nothing may dispatch, and every workflow state remains durable and visible either way."
+        }
+      ],
+      "children": []
+    },
+    "b-ps-fence-li": {
+      "id": "b-ps-fence-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The lease is enforced by fencing, not trust: a lease_id is minted at each acquisition, and every worker-dispatch and source-mutation command must present the current one, so a stale actor from a previous activation is refused rather than obeyed."
+        }
+      ],
+      "children": []
+    },
+    "b-ps-vocab-li": {
+      "id": "b-ps-vocab-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "There is deliberately no universal status enum — each workflow owns its vocabulary on its own page, and ProjectState only mirrors those values."
+        }
+      ],
+      "children": []
+    },
+    "b-gate-outward-li": {
+      "id": "b-gate-outward-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Outward-facing: publishing a PR batch or the sync boundary pushes work upstream where reviewers see it, and published work cannot be quietly unpublished."
+        }
+      ],
+      "children": []
+    },
+    "b-gate-discard-li": {
+      "id": "b-gate-discard-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Work-discarding: cancelling a sync, abandoning a campaign, or hard-stopping a run throws away real work the operator may not mean to lose."
+        }
+      ],
+      "children": []
+    },
+    "b-gate-terminal-li": {
+      "id": "b-gate-terminal-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Terminal: cancelling a run, closing a campaign or session, or breaking a lease through recovery cannot be undone afterward."
+        }
+      ],
+      "children": []
+    }
+  }
+}
