@@ -9,11 +9,16 @@ function createFixture() {
   let previous: JsonObject = { records: [] };
   let written: JsonObject = {};
   let cliResult = { exitCode: 1, stdout: "", stderr: "offline" };
+  const campaignObservations: JsonObject[] = [];
   const deps: PrSyncServiceDeps<PrSyncProjectContext> = {
     appendLog: () => {},
     latestPrSplitPlanSummary: () => plan,
     latestRunId: () => "run-1",
     outputTail: (value) => value,
+    observeCampaignPr: (_stateDir, input) => {
+      campaignObservations.push(input as unknown as JsonObject);
+      return { feedbackItemIds: [], ignored: true, series: null };
+    },
     records: {
       deriveReviewSubState: (review) => review,
       normalizePrRecord: (record) => record,
@@ -40,6 +45,7 @@ function createFixture() {
     setPlan(value: JsonObject) { plan = value; },
     setPrevious(value: JsonObject) { previous = value; },
     written: () => written,
+    campaignObservations,
   };
 }
 
@@ -59,6 +65,45 @@ function matchPlan(supportPathspecs?: string[]): JsonObject {
 }
 
 describe("PR sync support manifests", () => {
+  test("forwards GitHub state and feedback to additive campaign observation", async () => {
+    const fixture = createFixture();
+    fixture.setCliResult({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        comments: [{ id: "IC_123", body: "Please use the project typedef." }],
+        files: [],
+        statusCheckRollup: [],
+      }),
+      stderr: "",
+    });
+
+    const record = await fixture.service.hydratePrRecordFromGithub(
+      { branch: "codex/split-01-alpha" },
+      {
+        headRefName: "codex/split-01-alpha",
+        number: 2850,
+        reviewDecision: "CHANGES_REQUESTED",
+        state: "OPEN",
+        updatedAt: "2026-08-13T12:00:00.000Z",
+      },
+      "doldecomp/melee",
+      "/repo",
+      "/state",
+    );
+
+    expect(record).toMatchObject({ status: "changes_requested", comments: 1 });
+    expect(fixture.campaignObservations).toEqual([{
+      branch: "codex/split-01-alpha",
+      commandId: "pr-sync:2850:2026-08-13T12:00:00.000Z",
+      feedback: [{ sourceKind: "issue_comment", sourceId: "IC_123", summary: "Please use the project typedef." }],
+      mergedUpstreamRevision: "",
+      occurredAt: "2026-08-13T12:00:00.000Z",
+      reviewDecision: "CHANGES_REQUESTED",
+      state: "OPEN",
+      upstreamPrNumber: 2850,
+    }]);
+  });
+
   test("persists declared support files, then removes and invalidates them on re-plan", async () => {
     const fixture = createFixture();
     const support = ["include/melee/gr/ground.h"];

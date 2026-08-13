@@ -1,6 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { openState } from "@server/core/orchestrator-state";
+import {
+  observePrSeriesRemote,
+  type ObservePrSeriesRemoteInput,
+  type ObservePrSeriesRemoteResult,
+} from "@server/core/session-runtime/phases/pr/campaign";
 import type { JsonObject, PrRecordContext } from "@server/core/session-runtime/phases/pr/pr-records";
 
 export interface CliResult {
@@ -33,6 +39,7 @@ export interface PrSyncServiceDeps<Context extends PrSyncProjectContext> {
   resolveDashboardProject: (input: JsonObject, options?: { useDefaultProject?: boolean }) => Context;
   runCli: (command: string[], cwd?: string) => Promise<CliResult>;
   runGitQuiet?: (repoRoot: string, args: string[]) => CliResult;
+  observeCampaignPr?: (stateDir: string, input: ObservePrSeriesRemoteInput) => ObservePrSeriesRemoteResult;
 }
 
 function asObject(value: unknown): JsonObject {
@@ -174,6 +181,14 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
     readPrRecords,
     writePrRecords,
   } = deps.records;
+  const observeCampaignPr = deps.observeCampaignPr ?? ((stateDir, input) => {
+    const store = openState(stateDir);
+    try {
+      return observePrSeriesRemote(store, input);
+    } finally {
+      store.db.close();
+    }
+  });
 
   function activeRunIdFromBody(body: JsonObject, stateDir: string): string {
     const runId = stringValue(body.runId) || deps.latestRunId(stateDir);
@@ -285,7 +300,7 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
     return ["ready", "blocked", "dirty", "local_only"].includes(stringValue(local.status));
   }
 
-  async function hydratePrRecordFromGithub(record: JsonObject, pr: JsonObject, repoSlug: string, repoRoot: string): Promise<JsonObject> {
+  async function hydratePrRecordFromGithub(record: JsonObject, pr: JsonObject, repoSlug: string, repoRoot: string, stateDir?: string): Promise<JsonObject> {
     const prNumber = numberValue(pr.number, NaN);
     if (!Number.isFinite(prNumber)) return record;
     const update: JsonObject = {
@@ -304,9 +319,15 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
     };
     const view = await deps.runCli(["gh", "pr", "view", String(prNumber), "--repo", repoSlug, "--json", "comments,statusCheckRollup,files"], repoRoot);
     let comments = numberValue(record.comments, 0);
+    let feedback: ObservePrSeriesRemoteInput["feedback"] = [];
     if (view.exitCode === 0) {
       const detail = asObject(JSON.parse(view.stdout || "{}"));
       comments = asArray(detail.comments).length;
+      feedback = asArray(detail.comments).map(asObject).flatMap((comment) => {
+        const sourceId = stringValue(comment.id) || stringValue(comment.databaseId) || stringValue(comment.url);
+        const summary = stringValue(comment.body).trim();
+        return sourceId && summary ? [{ sourceKind: "issue_comment", sourceId, summary }] : [];
+      });
       const ci = ciVerdict(detail.statusCheckRollup);
       update.comments = comments;
       update.ci = ci;
@@ -323,6 +344,18 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
     const githubStatus = stringValue(update.status);
     const reviewDecision = stringValue(pr.reviewDecision);
     update.review = deriveReviewSubState(asObject(record.review), githubStatus, reviewDecision, comments);
+    if (stateDir) {
+      observeCampaignPr(stateDir, {
+        branch: stringValue(record.branch, stringValue(pr.headRefName)),
+        commandId: `pr-sync:${prNumber}:${stringValue(pr.updatedAt, "observed")}`,
+        feedback,
+        mergedUpstreamRevision: stringValue(asObject(pr.mergeCommit).oid),
+        occurredAt: stringValue(pr.updatedAt) || undefined,
+        reviewDecision,
+        state: stringValue(pr.state),
+        upstreamPrNumber: prNumber,
+      });
+    }
     return mergePrRecord(record, update);
   }
 
@@ -439,7 +472,7 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
     let warning = "";
     if (repoSlug) {
       const list = await deps.runCli(
-        ["gh", "pr", "list", "--repo", repoSlug, "--state", "all", "--limit", "100", "--json", "number,title,state,isDraft,url,headRefName,author,reviewDecision,updatedAt"],
+        ["gh", "pr", "list", "--repo", repoSlug, "--state", "all", "--limit", "100", "--json", "number,title,state,isDraft,url,headRefName,author,reviewDecision,updatedAt,mergeCommit"],
         repoRoot,
       );
       if (list.exitCode === 0) {
@@ -479,14 +512,14 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
           const record = recordsByBranch.get(branch);
           const pr = byHead.get(branch);
           if (!record || !pr) continue;
-          recordsByBranch.set(branch, await hydratePrRecordFromGithub(record, pr, repoSlug, repoRoot));
+          recordsByBranch.set(branch, await hydratePrRecordFromGithub(record, pr, repoSlug, repoRoot, stateDir));
         }
 
         for (const [branch, record] of [...recordsByBranch.entries()]) {
           if (importHeads.has(branch)) continue;
           const pr = byHead.get(branch);
           if (!pr) continue;
-          recordsByBranch.set(branch, await hydratePrRecordFromGithub(record, pr, repoSlug, repoRoot));
+          recordsByBranch.set(branch, await hydratePrRecordFromGithub(record, pr, repoSlug, repoRoot, stateDir));
         }
 
         const trackedHeads = new Set([...recordsByBranch.values()].map((record) => stringValue(record.branch)));

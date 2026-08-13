@@ -9,7 +9,7 @@ import { upstreamRepoSlug } from "@server/core/session-runtime/phases/pr/pr-sync
 import type { CodeIssuesResult } from "@server/core/session-runtime/phases/pr/pr-worktrees";
 import { planRegressionRepair } from "@server/core/session-runtime/phases/running/epochs";
 import { getLatestRun, getRun, openState, admitPriorityTargets } from "@server/core/session-runtime/run-state";
-import { compactCheckpointResult, type GitSyncResult } from "@server/core/session-runtime/phases/preparing/runtime";
+import { compactCheckpointResult } from "@server/core/session-runtime/phases/preparing/runtime";
 import { readRegressionReport, type RegressionReport } from "@server/core/validation/objdiff/report";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { DispatchLeaseUnavailableError, withDispatchLease, type DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
@@ -111,7 +111,6 @@ export interface HandoffRuntimeDeps {
   savePoints: SavePointRuntime;
   serverJobPath: string;
   submitWorkflowEvent: (paths: ProjectRuntimeContext, input: WorkflowEventInput) => Promise<JsonObject | null>;
-  syncMergedPrIntakeForPrepare: (paths: ProjectRuntimeContext, dryRunAgents: boolean, revalidateLease?: DispatchLeaseRevalidator) => Promise<GitSyncResult>;
 }
 
 export interface HandoffRuntime {
@@ -1453,11 +1452,6 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     const runId = activeRunIdFromBody(body, stateDir);
     const prepareSteps = [
       "stop worker scheduling",
-      "fetch upstream",
-      "update main worktree",
-      "discover merged PRs",
-      "PR intake agents",
-      "knowledge graph rebuild",
       "rebuild production baseline",
       "QA build & regression gate",
       "checkpoint",
@@ -1482,9 +1476,6 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       assertHandoffIdle(stateDir, "Prepare handoff");
       operationStep("stop worker scheduling");
       const pause = body.pauseBeforeHandoff !== false ? await pauseRunForPr(body, revalidateLease) : null;
-
-      revalidateLease();
-      const gitSync = await deps.syncMergedPrIntakeForPrepare(paths, boolValue(body.dryRunAgents), revalidateLease);
 
       operationStep("rebuild production baseline");
       revalidateLease();
@@ -1619,7 +1610,6 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         boundaryCommit,
         prRecords: prRecordsPayload,
         savePoint,
-        gitSync: { beforeRef: gitSync.beforeRef, afterRef: gitSync.afterRef, branch: gitSync.branch, mergedPrs: gitSync.mergedPrs },
         baseline,
         reworkSymbols,
         requeued,

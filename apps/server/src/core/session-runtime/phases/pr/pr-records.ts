@@ -58,8 +58,12 @@ function readJsonObject(path: string): JsonObject {
   }
 }
 
-function prRecordsPath(stateDir: string): string {
+export function prRecordsPath(stateDir: string): string {
   return resolve(stateDir, "pr_handoff", "pr_records.json");
+}
+
+export function readPrRecordsArtifact(stateDir: string): JsonObject {
+  return readJsonObject(prRecordsPath(stateDir));
 }
 
 export function prHandoffArtifactPath(stateDir: string, savedPath: string, filename: string): string {
@@ -92,7 +96,7 @@ export function createPrRecordsService(deps: PrRecordsServiceDeps): {
   writePrRecords: (stateDir: string, payload: JsonObject) => JsonObject;
 } {
   function readPrRecords(stateDir: string): JsonObject {
-    return readJsonObject(prRecordsPath(stateDir));
+    return readPrRecordsArtifact(stateDir);
   }
 
   function prRecordContext(stateDir: string, runId = ""): PrRecordContext {

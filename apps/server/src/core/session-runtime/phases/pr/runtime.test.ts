@@ -203,13 +203,6 @@ function runtimeFixture(
       calls.events.push(event);
       return null;
     },
-    syncMergedPrIntakeForPrepare: async () => ({
-      afterRef: "after-sha",
-      beforeRef: "before-sha",
-      branch: "main",
-      mergedPrs: [],
-      steps: [],
-    }) as never,
   } as unknown as HandoffRuntimeDeps;
 
   return { branch, calls, runtime: createHandoffRuntime(deps), stateDir };
