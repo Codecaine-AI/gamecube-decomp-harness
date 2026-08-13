@@ -39,12 +39,35 @@
         "b-30-state-and-events-pi-sessions-worker-pr-17",
         "b-30-state-and-events-metadata-18",
         "b-30-state-and-events-legacy-director-cycles-19",
-        "b-30-state-and-events-state-files-remain-reada-20",
         "b-30-state-and-events-epoch-verdicts-and-integ-21",
         "b-30-state-and-events-results-and-score-gate-22",
         "b-30-state-and-events-events-durable-wake-req-23",
+        "b-state-run-contract-heading",
+        "b-state-run-contract-intro",
+        "b-state-run-inputs",
+        "b-state-run-status-lead",
+        "b-state-run-status-table",
+        "b-state-run-sync-decision",
+        "b-state-run-sync-heading",
+        "b-state-run-sync-continuity",
+        "b-state-run-sync-ownership",
+        "b-state-run-control-heading",
+        "b-state-run-pause",
+        "b-state-run-recovery-decision",
+        "b-state-run-recovery-heading",
+        "b-state-run-recovery",
+        "b-state-run-scheduler-heading",
+        "b-state-run-scheduler-intro",
+        "b-state-run-scheduler-table",
+        "b-state-run-integration-heading",
+        "b-state-run-integration-intro",
+        "b-state-run-integration-step-1",
+        "b-state-run-integration-step-2",
+        "b-state-run-integration-step-3",
+        "b-state-run-integration-step-4",
         "b-30-state-and-events-event-handshake-24",
         "b-30-state-and-events-events-are-the-handshake-25",
+        "b-state-run-events-transition",
         "b-30-state-and-events-wake-events-include-26",
         "b-30-state-and-events-run-started-27",
         "b-30-state-and-events-worker-finished-28",
@@ -78,7 +101,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Durable state substrate, events, target claims, worker states, checkpoints, facts, and artifacts."
+          "insert": "Durable state is memory for the orchestrator: run envelopes, epochs, claims, checkpoints, events, facts, and artifacts preserve scheduling truth between processes. This page defines the run lifecycle and event boundaries, then the execution and knowledge records beneath them."
         }
       ],
       "children": []
@@ -89,7 +112,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Durable state is the orchestrator's memory. It records the board, active work,\nagent sessions, scheduler epochs, worker states, checkpoints, facts, and wake\nevents. The state substrate allows workers and deterministic scheduling to\noperate at different times without losing context."
+          "insert": "RunState is the durable identity and control envelope for one autonomous scheduling effort inside ProjectSession. Epochs, target claims, worker states, and checkpoints compose beneath it through run_id, while scheduler_condition mirrors activity without becoming a second lifecycle. This separation lets the scheduler sleep, restart, and recover without reconstructing authority from process state."
         }
       ],
       "children": []
@@ -113,7 +136,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The board carries:"
+          "insert": "The board composes run control with the records that explain every dispatch, integration, and result:"
         }
       ],
       "children": []
@@ -126,7 +149,7 @@
       },
       "text": [
         {
-          "insert": "Runs: the goal, desired worker count, baseline report identity, and status."
+          "insert": "Runs: a stable run_id, immutable activation inputs, eight-status control state, the session-head mirror, scheduler observability, blockers, and progress."
         }
       ],
       "children": []
@@ -285,18 +308,7 @@
       },
       "text": [
         {
-          "insert": "Legacy director cycles: old board-level decision rows retained only so old"
-        }
-      ],
-      "children": []
-    },
-    "b-30-state-and-events-state-files-remain-reada-20": {
-      "id": "b-30-state-and-events-state-files-remain-reada-20",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "  state files remain readable."
+          "insert": "Compatibility director-cycle records keep existing state files readable without participating in current scheduling."
         }
       ],
       "children": []
@@ -338,6 +350,287 @@
       ],
       "children": []
     },
+    "b-state-run-contract-heading": {
+      "id": "b-state-run-contract-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Run State and Identity"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-contract-intro": {
+      "id": "b-state-run-contract-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A run is one autonomous scheduling effort inside a ProjectSession. Every run-scoped epoch, target, claim, worker state, checkpoint, output integration, and event is addressed by run_id; session_id names the owning session rather than standing in for a run. The run identity survives pause, recovery, and sync so all evidence stays on one timeline."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-inputs": {
+      "id": "b-state-run-inputs",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "RunInputs binds the effort to its original base_revision, policy revision, starting-knowledge revision, and configuration snapshot. Activation freezes the entire input object: base_revision remains the original baseline even when the session head advances, while policy_revision and starting_knowledge_revision are deterministic digests of canonical configuration and ordered knowledge resource versions. The separate head_revision mirror tells the scheduler which session lineage to plan against."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-status-lead": {
+      "id": "b-state-run-status-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The control status is the sole run lifecycle vocabulary; scheduler activity and process liveness never substitute for it:"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-status-table": {
+      "id": "b-state-run-status-table",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Status | Meaning | Stable invariant |\n| --- | --- | --- |\n| draft | Required inputs or configuration are incomplete. | No scheduler or worker may start. |\n| ready | Readiness gates pass and activation may be requested. | Activation cannot alter RunInputs. |\n| active | Autonomous scheduling authority is enabled. | The run holds the project dispatch lease. |\n| draining | New admission is disabled while existing work settles. | No new claims are created. |\n| paused | Scheduling is disabled and the run remains resumable. | Work has settled or explicit recovery recorded its cancellations. |\n| completed | Autonomous work closed normally. | The run is terminal. |\n| failed | The runner cannot continue safely. | Recovery returns the same run to paused. |\n| cancelled | The operator abandoned the effort. | The run is terminal and its evidence remains readable. |"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-sync-decision": {
+      "id": "b-state-run-sync-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-11) — runs survive sync via remote-application boundaries",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Sync does not close the interrupted run. Upstream changes enter session lineage through the remote-application boundary contract while the run identity and original baseline stay fixed."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-sync-heading": {
+      "id": "b-state-run-sync-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "How Run Continuity Meets Sync"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-sync-continuity": {
+      "id": "b-state-run-sync-continuity",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run continuity separates the fixed origin of the effort from the head it plans against. run_id and RunInputs remain fixed while ProjectSession head_revision may advance, and the run head_revision mirror follows that session head so later scheduler decisions use current lineage without rewriting the original baseline."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-sync-ownership": {
+      "id": "b-state-run-sync-ownership",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The sync workflow contract owns remote_application recording and transactional head publication. Run state preserves the fixed origin and consumes the resulting session head; no remote_application boundary writer belongs to the run boundary."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-control-heading": {
+      "id": "b-state-run-control-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Control and Recovery"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-pause": {
+      "id": "b-state-run-pause",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Pause is drain-based. active → draining disables new admission and claims while existing work settles; draining → paused records the settled state and releases autonomous scheduling authority. A confirmed hard stop may cancel outstanding subjects, but it also returns the same run to paused instead of closing its identity."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-recovery-decision": {
+      "id": "b-state-run-recovery-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-11) — failed runs resume in place",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Recovery never creates a successor run. Failed runs return to paused on the same run identity, and only completed and cancelled are terminal."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-recovery-heading": {
+      "id": "b-state-run-recovery-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "How In-Place Recovery Works"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-recovery": {
+      "id": "b-state-run-recovery",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Recovery first reconciles unfinished epoch boundaries, then settles or cancels orphaned claims and operations. The run.recovered event names every cancelled subject and commits failed → paused on the existing run_id; an operator may then resume paused → active after the dispatch lease is available. Recovery history remains attached to the same evidence timeline, while completed and cancelled runs refuse further activation."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-scheduler-heading": {
+      "id": "b-state-run-scheduler-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Scheduler Condition"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-scheduler-intro": {
+      "id": "b-state-run-scheduler-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "scheduler_condition is an observability mirror of current scheduler activity, not a run status or accepted lifecycle transition. Its updates do not increment the run revision, replace caused_by_event_id, or append a transition event; consumers use control.status for authority and terminality."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-scheduler-table": {
+      "id": "b-state-run-scheduler-table",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Condition | Observed activity |\n| --- | --- |\n| idle | No scheduler operation is executing. |\n| planning | Candidate evidence is becoming an admission decision. |\n| dispatching | Admitted work is being assigned to capacity. |\n| waiting | The active run is sleeping for a durable wake event. |\n| boundary | Confirmation, integration, report refresh, or save-point work is executing. |\n| blocked | Progress requires recovery or operator action. |"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-integration-heading": {
+      "id": "b-state-run-integration-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Epoch Integration Crash Boundary"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-integration-intro": {
+      "id": "b-state-run-integration-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch completion crosses SQLite and Git, so a pending-integration row makes the commit-without-lineage crash window recoverable. The row, the Epoch-Integration trailer, and the epoch-close transaction form one protocol:"
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-integration-step-1": {
+      "id": "b-state-run-integration-step-1",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Before the Git integration commit, the runner commits a pending_integrations row keyed by run_id and epoch_id with the branch, parent revision, and expected trailer."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-integration-step-2": {
+      "id": "b-state-run-integration-step-2",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "The Git integration commit carries the stable Epoch-Integration trailer with its epoch identity, which proves that the prepared epoch crossed the repository boundary."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-integration-step-3": {
+      "id": "b-state-run-integration-step-3",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "The epoch-close transaction records epoch_completed, advances the session and run head mirrors, and deletes the pending row in the same commit, so successful lineage cannot be reconciled twice."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-integration-step-4": {
+      "id": "b-state-run-integration-step-4",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Process startup and run recovery reconcile remaining rows by searching the prepared parent-to-branch history for that trailer. A found marker completes the normal epoch-close transaction; a missing marker closes the epoch as an integration error and removes the stale row."
+        }
+      ],
+      "children": []
+    },
     "b-30-state-and-events-event-handshake-24": {
       "id": "b-30-state-and-events-event-handshake-24",
       "type": "heading",
@@ -358,6 +651,17 @@
       "text": [
         {
           "insert": "Events are the handshake between workers, the runner, and the sleeping\nscheduler loop.\nA producer writes an event with payload and provenance. The runner handles the\noldest relevant unhandled event by invoking the correct next step. The event is\nmarked handled only after the resulting decision or state transition is stored."
+        }
+      ],
+      "children": []
+    },
+    "b-state-run-events-transition": {
+      "id": "b-state-run-events-transition",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Accepted run transitions append a durable project event and update RunState under its expected revision in one transaction. The accepted transition increments revision once and points caused_by_event_id at that event; a stale revision refuses the transition. Scheduler-condition updates stay outside this handshake because they are observability only."
         }
       ],
       "children": []
@@ -669,7 +973,7 @@
       },
       "text": [
         {
-          "insert": "Claims And Checkpoints"
+          "insert": "Claims and Checkpoints"
         }
       ],
       "children": []

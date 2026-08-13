@@ -9,42 +9,460 @@
       "type": "paragraph",
       "props": {},
       "children": [
-        "b-00-overview-the-scheduler-slice-how-2",
-        "b-00-overview-reading-order-3",
-        "b-00-overview-run-director-loop-10-r-4",
-        "b-00-overview-board-prioritization-2-5",
-        "b-00-overview-process-guardians-30-p-6",
-        "b-00-overview-this-slice-owns-scheduli-7"
+        "b-running-summary-v2",
+        "b-running-identity-h",
+        "b-running-identity-p",
+        "b-running-inputs-p",
+        "b-running-input-base-li",
+        "b-running-input-policy-li",
+        "b-running-input-knowledge-li",
+        "b-running-sync-decision",
+        "b-running-sync-h",
+        "b-running-sync-p",
+        "b-running-sync-owner-li",
+        "b-running-sync-reference-li",
+        "b-running-control-h",
+        "b-running-control-p",
+        "b-running-status-table",
+        "b-running-condition-p",
+        "b-running-pause-p",
+        "b-running-recovery-decision",
+        "b-running-recovery-h",
+        "b-running-recovery-p",
+        "b-running-recovery-reconcile-li",
+        "b-running-recovery-event-li",
+        "b-running-recovery-resume-li",
+        "b-running-integration-h",
+        "b-running-integration-p",
+        "b-running-integration-prepare-li",
+        "b-running-integration-commit-li",
+        "b-running-integration-close-li",
+        "b-running-integration-reconcile-li",
+        "b-running-reading-h",
+        "b-running-reading-p",
+        "b-running-director-link",
+        "b-running-board-link",
+        "b-running-guardians-link",
+        "b-running-scope-p"
       ]
     },
-    "b-00-overview-the-scheduler-slice-how-2": {
-      "id": "b-00-overview-the-scheduler-slice-how-2",
+    "b-running-summary-v2": {
+      "id": "b-running-summary-v2",
       "type": "paragraph",
       "props": {},
       "text": [
         {
-          "insert": "The scheduler slice: how the run director loop reads the board, admits and drains work deterministically, and how the process health layer keeps the loop alive without becoming a second scheduler."
+          "insert": "Running is the autonomous scheduling slice for one run inside a project session. RunState binds stable identity and immutable inputs to control status, while the director turns active dispatch authority into epochs and claims. A pending-integration boundary keeps Git lineage and durable session state convergent across a crash."
         }
       ],
       "children": []
     },
-    "b-00-overview-reading-order-3": {
-      "id": "b-00-overview-reading-order-3",
+    "b-running-identity-h": {
+      "id": "b-running-identity-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Run Identity and Inputs"
+        }
+      ],
+      "children": []
+    },
+    "b-running-identity-p": {
+      "id": "b-running-identity-p",
       "type": "paragraph",
       "props": {},
       "text": [
         {
-          "insert": "Reading order:"
+          "insert": "Every run-scoped object is addressed by run_id, so an epoch, claim, worker state, checkpoint, or integration record always names the autonomous effort that owns it. session_id names the containing project session; it never stands in for a run identity."
         }
       ],
       "children": []
     },
-    "b-00-overview-run-director-loop-10-r-4": {
-      "id": "b-00-overview-run-director-loop-10-r-4",
+    "b-running-inputs-p": {
+      "id": "b-running-inputs-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "RunInputs capture the reproducible starting conditions and become immutable when activation accepts them:"
+        }
+      ],
+      "children": []
+    },
+    "b-running-input-base-li": {
+      "id": "b-running-input-base-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "base_revision is fixed as the run's original baseline at activation. Later head movement changes the session head mirror, not this origin."
+        }
+      ],
+      "children": []
+    },
+    "b-running-input-policy-li": {
+      "id": "b-running-input-policy-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "policy_revision is a deterministic digest of the canonical configuration snapshot, so equal policy inputs bind to the same revision."
+        }
+      ],
+      "children": []
+    },
+    "b-running-input-knowledge-li": {
+      "id": "b-running-input-knowledge-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "starting_knowledge_revision is a deterministic digest of the ordered starting knowledge content, so the run records the evidence generation it began from even when background knowledge advances."
+        }
+      ],
+      "children": []
+    },
+    "b-running-sync-decision": {
+      "id": "b-running-sync-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-11) — runs survive sync via remote-application boundaries",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Sync does not replace the interrupted run. The run identity and original base_revision remain fixed while the session head advances through a remote-application boundary."
+        }
+      ],
+      "children": []
+    },
+    "b-running-sync-h": {
+      "id": "b-running-sync-h",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "How a Run Survives Sync"
+        }
+      ],
+      "children": []
+    },
+    "b-running-sync-p": {
+      "id": "b-running-sync-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run continuity separates the effort's fixed origin from the head it plans against. The running slice mirrors the session head and replans from that value after sync; it does not publish remote-application boundaries."
+        }
+      ],
+      "children": []
+    },
+    "b-running-sync-owner-li": {
+      "id": "b-running-sync-owner-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The sync workflow contract owns the remote_application writer and the transaction that publishes the applied upstream revision into session lineage. That writer is outside the implemented running slice."
+        }
+      ],
+      "children": []
+    },
+    "b-running-sync-reference-li": {
+      "id": "b-running-sync-reference-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "An active run retains its run_id and references the resulting boundary, while a sync with no active run attaches the boundary to the session alone."
+        }
+      ],
+      "children": []
+    },
+    "b-running-control-h": {
+      "id": "b-running-control-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Control State and Scheduling Condition"
+        }
+      ],
+      "children": []
+    },
+    "b-running-control-p": {
+      "id": "b-running-control-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run status answers whether autonomous scheduling has authority and whether existing work must settle. The eight values form one control vocabulary; active specifically means the run holds the project dispatch lease."
+        }
+      ],
+      "children": []
+    },
+    "b-running-status-table": {
+      "id": "b-running-status-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Status",
+          "Meaning",
+          "Stable invariant"
+        ],
+        "rows": [
+          [
+            "draft",
+            "Inputs or configuration are incomplete.",
+            "No scheduler or worker may start."
+          ],
+          [
+            "ready",
+            "Required inputs are captured and readiness gates pass.",
+            "Activation preserves the bound inputs."
+          ],
+          [
+            "active",
+            "Autonomous scheduling authority is enabled.",
+            "The run holds the project dispatch lease."
+          ],
+          [
+            "draining",
+            "New admission is disabled while admitted work settles.",
+            "No new claims are created."
+          ],
+          [
+            "paused",
+            "Scheduling is disabled and the same run remains resumable.",
+            "Existing work has settled or been explicitly recovered."
+          ],
+          [
+            "completed",
+            "Autonomous work closed normally.",
+            "The run is terminal."
+          ],
+          [
+            "failed",
+            "The runner could not safely continue.",
+            "Recovery returns this identity to paused."
+          ],
+          [
+            "cancelled",
+            "The operator abandoned the run.",
+            "Evidence remains readable and the run is terminal."
+          ]
+        ],
+        "title": "Run status values"
+      },
+      "children": []
+    },
+    "b-running-condition-p": {
+      "id": "b-running-condition-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "scheduler_condition is an observability mirror of what the scheduler is doing inside that control state: idle, planning, dispatching, waiting, boundary, or blocked. It does not replace status, grant dispatch authority, or create another state machine."
+        }
+      ],
+      "children": []
+    },
+    "b-running-pause-p": {
+      "id": "b-running-pause-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Pause is drain-based. A pause request moves active → draining, stops new admission, waits for claims and boundary work to settle, and then records paused; a confirmed hard stop uses recovery to cancel unsettled work before reaching the same paused state."
+        }
+      ],
+      "children": []
+    },
+    "b-running-recovery-decision": {
+      "id": "b-running-recovery-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-11) — failed runs resume in place",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Recovery never creates a successor run. A failed run returns to paused on the same run_id, and only completed and cancelled are terminal."
+        }
+      ],
+      "children": []
+    },
+    "b-running-recovery-h": {
+      "id": "b-running-recovery-h",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "How In-Place Recovery Works"
+        }
+      ],
+      "children": []
+    },
+    "b-running-recovery-p": {
+      "id": "b-running-recovery-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Recovery repairs durable boundaries before it changes run control, so the resumed identity never plans from an ambiguous head:"
+        }
+      ],
+      "children": []
+    },
+    "b-running-recovery-reconcile-li": {
+      "id": "b-running-recovery-reconcile-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "It first reconciles pending epoch integrations, then settles or cancels orphaned claims and breaks a stale dispatch lease when one is still held."
+        }
+      ],
+      "children": []
+    },
+    "b-running-recovery-event-li": {
+      "id": "b-running-recovery-event-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "It emits run.recovered with the cancelled claim and operation subject ids, clears the failed control residue, and moves failed → paused on the same run_id."
+        }
+      ],
+      "children": []
+    },
+    "b-running-recovery-resume-li": {
+      "id": "b-running-recovery-resume-li",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The operator resumes paused → active through the normal lease acquisition path. Failed remains recoverable or cancellable; completed and cancelled cannot resume."
+        }
+      ],
+      "children": []
+    },
+    "b-running-integration-h": {
+      "id": "b-running-integration-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Pending Integration Boundary"
+        }
+      ],
+      "children": []
+    },
+    "b-running-integration-p": {
+      "id": "b-running-integration-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch publication crosses a Git commit boundary and a database transaction boundary. The pending-integration protocol gives reconciliation durable evidence for the only crash window between them:"
+        }
+      ],
+      "children": []
+    },
+    "b-running-integration-prepare-li": {
+      "id": "b-running-integration-prepare-li",
       "type": "list-item",
       "props": {
-        "ordered": false
+        "ordered": true
       },
+      "text": [
+        {
+          "insert": "Before the Git integration commit, the runtime commits a pending_integrations row containing run_id, epoch_id, branch, parent SHA, and the expected message marker."
+        }
+      ],
+      "children": []
+    },
+    "b-running-integration-commit-li": {
+      "id": "b-running-integration-commit-li",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "The integration commit carries the stable Epoch-Integration: <epoch_id> trailer, which identifies the boundary independently of process memory."
+        }
+      ],
+      "children": []
+    },
+    "b-running-integration-close-li": {
+      "id": "b-running-integration-close-li",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "The epoch-close transaction records epoch completion, advances the session and run head mirrors, and deletes the pending row in that same transaction."
+        }
+      ],
+      "children": []
+    },
+    "b-running-integration-reconcile-li": {
+      "id": "b-running-integration-reconcile-li",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Startup reconciles pending rows before acquiring dispatch authority, and run recovery reconciles them before settling claims. Both locate the trailer after the recorded parent; a found commit completes the epoch-close transaction, while a missing commit closes the boundary as an integration error and removes the stale row."
+        }
+      ],
+      "children": []
+    },
+    "b-running-reading-h": {
+      "id": "b-running-reading-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Reading Path"
+        }
+      ],
+      "children": []
+    },
+    "b-running-reading-p": {
+      "id": "b-running-reading-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The child pages divide the scheduler mechanics from the control model on this page:"
+        }
+      ],
+      "children": []
+    },
+    "b-running-director-link": {
+      "id": "b-running-director-link",
+      "type": "list-item",
+      "props": {},
       "text": [
         {
           "insert": "Run director loop",
@@ -57,17 +475,15 @@
           }
         },
         {
-          "insert": " covers board reads, deterministic admission, sleep, and wake events."
+          "insert": " covers deterministic admission, epoch boundaries, sleep, and durable wake events."
         }
       ],
       "children": []
     },
-    "b-00-overview-board-prioritization-2-5": {
-      "id": "b-00-overview-board-prioritization-2-5",
+    "b-running-board-link": {
+      "id": "b-running-board-link",
       "type": "list-item",
-      "props": {
-        "ordered": false
-      },
+      "props": {},
       "text": [
         {
           "insert": "Board prioritization",
@@ -80,17 +496,15 @@
           }
         },
         {
-          "insert": " covers helper score inputs and scheduler rank signals."
+          "insert": " covers the evidence and rank signals consumed during planning."
         }
       ],
       "children": []
     },
-    "b-00-overview-process-guardians-30-p-6": {
-      "id": "b-00-overview-process-guardians-30-p-6",
+    "b-running-guardians-link": {
+      "id": "b-running-guardians-link",
       "type": "list-item",
-      "props": {
-        "ordered": false
-      },
+      "props": {},
       "text": [
         {
           "insert": "Process guardians",
@@ -103,18 +517,18 @@
           }
         },
         {
-          "insert": " covers the babysit wrapper, health incidents, recovery policy, and the restart boundary."
+          "insert": " covers process liveness and restart policy without becoming a second scheduler."
         }
       ],
       "children": []
     },
-    "b-00-overview-this-slice-owns-scheduli-7": {
-      "id": "b-00-overview-this-slice-owns-scheduli-7",
+    "b-running-scope-p": {
+      "id": "b-running-scope-p",
       "type": "paragraph",
       "props": {},
       "text": [
         {
-          "insert": "This slice owns scheduling transitions. Worker behavior under a claim belongs to "
+          "insert": "This slice owns run control, scheduling transitions, and crash-safe epoch publication. Claim execution belongs to "
         },
         {
           "insert": "Workers",
@@ -127,7 +541,7 @@
           }
         },
         {
-          "insert": "; the durable substrate it reads and writes is "
+          "insert": "; the durable envelope and event substrate belong to "
         },
         {
           "insert": "State and events",
@@ -140,7 +554,7 @@
           }
         },
         {
-          "insert": "."
+          "insert": "; remote-application publication belongs to the sync workflow contract."
         }
       ],
       "children": []
