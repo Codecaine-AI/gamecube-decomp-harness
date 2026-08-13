@@ -5,6 +5,7 @@ import { Button, EmptyState, Field, InfoRows, Pill, SelectField } from "@/compon
 import { asArray, asObject, clock, numberValue, shortId, text, type JsonObject } from "@/lib/format";
 import { processView } from "@/lib/processView";
 import { normalizeToolConcurrency, suggestedToolConcurrency, toolConcurrencyRows, workerTimeoutMinutes, workerTimeoutSecondsFromMinutes } from "@/lib/workerConfig";
+import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 import {
   candidateRerankOptions,
   candidateRerankTooltip,
@@ -156,10 +157,10 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
           <Pill state={view.pillState} />
         </div>
         <div className="mt-3 grid grid-cols-3 gap-1.5">
-          <Button disabled={busy || !running || draining} icon={draining ? <RefreshCw size={13} /> : <Pause size={13} />} onClick={() => onAction("stop")} title={running ? "Stop scheduling and exit after in-flight workers finish." : "No process is running."} tone="warning" type="button">
+          <Button disabled={busy || !running || draining} icon={draining ? <RefreshCw size={13} /> : <Pause size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)} title={running ? "Stop scheduling and exit after in-flight workers finish." : "No process is running."} tone="warning" type="button">
             {draining ? "Draining" : "Drain"}
           </Button>
-          <Button disabled={busy || !running} icon={<Archive size={13} />} onClick={() => onAction("forceStop")} title={running ? "Kill workers immediately and recover active claims for rescheduling." : "No process is running."} tone="danger" type="button">
+          <Button disabled={busy || !running} icon={<Archive size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.hardStop)} title={running ? "Kill workers immediately and recover active claims for rescheduling." : "No process is running."} tone="danger" type="button">
             Kill
           </Button>
           <Button disabled={busy || running || !hasRun} icon={<Play size={13} />} onClick={() => onAction("start")} title={!hasRun ? "No active run to start." : running ? "Workers are already running." : "Start workers with the current run config."} tone={!running && hasRun ? "primary" : undefined} type="button">

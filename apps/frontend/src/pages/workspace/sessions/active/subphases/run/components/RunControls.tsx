@@ -2,6 +2,7 @@ import { Archive, Pause, Play, RefreshCw } from "@/icons";
 import { type FormState, text } from "@/lib/format";
 import { workerTimeoutMinutes, workerTimeoutSecondsFromMinutes } from "@/lib/workerConfig";
 import { Button, Field, PanelSection, PanelTitle, SelectField } from "@/components/primitives";
+import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 import {
   candidateRerankOptions,
   candidateRerankTooltip,
@@ -25,10 +26,10 @@ export function RunControls({ busy, form, onAction, setForm, view }: { busy: boo
         <Button disabled={busy || !view.canStartWorkers} icon={<Play size={14} />} onClick={() => onAction("startWork")} title={view.canStartWorkers ? "Init/resume this run and start workers." : startBlocked} tone={view.canStartWorkers ? "primary" : undefined} type="button">
           {view.runStatus === "paused" ? "Resume" : "Start"}
         </Button>
-        <Button disabled={busy || !view.process.running || view.process.draining} icon={view.process.draining ? <RefreshCw size={14} /> : <Pause size={14} />} onClick={() => onAction("pausePr")} title={view.process.running ? "Drain workers and enter PR handoff." : "Workers are not running."} tone="warning" type="button">
+        <Button disabled={busy || !view.process.running || view.process.draining} icon={view.process.draining ? <RefreshCw size={14} /> : <Pause size={14} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)} title={view.process.running ? "Drain workers and enter PR handoff." : "Workers are not running."} tone="warning" type="button">
           {view.process.draining ? "Draining" : "Drain"}
         </Button>
-        <Button disabled={busy || !view.process.running} icon={<Archive size={14} />} onClick={() => onAction("forceStop")} title={view.process.running ? "Kill workers immediately and recover active claims for rescheduling." : "No process is running."} tone="danger" type="button">
+        <Button disabled={busy || !view.process.running} icon={<Archive size={14} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.hardStop)} title={view.process.running ? "Kill workers immediately and recover active claims for rescheduling." : "No process is running."} tone="danger" type="button">
           Kill
         </Button>
       </div>

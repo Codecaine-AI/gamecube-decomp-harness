@@ -8,16 +8,22 @@ import {
   closeSchedulerEpoch,
   closeWorkerState,
   createRun,
+  enqueueWorkerOutputIntegration,
   openState,
+  setRunSchedulerCondition,
   startSchedulerEpoch,
+  transitionRun,
+  updateRunStatus,
   type StateStore,
 } from "@server/core/session-runtime/run-state";
+import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { createProjectSession, recordSavePointAnchor, recordSavePointFailureDurably } from "@server/core/project-session";
 import { initializeProjectState, requestDispatch } from "@server/core/project-state";
 import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
 import {
   buildProjectStateReadModel,
   createDashboardReadModel,
+  projectRunActionState,
   type JsonObject,
 } from "./read-model.js";
 
@@ -128,6 +134,256 @@ describe("dashboard read model", () => {
           confirmation_required: true,
         }),
       ]);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("projects the canonical run summary, action inventory, blockers, and recovery points", () => {
+    const { store } = tempState();
+    try {
+      createProjectSession(store.db, {
+        projectId: "melee",
+        sessionUuid: "session-run",
+        id: "project-session:session-run",
+        baseSha: "base-sha",
+      });
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const ready = createRun(
+        store,
+        "matched_code_percent",
+        100,
+        3,
+        { projectId: "melee" },
+        { baseRevision: "base-sha", sessionUuid: "session-run" },
+      );
+
+      const readyState = projectRunActionState(store, "melee", { runId: ready.id });
+      expect(readyState.availableActions.map((action) => action.action_id)).toEqual([
+        "run.start",
+        "run.pause",
+        "run.resume",
+        "run.hard_stop",
+        "run.cancel",
+        "run.recover",
+      ]);
+      expect(readyState.availableActions.map((action) => action.confirmation_required)).toEqual([
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+      ]);
+      expect(readyState.availableActions.find((action) => action.action_id === "run.start")).toMatchObject({
+        enabled: true,
+        blocked_by: [],
+        expected_transition: "ready → active",
+      });
+
+      const dispatch = requestDispatch(store, {
+        projectId: "melee",
+        kind: "run",
+        workflowId: ready.id,
+        reason: "start run",
+        commandId: "command-run-start",
+        actor: "operator",
+      });
+      expect(dispatch.queued).toBeFalse();
+      const active = updateRunStatus(store, ready.id, "active", "operator");
+      setRunSchedulerCondition(store, active.id, "dispatching");
+      const epoch = startSchedulerEpoch(store, active.id, {
+        size: { mode: "fixed", value: 3 },
+        workerPoolSize: 3,
+        candidateWindow: 3,
+      });
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: active.id,
+        candidates: [
+          { unit: "unit-a", symbol: "fn_a", sourcePath: "src/a.c", size: 64, fuzzy: 80, priority: 3, reason: "test" },
+          { unit: "unit-b", symbol: "fn_b", sourcePath: "src/b.c", size: 64, fuzzy: 81, priority: 2, reason: "test" },
+          { unit: "unit-c", symbol: "fn_c", sourcePath: "src/c.c", size: 64, fuzzy: 82, priority: 1, reason: "test" },
+        ],
+        size: { mode: "fixed", value: 3 },
+        workerPoolSize: 3,
+      });
+      const claim = claimNextEpochTarget({
+        store,
+        runId: active.id,
+        workerId: "worker-active",
+        baseRev: "base-sha",
+      });
+      expect(claim).not.toBeNull();
+
+      recordDashboardArtifact(store, {
+        runId: active.id,
+        artifactType: "board_snapshot",
+        artifactKey: "initial",
+        payload: { measures: { matched_code_percent: 72.5 } },
+      });
+      recordDashboardArtifact(store, {
+        runId: active.id,
+        artifactType: "board_snapshot",
+        artifactKey: "current",
+        payload: { measures: { matched_code_percent: 73.25 } },
+      });
+      for (const [index, validationState] of ["tentative", "confirmed", "regressed"].entries()) {
+        const integration = enqueueWorkerOutputIntegration(store, {
+          runId: active.id,
+          epochId: epoch.id,
+          epochTargetId: `target-${index}`,
+          targetClaimId: `claim-${index}`,
+          workerStateId: `worker-state-${index}`,
+          workerCheckpointId: `checkpoint-${index}`,
+        });
+        store.db
+          .query("UPDATE worker_output_integrations SET status = ?, validation_state = ? WHERE id = ?")
+          .run(validationState === "regressed" ? "needs_rework" : "applied", validationState, integration.id);
+      }
+
+      const activeView = buildProjectStateReadModel(store, "melee", {
+        aheadOfBase: 0,
+        head: { dirty: false },
+      });
+      expect(activeView.run).toEqual({
+        workflow_id: active.id,
+        status: "active",
+        scheduler_condition: "dispatching",
+        active_epoch: { epoch_id: epoch.id, ordinal: 1 },
+        admitted: 3,
+        claimed: 1,
+        running: 1,
+        progress: {
+          baseline_score: 72.5,
+          confirmed_score: 73.25,
+          tentative_changes: 1,
+          confirmed_changes: 1,
+          regressed_changes: 1,
+        },
+        recovery_points: [],
+      });
+      expect(activeView.available_actions.find((action) => action.action_id === "run.pause")?.enabled).toBe(true);
+      expect(activeView.available_actions.find((action) => action.action_id === "run.hard_stop")?.enabled).toBe(true);
+
+      const failed = updateRunStatus(store, active.id, "failed", "runner");
+      const failedState = projectRunActionState(store, "melee", { runId: active.id });
+      expect(failedState.availableActions.find((action) => action.action_id === "run.recover")?.enabled).toBe(true);
+      expect(failedState.availableActions.find((action) => action.action_id === "run.pause")).toMatchObject({
+        enabled: false,
+        blocked_by: [expect.objectContaining({ code: "run_not_active" })],
+      });
+      expect(failedState.availableActions.find((action) => action.action_id === "run.cancel")?.blocked_by).toContainEqual(
+        expect.objectContaining({ code: "unsettled_claims" }),
+      );
+
+      transitionRun(store, failed.id, {
+        actor: "operator",
+        commandId: "command-run-recover",
+        eventType: "run.recovered",
+        expectedRevision: failed.revision,
+        patch: { status: "paused" },
+        payload: {
+          recovery_reason: "runner crashed",
+          cancelled_claim_ids: [claim!.claimId],
+          cancelled_operation_ids: ["operation-1"],
+          resulting_status: "paused",
+        },
+      });
+      const recoveredView = buildProjectStateReadModel(store, "melee", {
+        aheadOfBase: 0,
+        head: { dirty: false },
+      });
+      expect(recoveredView.run?.recovery_points).toEqual([
+        expect.objectContaining({
+          recovery_reason: "runner crashed",
+          cancelled_claim_ids: [claim!.claimId],
+          cancelled_operation_ids: ["operation-1"],
+          resulting_status: "paused",
+        }),
+      ]);
+      expect(recoveredView.available_actions.find((action) => action.action_id === "run.hard_stop")).toMatchObject({
+        enabled: true,
+        confirmation_required: true,
+      });
+
+      const cancelled = updateRunStatus(store, active.id, "cancelled", "operator");
+      const staleHeartbeat = new Date(Date.now() - 16 * 60 * 1000).toISOString();
+      const currentLease = (store.db
+        .query("SELECT active_workflow_json FROM project_state WHERE project_id = ?")
+        .get("melee") as { active_workflow_json: string }).active_workflow_json;
+      store.db
+        .query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = ?")
+        .run(
+          JSON.stringify({
+            ...JSON.parse(currentLease),
+            heartbeat_at: staleHeartbeat,
+          }),
+          "melee",
+        );
+      const terminalState = projectRunActionState(store, "melee", {
+        runId: cancelled.id,
+        hasActiveProcess: () => ({ active: false }),
+      });
+      expect(terminalState.availableActions.find((action) => action.action_id === "run.recover")).toMatchObject({
+        enabled: false,
+        blocked_by: [expect.objectContaining({ code: "run_terminal", recoverable: false })],
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("projects unknown process liveness as a recovery blocker for an expired run lease", () => {
+    const { dir, store } = tempState();
+    try {
+      const run = createRun(
+        store,
+        "matched_code_percent",
+        100,
+        1,
+        { projectId: "melee", repoRoot: dir, stateDir: dir },
+        { baseRevision: "base-sha" },
+      );
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const dispatch = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-stale-run",
+        kind: "run",
+        projectId: "melee",
+        reason: "test stale run projection",
+        workflowId: run.id,
+      });
+      if (dispatch.queued) throw new Error("test run lease was unexpectedly queued");
+      updateRunStatus(store, run.id, "active", "operator");
+      const state = store.db
+        .query("SELECT active_workflow_json FROM project_state WHERE project_id = ?")
+        .get("melee") as { active_workflow_json: string };
+      store.db
+        .query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = ?")
+        .run(
+          JSON.stringify({
+            ...JSON.parse(state.active_workflow_json),
+            heartbeat_at: "2026-08-12T12:00:00.000Z",
+          }),
+          "melee",
+        );
+      const now = Date.parse("2026-08-12T12:30:00.000Z");
+
+      const unknown = buildProjectStateReadModel(store, "melee", {}, { now });
+      expect(unknown.available_actions.find((action) => action.action_id === "run.recover")).toMatchObject({
+        enabled: false,
+        blocked_by: [expect.objectContaining({ code: "process_liveness_unknown" })],
+      });
+
+      const notLive = buildProjectStateReadModel(store, "melee", {}, {
+        hasActiveProcess: () => ({ active: false }),
+        now,
+      });
+      expect(notLive.available_actions.find((action) => action.action_id === "run.recover")).toMatchObject({
+        enabled: true,
+        blocked_by: [],
+      });
     } finally {
       store.db.close();
     }
@@ -253,7 +509,7 @@ describe("dashboard read model", () => {
     const { dir, store } = tempState();
     let runId = "";
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const oldEpoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 1 },
@@ -307,7 +563,7 @@ describe("dashboard read model", () => {
     const { dir, store } = tempState();
     let runId = "";
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 6 },
@@ -329,14 +585,14 @@ describe("dashboard read model", () => {
         workerPoolSize: 1,
       });
 
-      const timeoutClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-timeout", baseRev: "base" });
+      const timeoutClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-timeout", baseRev: "base" });
       closeWorkerState(store, {
         workerStateId: timeoutClaim!.workerStateId,
         lifecycleStatus: "timeout",
         timeoutSummary: "Worker Pi session timed out after 1800s",
       });
 
-      const recoveredClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-recovered", baseRev: "base" });
+      const recoveredClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-recovered", baseRev: "base" });
       closeWorkerState(store, {
         workerStateId: recoveredClaim!.workerStateId,
         lifecycleStatus: "error",
@@ -348,7 +604,7 @@ describe("dashboard read model", () => {
         },
       });
 
-      const sessionFailedClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-session-failed", baseRev: "base" });
+      const sessionFailedClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-session-failed", baseRev: "base" });
       closeWorkerState(store, {
         workerStateId: sessionFailedClaim!.workerStateId,
         lifecycleStatus: "error",
@@ -362,7 +618,7 @@ describe("dashboard read model", () => {
         },
       });
 
-      const validationClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-validation", baseRev: "base" });
+      const validationClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-validation", baseRev: "base" });
       closeWorkerState(store, {
         workerStateId: validationClaim!.workerStateId,
         lifecycleStatus: "finished",
@@ -374,7 +630,7 @@ describe("dashboard read model", () => {
         },
       });
 
-      const toolClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-tool", baseRev: "base" });
+      const toolClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-tool", baseRev: "base" });
       closeWorkerState(store, {
         workerStateId: toolClaim!.workerStateId,
         lifecycleStatus: "error",
@@ -388,7 +644,7 @@ describe("dashboard read model", () => {
         },
       });
 
-      const bankedClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-banked", baseRev: "base" });
+      const bankedClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-banked", baseRev: "base" });
       closeWorkerState(store, {
         workerStateId: bankedClaim!.workerStateId,
         lifecycleStatus: "finished",
@@ -423,7 +679,7 @@ describe("dashboard read model", () => {
     let runId = "";
     let workerStateId = "";
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 1 },
@@ -438,7 +694,7 @@ describe("dashboard read model", () => {
         workerPoolSize: 1,
       });
 
-      const firstClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-old", baseRev: "base" });
+      const firstClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-old", baseRev: "base" });
       expect(firstClaim).not.toBeNull();
       workerStateId = firstClaim!.workerStateId;
       const activityPath = resolve(dir, "runs", run.id, "worker_state", firstClaim!.workerStateId, "activity.jsonl");
@@ -468,7 +724,7 @@ describe("dashboard read model", () => {
         errorSummary: "interrupted",
       });
 
-      const secondClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-new", baseRev: "base" });
+      const secondClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-new", baseRev: "base" });
       expect(secondClaim?.workerStateId).toBe(firstClaim!.workerStateId);
       const row = store.db.query("SELECT claimed_at FROM target_claims WHERE id = ?").get(secondClaim!.claimId) as Record<string, unknown>;
       const claimedAt = String(row.claimed_at);

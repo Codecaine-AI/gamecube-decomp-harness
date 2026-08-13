@@ -5,6 +5,9 @@ import type {
   ProjectStateActionProjection,
   ProjectStateBlocker,
   ProjectStateReadModel,
+  ProjectStateRunRecoveryPoint,
+  ProjectStateRunSchedulerCondition,
+  ProjectStateRunStatus,
   SessionView,
 } from "./types";
 
@@ -91,6 +94,11 @@ function booleanValue(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
+function nullableNumber(value: unknown): number | null {
+  const parsed = numberValue(value, NaN);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function projectStateBlocker(value: unknown): ProjectStateBlocker {
   const blocker = asObject(value);
   return {
@@ -109,6 +117,9 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
   const activeWorkflowRaw = asObject(raw.active_workflow);
   const requestedHandoffRaw = asObject(activeWorkflowRaw.requested_handoff);
   const sessionRaw = asObject(raw.session);
+  const runRaw = asObject(raw.run);
+  const activeEpochRaw = asObject(runRaw.active_epoch);
+  const progressRaw = asObject(runRaw.progress);
   const latestSavePointRaw = asObject(sessionRaw.latest_save_point);
   const activeWorkflow = Object.keys(activeWorkflowRaw).length > 0
     ? {
@@ -165,6 +176,42 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
       }
     : null;
 
+  const run = Object.keys(runRaw).length > 0
+    ? {
+        workflow_id: text(runRaw.workflow_id),
+        status: text(runRaw.status) as ProjectStateRunStatus,
+        scheduler_condition: (text(runRaw.scheduler_condition) || null) as ProjectStateRunSchedulerCondition | null,
+        active_epoch: Object.keys(activeEpochRaw).length > 0
+          ? {
+              epoch_id: text(activeEpochRaw.epoch_id),
+              ordinal: numberValue(activeEpochRaw.ordinal),
+            }
+          : null,
+        admitted: numberValue(runRaw.admitted),
+        claimed: numberValue(runRaw.claimed),
+        running: numberValue(runRaw.running),
+        progress: {
+          baseline_score: nullableNumber(progressRaw.baseline_score),
+          confirmed_score: nullableNumber(progressRaw.confirmed_score),
+          tentative_changes: numberValue(progressRaw.tentative_changes),
+          confirmed_changes: numberValue(progressRaw.confirmed_changes),
+          regressed_changes: numberValue(progressRaw.regressed_changes),
+        },
+        recovery_points: asArray(runRaw.recovery_points).map((value): ProjectStateRunRecoveryPoint => {
+          const point = asObject(value);
+          return {
+            event_id: text(point.event_id),
+            sequence: numberValue(point.sequence),
+            occurred_at: text(point.occurred_at),
+            recovery_reason: text(point.recovery_reason) || null,
+            cancelled_claim_ids: asArray(point.cancelled_claim_ids).map((id) => text(id)).filter(Boolean),
+            cancelled_operation_ids: asArray(point.cancelled_operation_ids).map((id) => text(id)).filter(Boolean),
+            resulting_status: (text(point.resulting_status) || null) as ProjectStateRunStatus | null,
+          };
+        }),
+      }
+    : null;
+
   return {
     revision: numberValue(raw.revision),
     active_workflow: activeWorkflow,
@@ -179,6 +226,7 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
       };
     }),
     session,
+    run,
     latest_event_sequence: numberValue(raw.latest_event_sequence),
     available_actions: asArray(raw.available_actions).map((value): ProjectStateActionProjection => {
       const action = asObject(value);
@@ -394,7 +442,7 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
   const run = asObject(status.run);
   const runStatus = text(run.status);
   const runId = text(run.id);
-  const completedLegacyRun = Boolean(runId) && runStatus === "complete" && !hasCanonicalSession;
+  const completedLegacyRun = Boolean(runId) && runStatus === "completed" && !hasCanonicalSession;
   const activeClaims = numberValue(status.activeClaims, 0);
   const campaign = asObject(dashboard?.campaign);
   const head = asObject(campaign.head);

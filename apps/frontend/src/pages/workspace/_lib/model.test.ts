@@ -111,6 +111,106 @@ describe("workspace session view", () => {
     });
   });
 
+  test("projects the canonical run summary, six server-owned actions, and recovery points", () => {
+    const action = (actionId: string, enabled: boolean, confirmationRequired: boolean) => ({
+      action_id: actionId,
+      subject_kind: "run",
+      subject_id: "run-21",
+      enabled,
+      blocked_by: enabled ? [] : [{
+        code: "dispatch_lease_held",
+        message: "Sync holds the dispatch lease.",
+        source_kind: "sync",
+        source_id: "sync-8",
+        recoverable: true,
+      }],
+      expected_transition: `${actionId} expected transition`,
+      confirmation_required: confirmationRequired,
+    });
+    const dashboard = {
+      projectState: {
+        revision: 21,
+        active_workflow: null,
+        queued_dispatch_requests: [],
+        session: null,
+        run: {
+          workflow_id: "run-21",
+          status: "paused",
+          scheduler_condition: "waiting",
+          active_epoch: { epoch_id: "epoch-4", ordinal: 4 },
+          admitted: 8,
+          claimed: 5,
+          running: 2,
+          progress: {
+            baseline_score: 72.642,
+            confirmed_score: 73.147,
+            tentative_changes: 2,
+            confirmed_changes: 31,
+            regressed_changes: 1,
+          },
+          recovery_points: [{
+            event_id: "event-recovered-20",
+            sequence: 20,
+            occurred_at: "2026-08-13T12:00:00.000Z",
+            recovery_reason: "stale dispatch lease",
+            cancelled_claim_ids: ["claim-2"],
+            cancelled_operation_ids: ["operation-3"],
+            resulting_status: "paused",
+          }],
+        },
+        latest_event_sequence: 20,
+        available_actions: [
+          action("run.start", true, false),
+          action("run.pause", false, false),
+          action("run.resume", false, false),
+          action("run.hard_stop", true, true),
+          action("run.cancel", true, true),
+          action("run.recover", true, true),
+        ],
+      },
+    } as unknown as Dashboard;
+
+    const state = projectStateReadModel(dashboard);
+
+    expect(state?.run).toMatchObject({
+      workflow_id: "run-21",
+      status: "paused",
+      scheduler_condition: "waiting",
+      active_epoch: { epoch_id: "epoch-4", ordinal: 4 },
+      admitted: 8,
+      claimed: 5,
+      running: 2,
+      progress: {
+        baseline_score: 72.642,
+        confirmed_score: 73.147,
+        tentative_changes: 2,
+        confirmed_changes: 31,
+        regressed_changes: 1,
+      },
+      recovery_points: [{
+        event_id: "event-recovered-20",
+        recovery_reason: "stale dispatch lease",
+        cancelled_claim_ids: ["claim-2"],
+        cancelled_operation_ids: ["operation-3"],
+      }],
+    });
+    expect(state?.available_actions.map((candidate) => candidate.action_id)).toEqual([
+      "run.start",
+      "run.pause",
+      "run.resume",
+      "run.hard_stop",
+      "run.cancel",
+      "run.recover",
+    ]);
+    expect(projectStateAction(state, "run.start")?.enabled).toBe(true);
+    expect(projectStateAction(state, "run.resume")).toMatchObject({
+      enabled: false,
+      blocked_by: [{ code: "dispatch_lease_held" }],
+      confirmation_required: false,
+    });
+    expect(projectStateAction(state, "run.recover")?.confirmation_required).toBe(true);
+  });
+
   test("keeps canonical preparing sessions as concrete active session targets", () => {
     const dashboard = {
       projectSession: {
@@ -148,6 +248,24 @@ describe("workspace session view", () => {
 
   test("uses the active route only when no concrete active session exists", () => {
     expect(activeSessionFocus({ activeSessionId: "", mode: "none" })).toBe("active");
+  });
+
+  test("treats migrated completed runs as terminal without accepting the retired complete status", () => {
+    const dashboardFor = (status: string) => ({
+      status: { run: { id: "run-legacy", status } },
+      process: {},
+      campaign: { head: {} },
+      handoff: {},
+      prs: {},
+    }) as unknown as Dashboard;
+
+    const completed = deriveSessionView(dashboardFor("completed"), null, form);
+    expect(completed.mode).toBe("none");
+    expect(completed.activeSessionId).toBe("");
+
+    const retired = deriveSessionView(dashboardFor("complete"), null, form);
+    expect(retired.mode).toBe("run");
+    expect(retired.activeSessionId).toBe("run-legacy");
   });
 
   test("derives prepare sync summaries from canonical and legacy worktree fields", () => {

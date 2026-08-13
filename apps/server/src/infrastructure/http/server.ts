@@ -6,7 +6,11 @@ import { createCampaignStatusService } from "@server/application/dashboard/campa
 import { createDashboardKernelRuntimeService } from "@server/infrastructure/kernel/runtime";
 import { createOperationStateService } from "@server/application/dashboard/operation-state";
 import { createDashboardProjectContextService, projectToSummary } from "@server/application/dashboard/project-context";
-import { createDashboardReadModel } from "@server/application/dashboard/read-model";
+import {
+  createDashboardReadModel,
+  projectRunActionState,
+  type ActionProjection,
+} from "@server/application/dashboard/read-model";
 import { latestChildDirectory, latestPrSplitPlanSummary } from "@server/core/session-runtime/phases/pr/artifacts";
 import { createPrRecordsService } from "@server/core/session-runtime/phases/pr/pr-records";
 import { createPrSyncService } from "@server/core/session-runtime/phases/pr/pr-sync";
@@ -20,9 +24,11 @@ import { handleKnowledgeLearningsApiRoute } from "@server/api/routes/knowledge-l
 import { createStandardsService } from "@server/core/knowledge/standards";
 import { sourceRoot } from "@server/core/knowledge";
 import { createProcessControlRuntime } from "@server/core/session-runtime/phases/running/process-control/runtime";
+import { createRunControlRuntime } from "@server/core/session-runtime/phases/running/run-control-runtime";
 import { handleProcessControlApiRoute } from "@server/api/routes/process-control";
 import { createProcessStatusService } from "@server/application/dashboard/process-status";
 import { latestRunId } from "@server/core/session-runtime/run-state/latest-run";
+import { getRun } from "@server/core/session-runtime/run-state";
 import { handleRunsApiRoute } from "@server/api/routes/runs";
 import { createPreparingRuntime } from "@server/core/session-runtime/phases/preparing/runtime";
 import { handleSessionsApiRoute } from "@server/api/routes/sessions";
@@ -264,6 +270,15 @@ const prRecords = createPrRecordsService({
   latestChildDirectory,
   latestPrSplitPlanSummary,
   latestRunId,
+  sessionUuidForRun: (stateDir, runId) => {
+    const store = openState(stateDir);
+    try {
+      const run = runId ? getRun(store, runId) : null;
+      return run?.sessionUuid ?? (run?.projectId ? getActiveProjectSession(store.db, run.projectId)?.session_uuid : null) ?? "";
+    } finally {
+      store.db.close();
+    }
+  },
   localPrepOperationRunning: () => localPrPreparationOperationRunning(operationState.getOperation()),
 });
 
@@ -332,6 +347,35 @@ const processControlRuntime = createProcessControlRuntime({
   serverJobPath,
 });
 
+const runControlRuntime = createRunControlRuntime({
+  drainManaged: processControlRuntime.drainManaged,
+  hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
+  resolveDashboardProject: projectContext.resolveDashboardProject,
+  stopManaged: processControlRuntime.stopManaged,
+});
+
+function runActionProjection(
+  body: JsonObject,
+  actionId: Extract<ActionProjection["action_id"], `run.${string}`>,
+): ActionProjection {
+  const paths = projectContext.resolveDashboardProject(body, { useDefaultProject: true });
+  const bodyProjectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
+  const projectId = paths.project?.projectId ?? bodyProjectId;
+  if (!projectId) throw new Error(`Cannot project ${actionId} without a project id`);
+  const runId = typeof body.runId === "string" && body.runId.trim() ? body.runId.trim() : undefined;
+  const store = openState(paths.stateDir);
+  try {
+    const action = projectRunActionState(store, projectId, {
+      hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
+      runId,
+    }).availableActions.find((candidate) => candidate.action_id === actionId);
+    if (!action) throw new Error(`Missing ${actionId} action projection`);
+    return action;
+  } finally {
+    store.db.close();
+  }
+}
+
 const handoffRuntime = createHandoffRuntime({
   appendLog,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
@@ -367,6 +411,7 @@ const dashboardReadModel = createDashboardReadModel({
   appendLog,
   buildPrRecordsView: prRecords.buildPrRecordsView,
   campaignStatus: campaignStatus.campaignStatus,
+  hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   processStatus: processStatusService.processStatus,
   projectToSummary,
 });
@@ -523,19 +568,43 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     json,
     processStatus: (stateDir, project) => processStatusService.processStatus(stateDir, project as ResolvedProject | null),
     requestPaths: projectContext.requestPaths,
+    runActionProjection,
     startManagedProcess: processControlRuntime.startManagedProcess,
     stopManaged: processControlRuntime.stopManaged,
   });
   if (processControl) return processControl;
 
-  const handoff = await handleHandoffApiRoute(req, url, { json, ...handoffRuntime });
+  const handoff = await handleHandoffApiRoute(req, url, {
+    json,
+    ...handoffRuntime,
+    // Compatibility alias: lifecycle ownership remains in run-control.
+    pauseRunForPr: runControlRuntime.pause,
+  });
   if (handoff) return handoff;
 
   const runs = await handleRunsApiRoute(req, url, {
+    cancelRun: runControlRuntime.cancel,
     completeRun: preparingRuntime.completeRun,
     freshRun: preparingRuntime.freshRun,
+    hardStopRun: runControlRuntime.hardStop,
     initRun: preparingRuntime.initRun,
     json,
+    pauseRun: runControlRuntime.pause,
+    recoverRun: runControlRuntime.recover,
+    resumeRun: async (body) => {
+      const resumed = handoffRuntime.resumeRunForPr(body);
+      const response = await processControlRuntime.startManagedProcess(body);
+      const process = (await response.json().catch(() => null)) as JsonObject | null;
+      if (!response.ok) {
+        throw new Error(
+          typeof process?.error === "string"
+            ? process.error
+            : `Run process restart failed with HTTP ${response.status}`,
+        );
+      }
+      return { ...resumed, process };
+    },
+    runActionProjection,
   });
   if (runs) return runs;
 

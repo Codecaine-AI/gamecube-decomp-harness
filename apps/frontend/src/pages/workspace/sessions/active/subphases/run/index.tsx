@@ -1,4 +1,5 @@
 import { ProgressPanel } from "./components/progress-panel";
+import { RunStateCard } from "./components/RunStateCard";
 import {
   type ImprovedMode,
   type WorkMode,
@@ -26,6 +27,7 @@ export function RunModePage(props: {
 }) {
   return (
     <div className="grid gap-4">
+      <RunStateCard busy={props.busy} onAction={props.onAction} projectState={props.view.projectState} />
       <ProgressPanel dashboard={props.dashboard} />
       <WorkTables
         dashboard={props.dashboard}

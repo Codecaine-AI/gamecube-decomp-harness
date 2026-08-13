@@ -14,6 +14,7 @@ import { GrainOverlay } from "@/components/app/_components/GrainOverlay";
 import { clampDetailsWidth, loadDetailsCollapsed, loadDetailsWidth, loadSidebarCollapsed, saveDetailsCollapsed, saveDetailsWidth, saveSidebarCollapsed } from "@/components/app/_lib/railState";
 import { initialForm, saveRunSettings, schedulingForWorkers } from "@/components/app/_lib/runSettings";
 import { useHotReload } from "@/components/app/_lib/useHotReload";
+import { RUN_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedRunControls";
 
 type Action = DashboardAction;
 const PROCESS_CONFIG_VERSION = 2;
@@ -22,7 +23,16 @@ const DEFAULT_THINKING_LEVEL = "xhigh";
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["sync", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "forceStop", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["sync", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+
+const runActionIds: Partial<Record<Action, string>> = {
+  runStart: "run.start",
+  runPause: "run.pause",
+  runResume: "run.resume",
+  runHardStop: "run.hard_stop",
+  runCancel: "run.cancel",
+  runRecover: "run.recover",
+};
 
 function newSessionBody(body: JsonObject): JsonObject {
   const next = { ...body };
@@ -343,7 +353,14 @@ export function App() {
 
   const runAction = useCallback(
     async (nextAction: Action, payload?: Record<string, unknown>) => {
-      if (nextAction === "forceStop" && !window.confirm("Kill all workers immediately?\n\nActive claims will be recovered so they can be rescheduled. No run checkpoint or report will be generated, and committed work is not affected.")) return;
+      const projectedRunActionId = runActionIds[nextAction];
+      const projectedRunAction = projectedRunActionId
+        ? projectStateAction(projectStateReadModel(currentDashboard), projectedRunActionId)
+        : null;
+      if (
+        projectedRunAction?.confirmation_required &&
+        !window.confirm(`${projectedRunActionId}?\n\n${projectedRunAction.expected_transition}`)
+      ) return;
       if (
         nextAction === "finishEpoch" &&
         !window.confirm("Finish the current epoch now?\n\nThis cancels active workers in the current epoch, treats remaining epoch work as finished, and lets the scheduler run the normal baseline/rebuild checkpoint path.")
@@ -374,6 +391,8 @@ export function App() {
       if (operationActions.has(nextAction)) openLogsView();
       try {
         const body = { ...formBody(form, currentDashboard), ...payload };
+        if (projectedRunAction?.subject_id) body.runId = projectedRunAction.subject_id;
+        if (projectedRunAction?.confirmation_required) body.confirmed = true;
         const projectSession = asObject(currentDashboard?.projectSession);
         const projectStateSession = asObject(asObject(currentDashboard?.projectState).session);
         const projectSessionPhase = String(projectSession.phase || "");
@@ -388,10 +407,6 @@ export function App() {
               },
             },
           });
-        };
-        const hardStopAndRecover = async () => {
-          await postJson("/api/process/stop", { ...body, recoverClaims: true });
-          if (projectSessionPhase === "running") await postJson(projectSessionUrl("/api/project-session/running/stop", form), { ...body, stopReason: "manual_stop", manualStopMode: "hard_stop" });
         };
         if (nextAction === "refresh") {
           await manualRefresh();
@@ -411,12 +426,35 @@ export function App() {
           await postJson("/api/process/start", body);
           await markWorkersActive();
           await manualRefresh();
+        } else if (nextAction === "runStart") {
+          await postJson("/api/process/start", body);
+          await markWorkersActive();
+          await manualRefresh();
+        } else if (nextAction === "runPause") {
+          await postJson(RUN_CONTROL_ENDPOINTS.runPause, body);
+          await manualRefresh();
+        } else if (nextAction === "runResume") {
+          await postJson("/api/run/resume", body);
+          await manualRefresh();
+        } else if (nextAction === "runHardStop") {
+          await postJson(RUN_CONTROL_ENDPOINTS.runHardStop, body);
+          await manualRefresh();
+        } else if (nextAction === "runCancel") {
+          await postJson("/api/run/cancel", body);
+          setRunDetails(null);
+          await manualRefresh();
+        } else if (nextAction === "runRecover") {
+          await postJson("/api/run/recover", body);
+          await manualRefresh();
         } else if (nextAction === "startWork") {
           const sessionBody = sessionScopedBody(body, projectSession);
           const run = asObject(currentDashboard?.status?.run);
           const runStatus = String(run.status || "");
-          if (runStatus === "paused") await postJson("/api/pr/resume", body);
-          else if (runStatus !== "active") {
+          let processStarted = false;
+          if (runStatus === "paused") {
+            await postJson("/api/run/resume", body);
+            processStarted = true;
+          } else if (runStatus !== "active") {
             const initialized = asObject(await postJson<JsonObject>("/api/run/init", sessionBody));
             const activeRunId = String(initialized.activeRunId || initialized.runId || asObject(initialized.parsed).runId || "");
             if (projectSessionPhase === "preparing") {
@@ -435,22 +473,15 @@ export function App() {
             }
             if (activeRunId) body.runId = activeRunId;
           }
-          await postJson("/api/process/start", body);
+          if (!processStarted) await postJson("/api/process/start", body);
           await markWorkersActive();
           if (projectSessionPhase === "preparing") {
             const sessionUuid = String(projectSession.sessionUuid || projectSession.id || "");
             navigate({ kind: "workspace", section: "sessions", session: sessionUuid || "active", sessionSub: "run", projectId: form.projectId || String(projectSession.projectId || "") || undefined });
           }
           await manualRefresh();
-        } else if (nextAction === "stop") {
-          await postJson("/api/process/drain", body);
-          if (projectSessionPhase === "running") await postJson(projectSessionUrl("/api/project-session/running/stop", form), { ...body, stopReason: "manual_stop", manualStopMode: "finish_epoch" });
-          await manualRefresh();
         } else if (nextAction === "finishEpoch") {
           await postJson("/api/process/finish-epoch", { ...body, reason: "dashboard_finish_epoch" });
-          await manualRefresh();
-        } else if (nextAction === "forceStop") {
-          await hardStopAndRecover();
           await manualRefresh();
         } else if (nextAction === "init") {
           await postJson("/api/run/init", body);
@@ -491,12 +522,6 @@ export function App() {
         } else if (nextAction === "sessionClose") {
           await postJson(projectSessionUrl("/api/project-session/close", form), sessionScopedBody(body, projectStateSession));
           setRunDetails(null);
-          await manualRefresh();
-        } else if (nextAction === "pausePr") {
-          await postJson("/api/pr/pause", body);
-          await manualRefresh();
-        } else if (nextAction === "resumePr") {
-          await postJson("/api/pr/resume", body);
           await manualRefresh();
         } else if (nextAction === "checkpoint") {
           await postJson("/api/run/checkpoint", body);

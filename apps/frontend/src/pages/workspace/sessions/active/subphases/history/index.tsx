@@ -1,5 +1,7 @@
-import { asArray, asObject, clock, num, pct, text, type Dashboard } from "@/lib/format";
+import { AlertTriangle } from "@/icons";
+import { asArray, asObject, clock, num, pct, shortId, text, type Dashboard } from "@/lib/format";
 import { EmptyState, InfoRows, PanelSection, PanelTitle } from "@/components/primitives";
+import { prettyStatus } from "@/pages/workspace/_lib/model";
 import type { SessionView } from "@/pages/workspace/_lib/types";
 
 export function SessionHistoryPage({ dashboard, view }: { dashboard: Dashboard | null; view: SessionView }) {
@@ -31,6 +33,28 @@ export function SessionHistoryPage({ dashboard, view }: { dashboard: Dashboard |
           />
         </PanelSection>
       </div>
+      {view.projectState?.run?.recovery_points.length ? (
+        <PanelSection className="border-warn/70 bg-warn/5">
+          <div className="mb-3 flex items-center gap-2 text-warn">
+            <AlertTriangle size={16} />
+            <PanelTitle className="mb-0 text-warn">Run Recovery Boundaries</PanelTitle>
+          </div>
+          <ol className="m-0 grid gap-2 p-0">
+            {[...view.projectState.run.recovery_points].reverse().map((point) => (
+              <li className="list-none border border-warn/60 border-l-4 bg-ink/30 px-3 py-2" key={point.event_id}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className="text-sm text-warn">Run recovered → {prettyStatus(point.resulting_status, "unknown")}</strong>
+                  <time className="text-[11px] text-soft" dateTime={point.occurred_at}>{clock(point.occurred_at)}</time>
+                </div>
+                <div className="mt-1 text-xs text-soft">{point.recovery_reason || "Recovery reason not recorded"}</div>
+                <div className="mt-1 text-[11px] text-dim">
+                  Event {point.sequence} · {shortId(point.event_id)} · cancelled {num(point.cancelled_claim_ids.length)} claims / {num(point.cancelled_operation_ids.length)} operations
+                </div>
+              </li>
+            ))}
+          </ol>
+        </PanelSection>
+      ) : null}
       <PanelSection>
         <PanelTitle>Epoch Checkpoints</PanelTitle>
         {epochs.length === 0 ? (

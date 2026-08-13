@@ -1,6 +1,7 @@
 import { Archive, RefreshCw, RotateCcw, Save } from "@/icons";
 import { asObject, clock, num, shortId } from "@/lib/format";
 import { Button, PageHeader, PanelSection, PanelTitle } from "@/components/primitives";
+import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 import { prettyStatus, projectStateAction } from "@/pages/workspace/_lib/model";
 import type { DashboardAction, ProjectStateActionProjection, SessionView, WorkspaceNav } from "@/pages/workspace/_lib/types";
 import { ActiveSessionPage } from "@/pages/workspace/sessions/active/page";
@@ -97,7 +98,7 @@ function SessionsIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: 
                 Open Session
               </Button>
               {view.process.running ? (
-                <Button disabled={busy} icon={view.process.draining ? <RefreshCw size={13} /> : <Archive size={13} />} onClick={() => onAction("stop")} tone="warning" type="button">
+                <Button disabled={busy} icon={view.process.draining ? <RefreshCw size={13} /> : <Archive size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)} tone="warning" type="button">
                   {view.process.draining ? "Draining" : "Drain Run"}
                 </Button>
               ) : null}

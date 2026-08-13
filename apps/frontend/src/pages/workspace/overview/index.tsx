@@ -21,6 +21,7 @@ import {
   StatCard,
 } from "@/components/primitives";
 import { processName } from "@/pages/workspace/_lib/model";
+import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 import type {
   DashboardAction,
   SessionView,
@@ -200,7 +201,7 @@ export function OverviewPage({
                     <Ban size={13} />
                   )
                 }
-                onClick={() => onAction("stop")}
+                onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)}
                 title={
                   view.process.running
                     ? "Drain the managed process."

@@ -4,6 +4,7 @@ import { Button, PanelSection, PanelTitle } from "@/components/primitives";
 import { isDraftBatchCandidate } from "@/pages/workspace/_lib/model";
 import type { DashboardAction, SessionView } from "@/pages/workspace/_lib/types";
 import { prLockReason } from "./prStatus";
+import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 
 export function PrModeActions({ busy, onAction, view }: { busy: boolean; onAction: (action: DashboardAction) => void; view: SessionView }) {
   const prepareEnabled = view.handoffIdle && (view.runStatus === "active" || view.runStatus === "paused");
@@ -46,7 +47,7 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
         <div className="pr-action-group">
           <span className="pr-action-group-label">Session</span>
           {view.process.running ? (
-            <Button disabled={busy || view.process.draining} icon={view.process.draining ? <RefreshCw size={13} /> : <Pause size={13} />} onClick={() => onAction("pausePr")} title="Drain workers before PR handoff." tone="warning" type="button">
+            <Button disabled={busy || view.process.draining} icon={view.process.draining ? <RefreshCw size={13} /> : <Pause size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)} title="Drain workers before PR handoff." tone="warning" type="button">
               {view.process.draining ? "Draining" : "Drain Workers"}
             </Button>
           ) : null}

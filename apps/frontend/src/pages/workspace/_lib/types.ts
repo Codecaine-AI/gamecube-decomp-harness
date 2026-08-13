@@ -15,13 +15,15 @@ export type DashboardAction =
   | "completeRun"
   | "sessionSavePoint"
   | "sessionClose"
+  | "runStart"
+  | "runPause"
+  | "runResume"
+  | "runHardStop"
+  | "runCancel"
+  | "runRecover"
   | "start"
   | "startWork"
-  | "stop"
   | "finishEpoch"
-  | "forceStop"
-  | "pausePr"
-  | "resumePr"
   | "checkpoint"
   | "qa"
   | "qaRepair"
@@ -51,6 +53,55 @@ export interface ProjectStateActionProjection {
   blocked_by: ProjectStateBlocker[];
   expected_transition: string;
   confirmation_required: boolean;
+}
+
+export type ProjectStateRunStatus =
+  | "draft"
+  | "ready"
+  | "active"
+  | "draining"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type ProjectStateRunSchedulerCondition =
+  | "idle"
+  | "planning"
+  | "dispatching"
+  | "waiting"
+  | "boundary"
+  | "blocked";
+
+export interface ProjectStateRunRecoveryPoint {
+  event_id: string;
+  sequence: number;
+  occurred_at: string;
+  recovery_reason: string | null;
+  cancelled_claim_ids: string[];
+  cancelled_operation_ids: string[];
+  resulting_status: ProjectStateRunStatus | null;
+}
+
+export interface ProjectStateRunReadModel {
+  workflow_id: string;
+  status: ProjectStateRunStatus;
+  scheduler_condition: ProjectStateRunSchedulerCondition | null;
+  active_epoch: {
+    epoch_id: string;
+    ordinal: number;
+  } | null;
+  admitted: number;
+  claimed: number;
+  running: number;
+  progress: {
+    baseline_score: number | null;
+    confirmed_score: number | null;
+    tentative_changes: number;
+    confirmed_changes: number;
+    regressed_changes: number;
+  };
+  recovery_points: ProjectStateRunRecoveryPoint[];
 }
 
 export interface ProjectStateDispatchHandoff {
@@ -112,6 +163,7 @@ export interface ProjectStateReadModel {
   active_workflow: ProjectStateDispatchLease | null;
   queued_dispatch_requests: ProjectStateQueuedDispatchRequest[];
   session: ProjectStateSessionReadModel | null;
+  run: ProjectStateRunReadModel | null;
   latest_event_sequence: number;
   available_actions: ProjectStateActionProjection[];
 }

@@ -4,7 +4,15 @@ import { relative, resolve } from "node:path";
 import { latestCheckpointSummary } from "@server/core/session-runtime/phases/pr/checkpoint";
 import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/core/session-runtime/phases/running/epochs";
 import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
-import { openState, statusSnapshot } from "@server/core/session-runtime/run-state";
+import {
+  activeSchedulerEpoch,
+  activeWorkerCount,
+  getRun,
+  openState,
+  schedulerEpochProgress,
+  statusSnapshot,
+} from "@server/core/session-runtime/run-state";
+import { runDispatchLeaseStaleness } from "@server/core/session-runtime/phases/running/run-control.js";
 import { dashboardArtifactPayloads, latestDashboardArtifactPayload } from "@server/core/orchestrator-state";
 import {
   getActiveProjectSession,
@@ -16,12 +24,14 @@ import {
 import { activeProjectSessionProjection } from "@server/core/project-session/store";
 import { listSessionTimeline, unresolvedSavePointFailures } from "@server/core/project-session/timeline";
 import {
+  eventsForSubject,
   getProjectState,
   latestSequence,
   type Blocker,
   type DispatchLease,
   type QueuedDispatchRequest,
 } from "@server/core/project-state";
+import type { RunRecord, RunSchedulerCondition, RunStatus } from "@server/core/shared/types";
 import { listSavePoints, type SavePointRecord } from "@server/core/session-runtime/phases/pr/state";
 import { projectToSummary as defaultProjectToSummary, type ProjectRuntimeContext, type ResolvedProject } from "@server/core/project-registry";
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/session-runtime/phases/pr/artifacts";
@@ -61,8 +71,16 @@ type StopReason = "target_complete" | "stalled";
 export type DashboardProjectContext = ProjectRuntimeContext;
 
 export interface ActionProjection {
-  action_id: "session.close" | "session.save_point";
-  subject_kind: "session";
+  action_id:
+    | "run.start"
+    | "run.pause"
+    | "run.resume"
+    | "run.hard_stop"
+    | "run.cancel"
+    | "run.recover"
+    | "session.close"
+    | "session.save_point";
+  subject_kind: "run" | "session";
   subject_id: string;
   enabled: boolean;
   blocked_by: Blocker[];
@@ -75,12 +93,55 @@ export interface ProjectSessionActionState {
   closeInput: Pick<CloseProjectSessionInput, "aheadOfBase" | "namedSavePointId" | "worktreeDirtyBeyondHead">;
 }
 
+export interface DashboardRunRecoveryPoint {
+  event_id: string;
+  sequence: number;
+  occurred_at: string;
+  recovery_reason: string | null;
+  cancelled_claim_ids: string[];
+  cancelled_operation_ids: string[];
+  resulting_status: string | null;
+}
+
+export interface DashboardRunSummary {
+  workflow_id: string;
+  status: RunStatus;
+  scheduler_condition: RunSchedulerCondition | null;
+  active_epoch: {
+    epoch_id: string;
+    ordinal: number;
+  } | null;
+  admitted: number;
+  claimed: number;
+  running: number;
+  progress: {
+    baseline_score: number | null;
+    confirmed_score: number | null;
+    tentative_changes: number;
+    confirmed_changes: number;
+    regressed_changes: number;
+  };
+  recovery_points: DashboardRunRecoveryPoint[];
+}
+
+export interface ProjectRunActionState {
+  availableActions: ActionProjection[];
+  run: DashboardRunSummary | null;
+}
+
+export interface ProjectRunActionStateOptions {
+  hasActiveProcess?: (stateDir: string) => { active: boolean };
+  now?: Date | number | string;
+  runId?: string;
+}
+
 const ALL_SESSION_EVIDENCE_LIMIT = Number.MAX_SAFE_INTEGER;
 
 export interface DashboardProjectState {
   revision: number;
   active_workflow: DispatchLease | null;
   queued_dispatch_requests: QueuedDispatchRequest[];
+  run: DashboardRunSummary | null;
   session: {
     session_uuid: string;
     head_revision: string | null;
@@ -103,6 +164,7 @@ export interface DashboardReadModelDependencies {
   appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   buildPrRecordsView: (stateDir: string, runId: string) => JsonObject;
   campaignStatus: (repoRoot: string, stateDir: string, baseRefFallback: string) => JsonObject;
+  hasActiveProcess?: (stateDir: string) => { active: boolean };
   processStatus: (stateDir: string, project: ResolvedProject | null) => JsonObject;
   projectToSummary?: (project: ResolvedProject) => unknown;
 }
@@ -357,10 +419,373 @@ export function projectSessionActionState(
   return sessionActionState(store, projectId, campaign, session, timeline, savePoints);
 }
 
+function latestRunForProject(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  session: ProjectSessionRecord | null,
+  explicitRunId?: string,
+): RunRecord | null {
+  if (explicitRunId) return getRun(store, explicitRunId);
+  if (session?.active_run_id) {
+    const active = getRun(store, session.active_run_id);
+    if (active) return active;
+  }
+  const row = (session
+    ? store.db
+        .query(
+          `SELECT id
+           FROM runs
+           WHERE project_id = ? AND session_uuid = ?
+           ORDER BY created_at DESC
+           LIMIT 1`,
+        )
+        .get(projectId, session.session_uuid)
+    : store.db
+        .query(
+          `SELECT id
+           FROM runs
+           WHERE project_id = ?
+           ORDER BY created_at DESC
+           LIMIT 1`,
+        )
+        .get(projectId)) as { id: string } | null;
+  return row?.id ? getRun(store, row.id) : null;
+}
+
+function runStatusProjection(store: ReturnType<typeof openState>, run: RunRecord): JsonObject {
+  const latest = statusSnapshot(store);
+  if (stringValue(asObject(latest.run).id) === run.id) return latest;
+
+  // A state database may contain more than one project. Reuse the same
+  // canonical status queries for an explicitly selected non-latest run.
+  const activeEpoch = activeSchedulerEpoch(store, run.id);
+  return {
+    run,
+    schedulerEpoch: activeEpoch ? schedulerEpochProgress(store, activeEpoch.id) : null,
+    activeClaims: activeWorkerCount(store, run.id),
+  };
+}
+
+function nullableFiniteNumber(value: unknown): number | null {
+  const number = numberValue(value, NaN);
+  return Number.isFinite(number) ? number : null;
+}
+
+function scoreFromBoardArtifact(payload: JsonObject, goalKind: string): number | null {
+  const measures = asObject(payload.measures);
+  return nullableFiniteNumber(measures[goalKind] ?? measures.matched_code_percent);
+}
+
+function runProgress(store: ReturnType<typeof openState>, run: RunRecord): DashboardRunSummary["progress"] {
+  const initial = latestDashboardArtifactPayload(store, {
+    runId: run.id,
+    artifactType: "board_snapshot",
+    artifactKey: "initial",
+  });
+  const current = latestDashboardArtifactPayload(store, {
+    runId: run.id,
+    artifactType: "board_snapshot",
+    artifactKey: "current",
+  });
+  const baselineScore = scoreFromBoardArtifact(initial, run.goalKind);
+  const confirmedScore = scoreFromBoardArtifact(current, run.goalKind) ?? baselineScore;
+  const validationRows = store.db
+    .query(
+      `SELECT validation_state, COUNT(*) AS count
+       FROM worker_output_integrations
+       WHERE run_id = ?
+         AND status IN ('applied', 'resolved', 'needs_rework')
+       GROUP BY validation_state`,
+    )
+    .all(run.id) as Array<{ validation_state: string; count: number }>;
+  const counts = new Map(validationRows.map((row) => [String(row.validation_state), Number(row.count)]));
+  return {
+    baseline_score: baselineScore,
+    confirmed_score: confirmedScore,
+    tentative_changes: counts.get("tentative") ?? 0,
+    confirmed_changes: counts.get("confirmed") ?? 0,
+    regressed_changes: counts.get("regressed") ?? 0,
+  };
+}
+
+function runRecoveryPoints(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  runId: string,
+): DashboardRunRecoveryPoint[] {
+  return eventsForSubject(store.db, "run", runId, { projectId })
+    .filter((event) => event.eventType === "run.recovered")
+    .map((event) => ({
+      event_id: event.eventId,
+      sequence: event.sequence,
+      occurred_at: event.occurredAt,
+      recovery_reason: typeof event.payload.recovery_reason === "string" ? event.payload.recovery_reason : null,
+      cancelled_claim_ids: stringArrayValue(event.payload.cancelled_claim_ids),
+      cancelled_operation_ids: stringArrayValue(event.payload.cancelled_operation_ids),
+      resulting_status: typeof event.payload.resulting_status === "string" ? event.payload.resulting_status : null,
+    }));
+}
+
+function runSummaryProjection(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  run: RunRecord,
+): DashboardRunSummary {
+  const status = runStatusProjection(store, run);
+  const schedulerEpoch = asObject(status.schedulerEpoch);
+  const epochId = stringValue(schedulerEpoch.epochId);
+  const admitted = numberValue(schedulerEpoch.admitted);
+  return {
+    workflow_id: run.id,
+    status: run.status,
+    scheduler_condition: run.schedulerCondition,
+    active_epoch: epochId
+      ? {
+          epoch_id: epochId,
+          ordinal: numberValue(schedulerEpoch.ordinal),
+        }
+      : null,
+    admitted,
+    claimed: numberValue(schedulerEpoch.claimed),
+    running: numberValue(status.activeClaims),
+    progress: runProgress(store, run),
+    recovery_points: runRecoveryPoints(store, projectId, run.id),
+  };
+}
+
+function stateBlocker(
+  code: string,
+  message: string,
+  sourceKind: string,
+  sourceId: string,
+  recoverable = true,
+): Blocker {
+  return {
+    code,
+    message,
+    source_kind: sourceKind,
+    source_id: sourceId,
+    recoverable,
+  };
+}
+
+function runActionProjection(
+  run: RunRecord,
+  actionId: Extract<ActionProjection["action_id"], `run.${string}`>,
+  blockedBy: Blocker[],
+  expectedTransition: string,
+  confirmationRequired: boolean,
+): ActionProjection {
+  const blockers = dedupeBlockers(blockedBy);
+  return {
+    action_id: actionId,
+    subject_kind: "run",
+    subject_id: run.id,
+    enabled: blockers.length === 0,
+    blocked_by: blockers,
+    expected_transition: expectedTransition,
+    confirmation_required: confirmationRequired,
+  };
+}
+
+export function projectRunActionState(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  options: ProjectRunActionStateOptions = {},
+): ProjectRunActionState {
+  const projectState = getProjectState(store, projectId);
+  const session = getActiveProjectSession(store.db, projectId);
+  const run = latestRunForProject(store, projectId, session, options.runId);
+  if (!run || run.projectId !== projectId) return { availableActions: [], run: null };
+
+  const lease = projectState?.active_workflow ?? null;
+  const ownLease = lease?.kind === "run" && lease.workflow_id === run.id ? lease : null;
+  const leaseStaleness = runDispatchLeaseStaleness({
+    hasActiveProcess: options.hasActiveProcess,
+    lease: ownLease,
+    now: options.now,
+    stateDir: store.stateDir,
+  });
+  const leaseHeld = lease
+    ? stateBlocker(
+        "dispatch_lease_held",
+        `${lease.kind} workflow ${lease.workflow_id} holds the dispatch lease.`,
+        lease.kind,
+        lease.workflow_id,
+      )
+    : null;
+  const syncRequest =
+    lease?.kind === "sync" || projectState?.queued_dispatch_requests.some((request) => request.kind === "sync")
+      ? stateBlocker(
+          "unresolved_sync_request",
+          "An unresolved sync request must settle before the run can acquire dispatch authority.",
+          "project",
+          projectId,
+        )
+      : null;
+  const inactiveSession =
+    session?.status === "active"
+      ? null
+      : stateBlocker(
+          "session_not_active",
+          session ? `The project session is ${session.status}.` : "No active project session exists.",
+          session ? "session" : "project",
+          session?.session_uuid ?? projectId,
+        );
+  const staleBaseline =
+    run.inputs?.base_revision && session?.head_revision && run.inputs.base_revision !== session.head_revision
+      ? stateBlocker(
+          "stale_baseline",
+          "The ready run baseline no longer matches the active session head.",
+          "run",
+          run.id,
+        )
+      : null;
+  const readinessMissing = [
+    !run.projectId && "project_id",
+    !run.inputs?.base_revision?.trim() && "inputs.base_revision",
+    !run.inputs?.policy_revision?.trim() && "inputs.policy_revision",
+    !run.inputs?.starting_knowledge_revision?.trim() && "inputs.starting_knowledge_revision",
+    (!run.inputs?.configuration_snapshot || typeof run.inputs.configuration_snapshot !== "object") &&
+      "inputs.configuration_snapshot",
+  ].filter((value): value is string => typeof value === "string");
+  const runReadinessBlockers: Blocker[] = [
+    ...run.blockers.map((blocker) => ({ ...blocker })),
+    ...(readinessMissing.length > 0
+      ? [
+          stateBlocker(
+            "run_readiness_failed",
+            `Run readiness is incomplete: ${readinessMissing.join(", ")}.`,
+            "run",
+            run.id,
+          ),
+        ]
+      : []),
+  ];
+  const unsettledClaims = activeWorkerCount(store, run.id);
+
+  const startBlockers: Blocker[] = [
+    ...(run.status === "ready"
+      ? []
+      : [stateBlocker("run_not_ready", `Run ${run.id} is ${run.status}; start requires ready.`, "run", run.id)]),
+    ...runReadinessBlockers,
+    ...(inactiveSession ? [inactiveSession] : []),
+    ...(leaseHeld ? [leaseHeld] : []),
+    ...(staleBaseline ? [staleBaseline] : []),
+    ...(syncRequest ? [syncRequest] : []),
+  ];
+  const pauseBlockers: Blocker[] = [
+    ...(run.status === "active"
+      ? []
+      : [stateBlocker("run_not_active", `Run ${run.id} is ${run.status}; pause requires active.`, "run", run.id)]),
+    ...(ownLease
+      ? []
+      : [stateBlocker("run_does_not_own_dispatch_lease", "The run does not own the dispatch lease.", "run", run.id)]),
+  ];
+  const resumeBlockers: Blocker[] = [
+    ...(run.status === "paused"
+      ? []
+      : [stateBlocker("run_not_paused", `Run ${run.id} is ${run.status}; resume requires paused.`, "run", run.id)]),
+    ...(leaseHeld ? [leaseHeld] : []),
+    ...(syncRequest
+      ? [
+          stateBlocker(
+            "baseline_invalidated_by_sync",
+            "An unpublished sync must settle before the run can resume.",
+            "run",
+            run.id,
+          ),
+        ]
+      : []),
+  ];
+  const hardStopBlockers =
+    run.status === "active" || run.status === "draining" || run.status === "paused"
+      ? []
+      : [
+          stateBlocker(
+            "run_not_active_or_draining",
+            `Run ${run.id} is ${run.status}; hard stop requires active, draining, or an already-settled paused run.`,
+            "run",
+            run.id,
+          ),
+        ];
+  const cancelBlockers: Blocker[] = [
+    ...(run.status === "paused" || run.status === "failed"
+      ? []
+      : [
+          stateBlocker(
+            "run_not_paused_or_failed",
+            `Run ${run.id} is ${run.status}; cancellation requires paused or failed.`,
+            "run",
+            run.id,
+          ),
+        ]),
+    ...(unsettledClaims > 0
+      ? [
+          stateBlocker(
+            "unsettled_claims",
+            `${unsettledClaims} worker claim(s) must settle before cancellation.`,
+            "run",
+            run.id,
+          ),
+        ]
+      : []),
+  ];
+  const recoverableStatus = run.status === "failed" || run.status === "active" || run.status === "draining" || run.status === "paused";
+  const recoverBlockers: Blocker[] =
+    run.status === "completed" || run.status === "cancelled"
+      ? [
+          stateBlocker(
+            "run_terminal",
+            `Run ${run.id} is terminal (${run.status}).`,
+            "run",
+            run.id,
+            false,
+          ),
+        ]
+      : !recoverableStatus
+      ? [
+          stateBlocker(
+            "run_status_not_recoverable",
+            `Run ${run.id} is ${run.status}; recovery requires failed, active, draining, or paused.`,
+            "run",
+            run.id,
+          ),
+        ]
+      : run.status === "failed" || leaseStaleness === "stale"
+      ? []
+      : leaseStaleness === "process_liveness_unknown"
+      ? [
+          stateBlocker(
+            "process_liveness_unknown",
+            "The managed process liveness could not be determined.",
+            "run",
+            run.id,
+          ),
+        ]
+      : [
+          stateBlocker("run_not_failed", `Run ${run.id} is not failed.`, "run", run.id),
+          stateBlocker("dispatch_lease_not_stale", "The run dispatch lease is not stale.", "run", run.id),
+        ];
+
+  return {
+    run: runSummaryProjection(store, projectId, run),
+    availableActions: [
+      runActionProjection(run, "run.start", startBlockers, "ready → active", false),
+      runActionProjection(run, "run.pause", pauseBlockers, "active → draining → paused", false),
+      runActionProjection(run, "run.resume", resumeBlockers, "paused → active", false),
+      runActionProjection(run, "run.hard_stop", hardStopBlockers, `${run.status} → paused`, true),
+      runActionProjection(run, "run.cancel", cancelBlockers, `${run.status} → cancelled`, true),
+      runActionProjection(run, "run.recover", recoverBlockers, `${run.status} → paused via run.recovered`, true),
+    ],
+  };
+}
+
 export function buildProjectStateReadModel(
   store: ReturnType<typeof openState>,
   projectId: string,
   campaign: JsonObject,
+  options: Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now"> = {},
 ): DashboardProjectState {
   const canonical = getProjectState(store, projectId);
   const session = getActiveProjectSession(store.db, projectId);
@@ -372,12 +797,14 @@ export function buildProjectStateReadModel(
   const latestSavePointEntry = allTimeline.find((entry) => entry.entry_kind === "save_point");
   const latestSavePoint = savePointByEntry(savePoints, latestSavePointEntry);
   const actions = sessionActionState(store, projectId, campaign, session, allTimeline, savePoints);
+  const runState = projectRunActionState(store, projectId, options);
   const evidence = sessionEvidenceState(store, projectId, campaign, session, allTimeline, savePoints);
 
   return {
     revision: canonical?.revision ?? 0,
     active_workflow: canonical?.active_workflow ?? null,
     queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
+    run: runState.run,
     session: session
       ? {
           session_uuid: session.session_uuid,
@@ -401,7 +828,7 @@ export function buildProjectStateReadModel(
     session_blockers: evidence.blockers,
     save_point_stale: evidence.stale,
     latest_event_sequence: latestSequence(store.db, projectId),
-    available_actions: actions.availableActions,
+    available_actions: [...runState.availableActions, ...actions.availableActions],
   };
 }
 
@@ -700,7 +1127,7 @@ function runnerAttemptsByWorkerState(stateDir: string, runId: string): Map<strin
         `
           SELECT *
           FROM worker_checkpoints
-          WHERE session_id = ?
+          WHERE run_id = ?
           ORDER BY worker_state_id ASC, attempt_index ASC, validation_time ASC
         `,
       )
@@ -812,7 +1239,7 @@ function workerStatesForRun(stateDir: string, runId: string, limit = 100): JsonO
         `
           SELECT
             worker_state.id AS worker_state_id,
-            worker_state.session_id,
+            worker_state.run_id,
             worker_state.epoch_id,
             worker_state.epoch_target_id,
             worker_state.target_claim_id,
@@ -879,7 +1306,7 @@ function workerStatesForRun(stateDir: string, runId: string, limit = 100): JsonO
             ORDER BY validation_time DESC, attempt_index DESC
             LIMIT 1
           )
-          WHERE worker_state.session_id = ?
+          WHERE worker_state.run_id = ?
           ORDER BY COALESCE(worker_state.ended_at, latest.validation_time, worker_state.started_at) DESC
           ${sqlLimit(limit)}
         `,
@@ -1241,7 +1668,7 @@ function workerStateTrace(stateDir: string, runId: string, workerStateId: string
           SELECT worker_state.started_at, target_claims.claimed_at
           FROM worker_state
           LEFT JOIN target_claims ON target_claims.id = worker_state.target_claim_id
-          WHERE worker_state.session_id = ?
+          WHERE worker_state.run_id = ?
             AND worker_state.id = ?
           LIMIT 1
         `,
@@ -1296,7 +1723,7 @@ function activeFilesForRun(stateDir: string, runId: string): JsonObject[] {
           JOIN worker_state ON worker_state.target_claim_id = target_claims.id
           LEFT JOIN epochs ON epochs.id = target_claims.epoch_id
           JOIN epoch_targets ON epoch_targets.id = target_claims.epoch_target_id
-          WHERE target_claims.session_id = ?
+          WHERE target_claims.run_id = ?
             AND target_claims.status = 'active'
           ORDER BY target_claims.claimed_at ASC
         `,
@@ -1872,7 +2299,7 @@ function targetClaimsForRun(stateDir: string, runId: string): JsonObject[] {
             JOIN worker_state ON worker_state.target_claim_id = target_claims.id
             LEFT JOIN epochs ON epochs.id = target_claims.epoch_id
             JOIN epoch_targets ON epoch_targets.id = target_claims.epoch_target_id
-            WHERE target_claims.session_id = ?
+            WHERE target_claims.run_id = ?
             ORDER BY COALESCE(target_claims.closed_at, target_claims.heartbeat_at, target_claims.ttl) DESC
           `,
         )
@@ -1933,7 +2360,7 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
               epochs.status AS epoch_status
             FROM epoch_targets
             LEFT JOIN epochs ON epochs.id = epoch_targets.epoch_id
-            WHERE epoch_targets.session_id = ?
+            WHERE epoch_targets.run_id = ?
             ORDER BY epoch_targets.admitted_at DESC
           `,
         )
@@ -2479,7 +2906,9 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   if (projectId) {
     const projectStateStore = openState(stateDir);
     try {
-      projectState = buildProjectStateReadModel(projectStateStore, projectId, campaign);
+      projectState = buildProjectStateReadModel(projectStateStore, projectId, campaign, {
+        hasActiveProcess: dashboardDeps().hasActiveProcess,
+      });
     } finally {
       projectStateStore.db.close();
     }
