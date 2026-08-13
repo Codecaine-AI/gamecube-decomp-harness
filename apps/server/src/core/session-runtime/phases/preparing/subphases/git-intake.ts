@@ -8,6 +8,17 @@ import {
 import type { DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
 import { ensurePrepareWorktrees } from "./worktrees.js";
 
+type GitDiscoveryDeps = Pick<PreparingRuntimeDeps, "appendLog" | "runGit">;
+interface GitDiscoveryPaths {
+  project: { baseRef?: string } | null;
+  repoRoot: string;
+}
+
+export interface DiscoverUpstreamChangesOptions {
+  /** Use the sync intake boundary even when the remote-tracking ref was fetched earlier. */
+  upstreamFrom?: string;
+}
+
 export function parseBaseRef(baseRef: string): { branch: string; remote: string } {
   const slash = baseRef.indexOf("/");
   if (slash <= 0 || slash === baseRef.length - 1) return { remote: "origin", branch: "master" };
@@ -27,20 +38,28 @@ export function mergedPullRequestNumbers(logText: string): number[] {
   return [...numbers].filter(Number.isFinite).sort((a, b) => a - b);
 }
 
-export async function syncProjectGitAndFindMergedPrs(
-  deps: PreparingRuntimeDeps,
-  paths: PreparingRuntimeProjectContext,
-  sessionUuid = "",
+/**
+ * Fetches the configured upstream and identifies its complete change set.
+ *
+ * This is deliberately worktree-free so preparing and sync share one intake
+ * implementation without letting sync touch a session or prepare worktree.
+ */
+export async function fetchUpstreamAndFindMergedPrs(
+  deps: GitDiscoveryDeps,
+  paths: GitDiscoveryPaths,
   revalidateLease?: DispatchLeaseRevalidator,
-): Promise<GitSyncResult> {
+  options: DiscoverUpstreamChangesOptions = {},
+): Promise<Pick<GitSyncResult, "afterRef" | "baseRef" | "beforeRef" | "branch" | "mergedPrs" | "steps">> {
   const baseRef = paths.project?.baseRef ?? "origin/master";
   const { remote } = parseBaseRef(baseRef);
-  const before = await deps.runGit(paths.repoRoot, ["rev-parse", "--verify", baseRef], { check: false });
+  const before = options.upstreamFrom
+    ? { exitCode: 0, stdout: `${options.upstreamFrom}\n`, stderr: "" }
+    : await deps.runGit(paths.repoRoot, ["rev-parse", "--verify", baseRef], { check: false });
   const beforeRef = before.exitCode === 0 ? before.stdout.trim() : "";
   const steps: JsonObject[] = [
     {
-      name: "read_previous_base_ref",
-      command: ["git", "rev-parse", "--verify", baseRef],
+      name: options.upstreamFrom ? "use_intake_upstream_from" : "read_previous_base_ref",
+      command: options.upstreamFrom ? undefined : ["git", "rev-parse", "--verify", baseRef],
       exitCode: before.exitCode,
       stdout: outputTail(before.stdout, 2000),
       stderr: outputTail(before.stderr, 2000),
@@ -57,6 +76,27 @@ export async function syncProjectGitAndFindMergedPrs(
   const afterRef = after.stdout.trim();
   const branchResult = await deps.runGit(paths.repoRoot, ["branch", "--show-current"], { check: false });
   const branch = branchResult.stdout.trim() || "(detached)";
+  if (!beforeRef || beforeRef === afterRef) {
+    return { afterRef, baseRef, beforeRef, branch, mergedPrs: [], steps };
+  }
+
+  const range = `${beforeRef}..${afterRef}`;
+  const log = await deps.runGit(paths.repoRoot, ["log", "--first-parent", "--format=%s%n%b", range], { failureHint: `Unable to inspect merged PRs in ${range}` });
+  const mergedPrs = mergedPullRequestNumbers(log.stdout);
+  deps.appendLog("ui", mergedPrs.length ? `merged PRs newly landed: ${mergedPrs.map((number) => `#${number}`).join(", ")}` : "no merged PR numbers found in newly pulled commits");
+  steps.push({ name: "discover_merged_prs", command: ["git", "log", "--first-parent", "--format=%s%n%b", range], exitCode: log.exitCode, stdout: outputTail(log.stdout, 4000), stderr: outputTail(log.stderr, 2000), mergedPrs });
+  return { afterRef, baseRef, beforeRef, branch, mergedPrs, steps };
+}
+
+export async function syncProjectGitAndFindMergedPrs(
+  deps: PreparingRuntimeDeps,
+  paths: PreparingRuntimeProjectContext,
+  sessionUuid = "",
+  revalidateLease?: DispatchLeaseRevalidator,
+): Promise<GitSyncResult> {
+  const discovery = await fetchUpstreamAndFindMergedPrs(deps, paths, revalidateLease);
+  const { afterRef, baseRef, beforeRef, branch, mergedPrs } = discovery;
+  const steps = [...discovery.steps];
 
   deps.appendLog("ui", `prepare upstream-current worktree update started: ${baseRef} @ ${afterRef.slice(0, 10)}`);
   revalidateLease?.();
@@ -74,7 +114,7 @@ export async function syncProjectGitAndFindMergedPrs(
     beforeRef,
     branch,
     mainWorktreePath: worktrees.mainWorktreePath,
-    mergedPrs: [] as number[],
+    mergedPrs,
     sessionBranch: worktrees.sessionBranch,
     sessionCurrentWorktreePath: worktrees.sessionCurrentWorktreePath,
     sessionRootPath: worktrees.sessionRootPath,
@@ -82,16 +122,7 @@ export async function syncProjectGitAndFindMergedPrs(
     steps,
     upstreamWorktreePath: worktrees.upstreamWorktreePath,
   };
-  if (!beforeRef || beforeRef === afterRef) {
-    return baseResult;
-  }
-
-  const range = `${beforeRef}..${afterRef}`;
-  const log = await deps.runGit(paths.repoRoot, ["log", "--first-parent", "--format=%s%n%b", range], { failureHint: `Unable to inspect merged PRs in ${range}` });
-  const mergedPrs = mergedPullRequestNumbers(log.stdout);
-  deps.appendLog("ui", mergedPrs.length ? `merged PRs newly landed: ${mergedPrs.map((number) => `#${number}`).join(", ")}` : "no merged PR numbers found in newly pulled commits");
-  steps.push({ name: "discover_merged_prs", command: ["git", "log", "--first-parent", "--format=%s%n%b", range], exitCode: log.exitCode, stdout: outputTail(log.stdout, 4000), stderr: outputTail(log.stderr, 2000), mergedPrs });
-  return { ...baseResult, mergedPrs, steps };
+  return baseResult;
 }
 
 export async function runGitIntakeForPrepare(

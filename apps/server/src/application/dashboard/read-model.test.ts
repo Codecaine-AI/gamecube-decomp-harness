@@ -18,8 +18,9 @@ import {
 } from "@server/core/session-runtime/run-state";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { createProjectSession, recordSavePointAnchor, recordSavePointFailureDurably } from "@server/core/project-session";
-import { initializeProjectState, requestDispatch } from "@server/core/project-state";
+import { initializeProjectState, releaseDispatch, requestDispatch } from "@server/core/project-state";
 import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
+import { getSyncState, recordSyncRequested, transitionSync } from "@server/core/session-runtime/phases/sync";
 import {
   buildProjectStateReadModel,
   createDashboardReadModel,
@@ -60,6 +61,19 @@ describe("dashboard read model", () => {
         baseSha: "base-sha",
       });
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      recordSyncRequested(store, {
+        projectId: "melee",
+        sessionUuid: "session-1",
+        syncId: "sync-1",
+        commandId: "command-sync-requested",
+        intake: {
+          upstream_from: "base-sha",
+          upstream_to: "upstream-next",
+          merged_pr_ids: ["101", "102"],
+          corpus_batch_ids: ["corpus-a"],
+          knowledge_only: false,
+        },
+      });
       const run = requestDispatch(store, {
         projectId: "melee",
         kind: "run",
@@ -119,21 +133,47 @@ describe("dashboard read model", () => {
         },
       });
       expect(view.session?.timeline).toHaveLength(1);
-      expect(view.latest_event_sequence).toBe(5);
-      expect(view.available_actions).toEqual([
-        expect.objectContaining({
-          action_id: "session.save_point",
-          enabled: true,
-          blocked_by: [],
-          confirmation_required: false,
-        }),
-        expect.objectContaining({
-          action_id: "session.close",
-          enabled: false,
-          blocked_by: [expect.objectContaining({ code: "dispatch_lease_held" })],
-          confirmation_required: true,
-        }),
+      expect(view.latest_event_sequence).toBe(6);
+      expect(view.sync).toMatchObject({
+        workflow_id: "sync-1",
+        status: "requested",
+        intake: {
+          upstream_from: "base-sha",
+          upstream_to: "upstream-next",
+          merged_pr_count: 2,
+          corpus_batches: ["corpus-a"],
+          knowledge_only: false,
+        },
+      });
+      expect(view.available_actions.map((action) => action.action_id)).toEqual([
+        "sync.start",
+        "sync.resolve_conflict",
+        "sync.publish",
+        "sync.cancel",
+        "sync.recover",
+        "session.save_point",
+        "session.close",
       ]);
+      expect(view.available_actions.find((action) => action.action_id === "sync.start")).toMatchObject({
+        enabled: true,
+        blocked_by: [],
+        expected_transition: "requested → ingesting after run drains",
+        confirmation_required: false,
+      });
+      expect(view.available_actions.find((action) => action.action_id === "sync.resolve_conflict")?.enabled).toBe(false);
+      expect(view.available_actions.find((action) => action.action_id === "sync.publish")?.confirmation_required).toBe(true);
+      expect(view.available_actions.find((action) => action.action_id === "sync.cancel")?.confirmation_required).toBe(true);
+      expect(view.available_actions.find((action) => action.action_id === "sync.recover")?.confirmation_required).toBe(true);
+      expect(view.available_actions.find((action) => action.action_id === "session.save_point")).toMatchObject({
+        enabled: true,
+        blocked_by: [],
+        confirmation_required: false,
+      });
+      expect(view.available_actions.find((action) => action.action_id === "session.close")).toMatchObject({
+        enabled: false,
+        blocked_by: [expect.objectContaining({ code: "dispatch_lease_held" })],
+        confirmation_required: true,
+      });
     } finally {
       store.db.close();
     }
@@ -328,6 +368,265 @@ describe("dashboard read model", () => {
       expect(terminalState.availableActions.find((action) => action.action_id === "run.recover")).toMatchObject({
         enabled: false,
         blocked_by: [expect.objectContaining({ code: "run_terminal", recoverable: false })],
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("projects sync staging, conflict, validation, staleness, publication, and shared action decisions", () => {
+    const { store } = tempState();
+    try {
+      createProjectSession(store.db, {
+        projectId: "melee",
+        sessionUuid: "session-sync",
+        id: "project-session:session-sync",
+        baseSha: "session-head",
+      });
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      let sync = recordSyncRequested(store, {
+        projectId: "melee",
+        sessionUuid: "session-sync",
+        syncId: "sync-staged",
+        commandId: "command-sync-requested",
+        intake: {
+          upstream_from: "upstream-old",
+          upstream_to: "upstream-new",
+          merged_pr_ids: ["201", "202"],
+          corpus_batch_ids: ["corpus-a", "corpus-b"],
+          knowledge_only: false,
+        },
+      });
+      const dispatch = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-sync-dispatch",
+        kind: "sync",
+        projectId: "melee",
+        reason: "test sync projection",
+        workflowId: sync.sync_id,
+      });
+      if (dispatch.queued) throw new Error("test sync lease was unexpectedly queued");
+      sync = transitionSync(store, sync.sync_id, {
+        actor: "operator",
+        commandId: "command-sync-ingesting",
+        expectedRevision: sync.revision,
+        patch: { status: "ingesting" },
+      });
+      const staging = {
+        workspace_id: "workspace-sync-staged",
+        epochs_total: 4,
+        epochs_applied: 2,
+        minor_conflicts_resolved: 3,
+        conflicts_awaiting_operator: 0,
+        session_head_sha: "session-head",
+        staging_head_sha: "staging-head",
+        validated_upstream: "upstream-new",
+      };
+      sync = transitionSync(store, sync.sync_id, {
+        actor: "runner",
+        commandId: "command-sync-reconciling",
+        expectedRevision: sync.revision,
+        patch: {
+          status: "reconciling",
+          staging,
+          prReconciliation: [
+            { series_id: "series-clean", branch: "series/clean", result: "clean", pushed: false },
+            { series_id: "series-conflict", branch: "series/conflict", result: "needs_operator", pushed: false },
+          ],
+        },
+      });
+      sync = transitionSync(store, sync.sync_id, {
+        actor: "runner",
+        commandId: "command-sync-conflict",
+        eventType: "sync.reconciliation_blocked",
+        expectedRevision: sync.revision,
+        patch: {
+          status: "blocked",
+          blockers: [{
+            code: "conflict_needs_operator",
+            message: "Resolve staged conflicts.",
+            source_kind: "sync",
+            source_id: sync.sync_id,
+            recoverable: true,
+          }],
+          staging: {
+            ...staging,
+            conflicts_awaiting_operator: 2,
+            conflicting_paths: ["src/a.c", "src/b.c"],
+          },
+        },
+        payload: {
+          conflict_identities: ["src/a.c", "src/b.c"],
+          conflicts_awaiting_operator: 2,
+        },
+      });
+
+      let view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.sync).toMatchObject({
+        status: "blocked",
+        staging: {
+          epochs_applied: 2,
+          epochs_total: 4,
+          minor_auto_resolved_count: 3,
+          conflicts_awaiting_operator: 2,
+          conflicts: ["src/a.c", "src/b.c"],
+        },
+        pr_reconciliation: {
+          total: 2,
+          clean: 1,
+          auto_resolved: 0,
+          needs_operator: 1,
+          pushed: 0,
+          pending_pushes: 2,
+        },
+        publish_preview: {
+          prior_head: "session-head",
+          new_head: "staging-head",
+          series_pushes: 2,
+        },
+      });
+      expect(view.available_actions.find((action) => action.action_id === "sync.resolve_conflict")).toMatchObject({
+        enabled: true,
+        confirmation_required: false,
+      });
+      expect(view.available_actions.find((action) => action.action_id === "sync.start")?.blocked_by).toContainEqual(
+        expect.objectContaining({ code: "sync_staging_awaits_decision" }),
+      );
+      expect(view.available_actions.find((action) => action.action_id === "sync.recover")?.blocked_by).toContainEqual(
+        expect.objectContaining({ code: "sync_conflict_requires_resolution" }),
+      );
+
+      sync = transitionSync(store, sync.sync_id, {
+        actor: "operator",
+        commandId: "command-sync-resolved",
+        expectedRevision: sync.revision,
+        patch: {
+          status: "reconciling",
+          blockers: [],
+          staging: { ...staging, epochs_applied: 4 },
+          prReconciliation: [
+            { series_id: "series-clean", branch: "series/clean", result: "clean", pushed: false },
+            { series_id: "series-conflict", branch: "series/conflict", result: "auto_resolved", pushed: false },
+          ],
+        },
+      });
+      sync = transitionSync(store, sync.sync_id, {
+        actor: "runner",
+        commandId: "command-sync-validating",
+        expectedRevision: sync.revision,
+        patch: { status: "validating" },
+      });
+      sync = transitionSync(store, sync.sync_id, {
+        actor: "runner",
+        commandId: "command-sync-validated",
+        expectedRevision: sync.revision,
+        patch: { status: "validated" },
+      });
+
+      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.available_actions.find((action) => action.action_id === "sync.publish")?.blocked_by).toContainEqual(
+        expect.objectContaining({ code: "missing_validation_evidence" }),
+      );
+      store.db
+        .query("UPDATE sync_state SET staging_json = ? WHERE sync_id = ?")
+        .run(JSON.stringify({ ...sync.staging, validation_evidence: { result: "passed" } }), sync.sync_id);
+      sync = getSyncState(store, sync.sync_id)!;
+      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.available_actions.find((action) => action.action_id === "sync.publish")).toMatchObject({
+        enabled: true,
+        confirmation_required: true,
+      });
+      expect(view.available_actions.find((action) => action.action_id === "sync.cancel")).toMatchObject({
+        enabled: true,
+        confirmation_required: true,
+      });
+
+      store.db
+        .query("UPDATE sync_state SET staging_json = ? WHERE sync_id = ?")
+        .run(JSON.stringify({ ...sync.staging, observed_upstream: "upstream-later" }), sync.sync_id);
+      sync = getSyncState(store, sync.sync_id)!;
+      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.sync?.staleness).toMatchObject({
+        stale: true,
+        validated_upstream: "upstream-new",
+        observed_upstream: "upstream-later",
+        blocker: null,
+      });
+
+      sync = transitionSync(store, sync.sync_id, {
+        actor: "runner",
+        commandId: "command-sync-stale",
+        expectedRevision: sync.revision,
+        patch: {
+          status: "blocked",
+          blockers: [{
+            code: "upstream_moved_after_validation",
+            message: "Validated upstream-new, but upstream is now upstream-later.",
+            source_kind: "sync",
+            source_id: sync.sync_id,
+            recoverable: true,
+          }],
+          staging: { ...sync.staging!, observed_upstream: "upstream-later" },
+        },
+      });
+      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.sync?.staleness).toMatchObject({
+        stale: true,
+        validated_upstream: "upstream-new",
+        observed_upstream: "upstream-later",
+        blocker: { code: "upstream_moved_after_validation" },
+        revalidate_action_id: "sync.cancel",
+      });
+      expect(view.available_actions.find((action) => action.action_id === "sync.publish")?.enabled).toBe(false);
+      expect(view.available_actions.find((action) => action.action_id === "sync.recover")?.blocked_by).toContainEqual(
+        expect.objectContaining({ code: "sync_cancel_required" }),
+      );
+      expect(view.available_actions.find((action) => action.action_id === "sync.cancel")?.enabled).toBe(true);
+
+      store.db.query("UPDATE sync_state SET status = 'publishing' WHERE sync_id = ?").run(sync.sync_id);
+      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.available_actions.find((action) => action.action_id === "sync.cancel")?.blocked_by).toContainEqual(
+        expect.objectContaining({ code: "sync_publish_committing", recoverable: false }),
+      );
+
+      store.db
+        .query("UPDATE sync_state SET status = 'published', publication_json = ?, pr_reconciliation_json = ? WHERE sync_id = ?")
+        .run(
+          JSON.stringify({
+            remote_application_id: "remote-sync-staged",
+            prior_head: "session-head",
+            new_head: "staging-head",
+            knowledge_revision: "knowledge-9",
+            invalidated_ids: ["target-1"],
+          }),
+          JSON.stringify([
+            { series_id: "series-clean", branch: "series/clean", result: "clean", pushed: true },
+            { series_id: "series-conflict", branch: "series/conflict", result: "auto_resolved", pushed: true },
+          ]),
+          sync.sync_id,
+        );
+      releaseDispatch(store, {
+        actor: "runner",
+        commandId: "command-sync-release",
+        leaseId: dispatch.leaseId,
+        projectId: "melee",
+      });
+      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.sync).toMatchObject({
+        workflow_id: "sync-staged",
+        status: "published",
+        pr_reconciliation: { pushed: 2, pending_pushes: 0 },
+        publication: {
+          remote_application_id: "remote-sync-staged",
+          prior_head: "session-head",
+          new_head: "staging-head",
+          knowledge_revision: "knowledge-9",
+          invalidated_ids: ["target-1"],
+        },
+      });
+      expect(view.available_actions.find((action) => action.action_id === "sync.start")).toMatchObject({
+        subject_id: "sync:new:melee",
+        enabled: true,
       });
     } finally {
       store.db.close();
@@ -782,10 +1081,12 @@ describe("dashboard read model", () => {
       store.db.close();
     }
 
+    let syncObservationRefreshes = 0;
     const { runDashboard, workerStateTrace } = createDashboardReadModel({
       buildPrRecordsView: () => ({}),
-      campaignStatus: () => ({}),
+      campaignStatus: () => ({ baseSha: "observed-head" }),
       processStatus: () => ({}),
+      refreshSyncUpstreamObservation: async () => { syncObservationRefreshes += 1; },
     });
     const dashboard = await runDashboard({ project: null, repoRoot: dir, stateDir: dir, graphDbPath: "", usePathOverrides: true });
     const active = (dashboard.activeFiles as Record<string, unknown>[])[0];
@@ -805,5 +1106,6 @@ describe("dashboard read model", () => {
     ]);
     expect((trace.recentToolEvents as Record<string, unknown>[]).map((event) => event.tool)).toEqual(["compile"]);
     expect(trace.toolEventCount).toBe(1);
+    expect(syncObservationRefreshes).toBe(1);
   });
 });

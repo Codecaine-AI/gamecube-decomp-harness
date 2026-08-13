@@ -85,6 +85,12 @@ export interface BeginDrainInput extends TransitionContext {
   reason: string;
 }
 
+export interface CancelDispatchRequestInput extends TransitionContext {
+  kind: DispatchKind;
+  workflowId: string;
+  reason: string;
+}
+
 export interface ReleaseDispatchInput extends TransitionContext {
   leaseId: string;
   handoffSnapshotId?: string;

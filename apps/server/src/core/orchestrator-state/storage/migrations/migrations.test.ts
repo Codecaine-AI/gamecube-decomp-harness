@@ -6,7 +6,13 @@ import { Database } from "bun:sqlite";
 import { configureConnection, ensureLegacySchema } from "../ddl.js";
 import { openState, type StateStore } from "../store.js";
 import { immediateTransaction } from "../transaction.js";
-import { PENDING_INTEGRATIONS_DDL, PROJECT_EVENTS_DDL } from "./ddl.js";
+import {
+  PENDING_INTEGRATIONS_DDL,
+  PROJECT_EVENTS_DDL,
+  SYNC_PUBLICATION_DDL,
+  SYNC_PUBLICATION_INTENTS_DDL,
+  SYNC_STATE_DDL,
+} from "./ddl.js";
 import { rebuildTable } from "./rebuild-table.js";
 
 const tempDirs: string[] = [];
@@ -544,9 +550,554 @@ function schemaSnapshot(db: Database): SchemaObjectRow[] {
 function normalizedSchemaSnapshot(db: Database): SchemaObjectRow[] {
   return schemaSnapshot(db).map((row) => ({
     ...row,
-    sql: row.sql?.replace(/\s+/g, " ").trim() ?? null,
+    sql: row.sql
+      ?.replace(/,\s*UNIQUE\s*\([^)]*\)/gi, "")
+      .replace(/\bUNIQUE\b(?=\s*[,\)])/gi, "")
+      .replace(/\s+/g, " ")
+      .replace(/\s*([(),])\s*/g, "$1")
+      .trim() ?? null,
   }));
 }
+
+// Frozen at storage migration 010, immediately before the slice-3 sync schema.
+// Keep this literal independent of current bootstrap and migration DDL.
+const FROZEN_PRE_SLICE_3_DDL = `
+CREATE TABLE campaigns (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      branch TEXT,
+      base_ref TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+CREATE TABLE checkpoint_items (
+      id TEXT PRIMARY KEY,
+      checkpoint_id TEXT NOT NULL,
+      run_id TEXT NOT NULL,
+      worker_checkpoint_id TEXT,
+      target_claim_id TEXT,
+      target_key TEXT NOT NULL,
+      unit TEXT,
+      symbol TEXT,
+      source_path TEXT,
+      lifecycle_status TEXT NOT NULL,
+      disposition TEXT NOT NULL,
+      item_status TEXT NOT NULL,
+      exact_match INTEGER NOT NULL DEFAULT 0,
+      pr_candidate INTEGER NOT NULL DEFAULT 0,
+      patch_path TEXT,
+      summary_path TEXT,
+      state_summary TEXT,
+      evidence_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+CREATE TABLE dashboard_artifacts (
+      id TEXT PRIMARY KEY,
+      run_id TEXT,
+      project_id TEXT,
+      session_uuid TEXT,
+      artifact_type TEXT NOT NULL,
+      artifact_key TEXT NOT NULL,
+      source_path TEXT,
+      source_label TEXT,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
+
+CREATE TABLE director_cycles (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      trigger_event TEXT NOT NULL,
+      active_workers INTEGER NOT NULL DEFAULT 0,
+      summary_path TEXT,
+      decision_path TEXT,
+      created_at TEXT NOT NULL
+    );
+
+CREATE TABLE epoch_targets (
+        id TEXT PRIMARY KEY,
+        epoch_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        target_key TEXT NOT NULL,
+        unit TEXT NOT NULL,
+        symbol TEXT NOT NULL,
+        source_path TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        baseline_score REAL NOT NULL,
+        priority REAL NOT NULL,
+        reason TEXT,
+        admission_index INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        admitted_at TEXT NOT NULL,
+        claimed_at TEXT,
+        finished_at TEXT
+      );
+
+CREATE TABLE epochs (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        ordinal INTEGER NOT NULL,
+        size_mode TEXT NOT NULL,
+        size_value INTEGER,
+        worker_pool_size INTEGER NOT NULL,
+        candidate_window INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        admitted_count INTEGER NOT NULL DEFAULT 0,
+        finished_count INTEGER NOT NULL DEFAULT 0,
+        fast_refresh_count INTEGER NOT NULL DEFAULT 0,
+        boundary_status TEXT,
+        routing_summary_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        closed_at TEXT
+      );
+
+CREATE TABLE events (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      producer TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      handled_at TEXT,
+      created_at TEXT NOT NULL
+    );
+
+CREATE TABLE facts (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      fact_type TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      evidence_path TEXT,
+      confidence REAL,
+      status TEXT NOT NULL
+    );
+
+CREATE TABLE integrations (
+      id TEXT PRIMARY KEY,
+      attempt_id TEXT,
+      base_rev TEXT,
+      patch_path TEXT,
+      validation_path TEXT,
+      old_matched_code_percent REAL,
+      new_matched_code_percent REAL,
+      status TEXT NOT NULL,
+      integrated_rev TEXT
+    );
+
+CREATE TABLE pending_integrations (
+    epoch_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    branch TEXT NOT NULL,
+    parent_sha TEXT NOT NULL,
+    message_marker TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  , attempt INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'prepared', failure_reason TEXT, failed_at TEXT);
+
+CREATE TABLE pi_sessions (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      target_claim_id TEXT,
+      role TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      session_file TEXT,
+      provider TEXT,
+      model TEXT,
+      thinking_level TEXT,
+      status TEXT NOT NULL,
+      output_path TEXT,
+      created_at TEXT NOT NULL
+    );
+
+CREATE TABLE project_events (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL UNIQUE,
+    event_type TEXT NOT NULL,
+    schema_version INTEGER NOT NULL DEFAULT 1,
+    project_id TEXT NOT NULL,
+    subject_kind TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    correlation_id TEXT NOT NULL,
+    causation_id TEXT NOT NULL,
+    trace_id TEXT NOT NULL,
+    span_id TEXT NOT NULL,
+    actor TEXT NOT NULL CONSTRAINT project_events_actor_check CHECK (
+      actor IN ('operator', 'runner', 'agent', 'guardian', 'external_observer')
+    ),
+    occurred_at TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{}'
+  );
+
+CREATE TABLE project_sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      session_uuid TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      active_run_id TEXT,
+      base_ref TEXT,
+      base_sha TEXT,
+      preparing_state_json TEXT NOT NULL DEFAULT '{}',
+      running_state_json TEXT NOT NULL DEFAULT '{}',
+      pr_state_json TEXT NOT NULL DEFAULT '{}',
+      complete_state_json TEXT NOT NULL DEFAULT '{}',
+      process_state_json TEXT NOT NULL DEFAULT '{}',
+      kernel_trace_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT
+    , revision INTEGER NOT NULL DEFAULT 0, head_revision TEXT, trace_id TEXT, blockers_json TEXT NOT NULL DEFAULT '[]', save_point_stale INTEGER NOT NULL DEFAULT 0, caused_by_event_id TEXT, closed_at TEXT);
+
+CREATE TABLE project_state (
+    project_id TEXT PRIMARY KEY,
+    revision INTEGER NOT NULL DEFAULT 0,
+    active_workflow_json TEXT,
+    queued_requests_json TEXT NOT NULL DEFAULT '[]',
+    blockers_json TEXT NOT NULL DEFAULT '[]',
+    trace_id TEXT NOT NULL,
+    caused_by_event_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+CREATE TABLE run_checkpoints (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      checkpoint_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      artifact_dir TEXT NOT NULL,
+      summary_path TEXT NOT NULL,
+      pr_candidates_path TEXT NOT NULL,
+      carry_forward_path TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    );
+
+CREATE TABLE run_recovery_journal (
+    recovery_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    command_id TEXT NOT NULL,
+    correlation_id TEXT NOT NULL,
+    recovery_reason TEXT NOT NULL,
+    expected_run_revision INTEGER NOT NULL,
+    cancelled_claim_ids_json TEXT NOT NULL DEFAULT '[]',
+    cancelled_operation_ids_json TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'prepared' CONSTRAINT run_recovery_journal_status_check CHECK (
+      status IN ('prepared', 'completed')
+    ),
+    caused_by_event_id TEXT,
+    created_at TEXT NOT NULL,
+    completed_at TEXT
+  );
+
+CREATE TABLE runs (
+    id TEXT PRIMARY KEY,
+    goal_kind TEXT NOT NULL,
+    goal_value REAL NOT NULL,
+    baseline_report_sha TEXT,
+    current_report_sha TEXT,
+    desired_workers INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    project_id TEXT,
+    project_kind TEXT,
+    project_repo_root TEXT,
+    project_state_dir TEXT,
+    project_graph_db TEXT,
+    project_descriptor_path TEXT,
+    project_local_override_path TEXT,
+    revision INTEGER NOT NULL DEFAULT 0,
+    trace_id TEXT,
+    caused_by_event_id TEXT,
+    blockers_json TEXT NOT NULL DEFAULT '[]',
+    head_revision TEXT,
+    session_uuid TEXT,
+    inputs_json TEXT,
+    stop_request_json TEXT,
+    terminal_reason TEXT,
+    scheduler_condition TEXT,
+    remote_application_ids_json TEXT NOT NULL DEFAULT '[]'
+  );
+
+CREATE TABLE save_points (
+      id TEXT PRIMARY KEY,
+      campaign_id TEXT NOT NULL,
+      run_id TEXT,
+      trigger_kind TEXT NOT NULL,
+      label TEXT,
+      commit_sha TEXT,
+      branch TEXT,
+      base_ref TEXT,
+      base_sha TEXT,
+      worktree_dirty INTEGER NOT NULL DEFAULT 0,
+      committed INTEGER NOT NULL DEFAULT 0,
+      matched_code_percent REAL,
+      report_path TEXT,
+      report_changes_path TEXT,
+      board_snapshot_path TEXT,
+      artifact_dir TEXT,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL);
+
+CREATE TABLE session_timeline_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_uuid TEXT NOT NULL,
+    entry_kind TEXT NOT NULL CONSTRAINT session_timeline_entries_kind_check CHECK (
+      entry_kind IN ('epoch_completed', 'remote_application', 'pr_phase', 'save_point')
+    ),
+    entry_id TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    caused_by_event_id TEXT
+  );
+
+CREATE TABLE target_claims (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        epoch_id TEXT NOT NULL,
+        epoch_target_id TEXT NOT NULL,
+        worker_id TEXT NOT NULL,
+        base_rev TEXT,
+        write_set_json TEXT NOT NULL DEFAULT '[]',
+        write_set_entries_json TEXT NOT NULL DEFAULT '[]',
+        write_set_hash TEXT,
+        worktree_path TEXT,
+        ttl TEXT,
+        heartbeat_at TEXT,
+        status TEXT NOT NULL,
+        claimed_at TEXT NOT NULL,
+        closed_at TEXT,
+        close_reason TEXT
+      );
+
+CREATE TABLE targets (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      unit TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      source_path TEXT,
+      size INTEGER NOT NULL,
+      fuzzy REAL NOT NULL,
+      matched REAL,
+      complete REAL,
+      risk TEXT,
+      status TEXT NOT NULL,
+      priority REAL NOT NULL,
+      reason TEXT,
+      created_at TEXT NOT NULL
+    );
+
+CREATE TABLE worker_checkpoints (
+        id TEXT PRIMARY KEY,
+        worker_state_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        epoch_id TEXT NOT NULL,
+        epoch_target_id TEXT NOT NULL,
+        target_claim_id TEXT NOT NULL,
+        attempt_index INTEGER NOT NULL,
+        validation_time TEXT NOT NULL,
+        old_score REAL,
+        new_score REAL,
+        delta REAL,
+        exact_match INTEGER NOT NULL DEFAULT 0,
+        hard_gates_passed INTEGER NOT NULL DEFAULT 0,
+        improved_over_baseline INTEGER NOT NULL DEFAULT 0,
+        selectable INTEGER NOT NULL DEFAULT 0,
+        selected INTEGER NOT NULL DEFAULT 0,
+        build_status TEXT,
+        qa_status TEXT,
+        objdiff_status TEXT,
+        validation_status TEXT NOT NULL,
+        validation_state TEXT NOT NULL DEFAULT 'tentative',
+        artifact_path TEXT,
+        patch_path TEXT,
+        diff_path TEXT,
+        write_set_json TEXT NOT NULL DEFAULT '[]',
+        failure_reasons_json TEXT NOT NULL DEFAULT '[]',
+        metadata_json TEXT NOT NULL DEFAULT '{}'
+      );
+
+CREATE TABLE worker_output_integrations (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        epoch_id TEXT NOT NULL,
+        epoch_target_id TEXT NOT NULL,
+        target_claim_id TEXT NOT NULL,
+        worker_state_id TEXT NOT NULL,
+        worker_checkpoint_id TEXT,
+        status TEXT NOT NULL,
+        disposition TEXT,
+        target_key TEXT,
+        patch_path TEXT,
+        diff_path TEXT,
+        item_path TEXT,
+        summary_path TEXT,
+        check_stdout_path TEXT,
+        check_stderr_path TEXT,
+        apply_stdout_path TEXT,
+        apply_stderr_path TEXT,
+        write_set_json TEXT NOT NULL DEFAULT '[]',
+        validation_state TEXT NOT NULL DEFAULT 'tentative',
+        conflict_paths_json TEXT NOT NULL DEFAULT '[]',
+        failure_reasons_json TEXT NOT NULL DEFAULT '[]',
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        resolved_at TEXT
+      );
+
+CREATE TABLE worker_state (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        epoch_id TEXT NOT NULL,
+        epoch_target_id TEXT NOT NULL,
+        target_claim_id TEXT NOT NULL,
+        worker_id TEXT NOT NULL,
+        target_key TEXT NOT NULL,
+        lifecycle_status TEXT NOT NULL,
+        write_set_json TEXT NOT NULL DEFAULT '[]',
+        write_set_entries_json TEXT NOT NULL DEFAULT '[]',
+        worker_session_ids_json TEXT NOT NULL DEFAULT '[]',
+        artifact_dir TEXT,
+        worktree_path TEXT,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        baseline_score REAL,
+        best_checkpoint_id TEXT,
+        best_score REAL,
+        exact INTEGER NOT NULL DEFAULT 0,
+        timeout_summary TEXT,
+        error_summary TEXT,
+        summary_json TEXT NOT NULL DEFAULT '{}'
+      );
+
+CREATE TABLE write_set_widenings (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        epoch_id TEXT NOT NULL,
+        target_claim_id TEXT NOT NULL,
+        worker_state_id TEXT NOT NULL,
+        attempt_index INTEGER NOT NULL,
+        category TEXT NOT NULL,
+        rung INTEGER NOT NULL,
+        requested_paths_json TEXT NOT NULL DEFAULT '[]',
+        approved_paths_json TEXT NOT NULL DEFAULT '[]',
+        evidence_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL,
+        decided_by TEXT,
+        decision_reason TEXT,
+        validation_tier INTEGER,
+        validation_evidence_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        decided_at TEXT,
+        validated_at TEXT
+      );
+
+CREATE INDEX checkpoint_items_checkpoint
+      ON checkpoint_items (checkpoint_id);
+
+CREATE INDEX checkpoint_items_run_disposition
+      ON checkpoint_items (run_id, disposition, item_status);
+
+CREATE INDEX dashboard_artifacts_project_type
+      ON dashboard_artifacts (project_id, artifact_type, artifact_key, created_at);
+
+CREATE INDEX dashboard_artifacts_run_type
+      ON dashboard_artifacts (run_id, artifact_type, artifact_key, created_at);
+
+CREATE INDEX dashboard_artifacts_session_type
+      ON dashboard_artifacts (session_uuid, artifact_type, artifact_key, created_at);
+
+CREATE UNIQUE INDEX epoch_targets_epoch_key
+        ON epoch_targets (epoch_id, target_key);
+
+CREATE INDEX epoch_targets_epoch_status
+        ON epoch_targets (epoch_id, status, admission_index);
+
+CREATE INDEX epoch_targets_run_status
+        ON epoch_targets (run_id, status);
+
+CREATE INDEX epochs_run_status
+        ON epochs (run_id, status, ordinal);
+
+CREATE INDEX pending_integrations_run_created
+    ON pending_integrations (run_id, created_at);
+
+CREATE INDEX project_events_correlation_sequence
+    ON project_events (correlation_id, sequence);
+
+CREATE INDEX project_events_subject_sequence
+    ON project_events (subject_kind, subject_id, sequence);
+
+CREATE INDEX project_events_type_sequence
+    ON project_events (event_type, sequence);
+
+CREATE UNIQUE INDEX project_sessions_one_active_project
+        ON project_sessions (project_id)
+        WHERE status IN ('active', 'blocked', 'closing');
+
+CREATE INDEX project_sessions_project_updated
+      ON project_sessions (project_id, updated_at);
+
+CREATE UNIQUE INDEX run_recovery_journal_one_prepared_run
+    ON run_recovery_journal (run_id) WHERE status = 'prepared';
+
+CREATE INDEX run_recovery_journal_run_created
+    ON run_recovery_journal (run_id, created_at);
+
+CREATE INDEX save_points_campaign
+      ON save_points (campaign_id, created_at);
+
+CREATE UNIQUE INDEX session_timeline_entries_session_kind_entry
+    ON session_timeline_entries (session_uuid, entry_kind, entry_id);
+
+CREATE INDEX session_timeline_entries_session_order
+    ON session_timeline_entries (session_uuid, id);
+
+CREATE UNIQUE INDEX target_claims_epoch_target
+        ON target_claims (epoch_target_id);
+
+CREATE INDEX target_claims_run_status
+        ON target_claims (run_id, status);
+
+CREATE INDEX worker_checkpoints_epoch_target
+        ON worker_checkpoints (epoch_id, epoch_target_id);
+
+CREATE INDEX worker_checkpoints_state_selectable
+        ON worker_checkpoints (worker_state_id, selectable, exact_match, new_score, validation_time);
+
+CREATE UNIQUE INDEX worker_output_integrations_checkpoint
+        ON worker_output_integrations (worker_checkpoint_id);
+
+CREATE INDEX worker_output_integrations_run_status
+        ON worker_output_integrations (run_id, status, created_at);
+
+CREATE INDEX worker_state_run_status
+        ON worker_state (run_id, lifecycle_status);
+
+CREATE UNIQUE INDEX worker_state_target_claim
+        ON worker_state (target_claim_id);
+
+CREATE INDEX write_set_widenings_run
+        ON write_set_widenings (run_id, status, created_at);
+
+
+INSERT INTO schema_migrations (version, name, applied_at) VALUES
+  (1, 'baseline', '2026-08-13T00:00:00.000Z'),
+  (2, 'project_events', '2026-08-13T00:00:00.000Z'),
+  (3, 'project_state', '2026-08-13T00:00:00.000Z'),
+  (4, 'project_session_container', '2026-08-13T00:00:00.000Z'),
+  (5, 'run_scoped_run_id', '2026-08-13T00:00:00.000Z'),
+  (6, 'run_state_contract', '2026-08-13T00:00:00.000Z'),
+  (7, 'pending_integrations', '2026-08-13T00:00:00.000Z'),
+  (8, 'run_recovery_journal', '2026-08-13T00:00:00.000Z'),
+  (9, 'pending_integration_attempts', '2026-08-13T00:00:00.000Z'),
+  (10, 'run_scoped_index_names', '2026-08-13T00:00:00.000Z');
+`;
 
 afterEach(() => {
   for (const store of openStores.splice(0)) store.db.close();
@@ -570,6 +1121,36 @@ describe("orchestrator storage migrations", () => {
       { version: 8, name: "run_recovery_journal" },
       { version: 9, name: "pending_integration_attempts" },
       { version: 10, name: "run_scoped_index_names" },
+      { version: 11, name: "sync_state" },
+      { version: 12, name: "sync_publication" },
+      { version: 13, name: "sync_publication_intents" },
+      { version: 14, name: "pr_campaign" },
+    ]);
+    expect(
+      store.db
+        .query(
+          `SELECT name FROM sqlite_master
+           WHERE type = 'index'
+             AND name IN (
+               'epoch_targets_epoch_key', 'target_claims_epoch_target',
+               'worker_state_target_claim', 'worker_output_integrations_checkpoint',
+               'session_timeline_entries_session_kind_entry',
+               'sync_push_records_sync_series', 'sync_invalidations_sync_subject',
+               'sync_knowledge_jobs_sync_source', 'pr_campaigns_one_open_project'
+             )
+           ORDER BY name`,
+        )
+        .all(),
+    ).toEqual([
+      { name: "epoch_targets_epoch_key" },
+      { name: "pr_campaigns_one_open_project" },
+      { name: "session_timeline_entries_session_kind_entry" },
+      { name: "sync_invalidations_sync_subject" },
+      { name: "sync_knowledge_jobs_sync_source" },
+      { name: "sync_push_records_sync_series" },
+      { name: "target_claims_epoch_target" },
+      { name: "worker_output_integrations_checkpoint" },
+      { name: "worker_state_target_claim" },
     ]);
     expect(
       store.db
@@ -622,6 +1203,7 @@ describe("orchestrator storage migrations", () => {
       "stop_request_json",
       "terminal_reason",
       "scheduler_condition",
+      "remote_application_ids_json",
     ]);
     expect(runColumns.find((column) => column.name === "revision")?.dflt_value).toBe("0");
     expect(runColumns.find((column) => column.name === "blockers_json")?.dflt_value).toBe("'[]'");
@@ -642,6 +1224,87 @@ describe("orchestrator storage migrations", () => {
       "updated_at",
     ]);
     expect(projectStateColumns.find((column) => column.name === "queued_requests_json")?.dflt_value).toBe("'[]'");
+
+    const syncStateColumns = store.db.query("PRAGMA table_info(sync_state)").all() as Array<{
+      name: string;
+      dflt_value: string | null;
+    }>;
+    expect(syncStateColumns.map((column) => column.name)).toEqual([
+      "sync_id",
+      "project_id",
+      "session_uuid",
+      "revision",
+      "status",
+      "trace_id",
+      "caused_by_event_id",
+      "blockers_json",
+      "created_at",
+      "updated_at",
+      "latest_event_sequence",
+      "intake_json",
+      "staging_json",
+      "pr_reconciliation_json",
+      "publication_json",
+    ]);
+    expect(syncStateColumns.find((column) => column.name === "revision")?.dflt_value).toBe("0");
+    expect(syncStateColumns.find((column) => column.name === "blockers_json")?.dflt_value).toBe("'[]'");
+    expect(syncStateColumns.find((column) => column.name === "pr_reconciliation_json")?.dflt_value).toBe("'[]'");
+    expect(
+      store.db
+        .query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'sync_state_one_non_terminal_project'")
+        .get(),
+    ).toEqual({ name: "sync_state_one_non_terminal_project" });
+
+    expect(
+      store.db
+        .query(
+          `SELECT name FROM sqlite_master
+           WHERE type = 'table'
+             AND name IN (
+               'project_upstream_anchors', 'sync_push_records', 'sync_invalidations',
+               'knowledge_revisions', 'sync_knowledge_jobs'
+             )
+           ORDER BY name`,
+        )
+        .all(),
+    ).toEqual([
+      { name: "knowledge_revisions" },
+      { name: "project_upstream_anchors" },
+      { name: "sync_invalidations" },
+      { name: "sync_knowledge_jobs" },
+      { name: "sync_push_records" },
+    ]);
+    expect(store.db.query("PRAGMA table_info(sync_push_records)").all()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "push_id", pk: 1 }),
+      expect.objectContaining({ name: "revision", notnull: 1, dflt_value: "0" }),
+      expect.objectContaining({ name: "status", notnull: 1, dflt_value: "'pending'" }),
+      expect.objectContaining({ name: "attempt_count", notnull: 1, dflt_value: "0" }),
+      expect.objectContaining({ name: "caused_by_event_id", notnull: 1 }),
+    ]));
+    expect(store.db.query("PRAGMA table_info(knowledge_revisions)").all()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "revision", pk: 1 }),
+      expect.objectContaining({ name: "project_id", notnull: 1 }),
+      expect.objectContaining({ name: "digest", notnull: 1 }),
+      expect.objectContaining({ name: "sync_id", notnull: 0 }),
+      expect.objectContaining({ name: "caused_by_event_id", notnull: 1 }),
+    ]));
+    expect(store.db.query("PRAGMA table_info(sync_knowledge_jobs)").all()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "job_id", pk: 1 }),
+      expect.objectContaining({ name: "source_kind", notnull: 1 }),
+      expect.objectContaining({ name: "revision", notnull: 1, dflt_value: "0" }),
+      expect.objectContaining({ name: "status", notnull: 1, dflt_value: "'queued'" }),
+      expect.objectContaining({ name: "provenance_json", notnull: 1, dflt_value: "'{}'" }),
+    ]));
+    expect(store.db.query("PRAGMA table_info(sync_publication_intents)").all()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "sync_id", pk: 1 }),
+      expect.objectContaining({ name: "session_worktree_path", notnull: 1 }),
+      expect.objectContaining({ name: "prior_head", notnull: 1 }),
+      expect.objectContaining({ name: "new_head", notnull: 1 }),
+      expect.objectContaining({ name: "worktree_state_json", notnull: 1 }),
+      expect.objectContaining({ name: "boundary_plan_json", notnull: 1 }),
+      expect.objectContaining({ name: "publishing_event_id", notnull: 1 }),
+      expect.objectContaining({ name: "boundary_event_id", notnull: 0 }),
+    ]));
 
     const projectSessionColumns = store.db.query("PRAGMA table_info(project_sessions)").all() as Array<{
       name: string;
@@ -726,8 +1389,28 @@ describe("orchestrator storage migrations", () => {
     closeStore(store);
 
     const reopened = trackStore(openState(stateDir));
-    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 10 });
+    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 14 });
     expect(schemaSnapshot(reopened.db)).toEqual(firstSnapshot);
+  });
+
+  test("openState converges a frozen version-10 pre-slice-3 database", () => {
+    const stateDir = createTempDir("orchestrator-migrations-pre-slice-3-");
+    const dbPath = join(stateDir, "orchestrator.sqlite");
+    const legacyDb = trackDatabase(new Database(dbPath));
+    configureConnection(legacyDb);
+    legacyDb.exec(FROZEN_PRE_SLICE_3_DDL);
+    closeDatabase(legacyDb);
+
+    const migrated = trackStore(openState(stateDir));
+    expect(migrated.db.query("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 14 });
+    expect(
+      migrated.db
+        .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('sync_state', 'pr_campaigns') ORDER BY name")
+        .all(),
+    ).toEqual([{ name: "pr_campaigns" }, { name: "sync_state" }]);
+
+    const fresh = trackStore(openState(createTempDir("orchestrator-migrations-pre-slice-3-fresh-")));
+    expect(normalizedSchemaSnapshot(migrated.db)).toEqual(normalizedSchemaSnapshot(fresh.db));
   });
 
   test("openState migrates a frozen version-4 session_id database twice", () => {
@@ -845,6 +1528,10 @@ describe("orchestrator storage migrations", () => {
       { version: 8, name: "run_recovery_journal" },
       { version: 9, name: "pending_integration_attempts" },
       { version: 10, name: "run_scoped_index_names" },
+      { version: 11, name: "sync_state" },
+      { version: 12, name: "sync_publication" },
+      { version: 13, name: "sync_publication_intents" },
+      { version: 14, name: "pr_campaign" },
     ]);
     expect(
       migrated.db
@@ -863,7 +1550,7 @@ describe("orchestrator storage migrations", () => {
         .query(
           `SELECT status, revision, trace_id, caused_by_event_id, blockers_json,
                   head_revision, session_uuid, inputs_json, stop_request_json,
-                  terminal_reason, scheduler_condition
+                  terminal_reason, scheduler_condition, remote_application_ids_json
            FROM runs WHERE id = 'run-legacy'`,
         )
         .get(),
@@ -879,6 +1566,7 @@ describe("orchestrator storage migrations", () => {
       stop_request_json: null,
       terminal_reason: null,
       scheduler_condition: null,
+      remote_application_ids_json: "[]",
     });
     expect(migrated.db.query("SELECT id, run_id, ordinal FROM epochs").get()).toEqual({
       id: "epoch-legacy",
@@ -920,7 +1608,7 @@ describe("orchestrator storage migrations", () => {
     closeStore(migrated);
 
     const reopened = trackStore(openState(stateDir));
-    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 10 });
+    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 14 });
     expect(schemaSnapshot(reopened.db)).toEqual(migratedSnapshot);
     expect(reopened.db.query("SELECT id, run_id FROM epochs").get()).toEqual({
       id: "epoch-legacy",
@@ -953,6 +1641,10 @@ describe("orchestrator storage migrations", () => {
       { version: 8, name: "run_recovery_journal" },
       { version: 9, name: "pending_integration_attempts" },
       { version: 10, name: "run_scoped_index_names" },
+      { version: 11, name: "sync_state" },
+      { version: 12, name: "sync_publication" },
+      { version: 13, name: "sync_publication_intents" },
+      { version: 14, name: "pr_campaign" },
     ]);
     expect(
       migrated.db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_events'").get(),
@@ -998,6 +1690,189 @@ describe("orchestrator storage migrations", () => {
       failure_reason: null,
       failed_at: null,
     });
+  });
+
+  test("converges when the migration 011 table exists without a migration record", () => {
+    const stateDir = createTempDir("orchestrator-migrations-partial-011-");
+    const dbPath = join(stateDir, "orchestrator.sqlite");
+    const partialDb = trackDatabase(new Database(dbPath));
+    configureConnection(partialDb);
+    ensureLegacySchema(partialDb);
+    partialDb.exec(SYNC_STATE_DDL);
+    closeDatabase(partialDb);
+
+    const migrated = trackStore(openState(stateDir));
+    expect(migrated.db.query("SELECT version, name FROM schema_migrations WHERE version = 11").get()).toEqual({
+      version: 11,
+      name: "sync_state",
+    });
+    expect(
+      migrated.db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sync_state'").get(),
+    ).not.toBeNull();
+    expect(
+      migrated.db
+        .query("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'sync_state_one_non_terminal_project'")
+        .get(),
+    ).not.toBeNull();
+  });
+
+  test("migration 011 enforces exactly the nine SyncState statuses", () => {
+    const store = trackStore(openState(createTempDir("orchestrator-migrations-sync-statuses-")));
+    const statuses = [
+      "requested",
+      "ingesting",
+      "reconciling",
+      "validating",
+      "validated",
+      "publishing",
+      "published",
+      "blocked",
+      "cancelled",
+    ];
+    const insert = store.db.query(
+      `INSERT INTO sync_state (
+         sync_id, project_id, session_uuid, status, trace_id,
+         caused_by_event_id, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    for (const [index, status] of statuses.entries()) {
+      expect(() =>
+        insert.run(
+          `sync-${index}`,
+          `project-${index}`,
+          `session-${index}`,
+          status,
+          `trace-sync-${index}`,
+          `event-${index}`,
+          "2026-08-13T12:00:00.000Z",
+          "2026-08-13T12:00:00.000Z",
+        ),
+      ).not.toThrow();
+    }
+    expect(() =>
+      insert.run(
+        "sync-invalid",
+        "project-invalid",
+        "session-invalid",
+        "complete",
+        "trace-sync-invalid",
+        "event-invalid",
+        "2026-08-13T12:00:00.000Z",
+        "2026-08-13T12:00:00.000Z",
+      ),
+    ).toThrow();
+  });
+
+  test("converges when migration 012 storage exists without a migration record", () => {
+    const stateDir = createTempDir("orchestrator-migrations-partial-012-");
+    const dbPath = join(stateDir, "orchestrator.sqlite");
+    const partialDb = trackDatabase(new Database(dbPath));
+    configureConnection(partialDb);
+    ensureLegacySchema(partialDb);
+    partialDb.exec("ALTER TABLE runs DROP COLUMN remote_application_ids_json");
+    partialDb.exec(SYNC_PUBLICATION_DDL);
+    closeDatabase(partialDb);
+
+    const migrated = trackStore(openState(stateDir));
+    expect(migrated.db.query("SELECT version, name FROM schema_migrations WHERE version = 12").get()).toEqual({
+      version: 12,
+      name: "sync_publication",
+    });
+    expect(
+      migrated.db
+        .query(
+          `SELECT name FROM sqlite_master
+           WHERE type = 'table'
+             AND name IN ('project_upstream_anchors', 'sync_push_records', 'sync_invalidations', 'knowledge_revisions', 'sync_knowledge_jobs')
+           ORDER BY name`,
+        )
+        .all(),
+    ).toHaveLength(5);
+    expect(
+      (migrated.db.query("PRAGMA table_info(runs)").all() as Array<{ name: string }>).map((column) => column.name),
+    ).toContain("remote_application_ids_json");
+  });
+
+  test("migration 012 enforces publication identities and status vocabularies", () => {
+    const store = trackStore(openState(createTempDir("orchestrator-migrations-sync-publication-")));
+    const now = "2026-08-13T12:00:00.000Z";
+    store.db
+      .query(
+        `INSERT INTO sync_push_records (
+           push_id, sync_id, series_id, branch, remote_name, new_head,
+           caused_by_event_id, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run("push-1", "sync-1", "series-1", "series/one", "origin", "head-1", "event-1", now, now);
+    expect(() =>
+      store.db
+        .query(
+          `INSERT INTO sync_push_records (
+             push_id, sync_id, series_id, branch, remote_name, new_head, status,
+             caused_by_event_id, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run("push-2", "sync-2", "series-2", "series/two", "origin", "head-2", "complete", "event-2", now, now),
+    ).toThrow();
+    expect(() =>
+      store.db
+        .query(
+          `INSERT INTO sync_push_records (
+             push_id, sync_id, series_id, branch, remote_name, new_head,
+             caused_by_event_id, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run("push-duplicate", "sync-1", "series-1", "other", "origin", "head-2", "event-2", now, now),
+    ).toThrow();
+
+    const insertJob = store.db.query(
+      `INSERT INTO sync_knowledge_jobs (
+         job_id, sync_id, project_id, source_kind, source_id, status,
+         caused_by_event_id, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    expect(() => insertJob.run("job-1", "sync-1", "melee", "corpus", "batch-1", "queued", "event-1", now, now)).not.toThrow();
+    expect(() => insertJob.run("job-invalid", "sync-1", "melee", "worker", "worker-1", "queued", "event-1", now, now)).toThrow();
+    expect(() => insertJob.run("job-invalid-status", "sync-1", "melee", "merged_pr", "pr-1", "complete", "event-1", now, now)).toThrow();
+
+    const insertKnowledge = store.db.query(
+      `INSERT INTO knowledge_revisions (project_id, digest, sync_id, caused_by_event_id, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    );
+    insertKnowledge.run("melee", "digest-1", "sync-1", "event-1", now);
+    insertKnowledge.run("melee", "digest-2", "sync-2", "event-2", now);
+    expect(store.db.query("SELECT revision, digest FROM knowledge_revisions ORDER BY revision").all()).toEqual([
+      { revision: 1, digest: "digest-1" },
+      { revision: 2, digest: "digest-2" },
+    ]);
+    expect(() => insertKnowledge.run("melee", "digest-1", "sync-3", "event-3", now)).not.toThrow();
+    expect(store.db.query("SELECT revision, digest FROM knowledge_revisions ORDER BY revision").all()).toEqual([
+      { revision: 1, digest: "digest-1" },
+      { revision: 2, digest: "digest-2" },
+      { revision: 3, digest: "digest-1" },
+    ]);
+  });
+
+  test("converges when migration 013 storage exists without a migration record", () => {
+    const stateDir = createTempDir("orchestrator-migrations-partial-013-");
+    const dbPath = join(stateDir, "orchestrator.sqlite");
+    const partialDb = trackDatabase(new Database(dbPath));
+    configureConnection(partialDb);
+    ensureLegacySchema(partialDb);
+    partialDb.exec(SYNC_PUBLICATION_INTENTS_DDL);
+    closeDatabase(partialDb);
+
+    const migrated = trackStore(openState(stateDir));
+    expect(migrated.db.query("SELECT version, name FROM schema_migrations WHERE version = 13").get()).toEqual({
+      version: 13,
+      name: "sync_publication_intents",
+    });
+    expect(
+      migrated.db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sync_publication_intents'").get(),
+    ).toEqual({ name: "sync_publication_intents" });
+    expect(
+      migrated.db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'sync_publication_intents_project'").get(),
+    ).toEqual({ name: "sync_publication_intents_project" });
   });
 
   test("rebuildTable replaces a table and copies its rows inside a transaction", () => {

@@ -175,6 +175,28 @@ describe("run state contract", () => {
     );
   });
 
+  test("records the latest published knowledge revision for its project", () => {
+    const { store } = testStore();
+    const insert = store.db.query(
+      `INSERT INTO knowledge_revisions (project_id, digest, sync_id, caused_by_event_id, created_at)
+       VALUES (?, ?, NULL, ?, ?)`,
+    );
+    insert.run("melee", "digest-melee-1", "event-melee-1", "2026-08-13T18:00:00.000Z");
+    insert.run("other-project", "digest-other", "event-other", "2026-08-13T18:01:00.000Z");
+    insert.run("melee", "digest-melee-2", "event-melee-2", "2026-08-13T18:02:00.000Z");
+
+    const run = createRun(
+      store,
+      "matched_code_percent",
+      100,
+      4,
+      { projectId: "melee" },
+      { baseRevision: "base-abc", requireReady: true },
+    );
+
+    expect(run.inputs?.starting_knowledge_revision).toBe("knowledge-3");
+  });
+
   test("updates scheduler_condition without changing revision, cause, or event count", () => {
     const { store } = testStore();
     const ready = readyRun(store);

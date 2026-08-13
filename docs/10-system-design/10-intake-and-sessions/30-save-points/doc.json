@@ -56,7 +56,7 @@
       "props": {},
       "text": [
         {
-          "insert": "ProjectSession is the durable container for the project worktree, head_revision, and the ordered timeline that explains head lineage. Its timeline defines epoch_completed, remote_application, pr_phase, and save_point entries. The session container records epoch_completed and save_point entries, while the PR-campaign and sync workflow contracts own the pr_phase and remote_application writers. Save points anchor evidence to existing commits without creating commits; this page defines their capture, failure, and close-gate semantics."
+          "insert": "ProjectSession is the durable container for the project worktree, head_revision, and the ordered timeline that explains head lineage. Its timeline records epoch_completed, remote_application, pr_phase, and save_point entries, with each workflow owning its writer. Save points attach reproducible evidence to existing commits without creating commits. Sync publication joins these responsibilities by publishing a remote_application boundary and anchoring the resulting source position with a sync-triggered save point."
         }
       ],
       "children": []
@@ -66,12 +66,12 @@
       "type": "callout",
       "props": {
         "kind": "decision",
-        "title": "Decision (2026-08-12) — head lineage is transactional; save points are evidence anchors",
+        "title": "Decision (2026-08-12) — sync reconciles in staging and publishes atomically",
         "tone": "success"
       },
       "text": [
         {
-          "insert": "ProjectSession owns the worktree and head_revision, and the timeline reserves head movement for epoch_completed and remote_application entries. The session container records epoch_completed and save_point entries; the PR-campaign and sync contracts own pr_phase and remote_application recording."
+          "insert": "Sync reconciles in an isolated staging worktree and leaves the session untouched until the operator confirms publication. A source-changing publish performs the non-fast-forward session repoint, transactionally records the remote_application entry, invalidations, and monotonic knowledge revision, completes reconciled PR-branch pushes while publishing, and captures a boundary save-point anchor at the published head."
         }
       ],
       "children": []
@@ -84,7 +84,7 @@
       },
       "text": [
         {
-          "insert": "Why Lineage and Evidence Split"
+          "insert": "Why Sync Stages Before Anchoring"
         }
       ],
       "children": []
@@ -95,7 +95,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Head movement and evidence capture need different atomicity. The epoch boundary couples its integration commit to epoch_completed recording, and the sync contract assigns the same boundary atomicity to remote_application publication. A save point explains an existing source position with reports, a board snapshot, and the headline score, so it remains cheap and frequent without manufacturing history."
+          "insert": "Staging makes publication the first point at which the active session can change. Sync rests at validated after reconciliation and validation, so the operator may confirm publish or cancel; cancellation discards staging and leaves the session byte-identical. Confirmed source publication repoints the clean session to the validated staging head before durable lineage commits, while a pre-durability failure compensates back to the prior head. A knowledge-only pass has no source repoint or remote_application boundary and advances only the monotonic knowledge revision."
         }
       ],
       "children": []
@@ -119,7 +119,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The ProjectSession timeline keeps lineage and evidence in one ordered record while applying the failure policy required by each entry class."
+          "insert": "The ProjectSession timeline keeps lineage and evidence in one ordered record while applying the failure policy required by each entry class. Sync staging creates no timeline entry before the operator confirms publication."
         }
       ],
       "children": []
@@ -142,8 +142,8 @@
           ],
           [
             "remote_application",
-            "Defines head_revision advancement through the sync workflow's published remote-application boundary.",
-            "The sync workflow contract couples the entry and boundary commit in one atomic publish."
+            "Advances head_revision through a source-changing sync's published non-fast-forward repoint and records the prior and new heads, conflict resolutions, and score delta.",
+            "The durable publishing transaction couples the entry to the knowledge revision and invalidations; PR-branch pushes finish under publishing before sync becomes published."
           ],
           [
             "pr_phase",
@@ -153,7 +153,7 @@
           [
             "save_point",
             "Anchors reports, the board snapshot, and the headline score to an existing commit.",
-            "Failure raises a durable session blocker and staleness flag but does not block the triggering boundary."
+            "A source-changing sync captures this anchor at its published head; a knowledge-only pass creates no source-boundary save point. Capture failure marks evidence stale without rolling back an already durable boundary."
           ]
         ]
       },
@@ -236,7 +236,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Automatic evidence hooks at init, pause, checkpoint, epoch, QA, ship, sync, and fresh-run boundaries join manual creation through the save-point server job and Save Point dashboard action. The save-point path records evidence at the current commit; it never stages work or creates a commit. Pause, ship, sync, and init boundaries perform their explicit boundary-owned commit first, then invoke save-point capture against the resulting HEAD. Epoch publication likewise establishes its integration commit before its evidence anchor."
+          "insert": "Automatic evidence hooks at init, pause, checkpoint, epoch, QA, ship, sync, and fresh-run boundaries join manual creation through the save-point server job and Save Point dashboard action. The save-point path records evidence at the current commit; it never stages work or creates a commit. The source-changing sync publish action includes boundary capture: it completes the confirmed source and knowledge publication plus PR-branch pushes, then invokes save-point capture against the published HEAD. A knowledge-only pass advances only the monotonic knowledge revision, so it records neither a remote_application entry nor a sync boundary save point."
         }
       ],
       "children": []
@@ -275,7 +275,7 @@
       },
       "text": [
         {
-          "insert": "The triggering boundary continues after a save-point failure because the hook records evidence rather than head lineage."
+          "insert": "Because sync save-point capture follows the durable publish, capture failure marks evidence stale and raises a session blocker without reverting the session repoint, remote_application entry, invalidations, knowledge revision, or completed PR-branch pushes."
         }
       ],
       "children": []
@@ -288,7 +288,7 @@
       },
       "text": [
         {
-          "insert": "Transactional head publication belongs to the epoch boundary and the sync workflow contract, not to save-point capture."
+          "insert": "A conflict beyond mechanical auto-resolution blocks sync in staging for the operator; no source boundary or sync save-point anchor exists until the conflict is resolved, validation returns to validated, and the operator confirms publish."
         }
       ],
       "children": []

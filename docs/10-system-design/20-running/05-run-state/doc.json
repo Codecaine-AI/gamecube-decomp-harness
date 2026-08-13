@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 1,
+  "id": "system-design-run-state",
+  "title": "Run State",
+  "root": "run-state-root",
+  "blocks": {
+    "run-state-root": {
+      "id": "run-state-root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "run-state-opening",
+        "run-identity-heading",
+        "run-identity-paragraph",
+        "run-inputs-paragraph",
+        "run-inputs-base",
+        "run-inputs-policy",
+        "run-inputs-knowledge",
+        "run-survives-sync-decision",
+        "run-survives-sync-heading",
+        "run-survives-sync-paragraph",
+        "run-survives-sync-writer",
+        "run-survives-sync-active",
+        "run-control-heading",
+        "run-control-paragraph",
+        "run-status-table",
+        "scheduler-condition-paragraph",
+        "pause-paragraph",
+        "run-recovery-decision",
+        "run-recovery-heading",
+        "run-recovery-paragraph",
+        "run-recovery-reconcile",
+        "run-recovery-event",
+        "run-recovery-resume",
+        "pending-integration-heading",
+        "pending-integration-paragraph",
+        "pending-integration-one",
+        "pending-integration-two",
+        "pending-integration-three",
+        "pending-integration-four"
+      ]
+    },
+    "run-state-opening": {
+      "id": "run-state-opening",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "RunState binds stable identity and immutable inputs to control status inside one project session. Its pause, recovery, and pending-integration rules keep one run resumable while Git lineage and durable session state stay convergent across a crash."
+        }
+      ],
+      "children": []
+    },
+    "run-identity-heading": {
+      "id": "run-identity-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Run Identity and Inputs"
+        }
+      ],
+      "children": []
+    },
+    "run-identity-paragraph": {
+      "id": "run-identity-paragraph",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every run-scoped object is addressed by run_id, so an epoch, claim, worker state, checkpoint, or integration record always names the autonomous effort that owns it. session_id names the containing project session; it never stands in for a run identity."
+        }
+      ],
+      "children": []
+    },
+    "run-inputs-paragraph": {
+      "id": "run-inputs-paragraph",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "RunInputs capture the reproducible starting conditions and become immutable when activation accepts them:"
+        }
+      ],
+      "children": []
+    },
+    "run-inputs-base": {
+      "id": "run-inputs-base",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "base_revision is fixed as the run's original baseline at activation. Later head movement changes the session head mirror, not this origin."
+        }
+      ],
+      "children": []
+    },
+    "run-inputs-policy": {
+      "id": "run-inputs-policy",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "policy_revision is a deterministic digest of the canonical configuration snapshot, so equal policy inputs bind to the same revision."
+        }
+      ],
+      "children": []
+    },
+    "run-inputs-knowledge": {
+      "id": "run-inputs-knowledge",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "starting_knowledge_revision is a deterministic digest of the ordered starting knowledge content, so the run records the evidence generation it began from even when background knowledge advances."
+        }
+      ],
+      "children": []
+    },
+    "run-survives-sync-decision": {
+      "id": "run-survives-sync-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-11) — runs survive sync via remote-application boundaries",
+        "tone": "decision"
+      },
+      "text": [
+        {
+          "insert": "Sync does not replace the interrupted run. The run identity and original base_revision remain fixed while the session head advances through a remote-application boundary."
+        }
+      ],
+      "children": []
+    },
+    "run-survives-sync-heading": {
+      "id": "run-survives-sync-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "How a Run Survives Sync"
+        }
+      ],
+      "children": []
+    },
+    "run-survives-sync-paragraph": {
+      "id": "run-survives-sync-paragraph",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run continuity separates the effort's fixed origin from the head it plans against. The running slice mirrors the session head and replans from that value after sync; it does not publish remote-application boundaries."
+        }
+      ],
+      "children": []
+    },
+    "run-survives-sync-writer": {
+      "id": "run-survives-sync-writer",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The sync workflow contract owns the remote_application writer and the transaction that publishes the applied upstream revision into session lineage. That writer is outside the implemented running slice."
+        }
+      ],
+      "children": []
+    },
+    "run-survives-sync-active": {
+      "id": "run-survives-sync-active",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "An active run retains its run_id and references the resulting boundary, while a sync with no active run attaches the boundary to the session alone."
+        }
+      ],
+      "children": []
+    },
+    "run-control-heading": {
+      "id": "run-control-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Control State and Scheduling Condition"
+        }
+      ],
+      "children": []
+    },
+    "run-control-paragraph": {
+      "id": "run-control-paragraph",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run status answers whether autonomous scheduling has authority and whether existing work must settle. The eight values form one control vocabulary; active specifically means the run holds the project dispatch lease."
+        }
+      ],
+      "children": []
+    },
+    "run-status-table": {
+      "id": "run-status-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Status",
+          "Meaning",
+          "Stable invariant"
+        ],
+        "density": "compact",
+        "rows": [
+          [
+            "draft",
+            "Inputs or configuration are incomplete.",
+            "No scheduler or worker may start."
+          ],
+          [
+            "ready",
+            "Required inputs are captured and readiness gates pass.",
+            "Activation preserves the bound inputs."
+          ],
+          [
+            "active",
+            "Autonomous scheduling authority is enabled.",
+            "The run holds the project dispatch lease."
+          ],
+          [
+            "draining",
+            "New admission is disabled while admitted work settles.",
+            "No new claims are created."
+          ],
+          [
+            "paused",
+            "Scheduling is disabled and the same run remains resumable.",
+            "Existing work has settled or been explicitly recovered."
+          ],
+          [
+            "completed",
+            "Autonomous work closed normally.",
+            "The run is terminal."
+          ],
+          [
+            "failed",
+            "The runner could not safely continue.",
+            "Recovery returns this identity to paused."
+          ],
+          [
+            "cancelled",
+            "The operator abandoned the run.",
+            "Evidence remains readable and the run is terminal."
+          ]
+        ],
+        "title": "Run status values"
+      },
+      "children": []
+    },
+    "scheduler-condition-paragraph": {
+      "id": "scheduler-condition-paragraph",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "scheduler_condition is an observability mirror of what the scheduler is doing inside that control state: idle, planning, dispatching, waiting, boundary, or blocked. It does not replace status, grant dispatch authority, or create another state machine."
+        }
+      ],
+      "children": []
+    },
+    "pause-paragraph": {
+      "id": "pause-paragraph",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Pause is drain-based. A pause request moves active → draining, stops new admission, waits for claims and boundary work to settle, and then records paused; a confirmed hard stop uses recovery to cancel unsettled work before reaching the same paused state."
+        }
+      ],
+      "children": []
+    },
+    "run-recovery-decision": {
+      "id": "run-recovery-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-11) — failed runs resume in place",
+        "tone": "decision"
+      },
+      "text": [
+        {
+          "insert": "Recovery never creates a successor run. A failed run returns to paused on the same run_id, and only completed and cancelled are terminal."
+        }
+      ],
+      "children": []
+    },
+    "run-recovery-heading": {
+      "id": "run-recovery-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "How In-Place Recovery Works"
+        }
+      ],
+      "children": []
+    },
+    "run-recovery-paragraph": {
+      "id": "run-recovery-paragraph",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Recovery repairs durable boundaries before it changes run control, so the resumed identity never plans from an ambiguous head:"
+        }
+      ],
+      "children": []
+    },
+    "run-recovery-reconcile": {
+      "id": "run-recovery-reconcile",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "It first reconciles pending epoch integrations, then settles or cancels orphaned claims and breaks a stale dispatch lease when one is still held."
+        }
+      ],
+      "children": []
+    },
+    "run-recovery-event": {
+      "id": "run-recovery-event",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "It emits run.recovered with the cancelled claim and operation subject ids, clears the failed control residue, and moves failed → paused on the same run_id."
+        }
+      ],
+      "children": []
+    },
+    "run-recovery-resume": {
+      "id": "run-recovery-resume",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "The operator resumes paused → active through the normal lease acquisition path. Failed remains recoverable or cancellable; completed and cancelled cannot resume."
+        }
+      ],
+      "children": []
+    },
+    "pending-integration-heading": {
+      "id": "pending-integration-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Pending Integration Boundary"
+        }
+      ],
+      "children": []
+    },
+    "pending-integration-paragraph": {
+      "id": "pending-integration-paragraph",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch publication crosses a Git commit boundary and a database transaction boundary. The pending-integration protocol gives reconciliation durable evidence for the only crash window between them:"
+        }
+      ],
+      "children": []
+    },
+    "pending-integration-one": {
+      "id": "pending-integration-one",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Before the Git integration commit, the runtime commits a pending_integrations row containing run_id, epoch_id, branch, parent SHA, and the expected message marker."
+        }
+      ],
+      "children": []
+    },
+    "pending-integration-two": {
+      "id": "pending-integration-two",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "The integration commit carries the stable Epoch-Integration: <epoch_id> trailer, which identifies the boundary independently of process memory."
+        }
+      ],
+      "children": []
+    },
+    "pending-integration-three": {
+      "id": "pending-integration-three",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "The epoch-close transaction records epoch completion, advances the session and run head mirrors, and deletes the pending row in that same transaction."
+        }
+      ],
+      "children": []
+    },
+    "pending-integration-four": {
+      "id": "pending-integration-four",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Startup reconciles pending rows before acquiring dispatch authority, and run recovery reconciles them before settling claims. Both locate the trailer after the recorded parent; a found commit completes the epoch-close transaction, while a missing commit closes the boundary as an integration error and removes the stale row."
+        }
+      ],
+      "children": []
+    }
+  }
+}

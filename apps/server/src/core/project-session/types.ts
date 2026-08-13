@@ -60,6 +60,19 @@ export interface RecordEpochCompletedInput extends SessionTransitionContext {
   payload?: JsonObject;
 }
 
+export interface RecordRemoteApplicationInput extends SessionTransitionContext {
+  remoteApplicationId: string;
+  boundaryEventId: string;
+  syncId: string;
+  priorHead: string;
+  newHead: string;
+  resolvedConflicts: string[];
+  scoreDelta?: number | null;
+  runId?: string | null;
+  repositoryRoot?: string;
+  payload?: JsonObject;
+}
+
 export interface RecordSavePointAnchorInput extends SessionTransitionContext {
   savePointId: string;
   commitSha: string;

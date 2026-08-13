@@ -50,6 +50,153 @@ export const PROJECT_STATE_DDL = `
   );
 `;
 
+export const SYNC_STATE_DDL = `
+  CREATE TABLE IF NOT EXISTS sync_state (
+    sync_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    session_uuid TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL CONSTRAINT sync_state_status_check CHECK (
+      status IN (
+        'requested', 'ingesting', 'reconciling', 'validating', 'validated',
+        'publishing', 'published', 'blocked', 'cancelled'
+      )
+    ),
+    trace_id TEXT NOT NULL,
+    caused_by_event_id TEXT NOT NULL,
+    blockers_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    latest_event_sequence INTEGER NOT NULL DEFAULT 0,
+    intake_json TEXT NOT NULL DEFAULT '{}',
+    staging_json TEXT,
+    pr_reconciliation_json TEXT NOT NULL DEFAULT '[]',
+    publication_json TEXT
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS sync_state_one_non_terminal_project
+    ON sync_state (project_id)
+    WHERE status NOT IN ('published', 'cancelled');
+`;
+
+export const SYNC_PUBLICATION_DDL = `
+  CREATE TABLE IF NOT EXISTS project_upstream_anchors (
+    project_id TEXT PRIMARY KEY,
+    session_uuid TEXT NOT NULL,
+    upstream_revision TEXT NOT NULL,
+    sync_id TEXT NOT NULL,
+    caused_by_event_id TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS project_upstream_anchors_session
+    ON project_upstream_anchors (session_uuid);
+
+  CREATE TABLE IF NOT EXISTS sync_push_records (
+    push_id TEXT PRIMARY KEY,
+    sync_id TEXT NOT NULL,
+    series_id TEXT NOT NULL,
+    branch TEXT NOT NULL,
+    remote_name TEXT NOT NULL,
+    expected_remote_head TEXT,
+    new_head TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending' CONSTRAINT sync_push_records_status_check CHECK (
+      status IN ('pending', 'pushing', 'pushed', 'failed')
+    ),
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    caused_by_event_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    pushed_at TEXT
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS sync_push_records_sync_series
+    ON sync_push_records (sync_id, series_id);
+
+  CREATE INDEX IF NOT EXISTS sync_push_records_sync_status
+    ON sync_push_records (sync_id, status);
+
+  CREATE TABLE IF NOT EXISTS sync_invalidations (
+    invalidation_id TEXT PRIMARY KEY,
+    sync_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    session_uuid TEXT NOT NULL,
+    subject_kind TEXT NOT NULL CONSTRAINT sync_invalidations_subject_kind_check CHECK (
+      subject_kind IN ('target', 'checkpoint', 'pr_snapshot')
+    ),
+    subject_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    caused_by_event_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS sync_invalidations_sync_subject
+    ON sync_invalidations (sync_id, subject_kind, subject_id);
+
+  CREATE INDEX IF NOT EXISTS sync_invalidations_project_subject
+    ON sync_invalidations (project_id, subject_kind, subject_id);
+
+  CREATE TABLE IF NOT EXISTS knowledge_revisions (
+    revision INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL,
+    digest TEXT NOT NULL,
+    sync_id TEXT,
+    caused_by_event_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS knowledge_revisions_project_revision
+    ON knowledge_revisions (project_id, revision);
+
+  CREATE TABLE IF NOT EXISTS sync_knowledge_jobs (
+    job_id TEXT PRIMARY KEY,
+    sync_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL CONSTRAINT sync_knowledge_jobs_source_kind_check CHECK (
+      source_kind IN ('merged_pr', 'corpus')
+    ),
+    source_id TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'queued' CONSTRAINT sync_knowledge_jobs_status_check CHECK (
+      status IN ('queued', 'processing', 'waiting', 'succeeded', 'failed', 'cancelled')
+    ),
+    provenance_json TEXT NOT NULL DEFAULT '{}',
+    staged_artifact_path TEXT,
+    staged_digest TEXT,
+    caused_by_event_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS sync_knowledge_jobs_sync_source
+    ON sync_knowledge_jobs (sync_id, source_kind, source_id);
+
+  CREATE INDEX IF NOT EXISTS sync_knowledge_jobs_sync_status
+    ON sync_knowledge_jobs (sync_id, status);
+`;
+
+export const SYNC_PUBLICATION_INTENTS_DDL = `
+  CREATE TABLE IF NOT EXISTS sync_publication_intents (
+    sync_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    session_uuid TEXT NOT NULL,
+    session_worktree_path TEXT NOT NULL,
+    prior_head TEXT NOT NULL,
+    new_head TEXT NOT NULL,
+    worktree_state_json TEXT NOT NULL,
+    boundary_plan_json TEXT NOT NULL,
+    publishing_event_id TEXT NOT NULL,
+    boundary_event_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS sync_publication_intents_project
+    ON sync_publication_intents (project_id, created_at);
+`;
+
 export const RUNS_DDL = `
   CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY,
@@ -76,7 +223,8 @@ export const RUNS_DDL = `
     inputs_json TEXT,
     stop_request_json TEXT,
     terminal_reason TEXT,
-    scheduler_condition TEXT
+    scheduler_condition TEXT,
+    remote_application_ids_json TEXT NOT NULL DEFAULT '[]'
   );
 `;
 
@@ -90,9 +238,11 @@ export const SESSION_TIMELINE_ENTRIES_DDL = `
     entry_id TEXT NOT NULL,
     occurred_at TEXT NOT NULL,
     payload_json TEXT NOT NULL DEFAULT '{}',
-    caused_by_event_id TEXT,
-    UNIQUE(session_uuid, entry_kind, entry_id)
+    caused_by_event_id TEXT
   );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS session_timeline_entries_session_kind_entry
+    ON session_timeline_entries (session_uuid, entry_kind, entry_id);
 
   CREATE INDEX IF NOT EXISTS session_timeline_entries_session_order
     ON session_timeline_entries (session_uuid, id);
@@ -190,13 +340,15 @@ export const RUN_SCOPED_TABLE_DDLS: readonly RunScopedTableDdl[] = [
         status TEXT NOT NULL,
         admitted_at TEXT NOT NULL,
         claimed_at TEXT,
-        finished_at TEXT,
-        UNIQUE(epoch_id, target_key)
+        finished_at TEXT
       );
     `,
     indexesDdl: `
       CREATE INDEX IF NOT EXISTS epoch_targets_epoch_status
         ON epoch_targets (epoch_id, status, admission_index);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS epoch_targets_epoch_key
+        ON epoch_targets (epoch_id, target_key);
 
       CREATE INDEX IF NOT EXISTS epoch_targets_run_status
         ON epoch_targets (run_id, status);
@@ -209,7 +361,7 @@ export const RUN_SCOPED_TABLE_DDLS: readonly RunScopedTableDdl[] = [
         id TEXT PRIMARY KEY,
         run_id TEXT NOT NULL,
         epoch_id TEXT NOT NULL,
-        epoch_target_id TEXT NOT NULL UNIQUE,
+        epoch_target_id TEXT NOT NULL,
         worker_id TEXT NOT NULL,
         base_rev TEXT,
         write_set_json TEXT NOT NULL DEFAULT '[]',
@@ -227,6 +379,9 @@ export const RUN_SCOPED_TABLE_DDLS: readonly RunScopedTableDdl[] = [
     indexesDdl: `
       CREATE INDEX IF NOT EXISTS target_claims_run_status
         ON target_claims (run_id, status);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS target_claims_epoch_target
+        ON target_claims (epoch_target_id);
     `,
   },
   {
@@ -237,7 +392,7 @@ export const RUN_SCOPED_TABLE_DDLS: readonly RunScopedTableDdl[] = [
         run_id TEXT NOT NULL,
         epoch_id TEXT NOT NULL,
         epoch_target_id TEXT NOT NULL,
-        target_claim_id TEXT NOT NULL UNIQUE,
+        target_claim_id TEXT NOT NULL,
         worker_id TEXT NOT NULL,
         target_key TEXT NOT NULL,
         lifecycle_status TEXT NOT NULL,
@@ -260,6 +415,9 @@ export const RUN_SCOPED_TABLE_DDLS: readonly RunScopedTableDdl[] = [
     indexesDdl: `
       CREATE INDEX IF NOT EXISTS worker_state_run_status
         ON worker_state (run_id, lifecycle_status);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS worker_state_target_claim
+        ON worker_state (target_claim_id);
     `,
   },
   {
@@ -362,13 +520,15 @@ export const RUN_SCOPED_TABLE_DDLS: readonly RunScopedTableDdl[] = [
         metadata_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        resolved_at TEXT,
-        UNIQUE(worker_checkpoint_id)
+        resolved_at TEXT
       );
     `,
     indexesDdl: `
       CREATE INDEX IF NOT EXISTS worker_output_integrations_run_status
         ON worker_output_integrations (run_id, status, created_at);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS worker_output_integrations_checkpoint
+        ON worker_output_integrations (worker_checkpoint_id);
     `,
   },
 ] as const;

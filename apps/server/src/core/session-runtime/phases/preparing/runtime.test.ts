@@ -7,9 +7,7 @@ import {
   updatePreparingSubphase,
 } from "@server/core/session-runtime";
 import { getActiveProjectSession } from "@server/core/project-session/store";
-import { createRun, openState, updateRunStatus } from "@server/core/session-runtime/run-state";
-import { DispatchLeaseUnavailableError } from "@server/core/session-runtime/dispatch-guard.js";
-import { getProjectState, initializeProjectState, requestDispatch } from "@server/core/project-state";
+import { openState } from "@server/core/session-runtime/run-state";
 import type { PreparingRuntimeDeps, PreparingRuntimeProjectContext } from "./runtime-shared.js";
 import { createPreparingRuntime } from "./runtime.js";
 
@@ -27,6 +25,25 @@ afterEach(() => {
 });
 
 describe("preparing runtime baseline", () => {
+  test("legacy preparation sync, intake, and Fresh Run fail before side effects", async () => {
+    const root = tempDir();
+    let dependencyCalls = 0;
+    const runtime = createPreparingRuntime(new Proxy({}, {
+      get() {
+        return () => {
+          dependencyCalls += 1;
+          throw new Error("legacy dependency should not run");
+        };
+      },
+    }) as unknown as PreparingRuntimeDeps);
+
+    await expect(runtime.syncGitForPrepare({ stateDir: root })).rejects.toThrow("operator sync.start");
+    await expect(runtime.indexPrsForPrepare({ stateDir: root })).rejects.toThrow("operator sync.start");
+    await expect(runtime.freshRun({ stateDir: root })).rejects.toThrow("Create the session, then use the operator sync.start workflow");
+    expect(dependencyCalls).toBe(0);
+    expect(runtime.state()).toEqual({ freshRunActive: false, projectSyncActive: false });
+  });
+
   test("forwards every process-policy option into init-run snapshot capture", () => {
     const root = tempDir();
     const paths: PreparingRuntimeProjectContext = {
@@ -154,84 +171,4 @@ describe("preparing runtime baseline", () => {
     }
   });
 
-  test("operator sync activation queues behind the run and begins its handoff drain", async () => {
-    const root = tempDir();
-    const stateDir = resolve(root, "state");
-    const repoRoot = resolve(root, "repo");
-    const store = openState(stateDir);
-    try {
-      createNewProjectSession(store.db, {
-        id: "project-session:session-uuid",
-        projectId: "melee",
-        sessionUuid: "session-uuid",
-      });
-      const run = createRun(
-        store,
-        "matched_code_percent",
-        100,
-        1,
-        { projectId: "melee", repoRoot, stateDir },
-        { baseRevision: "base-test", sessionUuid: "session-uuid" },
-      );
-      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
-      const dispatch = requestDispatch(store, {
-        actor: "operator",
-        commandId: "command-run-start",
-        kind: "run",
-        projectId: "melee",
-        reason: "start run",
-        workflowId: run.id,
-      });
-      if (dispatch.queued) throw new Error("expected run lease acquisition");
-      updateRunStatus(store, run.id, "active", "operator");
-    } finally {
-      store.db.close();
-    }
-
-    const paths: PreparingRuntimeProjectContext = {
-      graphDbPath: resolve(root, "graph.sqlite"),
-      project: { projectId: "melee" } as PreparingRuntimeProjectContext["project"],
-      repoRoot,
-      stateDir,
-    };
-    const runtime = createPreparingRuntime({
-      activeSessionPrBlockers: () => [],
-      appendLog: () => undefined,
-      beginOperation: () => undefined,
-      boundarySavePoint: async () => ({ ok: true, savePointId: "save-point-1", blockerRaised: false }),
-      endOperation: () => undefined,
-      hasActiveProcess: () => ({ active: true, name: "melee-live" }),
-      operationStep: () => undefined,
-      operationStepDetail: () => undefined,
-      packageRoot: root,
-      projectToSummary: () => ({}),
-      resolveDashboardProject: () => paths,
-      runCli: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-      runGit: async () => {
-        throw new Error("sync git mutation must not start before handoff acquisition");
-      },
-      runReport: async () => ({}),
-      serverJobPath: resolve(root, "job-runner.ts"),
-      sourceRoot: () => root,
-      submitWorkflowEvent: async () => null,
-    } as unknown as PreparingRuntimeDeps);
-
-    await expect(runtime.syncProjectIntake({ projectId: "melee" })).rejects.toBeInstanceOf(
-      DispatchLeaseUnavailableError,
-    );
-
-    const nextStore = openState(stateDir);
-    try {
-      expect(getProjectState(nextStore, "melee")?.active_workflow).toMatchObject({
-        kind: "run",
-        status: "draining",
-        requested_handoff: {
-          target_kind: "sync",
-          target_workflow_id: "sync-intake:melee",
-        },
-      });
-    } finally {
-      nextStore.db.close();
-    }
-  });
 });

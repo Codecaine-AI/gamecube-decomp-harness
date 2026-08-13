@@ -35,6 +35,16 @@ import type { RunRecord, RunSchedulerCondition, RunStatus } from "@server/core/s
 import { listSavePoints, type SavePointRecord } from "@server/core/session-runtime/phases/pr/state";
 import { projectToSummary as defaultProjectToSummary, type ProjectRuntimeContext, type ResolvedProject } from "@server/core/project-registry";
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/session-runtime/phases/pr/artifacts";
+import {
+  getSyncState,
+  type SyncPublication,
+  type SyncState,
+  type SyncStatus,
+} from "@server/core/session-runtime/phases/sync";
+import {
+  projectSyncAction,
+  type SyncActionId,
+} from "@server/core/session-runtime/phases/sync/runtime.js";
 
 export type JsonObject = Record<string, unknown>;
 type WorkerStateOutcome =
@@ -79,8 +89,9 @@ export interface ActionProjection {
     | "run.cancel"
     | "run.recover"
     | "session.close"
-    | "session.save_point";
-  subject_kind: "run" | "session";
+    | "session.save_point"
+    | SyncActionId;
+  subject_kind: "run" | "session" | "sync";
   subject_id: string;
   enabled: boolean;
   blocked_by: Blocker[];
@@ -135,6 +146,52 @@ export interface ProjectRunActionStateOptions {
   runId?: string;
 }
 
+export interface DashboardSyncSummary {
+  workflow_id: string;
+  status: SyncStatus;
+  blockers: Blocker[];
+  intake: {
+    upstream_from: string;
+    upstream_to: string;
+    merged_pr_count: number;
+    corpus_batches: string[];
+    knowledge_only: boolean;
+  };
+  staging: {
+    epochs_applied: number;
+    epochs_total: number;
+    minor_auto_resolved_count: number;
+    conflicts_awaiting_operator: number;
+    conflicts: string[];
+  } | null;
+  pr_reconciliation: {
+    total: number;
+    clean: number;
+    auto_resolved: number;
+    needs_operator: number;
+    pushed: number;
+    pending_pushes: number;
+  };
+  publish_preview: {
+    prior_head: string;
+    new_head: string;
+    series_pushes: number;
+  };
+  publication: SyncPublication | null;
+  staleness: {
+    stale: boolean;
+    validated_upstream: string | null;
+    observed_upstream: string | null;
+    blocker: Blocker | null;
+    revalidate_action_id: "sync.cancel" | null;
+  };
+}
+
+export interface ProjectSyncActionState {
+  availableActions: ActionProjection[];
+  sync: DashboardSyncSummary | null;
+}
+
 const ALL_SESSION_EVIDENCE_LIMIT = Number.MAX_SAFE_INTEGER;
 
 export interface DashboardProjectState {
@@ -142,6 +199,7 @@ export interface DashboardProjectState {
   active_workflow: DispatchLease | null;
   queued_dispatch_requests: QueuedDispatchRequest[];
   run: DashboardRunSummary | null;
+  sync: DashboardSyncSummary | null;
   session: {
     session_uuid: string;
     head_revision: string | null;
@@ -167,6 +225,7 @@ export interface DashboardReadModelDependencies {
   hasActiveProcess?: (stateDir: string) => { active: boolean };
   processStatus: (stateDir: string, project: ResolvedProject | null) => JsonObject;
   projectToSummary?: (project: ResolvedProject) => unknown;
+  refreshSyncUpstreamObservation?: (paths: DashboardProjectContext, observedUpstream: string) => Promise<unknown>;
 }
 
 let readModelDependencies: DashboardReadModelDependencies | null = null;
@@ -781,6 +840,118 @@ export function projectRunActionState(
   };
 }
 
+const SYNC_ACTION_IDS: readonly SyncActionId[] = [
+  "sync.start",
+  "sync.resolve_conflict",
+  "sync.publish",
+  "sync.cancel",
+  "sync.recover",
+];
+
+function latestSyncForProject(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+): SyncState | null {
+  const row = store.db
+    .query(
+      `SELECT sync_id
+       FROM sync_state
+       WHERE project_id = ?
+       ORDER BY latest_event_sequence DESC, created_at DESC, sync_id DESC
+       LIMIT 1`,
+    )
+    .get(projectId) as { sync_id: string } | null;
+  return row ? getSyncState(store, row.sync_id) : null;
+}
+
+function syncSummaryProjection(
+  sync: SyncState,
+  session: ProjectSessionRecord | null,
+  availableActions: ActionProjection[],
+): DashboardSyncSummary {
+  const reconciliationCounts = {
+    clean: 0,
+    auto_resolved: 0,
+    needs_operator: 0,
+  };
+  for (const entry of sync.pr_reconciliation) reconciliationCounts[entry.result] += 1;
+  const pushed = sync.pr_reconciliation.filter((entry) => entry.pushed).length;
+  const staleBlocker = sync.blockers.find((entry) => entry.code === "upstream_moved_after_validation") ?? null;
+  const cancelAction = availableActions.find((entry) => entry.action_id === "sync.cancel");
+  const validatedUpstream = sync.staging?.validated_upstream ?? null;
+  const observedUpstream = sync.staging?.observed_upstream ?? sync.intake.upstream_to;
+  const stale = staleBlocker !== null || Boolean(
+    validatedUpstream && observedUpstream && validatedUpstream !== observedUpstream,
+  );
+  const priorHead = sync.staging?.session_head_sha ?? session?.head_revision ?? sync.intake.upstream_from;
+  const newHead = sync.intake.knowledge_only
+    ? priorHead
+    : sync.staging?.staging_head_sha ?? sync.intake.upstream_to;
+
+  return {
+    workflow_id: sync.sync_id,
+    status: sync.status,
+    blockers: sync.blockers,
+    intake: {
+      upstream_from: sync.intake.upstream_from,
+      upstream_to: sync.intake.upstream_to,
+      merged_pr_count: sync.intake.merged_pr_ids.length,
+      corpus_batches: [...sync.intake.corpus_batch_ids],
+      knowledge_only: sync.intake.knowledge_only,
+    },
+    staging: sync.staging
+      ? {
+          epochs_applied: sync.staging.epochs_applied,
+          epochs_total: sync.staging.epochs_total,
+          minor_auto_resolved_count: sync.staging.minor_conflicts_resolved,
+          conflicts_awaiting_operator: sync.staging.conflicts_awaiting_operator,
+          conflicts: [...(sync.staging.conflicting_paths ?? [])],
+        }
+      : null,
+    pr_reconciliation: {
+      total: sync.pr_reconciliation.length,
+      clean: reconciliationCounts.clean,
+      auto_resolved: reconciliationCounts.auto_resolved,
+      needs_operator: reconciliationCounts.needs_operator,
+      pushed,
+      pending_pushes: sync.pr_reconciliation.length - pushed,
+    },
+    publish_preview: {
+      prior_head: priorHead,
+      new_head: newHead,
+      series_pushes: sync.pr_reconciliation.length,
+    },
+    publication: sync.publication,
+    staleness: {
+      stale,
+      validated_upstream: validatedUpstream,
+      observed_upstream: observedUpstream,
+      blocker: staleBlocker,
+      revalidate_action_id: stale && cancelAction?.enabled ? "sync.cancel" : null,
+    },
+  };
+}
+
+export function projectSyncActionState(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  session: ProjectSessionRecord | null = getActiveProjectSession(store.db, projectId),
+  options: Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now"> = {},
+): ProjectSyncActionState {
+  const availableActions = SYNC_ACTION_IDS.map((actionId) =>
+    projectSyncAction(store, projectId, actionId, undefined, {
+      hasActiveProcess: options.hasActiveProcess,
+      now: options.now,
+      stateDir: store.stateDir,
+    }) as ActionProjection,
+  );
+  const sync = latestSyncForProject(store, projectId);
+  return {
+    availableActions,
+    sync: sync ? syncSummaryProjection(sync, session, availableActions) : null,
+  };
+}
+
 export function buildProjectStateReadModel(
   store: ReturnType<typeof openState>,
   projectId: string,
@@ -798,6 +969,7 @@ export function buildProjectStateReadModel(
   const latestSavePoint = savePointByEntry(savePoints, latestSavePointEntry);
   const actions = sessionActionState(store, projectId, campaign, session, allTimeline, savePoints);
   const runState = projectRunActionState(store, projectId, options);
+  const syncState = projectSyncActionState(store, projectId, session, options);
   const evidence = sessionEvidenceState(store, projectId, campaign, session, allTimeline, savePoints);
 
   return {
@@ -805,6 +977,7 @@ export function buildProjectStateReadModel(
     active_workflow: canonical?.active_workflow ?? null,
     queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
     run: runState.run,
+    sync: syncState.sync,
     session: session
       ? {
           session_uuid: session.session_uuid,
@@ -828,7 +1001,11 @@ export function buildProjectStateReadModel(
     session_blockers: evidence.blockers,
     save_point_stale: evidence.stale,
     latest_event_sequence: latestSequence(store.db, projectId),
-    available_actions: [...runState.availableActions, ...actions.availableActions],
+    available_actions: [
+      ...runState.availableActions,
+      ...syncState.availableActions,
+      ...actions.availableActions,
+    ],
   };
 }
 
@@ -2859,6 +3036,10 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   const initialSnapshot = runId ? latestInitialSnapshot(stateDir, runId) : {};
   let initialMeasures = compactMeasures(measuresFromSnapshot(initialSnapshot));
   const campaign = dashboardDeps().campaignStatus(repoRoot, stateDir, paths.project?.baseRef ?? "origin/master");
+  const observedUpstream = stringValue(campaign.baseSha);
+  if (observedUpstream) {
+    await dashboardDeps().refreshSyncUpstreamObservation?.(paths, observedUpstream);
+  }
   const sessionBaseline = sessionBaselineBoard(projectSession, runId);
   let currentBoard = loadCurrentBoard(stateDir, runId, campaign);
   if (!summaryHasValue(asObject(currentBoard.measures)) && sessionBaseline) {

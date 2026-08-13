@@ -76,6 +76,33 @@
         "b-01-session-operating-flow-one-session-current-inte-43",
         "b-01-session-operating-flow-isolated-worker-worktree-44",
         "b-01-session-operating-flow-isolated-pr-worktrees-wh-45",
+        "b-sync-slice3-1",
+        "b-sync-slice3-2",
+        "b-sync-slice3-3",
+        "b-sync-slice3-4",
+        "b-sync-slice3-5",
+        "b-sync-slice3-6",
+        "b-sync-slice3-7",
+        "b-sync-slice3-8",
+        "b-sync-slice3-9",
+        "b-sync-slice3-10",
+        "b-sync-slice3-11",
+        "b-sync-slice3-12",
+        "b-sync-slice3-13",
+        "b-sync-slice3-14",
+        "b-sync-slice3-15",
+        "b-sync-slice3-16",
+        "b-sync-slice3-17",
+        "b-sync-slice3-18",
+        "b-sync-slice3-19",
+        "b-sync-slice3-20",
+        "b-sync-slice3-21",
+        "b-sync-slice3-22",
+        "b-sync-slice3-23",
+        "b-sync-slice3-24",
+        "b-sync-slice3-25",
+        "b-sync-slice3-26",
+        "b-sync-slice3-27",
         "b-01-session-operating-flow-run-configuration-46",
         "b-01-session-operating-flow-the-operator-chooses-the-47",
         "b-01-session-operating-flow-text-48",
@@ -156,7 +183,7 @@
       "props": {},
       "text": [
         {
-          "insert": "ProjectSession is the durable container for the Melee decomp harness from baseline sync through autonomous epochs, PR campaigns, review, kernel-backed tracing, and later sync boundaries. It owns the session worktree, head_revision, and the ordered timeline that explains head movement and evidence. Run, PR, and sync are child workflows; only the active workflow holding the dispatch lease may dispatch workers or mutate its allowed checkout surfaces."
+          "insert": "ProjectSession is the durable container for the Melee decomp harness from session preparation through autonomous epochs, PR campaigns, review, kernel-backed tracing, and later operator-started sync boundaries. It owns the session worktree, head_revision, and the ordered timeline that explains head movement and evidence. Run, PR, and sync are child workflows; only the active workflow holding the dispatch lease may dispatch workers or mutate its allowed checkout surfaces. A sync observation records a request, but only the operator can start the workflow."
         }
       ],
       "children": []
@@ -194,7 +221,7 @@
             "text": "ProjectSession",
             "steps": [
               {
-                "text": "Open from baseline sync",
+                "text": "Open through session preparation",
                 "steps": [
                   {
                     "text": "Create the durable session worktree and register or resume the kernel app session root"
@@ -214,16 +241,10 @@
                     "text": "Update isolated upstream-current and session-current worktrees to the session base"
                   },
                   {
-                    "text": "Discover newly merged upstream PRs from the local-to-upstream range"
+                    "text": "Discover initial PR-index debt and missing postmortems"
                   },
                   {
-                    "text": "Index newly merged and missing PR records and postmortems"
-                  },
-                  {
-                    "text": "Refresh the knowledge graph"
-                  },
-                  {
-                    "text": "Reset and build the session baseline"
+                    "text": "Establish the initial knowledge and build baseline"
                   },
                   {
                     "text": "The baseline becomes the immutable original_baseline_revision",
@@ -289,13 +310,34 @@
                 ]
               },
               {
-                "text": "Sync workflow acquires the dispatch lease when upstream moves",
+                "text": "Observe a sync request",
                 "steps": [
                   {
-                    "text": "Follow the sync contract that owns atomic publish and remote_application recording"
+                    "text": "Record upstream movement and staged corpora without starting work"
                   },
                   {
-                    "text": "Resume the surviving run or PR campaign against the new head_revision"
+                    "text": "Nothing acquires authority or mutates source until the operator starts sync",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Operator starts sync",
+                "steps": [
+                  {
+                    "text": "Acquire the free dispatch lease, or queue the request and begin the active run's explicit drain handoff"
+                  },
+                  {
+                    "text": "Reconcile in an isolated staging worktree while the session worktree remains untouched"
+                  },
+                  {
+                    "text": "Rest at validated until the operator confirms publication"
+                  },
+                  {
+                    "text": "Publish the head, knowledge revision, invalidations, remote_application boundary, and PR-branch pushes inside publishing"
+                  },
+                  {
+                    "text": "Pin a boundary save-point anchor; the run remains paused until an operator explicitly resumes it against the published head_revision"
                   }
                 ]
               },
@@ -365,7 +407,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The New Session operator action opens the Prepare page for the baseline sync that creates the ProjectSession. The Prepare gates check the upstream head, fetch the configured remote, update the project worktrees/upstream-current source tree, create worktrees/sessions/<sessionUuid>/current from the same SHA, discover merged PRs, index missing PR records and postmortems, refresh knowledge, and calculate the baseline before run configuration begins. A repeated preparation sync reuses a clean session branch and only fast-forwards it when its head is an ancestor of the requested baseline. It reports upstream movement, PR-index debt, worktree locations, and trace events without rebasing PR branches or mutating the control checkout."
+          "insert": "The New Session operator action opens the Prepare page for the bootstrap boundary that creates ProjectSession. The Prepare gates check the upstream head, fetch the configured remote, update the project worktrees/upstream-current source tree, create worktrees/sessions/<sessionUuid>/current from the same SHA, discover initial PR-index debt, and calculate the baseline before run configuration begins. Repeated preparation reuses a clean session branch and only fast-forwards it when its head is an ancestor of the requested baseline. It reports upstream movement, PR-index debt, worktree locations, and trace events without rebasing PR branches or mutating the control checkout."
         }
       ],
       "children": []
@@ -804,97 +846,7 @@
       "props": {},
       "text": [
         {
-          "insert": "When the kernel runtime is available to the server process, creating a project\nsession writes the root session container and a "
-        },
-        {
-          "insert": "New session started",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " event\nbefore setup work begins. Preparation then writes a "
-        },
-        {
-          "insert": "prepare",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " container below\nthe session root. Upstream sync/intake, missing PR indexing, knowledge refresh,\nand baseline events are children of that prepare container, so the trace tree\nshows the session boundary before the setup work it owns. Later session-boundary\nworkflow events, including Start Run, and agent runs write into that same trace\nlineage.\nDashboard-owned workflow events that do not name an explicit session prefer\nthe active canonical project session UUID before falling back to legacy run\nidentity. Successful workflow trace events refresh\n"
-        },
-        {
-          "insert": "kernel_trace_json.app_session_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "root_container_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ",\n"
-        },
-        {
-          "insert": "active_container_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and "
-        },
-        {
-          "insert": "trace_url",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " on the project session row. The\ndashboard uses "
-        },
-        {
-          "insert": "ORCH_AGENT_KERNEL_DATABASE_URL",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " or\n"
-        },
-        {
-          "insert": "AGENT_KERNEL_DATABASE_URL",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " when set, otherwise it uses the local default\nkernel database at\n"
-        },
-        {
-          "insert": "postgres://agent_kernel:agent_kernel@127.0.0.1:55432/agent_kernel",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ".\n"
-        },
-        {
-          "insert": "ORCH_AGENT_KERNEL_DISABLED=1",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " opts out. If the kernel runtime is disabled or\ncannot initialize, the session row, operation log, and phase gates remain\nauthoritative, but the Trace page has no kernel rows to display."
+          "insert": "When the kernel runtime is available to the server process, creating a project session writes the root session container and a New session started event before setup work begins. Preparation then writes a prepare container below the session root. The initial upstream check, PR-index debt discovery, baseline evidence, and build events are children of that prepare container, so the trace tree shows the session boundary before the setup work it owns. Later session-boundary workflows, including operator-started sync, and agent runs write into the same trace lineage under their own containers."
         }
       ],
       "children": []
@@ -922,13 +874,13 @@
                 "text": "prepare",
                 "steps": [
                   {
-                    "text": "sync-intake",
+                    "text": "upstream-check",
                     "steps": [
                       {
-                        "text": "upstream head check"
+                        "text": "upstream head observation"
                       },
                       {
-                        "text": "newly merged upstream PR discovery"
+                        "text": "initial merged-PR discovery"
                       }
                     ]
                   },
@@ -936,21 +888,10 @@
                     "text": "pr-index",
                     "steps": [
                       {
-                        "text": "newly merged PR intake"
-                      },
-                      {
                         "text": "missing PR record sync"
                       },
                       {
                         "text": "missing postmortem generation"
-                      }
-                    ]
-                  },
-                  {
-                    "text": "knowledge-refresh",
-                    "steps": [
-                      {
-                        "text": "graph rebuild"
                       }
                     ]
                   },
@@ -1014,6 +955,23 @@
                     "text": "draft publication"
                   }
                 ]
+              },
+              {
+                "text": "sync",
+                "steps": [
+                  {
+                    "text": "operator-started intake"
+                  },
+                  {
+                    "text": "isolated staging reconciliation"
+                  },
+                  {
+                    "text": "validation and confirm gate"
+                  },
+                  {
+                    "text": "atomic publication boundary"
+                  }
+                ]
               }
             ]
           }
@@ -1051,7 +1009,7 @@
       "props": {},
       "text": [
         {
-          "insert": "ProjectSession owns the current integration worktree, whose checked-out commit is head_revision. The project upstream worktree remains the baseline source for comparisons. The session runtime records epoch_completed head movement on the timeline, while the sync workflow contract owns remote_application publication against the same current worktree. Worker and PR worktrees branch from that lineage without becoming alternate session heads."
+          "insert": "ProjectSession owns the current integration worktree, whose checked-out commit is head_revision. The project upstream worktree remains the baseline source for comparisons. The session runtime records epoch_completed head movement on the timeline, while sync reconciles in a separate staging worktree and leaves session current untouched before publish. Confirmed publication may repoint session current non-fast-forward to the validated staging head; worker and PR worktrees branch from the resulting lineage without becoming alternate session heads."
         }
       ],
       "children": []
@@ -1181,6 +1139,351 @@
       "text": [
         {
           "insert": "Each PR campaign prepares review slices in isolated PR worktrees."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-1": {
+      "id": "b-sync-slice3-1",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Sync Is an Operator Boundary"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-2": {
+      "id": "b-sync-slice3-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync is the session's operator-initiated intake-and-reconciliation workflow. Observation records upstream movement, merged PR identities, and staged corpora as a requested sync, but it holds no lease and mutates nothing. The workflow starts only when the operator invokes sync.start."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-3": {
+      "id": "b-sync-slice3-3",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "decision: Decision (2026-08-11) — knowledge intake folds into sync",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " — Run, PR, and sync are the only workflows that may hold the dispatch lease. Every knowledge source other than always-on worker-result evidence is processed inside an operator-started sync."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-4": {
+      "id": "b-sync-slice3-4",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Why Knowledge Enters Through Sync"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-5": {
+      "id": "b-sync-slice3-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The single manual entry point keeps source-changing evidence and its knowledge consequences on one boundary:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-6": {
+      "id": "b-sync-slice3-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker-result evidence continues through the background sink because it consumes immutable results without dispatching workers or touching source."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-7": {
+      "id": "b-sync-slice3-7",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Merged PR evidence, staged corpora, and every other knowledge source wait for operator-started sync, so the same upstream change cannot enter through competing paths."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-8": {
+      "id": "b-sync-slice3-8",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A knowledge-only pass uses the same intake and validation path when upstream has not moved, but publication advances only the monotonic knowledge revision. It does not move the session head, record remote_application, create invalidations, or push PR branches."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-9": {
+      "id": "b-sync-slice3-9",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Dispatch Handoff and Reconciliation"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-10": {
+      "id": "b-sync-slice3-10",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The operator's start action establishes the only path from a recorded request to active sync work:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-11": {
+      "id": "b-sync-slice3-11",
+      "type": "code",
+      "props": {
+        "language": "process-outline"
+      },
+      "text": [
+        {
+          "insert": "Observe upstream movement or staged corpora\n     -> Record a requested sync\n     > No lease is held and nothing starts automatically\nOperator starts sync\n     -> If the dispatch lease is free, sync acquires it and begins ingesting\n     -> If a run is active, queue the sync dispatch request and begin the run's explicit drain handoff\n          -> Stop new worker admission\n          -> Settle or recover active workers and operations\n          -> Write the handoff snapshot and release run authority\nSync owns the dispatch lease\n     -> Stage merged-PR and corpus knowledge\n     -> Reconcile the session history and open PR series in an isolated staging worktree\n     -> Auto-resolve minor mechanical conflicts\n     -> Block for the operator when a conflict exceeds confident mechanical resolution\n     -> Validate staging and rest at validated"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-12": {
+      "id": "b-sync-slice3-12",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "decision: Decision (2026-08-12) — sync reconciles in staging and publishes atomically",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " — Sync never mutates the session worktree in place; reconciliation occurs in an isolated staging workspace. The confirm-gated publication boundary advances session and knowledge truth, records invalidations and remote application, and completes reconciled PR-branch pushes while sync is publishing."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-13": {
+      "id": "b-sync-slice3-13",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Why Sync Stages First"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-14": {
+      "id": "b-sync-slice3-14",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Staging keeps every pre-publish outcome recoverable while preserving the active session as the comparison point:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-15": {
+      "id": "b-sync-slice3-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Rebase, duplicate-match repair, conflict resolution, open-PR reconciliation, and validation operate only on staged state, so the session worktree and head stay byte-identical before publish."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-16": {
+      "id": "b-sync-slice3-16",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Cancellation before publication discards staging without compensation. Crash recovery may resume the last durable stage or discard it at the operator's choice."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-17": {
+      "id": "b-sync-slice3-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Conflicts beyond minor mechanical auto-resolution move sync to blocked with staging preserved, so the operator resolves ambiguity before validation continues."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-18": {
+      "id": "b-sync-slice3-18",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Confirmed Publication"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-19": {
+      "id": "b-sync-slice3-19",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Validated is the resting state between safe preparation and the point of no return. Only the operator's confirmed sync.publish action enters publishing:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-20": {
+      "id": "b-sync-slice3-20",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Publication first verifies that upstream still matches the validated target and that the session worktree is clean at the recorded prior head."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-21": {
+      "id": "b-sync-slice3-21",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The session worktree is repointed to the validated staging head even when that move is non-fast-forward. One state transaction records the publication, remote_application entry, invalidations, upstream anchor, PR-push intents, and monotonic knowledge-revision advance."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-22": {
+      "id": "b-sync-slice3-22",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Reconciled PR branches push with lease protection inside publishing. A failed push blocks the workflow for retry, and sync cannot become published until every durable push record succeeds."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-23": {
+      "id": "b-sync-slice3-23",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Published releases sync authority. The runtime then pins a boundary save-point anchor to the published head; the anchor records evidence without creating another head movement."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-24": {
+      "id": "b-sync-slice3-24",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Cancellation is available only before publishing begins. Once publication starts, recovery moves the boundary forward from its durable records rather than aborting it."
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-25": {
+      "id": "b-sync-slice3-25",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Sync Status Vocabulary"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-26": {
+      "id": "b-sync-slice3-26",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The nine statuses separate passive observation, recoverable preparation, the operator gate, and terminal outcomes:"
+        }
+      ],
+      "children": []
+    },
+    "b-sync-slice3-27": {
+      "id": "b-sync-slice3-27",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Status | Meaning | Stable invariant |\n| --- | --- | --- |\n| requested | Observation recorded a sync request; the operator has not started it. | No lease is held and nothing is mutated. |\n| ingesting | Sync owns the lease and stages merged-PR and corpus knowledge. | Canonical source and knowledge truth remain unchanged. |\n| reconciling | The isolated staging worktree rebases session history and open PR series. | The session worktree and head remain untouched. |\n| validating | The reconciled staging state is producing publication evidence. | Publication cannot start without successful evidence. |\n| validated | Reconciliation and validation are complete. | Sync rests for explicit operator confirmation; later upstream movement blocks publication until revalidation. |\n| publishing | The confirmed boundary repoints the session, commits durable records, and completes PR pushes. | Cancellation is unavailable; recovery continues from durable publication state. |\n| published | The boundary and required PR pushes are durable. | Terminal; sync authority is released. |\n| blocked | Conflict resolution, validation, publication, or recovery requires intervention. | The lease remains held and recoverable staging or publication state is preserved. |\n| cancelled | The operator abandoned sync before publication. | Terminal; staging is discarded and the session is byte-identical to its pre-sync state. |"
         }
       ],
       "children": []
@@ -2561,7 +2864,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Merged-PR intake runs inside the sync intake path while ProjectSession remains the durable container. The path acquires the dispatch lease, fetches upstream, advances worktrees/upstream-current, indexes merged work, updates knowledge, creates its boundary-owned commit, and then anchors save-point evidence. The sync workflow contract owns staged reconciliation, remote_application recording, and transactional head_revision publication. The session stays open for later run, PR campaign, and sync activations until an operator explicitly closes it."
+          "insert": "Merged-PR and staged-corpus intake runs only inside operator-started sync while ProjectSession remains the durable container. Reconciliation and validation stay in isolated staging, so cancellation before publish discards staging and leaves the session byte-identical. Confirmed publication advances the session boundary, remote_application record, invalidations, knowledge revision, and reconciled PR branches while sync is publishing, then anchors the published head with a boundary save point. The session stays open for later run, PR campaign, and sync activations until an operator explicitly closes it."
         }
       ],
       "children": []

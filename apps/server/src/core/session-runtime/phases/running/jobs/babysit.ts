@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { packageRoot } from "@server/core/knowledge";
+import { packageRoot, sourceRoot } from "@server/core/knowledge";
 import { getLatestRun, getRun, openState, statusSnapshot } from "@server/core/session-runtime/run-state";
 import { settlePausedRun } from "@server/core/session-runtime/phases/running/run-control.js";
+import { createSyncRuntime } from "@server/core/session-runtime/phases/sync/runtime.js";
+import { getProjectState } from "@server/core/project-state";
+import { resolveProject } from "@server/core/project-registry";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { runCommand } from "@server/infrastructure/shell/run-command.js";
 
 interface TriggerWorkerError {
   workerId: string;
@@ -468,6 +472,7 @@ export async function runBabysit(globals: GlobalArgs, args: Map<string, string |
   } finally {
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
+    let acquiredSyncId: string | null = null;
     if (leaseId) {
       const store = openState(globals.stateDir);
       try {
@@ -483,10 +488,45 @@ export async function runBabysit(globals: GlobalArgs, args: Map<string, string |
             runId: run.id,
             store,
           });
+          const active = run.projectId ? getProjectState(store, run.projectId)?.active_workflow : null;
+          if (active?.kind === "sync" && active.status === "active") {
+            acquiredSyncId = active.workflow_id;
+          }
         }
       } finally {
         store.db.close();
       }
+    }
+    if (acquiredSyncId) {
+      const projectId = globals.project?.projectId ?? globals.projectId;
+      if (!projectId) throw new Error(`Acquired sync ${acquiredSyncId} without a project id`);
+      const controlProject = globals.project
+        ? resolveProject({
+            orchestratorRoot: globals.project.orchestratorRoot,
+            projectId: globals.project.projectId,
+          })
+        : null;
+      const paths = {
+        graphDbPath: controlProject?.graphDbPath ?? globals.graphDbPath ?? resolve(globals.stateDir, "knowledge-graph.sqlite"),
+        project: controlProject,
+        repoRoot: controlProject?.repoRoot ?? globals.repoRoot,
+        stateDir: globals.stateDir,
+      };
+      const syncRuntime = createSyncRuntime({
+        packageRoot: packageRoot(),
+        resolveDashboardProject: () => paths,
+        runCli: async (command, cwd = packageRoot()) => runCommand(cwd, command),
+        runGit: async (repoRoot, args, options = {}) => {
+          const result = await runCommand(repoRoot, ["git", ...args]);
+          if (options.check !== false && result.exitCode !== 0) {
+            throw new Error(`${options.failureHint ?? `git ${args.join(" ")} failed`}: ${result.stderr || result.stdout}`);
+          }
+          return result;
+        },
+        serverJobPath: packageBin(),
+        sourceRoot,
+      });
+      await syncRuntime.advance(paths, {}, acquiredSyncId);
     }
   }
 }

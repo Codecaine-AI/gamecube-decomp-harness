@@ -12,6 +12,9 @@ export {
   RUN_SCOPED_TABLES_DDL,
   SCHEMA_MIGRATIONS_DDL,
   SESSION_TIMELINE_ENTRIES_DDL,
+  SYNC_PUBLICATION_DDL,
+  SYNC_PUBLICATION_INTENTS_DDL,
+  SYNC_STATE_DDL,
 } from "./migrations/ddl.js";
 
 function columnNames(db: Database, table: string): Set<string> {

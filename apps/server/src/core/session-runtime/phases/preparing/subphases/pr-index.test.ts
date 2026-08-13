@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { PreparingRuntimeDeps, PreparingRuntimeProjectContext } from "../runtime-shared.js";
-import { pendingPrsFromDebt, scanPrIndexDebtForPrepare } from "./pr-index.js";
+import { pendingPrsFromDebt, runPrIndexForPrepare, scanPrIndexDebtForPrepare } from "./pr-index.js";
 
 let tempDirs: string[] = [];
 
@@ -41,6 +41,32 @@ afterEach(() => {
 });
 
 describe("prepare PR index debt scan", () => {
+  test("rejects direct preparation intake before commands or events run", async () => {
+    const root = tempDir();
+    let commands = 0;
+    let events = 0;
+    const deps = {
+      runCli: async () => {
+        commands += 1;
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      submitWorkflowEvent: async () => {
+        events += 1;
+        return null;
+      },
+    } as unknown as PreparingRuntimeDeps;
+    const paths = {
+      repoRoot: resolve(root, "repo"),
+      stateDir: resolve(root, "state"),
+    } as PreparingRuntimeProjectContext;
+
+    await expect(runPrIndexForPrepare(deps, paths, [101], false, "session-1")).rejects.toThrow(
+      "operator sync.start workflow",
+    );
+    expect(commands).toBe(0);
+    expect(events).toBe(0);
+  });
+
   test("counts agent postmortem debt separately from git-discovered PRs", () => {
     const root = tempDir();
     const sourceRoot = resolve(root, "past_prs");

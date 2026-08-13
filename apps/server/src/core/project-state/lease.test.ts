@@ -7,6 +7,7 @@ import { eventsForSubject, listProjectEvents } from "./events.js";
 import {
   StaleLeaseError,
   beginDrain,
+  cancelDispatchRequest,
   checkLease,
   getProjectState,
   heartbeatDispatch,
@@ -255,6 +256,55 @@ describe("project dispatch lease", () => {
     });
     expect(draining.caused_by_event_id).toBe(events[4]!.eventId);
     expect(handedOff.caused_by_event_id).toBe(events[6]?.eventId);
+  });
+
+  test("cancels a queued handoff target without releasing the draining run", () => {
+    const store = testStore();
+    const run = requestDispatch(store, {
+      ...BASE_CONTEXT,
+      kind: "run",
+      workflowId: "run-1",
+      reason: "start run",
+      commandId: "command-run-1",
+    });
+    if (run.queued) throw new Error("expected acquired run lease");
+    requestDispatch(store, {
+      ...BASE_CONTEXT,
+      kind: "sync",
+      workflowId: "sync-1",
+      reason: "operator started sync",
+      commandId: "command-sync-1",
+    });
+    beginDrain(store, {
+      ...BASE_CONTEXT,
+      leaseId: run.leaseId,
+      targetKind: "sync",
+      targetWorkflowId: "sync-1",
+      reason: "handoff to sync",
+      commandId: "command-drain-run-1",
+    });
+
+    const cancelled = cancelDispatchRequest(store, {
+      ...BASE_CONTEXT,
+      kind: "sync",
+      workflowId: "sync-1",
+      reason: "operator cancelled sync",
+      commandId: "command-cancel-sync-1",
+    });
+
+    expect(cancelled.active_workflow).toMatchObject({
+      kind: "run",
+      workflow_id: "run-1",
+      status: "draining",
+    });
+    expect(cancelled.active_workflow?.requested_handoff).toBeUndefined();
+    expect(cancelled.queued_dispatch_requests).toEqual([]);
+    expect(listProjectEvents(store.db).at(-1)).toMatchObject({
+      eventType: "project.dispatch_request_cancelled",
+      subjectKind: "sync",
+      subjectId: "sync-1",
+      payload: { cleared_handoff: true },
+    });
   });
 
   test("rejects an unqueued handoff target without accepting a revision or event", () => {

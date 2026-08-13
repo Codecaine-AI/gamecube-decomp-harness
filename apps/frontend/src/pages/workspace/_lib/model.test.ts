@@ -66,6 +66,58 @@ describe("workspace session view", () => {
             },
           ],
         },
+        sync: {
+          workflow_id: "sync-15",
+          status: "blocked",
+          blockers: [{
+            code: "upstream_moved_after_validation",
+            message: "Validated upstream-15, but upstream is now upstream-16.",
+            source_kind: "sync",
+            source_id: "sync-15",
+            recoverable: true,
+          }],
+          intake: {
+            upstream_from: "upstream-14",
+            upstream_to: "upstream-15",
+            merged_pr_count: 3,
+            corpus_batches: ["corpus-a", "corpus-b"],
+            knowledge_only: false,
+          },
+          staging: {
+            epochs_applied: 4,
+            epochs_total: 6,
+            minor_auto_resolved_count: 2,
+            conflicts_awaiting_operator: 1,
+            conflicts: ["src/melee/example.c"],
+          },
+          pr_reconciliation: {
+            total: 2,
+            clean: 1,
+            auto_resolved: 1,
+            needs_operator: 0,
+            pushed: 0,
+            pending_pushes: 2,
+          },
+          publish_preview: {
+            prior_head: "abc123",
+            new_head: "def456",
+            series_pushes: 2,
+          },
+          publication: null,
+          staleness: {
+            stale: true,
+            validated_upstream: "upstream-15",
+            observed_upstream: "upstream-16",
+            blocker: {
+              code: "upstream_moved_after_validation",
+              message: "Validated upstream-15, but upstream is now upstream-16.",
+              source_kind: "sync",
+              source_id: "sync-15",
+              recoverable: true,
+            },
+            revalidate_action_id: "sync.cancel",
+          },
+        },
         latest_event_sequence: 2,
         available_actions: [
           {
@@ -94,6 +146,69 @@ describe("workspace session view", () => {
             expected_transition: "session becomes closed",
             confirmation_required: true,
           },
+          {
+            action_id: "sync.start",
+            subject_kind: "sync",
+            subject_id: "sync-15",
+            enabled: false,
+            blocked_by: [{
+              code: "sync_staging_awaits_decision",
+              message: "Staging awaits a decision.",
+              source_kind: "sync",
+              source_id: "sync-15",
+              recoverable: true,
+            }],
+            expected_transition: "requested → ingesting after run drains",
+            confirmation_required: false,
+          },
+          {
+            action_id: "sync.resolve_conflict",
+            subject_kind: "sync",
+            subject_id: "sync-15",
+            enabled: false,
+            blocked_by: [{
+              code: "sync_not_waiting_on_conflict",
+              message: "Sync is not waiting on an operator conflict.",
+              source_kind: "sync",
+              source_id: "sync-15",
+              recoverable: true,
+            }],
+            expected_transition: "blocked → reconciling",
+            confirmation_required: false,
+          },
+          {
+            action_id: "sync.publish",
+            subject_kind: "sync",
+            subject_id: "sync-15",
+            enabled: false,
+            blocked_by: [{
+              code: "upstream_moved_after_validation",
+              message: "Validated upstream-15, but upstream is now upstream-16.",
+              source_kind: "sync",
+              source_id: "sync-15",
+              recoverable: true,
+            }],
+            expected_transition: "validated → publishing → published",
+            confirmation_required: true,
+          },
+          {
+            action_id: "sync.cancel",
+            subject_kind: "sync",
+            subject_id: "sync-15",
+            enabled: true,
+            blocked_by: [],
+            expected_transition: "blocked → cancelled",
+            confirmation_required: true,
+          },
+          {
+            action_id: "sync.recover",
+            subject_kind: "sync",
+            subject_id: "sync-15",
+            enabled: true,
+            blocked_by: [],
+            expected_transition: "blocked → last durable stage or cancelled",
+            confirmation_required: true,
+          },
         ],
       },
     } as unknown as Dashboard;
@@ -103,11 +218,143 @@ describe("workspace session view", () => {
     expect(state?.active_workflow?.requested_handoff?.target_kind).toBe("sync");
     expect(state?.session?.timeline.map((entry) => entry.entry_id)).toEqual(["save-14", "epoch-1"]);
     expect(state?.session?.save_point_stale).toBe(true);
+    expect(state?.sync).toEqual({
+      workflow_id: "sync-15",
+      status: "blocked",
+      blockers: [{
+        code: "upstream_moved_after_validation",
+        message: "Validated upstream-15, but upstream is now upstream-16.",
+        source_kind: "sync",
+        source_id: "sync-15",
+        recoverable: true,
+      }],
+      intake: {
+        upstream_from: "upstream-14",
+        upstream_to: "upstream-15",
+        merged_pr_count: 3,
+        corpus_batches: ["corpus-a", "corpus-b"],
+        knowledge_only: false,
+      },
+      staging: {
+        epochs_applied: 4,
+        epochs_total: 6,
+        minor_auto_resolved_count: 2,
+        conflicts_awaiting_operator: 1,
+        conflicts: ["src/melee/example.c"],
+      },
+      pr_reconciliation: {
+        total: 2,
+        clean: 1,
+        auto_resolved: 1,
+        needs_operator: 0,
+        pushed: 0,
+        pending_pushes: 2,
+      },
+      publish_preview: {
+        prior_head: "abc123",
+        new_head: "def456",
+        series_pushes: 2,
+      },
+      publication: null,
+      staleness: {
+        stale: true,
+        validated_upstream: "upstream-15",
+        observed_upstream: "upstream-16",
+        blocker: {
+          code: "upstream_moved_after_validation",
+          message: "Validated upstream-15, but upstream is now upstream-16.",
+          source_kind: "sync",
+          source_id: "sync-15",
+          recoverable: true,
+        },
+        revalidate_action_id: "sync.cancel",
+      },
+    });
     expect(projectStateAction(state, "session.save_point")?.confirmation_required).toBe(false);
     expect(projectStateAction(state, "session.close")).toMatchObject({
       enabled: false,
       confirmation_required: true,
       blocked_by: [{ code: "dispatch_lease_held" }],
+    });
+    expect([
+      "sync.start",
+      "sync.resolve_conflict",
+      "sync.publish",
+      "sync.cancel",
+      "sync.recover",
+    ].map((actionId) => projectStateAction(state, actionId)?.action_id)).toEqual([
+      "sync.start",
+      "sync.resolve_conflict",
+      "sync.publish",
+      "sync.cancel",
+      "sync.recover",
+    ]);
+    expect(projectStateAction(state, "sync.recover")).toMatchObject({
+      enabled: true,
+      confirmation_required: true,
+      expected_transition: "blocked → last durable stage or cancelled",
+    });
+  });
+
+  test("preserves the server publication record after sync publish", () => {
+    const dashboard = {
+      projectState: {
+        revision: 30,
+        active_workflow: null,
+        queued_dispatch_requests: [],
+        session: null,
+        run: null,
+        sync: {
+          workflow_id: "sync-30",
+          status: "published",
+          blockers: [],
+          intake: {
+            upstream_from: "old-head",
+            upstream_to: "upstream-head",
+            merged_pr_count: 1,
+            corpus_batches: [],
+            knowledge_only: false,
+          },
+          staging: null,
+          pr_reconciliation: {
+            total: 1,
+            clean: 1,
+            auto_resolved: 0,
+            needs_operator: 0,
+            pushed: 1,
+            pending_pushes: 0,
+          },
+          publish_preview: {
+            prior_head: "old-head",
+            new_head: "new-head",
+            series_pushes: 1,
+          },
+          publication: {
+            remote_application_id: "remote-30",
+            prior_head: "old-head",
+            new_head: "new-head",
+            knowledge_revision: "knowledge-30",
+            invalidated_ids: ["target-30"],
+          },
+          staleness: {
+            stale: false,
+            validated_upstream: "upstream-head",
+            observed_upstream: "upstream-head",
+            blocker: null,
+            revalidate_action_id: null,
+          },
+        },
+        latest_event_sequence: 30,
+        available_actions: [],
+      },
+    } as unknown as Dashboard;
+
+    expect(projectStateReadModel(dashboard)?.sync?.publication).toEqual({
+      remote_application_id: "remote-30",
+      prior_head: "old-head",
+      new_head: "new-head",
+      knowledge_revision: "knowledge-30",
+      invalidated_ids: ["target-30"],
     });
   });
 

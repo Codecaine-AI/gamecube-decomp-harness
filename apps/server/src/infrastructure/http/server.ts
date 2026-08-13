@@ -32,6 +32,8 @@ import { getRun } from "@server/core/session-runtime/run-state";
 import { handleRunsApiRoute } from "@server/api/routes/runs";
 import { createPreparingRuntime } from "@server/core/session-runtime/phases/preparing/runtime";
 import { handleSessionsApiRoute } from "@server/api/routes/sessions";
+import { handleSyncApiRoute } from "@server/api/routes/sync";
+import { createSyncRuntime } from "@server/core/session-runtime/phases/sync/runtime";
 import { createValidationRuntime } from "@server/core/validation/runtime";
 import { handleValidationApiRoute } from "@server/api/routes/validation";
 import { readRegressionReport } from "@server/core/validation/objdiff/report";
@@ -250,6 +252,10 @@ export async function closeKernelRuntimeForTests(): Promise<void> {
   await kernelRuntime.closeForTests();
 }
 
+export async function reconcileSyncStartup(): Promise<void> {
+  await syncRuntime.reconcileStartup({});
+}
+
 const campaignStatus = createCampaignStatusService({
   appendLog,
   outputTail: commandRunner.outputTail,
@@ -263,6 +269,18 @@ const savePoints = createSavePointRuntime({
   resolveDashboardProject: projectContext.resolveDashboardProject,
   runCli: commandRunner.runCli,
   serverJobPath,
+});
+
+const syncRuntime = createSyncRuntime({
+  appendLog,
+  kernelEnabled: kernelRuntime.enabled,
+  hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
+  packageRoot,
+  resolveDashboardProject: projectContext.resolveDashboardProject,
+  runCli: commandRunner.runCli,
+  runGit: commandRunner.runGit,
+  serverJobPath,
+  sourceRoot,
 });
 
 const prRecords = createPrRecordsService({
@@ -392,7 +410,6 @@ const handoffRuntime = createHandoffRuntime({
   savePoints,
   serverJobPath,
   submitWorkflowEvent: kernelRuntime.submitWorkflowEvent,
-  syncMergedPrIntakeForPrepare: preparingRuntime.syncMergedPrIntakeForPrepare,
 });
 
 const standards = createStandardsService({
@@ -414,6 +431,13 @@ const dashboardReadModel = createDashboardReadModel({
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   processStatus: processStatusService.processStatus,
   projectToSummary,
+  refreshSyncUpstreamObservation: (paths, observedUpstream) => syncRuntime.refreshObservation({
+    observedUpstream,
+    projectId: paths.project?.projectId,
+    repoRoot: paths.repoRoot,
+    stateDir: paths.stateDir,
+    usePathOverrides: true,
+  }),
 });
 
 function dashboardEvents(url: URL): Response {
@@ -485,6 +509,17 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   const localFont = localFontResponse(req, url);
   if (localFont) return localFont;
 
+  const sync = await handleSyncApiRoute(req, url, {
+    action: syncRuntime.action,
+    cancel: syncRuntime.cancel,
+    json,
+    publish: syncRuntime.publish,
+    recover: syncRuntime.recover,
+    resolveConflict: syncRuntime.resolveConflict,
+    start: syncRuntime.start,
+  });
+  if (sync) return sync;
+
   const sessions = await handleSessionsApiRoute(req, url, {
     availableProjects: projectContext.availableProjects,
     dashboardEvents,
@@ -508,7 +543,6 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     runDetails: (stateDir, runId, project) => dashboardReadModel.runDetails(stateDir, runId, project as ResolvedProject | null),
     workerStateTrace: (stateDir, runId, workerStateId) => dashboardReadModel.workerStateTrace(stateDir, runId, workerStateId),
     syncGitForPrepare: preparingRuntime.syncGitForPrepare,
-    syncProjectIntake: preparingRuntime.syncProjectIntake,
   });
   if (sessions) return sessions;
 
@@ -654,4 +688,7 @@ export function serveServer(): ReturnType<typeof Bun.serve> {
   return server;
 }
 
-if (import.meta.main) serveServer();
+if (import.meta.main) {
+  await reconcileSyncStartup();
+  serveServer();
+}

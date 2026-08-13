@@ -9,6 +9,7 @@ export interface RunEnvelopeCasInput {
   expectedRevision: number;
   headRevision?: string | null;
   inputsJson?: string | null;
+  remoteApplicationIdsJson?: string;
   runId: string;
   status?: string;
   stopRequestJson?: string | null;
@@ -60,6 +61,7 @@ export function casRunEnvelope(db: Database, input: RunEnvelopeCasInput): boolea
   add("blockers_json", input.blockersJson);
   add("head_revision", input.headRevision);
   add("inputs_json", input.inputsJson);
+  add("remote_application_ids_json", input.remoteApplicationIdsJson);
   add("stop_request_json", input.stopRequestJson);
   add("terminal_reason", input.terminalReason);
   const result = db

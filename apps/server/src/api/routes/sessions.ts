@@ -23,11 +23,19 @@ export interface SessionsApiRouteDeps {
   runDetails: (stateDir: string, runId: string, project: unknown) => unknown;
   workerStateTrace: (stateDir: string, runId: string, workerStateId: string) => unknown;
   syncGitForPrepare: (body: Record<string, unknown>) => Promise<unknown>;
-  syncProjectIntake: (body: Record<string, unknown>) => Promise<unknown>;
 }
 
 async function requestBody(req: Request): Promise<Record<string, unknown>> {
   return (await req.json().catch(() => ({}))) as Record<string, unknown>;
+}
+
+function redirectPreparationSyncToOperatorStart(url: URL): Response {
+  const location = new URL(url);
+  location.pathname = "/api/sync/start";
+  return new Response(null, {
+    status: 307,
+    headers: { location: location.toString() },
+  });
 }
 
 export async function handleSessionsApiRoute(req: Request, url: URL, deps: SessionsApiRouteDeps): Promise<Response | null> {
@@ -62,14 +70,11 @@ export async function handleSessionsApiRoute(req: Request, url: URL, deps: Sessi
     const paths = deps.requestPaths(url, { useDefaultProject: true });
     return deps.json(deps.workerStateTrace(paths.stateDir, url.searchParams.get("runId") || "", url.searchParams.get("workerStateId") || ""));
   }
-  if (url.pathname === "/api/project/sync" && req.method === "POST") {
-    return deps.json(await deps.syncProjectIntake(await requestBody(req)));
-  }
   if (url.pathname === "/api/project-session/preparing/sync-git" && req.method === "POST") {
-    return deps.json(await deps.syncGitForPrepare(await requestBody(req)));
+    return redirectPreparationSyncToOperatorStart(url);
   }
   if (url.pathname === "/api/project-session/preparing/pr-index" && req.method === "POST") {
-    return deps.json(await deps.indexPrsForPrepare(await requestBody(req)));
+    return redirectPreparationSyncToOperatorStart(url);
   }
   if (url.pathname === "/api/project-session/preparing/baseline" && req.method === "POST") {
     return deps.json(await deps.calculateBaselineForPrepare(await requestBody(req)));

@@ -15,6 +15,12 @@ import { clampDetailsWidth, loadDetailsCollapsed, loadDetailsWidth, loadSidebarC
 import { initialForm, saveRunSettings, schedulingForWorkers } from "@/components/app/_lib/runSettings";
 import { useHotReload } from "@/components/app/_lib/useHotReload";
 import { RUN_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedRunControls";
+import {
+  SYNC_CONTROL_ACTION_IDS,
+  SYNC_CONTROL_ENDPOINTS,
+  syncControlRequestPatch,
+  syncConfirmationMessage,
+} from "@/components/app/_lib/projectedSyncControls";
 
 type Action = DashboardAction;
 const PROCESS_CONFIG_VERSION = 2;
@@ -23,7 +29,7 @@ const DEFAULT_THINKING_LEVEL = "xhigh";
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["sync", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRevalidate", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
 
 const runActionIds: Partial<Record<Action, string>> = {
   runStart: "run.start",
@@ -357,10 +363,23 @@ export function App() {
       const projectedRunAction = projectedRunActionId
         ? projectStateAction(projectStateReadModel(currentDashboard), projectedRunActionId)
         : null;
+      const projectState = projectStateReadModel(currentDashboard);
+      const syncControlAction = nextAction === "syncGit" || nextAction === "indexPrs"
+        ? "syncStart"
+        : nextAction;
+      const projectedSyncActionId = SYNC_CONTROL_ACTION_IDS[syncControlAction];
+      const projectedSyncAction = projectedSyncActionId
+        ? projectStateAction(projectState, projectedSyncActionId)
+        : null;
       if (
         projectedRunAction?.confirmation_required &&
         !window.confirm(`${projectedRunActionId}?\n\n${projectedRunAction.expected_transition}`)
       ) return;
+      if (projectedSyncAction?.confirmation_required) {
+        const confirmation = syncConfirmationMessage(syncControlAction, projectState?.sync ?? null) ??
+          `${projectedSyncActionId}?\n\n${projectedSyncAction.expected_transition}`;
+        if (!window.confirm(confirmation)) return;
+      }
       if (
         nextAction === "finishEpoch" &&
         !window.confirm("Finish the current epoch now?\n\nThis cancels active workers in the current epoch, treats remaining epoch work as finished, and lets the scheduler run the normal baseline/rebuild checkpoint path.")
@@ -393,6 +412,12 @@ export function App() {
         const body = { ...formBody(form, currentDashboard), ...payload };
         if (projectedRunAction?.subject_id) body.runId = projectedRunAction.subject_id;
         if (projectedRunAction?.confirmation_required) body.confirmed = true;
+        if (
+          projectedSyncAction?.subject_id &&
+          projectState?.sync?.workflow_id === projectedSyncAction.subject_id
+        ) body.syncId = projectedSyncAction.subject_id;
+        if (projectedSyncAction?.confirmation_required) body.confirmed = true;
+        Object.assign(body, syncControlRequestPatch(syncControlAction));
         const projectSession = asObject(currentDashboard?.projectSession);
         const projectStateSession = asObject(asObject(currentDashboard?.projectState).session);
         const projectSessionPhase = String(projectSession.phase || "");
@@ -410,14 +435,10 @@ export function App() {
         };
         if (nextAction === "refresh") {
           await manualRefresh();
-        } else if (nextAction === "sync") {
-          await postJson("/api/project/sync", body);
-          await manualRefresh();
-        } else if (nextAction === "syncGit") {
-          await postJson(projectSessionUrl("/api/project-session/preparing/sync-git", form), sessionScopedBody(body, projectSession));
-          await manualRefresh();
-        } else if (nextAction === "indexPrs") {
-          await postJson(projectSessionUrl("/api/project-session/preparing/pr-index", form), sessionScopedBody(body, projectSession));
+        } else if (projectedSyncActionId) {
+          const endpoint = SYNC_CONTROL_ENDPOINTS[syncControlAction];
+          if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
+          await postJson(endpoint, body);
           await manualRefresh();
         } else if (nextAction === "calculateBaseline") {
           await postJson(projectSessionUrl("/api/project-session/preparing/baseline", form), sessionScopedBody(body, projectSession));

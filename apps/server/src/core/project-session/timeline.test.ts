@@ -12,7 +12,7 @@ import {
   releaseDispatch,
   requestDispatch,
 } from "@server/core/project-state";
-import { eventsForSubject, listProjectEvents } from "@server/core/project-state/events.js";
+import { appendProjectEvent, eventsForSubject, listProjectEvents } from "@server/core/project-state/events.js";
 import { closeSchedulerEpochWithEvidence, startSchedulerEpoch } from "@server/core/session-runtime/run-state";
 import { createProjectSession, getProjectSessionByUuid } from "./store.js";
 import { listPendingIntegrations, preparePendingIntegration } from "./pending-integrations.js";
@@ -20,6 +20,7 @@ import {
   closeProjectSession,
   listSessionTimeline,
   recordEpochCompletedInTransaction,
+  recordRemoteApplicationInTransaction,
   recordSavePointAnchor,
   recordSavePointFailure,
 } from "./timeline.js";
@@ -75,12 +76,251 @@ function createSession(store: StateStore): string {
   return commitSha;
 }
 
+function commitInRunRepository(store: StateStore, message: string): { priorHead: string; newHead: string; repoRoot: string } {
+  const run = store.db
+    .query("SELECT project_repo_root FROM runs WHERE id = 'run-1'")
+    .get() as { project_repo_root: string };
+  const prior = Bun.spawnSync(["git", "-C", run.project_repo_root, "rev-parse", "HEAD"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (prior.exitCode !== 0) throw new Error(new TextDecoder().decode(prior.stderr));
+  const priorHead = new TextDecoder().decode(prior.stdout).trim();
+  const committed = Bun.spawnSync(
+    [
+      "git",
+      "-C",
+      run.project_repo_root,
+      "-c",
+      "user.name=Timeline Test",
+      "-c",
+      "user.email=timeline@example.invalid",
+      "commit",
+      "--allow-empty",
+      "-qm",
+      message,
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  if (committed.exitCode !== 0) throw new Error(new TextDecoder().decode(committed.stderr));
+  const next = Bun.spawnSync(["git", "-C", run.project_repo_root, "rev-parse", "HEAD"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (next.exitCode !== 0) throw new Error(new TextDecoder().decode(next.stderr));
+  return {
+    priorHead,
+    newHead: new TextDecoder().decode(next.stdout).trim(),
+    repoRoot: run.project_repo_root,
+  };
+}
+
 afterEach(() => {
   for (const store of stores.splice(0)) store.db.close();
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
 describe("project session timeline", () => {
+  test("records a remote application, session head, and active-run reference atomically", () => {
+    const store = openTestStore();
+    createSession(store);
+    const commits = commitInRunRepository(store, "published sync boundary");
+    store.db.query("UPDATE project_sessions SET head_revision = ? WHERE session_uuid = 'session-1'").run(commits.priorHead);
+    store.db.query("UPDATE runs SET head_revision = ? WHERE id = 'run-1'").run(commits.priorHead);
+    recordSavePointAnchor(store, {
+      actor: "runner",
+      commandId: "command-prior-save-point",
+      commitSha: commits.priorHead,
+      projectId: "melee",
+      savePointId: "save-point-before-sync",
+      sessionUuid: "session-1",
+      triggerKind: "epoch",
+    });
+
+    const entry = immediateTransaction(store.db, () => {
+      const boundary = appendProjectEvent(store.db, {
+        actor: "operator",
+        causationId: "command-publish-1",
+        correlationId: "sync-1",
+        eventType: "sync.boundary_published",
+        occurredAt: "2026-08-13T12:00:00.000Z",
+        payload: {
+          upstream_revision: commits.newHead,
+          knowledge_revision: "knowledge-1",
+          invalidations: ["target-1"],
+        },
+        projectId: "melee",
+        spanId: "span-sync-boundary-1",
+        subjectId: "sync-1",
+        subjectKind: "sync",
+        traceId: "trace-sync-1",
+      });
+      return recordRemoteApplicationInTransaction(store.db, {
+        actor: "operator",
+        boundaryEventId: boundary.eventId,
+        commandId: "command-publish-1",
+        correlationId: "sync-1",
+        newHead: commits.newHead,
+        occurredAt: "2026-08-13T12:00:00.000Z",
+        priorHead: commits.priorHead,
+        projectId: "melee",
+        remoteApplicationId: "remote-application-1",
+        resolvedConflicts: ["src/fighter.c"],
+        runId: "run-1",
+        scoreDelta: 0.125,
+        sessionUuid: "session-1",
+        syncId: "sync-1",
+      });
+    });
+
+    expect(entry).toMatchObject({
+      entry_kind: "remote_application",
+      entry_id: "remote-application-1",
+      payload: {
+        prior_head: commits.priorHead,
+        new_head: commits.newHead,
+        resolved_conflicts: ["src/fighter.c"],
+        score_delta: 0.125,
+      },
+    });
+    expect(getProjectSessionByUuid(store.db, "session-1")).toMatchObject({
+      head_revision: commits.newHead,
+      revision: 2,
+      caused_by_event_id: entry.caused_by_event_id,
+      save_point_stale: true,
+    });
+    const run = store.db
+      .query("SELECT head_revision, revision, caused_by_event_id, remote_application_ids_json FROM runs WHERE id = 'run-1'")
+      .get() as Record<string, unknown>;
+    expect(run).toMatchObject({
+      head_revision: commits.newHead,
+      revision: 1,
+      remote_application_ids_json: '["remote-application-1"]',
+    });
+    const runEvents = eventsForSubject(store.db, "run", "run-1");
+    expect(runEvents.map((event) => event.eventType)).toEqual(["run.remote_applied"]);
+    expect(run.caused_by_event_id).toBe(runEvents[0]?.eventId);
+    expect(runEvents[0]?.causationId).toBe(String(entry.caused_by_event_id));
+  });
+
+  test("requires the publication transaction and rolls the complete boundary back loudly", () => {
+    const store = openTestStore();
+    createSession(store);
+    const commits = commitInRunRepository(store, "rolled back sync boundary");
+    store.db.query("UPDATE project_sessions SET head_revision = ? WHERE session_uuid = 'session-1'").run(commits.priorHead);
+    store.db.query("UPDATE runs SET head_revision = ? WHERE id = 'run-1'").run(commits.priorHead);
+    const boundary = immediateTransaction(store.db, () =>
+      appendProjectEvent(store.db, {
+        actor: "operator",
+        causationId: "command-publish-outside",
+        correlationId: "sync-outside",
+        eventType: "sync.boundary_published",
+        projectId: "melee",
+        spanId: "span-sync-outside",
+        subjectId: "sync-outside",
+        subjectKind: "sync",
+        traceId: "trace-sync-outside",
+      }),
+    );
+    expect(() =>
+      recordRemoteApplicationInTransaction(store.db, {
+        actor: "operator",
+        boundaryEventId: boundary.eventId,
+        commandId: "command-publish-outside",
+        newHead: commits.newHead,
+        priorHead: commits.priorHead,
+        projectId: "melee",
+        remoteApplicationId: "remote-outside",
+        resolvedConflicts: [],
+        syncId: "sync-outside",
+      }),
+    ).toThrow("requires an active transaction");
+
+    expect(() =>
+      immediateTransaction(store.db, () => {
+        const rolledBackBoundary = appendProjectEvent(store.db, {
+          actor: "operator",
+          causationId: "command-publish-rollback",
+          correlationId: "sync-rollback",
+          eventType: "sync.boundary_published",
+          projectId: "melee",
+          spanId: "span-sync-rollback",
+          subjectId: "sync-rollback",
+          subjectKind: "sync",
+          traceId: "trace-sync-rollback",
+        });
+        recordRemoteApplicationInTransaction(store.db, {
+          actor: "operator",
+          boundaryEventId: rolledBackBoundary.eventId,
+          commandId: "command-publish-rollback",
+          newHead: commits.newHead,
+          priorHead: commits.priorHead,
+          projectId: "melee",
+          remoteApplicationId: "remote-rollback",
+          resolvedConflicts: [],
+          syncId: "sync-rollback",
+        });
+        throw new Error("fail durable publication");
+      }),
+    ).toThrow("fail durable publication");
+
+    expect(listSessionTimeline(store.db, "session-1")).toEqual([]);
+    expect(getProjectSessionByUuid(store.db, "session-1")).toMatchObject({
+      head_revision: commits.priorHead,
+      revision: 0,
+    });
+    expect(store.db.query("SELECT head_revision, revision, remote_application_ids_json FROM runs WHERE id = 'run-1'").get()).toEqual({
+      head_revision: commits.priorHead,
+      revision: 0,
+      remote_application_ids_json: "[]",
+    });
+    expect(eventsForSubject(store.db, "run", "run-1")).toEqual([]);
+    expect(eventsForSubject(store.db, "sync", "sync-rollback")).toEqual([]);
+  });
+
+  test("records the session boundary without a run when no run is active", () => {
+    const store = openTestStore();
+    createSession(store);
+    const commits = commitInRunRepository(store, "session-only sync boundary");
+    store.db
+      .query("UPDATE project_sessions SET head_revision = ?, active_run_id = NULL WHERE session_uuid = 'session-1'")
+      .run(commits.priorHead);
+
+    immediateTransaction(store.db, () => {
+      const boundary = appendProjectEvent(store.db, {
+        actor: "operator",
+        causationId: "command-session-only",
+        correlationId: "sync-session-only",
+        eventType: "sync.boundary_published",
+        projectId: "melee",
+        spanId: "span-session-only",
+        subjectId: "sync-session-only",
+        subjectKind: "sync",
+        traceId: "trace-sync-session-only",
+      });
+      recordRemoteApplicationInTransaction(store.db, {
+        actor: "operator",
+        boundaryEventId: boundary.eventId,
+        commandId: "command-session-only",
+        newHead: commits.newHead,
+        priorHead: commits.priorHead,
+        projectId: "melee",
+        remoteApplicationId: "remote-session-only",
+        repositoryRoot: commits.repoRoot,
+        resolvedConflicts: [],
+        runId: null,
+        syncId: "sync-session-only",
+      });
+    });
+
+    expect(getProjectSessionByUuid(store.db, "session-1")).toMatchObject({ head_revision: commits.newHead, revision: 1 });
+    expect(eventsForSubject(store.db, "run", "run-1")).toEqual([]);
+    expect(store.db.query("SELECT revision, remote_application_ids_json FROM runs WHERE id = 'run-1'").get()).toEqual({
+      revision: 0,
+      remote_application_ids_json: "[]",
+    });
+  });
+
   test("records epoch integration result, timeline, head, and event atomically", () => {
     const store = openTestStore();
     const commitSha = createSession(store);

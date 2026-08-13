@@ -76,6 +76,51 @@ export const projectState = sqliteTable("project_state", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const syncState = sqliteTable(
+  "sync_state",
+  {
+    syncId: text("sync_id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionUuid: text("session_uuid").notNull(),
+    revision: integer("revision").notNull().default(0),
+    status: text("status")
+      .$type<
+        | "requested"
+        | "ingesting"
+        | "reconciling"
+        | "validating"
+        | "validated"
+        | "publishing"
+        | "published"
+        | "blocked"
+        | "cancelled"
+      >()
+      .notNull(),
+    traceId: text("trace_id").notNull(),
+    causedByEventId: text("caused_by_event_id").notNull(),
+    blockersJson: text("blockers_json", { mode: "json" }).$type<JsonObject[]>().notNull().default(sql`'[]'`),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    latestEventSequence: integer("latest_event_sequence").notNull().default(0),
+    intakeJson: text("intake_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
+    stagingJson: text("staging_json", { mode: "json" }).$type<JsonObject>(),
+    prReconciliationJson: text("pr_reconciliation_json", { mode: "json" })
+      .$type<JsonObject[]>()
+      .notNull()
+      .default(sql`'[]'`),
+    publicationJson: text("publication_json", { mode: "json" }).$type<JsonObject>(),
+  },
+  (table) => [
+    uniqueIndex("sync_state_one_non_terminal_project")
+      .on(table.projectId)
+      .where(sql`${table.status} NOT IN ('published', 'cancelled')`),
+    check(
+      "sync_state_status_check",
+      sql`${table.status} IN ('requested', 'ingesting', 'reconciling', 'validating', 'validated', 'publishing', 'published', 'blocked', 'cancelled')`,
+    ),
+  ],
+);
+
 export const runs = sqliteTable("runs", {
   id: text("id").primaryKey(),
   goalKind: text("goal_kind").notNull(),
@@ -102,7 +147,139 @@ export const runs = sqliteTable("runs", {
   stopRequestJson: text("stop_request_json", { mode: "json" }).$type<JsonObject>(),
   terminalReason: text("terminal_reason"),
   schedulerCondition: text("scheduler_condition").$type<RunSchedulerCondition>(),
+  remoteApplicationIdsJson: text("remote_application_ids_json", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'`),
 });
+
+export const projectUpstreamAnchors = sqliteTable(
+  "project_upstream_anchors",
+  {
+    projectId: text("project_id").primaryKey(),
+    sessionUuid: text("session_uuid").notNull(),
+    upstreamRevision: text("upstream_revision").notNull(),
+    syncId: text("sync_id").notNull(),
+    causedByEventId: text("caused_by_event_id").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("project_upstream_anchors_session").on(table.sessionUuid)],
+);
+
+export const syncPushRecords = sqliteTable(
+  "sync_push_records",
+  {
+    pushId: text("push_id").primaryKey(),
+    syncId: text("sync_id").notNull(),
+    seriesId: text("series_id").notNull(),
+    branch: text("branch").notNull(),
+    remoteName: text("remote_name").notNull(),
+    expectedRemoteHead: text("expected_remote_head"),
+    newHead: text("new_head").notNull(),
+    revision: integer("revision").notNull().default(0),
+    status: text("status").$type<"pending" | "pushing" | "pushed" | "failed">().notNull().default("pending"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: text("last_error"),
+    causedByEventId: text("caused_by_event_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    pushedAt: text("pushed_at"),
+  },
+  (table) => [
+    uniqueIndex("sync_push_records_sync_series").on(table.syncId, table.seriesId),
+    index("sync_push_records_sync_status").on(table.syncId, table.status),
+    check(
+      "sync_push_records_status_check",
+      sql`${table.status} IN ('pending', 'pushing', 'pushed', 'failed')`,
+    ),
+  ],
+);
+
+export const syncPublicationIntents = sqliteTable(
+  "sync_publication_intents",
+  {
+    syncId: text("sync_id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionUuid: text("session_uuid").notNull(),
+    sessionWorktreePath: text("session_worktree_path").notNull(),
+    priorHead: text("prior_head").notNull(),
+    newHead: text("new_head").notNull(),
+    worktreeStateJson: text("worktree_state_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    boundaryPlanJson: text("boundary_plan_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    publishingEventId: text("publishing_event_id").notNull(),
+    boundaryEventId: text("boundary_event_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("sync_publication_intents_project").on(table.projectId, table.createdAt)],
+);
+
+export const syncInvalidations = sqliteTable(
+  "sync_invalidations",
+  {
+    invalidationId: text("invalidation_id").primaryKey(),
+    syncId: text("sync_id").notNull(),
+    projectId: text("project_id").notNull(),
+    sessionUuid: text("session_uuid").notNull(),
+    subjectKind: text("subject_kind").$type<"target" | "checkpoint" | "pr_snapshot">().notNull(),
+    subjectId: text("subject_id").notNull(),
+    reason: text("reason").notNull(),
+    causedByEventId: text("caused_by_event_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("sync_invalidations_sync_subject").on(table.syncId, table.subjectKind, table.subjectId),
+    index("sync_invalidations_project_subject").on(table.projectId, table.subjectKind, table.subjectId),
+    check(
+      "sync_invalidations_subject_kind_check",
+      sql`${table.subjectKind} IN ('target', 'checkpoint', 'pr_snapshot')`,
+    ),
+  ],
+);
+
+export const knowledgeRevisions = sqliteTable(
+  "knowledge_revisions",
+  {
+    revision: integer("revision").primaryKey({ autoIncrement: true }),
+    projectId: text("project_id").notNull(),
+    digest: text("digest").notNull(),
+    syncId: text("sync_id"),
+    causedByEventId: text("caused_by_event_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("knowledge_revisions_project_revision").on(table.projectId, table.revision)],
+);
+
+export const syncKnowledgeJobs = sqliteTable(
+  "sync_knowledge_jobs",
+  {
+    jobId: text("job_id").primaryKey(),
+    syncId: text("sync_id").notNull(),
+    projectId: text("project_id").notNull(),
+    sourceKind: text("source_kind").$type<"merged_pr" | "corpus">().notNull(),
+    sourceId: text("source_id").notNull(),
+    revision: integer("revision").notNull().default(0),
+    status: text("status")
+      .$type<"queued" | "processing" | "waiting" | "succeeded" | "failed" | "cancelled">()
+      .notNull()
+      .default("queued"),
+    provenanceJson: text("provenance_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
+    stagedArtifactPath: text("staged_artifact_path"),
+    stagedDigest: text("staged_digest"),
+    causedByEventId: text("caused_by_event_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("sync_knowledge_jobs_sync_source").on(table.syncId, table.sourceKind, table.sourceId),
+    index("sync_knowledge_jobs_sync_status").on(table.syncId, table.status),
+    check("sync_knowledge_jobs_source_kind_check", sql`${table.sourceKind} IN ('merged_pr', 'corpus')`),
+    check(
+      "sync_knowledge_jobs_status_check",
+      sql`${table.status} IN ('queued', 'processing', 'waiting', 'succeeded', 'failed', 'cancelled')`,
+    ),
+  ],
+);
 
 export const directorCycles = sqliteTable("director_cycles", {
   id: text("id").primaryKey(),
@@ -595,12 +772,18 @@ export const orchestratorStateSchema = {
   events,
   facts,
   integrations,
+  knowledgeRevisions,
   piSessions,
   pendingIntegrations,
   runRecoveryJournal,
   projectEvents,
   projectSessions,
   projectState,
+  projectUpstreamAnchors,
+  syncState,
+  syncInvalidations,
+  syncKnowledgeJobs,
+  syncPushRecords,
   runCheckpoints,
   runs,
   savePoints,
@@ -616,6 +799,14 @@ export const orchestratorStateSchema = {
 
 export type RunRow = typeof runs.$inferSelect;
 export type NewRunRow = typeof runs.$inferInsert;
+export type KnowledgeRevisionRow = typeof knowledgeRevisions.$inferSelect;
+export type NewKnowledgeRevisionRow = typeof knowledgeRevisions.$inferInsert;
+export type ProjectUpstreamAnchorRow = typeof projectUpstreamAnchors.$inferSelect;
+export type SyncInvalidationRow = typeof syncInvalidations.$inferSelect;
+export type SyncKnowledgeJobRow = typeof syncKnowledgeJobs.$inferSelect;
+export type SyncPushRecordRow = typeof syncPushRecords.$inferSelect;
+export type SyncStateRow = typeof syncState.$inferSelect;
+export type NewSyncStateRow = typeof syncState.$inferInsert;
 export type DirectorCycleRow = typeof directorCycles.$inferSelect;
 export type PiSessionRow = typeof piSessions.$inferSelect;
 export type NewPiSessionRow = typeof piSessions.$inferInsert;

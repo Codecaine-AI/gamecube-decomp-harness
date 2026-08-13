@@ -12,6 +12,7 @@ import type {
   ProjectSessionBlocker,
   ProjectSessionRecord,
   RecordEpochCompletedInput,
+  RecordRemoteApplicationInput,
   RecordSavePointAnchorInput,
   RecordSavePointFailureInput,
   SessionTimelineEntry,
@@ -38,6 +39,21 @@ type EpochBoundaryRunRow = {
   revision: number;
 };
 
+type RemoteApplicationRunRow = EpochBoundaryRunRow & {
+  remote_application_ids_json: string;
+  trace_id: string | null;
+};
+
+type BoundaryEventRow = {
+  event_id: string;
+  event_type: string;
+  project_id: string;
+  subject_kind: string;
+  subject_id: string;
+  correlation_id: string;
+  trace_id: string;
+};
+
 function requiredText(value: string, label: string): string {
   const normalized = value.trim();
   if (!normalized) throw new Error(`${label} is required`);
@@ -52,6 +68,28 @@ function verifyRunCommitExists(run: EpochBoundaryRunRow, commitSha: string): voi
   if (result.exitCode !== 0) {
     throw new Error(`Epoch integration commit ${commitSha} does not exist in the repository for run ${runId}`);
   }
+}
+
+function verifyRemoteApplicationCommit(repoRoot: string | null | undefined, commitSha: string): void {
+  const normalizedRoot = repoRoot?.trim();
+  if (!normalizedRoot) throw new Error("repositoryRoot is required for remote-application commit verification");
+  const result = quietGit(normalizedRoot, ["cat-file", "-e", `${commitSha}^{commit}`]);
+  if (result.exitCode !== 0) {
+    throw new Error(`Remote-application commit ${commitSha} does not exist in ${normalizedRoot}`);
+  }
+}
+
+function stringListJson(value: string, label: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch (error) {
+    throw new Error(`Invalid ${label}`, { cause: error });
+  }
+  if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string" || entry.trim() === "")) {
+    throw new Error(`Invalid ${label}`);
+  }
+  return parsed;
 }
 
 /** Resolve an epoch boundary through its run before any durable write occurs. */
@@ -281,6 +319,131 @@ export function recordEpochCompletedInTransaction(
 
 export function recordEpochCompleted(store: StateStore, input: RecordEpochCompletedInput): SessionTimelineEntry {
   return immediateTransaction(store.db, () => recordEpochCompletedInTransaction(store.db, input));
+}
+
+/**
+ * Records a published remote application inside the caller's publication
+ * transaction. The existing sync.boundary_published event advances the
+ * session envelope and causes the timeline entry. When a run is attached,
+ * this writer appends one run.remote_applied event and uses it for the run CAS.
+ */
+export function recordRemoteApplicationInTransaction(
+  db: Database,
+  input: RecordRemoteApplicationInput,
+): SessionTimelineEntry {
+  if (!db.inTransaction) {
+    throw new Error("recordRemoteApplicationInTransaction requires an active transaction");
+  }
+  const remoteApplicationId = requiredText(input.remoteApplicationId, "remoteApplicationId");
+  const boundaryEventId = requiredText(input.boundaryEventId, "boundaryEventId");
+  const syncId = requiredText(input.syncId, "syncId");
+  const priorHead = requiredText(input.priorHead, "priorHead");
+  const newHead = requiredText(input.newHead, "newHead");
+  const session = selectSession(db, input);
+  if (session.status !== "active" && session.status !== "blocked") {
+    throw new Error(`Project session ${session.session_uuid} cannot accept a remote application while ${session.status}`);
+  }
+  if (session.head_revision !== priorHead) {
+    throw new Error(
+      `Remote-application prior head mismatch for ${session.session_uuid}: expected ${session.head_revision ?? "none"}, received ${priorHead}`,
+    );
+  }
+  const boundary = db
+    .query(
+      `SELECT event_id, event_type, project_id, subject_kind, subject_id, correlation_id, trace_id
+       FROM project_events WHERE event_id = ?`,
+    )
+    .get(boundaryEventId) as BoundaryEventRow | null;
+  if (!boundary) throw new Error(`Boundary event ${boundaryEventId} does not exist`);
+  if (
+    boundary.event_type !== "sync.boundary_published" ||
+    boundary.project_id !== session.project_id ||
+    boundary.subject_kind !== "sync" ||
+    boundary.subject_id !== syncId
+  ) {
+    throw new Error(`Boundary event ${boundaryEventId} does not match sync ${syncId} for ${session.project_id}`);
+  }
+
+  const activeRunId = session.active_run_id;
+  if (input.runId !== undefined && input.runId !== activeRunId) {
+    throw new Error(
+      `Remote-application run mismatch for ${session.session_uuid}: expected ${activeRunId ?? "none"}, received ${input.runId ?? "none"}`,
+    );
+  }
+  const run = activeRunId
+    ? (db
+        .query(
+          `SELECT id, project_id, project_repo_root, session_uuid, revision, remote_application_ids_json, trace_id
+           FROM runs WHERE id = ?`,
+        )
+        .get(activeRunId) as RemoteApplicationRunRow | null)
+    : null;
+  if (activeRunId && !run) throw new Error(`Active run ${activeRunId} does not exist for remote application`);
+  if (run && (run.project_id !== session.project_id || run.session_uuid !== session.session_uuid)) {
+    throw new Error(`Run/session mismatch for remote application: ${run.id} does not belong to ${session.session_uuid}`);
+  }
+  const repositoryRoot = input.repositoryRoot?.trim() || run?.project_repo_root;
+  verifyRemoteApplicationCommit(repositoryRoot, newHead);
+
+  const resolvedConflicts = input.resolvedConflicts.map((path) => requiredText(path, "resolved conflict path"));
+  const occurredAt = input.occurredAt ?? currentTime();
+  const payload: JsonObject = {
+    ...(input.payload ?? {}),
+    remote_application_id: remoteApplicationId,
+    sync_id: syncId,
+    prior_head: priorHead,
+    new_head: newHead,
+    resolved_conflicts: resolvedConflicts,
+    score_delta: input.scoreDelta ?? null,
+  };
+  const entry = insertTimelineEntry(db, {
+    sessionUuid: session.session_uuid,
+    entryKind: "remote_application",
+    entryId: remoteApplicationId,
+    occurredAt,
+    payload,
+    eventId: boundaryEventId,
+  });
+  updateEnvelope(db, session, boundaryEventId, occurredAt, "head_revision = ?, save_point_stale = 1", [newHead]);
+
+  if (run) {
+    const remoteApplicationIds = stringListJson(
+      run.remote_application_ids_json,
+      `remote_application_ids_json for run ${run.id}`,
+    );
+    if (remoteApplicationIds.includes(remoteApplicationId)) {
+      throw new Error(`Run ${run.id} already references remote application ${remoteApplicationId}`);
+    }
+    const runEvent = appendProjectEvent(db, {
+      actor: input.actor,
+      causationId: boundaryEventId,
+      correlationId: input.correlationId ?? boundary.correlation_id,
+      eventType: "run.remote_applied",
+      occurredAt,
+      payload,
+      projectId: session.project_id,
+      spanId: input.spanId ?? `span-${randomUUID()}`,
+      subjectId: run.id,
+      subjectKind: "run",
+      traceId: run.trace_id?.trim() || session.trace_id || boundary.trace_id,
+    });
+    const accepted = casRunEnvelope(db, {
+      eventId: runEvent.eventId,
+      expectedRevision: Number(run.revision),
+      headRevision: newHead,
+      remoteApplicationIdsJson: JSON.stringify([...remoteApplicationIds, remoteApplicationId]),
+      runId: run.id,
+    });
+    if (!accepted) throw new Error(`Stale run revision ${run.revision} for ${run.id}`);
+  }
+  return entry;
+}
+
+export function recordRemoteApplication(
+  store: StateStore,
+  input: RecordRemoteApplicationInput,
+): SessionTimelineEntry {
+  return immediateTransaction(store.db, () => recordRemoteApplicationInTransaction(store.db, input));
 }
 
 export function recordSavePointAnchor(

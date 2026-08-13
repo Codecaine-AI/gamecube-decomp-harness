@@ -5,6 +5,7 @@ import { appendProjectEvent, type JsonObject, type ProjectEventInput } from "./e
 import type {
   BeginDrainInput,
   Blocker,
+  CancelDispatchRequestInput,
   DispatchLease,
   DispatchRecoveryResult,
   HeartbeatDispatchInput,
@@ -373,6 +374,40 @@ export function beginDrain(store: StateStore, input: BeginDrainInput): ProjectSt
       },
     });
     return updateRevision(store, state, event.eventId, at, { activeWorkflow: draining });
+  });
+}
+
+/**
+ * Removes a queued workflow that the operator cancelled before it acquired
+ * authority. A run already draining for that handoff remains draining, but
+ * settles without promoting the cancelled target.
+ */
+export function cancelDispatchRequest(store: StateStore, input: CancelDispatchRequestInput): ProjectState {
+  return immediateTransaction(store.db, () => {
+    const state = requireState(store, input.projectId);
+    assertProject(state, input.projectId);
+    const queuedRequests = state.queued_dispatch_requests.filter(
+      (request) => !(request.kind === input.kind && request.workflow_id === input.workflowId),
+    );
+    const handoffMatches = state.active_workflow?.requested_handoff?.target_kind === input.kind &&
+      state.active_workflow.requested_handoff.target_workflow_id === input.workflowId;
+    if (queuedRequests.length === state.queued_dispatch_requests.length && !handoffMatches) return state;
+    const activeWorkflow = handoffMatches && state.active_workflow
+      ? { ...state.active_workflow, requested_handoff: undefined }
+      : state.active_workflow;
+    const at = input.now ?? currentTime();
+    const event = appendEvent(store, state, input, at, {
+      eventType: "project.dispatch_request_cancelled",
+      subjectKind: input.kind,
+      subjectId: input.workflowId,
+      payload: {
+        kind: input.kind,
+        workflow_id: input.workflowId,
+        reason: input.reason,
+        cleared_handoff: handoffMatches,
+      },
+    });
+    return updateRevision(store, state, event.eventId, at, { activeWorkflow, queuedRequests });
   });
 }
 

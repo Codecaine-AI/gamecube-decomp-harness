@@ -6,7 +6,6 @@ import type { processView } from "@/lib/processView";
 
 export type DashboardAction =
   | "refresh"
-  | "sync"
   | "syncGit"
   | "indexPrs"
   | "calculateBaseline"
@@ -21,6 +20,12 @@ export type DashboardAction =
   | "runHardStop"
   | "runCancel"
   | "runRecover"
+  | "syncStart"
+  | "syncResolveConflict"
+  | "syncPublish"
+  | "syncCancel"
+  | "syncRecover"
+  | "syncRevalidate"
   | "start"
   | "startWork"
   | "finishEpoch"
@@ -104,6 +109,64 @@ export interface ProjectStateRunReadModel {
   recovery_points: ProjectStateRunRecoveryPoint[];
 }
 
+export type ProjectStateSyncStatus =
+  | "requested"
+  | "ingesting"
+  | "reconciling"
+  | "validating"
+  | "validated"
+  | "publishing"
+  | "published"
+  | "blocked"
+  | "cancelled";
+
+export interface ProjectStateSyncReadModel {
+  workflow_id: string;
+  status: ProjectStateSyncStatus;
+  blockers: ProjectStateBlocker[];
+  intake: {
+    upstream_from: string;
+    upstream_to: string;
+    merged_pr_count: number;
+    corpus_batches: string[];
+    knowledge_only: boolean;
+  };
+  staging: {
+    epochs_applied: number;
+    epochs_total: number;
+    minor_auto_resolved_count: number;
+    conflicts_awaiting_operator: number;
+    conflicts: string[];
+  } | null;
+  pr_reconciliation: {
+    total: number;
+    clean: number;
+    auto_resolved: number;
+    needs_operator: number;
+    pushed: number;
+    pending_pushes: number;
+  };
+  publish_preview: {
+    prior_head: string;
+    new_head: string;
+    series_pushes: number;
+  };
+  publication: {
+    remote_application_id?: string;
+    prior_head: string;
+    new_head: string;
+    knowledge_revision: string;
+    invalidated_ids: string[];
+  } | null;
+  staleness: {
+    stale: boolean;
+    validated_upstream: string | null;
+    observed_upstream: string | null;
+    blocker: ProjectStateBlocker | null;
+    revalidate_action_id: "sync.cancel" | null;
+  };
+}
+
 export interface ProjectStateDispatchHandoff {
   target_kind: "run" | "pr" | "sync";
   target_workflow_id: string;
@@ -164,6 +227,7 @@ export interface ProjectStateReadModel {
   queued_dispatch_requests: ProjectStateQueuedDispatchRequest[];
   session: ProjectStateSessionReadModel | null;
   run: ProjectStateRunReadModel | null;
+  sync: ProjectStateSyncReadModel | null;
   latest_event_sequence: number;
   available_actions: ProjectStateActionProjection[];
 }

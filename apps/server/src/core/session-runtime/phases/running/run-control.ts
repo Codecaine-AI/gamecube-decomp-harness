@@ -25,6 +25,7 @@ import {
   transitionRun,
   type StateStore,
 } from "@server/core/session-runtime/run-state";
+import { activateAcquiredSync } from "@server/core/session-runtime/phases/sync/activation.js";
 import type { RunBlocker, RunRecord } from "@server/core/shared/types";
 
 interface ConfirmedRunControlInput {
@@ -264,6 +265,16 @@ export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
     });
     if (released.active_workflow?.kind === "run" && released.active_workflow.workflow_id === original.id) {
       throw new RunControlBlockedError(`Run ${original.id} dispatch lease could not be released`, ["dispatch_release_blocked"]);
+    }
+    if (released.active_workflow?.kind === "sync") {
+      activateAcquiredSync({
+        store: input.store,
+        projectId: requireProjectId(original),
+        syncId: released.active_workflow.workflow_id,
+        leaseId: released.active_workflow.lease_id,
+        commandId: `${operationCommandId}:sync-started`,
+        correlationId: released.active_workflow.workflow_id,
+      });
     }
     const run = transitionRun(input.store, original.id, {
       actor: input.actor ?? "guardian",

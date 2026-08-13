@@ -43,6 +43,19 @@
         "psa-authority-heading",
         "psa-authority-body",
         "psa-authority-outline",
+        "psa-sync-knowledge-decision",
+        "psa-sync-knowledge-why-heading",
+        "psa-sync-knowledge-lead",
+        "psa-sync-knowledge-observation",
+        "psa-sync-knowledge-handoff",
+        "psa-sync-knowledge-sources",
+        "psa-sync-staging-decision",
+        "psa-sync-staging-why-heading",
+        "psa-sync-staging-lead",
+        "psa-sync-staging-cancel",
+        "psa-sync-staging-conflicts",
+        "psa-sync-staging-publish",
+        "psa-sync-staging-knowledge-only",
         "psa-implemented-heading",
         "psa-implemented-lead",
         "psa-implemented-schema",
@@ -87,6 +100,10 @@
         "psa-pr-ui-ship",
         "psa-pr-ui-blocker",
         "psa-pr-ui-remote",
+        "psa-sync-ui-lead",
+        "psa-sync-ui-status",
+        "psa-sync-ui-staging",
+        "psa-sync-ui-publish",
         "psa-workflow-ui-tail",
         "psa-invariants-heading",
         "psa-invariant-policy",
@@ -106,7 +123,7 @@
       "props": {},
       "text": [
         {
-          "insert": "ProjectSession is the durable project-scoped container for one worktree, its baseline, and every head revision derived from that baseline. Run, PR campaign, and sync are child workflows whose durable states remain visible whether or not they hold the dispatch lease. The session timeline makes head lineage and evidence inspectable from the baseline sync that opens the session until an explicit operator action closes it."
+          "insert": "ProjectSession is the durable project-scoped container for one canonical worktree, its baseline, and every head revision derived from that baseline. Run, PR campaign, and sync are child workflows whose durable states remain visible whether or not they hold the dispatch lease. Sync is the operator-initiated intake-and-reconciliation workflow: observation records a request without starting work, staging prepares a candidate boundary outside the session, and publication is the only point that can change session lineage."
         }
       ],
       "children": []
@@ -202,7 +219,7 @@
                             "text": "archived artifacts"
                           },
                           {
-                            "text": "merged PR intake records"
+                            "text": "sync request and publication records"
                           }
                         ]
                       }
@@ -222,7 +239,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The project is the stable object an operator opens, so it answers what is configured and available before it answers which workflow may act. A project retains many historical sessions but exposes at most one active ProjectSession. The dispatch lease belongs beside that session state because authority changes among child workflows without changing the session that owns the worktree."
+          "insert": "The project is the stable object an operator opens, so it answers what is configured and available before it answers which workflow may act. A project retains many historical sessions but exposes at most one active ProjectSession. The dispatch lease belongs beside that session state because authority changes among child workflows without changing the session that owns the canonical worktree. A requested sync is durable project state, while its reconciliation workspace remains isolated from the session until publication."
         }
       ],
       "children": []
@@ -319,7 +336,7 @@
       "props": {},
       "text": [
         {
-          "insert": "ProjectSession owns the state shared across runs, PR campaigns, and syncs: the worktree, the immutable opening baseline, the current head_revision, and the ordered explanation of how work reached that head. Each child workflow owns its own detailed status and records its identity on the session. This split keeps between-run sync lineage durable without turning a run or PR campaign into the container for the entire project timeline."
+          "insert": "ProjectSession owns the state shared across runs, PR campaigns, and syncs: the canonical worktree, the immutable opening baseline, the current head_revision, and the ordered explanation of how work reached that head. Sync references this lineage but prepares source reconciliation in an isolated staging worktree, so the session worktree, head, and timeline remain untouched before publish. Each child workflow owns its detailed status and records its identity on the session. This split keeps between-run sync lineage durable without turning a run, PR campaign, or staging workspace into the container for the project timeline."
         }
       ],
       "children": []
@@ -384,7 +401,7 @@
       },
       "text": [
         {
-          "insert": "The sync workflow contract owns the remote_application boundary that reconciles the shared head, including syncs with no active run."
+          "insert": "The sync workflow owns the remote_application boundary that atomically publishes a staged source reconciliation into the shared head, including syncs with no active run; a knowledge-only sync records no remote_application."
         }
       ],
       "children": []
@@ -460,7 +477,7 @@
       },
       "text": [
         {
-          "insert": "remote_application is the head-advancing entry reserved for the sync contract's atomic publish."
+          "insert": "remote_application advances head only when sync publishes a staged source reconciliation; a knowledge-only publish leaves source lineage unchanged."
         }
       ],
       "children": []
@@ -497,33 +514,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The session container records epoch_completed atomically with its integration commit and records save_point evidence against existing commits. The "
-        },
-        {
-          "insert": "PR-campaign workflow",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "docs/40-new-features/20-project-state-and-events/40-pr-campaign/doc.json",
-              "label": "PR-campaign workflow"
-            }
-          }
-        },
-        {
-          "insert": " and "
-        },
-        {
-          "insert": "sync workflow",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "docs/40-new-features/20-project-state-and-events/50-sync/doc.json",
-              "label": "sync workflow"
-            }
-          }
-        },
-        {
-          "insert": " pages in Project State and Events remain the writer contracts for pr_phase and remote_application during workflow ownership outside the session runtime. A save-point hook never blocks the triggering boundary, but failure raises a durable session blocker and marks the evidence stale."
+          "insert": "The session container records epoch_completed atomically with its integration commit and records save_point evidence against existing commits. During sync publishing, one durable transaction records the remote_application entry, advances head and the monotonic knowledge revision, and records invalidations; reconciled PR branches remain part of the publishing state until their pushes finish. A source-changing publish then records a boundary save-point anchor at the published head. A save-point hook never blocks its triggering boundary, but failure raises a durable session blocker and marks the evidence stale."
         }
       ],
       "children": []
@@ -547,7 +538,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Run, PR campaign, and sync remain durable child workflows throughout the session. Exactly zero or one is the active workflow holding the dispatch lease, which permits worker dispatch and mutation of that workflow's allowed checkout surfaces. Releasing or handing off the lease changes authority without erasing inactive workflow state or closing ProjectSession."
+          "insert": "Run, PR campaign, and sync remain durable child workflows throughout the session. Exactly zero or one is the active workflow holding the dispatch lease, which permits worker dispatch and mutation of that workflow's allowed checkout surfaces. Observation can create a requested sync but cannot start intake or reconciliation. The operator's sync start requests dispatch authority; when Run is active, the same action queues the sync and begins Run's explicit drain handoff. Sync activates only after that handoff releases the lease."
         }
       ],
       "children": []
@@ -561,6 +552,9 @@
             "text": "ProjectSession",
             "steps": [
               {
+                "text": "observation may record a requested sync without starting it"
+              },
+              {
                 "text": "dispatch lease",
                 "steps": [
                   {
@@ -570,7 +564,7 @@
                     "text": "PR campaign may become the active workflow"
                   },
                   {
-                    "text": "sync may become the active workflow"
+                    "text": "operator-started sync may acquire after an explicit handoff"
                   }
                 ]
               },
@@ -584,6 +578,175 @@
           }
         ]
       },
+      "children": []
+    },
+    "psa-sync-knowledge-decision": {
+      "id": "psa-sync-knowledge-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-11) — knowledge intake folds into sync",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Worker-result evidence is the only always-on knowledge input. Merged-PR evidence, staged corpora, and every other knowledge source enter through operator-started sync; no standalone knowledge_intake workflow holds dispatch authority."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-knowledge-why-heading": {
+      "id": "psa-sync-knowledge-why-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Why Knowledge Intake Uses Sync"
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-knowledge-lead": {
+      "id": "psa-sync-knowledge-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync is the single intake boundary for evidence that can change source truth or the knowledge derived from it, so observation, authority, and reconciliation remain distinct:"
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-knowledge-observation": {
+      "id": "psa-sync-knowledge-observation",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Observation records the upstream revision, merged PR identities, staged corpus batches, and a requested sync. It does not acquire the lease or begin processing."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-knowledge-handoff": {
+      "id": "psa-sync-knowledge-handoff",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The operator starts sync. If Run owns dispatch, that action queues the sync request and begins Run's explicit drain handoff before sync can ingest."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-knowledge-sources": {
+      "id": "psa-sync-knowledge-sources",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Folding merged-PR and corpus intake into the same workflow gives source reconciliation and its derived knowledge one ordering boundary instead of two competing paths."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-staging-decision": {
+      "id": "psa-sync-staging-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — sync reconciles in staging and publishes atomically",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Sync never mutates the session worktree in place. Reconciliation occurs in isolated staging, and the confirm-gated publish boundary advances the session and its dependent records as one recoverable workflow."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-staging-why-heading": {
+      "id": "psa-sync-staging-why-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Why Sync Stages Before Publishing"
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-staging-lead": {
+      "id": "psa-sync-staging-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync separates preparation from commitment so the operator can inspect or abandon a complete candidate without repairing the active session. Its nine statuses are requested, ingesting, reconciling, validating, validated, publishing, published, blocked, and cancelled; validated is the resting state before the point of no return."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-staging-cancel": {
+      "id": "psa-sync-staging-cancel",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Reconciliation and validation use isolated staging worktrees. Cancellation before publishing discards them and verifies that the session head and working bytes are unchanged."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-staging-conflicts": {
+      "id": "psa-sync-staging-conflicts",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Mechanical conflicts can resolve in staging. Any conflict beyond confident mechanical resolution moves sync to blocked and preserves staging for operator action."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-staging-publish": {
+      "id": "psa-sync-staging-publish",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The operator's confirmed publish action moves validated to publishing. Publishing performs the non-fast-forward session repoint, transactionally records remote_application, head, the knowledge revision, and invalidations, pushes reconciled PR branches, and anchors the published boundary with a save point."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-staging-knowledge-only": {
+      "id": "psa-sync-staging-knowledge-only",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A knowledge-only pass skips source staging and remote_application publication. It advances only the monotonic knowledge revision."
+        }
+      ],
       "children": []
     },
     "psa-implemented-heading": {
@@ -605,7 +768,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The current server persists its project-session workflow projection in the SQLite project_sessions table. This projection does not replace detailed Run, PR campaign, save-point, process, or kernel trace records, and the durable ProjectSession contract remains the owner of worktree lineage and head_revision."
+          "insert": "The server persists the shared project-session workflow projection in the SQLite project_sessions table and persists sync's independent state and publication records beside it. The project_sessions projection does not replace detailed Run, PR campaign, sync, save-point, process, or kernel trace records, and the durable ProjectSession contract remains the owner of canonical worktree lineage and head_revision."
         }
       ],
       "children": []
@@ -747,7 +910,7 @@
       },
       "text": [
         {
-          "insert": "apps/server/src/core/session-runtime/ owns the thin phase dispatcher and the preparing, running, PR, and complete runtime modules."
+          "insert": "apps/server/src/core/session-runtime/ owns the phase dispatcher and the preparing, running, PR, complete, and sync runtime modules. Its sync boundary owns the nine-status state machine, operator activation and Run handoff, staged knowledge, isolated reconciliation, validation, cancellation and recovery, and confirm-gated publication."
         }
       ],
       "children": []
@@ -819,9 +982,6 @@
                     "text": "epoch integrations advance head through epoch_completed entries"
                   },
                   {
-                    "text": "the sync workflow contract advances head through remote_application entries"
-                  },
-                  {
                     "text": "PR campaigns derive review branches from confirmed slices",
                     "steps": [
                       {
@@ -834,6 +994,37 @@
                         "text": "draft PR branch C"
                       }
                     ]
+                  }
+                ]
+              },
+              {
+                "text": "isolated sync staging",
+                "steps": [
+                  {
+                    "text": "rebase session history onto the observed upstream"
+                  },
+                  {
+                    "text": "rebase open PR series in separate staging worktrees"
+                  },
+                  {
+                    "text": "validate the reconciled candidate while the session stays untouched"
+                  }
+                ]
+              },
+              {
+                "text": "confirm-gated sync publication",
+                "steps": [
+                  {
+                    "text": "non-fast-forward session worktree repoint"
+                  },
+                  {
+                    "text": "transactional remote_application, head, knowledge revision, and invalidations"
+                  },
+                  {
+                    "text": "PR-branch pushes while sync remains publishing"
+                  },
+                  {
+                    "text": "boundary save-point anchor at the published head"
                   }
                 ]
               }
@@ -849,7 +1040,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The session worktree is the shared source workbench. When merge-on-finish is enabled, each hard-gate-passing worker result is applied serially as a tentative integration so later workers inherit session ancestry; the flag defaults off. An epoch boundary confirms a clean window or reverts and marks a blamed regression, then publishes its commit and epoch_completed entry transactionally. PR campaigns package confirmed slices into persistent local worktrees before bounded draft publication, while the sync workflow contract owns reconciliation and remote_application publication against the same session lineage."
+          "insert": "The session worktree is the shared source workbench for Run and PR activity. Sync never reconciles in that worktree: it rebases the session history and each open PR series in isolated staging worktrees, then validates the candidate while the session remains byte-identical. Cancellation before publish discards staging and leaves the session exactly as it was. Confirm-gated publication performs the non-fast-forward repoint and durable boundary work, while conflicts beyond mechanical auto-resolution block in staging for the operator."
         }
       ],
       "children": []
@@ -873,7 +1064,7 @@
       "props": {
         "steps": [
           {
-            "text": "baseline sync opens ProjectSession and re-anchors its worktree"
+            "text": "baseline capture opens ProjectSession and anchors its worktree"
           },
           {
             "text": "Run acquires the dispatch lease",
@@ -885,13 +1076,7 @@
                 "text": "workers produce scoped validation"
               },
               {
-                "text": "epoch boundary confirms or regresses tentative integrations"
-              },
-              {
                 "text": "epoch_completed advances session head transactionally"
-              },
-              {
-                "text": "Run drains and releases the lease"
               }
             ]
           },
@@ -899,13 +1084,7 @@
             "text": "PR campaign activation acquires the dispatch lease",
             "steps": [
               {
-                "text": "split the confirmed ship set into PR slices"
-              },
-              {
-                "text": "run QA, repair, and preship review"
-              },
-              {
-                "text": "prepare local PR worktrees"
+                "text": "prepare and validate review slices"
               },
               {
                 "text": "publish bounded draft batches"
@@ -916,16 +1095,42 @@
             ]
           },
           {
-            "text": "sync acquires the dispatch lease when reconciliation is requested",
+            "text": "observation records a requested sync without starting work"
+          },
+          {
+            "text": "operator starts sync",
             "steps": [
               {
-                "text": "stage and validate upstream application"
+                "text": "queue the dispatch request"
               },
               {
-                "text": "follow the sync contract for atomic remote_application and head publication"
+                "text": "if Run is active, begin its explicit drain handoff"
               },
               {
-                "text": "release the lease"
+                "text": "activate sync only after it acquires the released lease"
+              }
+            ]
+          },
+          {
+            "text": "sync executes",
+            "steps": [
+              {
+                "text": "ingest merged-PR evidence and staged corpora"
+              },
+              {
+                "text": "reconcile and validate in isolated staging"
+              },
+              {
+                "text": "block for the operator on conflicts beyond mechanical auto-resolution"
+              },
+              {
+                "text": "rest at validated until the operator confirms publish"
+              },
+              {
+                "text": "publish the source, knowledge, invalidation, PR-branch, and save-point boundary"
+              },
+              {
+                "text": "release the dispatch lease"
               }
             ]
           },
@@ -942,7 +1147,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Workflow handoffs do not impose a one-way run-to-PR sequence. A PR campaign can remain durable in review while Run or sync later holds the dispatch lease. Completing or pausing Run still stops new autonomous source changes from that workflow, and PR publication remains an explicit bounded action against confirmed work."
+          "insert": "Workflow handoffs do not impose a one-way run-to-PR sequence. A PR campaign can remain durable in review while Run or sync later holds the dispatch lease. Sync can also run as a knowledge-only pass: it skips source reconciliation and advances only the monotonic knowledge revision. Source-changing syncs leave the session untouched until confirmed publication, so a pre-publish cancel is a discard of staging rather than a rollback of session work."
         }
       ],
       "children": []
@@ -981,7 +1186,7 @@
       },
       "text": [
         {
-          "insert": "No automatic transition closes ProjectSession. The prior session must close before a baseline sync opens its successor with a freshly re-anchored worktree."
+          "insert": "No automatic transition closes ProjectSession. The prior session must close before its successor opens on a freshly captured baseline."
         }
       ],
       "children": []
@@ -1135,7 +1340,18 @@
                 "text": "PR campaign workspace"
               },
               {
-                "text": "sync workspace"
+                "text": "sync workspace",
+                "steps": [
+                  {
+                    "text": "requested intake and dispatch handoff"
+                  },
+                  {
+                    "text": "staging, conflicts, and validation evidence"
+                  },
+                  {
+                    "text": "confirm-gated publish and cancellation actions"
+                  }
+                ]
               },
               {
                 "text": "Session History"
@@ -1270,6 +1486,56 @@
       ],
       "children": []
     },
+    "psa-sync-ui-lead": {
+      "id": "psa-sync-ui-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "When sync holds the dispatch lease, its work surface answers the boundary questions that decide whether staged reconciliation may publish:"
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-ui-status": {
+      "id": "psa-sync-ui-status",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Which of the nine statuses is active, what intake the operator requested, and whether Run is still completing its drain handoff."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-ui-staging": {
+      "id": "psa-sync-ui-staging",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Which staging worktrees and validation evidence form the candidate, and which conflict identities require operator resolution."
+        }
+      ],
+      "children": []
+    },
+    "psa-sync-ui-publish": {
+      "id": "psa-sync-ui-publish",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Whether validated is fresh enough to publish, and whether the next action is confirmed publication or pre-publish cancellation."
+        }
+      ],
+      "children": []
+    },
     "psa-workflow-ui-tail": {
       "id": "psa-workflow-ui-tail",
       "type": "paragraph",
@@ -1315,7 +1581,7 @@
       },
       "text": [
         {
-          "insert": "ProjectSession is the canonical owner of the project worktree and head_revision; child workflows reference that shared lineage rather than replacing it."
+          "insert": "ProjectSession is the canonical owner of the project worktree and head_revision; sync staging is an isolated proposal and cannot replace either before publish."
         }
       ],
       "children": []
@@ -1328,7 +1594,7 @@
       },
       "text": [
         {
-          "insert": "The timeline reserves head advancement for epoch_completed and remote_application. The session container records epoch_completed transactionally, while the sync workflow contract owns the corresponding remote_application atomicity."
+          "insert": "The timeline reserves head advancement for epoch_completed and remote_application. Sync publishing owns the non-fast-forward worktree repoint, the transaction that records remote_application, head, knowledge revision, and invalidations, and the reconciled PR-branch pushes that must finish before published."
         }
       ],
       "children": []
@@ -1341,7 +1607,7 @@
       },
       "text": [
         {
-          "insert": "A save point is pinned to an existing commit, never creates one, and exposes failure through both a session blocker and an evidence-staleness flag."
+          "insert": "A source-changing sync publish records a boundary save-point anchor at the published commit. Before publish, cancellation discards staging and leaves the session byte-identical."
         }
       ],
       "children": []
@@ -1354,7 +1620,7 @@
       },
       "text": [
         {
-          "insert": "Run, PR campaign, and sync state remain durable while inactive; the dispatch lease alone determines which workflow may dispatch agents and mutate its allowed checkout surfaces."
+          "insert": "Run, PR campaign, and sync state remain durable while inactive; the dispatch lease alone determines which workflow may act. A knowledge-only sync advances only the monotonic knowledge revision and records no source boundary."
         }
       ],
       "children": []

@@ -8,6 +8,7 @@ import type {
   ProjectStateRunRecoveryPoint,
   ProjectStateRunSchedulerCondition,
   ProjectStateRunStatus,
+  ProjectStateSyncStatus,
   SessionView,
 } from "./types";
 
@@ -118,8 +119,16 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
   const requestedHandoffRaw = asObject(activeWorkflowRaw.requested_handoff);
   const sessionRaw = asObject(raw.session);
   const runRaw = asObject(raw.run);
+  const syncRaw = asObject(raw.sync);
   const activeEpochRaw = asObject(runRaw.active_epoch);
   const progressRaw = asObject(runRaw.progress);
+  const syncIntakeRaw = asObject(syncRaw.intake);
+  const syncStagingRaw = asObject(syncRaw.staging);
+  const syncPrRaw = asObject(syncRaw.pr_reconciliation);
+  const syncPublishPreviewRaw = asObject(syncRaw.publish_preview);
+  const syncPublicationRaw = asObject(syncRaw.publication);
+  const syncStalenessRaw = asObject(syncRaw.staleness);
+  const syncStalenessBlockerRaw = asObject(syncStalenessRaw.blocker);
   const latestSavePointRaw = asObject(sessionRaw.latest_save_point);
   const activeWorkflow = Object.keys(activeWorkflowRaw).length > 0
     ? {
@@ -212,6 +221,65 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
       }
     : null;
 
+  const sync = Object.keys(syncRaw).length > 0
+    ? {
+        workflow_id: text(syncRaw.workflow_id),
+        status: text(syncRaw.status) as ProjectStateSyncStatus,
+        blockers: asArray(syncRaw.blockers).map(projectStateBlocker),
+        intake: {
+          upstream_from: text(syncIntakeRaw.upstream_from),
+          upstream_to: text(syncIntakeRaw.upstream_to),
+          merged_pr_count: numberValue(syncIntakeRaw.merged_pr_count),
+          corpus_batches: asArray(syncIntakeRaw.corpus_batches).map((id) => text(id)).filter(Boolean),
+          knowledge_only: booleanValue(syncIntakeRaw.knowledge_only),
+        },
+        staging: Object.keys(syncStagingRaw).length > 0
+          ? {
+              epochs_applied: numberValue(syncStagingRaw.epochs_applied),
+              epochs_total: numberValue(syncStagingRaw.epochs_total),
+              minor_auto_resolved_count: numberValue(syncStagingRaw.minor_auto_resolved_count),
+              conflicts_awaiting_operator: numberValue(syncStagingRaw.conflicts_awaiting_operator),
+              conflicts: asArray(syncStagingRaw.conflicts).map((path) => text(path)).filter(Boolean),
+            }
+          : null,
+        pr_reconciliation: {
+          total: numberValue(syncPrRaw.total),
+          clean: numberValue(syncPrRaw.clean),
+          auto_resolved: numberValue(syncPrRaw.auto_resolved),
+          needs_operator: numberValue(syncPrRaw.needs_operator),
+          pushed: numberValue(syncPrRaw.pushed),
+          pending_pushes: numberValue(syncPrRaw.pending_pushes),
+        },
+        publish_preview: {
+          prior_head: text(syncPublishPreviewRaw.prior_head),
+          new_head: text(syncPublishPreviewRaw.new_head),
+          series_pushes: numberValue(syncPublishPreviewRaw.series_pushes),
+        },
+        publication: Object.keys(syncPublicationRaw).length > 0
+          ? {
+              ...(text(syncPublicationRaw.remote_application_id)
+                ? { remote_application_id: text(syncPublicationRaw.remote_application_id) }
+                : {}),
+              prior_head: text(syncPublicationRaw.prior_head),
+              new_head: text(syncPublicationRaw.new_head),
+              knowledge_revision: text(syncPublicationRaw.knowledge_revision),
+              invalidated_ids: asArray(syncPublicationRaw.invalidated_ids).map((id) => text(id)).filter(Boolean),
+            }
+          : null,
+        staleness: {
+          stale: booleanValue(syncStalenessRaw.stale),
+          validated_upstream: text(syncStalenessRaw.validated_upstream) || null,
+          observed_upstream: text(syncStalenessRaw.observed_upstream) || null,
+          blocker: Object.keys(syncStalenessBlockerRaw).length > 0
+            ? projectStateBlocker(syncStalenessBlockerRaw)
+            : null,
+          revalidate_action_id: text(syncStalenessRaw.revalidate_action_id) === "sync.cancel"
+            ? "sync.cancel" as const
+            : null,
+        },
+      }
+    : null;
+
   return {
     revision: numberValue(raw.revision),
     active_workflow: activeWorkflow,
@@ -227,6 +295,7 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
     }),
     session,
     run,
+    sync,
     latest_event_sequence: numberValue(raw.latest_event_sequence),
     available_actions: asArray(raw.available_actions).map((value): ProjectStateActionProjection => {
       const action = asObject(value);

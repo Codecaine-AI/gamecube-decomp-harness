@@ -12,6 +12,7 @@ import type {
 import { casRunEnvelope, immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
 import { appendProjectEvent, type EventActor, type JsonObject } from "@server/core/project-state/events.js";
 import { getProjectState } from "@server/core/project-state/lease.js";
+import { latestPublishedKnowledgeRevision } from "@server/core/session-runtime/phases/sync/knowledge.js";
 
 type SqlValue = bigint | boolean | null | number | string | Uint8Array;
 
@@ -396,17 +397,18 @@ export function createRun(
     worker_configure_command: "",
   };
   const baseRevision = options.baseRevision?.trim() || session?.baseRevision || gitHead(project?.repoRoot) || "";
-  const inputs: RunInputs = {
-    base_revision: baseRevision,
-    policy_revision: policyRevisionForConfiguration(configurationSnapshot),
-    starting_knowledge_revision: startingKnowledgeRevision(project?.graphDbPath),
-    configuration_snapshot: configurationSnapshot,
-  };
   const createdAt = now();
   const traceId = `trace-run-${id}`;
   const actor = options.actor ?? "runner";
   const commandId = options.commandId ?? `command-run-create-${id}`;
   const run = immediateTransaction(store.db, () => {
+    const publishedKnowledge = latestPublishedKnowledgeRevision(store.db, projectId);
+    const inputs: RunInputs = {
+      base_revision: baseRevision,
+      policy_revision: policyRevisionForConfiguration(configurationSnapshot),
+      starting_knowledge_revision: publishedKnowledge?.revisionId ?? startingKnowledgeRevision(project?.graphDbPath),
+      configuration_snapshot: configurationSnapshot,
+    };
     const event = appendProjectEvent(store.db, {
       eventType: "run.drafted",
       projectId,
@@ -471,9 +473,9 @@ export function createRun(
     expectedRevision: run.revision,
     patch: { status: "ready" },
     payload: {
-      base_revision: inputs.base_revision,
-      policy_revision: inputs.policy_revision,
-      starting_knowledge_revision: inputs.starting_knowledge_revision,
+      base_revision: run.inputs!.base_revision,
+      policy_revision: run.inputs!.policy_revision,
+      starting_knowledge_revision: run.inputs!.starting_knowledge_revision,
     },
   });
 }

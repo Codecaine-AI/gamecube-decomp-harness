@@ -1,7 +1,6 @@
 import {
   Archive,
   Ban,
-  Database,
   GitPullRequest,
   ListTree,
   Play,
@@ -28,6 +27,7 @@ import type {
   WorkspaceNav,
 } from "@/pages/workspace/_lib/types";
 import { activeSessionFocus } from "@/pages/workspace/sessions/_lib/sessionRoute";
+import { SyncStateCard } from "@/pages/workspace/overview/SyncStateCard";
 
 function readinessRows(
   view: SessionView,
@@ -219,28 +219,10 @@ export function OverviewPage({
               >
                 Refresh
               </Button>
-              <Button
-                disabled={
-                  busy ||
-                  view.syncLocked ||
-                  view.process.running ||
-                  view.activeClaims > 0 ||
-                  view.operationActive
-                }
-                icon={<Database size={13} />}
-                onClick={() => onAction("sync")}
-                title={
-                  view.syncLocked
-                    ? "Sync is locked while the run is active."
-                    : "Pull upstream, intake merged PRs, and rebuild knowledge."
-                }
-                type="button"
-              >
-                Sync
-              </Button>
             </div>
           </div>
         </PanelSection>
+        <SyncStateCard busy={busy} onAction={onAction} projectState={view.projectState} />
       </div>
     </>
   );
