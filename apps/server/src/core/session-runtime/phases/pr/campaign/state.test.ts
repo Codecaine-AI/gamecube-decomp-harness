@@ -15,6 +15,7 @@ import {
   PR_SERIES_STATUSES,
   PR_WORK_ITEM_STATUSES,
   StalePrSeriesRevisionError,
+  getPrCampaign,
   isPrCampaignStatusTransitionAllowed,
   isPrSeriesStatusTransitionAllowed,
   openPrCampaign,
@@ -208,6 +209,31 @@ describe("PR campaign and series state", () => {
       });
     }
     expect(() => openCampaign(store, "pr-campaign-2")).toThrow("already has an open PR campaign");
+  });
+
+  test("rejects zero-series creation and prevents an adoption placeholder from completing empty", () => {
+    const store = fixture();
+    const input = {
+      actor: "operator" as const,
+      campaignId: "pr-campaign-empty",
+      commandId: "command-open-empty",
+      namedSavePointId: "save-point-1",
+      projectId: "melee",
+      sessionUuid: "session-1",
+    };
+    expect(() => openPrCampaign(store, input)).toThrow("requires at least one series");
+    expect(eventsForSubject(store.db, "pr_campaign", "pr-campaign-empty")).toEqual([]);
+
+    const placeholder = openPrCampaign(store, input, { allowEmptyForLegacyAdoption: true });
+    expect(() => transitionPrCampaign(store, placeholder.campaign_id, {
+      actor: "operator",
+      commandId: "command-close-empty",
+      eventType: "pr.campaign_closed",
+      expectedRevision: placeholder.revision,
+      patch: { status: "completed" },
+      payload: { outcome: "completed", per_series_terminal_summary: {} },
+    })).toThrow("cannot complete without series");
+    expect(getPrCampaign(store, placeholder.campaign_id)?.status).toBe("preparing");
   });
 
   test("rejects drifted, unnamed, dirty, and capture-failed save-point evidence without a campaign event", () => {

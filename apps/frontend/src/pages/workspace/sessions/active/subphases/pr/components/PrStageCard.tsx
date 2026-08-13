@@ -1,9 +1,26 @@
+import { createContext, useContext, type ReactNode } from "react";
 import { ExternalLink, GitPullRequest, Hammer } from "@/icons";
 import { num } from "@/lib/format";
 import { Button } from "@/components/primitives";
 import { compactFilePath, fileCountLabel, prettyStatus, statusClass } from "@/pages/workspace/_lib/model";
 import type { PrFlowRecord } from "@/pages/workspace/_lib/types";
 import { prLampTone, prStage, prSubStatus } from "./prStatus";
+
+const PrCampaignAuthorityContext = createContext(false);
+
+export function PrCampaignAuthorityProvider({
+  authoritative,
+  children,
+}: {
+  authoritative: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <PrCampaignAuthorityContext.Provider value={authoritative}>
+      {children}
+    </PrCampaignAuthorityContext.Provider>
+  );
+}
 
 export function PrStageCard({
   busy,
@@ -20,6 +37,7 @@ export function PrStageCard({
   onSetReviewState: (branch: string, subState: string) => void;
   record: PrFlowRecord;
 }) {
+  const campaignAuthoritative = useContext(PrCampaignAuthorityContext);
   const stage = prStage(record);
   const sub = prSubStatus(record);
   const blocked = record.status === "blocked" || record.localStatus === "blocked";
@@ -35,7 +53,7 @@ export function PrStageCard({
             ? "local"
             : "tracked";
   const canPrepare = stage === "planned" && Boolean(record.branch) && record.localStatus === "not_prepared";
-  const canOpen = stage === "prepared" && Boolean(record.branch) && record.localStatus !== "dirty";
+  const canOpen = !campaignAuthoritative && stage === "prepared" && Boolean(record.branch) && record.localStatus !== "dirty";
   const showValidation = record.validationStatus !== "not_run" || Boolean(record.ci);
   const inReview = stage === "review";
   const needsReviewAck = inReview && (record.reviewSubState === "new_comments" || record.reviewSubState === "changes_requested");

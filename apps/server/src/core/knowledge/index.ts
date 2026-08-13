@@ -39,7 +39,6 @@ export {
   type CurateKnowledgeOptions,
   type CurateKnowledgeResult,
 } from "./curator.js";
-export { resourceMap } from "./resources.js";
 export {
   globalStandardsContext,
   globalStandardsPromptXml,

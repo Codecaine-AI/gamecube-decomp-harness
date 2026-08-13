@@ -26,6 +26,14 @@ export type DashboardAction =
   | "syncCancel"
   | "syncRecover"
   | "syncRevalidate"
+  | "prOpenCampaign"
+  | "prActivate"
+  | "prPublishBatch"
+  | "prRelease"
+  | "prCloseCampaign"
+  | "prAbandonCampaign"
+  | "prCampaignRecover"
+  | "prAdoptLegacy"
   | "start"
   | "startWork"
   | "finishEpoch"
@@ -167,6 +175,81 @@ export interface ProjectStateSyncReadModel {
   };
 }
 
+export type ProjectStatePrCampaignStatus =
+  | "preparing"
+  | "in_review"
+  | "working"
+  | "completed"
+  | "abandoned";
+
+export type ProjectStatePrSeriesStatus =
+  | "prepared"
+  | "published"
+  | "changes_requested"
+  | "revising"
+  | "approved"
+  | "merged"
+  | "closed";
+
+export type ProjectStatePrWorkItemStatus = "pending" | "in_progress" | "resolved" | "declined";
+
+export interface ProjectStatePrWorkItem {
+  item_id: string;
+  series_id: string;
+  series_branch: string;
+  source_kind: string;
+  source_id: string;
+  status: ProjectStatePrWorkItemStatus;
+  summary: string;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface ProjectStatePrSeriesSummary {
+  series_id: string;
+  batch_index: number;
+  status: ProjectStatePrSeriesStatus;
+  branch: string;
+  upstream_pr_number: number | null;
+  target_units: string[];
+  last_validation: JsonObject | null;
+  blockers: ProjectStateBlocker[];
+  work_items: ProjectStatePrWorkItem[];
+}
+
+export interface ProjectStatePrReadModel {
+  workflow_id: string;
+  status: ProjectStatePrCampaignStatus;
+  source_anchor: {
+    save_point_id: string;
+    source_revision: string;
+  };
+  publication_policy: {
+    batch_size: number;
+  };
+  blockers: ProjectStateBlocker[];
+  series: ProjectStatePrSeriesSummary[];
+  series_by_status: Record<ProjectStatePrSeriesStatus, ProjectStatePrSeriesSummary[]>;
+  next_batch: {
+    batch_index: number;
+    series_ids: string[];
+    validation_state: string;
+    blockers: ProjectStateBlocker[];
+    series: ProjectStatePrSeriesSummary[];
+  } | null;
+  pending_work_items: {
+    count: number;
+    items: ProjectStatePrWorkItem[];
+  };
+  activation: {
+    active: boolean;
+    queued: boolean;
+    lease_id: string | null;
+    status: string | null;
+    blockers: ProjectStateBlocker[];
+  };
+}
+
 export interface ProjectStateDispatchHandoff {
   target_kind: "run" | "pr" | "sync";
   target_workflow_id: string;
@@ -227,6 +310,7 @@ export interface ProjectStateReadModel {
   queued_dispatch_requests: ProjectStateQueuedDispatchRequest[];
   session: ProjectStateSessionReadModel | null;
   run: ProjectStateRunReadModel | null;
+  pr: ProjectStatePrReadModel | null;
   sync: ProjectStateSyncReadModel | null;
   latest_event_sequence: number;
   available_actions: ProjectStateActionProjection[];

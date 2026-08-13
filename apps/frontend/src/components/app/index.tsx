@@ -16,11 +16,17 @@ import { initialForm, saveRunSettings, schedulingForWorkers } from "@/components
 import { useHotReload } from "@/components/app/_lib/useHotReload";
 import { RUN_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedRunControls";
 import {
+  PR_CAMPAIGN_ACTION_IDS,
+  PR_CAMPAIGN_ENDPOINTS,
+  prCampaignConfirmationMessage,
+} from "@/components/app/_lib/projectedPrCampaignControls";
+import {
   SYNC_CONTROL_ACTION_IDS,
   SYNC_CONTROL_ENDPOINTS,
   syncControlRequestPatch,
   syncConfirmationMessage,
 } from "@/components/app/_lib/projectedSyncControls";
+import { PrCampaignAuthorityProvider } from "@/pages/workspace/sessions/active/subphases/pr/components/PrStageCard";
 
 type Action = DashboardAction;
 const PROCESS_CONFIG_VERSION = 2;
@@ -29,7 +35,8 @@ const DEFAULT_THINKING_LEVEL = "xhigh";
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRevalidate", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRevalidate", "prOpenCampaign", "prActivate", "prPublishBatch", "prRelease", "prCloseCampaign", "prAbandonCampaign", "prCampaignRecover", "prAdoptLegacy", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const legacyPublicationActions: ReadonlySet<Action> = new Set(["openPr", "openDraftBatch", "openAllPrs"]);
 
 const runActionIds: Partial<Record<Action, string>> = {
   runStart: "run.start",
@@ -358,12 +365,19 @@ export function App() {
   }, []);
 
   const runAction = useCallback(
-    async (nextAction: Action, payload?: Record<string, unknown>) => {
+    async (requestedAction: Action, payload?: Record<string, unknown>) => {
+      const projectState = projectStateReadModel(currentDashboard);
+      const nextAction: Action = projectState?.pr && legacyPublicationActions.has(requestedAction)
+        ? "prPublishBatch"
+        : requestedAction;
       const projectedRunActionId = runActionIds[nextAction];
       const projectedRunAction = projectedRunActionId
-        ? projectStateAction(projectStateReadModel(currentDashboard), projectedRunActionId)
+        ? projectStateAction(projectState, projectedRunActionId)
         : null;
-      const projectState = projectStateReadModel(currentDashboard);
+      const projectedPrActionId = PR_CAMPAIGN_ACTION_IDS[nextAction];
+      const projectedPrAction = projectedPrActionId
+        ? projectStateAction(projectState, projectedPrActionId)
+        : null;
       const syncControlAction = nextAction === "syncGit" || nextAction === "indexPrs"
         ? "syncStart"
         : nextAction;
@@ -375,6 +389,11 @@ export function App() {
         projectedRunAction?.confirmation_required &&
         !window.confirm(`${projectedRunActionId}?\n\n${projectedRunAction.expected_transition}`)
       ) return;
+      if (projectedPrAction?.confirmation_required) {
+        const confirmation = prCampaignConfirmationMessage(nextAction, projectState?.pr ?? null) ??
+          `${projectedPrActionId}?\n\n${projectedPrAction.expected_transition}`;
+        if (!window.confirm(confirmation)) return;
+      }
       if (projectedSyncAction?.confirmation_required) {
         const confirmation = syncConfirmationMessage(syncControlAction, projectState?.sync ?? null) ??
           `${projectedSyncActionId}?\n\n${projectedSyncAction.expected_transition}`;
@@ -413,6 +432,11 @@ export function App() {
         if (projectedRunAction?.subject_id) body.runId = projectedRunAction.subject_id;
         if (projectedRunAction?.confirmation_required) body.confirmed = true;
         if (
+          projectedPrAction?.subject_id &&
+          projectState?.pr?.workflow_id === projectedPrAction.subject_id
+        ) body.campaignId = projectedPrAction.subject_id;
+        if (projectedPrAction?.confirmation_required) body.confirmed = true;
+        if (
           projectedSyncAction?.subject_id &&
           projectState?.sync?.workflow_id === projectedSyncAction.subject_id
         ) body.syncId = projectedSyncAction.subject_id;
@@ -434,6 +458,11 @@ export function App() {
           });
         };
         if (nextAction === "refresh") {
+          await manualRefresh();
+        } else if (projectedPrActionId) {
+          const endpoint = PR_CAMPAIGN_ENDPOINTS[nextAction];
+          if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
+          await postJson(endpoint, body);
           await manualRefresh();
         } else if (projectedSyncActionId) {
           const endpoint = SYNC_CONTROL_ENDPOINTS[syncControlAction];
@@ -551,6 +580,8 @@ export function App() {
           await postJson("/api/pr/qa", body);
           await manualRefresh();
         } else if (nextAction === "qaRepair") {
+          const leaseId = projectState?.pr?.activation.lease_id;
+          if (leaseId) Object.assign(body, { campaignId: projectState?.pr?.workflow_id, leaseId, lease_id: leaseId });
           await postJson("/api/pr/qa-repair", body);
           await manualRefresh();
         } else if (nextAction === "reconcile") {
@@ -648,31 +679,33 @@ export function App() {
       className={`app-shell ${styleEffectClass(grainSettings)} ${detailsResizing ? "app-shell-resizing" : ""} grid h-screen min-h-[620px] bg-ink text-fg max-[1180px]:h-auto max-[780px]:block max-[780px]:min-h-0`}
       style={shellStyle}
     >
-      <ProjectWorkspace
-        busy={busy}
-        collapsed={sidebarCollapsed}
-        config={config}
-        dashboard={currentDashboard}
-        errorMessage={errorMessage}
-        form={form}
-        grainSettings={grainSettings}
-        onGrainSettingsChange={setGrainSettings}
-        onAction={(nextAction) => void runAction(nextAction)}
-        onCollapsedChange={setSidebarCollapsed}
-        onDismissError={() => setErrorMessage("")}
-        onNavigate={navigate}
-        onOpenPr={(branch) => void runAction("openPr", { prBranch: branch })}
-        onPrepareLocalPr={(branch) => void runAction("prepareLocalPr", { prBranch: branch })}
-        onSetReviewState={(branch, subState) => void setReviewState(branch, subState)}
-        route={route}
-        setForm={setForm}
-        setImprovedMode={setImprovedMode}
-        setImprovedPage={setImprovedPage}
-        setWorkMode={setWorkMode}
-        improvedMode={improvedMode}
-        improvedPage={improvedPage}
-        workMode={workMode}
-      />
+      <PrCampaignAuthorityProvider authoritative={Boolean(projectStateReadModel(currentDashboard)?.pr)}>
+        <ProjectWorkspace
+          busy={busy}
+          collapsed={sidebarCollapsed}
+          config={config}
+          dashboard={currentDashboard}
+          errorMessage={errorMessage}
+          form={form}
+          grainSettings={grainSettings}
+          onGrainSettingsChange={setGrainSettings}
+          onAction={(nextAction) => void runAction(nextAction)}
+          onCollapsedChange={setSidebarCollapsed}
+          onDismissError={() => setErrorMessage("")}
+          onNavigate={navigate}
+          onOpenPr={(branch) => void runAction("openPr", { prBranch: branch })}
+          onPrepareLocalPr={(branch) => void runAction("prepareLocalPr", { prBranch: branch })}
+          onSetReviewState={(branch, subState) => void setReviewState(branch, subState)}
+          route={route}
+          setForm={setForm}
+          setImprovedMode={setImprovedMode}
+          setImprovedPage={setImprovedPage}
+          setWorkMode={setWorkMode}
+          improvedMode={improvedMode}
+          improvedPage={improvedPage}
+          workMode={workMode}
+        />
+      </PrCampaignAuthorityProvider>
       <DetailsRail
         busy={busy}
         collapsed={detailsCollapsed}

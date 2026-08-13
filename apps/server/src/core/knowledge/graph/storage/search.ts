@@ -13,12 +13,17 @@ interface SearchRow {
   trust_tier: SearchResult["trust_tier"] | null;
 }
 
-export function searchKnowledgeGraph(store: KnowledgeGraphStore, params: { query: string; sourceId?: string; limit: number }): SearchResult[] {
+export function searchKnowledgeGraph(
+  store: KnowledgeGraphStore,
+  params: { query: string; sourceId?: string; limit: number; activeSourcesOnly?: boolean },
+): SearchResult[] {
   const queryText = params.query.trim();
   if (!queryText) return [];
   const terms = searchTerms(queryText);
   const candidateLimit = Math.max(params.limit * 25, 100);
-  const rows = store.hasFts && terms.length > 0 ? ftsSearchRows(store, terms, params.sourceId, candidateLimit) : likeSearchRows(store, queryText, terms, params.sourceId, candidateLimit);
+  const rows = store.hasFts && terms.length > 0
+    ? ftsSearchRows(store, terms, params.sourceId, candidateLimit, params.activeSourcesOnly)
+    : likeSearchRows(store, queryText, terms, params.sourceId, candidateLimit, params.activeSourcesOnly);
 
   return rows
     .map((row) => scoredSearchResult(row, queryText, terms))
@@ -27,7 +32,13 @@ export function searchKnowledgeGraph(store: KnowledgeGraphStore, params: { query
     .map((row) => row.result);
 }
 
-function ftsSearchRows(store: KnowledgeGraphStore, terms: string[], sourceId: string | undefined, limit: number): SearchRow[] {
+function ftsSearchRows(
+  store: KnowledgeGraphStore,
+  terms: string[],
+  sourceId: string | undefined,
+  limit: number,
+  activeSourcesOnly = false,
+): SearchRow[] {
   const ftsQuery = terms.map((term) => `"${term}"`).join(" OR ");
   return store.orm.all<SearchRow>(sql`
     SELECT
@@ -43,11 +54,19 @@ function ftsSearchRows(store: KnowledgeGraphStore, terms: string[], sourceId: st
     LEFT JOIN knowledge_sources ON knowledge_sources.id = search_chunks.source_id
     WHERE search_chunks_fts MATCH ${ftsQuery}
       ${sourceId ? sql`AND search_chunks.source_id = ${sourceId}` : sql``}
+      ${activeSourcesOnly ? sql`AND (knowledge_sources.id IS NULL OR COALESCE(json_extract(knowledge_sources.descriptor_json, '$.active'), 1) != 0)` : sql``}
     LIMIT ${limit}
   `);
 }
 
-function likeSearchRows(store: KnowledgeGraphStore, queryText: string, terms: string[], sourceId: string | undefined, limit: number): SearchRow[] {
+function likeSearchRows(
+  store: KnowledgeGraphStore,
+  queryText: string,
+  terms: string[],
+  sourceId: string | undefined,
+  limit: number,
+  activeSourcesOnly = false,
+): SearchRow[] {
   const clauses = terms.length
     ? terms.map((term) => sql`(lower(search_chunks.title) LIKE ${`%${escapeLike(term)}%`} ESCAPE '\' OR lower(search_chunks.text) LIKE ${`%${escapeLike(term)}%`} ESCAPE '\')`)
     : [sql`(search_chunks.title LIKE ${`%${queryText}%`} OR search_chunks.text LIKE ${`%${queryText}%`})`];
@@ -64,6 +83,7 @@ function likeSearchRows(store: KnowledgeGraphStore, queryText: string, terms: st
     LEFT JOIN knowledge_sources ON knowledge_sources.id = search_chunks.source_id
     WHERE (${sql.join(clauses, sql` OR `)})
       ${sourceId ? sql`AND search_chunks.source_id = ${sourceId}` : sql``}
+      ${activeSourcesOnly ? sql`AND (knowledge_sources.id IS NULL OR COALESCE(json_extract(knowledge_sources.descriptor_json, '$.active'), 1) != 0)` : sql``}
     ORDER BY length(search_chunks.text) ASC
     LIMIT ${limit}
   `);

@@ -369,7 +369,7 @@ async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMai
   const runners = configuredRunners.length > 0
     ? configuredRunners
     : [
-        ["ghidra", "run_headless_probe.py"],
+        ["ghidra", "export_xrefs.py"],
         ["opseq", "extract_opcode_sequences.py"],
         ["mismatch_db", "analyze_objdiff_mismatches.py"],
         ["mwcc_debug", "probe_mwcc_compiler.py"],

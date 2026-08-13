@@ -26,6 +26,8 @@ import {
   type StateStore,
 } from "@server/core/session-runtime/run-state";
 import { activateAcquiredSync } from "@server/core/session-runtime/phases/sync/activation.js";
+import { activateAcquiredPrCampaign } from "@server/core/session-runtime/phases/pr/campaign/activation.js";
+import { getPrCampaign } from "@server/core/session-runtime/phases/pr/campaign/state.js";
 import type { RunBlocker, RunRecord } from "@server/core/shared/types";
 
 interface ConfirmedRunControlInput {
@@ -273,6 +275,19 @@ export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
         syncId: released.active_workflow.workflow_id,
         leaseId: released.active_workflow.lease_id,
         commandId: `${operationCommandId}:sync-started`,
+        correlationId: released.active_workflow.workflow_id,
+      });
+    }
+    if (
+      released.active_workflow?.kind === "pr" &&
+      getPrCampaign(input.store, released.active_workflow.workflow_id)
+    ) {
+      activateAcquiredPrCampaign({
+        store: input.store,
+        projectId: requireProjectId(original),
+        campaignId: released.active_workflow.workflow_id,
+        leaseId: released.active_workflow.lease_id,
+        commandId: `${operationCommandId}:pr-activated`,
         correlationId: released.active_workflow.workflow_id,
       });
     }

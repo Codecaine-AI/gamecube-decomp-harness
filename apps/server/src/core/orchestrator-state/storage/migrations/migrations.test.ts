@@ -8,6 +8,7 @@ import { openState, type StateStore } from "../store.js";
 import { immediateTransaction } from "../transaction.js";
 import {
   PENDING_INTEGRATIONS_DDL,
+  PR_BATCH_PUBLICATION_RESERVATIONS_DDL,
   PROJECT_EVENTS_DDL,
   SYNC_PUBLICATION_DDL,
   SYNC_PUBLICATION_INTENTS_DDL,
@@ -1125,6 +1126,7 @@ describe("orchestrator storage migrations", () => {
       { version: 12, name: "sync_publication" },
       { version: 13, name: "sync_publication_intents" },
       { version: 14, name: "pr_campaign" },
+      { version: 15, name: "pr_batch_publication_reservations" },
     ]);
     expect(
       store.db
@@ -1389,7 +1391,7 @@ describe("orchestrator storage migrations", () => {
     closeStore(store);
 
     const reopened = trackStore(openState(stateDir));
-    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 14 });
+    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 15 });
     expect(schemaSnapshot(reopened.db)).toEqual(firstSnapshot);
   });
 
@@ -1402,7 +1404,7 @@ describe("orchestrator storage migrations", () => {
     closeDatabase(legacyDb);
 
     const migrated = trackStore(openState(stateDir));
-    expect(migrated.db.query("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 14 });
+    expect(migrated.db.query("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 15 });
     expect(
       migrated.db
         .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('sync_state', 'pr_campaigns') ORDER BY name")
@@ -1532,6 +1534,7 @@ describe("orchestrator storage migrations", () => {
       { version: 12, name: "sync_publication" },
       { version: 13, name: "sync_publication_intents" },
       { version: 14, name: "pr_campaign" },
+      { version: 15, name: "pr_batch_publication_reservations" },
     ]);
     expect(
       migrated.db
@@ -1608,7 +1611,7 @@ describe("orchestrator storage migrations", () => {
     closeStore(migrated);
 
     const reopened = trackStore(openState(stateDir));
-    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 14 });
+    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 15 });
     expect(schemaSnapshot(reopened.db)).toEqual(migratedSnapshot);
     expect(reopened.db.query("SELECT id, run_id FROM epochs").get()).toEqual({
       id: "epoch-legacy",
@@ -1645,6 +1648,7 @@ describe("orchestrator storage migrations", () => {
       { version: 12, name: "sync_publication" },
       { version: 13, name: "sync_publication_intents" },
       { version: 14, name: "pr_campaign" },
+      { version: 15, name: "pr_batch_publication_reservations" },
     ]);
     expect(
       migrated.db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_events'").get(),
@@ -1873,6 +1877,38 @@ describe("orchestrator storage migrations", () => {
     expect(
       migrated.db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'sync_publication_intents_project'").get(),
     ).toEqual({ name: "sync_publication_intents_project" });
+  });
+
+  test("converges when migration 015 storage exists without a migration record", () => {
+    const stateDir = createTempDir("orchestrator-migrations-partial-015-");
+    const dbPath = join(stateDir, "orchestrator.sqlite");
+    const partialDb = trackDatabase(new Database(dbPath));
+    configureConnection(partialDb);
+    ensureLegacySchema(partialDb);
+    partialDb.exec(PR_BATCH_PUBLICATION_RESERVATIONS_DDL);
+    closeDatabase(partialDb);
+
+    const migrated = trackStore(openState(stateDir));
+    expect(migrated.db.query("SELECT version, name FROM schema_migrations WHERE version = 15").get()).toEqual({
+      version: 15,
+      name: "pr_batch_publication_reservations",
+    });
+    expect(
+      migrated.db
+        .query(
+          `SELECT name FROM sqlite_master
+           WHERE type = 'table'
+             AND name IN ('pr_batch_publications', 'pr_batch_publication_series')
+           ORDER BY name`,
+        )
+        .all(),
+    ).toEqual([
+      { name: "pr_batch_publication_series" },
+      { name: "pr_batch_publications" },
+    ]);
+
+    const fresh = trackStore(openState(createTempDir("orchestrator-migrations-partial-015-fresh-")));
+    expect(normalizedSchemaSnapshot(migrated.db)).toEqual(normalizedSchemaSnapshot(fresh.db));
   });
 
   test("rebuildTable replaces a table and copies its rows inside a transaction", () => {

@@ -2,21 +2,6 @@ import type { AgentToolPromptMetadata } from "../types.js";
 
 /** Prompt metadata for callable decomp capabilities backed by the enabled toolpack. */
 export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
-  ghidra_lookup: {
-    provider: "ghidra",
-    type: "symbol_context",
-    useWhen: "Check cached symbol, address, string, name, caller, callee, or type hints as a second opinion.",
-  },
-  opseq_similar_functions: {
-    provider: "opseq",
-    type: "duplicate_matching",
-    useWhen: "Find similar instruction-shape functions before duplicate adaptation or broad rewrites.",
-  },
-  mismatch_db_search: {
-    provider: "mismatch_db",
-    type: "mismatch_research",
-    useWhen: "Search known mismatch symptoms and source-shape tactics after a concrete diff symptom.",
-  },
   mwcc_debug_lookup: {
     provider: "mwcc_debug",
     type: "compiler_analysis",

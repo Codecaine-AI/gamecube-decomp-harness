@@ -10,7 +10,7 @@ import type {
   PrSeriesStatus,
 } from "./types.js";
 
-type SeriesIdentityRow = { series_id: string };
+type SeriesIdentityRow = { series_id: string; campaign_id: string };
 
 function feedbackItemId(seriesId: string, sourceKind: string, sourceId: string): string {
   const digest = createHash("sha256").update(`${seriesId}\0${sourceKind}\0${sourceId}`).digest("hex").slice(0, 24);
@@ -50,10 +50,24 @@ function payloadForStatus(input: ObservePrSeriesRemoteInput, status: PrSeriesSta
 export function observePrSeriesRemote(store: StateStore, input: ObservePrSeriesRemoteInput): ObservePrSeriesRemoteResult {
   const branch = input.branch.trim();
   if (!branch) throw new Error("branch is required");
-  const identity = store.db
-    .query("SELECT series_id FROM pr_series WHERE branch = ? ORDER BY series_id LIMIT 1")
-    .get(branch) as SeriesIdentityRow | null;
-  if (!identity) return { feedbackItemIds: [], ignored: true, series: null };
+  const identities = store.db
+    .query(
+      `SELECT series.series_id, series.campaign_id
+       FROM pr_series AS series
+       JOIN pr_campaigns AS campaign ON campaign.campaign_id = series.campaign_id
+       WHERE series.upstream_pr_number = ?
+         AND campaign.status IN ('preparing', 'in_review', 'working')
+       ORDER BY series.series_id`,
+    )
+    .all(input.upstreamPrNumber) as SeriesIdentityRow[];
+  if (identities.length === 0) return { feedbackItemIds: [], ignored: true, series: null };
+  if (identities.length > 1) {
+    const campaigns = [...new Set(identities.map((identity) => identity.campaign_id))];
+    throw new Error(
+      `Blocked PR observation for upstream PR #${input.upstreamPrNumber}: ambiguous open campaigns ${campaigns.join(", ")}`,
+    );
+  }
+  const identity = identities[0]!;
 
   let series = getPrSeries(store, identity.series_id);
   if (!series) return { feedbackItemIds: [], ignored: true, series: null };

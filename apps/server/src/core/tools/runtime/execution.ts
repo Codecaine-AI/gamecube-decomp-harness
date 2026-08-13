@@ -16,6 +16,7 @@ import {
   packageRoot,
   readSourceRegistry,
   resourceGraphDbPath,
+  relatedFunctions,
   searchKnowledgeGraph,
   sourceRoot,
 } from "@server/core/knowledge";
@@ -84,7 +85,13 @@ export async function runKnowledgeToolApiForContext(
 }
 
 /** Search the SQLite resource graph when it is available. */
-export function graphSearch(context: AgentToolRuntimeContext, query: string, sourceId: string, limit: number): Record<string, unknown> {
+export function graphSearch(
+  context: AgentToolRuntimeContext,
+  query: string,
+  sourceId: string | undefined,
+  limit: number,
+  options: { activeSourcesOnly?: boolean } = {},
+): Record<string, unknown> {
   const graphDb = graphDbForContext(context);
   if (!graphDbExists(graphDb)) {
     return {
@@ -100,7 +107,38 @@ export function graphSearch(context: AgentToolRuntimeContext, query: string, sou
       query,
       source_id: sourceId || null,
       limit,
-      results: searchKnowledgeGraph(store, { query, sourceId: sourceId || undefined, limit }),
+      active_sources_only: Boolean(options.activeSourcesOnly),
+      results: searchKnowledgeGraph(store, { query, sourceId: sourceId || undefined, limit, activeSourcesOnly: options.activeSourcesOnly }),
+    };
+  } finally {
+    store.db.close();
+  }
+}
+
+/** Load graph-owned function analogs and call relationships. */
+export function graphRelatedFunctions(
+  context: AgentToolRuntimeContext,
+  query: { sourcePath?: string; unit?: string; symbol?: string; entityId?: string; limit?: number },
+): Record<string, unknown> {
+  const graphDb = graphDbForContext(context);
+  if (!query.sourcePath && !query.entityId && !(query.unit && query.symbol)) {
+    return {
+      status: "missing_function_selector",
+      graph_db: graphDb,
+    };
+  }
+  if (!graphDbExists(graphDb)) {
+    return {
+      status: "graph_missing",
+      graph_db: graphDb,
+    };
+  }
+  const store = openKnowledgeGraph(graphDb);
+  try {
+    return {
+      status: "ok",
+      graph_db: graphDb,
+      ...relatedFunctions(store, query),
     };
   } finally {
     store.db.close();

@@ -114,18 +114,6 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
                 },
               ],
             },
-            path_facts: {
-              facts: [
-                {
-                  id: "kernel-viewer:ft-demo-sibling-style",
-                  title: "Solved sibling action code",
-                  directory: "src/melee/ft/chara",
-                  strength: "sample",
-                  summary: "Nearby matched character code is the first reference set before deeper mismatch probes.",
-                  evidence_refs: ["kernel-viewer:sample"],
-                },
-              ],
-            },
           },
         },
         repoRoot: paths.repoRoot,

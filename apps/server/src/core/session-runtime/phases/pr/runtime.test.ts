@@ -84,8 +84,24 @@ function runtimeFixture(
     merge: number;
     order: string[];
     boundaryOrder: string[];
+    existingPr: {
+      baseRefName: string;
+      headRefName: string;
+      headRepositoryOwner: { login: string };
+      number: number;
+      url: string;
+    } | null;
+    ghCommands: string[][];
     publish: number;
-  } = { boundaryOrder: [], events: [], merge: 0, order: [], publish: 0 };
+  } = {
+    boundaryOrder: [],
+    events: [],
+    existingPr: null,
+    ghCommands: [],
+    merge: 0,
+    order: [],
+    publish: 0,
+  };
 
   const deps = {
     appendLog: () => {},
@@ -165,7 +181,13 @@ function runtimeFixture(
       },
     }),
     runCli: async (command: string[]) => {
-      if (command[0] === "gh") return { exitCode: 0, stdout: "https://example.test/pr/123\n", stderr: "" };
+      if (command[0] === "gh") {
+        calls.ghCommands.push(command);
+        if (command[2] === "list") {
+          return { exitCode: 0, stdout: JSON.stringify(calls.existingPr ? [calls.existingPr] : []), stderr: "" };
+        }
+        return { exitCode: 0, stdout: "https://example.test/pr/123\n", stderr: "" };
+      }
       if (command.includes("pr-split-plan")) {
         return {
           exitCode: 0,
@@ -209,6 +231,35 @@ function runtimeFixture(
 }
 
 describe("openPrForSlice support manifests", () => {
+  test("publishes under an existing campaign lease without acquiring or releasing a legacy lease", async () => {
+    const { branch, runtime, stateDir } = runtimeFixture();
+    let revalidations = 0;
+
+    await runtime.openPrForSliceUnderLease(
+      { prBranch: branch, postLedgerComments: false },
+      () => {
+        revalidations += 1;
+        return {
+          kind: "pr",
+          workflow_id: "campaign-1",
+          lease_id: "lease-campaign-1",
+          status: "active",
+          acquired_at: "2026-08-13T10:00:00.000Z",
+          heartbeat_at: "2026-08-13T10:00:00.000Z",
+          blockers: [],
+        };
+      },
+    );
+
+    expect(revalidations).toBeGreaterThan(3);
+    const store = openState(stateDir);
+    try {
+      expect(getProjectState(store, "melee")).toBeNull();
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("passes declared support files through local source capture and isolation", async () => {
     const supportFiles = ["include/melee/gr/ground.h"];
     const { branch, calls, runtime } = runtimeFixture(supportFiles);
@@ -235,6 +286,38 @@ describe("openPrForSlice support manifests", () => {
     for (const event of calls.events) {
       expect("supportFiles" in (event.metadata as Record<string, unknown>)).toBe(false);
     }
+  });
+
+  test("adopts an existing GitHub PR by exact head and base instead of creating a duplicate", async () => {
+    const { branch, calls, runtime } = runtimeFixture();
+    calls.existingPr = {
+      baseRefName: "master",
+      headRefName: branch,
+      headRepositoryOwner: { login: "fork-owner" },
+      number: 123,
+      url: "https://example.test/pr/123",
+    };
+
+    const result = await runtime.openPrForSliceUnderLease(
+      { prBranch: branch, postLedgerComments: false },
+      () => ({
+        kind: "pr",
+        workflow_id: "campaign-1",
+        lease_id: "lease-campaign-1",
+        status: "active",
+        acquired_at: "2026-08-13T10:00:00.000Z",
+        heartbeat_at: "2026-08-13T10:00:00.000Z",
+        blockers: [],
+      }),
+    );
+
+    expect(result).toMatchObject({ adopted: true, opened: false });
+    expect(calls.ghCommands[0]).toEqual(expect.arrayContaining([
+      "gh", "pr", "list", "--state", "open",
+      "--head", branch, "--base", "master",
+      "--json", "number,url,headRefName,headRepositoryOwner,baseRefName", "--limit", "100",
+    ]));
+    expect(calls.ghCommands.some((command) => command[2] === "create")).toBe(false);
   });
 
   test("materializes the current branch before merge-order checking a prepared overlapping peer", async () => {

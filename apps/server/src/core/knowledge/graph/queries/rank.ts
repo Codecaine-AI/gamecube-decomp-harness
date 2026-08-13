@@ -8,12 +8,7 @@ import type { GraphRankFeature } from "../types.js";
 import { arrayValue, numberValue, objectValue, stringValue } from "../util.js";
 
 const RESOURCE_EDGE_TYPES: GraphEdgeType[] = [
-  "HAS_PATH_FACT",
-  "HAS_DATA_SHEET_REFERENCE",
-  "HAS_POWERPC_REFERENCE",
-  "HAS_EXTERNAL_MIRROR_REFERENCE",
   "HAS_DECOMP_STANDARD",
-  "HAS_DOCUMENT_REFERENCE",
   "HAS_RESOURCE_EVIDENCE",
   "HAS_MISMATCH_PATTERN",
   "HAS_MISMATCH_PATTERN_EVIDENCE",
@@ -49,7 +44,6 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
   const duplicateReferenceCount = edgeTypeCount(store, targetIds, ["ANALOGOUS_TO"]);
   const opseqAnalogStats = opseqAnalogStatsFor(store, targetIds);
   const acceptedEdgeCount = statusEdgeCount(store, targetIds, "accepted");
-  const pathFactCount = edgeTypeCount(store, [entityId], ["HAS_PATH_FACT"]);
   const resourceEvidenceCount = Math.max(
     edgeTypeCount(store, targetIds, RESOURCE_EDGE_TYPES),
     nonCodeSearchChunkCount(store, targetIds),
@@ -64,7 +58,7 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
 
   const informationGainScore = roundScore(
     Math.min(26, graphDegree * 0.35 + functionGraphDegree * 0.6) +
-      Math.min(28, resourceEvidenceCount * 2.5 + pathFactCount * 2) +
+      Math.min(28, resourceEvidenceCount * 2.5) +
       Math.min(34, historicalLessonCount * 5 + curatedSignalCount * 5 + proposalFactCount * 4 + staleFactCount * 3),
   );
   const unlockScore = roundScore(
@@ -76,11 +70,11 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
   const contextQualityScore = roundScore(
     Math.min(20, connectedMatchedReferenceCount * 2) +
       Math.min(18, relevantPrCount * 1.3) +
-      Math.min(22, pathFactCount * 4 + historicalLessonCount * 2) +
+      Math.min(22, historicalLessonCount * 2 + curatedSignalCount * 2) +
       Math.min(8, opseqAnalogStats.bestMatchedScore * 4 + opseqAnalogStats.bestScore + opseqAnalogStats.matchedAnalogCount * 1.5),
   );
   const completionReadinessScore = roundScore(
-    Math.min(32, pathFactCount * 3 + historicalLessonCount * 4 + curatedSignalCount * 4 + proposalFactCount * 2) +
+    Math.min(32, historicalLessonCount * 4 + curatedSignalCount * 4 + proposalFactCount * 2) +
       Math.min(24, duplicateReferenceCount * 6 + connectedMatchedReferenceCount * 2.5) +
       Math.min(10, opseqAnalogStats.exactAnalogCount * 2 + opseqAnalogStats.matchedAnalogCount * 1.5) +
       Math.min(14, relevantPrCount * 1.4) +
@@ -96,7 +90,6 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
     functionGraphDegree ? `function_graph_degree=${functionGraphDegree}` : "",
     relevantPrCount ? `relevant_pr_count=${relevantPrCount}` : "",
     resourceEvidenceCount ? `resource_evidence=${resourceEvidenceCount}` : "",
-    pathFactCount ? `path_facts=${pathFactCount}` : "",
     historicalLessonCount ? `historical_lessons=${historicalLessonCount}` : "",
     curatedSignalCount ? `curated_signals=${curatedSignalCount}` : "",
     opseqAnalogStats.analogCount ? `opseq_analogs=${opseqAnalogStats.analogCount}` : "",
@@ -132,7 +125,6 @@ export function rankFeatureForSourcePath(store: KnowledgeGraphStore, sourcePath:
     connected_incomplete_function_count: connectedIncompleteFunctionCount,
     connected_matched_reference_count: connectedMatchedReferenceCount,
     resource_evidence_count: resourceEvidenceCount,
-    path_fact_count: pathFactCount,
     historical_lesson_count: historicalLessonCount,
     curated_signal_count: curatedSignalCount,
     proposal_fact_count: proposalFactCount,

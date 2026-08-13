@@ -3,6 +3,29 @@ import { describe, expect, test } from "bun:test";
 import { handleHandoffApiRoute, type HandoffApiRouteDeps } from "./handoff.js";
 
 describe("handleHandoffApiRoute", () => {
+  test("routes QA repair through the campaign command layer", async () => {
+    const received: Array<Record<string, unknown>> = [];
+    const response = await handleHandoffApiRoute(
+      new Request("http://localhost/api/pr/qa-repair", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ leaseId: "lease-pr", projectId: "melee" }),
+      }),
+      new URL("http://localhost/api/pr/qa-repair"),
+      {
+        json: (data: unknown) => Response.json(data),
+        runQaRepairForCampaign: async (body: Record<string, unknown>) => {
+          received.push(body);
+          return { status: "passed" };
+        },
+      } as unknown as HandoffApiRouteDeps,
+    );
+
+    expect(received).toEqual([{ leaseId: "lease-pr", projectId: "melee" }]);
+    expect(response?.status).toBe(200);
+    expect(await response?.json()).toEqual({ status: "passed" });
+  });
+
   test("routes standalone ship-set verification through the handoff runtime", async () => {
     const received: Array<Record<string, unknown>> = [];
     const response = await handleHandoffApiRoute(

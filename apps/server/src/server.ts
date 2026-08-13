@@ -1,7 +1,7 @@
 export { closeKernelRuntimeForTests, fetchServer, serveServer } from "@server/infrastructure/http/server";
 import { resolve } from "node:path";
 import { resolveProject } from "@server/core/project-registry";
-import { serveServer } from "@server/infrastructure/http/server";
+import { reconcileSyncStartup, serveServer } from "@server/infrastructure/http/server";
 import { configureGlobalCompileJobserver, GLOBAL_COMPILE_SLOTS_ENV } from "@server/infrastructure/shell/global-compile-jobserver";
 
 async function main(): Promise<void> {
@@ -14,6 +14,7 @@ async function main(): Promise<void> {
     }
   }
   await configureGlobalCompileJobserver({ localEnvPath });
+  await reconcileSyncStartup();
   serveServer();
 }
 

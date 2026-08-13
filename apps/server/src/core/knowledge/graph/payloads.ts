@@ -4,21 +4,13 @@ export type GraphStatus = "accepted" | "proposal" | "rejected" | "stale" | strin
 
 export type KnownGraphEntityType =
   | "address_reference"
-  | "data_sheet_row"
   | "decomp_standard"
-  | "discord_knowledge_chunk"
-  | "external_document_chunk"
-  | "external_header_symbol"
-  | "external_map_symbol"
-  | "external_source_file"
   | "function"
   | "historical_tool_issue"
   | "legacy_function"
   | "mismatch_pattern"
   | "mismatch_pattern_evidence"
   | "object_unit"
-  | "path_fact"
-  | "powerpc_doc_page"
   | "pull_request"
   | "source_file";
 
@@ -26,11 +18,8 @@ export type GraphEntityType = KnownGraphEntityType | `curated_${string}` | (stri
 
 export type KnownGraphFactType =
   | "call_graph_profile"
-  | "data_sheet_reference"
   | "decomp_standard"
-  | "document_reference"
   | "editability"
-  | "external_mirror_reference"
   | "file_match_status"
   | "function_status"
   | "ghidra_xref_profile"
@@ -41,8 +30,6 @@ export type KnownGraphFactType =
   | "opseq_analog_profile"
   | "past_pr_file_rollup"
   | "past_pr_key_file"
-  | "path_scoped_hint"
-  | "powerpc_reference"
   | "sibling_profile";
 
 export type GraphFactType = KnownGraphFactType | `curated_${string}` | (string & {});
@@ -57,16 +44,11 @@ export type KnownGraphEdgeType =
   | "HAS_CURATED_KNOWLEDGE"
   | "HAS_CURATED_PR_LESSON"
   | "HAS_CURATED_WORKER_LESSON"
-  | "HAS_DATA_SHEET_REFERENCE"
   | "HAS_DECOMP_STANDARD"
-  | "HAS_DOCUMENT_REFERENCE"
-  | "HAS_EXTERNAL_MIRROR_REFERENCE"
   | "HAS_HISTORICAL_FUNCTION_HINT"
   | "HAS_HISTORICAL_TOOL_LESSON"
   | "HAS_MISMATCH_PATTERN"
   | "HAS_MISMATCH_PATTERN_EVIDENCE"
-  | "HAS_PATH_FACT"
-  | "HAS_POWERPC_REFERENCE"
   | "HAS_RESOURCE_EVIDENCE"
   | "HAS_SOURCE_UPDATE_PROPOSAL"
   | "MENTIONED_IN_HISTORICAL_TOOL_ISSUE"

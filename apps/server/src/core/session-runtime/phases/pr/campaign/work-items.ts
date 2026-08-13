@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
+import { immediateTransaction, now as currentTime, type StateStore } from "@server/core/orchestrator-state";
+import { requireActiveLease } from "@server/core/project-state";
 import {
   StalePrSeriesRevisionError,
+  getPrCampaign,
   getPrSeries,
   isTerminalPrSeriesStatus,
   transitionPrSeries,
@@ -26,6 +28,28 @@ type WorkItemRow = {
   created_at: string;
   resolved_at: string | null;
 };
+
+export interface PrCampaignWorkItemCommandInput {
+  commandId: string;
+  itemIds: string[];
+  leaseId: string;
+  projectId: string;
+  seriesId: string;
+  spanId?: string;
+  store: StateStore;
+}
+
+export interface ResolvePrCampaignWorkItemsInput extends PrCampaignWorkItemCommandInput {
+  resolution?: string;
+}
+
+export interface DeclinePrCampaignWorkItemsInput extends PrCampaignWorkItemCommandInput {
+  reason: string;
+}
+
+export interface RevisePrCampaignSeriesInput extends Omit<PrCampaignWorkItemCommandInput, "itemIds"> {
+  pushedRevision: string;
+}
 
 function requiredText(value: string, label: string): string {
   const normalized = value.trim();
@@ -77,6 +101,188 @@ export function listPrWorkItems(store: StateStore, seriesId: string): PrWorkItem
     .all(seriesId) as WorkItemRow[]).map(rowToWorkItem);
 }
 
+function fencedCampaignSeries(input: Omit<PrCampaignWorkItemCommandInput, "itemIds">): PrSeriesState {
+  const projectId = requiredText(input.projectId, "projectId");
+  const leaseId = requiredText(input.leaseId, "leaseId");
+  const seriesId = requiredText(input.seriesId, "seriesId");
+  const series = getPrSeries(input.store, seriesId);
+  if (!series) throw new Error(`PR series not found: ${seriesId}`);
+  const campaign = getPrCampaign(input.store, series.campaign_id);
+  if (!campaign) throw new Error(`PR campaign not found: ${series.campaign_id}`);
+  if (campaign.project_id !== projectId) {
+    throw new Error(`PR campaign ${campaign.campaign_id} belongs to ${campaign.project_id}, not ${projectId}`);
+  }
+  if (campaign.status !== "working") {
+    throw new Error(`PR campaign ${campaign.campaign_id} cannot execute fixer work while ${campaign.status}`);
+  }
+  const lease = requireActiveLease(input.store, leaseId, projectId);
+  if (lease.kind !== "pr" || lease.workflow_id !== campaign.campaign_id) {
+    throw new Error(
+      `Dispatch lease ${lease.lease_id} belongs to ${lease.kind}:${lease.workflow_id}, not pr:${campaign.campaign_id}`,
+    );
+  }
+  return series;
+}
+
+function selectedWorkItems(
+  store: StateStore,
+  seriesId: string,
+  itemIds: string[],
+  allowedStatuses: readonly PrWorkItemStatus[],
+): PrWorkItem[] {
+  if (itemIds.length === 0) throw new Error("PR work-item command requires at least one item id");
+  const normalizedIds = itemIds.map((itemId) => requiredText(itemId, "itemId"));
+  if (new Set(normalizedIds).size !== normalizedIds.length) {
+    throw new Error("PR work-item command item ids must be unique");
+  }
+  const byId = new Map(listPrWorkItems(store, seriesId).map((item) => [item.item_id, item]));
+  return normalizedIds.map((itemId) => {
+    const item = byId.get(itemId);
+    if (!item) throw new Error(`PR work item not found for ${seriesId}: ${itemId}`);
+    if (!allowedStatuses.includes(item.status)) {
+      throw new Error(`PR work item ${itemId} is ${item.status}; expected ${allowedStatuses.join(" or ")}`);
+    }
+    return item;
+  });
+}
+
+/** Claims pending review work under the campaign's current dispatch fence. */
+export function claimPrCampaignWorkItems(input: PrCampaignWorkItemCommandInput): PrSeriesState {
+  return immediateTransaction(input.store.db, () => {
+    const series = fencedCampaignSeries(input);
+    if (series.status !== "changes_requested" && series.status !== "revising") {
+      throw new Error(`PR series ${series.series_id} cannot claim fixer work while ${series.status}`);
+    }
+    const items = selectedWorkItems(input.store, series.series_id, input.itemIds, ["pending"]);
+    const occurredAt = currentTime();
+    return transitionPrWorkItems(input.store, {
+      actor: "agent",
+      commandId: requiredText(input.commandId, "commandId"),
+      eventType: "pr.series_revising",
+      expectedRevision: series.revision,
+      occurredAt,
+      patch: { status: "revising" },
+      payload: {
+        claimed_work_item_ids: items.map((item) => item.item_id),
+        lease_id: input.leaseId,
+      },
+      seriesId: series.series_id,
+      spanId: input.spanId,
+      workItems: items.map((item) => ({
+        expectedStatus: "pending",
+        itemId: item.item_id,
+        status: "in_progress",
+      })),
+    });
+  });
+}
+
+/** Records completed fixer work while leaving the series in its active revision cycle. */
+export function resolvePrCampaignWorkItems(input: ResolvePrCampaignWorkItemsInput): PrSeriesState {
+  return immediateTransaction(input.store.db, () => {
+    const series = fencedCampaignSeries(input);
+    if (series.status !== "revising") {
+      throw new Error(`PR series ${series.series_id} cannot resolve fixer work while ${series.status}`);
+    }
+    const items = selectedWorkItems(input.store, series.series_id, input.itemIds, ["in_progress"]);
+    const occurredAt = currentTime();
+    return transitionPrWorkItems(input.store, {
+      actor: "agent",
+      commandId: requiredText(input.commandId, "commandId"),
+      eventType: "pr.series_revising",
+      expectedRevision: series.revision,
+      occurredAt,
+      patch: { status: "revising" },
+      payload: {
+        lease_id: input.leaseId,
+        resolution: input.resolution?.trim() || "fixer completed the requested work",
+        resolved_work_item_ids: items.map((item) => item.item_id),
+      },
+      seriesId: series.series_id,
+      spanId: input.spanId,
+      workItems: items.map((item) => ({
+        expectedStatus: "in_progress",
+        itemId: item.item_id,
+        status: "resolved",
+      })),
+    });
+  });
+}
+
+/** Declines review work with its reason preserved in the correlated series event. */
+export function declinePrCampaignWorkItems(input: DeclinePrCampaignWorkItemsInput): PrSeriesState {
+  return immediateTransaction(input.store.db, () => {
+    const series = fencedCampaignSeries(input);
+    if (series.status !== "changes_requested" && series.status !== "revising") {
+      throw new Error(`PR series ${series.series_id} cannot decline fixer work while ${series.status}`);
+    }
+    const reason = requiredText(input.reason, "decline reason");
+    const items = selectedWorkItems(input.store, series.series_id, input.itemIds, ["pending", "in_progress"]);
+    const selectedPending = items.filter((item) => item.status === "pending").length;
+    const remainingPending = series.work_items.filter((item) => item.status === "pending").length - selectedPending;
+    const nextStatus = series.status === "changes_requested" && remainingPending > 0
+      ? "changes_requested"
+      : "revising";
+    const occurredAt = currentTime();
+    return transitionPrWorkItems(input.store, {
+      actor: "agent",
+      commandId: requiredText(input.commandId, "commandId"),
+      eventType: nextStatus === "revising" ? "pr.series_revising" : "pr.series_changes_requested",
+      expectedRevision: series.revision,
+      occurredAt,
+      patch: { status: nextStatus },
+      payload: {
+        decline_reason: reason,
+        declined_work_item_ids: items.map((item) => item.item_id),
+        lease_id: input.leaseId,
+      },
+      seriesId: series.series_id,
+      spanId: input.spanId,
+      workItems: items.map((item) => ({
+        expectedStatus: item.status,
+        itemId: item.item_id,
+        status: "declined",
+      })),
+    });
+  });
+}
+
+/** Finalizes a settled revision cycle after every claimed item is resolved or declined. */
+export function revisePrCampaignSeries(input: RevisePrCampaignSeriesInput): PrSeriesState {
+  return immediateTransaction(input.store.db, () => {
+    const series = fencedCampaignSeries(input);
+    if (series.status !== "revising") {
+      throw new Error(`PR series ${series.series_id} cannot finish a revision while ${series.status}`);
+    }
+    const unsettled = series.work_items.filter((item) => item.status === "pending" || item.status === "in_progress");
+    if (unsettled.length > 0) {
+      throw new Error(
+        `PR series ${series.series_id} cannot finish a revision with unsettled work items: ${unsettled.map((item) => item.item_id).join(", ")}`,
+      );
+    }
+    const pushedRevision = requiredText(input.pushedRevision, "pushedRevision");
+    return transitionPrSeries(input.store, series.series_id, {
+      actor: "agent",
+      commandId: requiredText(input.commandId, "commandId"),
+      eventType: "pr.series_revised",
+      expectedRevision: series.revision,
+      occurredAt: currentTime(),
+      patch: { status: "published" },
+      payload: {
+        declined_work_item_ids: series.work_items
+          .filter((item) => item.status === "declined")
+          .map((item) => item.item_id),
+        lease_id: input.leaseId,
+        pushed_revision: pushedRevision,
+        resolved_work_item_ids: series.work_items
+          .filter((item) => item.status === "resolved")
+          .map((item) => item.item_id),
+      },
+      spanId: input.spanId,
+    });
+  });
+}
+
 /**
  * Advances child work-item statuses and their owning series under one series
  * CAS event. The outer transaction rolls every child update back if the series
@@ -94,6 +300,7 @@ export function transitionPrWorkItems(store: StateStore, input: TransitionPrWork
     const itemIds = new Set<string>();
     const becomingInProgress = new Set<string>();
     const becomingResolved = new Set<string>();
+    const becomingDeclined = new Set<string>();
     const at = input.occurredAt ?? new Date().toISOString();
     for (const transition of input.workItems) {
       const itemId = requiredText(transition.itemId, "itemId");
@@ -102,6 +309,7 @@ export function transitionPrWorkItems(store: StateStore, input: TransitionPrWork
       assertPrWorkItemStatusTransition(transition.expectedStatus, transition.status);
       if (transition.status === "in_progress") becomingInProgress.add(itemId);
       if (transition.status === "resolved") becomingResolved.add(itemId);
+      if (transition.status === "declined") becomingDeclined.add(itemId);
       const row = store.db
         .query("SELECT * FROM pr_work_items WHERE item_id = ? AND series_id = ?")
         .get(itemId, seriesId) as WorkItemRow | null;
@@ -136,12 +344,14 @@ export function transitionPrWorkItems(store: StateStore, input: TransitionPrWork
       throw new Error("Claiming PR work items requires the owning series to enter revising");
     }
     if (becomingResolved.size > 0) {
-      if (input.eventType !== "pr.series_revised" || input.patch.status !== "published") {
-        throw new Error("Resolving PR work items requires a pr.series_revised transition to published");
+      const recordsActiveRevision = input.eventType === "pr.series_revising" && input.patch.status === "revising";
+      const finishesRevision = input.eventType === "pr.series_revised" && input.patch.status === "published";
+      if (!recordsActiveRevision && !finishesRevision) {
+        throw new Error("Resolving PR work items requires a revising or revised series event");
       }
       const payloadIds = input.payload?.resolved_work_item_ids;
       if (!Array.isArray(payloadIds) || payloadIds.some((item) => typeof item !== "string")) {
-        throw new Error("pr.series_revised requires resolved_work_item_ids");
+        throw new Error("Resolving PR work items requires resolved_work_item_ids");
       }
       const payloadSet = new Set(payloadIds as string[]);
       if (
@@ -150,6 +360,20 @@ export function transitionPrWorkItems(store: StateStore, input: TransitionPrWork
       ) {
         throw new Error("pr.series_revised resolved_work_item_ids must match the accepted work-item transitions");
       }
+    }
+    if (becomingDeclined.size > 0) {
+      const payloadIds = input.payload?.declined_work_item_ids;
+      if (!Array.isArray(payloadIds) || payloadIds.some((item) => typeof item !== "string")) {
+        throw new Error("Declining PR work items requires declined_work_item_ids");
+      }
+      const payloadSet = new Set(payloadIds as string[]);
+      if (
+        payloadSet.size !== becomingDeclined.size ||
+        [...becomingDeclined].some((itemId) => !payloadSet.has(itemId))
+      ) {
+        throw new Error("declined_work_item_ids must match the accepted work-item transitions");
+      }
+      requiredText(String(input.payload?.decline_reason ?? ""), "decline reason");
     }
     return transitionPrSeries(store, seriesId, input);
   });

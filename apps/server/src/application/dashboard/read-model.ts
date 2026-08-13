@@ -27,12 +27,25 @@ import {
   eventsForSubject,
   getProjectState,
   latestSequence,
+  STALE_DISPATCH_LEASE_MS,
   type Blocker,
   type DispatchLease,
   type QueuedDispatchRequest,
 } from "@server/core/project-state";
 import type { RunRecord, RunSchedulerCondition, RunStatus } from "@server/core/shared/types";
+import { readPrRecordsArtifact } from "@server/core/session-runtime/phases/pr/pr-records.js";
 import { listSavePoints, type SavePointRecord } from "@server/core/session-runtime/phases/pr/state";
+import {
+  PR_SERIES_STATUSES,
+  getOpenPrCampaignForProject,
+  listPrSeriesForCampaign,
+  projectPrCampaignAction,
+  type PrCampaignActionId,
+  type PrCampaignState,
+  type PrSeriesState,
+  type PrSeriesStatus,
+  type PrWorkItem,
+} from "@server/core/session-runtime/phases/pr/campaign";
 import { projectToSummary as defaultProjectToSummary, type ProjectRuntimeContext, type ResolvedProject } from "@server/core/project-registry";
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/session-runtime/phases/pr/artifacts";
 import {
@@ -90,8 +103,9 @@ export interface ActionProjection {
     | "run.recover"
     | "session.close"
     | "session.save_point"
+    | PrCampaignActionId
     | SyncActionId;
-  subject_kind: "run" | "session" | "sync";
+  subject_kind: "run" | "session" | "sync" | "pr_campaign";
   subject_id: string;
   enabled: boolean;
   blocked_by: Blocker[];
@@ -192,6 +206,54 @@ export interface ProjectSyncActionState {
   sync: DashboardSyncSummary | null;
 }
 
+export interface DashboardPrSeriesSummary {
+  series_id: string;
+  batch_index: number;
+  status: PrSeriesStatus;
+  branch: string;
+  upstream_pr_number: number | null;
+  target_units: string[];
+  last_validation: PrSeriesState["last_validation"];
+  blockers: Blocker[];
+}
+
+export interface DashboardPrWorkItemSummary extends PrWorkItem {
+  series_branch: string;
+}
+
+export interface DashboardPrSummary {
+  workflow_id: string;
+  status: PrCampaignState["status"];
+  source_anchor: PrCampaignState["source_anchor"];
+  publication_policy: PrCampaignState["publication_policy"];
+  blockers: Blocker[];
+  series: DashboardPrSeriesSummary[];
+  series_by_status: Record<PrSeriesStatus, DashboardPrSeriesSummary[]>;
+  next_batch: {
+    batch_index: number;
+    series_ids: string[];
+    validation_state: "validated" | "blocked";
+    blockers: Blocker[];
+    series: DashboardPrSeriesSummary[];
+  } | null;
+  pending_work_items: {
+    count: number;
+    items: DashboardPrWorkItemSummary[];
+  };
+  activation: {
+    active: boolean;
+    queued: boolean;
+    lease_id: string | null;
+    status: DispatchLease["status"] | null;
+    blockers: Blocker[];
+  };
+}
+
+export interface ProjectPrActionState {
+  availableActions: ActionProjection[];
+  pr: DashboardPrSummary | null;
+}
+
 const ALL_SESSION_EVIDENCE_LIMIT = Number.MAX_SAFE_INTEGER;
 
 export interface DashboardProjectState {
@@ -199,6 +261,7 @@ export interface DashboardProjectState {
   active_workflow: DispatchLease | null;
   queued_dispatch_requests: QueuedDispatchRequest[];
   run: DashboardRunSummary | null;
+  pr: DashboardPrSummary | null;
   sync: DashboardSyncSummary | null;
   session: {
     session_uuid: string;
@@ -341,15 +404,21 @@ function sessionEvidenceState(
   ]);
   const headRevision = session?.head_revision?.trim() ?? "";
   const latestAnchorDrifted = Boolean(
-    latestEntry && (!latestSavePoint?.commitSha?.trim() || latestSavePoint.commitSha !== headRevision),
+    latestEntry && (
+      !latestSavePoint?.commitSha?.trim() ||
+      latestSavePoint.commitSha !== headRevision ||
+      latestSavePoint.worktreeDirty
+    ),
   );
-  const freshNamedSavePoint = session && headRevision
+  const freshNamedSavePoint = session && headRevision && !latestAnchorDrifted
     ? timeline
         .filter((entry) => entry.entry_kind === "save_point")
         .map((entry) => savePointByEntry(savePoints, entry))
         .find(
           (savePoint) =>
-            Boolean(savePoint?.label?.trim()) && savePoint?.commitSha === headRevision,
+            Boolean(savePoint?.label?.trim()) &&
+            savePoint?.commitSha === headRevision &&
+            !savePoint.worktreeDirty,
         ) ?? null
     : null;
   return {
@@ -840,6 +909,171 @@ export function projectRunActionState(
   };
 }
 
+const PR_ACTION_IDS: readonly PrCampaignActionId[] = [
+  "pr.open_campaign",
+  "pr.activate",
+  "pr.publish_batch",
+  "pr.release",
+  "pr.close_campaign",
+  "pr.abandon_campaign",
+  "pr.campaign_recover",
+  "pr.adopt_legacy",
+];
+
+function prSeriesSummary(series: PrSeriesState): DashboardPrSeriesSummary {
+  return {
+    series_id: series.series_id,
+    batch_index: series.batch_index,
+    status: series.status,
+    branch: series.branch,
+    upstream_pr_number: series.upstream_pr_number,
+    target_units: [...series.target_units],
+    last_validation: series.last_validation,
+    blockers: series.blockers.map((entry) => ({ ...entry })),
+  };
+}
+
+function hasLegacyPrRecords(stateDir: string): boolean {
+  return asArray(readPrRecordsArtifact(stateDir).records)
+    .map(asObject)
+    .some((record) => /^codex\/split-\d+(?:-|$)/.test(stringValue(record.branch)));
+}
+
+function nextPrBatch(
+  campaign: PrCampaignState,
+  series: PrSeriesState[],
+): PrSeriesState[] {
+  const prepared = series.filter((entry) => entry.status === "prepared");
+  if (prepared.length === 0) return [];
+  const batchIndex = Math.min(...prepared.map((entry) => entry.batch_index));
+  return prepared
+    .filter((entry) => entry.batch_index === batchIndex)
+    .sort((left, right) => left.series_id.localeCompare(right.series_id))
+    .slice(0, campaign.publication_policy.batch_size);
+}
+
+function prSummaryProjection(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  campaign: PrCampaignState,
+  availableActions: ActionProjection[],
+): DashboardPrSummary {
+  const canonicalSeries = listPrSeriesForCampaign(store, campaign.campaign_id);
+  const series = canonicalSeries.map(prSeriesSummary);
+  const seriesByStatus = Object.fromEntries(
+    PR_SERIES_STATUSES.map((status) => [status, series.filter((entry) => entry.status === status)]),
+  ) as Record<PrSeriesStatus, DashboardPrSeriesSummary[]>;
+  const selected = nextPrBatch(campaign, canonicalSeries);
+  const selectedIds = new Set(selected.map((entry) => entry.series_id));
+  const publishBlockers = availableActions.find((entry) => entry.action_id === "pr.publish_batch")?.blocked_by ?? [];
+  const validationBlockers = dedupeBlockers([
+    ...campaign.blockers,
+    ...selected.flatMap((entry) => entry.blockers),
+    ...publishBlockers.filter((entry) =>
+      entry.code === "pr_series_not_validated" ||
+      entry.code === "pr_series_sync_invalidated" ||
+      (entry.source_kind === "pr_series" && selectedIds.has(entry.source_id)) ||
+      entry.source_kind === "sync_invalidation"
+    ),
+  ]);
+  const pendingWorkItems = canonicalSeries.flatMap((entry) =>
+    entry.work_items
+      .filter((item) => item.status === "pending")
+      .map((item): DashboardPrWorkItemSummary => ({
+        ...item,
+        series_branch: entry.branch,
+      })),
+  );
+  const projectState = getProjectState(store, projectId);
+  const lease = projectState?.active_workflow;
+  const ownLease = lease?.kind === "pr" && lease.workflow_id === campaign.campaign_id ? lease : null;
+  const queued = projectState?.queued_dispatch_requests.some(
+    (request) => request.kind === "pr" && request.workflow_id === campaign.campaign_id,
+  ) ?? false;
+
+  return {
+    workflow_id: campaign.campaign_id,
+    status: campaign.status,
+    source_anchor: { ...campaign.source_anchor },
+    publication_policy: { ...campaign.publication_policy },
+    blockers: campaign.blockers.map((entry) => ({ ...entry })),
+    series,
+    series_by_status: seriesByStatus,
+    next_batch: selected.length > 0
+      ? {
+          batch_index: selected[0]!.batch_index,
+          series_ids: selected.map((entry) => entry.series_id),
+          validation_state: validationBlockers.length === 0 ? "validated" : "blocked",
+          blockers: validationBlockers,
+          series: selected.map(prSeriesSummary),
+        }
+      : null,
+    pending_work_items: {
+      count: pendingWorkItems.length,
+      items: pendingWorkItems,
+    },
+    activation: {
+      active: ownLease !== null,
+      queued,
+      lease_id: ownLease?.lease_id ?? null,
+      status: ownLease?.status ?? null,
+      blockers: ownLease?.blockers.map((entry) => ({ ...entry })) ?? [],
+    },
+  };
+}
+
+function prActionState(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  session: ProjectSessionRecord | null,
+  freshNamedSavePoint: SavePointRecord | null,
+  options: Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now">,
+): ProjectPrActionState {
+  const campaign = getOpenPrCampaignForProject(store, projectId);
+  const projectState = getProjectState(store, projectId);
+  const ownLease = campaign && projectState?.active_workflow?.kind === "pr" &&
+      projectState.active_workflow.workflow_id === campaign.campaign_id
+    ? projectState.active_workflow
+    : null;
+  const heartbeatAt = ownLease ? Date.parse(ownLease.heartbeat_at) : NaN;
+  const now = options.now instanceof Date
+    ? options.now.getTime()
+    : typeof options.now === "number"
+      ? options.now
+      : typeof options.now === "string"
+        ? Date.parse(options.now)
+        : Date.now();
+  const activationStale = Number.isFinite(heartbeatAt) && Number.isFinite(now) &&
+    now - heartbeatAt > STALE_DISPATCH_LEASE_MS;
+  const context = {
+    activationStale,
+    hasLegacyRecords: hasLegacyPrRecords(store.stateDir),
+    namedSavePointId: freshNamedSavePoint?.id,
+    sessionUuid: session?.session_uuid,
+  };
+  const availableActions = PR_ACTION_IDS.map((actionId) =>
+    projectPrCampaignAction(store, projectId, actionId, campaign?.campaign_id, context) as ActionProjection,
+  );
+  return {
+    availableActions,
+    pr: campaign ? prSummaryProjection(store, projectId, campaign, availableActions) : null,
+  };
+}
+
+export function projectPrActionState(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  options: Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now"> = {},
+): ProjectPrActionState {
+  const session = getActiveProjectSession(store.db, projectId);
+  const timeline = session
+    ? listSessionTimeline(store.db, session.session_uuid, ALL_SESSION_EVIDENCE_LIMIT)
+    : [];
+  const savePoints = listSavePoints(store, ALL_SESSION_EVIDENCE_LIMIT);
+  const evidence = sessionEvidenceState(store, projectId, {}, session, timeline, savePoints);
+  return prActionState(store, projectId, session, evidence.freshNamedSavePoint, options);
+}
+
 const SYNC_ACTION_IDS: readonly SyncActionId[] = [
   "sync.start",
   "sync.resolve_conflict",
@@ -971,12 +1205,14 @@ export function buildProjectStateReadModel(
   const runState = projectRunActionState(store, projectId, options);
   const syncState = projectSyncActionState(store, projectId, session, options);
   const evidence = sessionEvidenceState(store, projectId, campaign, session, allTimeline, savePoints);
+  const prState = prActionState(store, projectId, session, evidence.freshNamedSavePoint, options);
 
   return {
     revision: canonical?.revision ?? 0,
     active_workflow: canonical?.active_workflow ?? null,
     queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
     run: runState.run,
+    pr: prState.pr,
     sync: syncState.sync,
     session: session
       ? {
@@ -1003,6 +1239,7 @@ export function buildProjectStateReadModel(
     latest_event_sequence: latestSequence(store.db, projectId),
     available_actions: [
       ...runState.availableActions,
+      ...prState.availableActions,
       ...syncState.availableActions,
       ...actions.availableActions,
     ],

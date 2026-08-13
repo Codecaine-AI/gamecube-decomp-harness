@@ -11,6 +11,7 @@ import type {
   SessionView,
 } from "@/pages/workspace/_lib/types";
 import { PrModeActions } from "./components/PrModeActions";
+import { PrCampaignCard } from "./components/PrCampaignCard";
 import { PrPipelineStepper } from "./components/PrPipelineStepper";
 import { PrStageBoard } from "./components/PrStageBoard";
 
@@ -47,6 +48,7 @@ export function PrModePage({
           />
         </PanelSection>
       ) : null}
+      <PrCampaignCard busy={busy} onAction={onAction} projectState={view.projectState} />
       <PrModeActions busy={busy} onAction={onAction} view={view} />
       <PanelSection>
         <PrStageBoard

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type {
   EventType,
   PiSessionStatus,
@@ -212,6 +212,59 @@ export const syncPublicationIntents = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [index("sync_publication_intents_project").on(table.projectId, table.createdAt)],
+);
+
+export const prBatchPublications = sqliteTable(
+  "pr_batch_publications",
+  {
+    publicationId: text("publication_id").primaryKey(),
+    campaignId: text("campaign_id").notNull(),
+    batchIndex: integer("batch_index").notNull(),
+    seriesIdsJson: text("series_ids_json", { mode: "json" }).$type<string[]>().notNull(),
+    idempotencyKey: text("idempotency_key").notNull().unique(),
+    revision: integer("revision").notNull().default(0),
+    status: text("status").$type<"reserved" | "publishing" | "completed">().notNull().default("reserved"),
+    ownerToken: text("owner_token"),
+    batchEventId: text("batch_event_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("pr_batch_publications_campaign_batch").on(table.campaignId, table.batchIndex),
+    uniqueIndex("pr_batch_publications_one_incomplete_campaign")
+      .on(table.campaignId)
+      .where(sql`${table.status} != 'completed'`),
+    check(
+      "pr_batch_publications_status_check",
+      sql`${table.status} IN ('reserved', 'publishing', 'completed')`,
+    ),
+  ],
+);
+
+export const prBatchPublicationSeries = sqliteTable(
+  "pr_batch_publication_series",
+  {
+    publicationId: text("publication_id").notNull(),
+    seriesId: text("series_id").notNull(),
+    ordinal: integer("ordinal").notNull(),
+    revision: integer("revision").notNull().default(0),
+    status: text("status").$type<"pending" | "publishing" | "published">().notNull().default("pending"),
+    ownerToken: text("owner_token"),
+    reservedSeriesRevision: integer("reserved_series_revision"),
+    validationTimestamp: text("validation_timestamp"),
+    invalidationWatermark: text("invalidation_watermark"),
+    upstreamPrNumber: integer("upstream_pr_number"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.publicationId, table.seriesId] }),
+    uniqueIndex("pr_batch_publication_series_ordinal").on(table.publicationId, table.ordinal),
+    check(
+      "pr_batch_publication_series_status_check",
+      sql`${table.status} IN ('pending', 'publishing', 'published')`,
+    ),
+  ],
 );
 
 export const syncInvalidations = sqliteTable(
@@ -775,6 +828,8 @@ export const orchestratorStateSchema = {
   knowledgeRevisions,
   piSessions,
   pendingIntegrations,
+  prBatchPublicationSeries,
+  prBatchPublications,
   runRecoveryJournal,
   projectEvents,
   projectSessions,
@@ -836,6 +891,8 @@ export type ProjectEventRow = typeof projectEvents.$inferSelect;
 export type NewProjectEventRow = typeof projectEvents.$inferInsert;
 export type ProjectStateRow = typeof projectState.$inferSelect;
 export type NewProjectStateRow = typeof projectState.$inferInsert;
+export type PrBatchPublicationRow = typeof prBatchPublications.$inferSelect;
+export type PrBatchPublicationSeriesRow = typeof prBatchPublicationSeries.$inferSelect;
 export type PendingIntegrationRow = typeof pendingIntegrations.$inferSelect;
 export type NewPendingIntegrationRow = typeof pendingIntegrations.$inferInsert;
 export type RunRecoveryJournalRow = typeof runRecoveryJournal.$inferSelect;

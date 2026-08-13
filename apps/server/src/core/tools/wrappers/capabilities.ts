@@ -162,39 +162,6 @@ function knowledgeApiTool(definition: KnowledgeApiToolDefinition): AgentToolRegi
   };
 }
 
-/** Tool for cached Ghidra-derived names, strings, addresses, and call context. */
-export const ghidraLookupToolRegistration = specializedTool({
-  id: "ghidra_lookup",
-  toolId: "ghidra",
-  scriptName: "lookup.py",
-  label: "Ghidra Lookup",
-  purpose: "Look up cached Ghidra-derived symbol, address, string, name, caller, or callee evidence.",
-  description: "Query cached Ghidra evidence for concrete symbols, addresses, source paths, strings, names, and call context.",
-  guidance: "Use ghidra_lookup as a second opinion for names, strings, addresses, calls, and type hints; never let decompiler-shaped output outrank local source and objdiff.",
-});
-
-/** Tool for cached opcode-sequence neighbors and instruction-shape analogs. */
-export const opseqSimilarFunctionsToolRegistration = specializedTool({
-  id: "opseq_similar_functions",
-  toolId: "opseq",
-  scriptName: "similar_functions.py",
-  label: "Opseq Similar Functions",
-  purpose: "Find cached opcode-sequence neighbors and instruction-shape analogs.",
-  description: "Query opseq for similar functions by source path, symbol, function, or distinctive opcode pattern.",
-  guidance: "Use opseq_similar_functions before duplicate adaptation or broad rewrites to find matched instruction-shape analogs.",
-});
-
-/** Tool for known objdiff/checkdiff mismatch symptoms and source-shape tactics. */
-export const mismatchDbSearchToolRegistration = specializedTool({
-  id: "mismatch_db_search",
-  toolId: "mismatch_db",
-  scriptName: "search.py",
-  label: "Mismatch DB Search",
-  purpose: "Search known mismatch symptoms and source-shape tactics.",
-  description: "Query mismatch_db for first-mismatch symptoms, opcode names, stack/register/literal/inline/branch patterns, and known tactics.",
-  guidance: "Use mismatch_db_search after a concrete objdiff/checkdiff mismatch to name the symptom and retrieve source-shape tactics.",
-});
-
 /** Tool for cached MWCC compiler-shape and debug evidence. */
 export const mwccDebugLookupToolRegistration = specializedTool({
   id: "mwcc_debug_lookup",
@@ -804,9 +771,6 @@ export const reviewLintSdata2OrderHelperToolRegistration = knowledgeApiTool({
 
 /** All callable decomp capability wrappers, reusable across profiles. */
 export const capabilityToolRegistrations = [
-  ghidraLookupToolRegistration,
-  opseqSimilarFunctionsToolRegistration,
-  mismatchDbSearchToolRegistration,
   mwccDebugLookupToolRegistration,
   checkdiffRunToolRegistration,
   checkdiffSummaryToolRegistration,

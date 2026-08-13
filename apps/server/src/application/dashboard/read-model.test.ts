@@ -20,6 +20,12 @@ import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { createProjectSession, recordSavePointAnchor, recordSavePointFailureDurably } from "@server/core/project-session";
 import { initializeProjectState, releaseDispatch, requestDispatch } from "@server/core/project-state";
 import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
+import {
+  activateAcquiredPrCampaign,
+  ingestPrFeedback,
+  openPrCampaign,
+  transitionPrSeries,
+} from "@server/core/session-runtime/phases/pr/campaign";
 import { getSyncState, recordSyncRequested, transitionSync } from "@server/core/session-runtime/phases/sync";
 import {
   buildProjectStateReadModel,
@@ -146,6 +152,14 @@ describe("dashboard read model", () => {
         },
       });
       expect(view.available_actions.map((action) => action.action_id)).toEqual([
+        "pr.open_campaign",
+        "pr.activate",
+        "pr.publish_batch",
+        "pr.release",
+        "pr.close_campaign",
+        "pr.abandon_campaign",
+        "pr.campaign_recover",
+        "pr.adopt_legacy",
         "sync.start",
         "sync.resolve_conflict",
         "sync.publish",
@@ -172,6 +186,320 @@ describe("dashboard read model", () => {
       expect(view.available_actions.find((action) => action.action_id === "session.close")).toMatchObject({
         enabled: false,
         blocked_by: [expect.objectContaining({ code: "dispatch_lease_held" })],
+        confirmation_required: true,
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("projects the durable PR campaign, next batch, feedback queue, activation, and canonical actions", () => {
+    const { store } = tempState();
+    try {
+      createProjectSession(store.db, {
+        projectId: "melee",
+        sessionUuid: "session-pr",
+        id: "project-session:session-pr",
+        baseSha: "source-head",
+      });
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const legacyCampaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      const savePoint = addSavePoint(store, {
+        campaignId: legacyCampaign.id,
+        triggerKind: "manual",
+        label: "campaign source",
+        commitSha: "source-head",
+      });
+      recordSavePointAnchor(store, {
+        actor: "operator",
+        commandId: "command-pr-anchor",
+        commitSha: "source-head",
+        projectId: "melee",
+        savePointId: savePoint.id,
+        triggerKind: "manual",
+      });
+      const campaign = openPrCampaign(store, {
+        actor: "operator",
+        campaignId: "pr-campaign-dashboard",
+        commandId: "command-pr-open",
+        namedSavePointId: savePoint.id,
+        projectId: "melee",
+        publicationPolicy: { batch_size: 2 },
+        series: [
+          {
+            batchIndex: 0,
+            branch: "codex/split-01-alpha",
+            seriesId: "series-alpha",
+            targetUnits: ["src/alpha.c"],
+            lastValidation: {
+              result: "clean",
+              source_revision: "source-head",
+              validated_at: "2026-08-13T12:00:00.000Z",
+            },
+          },
+          {
+            batchIndex: 1,
+            branch: "codex/split-02-beta",
+            seriesId: "series-beta",
+            targetUnits: ["src/beta.c"],
+            lastValidation: {
+              result: "clean",
+              source_revision: "source-head",
+              validated_at: "2026-08-13T12:01:00.000Z",
+            },
+          },
+          {
+            batchIndex: 1,
+            branch: "codex/split-03-gamma",
+            seriesId: "series-gamma",
+            targetUnits: ["src/gamma.c"],
+          },
+        ],
+        sessionUuid: "session-pr",
+      });
+      const dispatch = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-pr-dispatch",
+        kind: "pr",
+        projectId: "melee",
+        reason: "work the campaign",
+        workflowId: campaign.campaign_id,
+      });
+      if (dispatch.queued) throw new Error("test PR lease was unexpectedly queued");
+      activateAcquiredPrCampaign({
+        campaignId: campaign.campaign_id,
+        commandId: "command-pr-activate",
+        leaseId: dispatch.leaseId,
+        projectId: "melee",
+        store,
+      });
+      const published = transitionPrSeries(store, "series-alpha", {
+        actor: "operator",
+        commandId: "command-publish-alpha",
+        eventType: "pr.series_published",
+        expectedRevision: 0,
+        patch: { status: "published", upstreamPrNumber: 2850 },
+        payload: {
+          upstream_pr_number: 2850,
+          branch: "codex/split-01-alpha",
+          batch_index: 0,
+        },
+      });
+      ingestPrFeedback(store, {
+        commandId: "observation-alpha-review",
+        expectedRevision: published.revision,
+        items: [{
+          itemId: "work-item-alpha",
+          sourceKind: "review_comment",
+          sourceId: "review-comment-1",
+          summary: "Use the project typedef.",
+        }],
+        seriesId: published.series_id,
+      });
+
+      const view = buildProjectStateReadModel(store, "melee", {
+        aheadOfBase: 0,
+        head: { dirty: false },
+      });
+
+      expect(view.pr).toMatchObject({
+        workflow_id: "pr-campaign-dashboard",
+        status: "working",
+        source_anchor: {
+          save_point_id: savePoint.id,
+          source_revision: "source-head",
+        },
+        publication_policy: { batch_size: 2 },
+        activation: {
+          active: true,
+          queued: false,
+          lease_id: dispatch.leaseId,
+          status: "active",
+        },
+        next_batch: {
+          batch_index: 1,
+          series_ids: ["series-beta", "series-gamma"],
+          validation_state: "blocked",
+          blockers: [expect.objectContaining({ code: "pr_series_not_validated", source_id: "series-gamma" })],
+        },
+        pending_work_items: {
+          count: 1,
+          items: [{
+            item_id: "work-item-alpha",
+            series_id: "series-alpha",
+            series_branch: "codex/split-01-alpha",
+            status: "pending",
+            summary: "Use the project typedef.",
+            source_kind: "review_comment",
+            source_id: "review-comment-1",
+            resolved_at: null,
+            created_at: expect.any(String),
+          }],
+        },
+      });
+      expect(view.pr?.series_by_status.changes_requested).toEqual([
+        expect.objectContaining({ series_id: "series-alpha", upstream_pr_number: 2850 }),
+      ]);
+      expect(view.pr?.series_by_status.prepared.map((series) => series.series_id)).toEqual([
+        "series-beta",
+        "series-gamma",
+      ]);
+      expect(view.available_actions.find((action) => action.action_id === "pr.open_campaign")).toMatchObject({
+        enabled: false,
+        confirmation_required: false,
+        blocked_by: [expect.objectContaining({ code: "pr_campaign_open" })],
+      });
+      expect(view.available_actions.find((action) => action.action_id === "pr.activate")).toMatchObject({
+        enabled: false,
+        confirmation_required: false,
+        blocked_by: [expect.objectContaining({ code: "pr_already_active" })],
+      });
+      expect(view.available_actions.find((action) => action.action_id === "pr.publish_batch")).toMatchObject({
+        enabled: false,
+        confirmation_required: true,
+        blocked_by: [expect.objectContaining({ code: "pr_series_not_validated" })],
+      });
+      expect(view.available_actions.find((action) => action.action_id === "pr.release")).toMatchObject({
+        enabled: true,
+        confirmation_required: false,
+      });
+      expect(view.available_actions.find((action) => action.action_id === "pr.close_campaign")).toMatchObject({
+        enabled: false,
+        confirmation_required: true,
+      });
+      expect(
+        view.available_actions.find((action) => action.action_id === "pr.close_campaign")?.blocked_by,
+      ).toEqual(expect.arrayContaining([expect.objectContaining({ code: "pr_series_not_terminal" })]));
+      expect(view.available_actions.find((action) => action.action_id === "pr.abandon_campaign")).toMatchObject({
+        enabled: true,
+        confirmation_required: true,
+      });
+      expect(view.available_actions.find((action) => action.action_id === "pr.campaign_recover")).toMatchObject({
+        enabled: false,
+        confirmation_required: true,
+      });
+      expect(view.available_actions.find((action) => action.action_id === "pr.adopt_legacy")).toMatchObject({
+        enabled: false,
+        confirmation_required: false,
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("projects campaign opening, legacy adoption, run-drain activation, and stale activation recovery", () => {
+    const { dir, store } = tempState();
+    try {
+      createProjectSession(store.db, {
+        projectId: "melee",
+        sessionUuid: "session-pr-actions",
+        id: "project-session:session-pr-actions",
+        baseSha: "source-head",
+      });
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const legacyCampaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      const savePoint = addSavePoint(store, {
+        campaignId: legacyCampaign.id,
+        triggerKind: "manual",
+        label: "campaign source",
+        commitSha: "source-head",
+      });
+      recordSavePointAnchor(store, {
+        actor: "operator",
+        commandId: "command-actions-anchor",
+        commitSha: "source-head",
+        projectId: "melee",
+        savePointId: savePoint.id,
+        triggerKind: "manual",
+      });
+      writeActivityLog(resolve(dir, "pr_handoff/pr_records.json"), [{
+        schemaVersion: "session_pr_records_v2",
+        records: [{ branch: "codex/split-01-alpha", prNumber: 2850 }],
+      }]);
+
+      let view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.pr).toBeNull();
+      expect(view.available_actions.find((action) => action.action_id === "pr.open_campaign")).toMatchObject({
+        enabled: true,
+        confirmation_required: false,
+      });
+      expect(view.available_actions.find((action) => action.action_id === "pr.adopt_legacy")).toMatchObject({
+        enabled: true,
+        confirmation_required: false,
+      });
+
+      const campaign = openPrCampaign(store, {
+        actor: "operator",
+        campaignId: "pr-campaign-actions",
+        commandId: "command-actions-open",
+        namedSavePointId: savePoint.id,
+        projectId: "melee",
+        series: [{
+          batchIndex: 0,
+          branch: "codex/split-01-actions",
+          seriesId: "series-actions",
+          targetUnits: ["src/actions.c"],
+        }],
+        sessionUuid: "session-pr-actions",
+      });
+      const runDispatch = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-actions-run",
+        kind: "run",
+        projectId: "melee",
+        reason: "test drain projection",
+        workflowId: "run-actions",
+      });
+      if (runDispatch.queued) throw new Error("test run lease was unexpectedly queued");
+      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.available_actions.find((action) => action.action_id === "pr.activate")).toMatchObject({
+        enabled: true,
+        expected_transition: "preparing/in_review → working after run drains",
+        confirmation_required: false,
+      });
+
+      releaseDispatch(store, {
+        actor: "operator",
+        commandId: "command-actions-run-release",
+        leaseId: runDispatch.leaseId,
+        projectId: "melee",
+      });
+      const prDispatch = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-actions-pr",
+        kind: "pr",
+        projectId: "melee",
+        reason: "test recovery projection",
+        workflowId: campaign.campaign_id,
+      });
+      if (prDispatch.queued) throw new Error("test PR lease was unexpectedly queued");
+      activateAcquiredPrCampaign({
+        campaignId: campaign.campaign_id,
+        commandId: "command-actions-activate",
+        leaseId: prDispatch.leaseId,
+        projectId: "melee",
+        store,
+      });
+      const row = store.db
+        .query("SELECT active_workflow_json FROM project_state WHERE project_id = ?")
+        .get("melee") as { active_workflow_json: string };
+      store.db
+        .query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = ?")
+        .run(
+          JSON.stringify({
+            ...JSON.parse(row.active_workflow_json),
+            heartbeat_at: "2026-08-13T12:00:00.000Z",
+          }),
+          "melee",
+        );
+      view = buildProjectStateReadModel(
+        store,
+        "melee",
+        { aheadOfBase: 0, head: { dirty: false } },
+        { now: "2026-08-13T12:30:00.000Z" },
+      );
+      expect(view.available_actions.find((action) => action.action_id === "pr.campaign_recover")).toMatchObject({
+        enabled: true,
         confirmation_required: true,
       });
     } finally {

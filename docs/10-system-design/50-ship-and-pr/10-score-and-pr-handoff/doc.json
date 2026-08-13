@@ -148,7 +148,7 @@
       "props": {},
       "text": [
         {
-          "insert": "A run session is one grouping of changes measured against one frozen baseline.\nShipping moves a subset of that grouping upstream; syncing closes the session\nand opens the next one against the updated baseline. The local change ledger —\ncarry-forward patches, facts, lessons, and rejected hypotheses — persists\nacross sessions: only shipped PR candidates ever leave the system."
+          "insert": "A run session is one grouping of changes measured against one frozen baseline.\nShipping moves a subset of that grouping upstream. A sync request only requests or\nacquires dispatch authority; cancelling it leaves the current session and baseline\nuntouched. The local change ledger — carry-forward patches, facts, lessons, and\nrejected hypotheses — persists across sessions: only shipped PR candidates ever\nleave the system."
         }
       ],
       "children": []
@@ -159,7 +159,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Because the orchestrator works alongside other contributors in an open-source\nupstream, the sync boundary is a hard lock, not advice. Sync and merged-PR\nintake are rejected while a run is active, because pulling upstream would\ninvalidate the baseline all worker evidence is measured against. Once a sync\nstarts, the old session is closed; there is no path back to the old baseline."
+          "insert": "Because the orchestrator works alongside other contributors in an open-source\nupstream, the sync boundary is a hard lock, not advice. Sync and merged-PR\nintake are rejected while a run is active, because pulling upstream would\ninvalidate the baseline all worker evidence is measured against. Requesting sync\ndoes not close the current session, and cancellation leaves that session unchanged."
         }
       ],
       "children": []
@@ -1122,7 +1122,7 @@
       "props": {},
       "text": [
         {
-          "insert": "  the draft first. It treats the PR as the central remote object, fetches the\n  PR refs, runs L3 preship review plus the deterministic scan/repair loop,\n  routes both scanner findings and file-backed preship findings through repair,\n  posts deduped comments only for findings that remain unresolved after repair\n  attempts, and verifies CI/local checks before the PR is considered ready for\n  human review."
+          "insert": "  the draft first. The campaign treats the PR as the central remote object: background observation records GitHub comments, review comments, and remote status as durable series state as soon as they arrive. Preship review, QA repair, and CI/local validation execute only inside an operator-entered campaign activation that holds the dispatch lease; the activation posts deduped comments for unresolved findings before the PR is ready for human review."
         }
       ],
       "children": []
@@ -1559,20 +1559,19 @@
       "props": {},
       "text": [
         {
-          "insert": "The PR splitter shapes the handoff series before PRs exist; the PR indexer\nanalyzes merged PRs for reusable knowledge after the fact. Final branch\ncreation, presentation, reviewer coordination, and merge readiness stay\noperator-owned outside the worker claim loop. Once opened, PRs become tracked\nstate — slice, branch, number, draft/open/merged status, comments, CI — per\n"
+          "insert": "The PR splitter shapes the handoff series before remote PRs exist; one durable PR campaign then owns every series from that stable-point split through the review cycle, while the PR indexer analyzes merged PRs for reusable knowledge. A project permits at most one open campaign. Branch presentation, operator-gated batch publication, reviewer coordination, and operator-confirmed campaign closure stay outside the worker claim loop. Each series records its branch, upstream PR number, remote review status, feedback work items, and latest validation per "
         },
         {
-          "insert": "operator flow and PR tracking",
+          "insert": "Operator flow and PR tracking",
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "10-system-design/50-ship-and-pr/20-operator-flow-and-pr-tracking",
-              "label": "operator flow and PR tracking"
+              "path": "10-system-design/50-ship-and-pr/20-operator-flow-and-pr-tracking"
             }
           }
         },
         {
-          "insert": "."
+          "insert": ". Legacy split-PR records can be adopted into the campaign as durable series."
         }
       ],
       "children": []
@@ -1583,7 +1582,7 @@
       "props": {},
       "text": [
         {
-          "insert": "After a slice is opened as a draft PR, "
+          "insert": "Background remote observation advances a published series through changes requested, approval, merge, or closure without acquiring the dispatch lease, and it ingests review feedback immediately as pending work items. The durable campaign remains mostly dormant while it waits for reviewers. Fixers and "
         },
         {
           "insert": "pr-draft-qa",
@@ -1592,7 +1591,16 @@
           }
         },
         {
-          "insert": " is the repeatable handoff\nloop for that remote PR. The command resolves the PR with GitHub, records\nGitHub comments and review comments, runs the preship reviewer and QA-repair\nlane against the PR diff, comments unresolved findings with stable dedupe\nmarkers, and records whether CI/local checks are clean. Human review comments\ndo not require a new local plan; the operator reruns the lifecycle for the PR\nnumber so the same remote thread, comments, and artifacts stay tied together."
+          "insert": " validation run only inside an operator-entered activation that holds the dispatch lease; acquisition and release each record a "
+        },
+        {
+          "insert": "pr_phase",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " session-timeline entry. Fixes stay tied to the existing remote series and review thread."
         }
       ],
       "children": []
@@ -1753,7 +1761,7 @@
             "text": "save point",
             "steps": [
               {
-                "text": "a hard `ship` save point anchors the session: prepare *is* the end of the run. The next session starts from here; PR comment fixes can ride the next run.",
+                "text": "a hard `ship` save point anchors the session and the campaign source. The operator opens one durable campaign from that stable point; the campaign persists through review, with feedback ingested while dormant and fixes reserved for operator-entered activations.",
                 "kind": "note"
               }
             ]
@@ -1833,7 +1841,7 @@
           }
         },
         {
-          "insert": ") for stepwise\noperation. None of these publish GitHub PRs: they prepare artifacts that make\na maintainer-facing PR series easy to open while preserving unfinished local\nevidence for future sessions."
+          "insert": ") for stepwise operation. None of these controls publish GitHub PRs: they prepare the stable-point artifacts and unfinished local evidence that seed a durable campaign. Publication is operator-confirmed per batch; the default batch size is four, and the activation holds the dispatch lease so prepared series remain closed until the operator approves the next batch."
         }
       ],
       "children": []

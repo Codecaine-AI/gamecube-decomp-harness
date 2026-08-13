@@ -1,7 +1,6 @@
 import { Archive, GitBranch, GitPullRequest, Hammer, Pause, RefreshCw, RotateCcw, ShieldCheck, Wrench } from "@/icons";
-import { num } from "@/lib/format";
 import { Button, PanelSection, PanelTitle } from "@/components/primitives";
-import { isDraftBatchCandidate } from "@/pages/workspace/_lib/model";
+import { prettyStatus, projectStateAction } from "@/pages/workspace/_lib/model";
 import type { DashboardAction, SessionView } from "@/pages/workspace/_lib/types";
 import { prLockReason } from "./prStatus";
 import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
@@ -10,15 +9,10 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
   const prepareEnabled = view.handoffIdle && (view.runStatus === "active" || view.runStatus === "paused");
   const lockReason = prLockReason(view);
   const localPrepCount = view.prRecords.filter((record) => record.status === "planned" && record.localStatus === "not_prepared").length;
-  const draftCandidates = view.prRecords.filter(isDraftBatchCandidate);
-  const draftCandidateCount = draftCandidates.length;
-  const plannedRecords = view.prRecords.filter((record) => record.status === "planned");
-  const plannedCount = plannedRecords.length;
-  const confirmPublish = (records: typeof view.prRecords, action: DashboardAction) => {
-    const names = records.map((record) => record.displayName || record.branch).join(", ");
-    const count = records.length;
-    if (window.confirm(`Publish ${count} draft PR${count === 1 ? "" : "s"} upstream?\n\nSeries: ${names}\n\nThis will create the draft PR${count === 1 ? "" : "s"} on GitHub.`)) onAction(action);
-  };
+  const publishBatch = projectStateAction(view.projectState, "pr.publish_batch");
+  const publishTitle = publishBatch?.enabled
+    ? publishBatch.expected_transition
+    : publishBatch?.blocked_by.map((blocker) => blocker.message || prettyStatus(blocker.code)).join("; ") || "Action is missing from the server projection.";
   return (
     <PanelSection>
       <PanelTitle>Pipeline Actions</PanelTitle>
@@ -40,8 +34,8 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
           <Button disabled={busy || localPrepCount === 0 || Boolean(lockReason)} icon={<Hammer size={13} />} onClick={() => onAction("prepareLocalBatch")} title={lockReason || (localPrepCount > 0 ? "Prepare the next three planned PR slices in local worktrees without publishing drafts." : "No planned slices need local preparation.")} type="button">
             Prepare Next 3
           </Button>
-          <Button disabled={busy || draftCandidateCount === 0 || Boolean(lockReason)} icon={<GitPullRequest size={13} />} onClick={() => confirmPublish(draftCandidates.slice(0, 3), "openDraftBatch")} title={lockReason || (draftCandidateCount > 0 ? "Open the next three local-ready or local-branch slices as GitHub drafts." : "No local draft candidates to open.")} tone={draftCandidateCount > 0 && !lockReason ? "primary" : undefined} type="button">
-            Open Next 3
+          <Button disabled={busy || !publishBatch?.enabled} icon={<GitPullRequest size={13} />} onClick={() => onAction("prPublishBatch")} title={publishTitle} tone={publishBatch?.enabled ? "primary" : undefined} type="button">
+            Publish Next Batch
           </Button>
         </div>
         <div className="pr-action-group">
@@ -57,7 +51,7 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
         </div>
       </div>
       <details className="control-disclosure mt-3">
-        <summary>Manual handoff steps - QA, QA repair, checkpoint, reconcile, open all drafts</summary>
+        <summary>Manual handoff steps - QA, QA repair, checkpoint, reconcile</summary>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button disabled={busy || !view.handoffIdle} icon={<ShieldCheck size={13} />} onClick={() => onAction("qa")} title={view.handoffIdle ? "Run the PR QA gate." : view.handoffReason} type="button">
             Run QA
@@ -70,9 +64,6 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
           </Button>
           <Button disabled={busy || !view.handoffIdle || view.runStatus !== "paused"} icon={<Wrench size={13} />} onClick={() => onAction("reconcile")} title={view.handoffIdle && view.runStatus === "paused" ? "Run reconcile against the latest QA report." : view.handoffReason || "Workers must be stopped for PR handoff."} type="button">
             Reconcile
-          </Button>
-          <Button disabled={busy || plannedCount === 0 || Boolean(lockReason)} icon={<GitPullRequest size={13} />} onClick={() => confirmPublish(plannedRecords, "openAllPrs")} title={lockReason || (plannedCount > 0 ? "Legacy path: open all planned slices as draft PRs." : "No planned real PR slices to open.")} type="button">
-            Open All Drafts
           </Button>
         </div>
       </details>

@@ -34,6 +34,8 @@ import { createPreparingRuntime } from "@server/core/session-runtime/phases/prep
 import { handleSessionsApiRoute } from "@server/api/routes/sessions";
 import { handleSyncApiRoute } from "@server/api/routes/sync";
 import { createSyncRuntime } from "@server/core/session-runtime/phases/sync/runtime";
+import { handlePrApiRoute } from "@server/api/routes/pr";
+import { createPrCampaignRuntime } from "@server/core/session-runtime/phases/pr/campaign/runtime";
 import { createValidationRuntime } from "@server/core/validation/runtime";
 import { handleValidationApiRoute } from "@server/api/routes/validation";
 import { readRegressionReport } from "@server/core/validation/objdiff/report";
@@ -412,6 +414,13 @@ const handoffRuntime = createHandoffRuntime({
   submitWorkflowEvent: kernelRuntime.submitWorkflowEvent,
 });
 
+const prCampaignRuntime = createPrCampaignRuntime({
+  handoff: handoffRuntime,
+  prSync,
+  resolveDashboardProject: projectContext.resolveDashboardProject,
+  runGit: commandRunner.runGit,
+});
+
 const standards = createStandardsService({
   appendLog,
   projectDefaults: projectContext.projectDefaults,
@@ -508,6 +517,24 @@ function dashboardEvents(url: URL): Response {
 async function handleApi(req: Request, url: URL): Promise<Response> {
   const localFont = localFontResponse(req, url);
   if (localFont) return localFont;
+
+  const prCampaign = await handlePrApiRoute(req, url, {
+    abandonCampaign: prCampaignRuntime.abandonCampaign,
+    action: prCampaignRuntime.action,
+    activate: prCampaignRuntime.activate,
+    adoptLegacy: prCampaignRuntime.adoptLegacy,
+    claimWorkItems: prCampaignRuntime.claimWorkItems,
+    closeCampaign: prCampaignRuntime.closeCampaign,
+    declineWorkItems: prCampaignRuntime.declineWorkItems,
+    json,
+    openCampaign: prCampaignRuntime.openCampaign,
+    publishBatch: prCampaignRuntime.publishBatch,
+    recoverCampaign: prCampaignRuntime.recoverCampaign,
+    release: prCampaignRuntime.release,
+    resolveWorkItems: prCampaignRuntime.resolveWorkItems,
+    reviseWorkItems: prCampaignRuntime.reviseWorkItems,
+  });
+  if (prCampaign) return prCampaign;
 
   const sync = await handleSyncApiRoute(req, url, {
     action: syncRuntime.action,
@@ -611,6 +638,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   const handoff = await handleHandoffApiRoute(req, url, {
     json,
     ...handoffRuntime,
+    runQaRepairForCampaign: prCampaignRuntime.runQaRepair,
     // Compatibility alias: lifecycle ownership remains in run-control.
     pauseRunForPr: runControlRuntime.pause,
   });

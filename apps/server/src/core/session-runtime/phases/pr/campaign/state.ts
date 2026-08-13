@@ -469,11 +469,14 @@ export function transitionPrCampaign(
     if (nextStatus === "completed") {
       const row = store.db
         .query(
-          `SELECT COUNT(*) AS count FROM pr_series
-           WHERE campaign_id = ? AND status NOT IN ('merged', 'closed')`,
+          `SELECT
+             COUNT(*) AS total,
+             SUM(CASE WHEN status NOT IN ('merged', 'closed') THEN 1 ELSE 0 END) AS non_terminal
+           FROM pr_series WHERE campaign_id = ?`,
         )
-        .get(campaignId) as { count: number };
-      if (Number(row.count) > 0) throw new Error(`PR campaign ${campaignId} cannot complete with non-terminal series`);
+        .get(campaignId) as { non_terminal: number | null; total: number };
+      if (Number(row.total) === 0) throw new Error(`PR campaign ${campaignId} cannot complete without series`);
+      if (Number(row.non_terminal) > 0) throw new Error(`PR campaign ${campaignId} cannot complete with non-terminal series`);
     }
     if (!isTerminalPrCampaignStatus(nextStatus) && input.patch.closedAt !== undefined) {
       throw new Error(`Non-terminal PR campaign ${campaignId} cannot set closed_at`);
@@ -865,7 +868,11 @@ export function recordPreparedPrSeries(store: StateStore, input: RecordPreparedP
   });
 }
 
-export function openPrCampaign(store: StateStore, input: OpenPrCampaignInput): PrCampaignState {
+export function openPrCampaign(
+  store: StateStore,
+  input: OpenPrCampaignInput,
+  options: { allowEmptyForLegacyAdoption?: boolean } = {},
+): PrCampaignState {
   if (input.actor !== "operator") throw new Error("PR campaign open is operator-only");
   return immediateTransaction(store.db, () => {
     const projectId = requiredText(input.projectId, "projectId");
@@ -880,6 +887,9 @@ export function openPrCampaign(store: StateStore, input: OpenPrCampaignInput): P
     const publicationPolicy: PrPublicationPolicy = { batch_size: input.publicationPolicy?.batch_size ?? 4 };
     assertPublicationPolicy(publicationPolicy);
     const series = input.series ?? [];
+    if (series.length === 0 && options.allowEmptyForLegacyAdoption !== true) {
+      throw new Error("PR campaign requires at least one series");
+    }
     const seriesIds = new Set(series.map((entry) => entry.seriesId).filter((value): value is string => value !== undefined));
     if (seriesIds.size !== series.filter((entry) => entry.seriesId !== undefined).length) {
       throw new Error("PR campaign series ids must be unique");

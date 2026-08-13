@@ -454,7 +454,7 @@ function compactTargetGraphFileCard(
           }),
           compactObject({ tool: "code_graph_search", query: sourcePath }),
           compactObject({
-            tool: "opseq_similar_functions",
+            tool: "knowledge_graph_search",
             query: [sourcePath, optionalString(target.symbol)].filter(Boolean).join(" "),
           }),
         ],
@@ -510,8 +510,9 @@ function compactTargetGraphFileCard(
       query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
     }),
     compactObject({
-      tool: "opseq_similar_functions",
-      query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
+      tool: "graph_related_functions",
+      source_path: sourcePath,
+      symbol: targetSymbol,
     }),
     compactObject({
       tool: "past_prs_search",
@@ -520,7 +521,7 @@ function compactTargetGraphFileCard(
     ...(mismatchQueries.length
       ? [
           compactObject({
-            tool: "mismatch_db_search",
+            tool: "knowledge_graph_search",
             query: mismatchQueries.join(" OR "),
           }),
         ]

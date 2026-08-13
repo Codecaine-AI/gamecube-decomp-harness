@@ -82,7 +82,9 @@ describe("workerPrompt", () => {
     expect(renderedContext).toContain("Broad find roots");
     expect(renderedContext).toContain("<target_graph_file_card");
     expect(renderedContext).toContain('"top_opseq_analog"');
-    expect(renderedContext).toContain("opseq_similar_functions");
+    expect(renderedContext).toContain("graph_related_functions");
+    expect(renderedContext).not.toContain("opseq_similar_functions");
+    expect(renderedContext).not.toContain("mismatch_db_search");
     expect(renderedContext).toContain("<canonical_example");
     expect(renderedContext).toContain("<bad_code>");
     expect(renderedContext).toContain("<preferred_code>");

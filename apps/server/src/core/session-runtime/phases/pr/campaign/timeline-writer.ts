@@ -49,9 +49,9 @@ export function recordPrPhaseBoundaryInTransaction(
   const leaseId = requiredText(input.leaseId, "leaseId");
   const occurredAt = requiredText(input.occurredAt, "occurredAt");
   const eventId = requiredText(input.campaign.caused_by_event_id, "campaign caused_by_event_id");
-  const expectedEventType = input.boundary === "acquired"
-    ? "pr.campaign_working"
-    : "pr.campaign_in_review";
+  const expectedEventTypes = input.boundary === "acquired"
+    ? ["pr.campaign_working"]
+    : ["pr.campaign_in_review", "pr.campaign_recovered", "pr.campaign_closed"];
   const event = db
     .query(
       `SELECT event_type, project_id, subject_kind, subject_id
@@ -60,13 +60,13 @@ export function recordPrPhaseBoundaryInTransaction(
     .get(eventId) as EventRow | null;
   if (
     !event ||
-    event.event_type !== expectedEventType ||
+    !expectedEventTypes.includes(event.event_type) ||
     event.project_id !== input.campaign.project_id ||
     event.subject_kind !== "pr_campaign" ||
     event.subject_id !== campaignId
   ) {
     throw new Error(
-      `PR phase ${input.boundary} must reuse ${expectedEventType} for campaign ${campaignId}`,
+      `PR phase ${input.boundary} must reuse ${expectedEventTypes.join(" or ")} for campaign ${campaignId}`,
     );
   }
 

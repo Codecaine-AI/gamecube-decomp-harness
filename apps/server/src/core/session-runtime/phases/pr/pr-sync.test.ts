@@ -9,6 +9,7 @@ function createFixture() {
   let previous: JsonObject = { records: [] };
   let written: JsonObject = {};
   let cliResult = { exitCode: 1, stdout: "", stderr: "offline" };
+  let cliHandler: ((command: string[]) => typeof cliResult) | null = null;
   const campaignObservations: JsonObject[] = [];
   const deps: PrSyncServiceDeps<PrSyncProjectContext> = {
     appendLog: () => {},
@@ -31,7 +32,7 @@ function createFixture() {
       },
     },
     resolveDashboardProject: () => ({ repoRoot: "/repo", stateDir: "/state", project: { baseRef: "origin/master" } }),
-    runCli: async () => cliResult,
+    runCli: async (command) => cliHandler ? cliHandler(command) : cliResult,
     runGitQuiet: (_repoRoot, args) => {
       if (args[0] === "remote") return { exitCode: 1, stdout: "", stderr: "no remote" };
       if (args[0] === "for-each-ref") return { exitCode: 1, stdout: "", stderr: "no branches" };
@@ -42,6 +43,7 @@ function createFixture() {
   return {
     service,
     setCliResult(value: typeof cliResult) { cliResult = value; },
+    setCliHandler(value: (command: string[]) => typeof cliResult) { cliHandler = value; },
     setPlan(value: JsonObject) { plan = value; },
     setPrevious(value: JsonObject) { previous = value; },
     written: () => written,
@@ -102,6 +104,39 @@ describe("PR sync support manifests", () => {
       state: "OPEN",
       upstreamPrNumber: 2850,
     }]);
+  });
+
+  test("forwards reviews and inline review comments with stable source ids", async () => {
+    const fixture = createFixture();
+    fixture.setCliHandler((command) => command[1] === "api"
+      ? {
+          exitCode: 0,
+          stdout: JSON.stringify([{ id: 991, body: "Please preserve the signed comparison." }]),
+          stderr: "",
+        }
+      : {
+          exitCode: 0,
+          stdout: JSON.stringify({
+            comments: [],
+            reviews: [{ id: "PRR_88", body: "The overall direction needs revision." }],
+            files: [],
+            statusCheckRollup: [],
+          }),
+          stderr: "",
+        });
+
+    await fixture.service.hydratePrRecordFromGithub(
+      { branch: "codex/split-01-alpha" },
+      { headRefName: "codex/split-01-alpha", number: 2850, state: "OPEN" },
+      "doldecomp/melee",
+      "/repo",
+      "/state",
+    );
+
+    expect(fixture.campaignObservations[0]?.feedback).toEqual([
+      { sourceKind: "pull_request_review", sourceId: "PRR_88", summary: "The overall direction needs revision." },
+      { sourceKind: "pull_request_review_comment", sourceId: "991", summary: "Please preserve the signed comparison." },
+    ]);
   });
 
   test("persists declared support files, then removes and invalidates them on re-plan", async () => {

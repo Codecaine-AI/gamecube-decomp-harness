@@ -1,5 +1,6 @@
 export { buildAgentSharedStateGraphRecords, importAgentSharedStateLessons } from "./agent-shared-state.js";
 export { buildCodeGraphRecords, fileEntityId, functionEntityId, unitEntityId } from "./code-graph.js";
+export { buildDecompStandardsGraphRecords } from "./builders/decomp-standards.js";
 export { buildGhidraXrefGraphRecords, GHIDRA_XREFS_SOURCE_ID, type BuildGhidraXrefGraphRecordsOptions } from "./ghidra-xrefs.js";
 export {
   ensureKnowledgeGraphSchema,
@@ -11,18 +12,13 @@ export {
   type KnowledgeGraphStore,
 } from "./db.js";
 export { fileGraphCard } from "./file-card.js";
+export { functionRelationshipEvidence, relatedFunctions } from "./queries/related-functions.js";
 export { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
 export { buildMismatchPatternGraphRecords, type BuildMismatchPatternGraphRecordsOptions } from "./mismatch-patterns.js";
 export { buildOpseqSimilarityGraphRecords, OPSEQ_SIMILARITY_SOURCE_ID, type BuildOpseqSimilarityGraphRecordsOptions } from "./opseq-similarity.js";
 export { buildPastPrsGraphRecords } from "./past-prs.js";
 export { rankFeatureForSourcePath, rankFeatureMapForCandidates } from "./rank.js";
 export { defaultGraphSources, rebuildKnowledgeGraph } from "./rebuild.js";
-export {
-  buildDiscordKnowledgeGraphRecords,
-  buildExternalMirrorsGraphRecords,
-  buildPowerpcDocsGraphRecords,
-  buildSsbmDataSheetGraphRecords,
-} from "./source-slices.js";
 export {
   readSourceDescriptor,
   readSourceRegistry,
@@ -69,6 +65,8 @@ export type {
   GraphRecords,
   SearchChunk,
   SearchResult,
+  RelatedFunctionsQuery,
+  RelatedFunctionsResult,
   SourceAccessMode,
   SourceDescriptor,
   SourceRegistryEntry,

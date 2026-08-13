@@ -10,17 +10,16 @@
  *
  * Pruned 2026-06-12 per reports/pi-agent-tool-analysis-2026-06-12.html and
  * 2026-06-30 per analysis/reports/fresh-tool-distribution-15-epoch-2026-06-30.html.
- * Low-lift/stale external sources are no longer advertised to workers. The
- * path_facts source was deprecated in the 2026-08 knowledge-graph redesign
- * phase-1 prune and its tools were removed.
+ * Low-lift/stale external sources are not advertised to workers. Scoped
+ * durable facts are read through graph tools instead of a parallel lookup
+ * surface.
  */
 export const defaultWorkerToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
+  "knowledge_graph_search",
+  "graph_related_functions",
   "past_prs_search",
-  "ghidra_lookup",
-  "opseq_similar_functions",
-  "mismatch_db_search",
   "mwcc_debug_lookup",
   "checkdiff_run",
   "checkdiff_summary",
@@ -43,8 +42,8 @@ export const defaultWorkerToolProfile = [
 export const defaultIntegrationResolverToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
+  "knowledge_graph_search",
   "past_prs_search",
-  "mismatch_db_search",
   "checkdiff_run",
   "checkdiff_summary",
   "direct_compile_tu",
@@ -77,8 +76,8 @@ export const defaultPrSplitterToolProfile = [
 export const defaultPrFixerToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
+  "knowledge_graph_search",
   "past_prs_search",
-  "mismatch_db_search",
   "checkdiff_run",
   "checkdiff_summary",
   "direct_compile_tu",
@@ -93,8 +92,8 @@ export const defaultPrFixerToolProfile = [
 export const defaultReconcileToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
+  "knowledge_graph_search",
   "past_prs_search",
-  "mismatch_db_search",
   "checkdiff_run",
   "checkdiff_summary",
   "direct_compile_tu",
@@ -108,8 +107,8 @@ export const defaultReconcileToolProfile = [
 export const defaultQaRepairToolProfile = [
   "code_graph_file_card",
   "code_graph_search",
+  "knowledge_graph_search",
   "past_prs_search",
-  "mismatch_db_search",
   "checkdiff_run",
   "checkdiff_summary",
   "direct_compile_tu",

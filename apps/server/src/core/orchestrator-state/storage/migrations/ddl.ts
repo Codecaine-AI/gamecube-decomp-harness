@@ -6,6 +6,52 @@ export const SCHEMA_MIGRATIONS_DDL = `
   );
 `;
 
+export const PR_BATCH_PUBLICATION_RESERVATIONS_DDL = `
+  CREATE TABLE IF NOT EXISTS pr_batch_publications (
+    publication_id TEXT PRIMARY KEY,
+    campaign_id TEXT NOT NULL REFERENCES pr_campaigns(campaign_id),
+    batch_index INTEGER NOT NULL,
+    series_ids_json TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    revision INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'reserved' CONSTRAINT pr_batch_publications_status_check CHECK (
+      status IN ('reserved', 'publishing', 'completed')
+    ),
+    owner_token TEXT,
+    batch_event_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS pr_batch_publication_series (
+    publication_id TEXT NOT NULL REFERENCES pr_batch_publications(publication_id),
+    series_id TEXT NOT NULL REFERENCES pr_series(series_id),
+    ordinal INTEGER NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending' CONSTRAINT pr_batch_publication_series_status_check CHECK (
+      status IN ('pending', 'publishing', 'published')
+    ),
+    owner_token TEXT,
+    reserved_series_revision INTEGER,
+    validation_timestamp TEXT,
+    invalidation_watermark TEXT,
+    upstream_pr_number INTEGER,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (publication_id, series_id)
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS pr_batch_publications_campaign_batch
+    ON pr_batch_publications (campaign_id, batch_index);
+
+  CREATE UNIQUE INDEX IF NOT EXISTS pr_batch_publications_one_incomplete_campaign
+    ON pr_batch_publications (campaign_id)
+    WHERE status != 'completed';
+
+  CREATE UNIQUE INDEX IF NOT EXISTS pr_batch_publication_series_ordinal
+    ON pr_batch_publication_series (publication_id, ordinal);
+`;
+
 export const PROJECT_EVENTS_DDL = `
   CREATE TABLE IF NOT EXISTS project_events (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -18,7 +18,7 @@ export interface HandoffApiRouteDeps {
   resumeRunForPr: (body: JsonObject) => unknown;
   runPrQa: (body: JsonObject) => Promise<unknown>;
   runPrSplitPlan: (body: JsonObject) => Promise<unknown>;
-  runQaRepairForPr: (body: JsonObject) => Promise<unknown>;
+  runQaRepairForCampaign: (body: JsonObject) => Promise<unknown>;
   setPrReviewState: (body: JsonObject) => Promise<unknown>;
   syncPrRecords: (body: JsonObject) => Promise<unknown>;
   verifyShipSet: (body: JsonObject) => Promise<unknown>;
@@ -38,7 +38,7 @@ export async function handleHandoffApiRoute(req: Request, url: URL, deps: Handof
   if (url.pathname === "/api/pr/resume") return deps.json(deps.resumeRunForPr(await body()));
   if (url.pathname === "/api/run/checkpoint") return deps.json(await deps.checkpointRunForPr(await body()));
   if (url.pathname === "/api/pr/qa") return deps.json(await deps.runPrQa(await body()));
-  if (url.pathname === "/api/pr/qa-repair") return deps.json(await deps.runQaRepairForPr(await body()));
+  if (url.pathname === "/api/pr/qa-repair") return deps.json(await deps.runQaRepairForCampaign(await body()));
   if (url.pathname === "/api/prs/sync") return deps.json(await deps.syncPrRecords(await body()));
   if (url.pathname === "/api/prs/review-state") return deps.json(await deps.setPrReviewState(await body()));
   if (url.pathname === "/api/prs/prepare-local") return deps.json(await deps.prepareLocalPr(await body()));

@@ -1,12 +1,7 @@
-/**
- * Source-specific Pi tools for each knowledge silo.
- *
- * The model should choose the source it needs, such as external mirrors or SSBM
- * data sheets, instead of sending every query through one generic lookup endpoint.
- */
+/** Graph-first knowledge tools plus the few intentionally direct corpus APIs. */
 import { globalStandardsContext } from "@server/core/knowledge";
 import { searchLedgerLearnings, type LearningScope } from "@server/core/knowledge/ledger.js";
-import { graphFileCard, graphSearch, runSourceApi } from "../runtime/execution.js";
+import { graphFileCard, graphRelatedFunctions, graphSearch, runSourceApi } from "../runtime/execution.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 
@@ -24,7 +19,7 @@ const sourceContextToolRoles = [
 const searchParameters = {
   type: "object",
   properties: {
-    query: { type: "string", description: "Concrete term, source path, symbol, address, field, opcode, review term, or data-sheet term to search." },
+    query: { type: "string", description: "Concrete term, source path, symbol, address, field, opcode, mismatch symptom, or review term to search." },
     limit: { type: "number", description: "Maximum results to return. Values are clamped to a small safe bound." },
   },
   required: ["query"],
@@ -40,34 +35,15 @@ const fileCardParameters = {
   additionalProperties: false,
 };
 
-const dataSheetAddressParameters = {
+const relatedFunctionsParameters = {
   type: "object",
   properties: {
-    address: { type: "string", description: "Hex or decimal address to look up in normalized SSBM data sheet rows." },
-    limit: { type: "number", description: "Maximum results to return." },
+    source_path: { type: "string", description: "Project-relative source path. Returns relationships for its functions, optionally narrowed by unit or symbol." },
+    unit: { type: "string", description: "Object unit. Pair with symbol when source_path and entity_id are omitted." },
+    symbol: { type: "string", description: "Function symbol. Pair with unit, or use it to narrow source_path." },
+    entity_id: { type: "string", description: "Exact graph function entity id." },
+    limit: { type: "number", description: "Maximum functions and relationships per category to return." },
   },
-  required: ["address"],
-  additionalProperties: false,
-};
-
-const dataSheetOffsetParameters = {
-  type: "object",
-  properties: {
-    type: { type: "string", description: "Data type/category for the offset lookup, when known." },
-    offset: { type: "string", description: "Hex or decimal offset to look up in normalized SSBM data sheet rows." },
-    limit: { type: "number", description: "Maximum results to return." },
-  },
-  required: ["offset"],
-  additionalProperties: false,
-};
-
-const externalSymbolParameters = {
-  type: "object",
-  properties: {
-    symbol: { type: "string", description: "External mirror symbol or name to look up." },
-    limit: { type: "number", description: "Maximum results to return." },
-  },
-  required: ["symbol"],
   additionalProperties: false,
 };
 
@@ -232,6 +208,64 @@ export const codeGraphSearchToolRegistration = sourceSearchTool({
   graphBacked: true,
 });
 
+/** Tool for searching every currently active graph source without a source-local filter. */
+export const knowledgeGraphSearchToolRegistration: AgentToolRegistration = {
+  id: "knowledge_graph_search",
+  purpose: "Search all active graph-indexed knowledge sources in one query.",
+  allowedRoles: [...sourceContextToolRoles],
+  capabilities: ["knowledge_graph", "all_source_search"],
+  create(context): PiToolDefinition {
+    return {
+      name: "knowledge_graph_search",
+      label: "Knowledge Graph Search",
+      description: "Search active code, opseq, callgraph, sibling, PR, ledger, standards, and curated graph chunks.",
+      promptSnippet: "knowledge_graph_search: search all active graph-indexed knowledge when the relevant evidence source is not known.",
+      promptGuidelines: ["Use knowledge_graph_search for cross-source discovery; use a structured graph query for known functions or files."],
+      parameters: searchParameters,
+      executionMode: "parallel",
+      async execute(_toolCallId, params) {
+        const query = String(params.query ?? "").trim();
+        if (!query) return jsonToolResult("knowledge_graph_search", { status: "missing_query" });
+        return jsonToolResult(
+          "knowledge_graph_search",
+          graphSearch(context, query, undefined, boundedLimit(params.limit), { activeSourcesOnly: true }),
+        );
+      },
+    };
+  },
+};
+
+/** Tool for graph-owned opseq analogs, callers, callees, and data references. */
+export const graphRelatedFunctionsToolRegistration: AgentToolRegistration = {
+  id: "graph_related_functions",
+  purpose: "Load opseq analogs and call relationships for graph functions selected by file, unit/symbol, or entity id.",
+  allowedRoles: [...sourceContextToolRoles],
+  capabilities: ["knowledge_graph", "opseq_similarity", "call_graph", "function_relationships"],
+  create(context): PiToolDefinition {
+    return {
+      name: "graph_related_functions",
+      label: "Graph Related Functions",
+      description: "Return graph-owned opseq analogs, callers, callees, and data references for one or more functions.",
+      promptSnippet: "graph_related_functions: retrieve structured opseq and callgraph relationships for a file or function.",
+      promptGuidelines: ["Use graph_related_functions when analog or caller/callee relationships matter; pass source_path for all functions in a file."],
+      parameters: relatedFunctionsParameters,
+      executionMode: "parallel",
+      async execute(_toolCallId, params) {
+        return jsonToolResult(
+          "graph_related_functions",
+          graphRelatedFunctions(context, {
+            sourcePath: String(params.source_path ?? "").trim() || undefined,
+            unit: String(params.unit ?? "").trim() || undefined,
+            symbol: String(params.symbol ?? "").trim() || undefined,
+            entityId: String(params.entity_id ?? "").trim() || undefined,
+            limit: boundedLimit(params.limit),
+          }),
+        );
+      },
+    };
+  },
+};
+
 /** Tool for searching distilled historical PR lessons and review evidence. */
 export const pastPrsSearchToolRegistration = sourceSearchTool({
   id: "past_prs_search",
@@ -241,80 +275,6 @@ export const pastPrsSearchToolRegistration = sourceSearchTool({
   description: "Search past PR summaries and postmortem records for exact files, symbols, subsystems, review risks, and matching tactics.",
   guidance: "Use past_prs_search when historical accepted or rejected PR work might explain a name, tactic, review risk, or subsystem pattern.",
   graphBacked: true,
-});
-
-/** Tool for searching normalized SSBM data sheet rows. */
-export const ssbmDataSheetSearchToolRegistration = sourceSearchTool({
-  id: "ssbm_data_sheet_search",
-  sourceId: "ssbm_data_sheet",
-  label: "SSBM Data Sheet Search",
-  purpose: "Search normalized SSBM data sheet rows for addresses, IDs, offsets, action states, hitboxes, and attributes.",
-  description: "Search SSBM data sheet CSV indexes for addresses, offsets, IDs, action states, hitbox/hurtbox data, attributes, and resource rows.",
-  guidance: "Use ssbm_data_sheet_search for concrete data-sheet terms such as addresses, offsets, IDs, SFX, action states, attributes, or hitbox fields.",
-});
-
-/** Tool for exact SSBM data sheet address lookup. */
-export const ssbmDataSheetAddressLookupToolRegistration = fixedSourceApiTool({
-  id: "ssbm_data_sheet_lookup_address",
-  sourceId: "ssbm_data_sheet",
-  label: "SSBM Address Lookup",
-  purpose: "Look up one address in normalized SSBM data sheet rows.",
-  description: "Lookup a concrete address in the SSBM data sheet source.",
-  guidance: "Use ssbm_data_sheet_lookup_address when the question is a specific address rather than a broad data-sheet term.",
-  parameters: dataSheetAddressParameters,
-  scriptName: "lookup_address.py",
-  args(params) {
-    const address = String(params.address ?? "").trim();
-    if (!address) return { status: "missing_address" };
-    return ["--address", address, "--limit", String(boundedLimit(params.limit)), "--json"];
-  },
-});
-
-/** Tool for exact SSBM data sheet offset lookup. */
-export const ssbmDataSheetOffsetLookupToolRegistration = fixedSourceApiTool({
-  id: "ssbm_data_sheet_lookup_offset",
-  sourceId: "ssbm_data_sheet",
-  label: "SSBM Offset Lookup",
-  purpose: "Look up one typed offset in normalized SSBM data sheet rows.",
-  description: "Lookup a concrete offset, optionally within a type/category, in the SSBM data sheet source.",
-  guidance: "Use ssbm_data_sheet_lookup_offset when a struct/category offset is the concrete fact being checked.",
-  parameters: dataSheetOffsetParameters,
-  scriptName: "lookup_offset.py",
-  args(params) {
-    const offset = String(params.offset ?? "").trim();
-    if (!offset) return { status: "missing_offset" };
-    const type = String(params.type ?? "").trim();
-    const args = ["--offset", offset, "--limit", String(boundedLimit(params.limit)), "--json"];
-    if (type) args.push("--type", type);
-    return args;
-  },
-});
-
-/** Tool for searching external mirror snapshots and supplemental references. */
-export const externalMirrorsSearchToolRegistration = sourceSearchTool({
-  id: "external_mirrors_search",
-  sourceId: "external_mirrors",
-  label: "External Mirrors Search",
-  purpose: "Search mirrored external references such as m-ex headers, Training Mode map symbols, Tockdom, and ppc2cpp.",
-  description: "Search external mirror indexes for supplemental names, symbols, headers, compiler notes, and reference snippets.",
-  guidance: "Use external_mirrors_search for supplemental external hints; local source, symbols, splits, assembly, and objdiff still outrank mirror data.",
-});
-
-/** Tool for exact external mirror symbol lookup. */
-export const externalSymbolLookupToolRegistration = fixedSourceApiTool({
-  id: "external_symbol_lookup",
-  sourceId: "external_mirrors",
-  label: "External Symbol Lookup",
-  purpose: "Look up one symbol/name in external mirror indexes.",
-  description: "Lookup a concrete symbol in external mirror indexes.",
-  guidance: "Use external_symbol_lookup for a specific external symbol/name, then verify against local source and graph evidence.",
-  parameters: externalSymbolParameters,
-  scriptName: "lookup_external_symbol.py",
-  args(params) {
-    const symbol = String(params.symbol ?? "").trim();
-    if (!symbol) return { status: "missing_symbol" };
-    return ["--symbol", symbol, "--limit", String(boundedLimit(params.limit)), "--json"];
-  },
 });
 
 /** Tool for listing proposed updates to global decomp standards. */
@@ -421,12 +381,9 @@ export const ledgerSearchToolRegistration: AgentToolRegistration = {
 export const knowledgeToolRegistrations = [
   codeGraphFileCardToolRegistration,
   codeGraphSearchToolRegistration,
+  knowledgeGraphSearchToolRegistration,
+  graphRelatedFunctionsToolRegistration,
   pastPrsSearchToolRegistration,
-  ssbmDataSheetSearchToolRegistration,
-  ssbmDataSheetAddressLookupToolRegistration,
-  ssbmDataSheetOffsetLookupToolRegistration,
-  externalMirrorsSearchToolRegistration,
-  externalSymbolLookupToolRegistration,
   decompStandardsProposalsToolRegistration,
   decompStandardsContextToolRegistration,
   smashWikiSearchToolRegistration,

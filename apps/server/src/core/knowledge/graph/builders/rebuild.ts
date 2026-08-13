@@ -1,6 +1,7 @@
 import { buildAgentSharedStateGraphRecords } from "./agent-shared-state.js";
 import { buildCallGraphEdgeRecords } from "./call-graph-edges.js";
 import { buildCodeGraphRecords } from "./code-graph.js";
+import { buildDecompStandardsGraphRecords } from "./decomp-standards.js";
 import { buildGhidraXrefGraphRecords } from "./ghidra-xrefs.js";
 import { insertGraphRecords, openKnowledgeGraph, resetKnowledgeGraph, upsertSourceDescriptor, upsertToolDescriptor, graphStats } from "../db.js";
 import { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
@@ -9,14 +10,6 @@ import { buildOpseqSimilarityGraphRecords } from "./opseq-similarity.js";
 import { buildPastPrsGraphRecords } from "./past-prs.js";
 import { buildLearningsGraphRecords } from "./learnings.js";
 import { buildSiblingGraphRecords } from "./siblings.js";
-import {
-  buildDiscordKnowledgeGraphRecords,
-  buildDecompStandardsGraphRecords,
-  buildExternalMirrorsGraphRecords,
-  buildPathFactsGraphRecords,
-  buildPowerpcDocsGraphRecords,
-  buildSsbmDataSheetGraphRecords,
-} from "./source-slices.js";
 import { readSourceRegistry, readToolRegistry } from "../registry/sources.js";
 
 export interface RebuildKnowledgeGraphOptions {
@@ -46,22 +39,13 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       insertGraphRecords(store, buildPastPrsGraphRecords());
       indexedSources.push("past_prs");
     }
-    const optionalSources = [
-      ["discord_knowledge", buildDiscordKnowledgeGraphRecords],
-      ["ssbm_data_sheet", buildSsbmDataSheetGraphRecords],
-      ["powerpc_docs", buildPowerpcDocsGraphRecords],
-      ["external_mirrors", buildExternalMirrorsGraphRecords],
-      ["decomp_standards", buildDecompStandardsGraphRecords],
-      ["path_facts", buildPathFactsGraphRecords],
-    ] as const;
-    for (const [sourceId, builder] of optionalSources) {
-      if (!selected.has(sourceId)) continue;
-      const records = builder();
+    if (selected.has("decomp_standards")) {
+      const records = buildDecompStandardsGraphRecords();
       if (records) {
         insertGraphRecords(store, records);
-        indexedSources.push(sourceId);
+        indexedSources.push("decomp_standards");
       } else {
-        skippedSources.push(sourceId);
+        skippedSources.push("decomp_standards");
       }
     }
     if (selected.has("agent_shared_state")) {
@@ -152,9 +136,6 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
 }
 
 export function defaultGraphSources(): string[] {
-  // Deprecated external/source slices are intentionally absent from default
-  // ingestion. Re-include discord_knowledge, ssbm_data_sheet, or
-  // external_mirrors via --sources for manual archaeology or experiments.
   return [
     "code_graph",
     "past_prs",

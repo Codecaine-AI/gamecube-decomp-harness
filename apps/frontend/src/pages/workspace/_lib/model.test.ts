@@ -358,6 +358,114 @@ describe("workspace session view", () => {
     });
   });
 
+  test("projects the PR campaign, batches, pending work, activation, and campaign actions", () => {
+    const series = {
+      series_id: "series-1",
+      batch_index: 0,
+      status: "changes_requested",
+      branch: "codex/split-01-player",
+      upstream_pr_number: 1234,
+      target_units: ["src/melee/player.c"],
+      last_validation: { status: "passed" },
+      blockers: [],
+      work_items: [{
+        item_id: "item-1",
+        series_id: "series-1",
+        source_kind: "github_review",
+        source_id: "review-1",
+        status: "pending",
+        summary: "Address reviewer note",
+        created_at: "2026-08-13T12:00:00.000Z",
+        resolved_at: null,
+      }],
+    };
+    const dashboard = {
+      projectState: {
+        revision: 31,
+        active_workflow: null,
+        queued_dispatch_requests: [],
+        session: null,
+        run: null,
+        pr: {
+          workflow_id: "campaign-31",
+          status: "in_review",
+          source_anchor: { save_point_id: "save-31", source_revision: "head-31" },
+          publication_policy: { batch_size: 4 },
+          blockers: [],
+          series: [series],
+          series_by_status: { changes_requested: [series] },
+          next_batch: {
+            batch_index: 1,
+            series_ids: ["series-2"],
+            validation_state: "blocked",
+            blockers: [{
+              code: "pr_series_unvalidated",
+              message: "Series 2 is not validated.",
+              source_kind: "pr_series",
+              source_id: "series-2",
+              recoverable: true,
+            }],
+            series: [{ ...series, series_id: "series-2", batch_index: 1, status: "prepared", upstream_pr_number: null }],
+          },
+          pending_work_items: {
+            count: 1,
+            items: [{ ...series.work_items[0], series_branch: series.branch }],
+          },
+          activation: {
+            active: false,
+            queued: false,
+            lease_id: null,
+            status: null,
+            blockers: [],
+          },
+        },
+        sync: null,
+        latest_event_sequence: 31,
+        available_actions: [{
+          action_id: "pr.activate",
+          subject_kind: "pr_campaign",
+          subject_id: "campaign-31",
+          enabled: true,
+          blocked_by: [],
+          expected_transition: "in_review → working",
+          confirmation_required: false,
+        }],
+      },
+    } as unknown as Dashboard;
+
+    const state = projectStateReadModel(dashboard);
+
+    expect(state?.pr).toMatchObject({
+      workflow_id: "campaign-31",
+      status: "in_review",
+      source_anchor: { save_point_id: "save-31", source_revision: "head-31" },
+      publication_policy: { batch_size: 4 },
+      series: [{
+        series_id: "series-1",
+        upstream_pr_number: 1234,
+        work_items: [{ item_id: "item-1", series_branch: "codex/split-01-player" }],
+      }],
+      next_batch: {
+        batch_index: 1,
+        validation_state: "blocked",
+        series_ids: ["series-2"],
+        blockers: [{ code: "pr_series_unvalidated" }],
+      },
+      pending_work_items: {
+        count: 1,
+        items: [{ item_id: "item-1", series_branch: "codex/split-01-player" }],
+      },
+      activation: { active: false, queued: false, lease_id: null, status: null },
+    });
+    expect(state?.pr?.series_by_status.changes_requested).toHaveLength(1);
+    expect(state?.pr?.series_by_status.prepared).toEqual([]);
+    expect(projectStateAction(state, "pr.activate")).toMatchObject({
+      subject_kind: "pr_campaign",
+      enabled: true,
+      confirmation_required: false,
+    });
+  });
+
   test("projects the canonical run summary, six server-owned actions, and recovery points", () => {
     const action = (actionId: string, enabled: boolean, confirmationRequired: boolean) => ({
       action_id: actionId,

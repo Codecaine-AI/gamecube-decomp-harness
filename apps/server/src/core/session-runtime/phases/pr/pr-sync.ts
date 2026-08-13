@@ -63,6 +63,12 @@ function numberValue(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function identityValue(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
 function stringArray(value: unknown): string[] {
   return asArray(value).map((entry) => stringValue(entry)).filter(Boolean);
 }
@@ -317,17 +323,26 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
         updatedAt: stringValue(pr.updatedAt),
       },
     };
-    const view = await deps.runCli(["gh", "pr", "view", String(prNumber), "--repo", repoSlug, "--json", "comments,statusCheckRollup,files"], repoRoot);
+    const view = await deps.runCli(["gh", "pr", "view", String(prNumber), "--repo", repoSlug, "--json", "comments,reviews,statusCheckRollup,files"], repoRoot);
+    const reviewComments = await deps.runCli(
+      ["gh", "api", `repos/${repoSlug}/pulls/${prNumber}/comments`, "--paginate"],
+      repoRoot,
+    );
     let comments = numberValue(record.comments, 0);
     let feedback: ObservePrSeriesRemoteInput["feedback"] = [];
     if (view.exitCode === 0) {
       const detail = asObject(JSON.parse(view.stdout || "{}"));
       comments = asArray(detail.comments).length;
       feedback = asArray(detail.comments).map(asObject).flatMap((comment) => {
-        const sourceId = stringValue(comment.id) || stringValue(comment.databaseId) || stringValue(comment.url);
+        const sourceId = identityValue(comment.id) || identityValue(comment.databaseId) || stringValue(comment.url);
         const summary = stringValue(comment.body).trim();
         return sourceId && summary ? [{ sourceKind: "issue_comment", sourceId, summary }] : [];
       });
+      feedback.push(...asArray(detail.reviews).map(asObject).flatMap((review) => {
+        const sourceId = identityValue(review.id) || identityValue(review.databaseId) || stringValue(review.url);
+        const summary = stringValue(review.body).trim();
+        return sourceId && summary ? [{ sourceKind: "pull_request_review", sourceId, summary }] : [];
+      }));
       const ci = ciVerdict(detail.statusCheckRollup);
       update.comments = comments;
       update.ci = ci;
@@ -340,6 +355,13 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
         ci,
         comments,
       };
+    }
+    if (reviewComments.exitCode === 0) {
+      feedback.push(...asArray(JSON.parse(reviewComments.stdout || "[]")).map(asObject).flatMap((comment) => {
+        const sourceId = identityValue(comment.id) || stringValue(comment.node_id) || stringValue(comment.html_url);
+        const summary = stringValue(comment.body).trim();
+        return sourceId && summary ? [{ sourceKind: "pull_request_review_comment", sourceId, summary }] : [];
+      }));
     }
     const githubStatus = stringValue(update.status);
     const reviewDecision = stringValue(pr.reviewDecision);

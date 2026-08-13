@@ -145,7 +145,6 @@ const defaultKnowledge: Required<ProjectKnowledgeConfig> = {
   globalSources: [
     "past_prs",
     "decomp_standards",
-    "path_facts",
   ],
   projectSources: ["code_graph"],
 };

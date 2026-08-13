@@ -218,6 +218,18 @@ function requestedPayload(input: RequestDispatchInput, holder: DispatchLease | n
   };
 }
 
+function terminalPrDispatchTarget(db: Database, request: DispatchLease["requested_handoff"]): boolean {
+  if (request?.target_kind !== "pr") return false;
+  const table = db
+    .query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'pr_campaigns'")
+    .get();
+  if (!table) return false;
+  const campaign = db
+    .query("SELECT status FROM pr_campaigns WHERE campaign_id = ?")
+    .get(request.target_workflow_id) as { status: string } | null;
+  return campaign?.status === "completed" || campaign?.status === "abandoned";
+}
+
 export function requestDispatch(store: StateStore, input: RequestDispatchInput): RequestDispatchDecision {
   return immediateTransaction(store.db, () => {
     let state = requireState(store, input.projectId);
@@ -436,6 +448,12 @@ export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput):
     }
 
     const handoff = lease.requested_handoff;
+    const handoffTargetTerminal = terminalPrDispatchTarget(store.db, handoff);
+    const queuedAfterRelease = handoffTargetTerminal && handoff
+      ? state.queued_dispatch_requests.filter(
+          (request) => !(request.kind === handoff.target_kind && request.workflow_id === handoff.target_workflow_id),
+        )
+      : state.queued_dispatch_requests;
     // `releasing` is the in-command release phase while evidence is appended.
     // It is not a separately accepted durable revision: the one durable release
     // transition below moves canonical state to null and is caused by the one
@@ -452,11 +470,15 @@ export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput):
         requested_handoff: handoff
           ? { target_kind: handoff.target_kind, target_workflow_id: handoff.target_workflow_id }
           : null,
+        handoff_result: handoffTargetTerminal ? "terminal_target_cancelled" : handoff ? "promoted" : "none",
       },
     });
-    state = updateRevision(store, state, released.eventId, at, { activeWorkflow: null });
+    state = updateRevision(store, state, released.eventId, at, {
+      activeWorkflow: null,
+      queuedRequests: queuedAfterRelease,
+    });
 
-    if (!handoff) return state;
+    if (!handoff || handoffTargetTerminal) return state;
 
     const handoffLeaseId = leaseId();
     const active: DispatchLease = {

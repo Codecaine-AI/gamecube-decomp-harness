@@ -11,10 +11,9 @@ export const agent = defineAgent({
   coreTools: [
       "code_graph_file_card",
       "code_graph_search",
+      "knowledge_graph_search",
+      "graph_related_functions",
       "past_prs_search",
-      "ghidra_lookup",
-      "opseq_similar_functions",
-      "mismatch_db_search",
       "mwcc_debug_lookup",
       "checkdiff_run",
       "checkdiff_summary",

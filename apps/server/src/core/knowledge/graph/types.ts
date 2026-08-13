@@ -152,7 +152,31 @@ export interface FileGraphCard {
   resource_hits: Array<Record<string, unknown>>;
   mismatch_patterns: Array<Record<string, unknown>>;
   tool_hits: Array<Record<string, unknown>>;
+  callers: Array<Record<string, unknown>>;
+  callees: Array<Record<string, unknown>>;
+  data_references: Array<Record<string, unknown>>;
   scheduling_signals: GraphRankFeature;
+}
+
+export interface RelatedFunctionsQuery {
+  sourcePath?: string;
+  unit?: string;
+  symbol?: string;
+  entityId?: string;
+  limit?: number;
+}
+
+export interface RelatedFunctionsResult {
+  query: Record<string, unknown>;
+  resolved_function_count: number;
+  functions: Array<{
+    entity_id: string;
+    function: Record<string, unknown>;
+    opseq_analogs: Array<Record<string, unknown>>;
+    callers: Array<Record<string, unknown>>;
+    callees: Array<Record<string, unknown>>;
+    data_references: Array<Record<string, unknown>>;
+  }>;
 }
 
 export interface GraphRankFeature {
@@ -178,7 +202,6 @@ export interface GraphRankFeature {
   connected_incomplete_function_count: number;
   connected_matched_reference_count: number;
   resource_evidence_count: number;
-  path_fact_count: number;
   historical_lesson_count: number;
   curated_signal_count: number;
   proposal_fact_count: number;

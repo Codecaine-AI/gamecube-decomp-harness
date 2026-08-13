@@ -119,6 +119,10 @@ export interface HandoffRuntime {
   openAllPlannedPrs: (body: JsonObject) => Promise<JsonObject>;
   openNextDraftBatch: (body: JsonObject) => Promise<JsonObject>;
   openPrForSlice: (body: JsonObject) => Promise<JsonObject>;
+  openPrForSliceUnderLease: (
+    body: JsonObject,
+    revalidateLease: DispatchLeaseRevalidator,
+  ) => Promise<JsonObject>;
   pauseRunForPr: (body: JsonObject) => Promise<JsonObject>;
   prepareLocalPr: (body: JsonObject) => Promise<JsonObject>;
   prepareLocalPrBatch: (body: JsonObject) => Promise<JsonObject>;
@@ -165,6 +169,45 @@ function boolValue(value: unknown): boolean {
 function intValue(value: unknown, fallback: number, min = 0): number {
   const parsed = Math.trunc(numberValue(value, fallback));
   return Math.max(min, parsed);
+}
+
+function githubBaseBranch(baseRef: string): string {
+  const normalized = baseRef.trim();
+  if (!normalized) return "master";
+  if (normalized.startsWith("refs/heads/")) return normalized.slice("refs/heads/".length);
+  if (normalized.startsWith("refs/remotes/")) {
+    const remoteQualified = normalized.slice("refs/remotes/".length);
+    const separator = remoteQualified.indexOf("/");
+    return separator >= 0 ? remoteQualified.slice(separator + 1) : remoteQualified;
+  }
+  return normalized.startsWith("origin/") ? normalized.slice("origin/".length) : normalized;
+}
+
+function existingGithubPr(
+  stdout: string,
+  forkOwner: string,
+  branch: string,
+  baseBranch: string,
+): { number: number; url: string } | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout) as unknown;
+  } catch (error) {
+    throw new Error(`gh pr list returned invalid JSON for ${branch}`, { cause: error });
+  }
+  if (!Array.isArray(parsed)) throw new Error(`gh pr list returned a non-array result for ${branch}`);
+  const matches = parsed.map(asObject).filter((entry) => (
+    stringValue(entry.headRefName) === branch &&
+    stringValue(entry.baseRefName) === baseBranch &&
+    stringValue(asObject(entry.headRepositoryOwner).login) === forkOwner
+  )).map((entry) => ({
+    number: numberValue(entry.number, NaN),
+    url: stringValue(entry.url),
+  })).filter((entry) => Number.isInteger(entry.number) && entry.number > 0 && entry.url);
+  if (matches.length > 1) {
+    throw new Error(`GitHub returned multiple open PRs for head ${branch} and base ${baseBranch}`);
+  }
+  return matches[0] ?? null;
 }
 
 function readJsonObject(path: string): JsonObject {
@@ -1081,7 +1124,10 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     );
   }
 
-  async function openPrForSlice(body: JsonObject): Promise<JsonObject> {
+  async function openPrForSliceImplementation(
+    body: JsonObject,
+    heldLease?: DispatchLeaseRevalidator,
+  ): Promise<JsonObject> {
     const paths = resolveDashboardProject(body, { useDefaultProject: true });
     const { repoRoot, stateDir } = paths;
     assertHandoffIdle(stateDir, "Open PR");
@@ -1119,14 +1165,8 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       }
     }
     const steps = ["prepare baseline", "prepare source patch", "verify slice in isolation", "check code issues", "publish branch", "create draft PR", "sync PR records"];
-    return withDispatchLease(
-      paths,
-      {
-        kind: "pr",
-        workflowId: `pr-publish:${publicationRunId || branch}`,
-        reason: `publish PR slice ${branch}`,
-      },
-      (_leaseId, revalidateLease) => withOperation("open-pr", `Open PR — ${stringValue(record.displayName, branch)}`, steps, async () => {
+    const publishUnderLease = (revalidateLease: DispatchLeaseRevalidator) =>
+      withOperation("open-pr", `Open PR — ${stringValue(record.displayName, branch)}`, steps, async () => {
       await deps.submitWorkflowEvent(paths, {
         kind: "pr-publication",
         operation: "openPrForSlice",
@@ -1294,14 +1334,35 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       ];
       writeFileSync(bodyPath, `${bodyLines.join("\n")}\n`, "utf8");
       revalidateLease();
-      const create = await runCli(
-        ["gh", "pr", "create", "--repo", repoSlug, "--head", `${forkOwner}:${branch}`, "--draft", "--title", title, "--body-file", bodyPath],
+      const baseBranch = githubBaseBranch(baseRef);
+      const headRef = `${forkOwner}:${branch}`;
+      const findExisting = await runCli(
+        [
+          "gh", "pr", "list", "--repo", repoSlug, "--state", "open",
+          "--head", branch, "--base", baseBranch,
+          "--json", "number,url,headRefName,headRepositoryOwner,baseRefName", "--limit", "100",
+        ],
         stringValue(localSource?.worktreePath) || repoRoot,
       );
-      if (create.exitCode !== 0) throw new Error(`gh pr create failed (${create.exitCode}): ${outputTail(create.stderr || create.stdout, 1500)}`);
-      const prUrl = create.stdout.trim().split("\n").pop() ?? "";
-      operationStepDetail("create draft PR", prUrl);
-      appendLog("ui", `draft PR opened: ${prUrl}`);
+      if (findExisting.exitCode !== 0) {
+        throw new Error(`gh pr list failed (${findExisting.exitCode}): ${outputTail(findExisting.stderr || findExisting.stdout, 1500)}`);
+      }
+      const existingPr = existingGithubPr(findExisting.stdout, forkOwner, branch, baseBranch);
+      let prUrl = existingPr?.url ?? "";
+      if (existingPr) {
+        operationStepDetail("create draft PR", `adopted #${existingPr.number} ${existingPr.url}`);
+        appendLog("ui", `draft PR adopted: ${existingPr.url}`);
+      } else {
+        revalidateLease();
+        const create = await runCli(
+          ["gh", "pr", "create", "--repo", repoSlug, "--head", headRef, "--base", baseBranch, "--draft", "--title", title, "--body-file", bodyPath],
+          stringValue(localSource?.worktreePath) || repoRoot,
+        );
+        if (create.exitCode !== 0) throw new Error(`gh pr create failed (${create.exitCode}): ${outputTail(create.stderr || create.stdout, 1500)}`);
+        prUrl = create.stdout.trim().split("\n").pop() ?? "";
+        operationStepDetail("create draft PR", prUrl);
+        appendLog("ui", `draft PR opened: ${prUrl}`);
+      }
 
       operationStep("sync PR records");
       const prs = await prSync.syncPrRecords({ ...body });
@@ -1334,15 +1395,48 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         metadata: {
           branch,
           sliceId: stringValue(record.sliceId),
-          prNumber: numberValue(asObject(updated).prNumber, 0),
+          prNumber: numberValue(asObject(updated).prNumber, existingPr?.number ?? 0),
           url: stringValue(asObject(updated).url, prUrl),
           files,
           ...(supportFiles.length > 0 ? { supportFiles } : {}),
         },
       });
-      return { opened: true, branch, record: updated, prs };
-      }),
+        return {
+          opened: !existingPr,
+          adopted: Boolean(existingPr),
+          branch,
+          record: updated ?? {
+            ...record,
+            prNumber: existingPr?.number,
+            url: prUrl,
+          },
+          prs,
+        };
+      });
+    if (heldLease) {
+      heldLease();
+      return publishUnderLease(heldLease);
+    }
+    return withDispatchLease(
+      paths,
+      {
+        kind: "pr",
+        workflowId: `pr-publish:${publicationRunId || branch}`,
+        reason: `publish PR slice ${branch}`,
+      },
+      (_leaseId, revalidateLease) => publishUnderLease(revalidateLease),
     );
+  }
+
+  async function openPrForSlice(body: JsonObject): Promise<JsonObject> {
+    return openPrForSliceImplementation(body);
+  }
+
+  async function openPrForSliceUnderLease(
+    body: JsonObject,
+    revalidateLease: DispatchLeaseRevalidator,
+  ): Promise<JsonObject> {
+    return openPrForSliceImplementation(body, revalidateLease);
   }
 
   async function openAllPlannedPrs(body: JsonObject): Promise<JsonObject> {
@@ -1630,6 +1724,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     openAllPlannedPrs,
     openNextDraftBatch,
     openPrForSlice,
+    openPrForSliceUnderLease,
     pauseRunForPr,
     prepareLocalPr,
     prepareLocalPrBatch,

@@ -3,6 +3,7 @@ import { fileEntityId, functionEntityId } from "../builders/code-graph.js";
 import type { KnowledgeGraphStore } from "../db.js";
 import { graphFactPayload, graphPayload } from "../payloads.js";
 import { rankFeatureForSourcePath } from "./rank.js";
+import { functionRelationshipEvidence } from "./related-functions.js";
 import { graphEdges, graphEntities, graphFacts, searchChunks } from "../storage/schema.js";
 import type { FileGraphCard } from "../types.js";
 import { arrayValue, objectValue, stringValue } from "../util.js";
@@ -36,6 +37,16 @@ export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): F
     .orderBy(searchChunks.sourceId, searchChunks.title)
     .limit(16)
     .all();
+  const relationships = functionRelationshipEvidence(
+    store,
+    functionRows
+      .map((fn) => {
+        const unit = stringValue(fn.unit);
+        const symbol = stringValue(fn.symbol);
+        return unit && symbol ? functionEntityId(unit, symbol) : "";
+      })
+      .filter(Boolean),
+  );
   return {
     entity_id: entityId,
     source_path: sourcePath,
@@ -55,8 +66,25 @@ export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): F
     })),
     mismatch_patterns: mismatchPatternsForFile(store, entityId),
     tool_hits: opseqAnalogToolHitsForFile(store, functionRows),
+    callers: flattenRelationships(relationships, "callers"),
+    callees: flattenRelationships(relationships, "callees"),
+    data_references: flattenRelationships(relationships, "data_references"),
     scheduling_signals: rankFeatureForSourcePath(store, sourcePath),
   };
+}
+
+function flattenRelationships(
+  functions: ReturnType<typeof functionRelationshipEvidence>,
+  key: "callers" | "callees" | "data_references",
+): Array<Record<string, unknown>> {
+  return functions.flatMap((fn) =>
+    fn[key].map((relationship) => ({
+      source_entity_id: fn.entity_id,
+      source_unit: fn.function.unit ?? null,
+      source_symbol: fn.function.symbol ?? null,
+      ...relationship,
+    })),
+  );
 }
 
 function opseqAnalogToolHitsForFile(store: KnowledgeGraphStore, functions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
