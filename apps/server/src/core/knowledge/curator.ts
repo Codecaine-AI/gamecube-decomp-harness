@@ -124,13 +124,13 @@ function workerLessonRecords(options: CurateKnowledgeOptions): CuratedKnowledgeR
   const store = openState(options.stateDir);
   try {
     const limit = nonNegativeLimit(options.workerLimit, 250);
-    const where = options.runId ? "WHERE worker_state.session_id = ?" : "";
+    const where = options.runId ? "WHERE worker_state.run_id = ?" : "";
     const rows = store.db
       .query(
         `
           SELECT
             worker_state.id AS worker_state_id,
-            worker_state.session_id AS run_id,
+            worker_state.run_id,
             worker_state.epoch_id,
             worker_state.epoch_target_id,
             worker_state.target_claim_id,
@@ -403,25 +403,16 @@ function targetSourceForText(value: string): string | null {
   if (/\b(global standard|decomp standard|qa standard|review standard|standards source|global rule)\b/i.test(text)) {
     return "decomp_standards";
   }
-  if (/\b(path fact|path-scoped|scoped known win|directory fact|scope_globs|subsystem hint)\b/i.test(text)) {
-    return "path_facts";
-  }
-  if (/\b0x[0-9a-f]{6,8}\b/i.test(value) || /\b(offset|address|data sheet|action state|hitbox|hurtbox|id list)\b/i.test(text)) {
-    return "ssbm_data_sheet";
-  }
   return null;
 }
 
 function sourceUpdateKind(targetSourceId: string): string {
   if (targetSourceId === "decomp_standards") return "global_standard";
-  if (targetSourceId === "path_facts") return "path_fact";
   return "source_update";
 }
 
 function sourceUpdateReason(targetSourceId: string): string {
   if (targetSourceId === "decomp_standards") return "Evidence proposes a broad decomp/review standard; standards source owner should review before changing global injected rules.";
-  if (targetSourceId === "path_facts") return "Evidence proposes a scoped known win for a directory or path; path facts source owner should validate scope, stale checks, and provenance before applying.";
-  if (targetSourceId === "ssbm_data_sheet") return "Evidence references address, offset, ID, or data-sheet-like terms; source owner should review before mutating CSV data.";
   return "Evidence references source-like terms; source owner should review before mutating registered source data.";
 }
 

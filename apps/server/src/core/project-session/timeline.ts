@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Database } from "bun:sqlite";
-import { immediateTransaction, now as currentTime, openState, type StateStore } from "@server/core/orchestrator-state";
+import { casRunEnvelope, immediateTransaction, now as currentTime, openState, type StateStore } from "@server/core/orchestrator-state";
 import { appendProjectEvent, type JsonObject } from "@server/core/project-state/events.js";
 import { quietGit } from "@server/core/session-runtime/phases/pr/pr-sync.js";
 import { getProjectSessionByUuid } from "./store.js";
@@ -22,11 +22,20 @@ type SessionEnvelopeRow = {
   project_id: string;
   session_uuid: string;
   status: string;
+  active_run_id: string | null;
   revision: number;
   head_revision: string | null;
   trace_id: string | null;
   blockers_json: string;
   save_point_stale: number | boolean;
+};
+
+type EpochBoundaryRunRow = {
+  id: string;
+  project_id: string | null;
+  project_repo_root: string | null;
+  session_uuid: string | null;
+  revision: number;
 };
 
 function requiredText(value: string, label: string): string {
@@ -35,16 +44,71 @@ function requiredText(value: string, label: string): string {
   return normalized;
 }
 
-function verifyRunCommitExists(db: Database, runId: string, commitSha: string): void {
-  const row = db.query("SELECT project_repo_root FROM runs WHERE id = ?").get(runId) as
-    | { project_repo_root: string | null }
-    | undefined;
-  const repoRoot = row?.project_repo_root?.trim();
+function verifyRunCommitExists(run: EpochBoundaryRunRow, commitSha: string): void {
+  const repoRoot = run.project_repo_root?.trim();
+  const runId = run.id;
   if (!repoRoot) throw new Error(`Run ${runId} has no project repository for commit verification`);
   const result = quietGit(repoRoot, ["cat-file", "-e", `${commitSha}^{commit}`]);
   if (result.exitCode !== 0) {
     throw new Error(`Epoch integration commit ${commitSha} does not exist in the repository for run ${runId}`);
   }
+}
+
+/** Resolve an epoch boundary through its run before any durable write occurs. */
+function resolveEpochBoundary(
+  db: Database,
+  input: Pick<RecordEpochCompletedInput, "projectId" | "runId" | "sessionUuid">,
+): { run: EpochBoundaryRunRow; session: SessionEnvelopeRow } {
+  const run = db
+    .query(
+      `SELECT id, project_id, project_repo_root, session_uuid, revision
+       FROM runs
+       WHERE id = ?`,
+    )
+    .get(input.runId) as EpochBoundaryRunRow | null;
+  if (!run) throw new Error(`Run ${input.runId} does not exist for epoch integration`);
+  if (!run.project_id) throw new Error(`Run ${run.id} has no project id for epoch integration`);
+
+  let sessions: SessionEnvelopeRow[];
+  if (run.session_uuid) {
+    sessions = db
+      .query("SELECT * FROM project_sessions WHERE session_uuid = ?")
+      .all(run.session_uuid) as SessionEnvelopeRow[];
+  } else {
+    sessions = db
+      .query(
+        `SELECT * FROM project_sessions
+         WHERE active_run_id = ? AND status IN ('active', 'blocked', 'closing')
+         ORDER BY created_at DESC LIMIT 2`,
+      )
+      .all(run.id) as SessionEnvelopeRow[];
+  }
+  if (sessions.length !== 1) {
+    throw new Error(
+      `Run ${run.id} must resolve to exactly one project session; found ${sessions.length}`,
+    );
+  }
+  const session = sessions[0]!;
+  if (session.active_run_id !== run.id) {
+    throw new Error(
+      `Run/session mismatch for epoch integration: session ${session.session_uuid} names active run ${session.active_run_id ?? "none"}, not ${run.id}`,
+    );
+  }
+  if (session.project_id !== run.project_id) {
+    throw new Error(
+      `Run/session project mismatch for epoch integration: run ${run.id} belongs to ${run.project_id}, session ${session.session_uuid} belongs to ${session.project_id}`,
+    );
+  }
+  if (input.projectId && input.projectId !== run.project_id) {
+    throw new Error(`Run ${run.id} does not belong to requested project ${input.projectId}`);
+  }
+  if (input.sessionUuid && input.sessionUuid !== session.session_uuid) {
+    throw new Error(`Run ${run.id} does not belong to requested session ${input.sessionUuid}`);
+  }
+  if (session.status !== "active" && session.status !== "blocked") {
+    throw new Error(`Project session ${session.session_uuid} cannot accept an epoch while ${session.status}`);
+  }
+  return { run, session };
 }
 
 function parseBlockers(value: string): ProjectSessionBlocker[] {
@@ -175,11 +239,8 @@ export function recordEpochCompletedInTransaction(
   const integrationCommit = requiredText(input.integrationCommit, "integrationCommit");
   const epochId = requiredText(input.epochId, "epochId");
   const runId = requiredText(input.runId, "runId");
-  verifyRunCommitExists(db, runId, integrationCommit);
-  const session = selectSession(db, input);
-  if (session.status !== "active" && session.status !== "blocked") {
-    throw new Error(`Project session ${session.session_uuid} cannot accept an epoch while ${session.status}`);
-  }
+  const { run, session } = resolveEpochBoundary(db, { ...input, runId });
+  verifyRunCommitExists(run, integrationCommit);
   const context = eventContext(session, input);
   const payload: JsonObject = {
     ...(input.payload ?? {}),
@@ -204,6 +265,17 @@ export function recordEpochCompletedInTransaction(
     eventId: event.eventId,
   });
   updateEnvelope(db, session, event.eventId, context.occurredAt, "head_revision = ?", [integrationCommit]);
+  const accepted = casRunEnvelope(db, {
+    eventId: event.eventId,
+    expectedRevision: Number(run.revision),
+    headRevision: integrationCommit,
+    runId,
+  });
+  if (!accepted) throw new Error(`Stale run revision ${run.revision} for ${runId}`);
+  // This delete is deliberately part of the lineage transaction. A crash
+  // cannot leave a completed epoch and a prepare record that startup would
+  // try to reconcile a second time.
+  db.query("DELETE FROM pending_integrations WHERE run_id = ? AND epoch_id = ?").run(runId, epochId);
   return entry;
 }
 

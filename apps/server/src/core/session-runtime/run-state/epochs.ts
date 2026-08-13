@@ -25,7 +25,7 @@ export interface SchedulerEpochConfig {
 
 export interface SchedulerEpochRecord {
   id: string;
-  sessionId: string;
+  runId: string;
   ordinal: number;
   size: EpochSizeSpec;
   workerPoolSize: number;
@@ -142,7 +142,7 @@ function normalizePositiveInt(value: number, fallback: number): number {
 
 function existingTargetKeys(
   store: StateStore,
-  sessionId: string,
+  runId: string,
   params: { epochId: string; allowPreviouslyFinished?: boolean },
 ): Set<string> {
   const rows = params.allowPreviouslyFinished
@@ -151,11 +151,11 @@ function existingTargetKeys(
           `
             SELECT target_key
             FROM epoch_targets
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND (status != 'finished' OR epoch_id = ?)
           `,
         )
-        .all(sessionId, params.epochId) as Record<string, unknown>[])
+        .all(runId, params.epochId) as Record<string, unknown>[])
     : (store.db
         .query(
           `
@@ -166,18 +166,18 @@ function existingTargetKeys(
             SELECT epoch_targets.target_key
             FROM epoch_targets
             JOIN epochs ON epochs.id = epoch_targets.epoch_id
-            WHERE epoch_targets.session_id = ?
+            WHERE epoch_targets.run_id = ?
               AND epochs.ordinal = (
                 SELECT MAX(previous.ordinal)
                 FROM epochs AS previous
                 JOIN epochs AS current
-                  ON current.session_id = previous.session_id
+                  ON current.run_id = previous.run_id
                 WHERE current.id = ?
                   AND previous.ordinal < current.ordinal
               )
           `,
         )
-        .all(params.epochId, sessionId, params.epochId) as Record<string, unknown>[]);
+        .all(params.epochId, runId, params.epochId) as Record<string, unknown>[]);
   return new Set(rows.map((row) => String(row.target_key)));
 }
 
@@ -247,7 +247,7 @@ function rowToEpoch(row: Record<string, unknown>): SchedulerEpochRecord {
   }
   return {
     id: String(row.id),
-    sessionId: String(row.session_id),
+    runId: String(row.run_id),
     ordinal: Number(row.ordinal),
     size: { mode: sizeMode, value: sizeMode === "full" ? null : Number(row.size_value ?? 0) },
     workerPoolSize: Number(row.worker_pool_size),
@@ -263,40 +263,40 @@ function rowToEpoch(row: Record<string, unknown>): SchedulerEpochRecord {
   };
 }
 
-function nextEpochOrdinal(store: StateStore, sessionId: string): number {
-  const row = store.db.query("SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal FROM epochs WHERE session_id = ?").get(sessionId) as
+function nextEpochOrdinal(store: StateStore, runId: string): number {
+  const row = store.db.query("SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal FROM epochs WHERE run_id = ?").get(runId) as
     | Record<string, unknown>
     | undefined;
   return Number(row?.ordinal ?? 1);
 }
 
-export function activeSchedulerEpoch(store: StateStore, sessionId: string): SchedulerEpochRecord | null {
+export function activeSchedulerEpoch(store: StateStore, runId: string): SchedulerEpochRecord | null {
   const row = store.db
-    .query("SELECT * FROM epochs WHERE session_id = ? AND status = 'active' ORDER BY ordinal DESC LIMIT 1")
-    .get(sessionId) as Record<string, unknown> | undefined;
+    .query("SELECT * FROM epochs WHERE run_id = ? AND status = 'active' ORDER BY ordinal DESC LIMIT 1")
+    .get(runId) as Record<string, unknown> | undefined;
   return row ? rowToEpoch(row) : null;
 }
 
-export function startSchedulerEpoch(store: StateStore, sessionId: string, config: SchedulerEpochConfig): SchedulerEpochRecord {
+export function startSchedulerEpoch(store: StateStore, runId: string, config: SchedulerEpochConfig): SchedulerEpochRecord {
   const id = randomUUID();
   const createdAt = now();
   const workerPoolSize = normalizePositiveInt(config.workerPoolSize, config.size.value ?? 1);
   const candidateWindow = normalizePositiveInt(config.candidateWindow, workerPoolSize);
   return immediateTransaction(store.db, () => {
-    const active = activeSchedulerEpoch(store, sessionId);
+    const active = activeSchedulerEpoch(store, runId);
     if (active) return active;
-    const ordinal = nextEpochOrdinal(store, sessionId);
+    const ordinal = nextEpochOrdinal(store, runId);
     store.db
       .query(
         `
           INSERT INTO epochs (
-            id, session_id, ordinal, size_mode, size_value, worker_pool_size,
+            id, run_id, ordinal, size_mode, size_value, worker_pool_size,
             candidate_window, status, routing_summary_json, created_at
           )
           VALUES (?, ?, ?, ?, ?, ?, ?, 'active', '{}', ?)
         `,
       )
-      .run(id, sessionId, ordinal, config.size.mode, config.size.value, workerPoolSize, candidateWindow, createdAt);
+      .run(id, runId, ordinal, config.size.mode, config.size.value, workerPoolSize, candidateWindow, createdAt);
     const row = store.db.query("SELECT * FROM epochs WHERE id = ?").get(id) as Record<string, unknown>;
     return rowToEpoch(row);
   });
@@ -408,7 +408,7 @@ export function admitEpochTargets(
   const insertTarget = store.db.query(
     `
       INSERT INTO epoch_targets (
-        id, epoch_id, session_id, target_key, unit, symbol, source_path, size,
+        id, epoch_id, run_id, target_key, unit, symbol, source_path, size,
         baseline_score, priority, reason, admission_index, status, admitted_at
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'admitted', ?)
@@ -416,16 +416,16 @@ export function admitEpochTargets(
   );
 
   return immediateTransaction(store.db, () => {
-    const epoch = store.db.query("SELECT session_id FROM epochs WHERE id = ?").get(params.epochId) as Record<string, unknown> | undefined;
+    const epoch = store.db.query("SELECT run_id FROM epochs WHERE id = ?").get(params.epochId) as Record<string, unknown> | undefined;
     if (!epoch) throw new Error(`Epoch not found: ${params.epochId}`);
-    const sessionId = String(epoch.session_id);
+    const runId = String(epoch.run_id);
     const startIndexRow = store.db
       .query("SELECT COALESCE(MAX(admission_index), -1) + 1 AS start_index FROM epoch_targets WHERE epoch_id = ?")
       .get(params.epochId) as Record<string, unknown> | undefined;
     const startIndex = Number(startIndexRow?.start_index ?? 0);
     const selected = selectEpochAdmissionCandidates({
       candidates: params.candidates,
-      existingKeys: existingTargetKeys(store, sessionId, {
+      existingKeys: existingTargetKeys(store, runId, {
         epochId: params.epochId,
         allowPreviouslyFinished: params.allowPreviouslyFinished,
       }),
@@ -438,7 +438,7 @@ export function admitEpochTargets(
       insertTarget.run(
         randomUUID(),
         params.epochId,
-        sessionId,
+        runId,
         key,
         candidate.unit,
         candidate.symbol,

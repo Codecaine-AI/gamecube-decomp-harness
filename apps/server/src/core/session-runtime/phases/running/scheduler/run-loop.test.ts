@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  activeClaimsForSession,
+  activeClaimsForRun,
   addEvent,
   admitEpochTargets,
   claimNextEpochTarget,
@@ -20,9 +20,19 @@ import {
   evaluateFastKnowledgeMaintenanceDecision,
   forceFinishActiveEpoch,
   integrationResolverLockPaths,
+  selectRunLoopSchedulerCondition,
   selectIntegrationResolverBatch,
   workerCommand,
 } from "./run-loop.js";
+
+describe("selectRunLoopSchedulerCondition", () => {
+  test("preserves blocked and boundary priority over transient work", () => {
+    expect(selectRunLoopSchedulerCondition({ blocked: true, boundary: true, planning: true, fallback: "dispatching" })).toBe("blocked");
+    expect(selectRunLoopSchedulerCondition({ blocked: false, boundary: true, planning: true, fallback: "dispatching" })).toBe("boundary");
+    expect(selectRunLoopSchedulerCondition({ blocked: false, boundary: false, planning: true, fallback: "waiting" })).toBe("planning");
+    expect(selectRunLoopSchedulerCondition({ blocked: false, boundary: false, planning: false, fallback: "waiting" })).toBe("waiting");
+  });
+});
 
 const tempDirs: string[] = [];
 
@@ -143,7 +153,7 @@ describe("epochBoundaryWorkPending", () => {
   test("treats a drained active epoch as boundary work that outranks KG maintenance", () => {
     const { store } = tempState();
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
@@ -156,7 +166,7 @@ describe("epochBoundaryWorkPending", () => {
         size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
       expect(epochBoundaryWorkPending(store, run.id)).toBe(false);
 
       closeWorkerState(store, {
@@ -173,10 +183,10 @@ describe("epochBoundaryWorkPending", () => {
     }
   });
 
-  test("treats a drained failed boundary as retry work", () => {
+  test("treats a crash-retained integration failure boundary as retry work", () => {
     const { store } = tempState();
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
@@ -189,7 +199,7 @@ describe("epochBoundaryWorkPending", () => {
         size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
       closeWorkerState(store, {
         workerStateId: claim?.workerStateId ?? "",
         lifecycleStatus: "timeout",
@@ -197,7 +207,7 @@ describe("epochBoundaryWorkPending", () => {
         summary: { test: true },
         timeoutSummary: "test finished",
       });
-      closeSchedulerEpoch(store, epoch.id, { status: "error", boundaryStatus: "error" });
+      closeSchedulerEpoch(store, epoch.id, { status: "error", boundaryStatus: "integration_commit_failed" });
 
       expect(epochBoundaryWorkPending(store, run.id)).toBe(true);
     } finally {
@@ -284,7 +294,7 @@ describe("forceFinishActiveEpoch", () => {
   test("marks active claims and admitted epoch targets finished", () => {
     const { store } = tempState();
     try {
-      const run = createRun(store, "matched_code_percent", 100, 3);
+      const run = createRun(store, "matched_code_percent", 100, 3, { projectId: "test" }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 3 },
         workerPoolSize: 3,
@@ -301,7 +311,7 @@ describe("forceFinishActiveEpoch", () => {
         size: { mode: "fixed", value: 3 },
         workerPoolSize: 3,
       });
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
       expect(claim).not.toBeNull();
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ available: 2, claimed: 1, finished: 0, remaining: 3 });
 
@@ -309,7 +319,7 @@ describe("forceFinishActiveEpoch", () => {
       const result = forceFinishActiveEpoch(store, run.id, { id: eventId, payload: { epoch_id: epoch.id, ordinal: epoch.ordinal } });
 
       expect(result).toMatchObject({ epochId: epoch.id, ordinal: epoch.ordinal, activeClaimsClosed: 1, openTargetsFinished: 2 });
-      expect(activeClaimsForSession(store, run.id)).toHaveLength(0);
+      expect(activeClaimsForRun(store, run.id)).toHaveLength(0);
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ available: 0, claimed: 0, finished: 3, remaining: 0 });
 
       const requestEvent = store.db.query("SELECT handled_at FROM events WHERE id = ?").get(eventId) as Record<string, unknown>;
@@ -331,7 +341,7 @@ describe("forceFinishActiveEpoch", () => {
   test("does not apply a stale finish request to the next active epoch", () => {
     const { store } = tempState();
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
       const firstEpoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,

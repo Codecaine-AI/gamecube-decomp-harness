@@ -21,7 +21,6 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
     const epochSize = parseEpochSize(stringArg(args, "--epoch-size", globals.project?.dashboard.epochSize == null ? "64" : String(globals.project.dashboard.epochSize)));
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const project = projectMetadata(globals, { graphDbPath });
-    const run = createRun(store, goalKind, goalValue, desiredWorkers, project);
     const epochDerivedWindow = epochSize.mode === "fixed" ? Math.max(desiredWorkers, epochSize.value ?? desiredWorkers) : Math.max(desiredWorkers, 64);
     const candidateWindowArg = args.get("--candidate-window");
     const candidateWindowDefault = typeof candidateWindowArg === "string" ? candidateWindowArg : globals.project?.dashboard.candidateWindow;
@@ -30,6 +29,37 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
     const candidateRerank = normalizeCandidateRerankMode(
       typeof candidateRerankArg === "string" ? candidateRerankArg : globals.project?.dashboard.candidateRerank,
     );
+    const configurationSnapshot = {
+      agent_timeout_seconds: globals.agentTimeoutSeconds ?? globals.project?.dashboard.agentTimeoutSeconds ?? 1800,
+      candidate_rerank: candidateRerank,
+      candidate_window: candidateWindow,
+      desired_workers: desiredWorkers,
+      dry_run_agents: globals.dryRunAgents,
+      epoch_configure_command: stringArg(args, "--epoch-configure-command", "").trim(),
+      epoch_size: epochSize,
+      goal_kind: goalKind,
+      goal_value: goalValue,
+      integration_resolver_concurrency: Math.max(
+        1,
+        Math.trunc(
+          numberArg(
+            args,
+            "--integration-resolver-concurrency",
+            globals.project?.dashboard.integrationResolverConcurrency ?? 4,
+          ),
+        ),
+      ),
+      model: globals.model,
+      provider: globals.provider,
+      thinking_level: globals.thinkingLevel,
+      worker_configure_command: stringArg(args, "--worker-configure-command", "").trim(),
+    };
+    const run = createRun(store, goalKind, goalValue, desiredWorkers, project, {
+      commandId: stringArg(args, "--command-id", "") || undefined,
+      configurationSnapshot,
+      correlationId: stringArg(args, "--correlation-id", "") || undefined,
+      requireReady: true,
+    });
     const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, candidateWindow, {
       candidateRerank,
       graphDbPath,

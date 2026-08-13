@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { artifactTimestamp } from "@server/infrastructure/agent-runtime/runtime";
@@ -7,11 +8,12 @@ import { DEFAULT_PR_BATCH_LIMIT, type PrRecordContext } from "@server/core/sessi
 import { upstreamRepoSlug } from "@server/core/session-runtime/phases/pr/pr-sync";
 import type { CodeIssuesResult } from "@server/core/session-runtime/phases/pr/pr-worktrees";
 import { planRegressionRepair } from "@server/core/session-runtime/phases/running/epochs";
-import { getLatestRun, getRun, openState, admitPriorityTargets, updateRunStatus } from "@server/core/session-runtime/run-state";
+import { getLatestRun, getRun, openState, admitPriorityTargets } from "@server/core/session-runtime/run-state";
 import { compactCheckpointResult, type GitSyncResult } from "@server/core/session-runtime/phases/preparing/runtime";
 import { readRegressionReport, type RegressionReport } from "@server/core/validation/objdiff/report";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
-import { withDispatchLease, type DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
+import { DispatchLeaseUnavailableError, withDispatchLease, type DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
+import { activateRun } from "@server/core/session-runtime/phases/running/run-control.js";
 import { commitBoundaryWorktree } from "./boundary-commit.js";
 import { getProjectState, requireLease } from "@server/core/project-state";
 import type { SavePointRuntime } from "./save-points-runtime.js";
@@ -190,7 +192,6 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     prRecords,
     prSync,
     prWorktrees,
-    processControl,
     projectToSummary,
     resolveDashboardProject,
     runCli,
@@ -385,16 +386,14 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     }
   }
 
-  function currentRunLeaseRevalidator(paths: ProjectRuntimeContext, runId: string): DispatchLeaseRevalidator {
+  function currentDispatchLeaseRevalidator(paths: ProjectRuntimeContext, runId: string): DispatchLeaseRevalidator {
     const projectId = paths.project?.projectId;
     if (!projectId) throw new Error("Pause boundary commit requires a project id for dispatch fencing");
     const store = openState(paths.stateDir);
     let leaseId = "";
     try {
       const lease = getProjectState(store, projectId)?.active_workflow;
-      if (!lease || lease.kind !== "run" || lease.workflow_id !== runId) {
-        throw new Error(`Pause boundary commit requires the current run dispatch lease for ${runId}`);
-      }
+      if (!lease) throw new Error(`Pause boundary commit requires current dispatch authority for run ${runId}`);
       leaseId = lease.lease_id;
       requireLease(store, leaseId, projectId);
     } finally {
@@ -414,8 +413,19 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     const paths = resolveDashboardProject(body, { useDefaultProject: true });
     const { repoRoot, stateDir } = paths;
     const runId = activeRunIdFromBody(body, stateDir);
-    const validateBoundaryLease = revalidateLease ?? currentRunLeaseRevalidator(paths, runId);
-    const drain = await processControl.drainManaged({ ...body, repoRoot, stateDir, runId });
+    assertHandoffIdle(stateDir, "Pause boundary");
+    const store = openState(stateDir);
+    let run: ReturnType<typeof getRun>;
+    try {
+      run = getRun(store, runId);
+      if (!run) throw new Error(`Run not found: ${runId}`);
+      if (run.status !== "paused") {
+        throw new Error(`Pause boundary requires supervisor-settled paused run ${runId}; current status is ${run.status}`);
+      }
+    } finally {
+      store.db.close();
+    }
+    const validateBoundaryLease = revalidateLease ?? currentDispatchLeaseRevalidator(paths, runId);
     const boundaryCommit = await commitBoundaryWorktree({
       message: `boundary(pause): run ${runId}`,
       repoRoot,
@@ -423,16 +433,18 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       runGit: deps.runGit,
       stateDir,
     });
-    const store = openState(stateDir);
-    let run: ReturnType<typeof updateRunStatus>;
-    try {
-      run = updateRunStatus(store, runId, "paused", "ui");
-      appendLog("ui", `run ${runId} locked for PR handoff`);
-    } finally {
-      store.db.close();
-    }
+    appendLog("ui", `run ${runId} boundary recorded after supervisor settlement`);
     const savePoint = await savePoints.boundarySavePoint(paths, "pause");
-    return { paused: true, project: paths.project ? projectToSummary(paths.project) : null, repoRoot, stateDir, run, drain, boundaryCommit, savePoint };
+    return {
+      paused: true,
+      project: paths.project ? projectToSummary(paths.project) : null,
+      repoRoot,
+      stateDir,
+      run,
+      drain: { draining: false, reason: "supervisor_settled" },
+      boundaryCommit,
+      savePoint,
+    };
   }
 
   function resumeRunForPr(body: JsonObject): JsonObject {
@@ -441,7 +453,20 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     const runId = activeRunIdFromBody(body, stateDir);
     const store = openState(stateDir);
     try {
-      const run = updateRunStatus(store, runId, "active", "ui");
+      const currentRun = getRun(store, runId);
+      if (!currentRun) throw new Error(`Run not found: ${runId}`);
+      const projectId = paths.project?.projectId ?? currentRun.projectId ?? "";
+      if (!projectId) throw new Error(`Run ${runId} cannot resume without a project id`);
+      const commandId = stringValue(body.commandId, `command-run-resume-${randomUUID()}`);
+      const { run } = activateRun({
+        actor: "operator",
+        commandId,
+        correlationId: runId,
+        projectId,
+        reason: "resume run after PR handoff pause",
+        runId,
+        store,
+      });
       appendLog("ui", `run ${runId} resumed after PR handoff pause`);
       return { resumed: true, project: paths.project ? projectToSummary(paths.project) : null, repoRoot, stateDir, run };
     } finally {

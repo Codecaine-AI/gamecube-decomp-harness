@@ -16,7 +16,7 @@ describe("worker claim dispatch fencing", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "worker-state-lease-"));
     const store = openState(stateDir);
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "melee", stateDir });
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "melee", stateDir }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
@@ -43,7 +43,7 @@ describe("worker claim dispatch fencing", () => {
       expect(() =>
         claimNextEpochTarget({
           store,
-          sessionId: run.id,
+          runId: run.id,
           workerId: "worker-stale",
           baseRev: "base",
           ttlSeconds: 1_800,
@@ -51,11 +51,11 @@ describe("worker claim dispatch fencing", () => {
         }),
       ).toThrow(StaleLeaseError);
       expect(store.db.query("SELECT status FROM epoch_targets WHERE epoch_id = ?").get(epoch.id)).toEqual({ status: "admitted" });
-      expect(store.db.query("SELECT COUNT(*) AS count FROM target_claims WHERE session_id = ?").get(run.id)).toEqual({ count: 0 });
+      expect(store.db.query("SELECT COUNT(*) AS count FROM target_claims WHERE run_id = ?").get(run.id)).toEqual({ count: 0 });
 
       const claim = claimNextEpochTarget({
         store,
-        sessionId: run.id,
+        runId: run.id,
         workerId: "worker-current",
         baseRev: "base",
         ttlSeconds: 1_800,
@@ -71,7 +71,7 @@ describe("worker claim dispatch fencing", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "worker-state-draining-lease-"));
     const store = openState(stateDir);
     try {
-      const run = createRun(store, "matched_code_percent", 100, 2, { projectId: "melee", stateDir });
+      const run = createRun(store, "matched_code_percent", 100, 2, { projectId: "melee", stateDir }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 2 },
         workerPoolSize: 2,
@@ -100,7 +100,7 @@ describe("worker claim dispatch fencing", () => {
 
       const existingClaim = claimNextEpochTarget({
         store,
-        sessionId: run.id,
+        runId: run.id,
         workerId: "worker-existing",
         baseRev: "base",
         ttlSeconds: 1_800,
@@ -130,14 +130,14 @@ describe("worker claim dispatch fencing", () => {
       expect(() =>
         claimNextEpochTarget({
           store,
-          sessionId: run.id,
+          runId: run.id,
           workerId: "worker-new",
           baseRev: "base",
           ttlSeconds: 1_800,
           leaseId: dispatch.leaseId,
         }),
       ).toThrow(DispatchLeaseNotActiveError);
-      expect(store.db.query("SELECT COUNT(*) AS count FROM target_claims WHERE session_id = ?").get(run.id)).toEqual({ count: 1 });
+      expect(store.db.query("SELECT COUNT(*) AS count FROM target_claims WHERE run_id = ?").get(run.id)).toEqual({ count: 1 });
 
       expect(() =>
         closeWorkerState(store, {

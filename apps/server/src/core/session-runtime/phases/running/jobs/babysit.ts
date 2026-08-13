@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
-import { releaseDispatch } from "@server/core/project-state";
-import { getLatestRun, openState, statusSnapshot } from "@server/core/session-runtime/run-state";
+import { getLatestRun, getRun, openState, statusSnapshot } from "@server/core/session-runtime/run-state";
+import { settlePausedRun } from "@server/core/session-runtime/phases/running/run-control.js";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 
 interface TriggerWorkerError {
@@ -365,11 +365,14 @@ async function recoverAfterIncident(
   if (booleanArg(args, "--no-recover-claims") || !runId) return [];
   const recoveries: RecoveryRun[] = [];
   let ordinal = firstRecoveryOrdinal;
+  const leaseId = stringArg(args, "--lease-id", "").trim();
+  const leaseArgs = leaseId ? ["--lease-id", leaseId] : [];
   const failedWorkerIds = [...new Set(child.workerErrors.map((error) => error.workerId).filter(Boolean))];
   for (const workerId of failedWorkerIds) {
     ordinal += 1;
     recoveries.push(
       await runRecoveryCommand(globals, `babysit recovered failed worker process ${workerId}: ${child.reason}`, runId, ordinal, [
+        ...leaseArgs,
         "--force",
         "--worker-id",
         workerId,
@@ -377,7 +380,7 @@ async function recoverAfterIncident(
     );
   }
   if (failedWorkerIds.length === 0) {
-    const extraArgs = booleanArg(args, "--force-recover-claims") ? ["--force"] : [];
+    const extraArgs = [...leaseArgs, ...(booleanArg(args, "--force-recover-claims") ? ["--force"] : [])];
     ordinal += 1;
     recoveries.push(await runRecoveryCommand(globals, `babysit recovery after ${child.reason}`, runId, ordinal, extraArgs));
   }
@@ -468,13 +471,19 @@ export async function runBabysit(globals: GlobalArgs, args: Map<string, string |
     if (leaseId) {
       const store = openState(globals.stateDir);
       try {
-        releaseDispatch(store, {
-          leaseId,
-          projectId: globals.project?.projectId ?? globals.projectId,
-          commandId: `command-run-release-${randomUUID()}`,
-          correlationId: stringArg(args, "--run-id", leaseId),
-          actor: "guardian",
-        });
+        const runId = stringArg(args, "--run-id", "") || getLatestRun(store)?.id;
+        const run = runId ? getRun(store, runId) : null;
+        if (run?.status === "active" || run?.status === "draining" || run?.status === "paused") {
+          settlePausedRun({
+            actor: "guardian",
+            commandId: `command-run-supervisor-settled-${randomUUID()}`,
+            correlationId: run.id,
+            leaseId,
+            reason: `supervisor settled after ${stoppedReason}`,
+            runId: run.id,
+            store,
+          });
+        }
       } finally {
         store.db.close();
       }

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-  beginDrain,
   getProjectState,
   initializeProjectState,
   releaseDispatch,
@@ -12,6 +11,7 @@ import {
   type EventActor,
 } from "@server/core/project-state";
 import { openState } from "@server/core/orchestrator-state";
+import { pauseRun } from "@server/core/session-runtime/phases/running/run-control.js";
 
 export interface DispatchGuardContext {
   project?: { projectId: string } | null;
@@ -111,13 +111,13 @@ export async function withDispatchLease<T>(
               `Cannot begin dispatch handoff while ${holder.kind}:${holder.workflow_id} is ${holder.status}`,
             );
           }
-          beginDrain(store, {
+          pauseRun({
             actor,
             commandId: `command-${input.kind}-handoff-${randomUUID()}`,
             correlationId,
-            leaseId: holder.lease_id,
-            projectId,
             reason: input.reason,
+            runId: holder.workflow_id,
+            store,
             targetKind: input.kind,
             targetWorkflowId: input.workflowId,
           });

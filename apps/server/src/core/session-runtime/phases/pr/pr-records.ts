@@ -19,6 +19,7 @@ export interface PrRecordsServiceDeps {
   latestChildDirectory: (root: string) => string;
   latestPrSplitPlanSummary: (stateDir: string, runId: string) => JsonObject | null;
   latestRunId: (stateDir: string) => string;
+  sessionUuidForRun: (stateDir: string, runId: string) => string;
   localPrepOperationRunning: () => boolean;
 }
 
@@ -66,6 +67,7 @@ export function prHandoffArtifactPath(stateDir: string, savedPath: string, filen
   return resolve(stateDir, "pr_handoff", filename);
 }
 
+/** Legacy fallback for records created before runs carried a project session UUID. */
 function prSessionId(runId: string): string {
   return runId ? `run:${runId}` : "legacy";
 }
@@ -100,7 +102,7 @@ export function createPrRecordsService(deps: PrRecordsServiceDeps): {
     const planObject = asObject(plan);
     return {
       runId,
-      sessionId: prSessionId(runId),
+      sessionId: deps.sessionUuidForRun(stateDir, runId) || prSessionId(runId),
       baseSha: stringValue(baselineStatus.baseSha, stringValue(shipStatus.baseSha)),
       sourcePlan: Object.keys(planObject).length
         ? {

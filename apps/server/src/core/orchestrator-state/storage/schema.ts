@@ -1,6 +1,14 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { EventType, PiSessionStatus, RunStatus, RuntimeAgentRole } from "@server/core/shared/types";
+import type {
+  EventType,
+  PiSessionStatus,
+  RunBlocker,
+  RunInputs,
+  RunSchedulerCondition,
+  RunStatus,
+  RuntimeAgentRole,
+} from "@server/core/shared/types";
 import type { WriteSetEntry } from "@server/core/session-runtime/run-state/write-set-categories.js";
 import type {
   CompletePhaseState,
@@ -61,7 +69,7 @@ export const projectState = sqliteTable("project_state", {
     .$type<JsonObject[]>()
     .notNull()
     .default(sql`'[]'`),
-  blockersJson: text("blockers_json", { mode: "json" }).$type<JsonObject[]>().notNull().default(sql`'[]'`),
+  blockersJson: text("blockers_json", { mode: "json" }).$type<RunBlocker[]>().notNull().default(sql`'[]'`),
   traceId: text("trace_id").notNull(),
   causedByEventId: text("caused_by_event_id"),
   createdAt: text("created_at").notNull(),
@@ -84,6 +92,16 @@ export const runs = sqliteTable("runs", {
   projectGraphDb: text("project_graph_db"),
   projectDescriptorPath: text("project_descriptor_path"),
   projectLocalOverridePath: text("project_local_override_path"),
+  revision: integer("revision").notNull().default(0),
+  traceId: text("trace_id"),
+  causedByEventId: text("caused_by_event_id"),
+  blockersJson: text("blockers_json", { mode: "json" }).$type<JsonObject[]>().notNull().default(sql`'[]'`),
+  headRevision: text("head_revision"),
+  sessionUuid: text("session_uuid"),
+  inputsJson: text("inputs_json", { mode: "json" }).$type<RunInputs>(),
+  stopRequestJson: text("stop_request_json", { mode: "json" }).$type<JsonObject>(),
+  terminalReason: text("terminal_reason"),
+  schedulerCondition: text("scheduler_condition").$type<RunSchedulerCondition>(),
 });
 
 export const directorCycles = sqliteTable("director_cycles", {
@@ -153,7 +171,7 @@ export const epochs = sqliteTable(
   "epochs",
   {
     id: text("id").primaryKey(),
-    sessionId: text("session_id").notNull(),
+    runId: text("run_id").notNull(),
     ordinal: integer("ordinal").notNull(),
     sizeMode: text("size_mode").notNull(),
     sizeValue: integer("size_value"),
@@ -168,7 +186,7 @@ export const epochs = sqliteTable(
     createdAt: text("created_at").notNull(),
     closedAt: text("closed_at"),
   },
-  (table) => [index("epochs_session_status").on(table.sessionId, table.status, table.ordinal)],
+  (table) => [index("epochs_run_status").on(table.runId, table.status, table.ordinal)],
 );
 
 export const epochTargets = sqliteTable(
@@ -176,7 +194,7 @@ export const epochTargets = sqliteTable(
   {
     id: text("id").primaryKey(),
     epochId: text("epoch_id").notNull(),
-    sessionId: text("session_id").notNull(),
+    runId: text("run_id").notNull(),
     targetKey: text("target_key").notNull(),
     unit: text("unit").notNull(),
     symbol: text("symbol").notNull(),
@@ -194,7 +212,7 @@ export const epochTargets = sqliteTable(
   (table) => [
     uniqueIndex("epoch_targets_epoch_key").on(table.epochId, table.targetKey),
     index("epoch_targets_epoch_status").on(table.epochId, table.status, table.admissionIndex),
-    index("epoch_targets_session_status").on(table.sessionId, table.status),
+    index("epoch_targets_run_status").on(table.runId, table.status),
   ],
 );
 
@@ -202,7 +220,7 @@ export const targetClaims = sqliteTable(
   "target_claims",
   {
     id: text("id").primaryKey(),
-    sessionId: text("session_id").notNull(),
+    runId: text("run_id").notNull(),
     epochId: text("epoch_id").notNull(),
     epochTargetId: text("epoch_target_id").notNull(),
     workerId: text("worker_id").notNull(),
@@ -220,7 +238,7 @@ export const targetClaims = sqliteTable(
   },
   (table) => [
     uniqueIndex("target_claims_epoch_target").on(table.epochTargetId),
-    index("target_claims_session_status").on(table.sessionId, table.status),
+    index("target_claims_run_status").on(table.runId, table.status),
   ],
 );
 
@@ -228,7 +246,7 @@ export const workerState = sqliteTable(
   "worker_state",
   {
     id: text("id").primaryKey(),
-    sessionId: text("session_id").notNull(),
+    runId: text("run_id").notNull(),
     epochId: text("epoch_id").notNull(),
     epochTargetId: text("epoch_target_id").notNull(),
     targetClaimId: text("target_claim_id").notNull(),
@@ -252,7 +270,7 @@ export const workerState = sqliteTable(
   },
   (table) => [
     uniqueIndex("worker_state_target_claim").on(table.targetClaimId),
-    index("worker_state_session_status").on(table.sessionId, table.lifecycleStatus),
+    index("worker_state_run_status").on(table.runId, table.lifecycleStatus),
   ],
 );
 
@@ -261,7 +279,7 @@ export const workerCheckpoints = sqliteTable(
   {
     id: text("id").primaryKey(),
     workerStateId: text("worker_state_id").notNull(),
-    sessionId: text("session_id").notNull(),
+    runId: text("run_id").notNull(),
     epochId: text("epoch_id").notNull(),
     epochTargetId: text("epoch_target_id").notNull(),
     targetClaimId: text("target_claim_id").notNull(),
@@ -297,7 +315,7 @@ export const writeSetWidenings = sqliteTable(
   "write_set_widenings",
   {
     id: text("id").primaryKey(),
-    sessionId: text("session_id").notNull(),
+    runId: text("run_id").notNull(),
     epochId: text("epoch_id").notNull(),
     targetClaimId: text("target_claim_id").notNull(),
     workerStateId: text("worker_state_id").notNull(),
@@ -316,7 +334,7 @@ export const writeSetWidenings = sqliteTable(
     decidedAt: text("decided_at"),
     validatedAt: text("validated_at"),
   },
-  (table) => [index("write_set_widenings_session").on(table.sessionId, table.status, table.createdAt)],
+  (table) => [index("write_set_widenings_run").on(table.runId, table.status, table.createdAt)],
 );
 
 export const facts = sqliteTable("facts", {
@@ -356,7 +374,7 @@ export const workerOutputIntegrations = sqliteTable(
   "worker_output_integrations",
   {
     id: text("id").primaryKey(),
-    sessionId: text("session_id").notNull(),
+    runId: text("run_id").notNull(),
     epochId: text("epoch_id").notNull(),
     epochTargetId: text("epoch_target_id").notNull(),
     targetClaimId: text("target_claim_id").notNull(),
@@ -384,7 +402,7 @@ export const workerOutputIntegrations = sqliteTable(
   },
   (table) => [
     uniqueIndex("worker_output_integrations_checkpoint").on(table.workerCheckpointId),
-    index("worker_output_integrations_session_status").on(table.sessionId, table.status, table.createdAt),
+    index("worker_output_integrations_run_status").on(table.runId, table.status, table.createdAt),
   ],
 );
 
@@ -524,6 +542,49 @@ export const sessionTimelineEntries = sqliteTable(
   ],
 );
 
+export const pendingIntegrations = sqliteTable(
+  "pending_integrations",
+  {
+    epochId: text("epoch_id").primaryKey(),
+    runId: text("run_id").notNull(),
+    branch: text("branch").notNull(),
+    parentSha: text("parent_sha").notNull(),
+    messageMarker: text("message_marker").notNull(),
+    createdAt: text("created_at").notNull(),
+    attempt: integer("attempt").notNull().default(1),
+    status: text("status").$type<"prepared" | "failed">().notNull().default("prepared"),
+    failureReason: text("failure_reason"),
+    failedAt: text("failed_at"),
+  },
+  (table) => [index("pending_integrations_run_created").on(table.runId, table.createdAt)],
+);
+
+export const runRecoveryJournal = sqliteTable(
+  "run_recovery_journal",
+  {
+    recoveryId: text("recovery_id").primaryKey(),
+    runId: text("run_id").notNull(),
+    action: text("action").notNull(),
+    commandId: text("command_id").notNull(),
+    correlationId: text("correlation_id").notNull(),
+    recoveryReason: text("recovery_reason").notNull(),
+    expectedRunRevision: integer("expected_run_revision").notNull(),
+    cancelledClaimIdsJson: text("cancelled_claim_ids_json", { mode: "json" }).$type<string[]>().notNull().default(sql`'[]'`),
+    cancelledOperationIdsJson: text("cancelled_operation_ids_json", { mode: "json" }).$type<string[]>().notNull().default(sql`'[]'`),
+    status: text("status").$type<"prepared" | "completed">().notNull().default("prepared"),
+    causedByEventId: text("caused_by_event_id"),
+    createdAt: text("created_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("run_recovery_journal_one_prepared_run")
+      .on(table.runId)
+      .where(sql`${table.status} = 'prepared'`),
+    index("run_recovery_journal_run_created").on(table.runId, table.createdAt),
+    check("run_recovery_journal_status_check", sql`${table.status} IN ('prepared', 'completed')`),
+  ],
+);
+
 export const orchestratorStateSchema = {
   campaigns,
   checkpointItems,
@@ -535,6 +596,8 @@ export const orchestratorStateSchema = {
   facts,
   integrations,
   piSessions,
+  pendingIntegrations,
+  runRecoveryJournal,
   projectEvents,
   projectSessions,
   projectState,
@@ -582,3 +645,7 @@ export type ProjectEventRow = typeof projectEvents.$inferSelect;
 export type NewProjectEventRow = typeof projectEvents.$inferInsert;
 export type ProjectStateRow = typeof projectState.$inferSelect;
 export type NewProjectStateRow = typeof projectState.$inferInsert;
+export type PendingIntegrationRow = typeof pendingIntegrations.$inferSelect;
+export type NewPendingIntegrationRow = typeof pendingIntegrations.$inferInsert;
+export type RunRecoveryJournalRow = typeof runRecoveryJournal.$inferSelect;
+export type NewRunRecoveryJournalRow = typeof runRecoveryJournal.$inferInsert;

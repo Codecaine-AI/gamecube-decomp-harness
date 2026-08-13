@@ -28,7 +28,7 @@ function tempState(): { dir: string; store: StateStore } {
 }
 
 function exactCheckpoint(store: StateStore, validationState: "tentative" | "confirmed" | "regressed") {
-  const run = createRun(store, "matched_code_percent", 100, 1);
+  const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
     size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
@@ -53,7 +53,7 @@ function exactCheckpoint(store: StateStore, validationState: "tentative" | "conf
   });
   const claim = claimNextEpochTarget({
     store,
-    sessionId: run.id,
+    runId: run.id,
     workerId: "worker-1",
     baseRev: "base",
     ttlSeconds: 1_800,
@@ -61,7 +61,7 @@ function exactCheckpoint(store: StateStore, validationState: "tentative" | "conf
   if (!claim) throw new Error("expected test claim");
   recordWorkerCheckpoint(store, {
     workerStateId: claim.workerStateId,
-    sessionId: run.id,
+    runId: run.id,
     epochId: claim.epochId,
     epochTargetId: claim.epochTargetId,
     targetClaimId: claim.claimId,

@@ -11,6 +11,7 @@ import {
   refreshEpochTargetPriorities,
   refreshEpochTargetAvailability,
   schedulerEpochProgress,
+  setRunSchedulerCondition,
   startSchedulerEpoch,
   getLatestRun,
   getRun,
@@ -139,12 +140,12 @@ function previousEpochTargetKeyCount(store: StateStore, runId: string, epochId: 
         SELECT COUNT(DISTINCT epoch_targets.target_key) AS count
         FROM epoch_targets
         JOIN epochs ON epochs.id = epoch_targets.epoch_id
-        WHERE epoch_targets.session_id = ?
+        WHERE epoch_targets.run_id = ?
           AND epochs.ordinal = (
             SELECT MAX(previous.ordinal)
             FROM epochs AS previous
             JOIN epochs AS current
-              ON current.session_id = previous.session_id
+              ON current.run_id = previous.run_id
             WHERE current.id = ?
               AND previous.ordinal < current.ordinal
           )
@@ -228,14 +229,22 @@ export function ensureSchedulerEpochFromBoard(params: {
   return { epoch, admission, existingAdmission, availabilityRefresh, priorityRefreshes, progress, candidateWindow, boardExhausted, admissionCap };
 }
 
-export async function runSchedulerTick(globals: GlobalArgs, args: Map<string, string | true>): Promise<SchedulerTickResult> {
+export async function runSchedulerTick(
+  globals: GlobalArgs,
+  args: Map<string, string | true>,
+  options: { ownsSchedulerCondition?: boolean } = {},
+): Promise<SchedulerTickResult> {
   const store = openState(globals.stateDir);
+  let observedRunId = "";
+  const ownsSchedulerCondition = options.ownsSchedulerCondition ?? true;
   try {
     const runId = stringArg(args, "--run-id", getLatestRun(store)?.id ?? "");
     if (!runId) throw new Error("No run found. Run init-run first.");
     const run = getRun(store, runId);
     if (!run) throw new Error(`Run not found: ${runId}`);
     assertSchedulableRun(run, "tick");
+    observedRunId = runId;
+    if (ownsSchedulerCondition) setRunSchedulerCondition(store, runId, "planning");
 
     const event = nextUnhandledEvent(store, runId);
     if (!event) return { runId, status: "no_unhandled_events" };
@@ -294,6 +303,7 @@ export async function runSchedulerTick(globals: GlobalArgs, args: Map<string, st
       dryRun: globals.dryRunAgents,
     };
   } finally {
+    if (observedRunId && ownsSchedulerCondition) setRunSchedulerCondition(store, observedRunId, "idle");
     store.db.close();
   }
 }

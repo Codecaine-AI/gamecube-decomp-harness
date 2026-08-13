@@ -28,7 +28,7 @@ export type WriteSetWideningStatus =
 
 export interface WriteSetWideningRecord {
   id: string;
-  sessionId: string;
+  runId: string;
   epochId: string;
   targetClaimId: string;
   workerStateId: string;
@@ -50,7 +50,7 @@ export interface WriteSetWideningRecord {
 
 export interface CreateWriteSetWideningInput {
   id?: string;
-  sessionId: string;
+  runId: string;
   epochId: string;
   targetClaimId: string;
   workerStateId: string;
@@ -296,7 +296,7 @@ function parseJson<T>(value: unknown, fallback: T): T {
 function wideningFromRow(row: Record<string, unknown>): WriteSetWideningRecord {
   return {
     id: String(row.id),
-    sessionId: String(row.session_id),
+    runId: String(row.run_id),
     epochId: String(row.epoch_id),
     targetClaimId: String(row.target_claim_id),
     workerStateId: String(row.worker_state_id),
@@ -328,7 +328,7 @@ export function createWriteSetWidening(store: StateStore, input: CreateWriteSetW
       .query(
         `
           INSERT INTO write_set_widenings (
-            id, session_id, epoch_id, target_claim_id, worker_state_id,
+            id, run_id, epoch_id, target_claim_id, worker_state_id,
             attempt_index, category, rung, requested_paths_json,
             approved_paths_json, evidence_json, status, created_at
           )
@@ -337,7 +337,7 @@ export function createWriteSetWidening(store: StateStore, input: CreateWriteSetW
       )
       .run(
         id,
-        input.sessionId,
+        input.runId,
         input.epochId,
         input.targetClaimId,
         input.workerStateId,

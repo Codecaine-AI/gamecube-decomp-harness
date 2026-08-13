@@ -15,20 +15,20 @@ export function statusSnapshot(store: StateStore): Record<string, unknown> {
   };
   return {
     run,
-    epochTargets: scalar("SELECT COUNT(*) AS count FROM epoch_targets WHERE session_id = ?", run.id),
-    admittedTargets: scalar("SELECT COUNT(*) AS count FROM epoch_targets WHERE session_id = ? AND status = 'admitted'", run.id),
+    epochTargets: scalar("SELECT COUNT(*) AS count FROM epoch_targets WHERE run_id = ?", run.id),
+    admittedTargets: scalar("SELECT COUNT(*) AS count FROM epoch_targets WHERE run_id = ? AND status = 'admitted'", run.id),
     schedulableTargets: schedulableTargetCount(store, run.id),
     blockedAdmittedTargets: blockedAdmittedTargetCount(store, run.id),
     unhandledEvents: scalar("SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", run.id),
     schedulerEpoch,
-    epochs: scalar("SELECT COUNT(*) AS count FROM epochs WHERE session_id = ?", run.id),
+    epochs: scalar("SELECT COUNT(*) AS count FROM epochs WHERE run_id = ?", run.id),
     piSessions: scalar("SELECT COUNT(*) AS count FROM pi_sessions WHERE run_id = ?", run.id),
     directorCycles: scalar("SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", run.id),
-    targetClaims: scalar("SELECT COUNT(*) AS count FROM target_claims WHERE session_id = ?", run.id),
+    targetClaims: scalar("SELECT COUNT(*) AS count FROM target_claims WHERE run_id = ?", run.id),
     activeClaims: activeWorkerCount(store, run.id),
-    workerStates: scalar("SELECT COUNT(*) AS count FROM worker_state WHERE session_id = ?", run.id),
-    workerCheckpoints: scalar("SELECT COUNT(*) AS count FROM worker_checkpoints WHERE session_id = ?", run.id),
-    workerOutputIntegrations: scalar("SELECT COUNT(*) AS count FROM worker_output_integrations WHERE session_id = ?", run.id),
-    workerOutputIntegrationConflicts: scalar("SELECT COUNT(*) AS count FROM worker_output_integrations WHERE session_id = ? AND status IN ('conflict', 'needs_rework', 'blocked', 'resolver_failed')", run.id),
+    workerStates: scalar("SELECT COUNT(*) AS count FROM worker_state WHERE run_id = ?", run.id),
+    workerCheckpoints: scalar("SELECT COUNT(*) AS count FROM worker_checkpoints WHERE run_id = ?", run.id),
+    workerOutputIntegrations: scalar("SELECT COUNT(*) AS count FROM worker_output_integrations WHERE run_id = ?", run.id),
+    workerOutputIntegrationConflicts: scalar("SELECT COUNT(*) AS count FROM worker_output_integrations WHERE run_id = ? AND status IN ('conflict', 'needs_rework', 'blocked', 'resolver_failed')", run.id),
   };
 }

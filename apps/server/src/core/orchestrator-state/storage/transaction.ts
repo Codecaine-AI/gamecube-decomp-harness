@@ -28,6 +28,10 @@ export function withBusyRetry<T>(operation: () => T): T {
 }
 
 export function immediateTransaction<T>(db: Database, operation: () => T): T {
+  // Domain commands compose smaller state-machine primitives. When an outer
+  // command already owns BEGIN IMMEDIATE, participate in that transaction so
+  // the combined lease + workflow transition commits or rolls back together.
+  if (db.inTransaction) return operation();
   return withBusyRetry(() => {
     let began = false;
     try {

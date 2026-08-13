@@ -43,6 +43,7 @@ import {
 } from "@server/core/knowledge";
 import { runCommand } from "@server/infrastructure/shell";
 import { addPiSession } from "@server/core/session-runtime/run-state";
+import { getActiveProjectSession } from "@server/core/project-session";
 import {
   activeSchedulerEpoch,
   addEvent,
@@ -1640,7 +1641,7 @@ function clampSummary(text: string, maxChars = 400): string {
   return trimmed.length <= maxChars ? trimmed : `${trimmed.slice(0, maxChars)}…`;
 }
 
-function liveConflictResolverConfig(globals: GlobalArgs, runId: string): WorkerOutputConflictResolverConfig {
+function liveConflictResolverConfig(globals: GlobalArgs, sessionId: string, runId: string): WorkerOutputConflictResolverConfig {
   return {
     dryRun: globals.dryRunAgents,
     project: projectMetadata(globals),
@@ -1656,7 +1657,7 @@ function liveConflictResolverConfig(globals: GlobalArgs, runId: string): WorkerO
         kernelContext: createMeleeKernelSpawnContext({
           kind: "worker-integration",
           projectId: globals.project?.projectId ?? globals.projectId,
-          sessionId: runId,
+          sessionId,
           runId,
           phase: "integration",
           workingDir: options.cwd,
@@ -1681,6 +1682,8 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     const run = getRun(store, runId);
     if (!run) throw new Error(`Run not found: ${runId}`);
     assertSchedulableRun(run, "worker");
+    const sessionProjectId = run.projectId ?? globals.project?.projectId ?? globals.projectId;
+    const sessionId = run.sessionUuid ?? (sessionProjectId ? getActiveProjectSession(store.db, sessionProjectId)?.session_uuid : null) ?? runId;
 
     const workerId = stringArg(args, "--worker-id", `worker-${process.pid}-${Date.now()}-${randomUUID().slice(0, 8)}`);
     const baseRev = await resolveBaseRev(globals.repoRoot, stringArg(args, "--base-rev", "unknown"));
@@ -1694,7 +1697,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     if (!schedulerEpoch) throw new Error(`No active epoch with admitted targets for session ${runId}`);
     const claimed = claimNextEpochTarget({
       store,
-      sessionId: runId,
+      runId,
       workerId,
       baseRev,
       ttlSeconds,
@@ -1973,7 +1976,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
           const wideningId = randomUUID();
           createWriteSetWidening(store, {
             id: wideningId,
-            sessionId: runId,
+            runId,
             epochId: claimed.epochId,
             targetClaimId: claimed.claimId,
             workerStateId: claimed.workerStateId,
@@ -2291,7 +2294,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       if (runnerValidation.summaryPath) await writeFile(runnerValidation.summaryPath, JSON.stringify(runnerValidation, null, 2));
       recordWorkerCheckpoint(store, {
         workerStateId: claimed.workerStateId,
-        sessionId: runId,
+        runId,
         epochId: claimed.epochId,
         epochTargetId: claimed.epochTargetId,
         targetClaimId: claimed.claimId,
@@ -2518,7 +2521,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             : `Runner timeout selected best prior checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}).`
           : "Runner timeout selected baseline because no checkpoint passed hard gates and improved over baseline.");
     const workerStateSummary = {
-      session_id: runId,
+      run_id: runId,
       epoch_id: claimed.epochId,
       epoch_target_id: claimed.epochTargetId,
       target_claim_id: claimed.claimId,
@@ -2607,7 +2610,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     let workerOutputIntegration: WorkerCycleResult["workerOutputIntegration"] | undefined;
     if (bestCheckpoint) {
       const item = enqueueWorkerOutputIntegration(store, {
-        sessionId: runId,
+        runId,
         epochId: claimed.epochId,
         epochTargetId: claimed.epochTargetId,
         targetClaimId: claimed.claimId,
@@ -2627,11 +2630,12 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         },
       });
       const queue = await processWorkerOutputIntegrationQueue({
-        conflictResolver: writeSetFlags.mergeOnFinish ? liveConflictResolverConfig(globals, runId) : undefined,
+        conflictResolver: writeSetFlags.mergeOnFinish ? liveConflictResolverConfig(globals, sessionId, runId) : undefined,
         dryRun: globals.dryRunAgents,
+        leaseId,
         mergeOnFinish: writeSetFlags.mergeOnFinish,
         repoRoot: globals.repoRoot,
-        sessionId: runId,
+        runId,
         stateDir: globals.stateDir,
         store,
       });

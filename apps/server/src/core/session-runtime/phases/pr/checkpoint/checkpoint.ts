@@ -467,7 +467,7 @@ function activeClaimCount(store: StateStore, runId: string): number {
   const row = withBusyRetry(
     () =>
       store.db
-        .query("SELECT COUNT(*) AS count FROM target_claims WHERE session_id = ? AND status = 'active'")
+        .query("SELECT COUNT(*) AS count FROM target_claims WHERE run_id = ? AND status = 'active'")
         .get(runId) as Record<string, unknown>,
   );
   return numberValue(row.count);
@@ -481,7 +481,7 @@ function workerStateRows(store: StateStore, runId: string): Record<string, unkno
           `
             SELECT
               worker_state.id AS worker_state_id,
-              worker_state.session_id,
+              worker_state.run_id,
               worker_state.epoch_id,
               worker_state.epoch_target_id,
               worker_state.target_claim_id,
@@ -558,7 +558,7 @@ function workerStateRows(store: StateStore, runId: string): Record<string, unkno
               ORDER BY validation_time DESC, attempt_index DESC
               LIMIT 1
             )
-            WHERE worker_state.session_id = ?
+            WHERE worker_state.run_id = ?
             ORDER BY COALESCE(worker_state.ended_at, latest.validation_time, worker_state.started_at) DESC
           `,
         )
@@ -591,7 +591,7 @@ function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, for
           `
             SELECT 1
             FROM worker_checkpoints
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND validation_state IN ('confirmed', 'regressed')
             LIMIT 1
           `,
@@ -605,7 +605,7 @@ function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, for
           `
             SELECT 1
             FROM worker_output_integrations
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND validation_state IN ('confirmed', 'regressed')
             LIMIT 1
           `,
@@ -614,7 +614,7 @@ function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, for
   );
   if (nonDefaultCheckpoint || nonDefaultIntegration) reasons.push("non_default_validation_state");
   const wideningHistory = withBusyRetry(
-    () => store.db.query("SELECT 1 FROM write_set_widenings WHERE session_id = ? LIMIT 1").get(runId),
+    () => store.db.query("SELECT 1 FROM write_set_widenings WHERE run_id = ? LIMIT 1").get(runId),
   );
   if (wideningHistory) reasons.push("write_set_widening_history");
   const mergeOnFinishIntegration = withBusyRetry(
@@ -624,7 +624,7 @@ function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, for
           `
             SELECT 1
             FROM worker_output_integrations
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND disposition IN ('merge_on_finish_clean', 'conflict_resolved')
             LIMIT 1
           `,

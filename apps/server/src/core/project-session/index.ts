@@ -1,6 +1,7 @@
 export * from "./identity.js";
 export * from "./process-identity.js";
 export * from "./process-state.js";
+export * from "./pending-integrations.js";
 export * from "./save-point-failure-spool.js";
 export * from "./state.js";
 export * from "./store.js";

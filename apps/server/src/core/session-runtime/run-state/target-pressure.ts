@@ -13,7 +13,7 @@ export function admittedTargetCount(store: StateStore, runId: string): number {
       SELECT COUNT(*) AS count
       FROM epoch_targets
       JOIN epochs ON epochs.id = epoch_targets.epoch_id
-      WHERE epoch_targets.session_id = ?
+      WHERE epoch_targets.run_id = ?
         AND epochs.status = 'active'
         AND epoch_targets.status = 'admitted'
     `,
@@ -28,7 +28,7 @@ export function schedulableTargetCount(store: StateStore, runId: string): number
       SELECT COUNT(*) AS count
       FROM epoch_targets
       JOIN epochs ON epochs.id = epoch_targets.epoch_id
-      WHERE epoch_targets.session_id = ?
+      WHERE epoch_targets.run_id = ?
         AND epochs.status = 'active'
         AND epoch_targets.status = 'admitted'
     `,

@@ -193,7 +193,7 @@ function wideningStore(): StateStore {
   databases.push(db);
   db.exec(`
     CREATE TABLE write_set_widenings (
-      id TEXT PRIMARY KEY, session_id TEXT NOT NULL, epoch_id TEXT NOT NULL,
+      id TEXT PRIMARY KEY, run_id TEXT NOT NULL, epoch_id TEXT NOT NULL,
       target_claim_id TEXT NOT NULL, worker_state_id TEXT NOT NULL,
       attempt_index INTEGER NOT NULL, category TEXT NOT NULL, rung INTEGER NOT NULL,
       requested_paths_json TEXT NOT NULL DEFAULT '[]', approved_paths_json TEXT NOT NULL DEFAULT '[]',
@@ -216,7 +216,7 @@ describe("write-set widening audit rows", () => {
     const request = requestFor(2);
     const created = createWriteSetWidening(store, {
       id: "widening-crud",
-      sessionId: "session-1",
+      runId: "run-1",
       epochId: "epoch-1",
       targetClaimId: "claim-1",
       workerStateId: "worker-state-1",
@@ -243,7 +243,7 @@ describe("write-set widening audit rows", () => {
     const request = requestFor(2);
     const created = createWriteSetWidening(store, {
       id: "widening-a",
-      sessionId: "session-1",
+      runId: "run-1",
       epochId: "epoch-1",
       targetClaimId: "claim-1",
       workerStateId: "worker-state-1",

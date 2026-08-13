@@ -1,8 +1,23 @@
 import { randomUUID } from "node:crypto";
-import { initializeProjectState, releaseDispatch, requestDispatch } from "@server/core/project-state";
-import { buildRunningProcessCommand, runningScheduling, type RunningProcessCommandPlan } from "@server/core/session-runtime/phases/running/process-command";
+import { releaseDispatch } from "@server/core/project-state";
+import { immediateTransaction } from "@server/core/orchestrator-state";
+import { reconcilePendingIntegrations } from "@server/core/project-session";
+import {
+  buildRunningProcessCommand,
+  runningProcessConfigurationConflicts,
+  type RunningProcessCommandPlan,
+} from "@server/core/session-runtime/phases/running/process-command";
 import { type ManagedProcessController, type ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
-import { activeSchedulerEpoch, addEvent, getLatestRun, getRun, openState, schedulerEpochProgress, setRunDesiredWorkers } from "@server/core/session-runtime/run-state";
+import {
+  activeSchedulerEpoch,
+  addEvent,
+  getLatestRun,
+  getRun,
+  openState,
+  schedulerEpochProgress,
+  updateRunStatus,
+} from "@server/core/session-runtime/run-state";
+import { activateRun, reconcileRunLeaseState } from "@server/core/session-runtime/phases/running/run-control.js";
 import type { ProjectSummary, ResolvedProject } from "@server/core/project-registry";
 import type { RunRecord } from "@server/core/shared/types";
 import { toolConcurrencyEnvFromInput } from "@server/core/tools/concurrency-config";
@@ -78,6 +93,7 @@ function commandFromBody(body: JsonObject, deps: ProcessControlRuntimeDeps): Run
   const effectiveRepoRoot = paths.usePathOverrides ? repoRoot : (run?.project?.repoRoot ?? repoRoot);
   const effectiveStateDir = paths.usePathOverrides ? stateDir : (run?.project?.stateDir ?? stateDir);
   const effectiveGraphDbPath = paths.usePathOverrides ? graphDbPath : (run?.project?.graphDbPath ?? graphDbPath);
+  if (!run?.inputs) throw new Error(run ? `Run ${run.id} has no immutable inputs` : `Run not found: ${runId}`);
   const plan = buildRunningProcessCommand({
     body,
     graphDbPath: effectiveGraphDbPath,
@@ -85,6 +101,7 @@ function commandFromBody(body: JsonObject, deps: ProcessControlRuntimeDeps): Run
     project,
     repoRoot: effectiveRepoRoot,
     runId,
+    runInputs: run.inputs,
     serverJobPath: deps.serverJobPath,
     stateDir: effectiveStateDir,
   });
@@ -168,22 +185,58 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
     },
 
     async startManagedProcess(body): Promise<Response> {
+      const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
+      const requestedRunId = stringValue(body.runId) || latestRunId(paths.stateDir);
+      const requestedRun = loadRun(paths.stateDir, requestedRunId);
+      if (!requestedRunId) {
+        return deps.json({ error: "No run found. Initialize a run before starting workers.", process: deps.processStatus(paths.stateDir, paths.project) }, { status: 409 });
+      }
+      if (!requestedRun?.inputs) {
+        return deps.json({ error: requestedRun ? `Run ${requestedRun.id} has no immutable inputs.` : `Run not found: ${requestedRunId}`, process: deps.processStatus(paths.stateDir, paths.project) }, { status: 409 });
+      }
+      const conflicts = runningProcessConfigurationConflicts(body, requestedRun.inputs, requestedRun.id);
+      if (conflicts.length > 0) {
+        return deps.json(
+          {
+            error: `Process start options conflict with immutable run configuration: ${conflicts.map((conflict) => conflict.field).join(", ")}`,
+            blocker: conflicts[0]!.blocker,
+            blocked_by: conflicts.map((conflict) => conflict.blocker),
+            conflicts: conflicts.map(({ blocker: _blocker, ...conflict }) => conflict),
+            run: requestedRun,
+            process: deps.processStatus(paths.stateDir, paths.project),
+          },
+          { status: 409 },
+        );
+      }
+
       const { command, name, stateDir, project, run, runId } = commandFromBody(body, deps);
       if (deps.processController.hasActiveProcess(stateDir).active) {
         return deps.json({ error: "process already running", process: deps.processStatus(stateDir, project) }, { status: 409 });
       }
-      if (!runId) {
-        return deps.json({ error: "No run found. Initialize a run before starting workers.", process: deps.processStatus(stateDir, project) }, { status: 409 });
-      }
-
-      const requestedWorkers = runningScheduling(body.maxWorkers).maxWorkers;
+      const startCommandId = stringValue(body.commandId, `command-run-start-${randomUUID()}`);
       let acquiredLease: { leaseId: string; projectId: string } | null = null;
+      let activatedRun = false;
       try {
         const store = openState(stateDir);
         try {
-          const currentRun = getRun(store, runId) ?? run;
-          if (currentRun && currentRun.status !== "active") {
-            return deps.json({ error: `Run ${currentRun.id} is ${currentRun.status}; resume it before starting workers.`, run: currentRun, process: deps.processStatus(stateDir, project) }, { status: 409 });
+          // Resolve any commit-without-lineage crash window before this start
+          // can acquire dispatch authority or spawn another scheduler process.
+          reconcilePendingIntegrations(store);
+          const beforeReconciliation = getRun(store, runId) ?? run;
+          if (beforeReconciliation) {
+            const repair = reconcileRunLeaseState({
+              actor: "guardian",
+              commandId: `command-run-startup-reconcile-${randomUUID()}`,
+              correlationId: runId,
+              reason: "startup repaired run status and dispatch lease disagreement",
+              runId,
+              store,
+            });
+            if (repair) deps.appendLog("stderr", repair.message);
+          }
+          let currentRun = getRun(store, runId) ?? run;
+          if (currentRun && currentRun.status !== "ready" && currentRun.status !== "active") {
+            return deps.json({ error: `Run ${currentRun.id} is ${currentRun.status}; it must be ready or active before starting workers.`, run: currentRun, process: deps.processStatus(stateDir, project) }, { status: 409 });
           }
           if (!currentRun) {
             return deps.json({ error: `Run not found: ${runId}`, process: deps.processStatus(stateDir, project) }, { status: 409 });
@@ -193,35 +246,18 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
           if (!projectId) {
             return deps.json({ error: `Run ${runId} has no project id; dispatch authority cannot be acquired.`, process: deps.processStatus(stateDir, project) }, { status: 409 });
           }
-          initializeProjectState(store, { projectId, traceId: `trace-project-${projectId}` });
-          const dispatch = requestDispatch(store, {
-            kind: "run",
-            workflowId: runId,
-            reason: stringValue(body.reason, "start managed run process"),
-            commandId: stringValue(body.commandId, `command-run-start-${randomUUID()}`),
-            correlationId: runId,
+          const activation = activateRun({
             actor: "operator",
+            commandId: startCommandId,
+            correlationId: runId,
             projectId,
+            reason: stringValue(body.reason, "start managed run process"),
+            runId,
+            store,
           });
-          if (dispatch.queued) {
-            return deps.json(
-              {
-                error: `Dispatch lease is held by ${dispatch.blockedBy.kind}:${dispatch.blockedBy.workflow_id}; run ${runId} was queued.`,
-                queued: true,
-                blockedBy: dispatch.blockedBy,
-                process: deps.processStatus(stateDir, project),
-              },
-              { status: 409 },
-            );
-          }
-          acquiredLease = { leaseId: dispatch.leaseId, projectId };
-
-          // The worker pool clamps --max-workers to the run's desired_workers,
-          // so align the run record with the requested size before spawning.
-          if (currentRun && currentRun.desiredWorkers !== requestedWorkers) {
-            setRunDesiredWorkers(store, currentRun.id, requestedWorkers, "dashboard");
-            deps.appendLog("ui", `run ${currentRun.id} desired_workers ${currentRun.desiredWorkers} -> ${requestedWorkers}`);
-          }
+          acquiredLease = { leaseId: activation.leaseId, projectId };
+          activatedRun = true;
+          deps.appendLog("ui", `run ${currentRun.id} activated under dispatch lease ${acquiredLease.leaseId}`);
         } finally {
           store.db.close();
         }
@@ -233,12 +269,18 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
         if (acquiredLease) {
           const store = openState(stateDir);
           try {
-            releaseDispatch(store, {
-              leaseId: acquiredLease.leaseId,
-              projectId: acquiredLease.projectId,
-              commandId: `command-run-start-failed-${randomUUID()}`,
-              correlationId: runId,
-              actor: "operator",
+            immediateTransaction(store.db, () => {
+              if (activatedRun) {
+                const activeRun = getRun(store, runId);
+                if (activeRun?.status === "active") updateRunStatus(store, runId, "failed", "dashboard");
+              }
+              releaseDispatch(store, {
+                leaseId: acquiredLease!.leaseId,
+                projectId: acquiredLease!.projectId,
+                commandId: `command-run-start-failed-${randomUUID()}`,
+                correlationId: runId,
+                actor: "operator",
+              });
             });
           } finally {
             store.db.close();

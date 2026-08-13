@@ -35,6 +35,9 @@ type StatePatch = {
   queuedRequests?: QueuedDispatchRequest[];
 };
 
+/** Dispatch heartbeats older than this require operator-confirmed recovery. */
+export const STALE_DISPATCH_LEASE_MS = 15 * 60 * 1000;
+
 export class StaleLeaseError extends Error {
   readonly requestedLeaseId: string;
   readonly currentLeaseId: string | null;
@@ -251,6 +254,9 @@ export function requestDispatch(store: StateStore, input: RequestDispatchInput):
     }
 
     const mintedLeaseId = leaseId();
+    const queuedRequests = state.queued_dispatch_requests.filter(
+      (request) => !(request.kind === input.kind && request.workflow_id === input.workflowId),
+    );
     const acquiring: DispatchLease = {
       kind: input.kind,
       workflow_id: input.workflowId,
@@ -266,7 +272,7 @@ export function requestDispatch(store: StateStore, input: RequestDispatchInput):
       subjectId: state.project_id,
       payload: { ...requestedPayload(input, null), queued: false },
     });
-    state = updateRevision(store, state, requested.eventId, at, { activeWorkflow: acquiring });
+    state = updateRevision(store, state, requested.eventId, at, { activeWorkflow: acquiring, queuedRequests });
 
     const active: DispatchLease = { ...acquiring, status: "active" };
     const acquired = appendEvent(store, state, input, at, {
@@ -328,22 +334,31 @@ export function heartbeatDispatch(store: StateStore, input: HeartbeatDispatchInp
 export function beginDrain(store: StateStore, input: BeginDrainInput): ProjectState {
   return immediateTransaction(store.db, () => {
     const { state, lease } = requireCurrentLease(store, input.leaseId, input.projectId);
-    const targetIsQueued = state.queued_dispatch_requests.some(
-      (request) => request.kind === input.targetKind && request.workflow_id === input.targetWorkflowId,
-    );
-    if (!targetIsQueued) {
-      throw new Error(`Dispatch handoff target ${input.targetKind}:${input.targetWorkflowId} is not queued`);
+    if ((input.targetKind === undefined) !== (input.targetWorkflowId === undefined)) {
+      throw new Error("Dispatch drain must provide both targetKind and targetWorkflowId, or neither");
+    }
+    if (input.targetKind && input.targetWorkflowId) {
+      const targetIsQueued = state.queued_dispatch_requests.some(
+        (request) => request.kind === input.targetKind && request.workflow_id === input.targetWorkflowId,
+      );
+      if (!targetIsQueued) {
+        throw new Error(`Dispatch handoff target ${input.targetKind}:${input.targetWorkflowId} is not queued`);
+      }
     }
     const at = input.now ?? currentTime();
     const draining: DispatchLease = {
       ...lease,
       status: "draining",
-      requested_handoff: {
-        target_kind: input.targetKind,
-        target_workflow_id: input.targetWorkflowId,
-        reason: input.reason,
-        requested_at: at,
-      },
+      ...(input.targetKind && input.targetWorkflowId
+        ? {
+            requested_handoff: {
+              target_kind: input.targetKind,
+              target_workflow_id: input.targetWorkflowId,
+              reason: input.reason,
+              requested_at: at,
+            },
+          }
+        : { requested_handoff: undefined }),
     };
     const event = appendEvent(store, state, input, at, {
       eventType: "project.dispatch_drain_started",
@@ -351,8 +366,8 @@ export function beginDrain(store: StateStore, input: BeginDrainInput): ProjectSt
       subjectId: lease.workflow_id,
       payload: {
         lease_id: lease.lease_id,
-        target_kind: input.targetKind,
-        target_workflow_id: input.targetWorkflowId,
+        target_kind: input.targetKind ?? null,
+        target_workflow_id: input.targetWorkflowId ?? null,
         reason: input.reason,
         open_obligations: lease.blockers.map((blocker) => ({ code: blocker.code, source_kind: blocker.source_kind, source_id: blocker.source_id })),
       },

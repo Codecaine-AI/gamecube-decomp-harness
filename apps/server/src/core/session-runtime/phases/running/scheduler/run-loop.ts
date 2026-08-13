@@ -3,10 +3,12 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, packageRoot, resourceGraphDbPath } from "@server/core/knowledge";
 import { heartbeatDispatch } from "@server/core/project-state";
+import { getActiveProjectSession } from "@server/core/project-session";
+import { reconcilePendingIntegrationAttempt } from "@server/core/project-session";
 import { refreshBoardRerankMode } from "@server/core/session-runtime/phases/running/board";
 import { loadExactTargetKeys } from "@server/core/session-runtime/phases/running/board/snapshot.js";
 import {
-  activeClaimsForSession,
+  activeClaimsForRun,
   activeWorkerCount,
   activeSchedulerEpoch,
   addEvent,
@@ -26,6 +28,7 @@ import {
   refreshEpochTargetAvailability,
   schedulerEpochProgress,
   schedulableTargetCount,
+  setRunSchedulerCondition,
   unhandledEventCount,
   workerOutputIntegrationConflictsForResolver,
   type WorkerOutputIntegrationRecord,
@@ -183,7 +186,7 @@ const PROVIDER_PROBE_MAX_BACKOFF_MS = 300_000;
 // Cheapest truthful health check: a tiny no-tools session through the exact provider
 // path workers use. An LB liveness endpoint can say "ok" while its upstream account
 // pool is exhausted; a completion can't lie.
-async function probeProvider(globals: GlobalArgs, outputDir: string, runId: string): Promise<{ healthy: boolean; error?: string }> {
+async function probeProvider(globals: GlobalArgs, outputDir: string, sessionId: string, runId: string): Promise<{ healthy: boolean; error?: string }> {
   try {
     const result = await runPiAgent({
       role: "worker",
@@ -205,7 +208,7 @@ async function probeProvider(globals: GlobalArgs, outputDir: string, runId: stri
       kernelContext: createMeleeKernelSpawnContext({
         kind: "run",
         projectId: globals.project?.projectId ?? globals.projectId,
-        sessionId: runId,
+        sessionId,
         runId,
         phase: "provider-probe",
         workingDir: globals.repoRoot,
@@ -239,7 +242,7 @@ function activeLocalWorkerCount(store: StateStore, runId: string, workerIds: Set
           `
             SELECT COUNT(*) AS count
             FROM target_claims
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND status = 'active'
               AND worker_id IN (${placeholders})
           `,
@@ -300,7 +303,7 @@ function boundaryErrorEpoch(store: StateStore, runId: string): BoundaryErrorEpoc
           `
             SELECT id, ordinal, status, boundary_status, admitted_count, finished_count
             FROM epochs
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND admitted_count > 0
               AND status != 'exhausted'
               AND COALESCE(boundary_status, '') NOT LIKE 'manual_discarded%'
@@ -310,7 +313,7 @@ function boundaryErrorEpoch(store: StateStore, runId: string): BoundaryErrorEpoc
         )
         .get(runId) as Record<string, unknown> | undefined,
   );
-  return row && String(row.status) === "error" && String(row.boundary_status) === "error"
+  return row && String(row.status) === "error"
     ? {
         id: String(row.id),
         ordinal: Number(row.ordinal),
@@ -496,7 +499,7 @@ export function forceFinishActiveEpoch(store: StateStore, runId: string, event: 
   }
 
   const before = schedulerEpochProgress(store, epoch.id);
-  const activeClaims = activeClaimsForSession(store, runId).filter((claim) => claim.epochId === epoch.id);
+  const activeClaims = activeClaimsForRun(store, runId).filter((claim) => claim.epochId === epoch.id);
   for (const claim of activeClaims) {
     closeWorkerState(store, {
       workerStateId: claim.workerStateId,
@@ -621,7 +624,7 @@ function workerStateCloseCountSince(store: StateStore, runId: string, sinceIso: 
           `
             SELECT COUNT(*) AS count
             FROM worker_state
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND lifecycle_status != 'error'
               AND ended_at > ?
           `,
@@ -657,6 +660,18 @@ async function waitForRestingTrigger(runningWorkers: Set<Promise<void>>, idleSle
     return;
   }
   await Promise.race([sleep(idleSleepMs), ...live]);
+}
+
+export function selectRunLoopSchedulerCondition(params: {
+  blocked: boolean;
+  boundary: boolean;
+  planning: boolean;
+  fallback: "planning" | "dispatching" | "waiting";
+}): "blocked" | "boundary" | "planning" | "dispatching" | "waiting" {
+  if (params.blocked) return "blocked";
+  if (params.boundary) return "boundary";
+  if (params.planning) return "planning";
+  return params.fallback;
 }
 
 function schedulerTickArgs(
@@ -805,6 +820,7 @@ async function runWorkerProcess(
 
 export async function runRunLoop(globals: GlobalArgs, args: Map<string, string | true>): Promise<RunLoopResult> {
   const store = openState(globals.stateDir);
+  let observedRunId = "";
   const workerResults: WorkerCycleResult[] = [];
   const workerErrors: WorkerError[] = [];
   const schedulerResults: SchedulerTickResult[] = [];
@@ -855,6 +871,10 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     const run = getRun(store, runId);
     if (!run) throw new Error(`Run not found: ${runId}`);
     assertSchedulableRun(run, "run-loop");
+    const sessionProjectId = run.projectId ?? globals.project?.projectId ?? globals.projectId;
+    const sessionId = run.sessionUuid ?? (sessionProjectId ? getActiveProjectSession(store.db, sessionProjectId)?.session_uuid : null) ?? runId;
+    observedRunId = runId;
+    setRunSchedulerCondition(store, runId, "idle");
 
     const maxIterations = booleanArg(args, "--once") ? 1 : numberArg(args, "--max-iterations", 0);
     const maxIdleIterations = numberArg(args, "--max-idle-iterations", 0);
@@ -924,6 +944,24 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     let runningFastKnowledgeMaintenance: Promise<void> | null = null;
     let pendingFastKnowledgeMaintenance = false;
     let lastLibrarianWorkerFinishIso = new Date().toISOString();
+    let schedulerBlocked = false;
+    const syncSchedulerCondition = (fallback: "planning" | "dispatching" | "waiting"): void => {
+      setRunSchedulerCondition(
+        store,
+        runId,
+        selectRunLoopSchedulerCondition({
+          blocked: schedulerBlocked || epochPaused,
+          boundary: Boolean(
+            runningEpoch ||
+              runningFastKnowledgeMaintenance ||
+              runningKnowledgeMaintenance ||
+              runningIntegrationResolvers.size > 0,
+          ),
+          planning: Boolean(runningScheduler),
+          fallback,
+        }),
+      );
+    };
     const launchIntegrationResolver = (record: WorkerOutputIntegrationRecord, lockPaths: string[]): void => {
       if (!record.itemPath || runningIntegrationResolvers.has(record.id)) return;
       console.error(`[run-loop] resolving worker integration conflict ${record.id} (${record.targetKey ?? "unknown target"})`);
@@ -979,10 +1017,13 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         leaseId,
         projectId: globals.project?.projectId ?? globals.projectId,
       });
+      schedulerBlocked = dispatchLease.status === "blocked";
       if (dispatchLease.status === "draining") {
         drainRequested = true;
         stoppedReason = "draining";
+      } else if (dispatchLease.status === "blocked") {
       }
+      syncSchedulerCondition("planning");
       let didWork = false;
       const boundaryWorkPendingBeforeMaintenance = epochBoundaryWorkPending(store, runId);
       const blockingIntegrationsBeforeMaintenance = blockingWorkerOutputIntegrationCount(store, runId);
@@ -1036,6 +1077,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             if (runningKnowledgeMaintenance === task) runningKnowledgeMaintenance = null;
           });
         runningKnowledgeMaintenance = task;
+        syncSchedulerCondition("planning");
         didWork = true;
       }
 
@@ -1051,6 +1093,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       });
       const nowMs = Date.now();
       const launchEpochCycle = (trigger: string, schedulerEpochId?: string): void => {
+        syncSchedulerCondition("planning");
         const epochOrdinal = epochCycles + 1;
         let task: Promise<void>;
         task = (async () => {
@@ -1068,6 +1111,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                   configureCommand: epochConfigureCommand,
                   epochId: schedulerEpochId,
                   label: `epoch-${epochOrdinal}`,
+                  leaseId,
                   linkPaths: epochLinkPaths,
                   mergeOnFinish: writeSetFlags.mergeOnFinish,
                   projectId: globals.project?.projectId ?? globals.projectId ?? null,
@@ -1297,6 +1341,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
 
       const forceFinishEvent = nextForceFinishEpochEvent(store, runId);
       if (forceFinishEvent) {
+        syncSchedulerCondition("planning");
         const result = forceFinishActiveEpoch(store, runId, forceFinishEvent);
         if (result.epochId) {
           console.error(
@@ -1320,7 +1365,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 `
                   SELECT id, ended_at
                   FROM worker_state
-                  WHERE session_id = ?
+                  WHERE run_id = ?
                     AND ended_at IS NOT NULL
                     AND ended_at > ?
                   ORDER BY ended_at ASC
@@ -1480,6 +1525,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 if (runningFastKnowledgeMaintenance === task) runningFastKnowledgeMaintenance = null;
               });
             runningFastKnowledgeMaintenance = task;
+            syncSchedulerCondition("planning");
             didWork = true;
           }
         }
@@ -1490,9 +1536,21 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
           const boundaryError = boundaryErrorEpoch(store, runId);
           if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
             didWork = true;
-            launchEpochCycle(`retry scheduler epoch ${boundaryError.ordinal} boundary`, boundaryError.id);
+            const reconciliation = reconcilePendingIntegrationAttempt(store, {
+              runId,
+              epochId: boundaryError.id,
+            });
+            if (reconciliation.status === "completed") {
+              console.error(
+                `[run-loop] epoch ${boundaryError.ordinal}: reconciled retained integration commit ${reconciliation.completed.commitSha}`,
+              );
+            } else {
+              launchEpochCycle(`retry scheduler epoch ${boundaryError.ordinal} boundary`, boundaryError.id);
+            }
           } else if (boundaryError) {
             didWork = true;
+            schedulerBlocked = true;
+            syncSchedulerCondition("planning");
             addEvent(store, runId, "epoch_boundary_waiting_for_recovery", "run-loop", {
               epoch_id: boundaryError.id,
               ordinal: boundaryError.ordinal,
@@ -1571,7 +1629,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       if (!drainRequested && providerPausedSinceMs != null && !runningProviderProbe && Date.now() >= nextProviderProbeMs) {
         const probeDir = resolve(globals.stateDir, "runs", runId, "provider_probes");
         let probeTask: Promise<void>;
-        probeTask = probeProvider(globals, probeDir, runId)
+        probeTask = probeProvider(globals, probeDir, sessionId, runId)
           .then((probe) => {
             if (probe.healthy) {
               const pausedForMs = Date.now() - (providerPausedSinceMs ?? Date.now());
@@ -1604,6 +1662,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       });
       const iterationBudgetExhausted = maxIterations > 0 && iterations >= maxIterations;
       const workersToStart = drainRequested || providerPausedSinceMs != null || iterationBudgetExhausted ? 0 : Math.min(openSlots, schedulableTargets);
+      if (workersToStart > 0) syncSchedulerCondition("dispatching");
       for (let index = 0; index < workersToStart; index += 1) {
         workerOrdinal += 1;
         workersStarted += 1;
@@ -1663,6 +1722,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             try {
               const recovery = await recoverActiveClaims({
                 globals,
+                leaseId,
                 store,
                 runId,
                 repoRoot: run.project?.repoRoot ?? globals.repoRoot,
@@ -1702,7 +1762,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       if (!drainRequested && !runningScheduler && schedulerEvent && schedulerEventType !== "epoch_force_finish_requested") {
         const tickArgs = schedulerTickArgs(args, { runId });
         let task: Promise<void>;
-        task = runSchedulerTick(globals, tickArgs)
+        task = runSchedulerTick(globals, tickArgs, { ownsSchedulerCondition: false })
           .then((result) => {
             schedulerResults.push(result);
             if (result.schedulerEpoch) lastSchedulerEpoch = result.schedulerEpoch;
@@ -1726,6 +1786,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             if (runningScheduler === task) runningScheduler = null;
           });
         runningScheduler = task;
+        syncSchedulerCondition("planning");
         didWork = true;
       }
 
@@ -1755,7 +1816,15 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         break;
       }
 
-      await waitForRestingTrigger(runningWorkers, idleSleepMs, [runningEpoch, runningFastKnowledgeMaintenance, ...runningIntegrationResolvers.values()]);
+      syncSchedulerCondition("waiting");
+      await waitForRestingTrigger(runningWorkers, idleSleepMs, [
+        runningEpoch,
+        runningFastKnowledgeMaintenance,
+        runningKnowledgeMaintenance,
+        runningScheduler,
+        runningProviderProbe,
+        ...runningIntegrationResolvers.values(),
+      ]);
     }
 
     if (runningWorkers.size > 0) {
@@ -1824,6 +1893,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       },
     };
   } finally {
+    if (observedRunId) setRunSchedulerCondition(store, observedRunId, "idle");
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
     process.off("SIGUSR1", drain);

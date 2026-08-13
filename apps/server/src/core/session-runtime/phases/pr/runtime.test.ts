@@ -13,11 +13,11 @@ import {
   initializeProjectState,
   listProjectEvents,
   recoverDispatch,
-  releaseDispatch,
   requestDispatch,
   StaleLeaseError,
 } from "@server/core/project-state";
 import { openState } from "@server/core/orchestrator-state";
+import { settlePausedRun } from "@server/core/session-runtime/phases/running/run-control.js";
 
 const cleanupPaths: string[] = [];
 
@@ -297,17 +297,17 @@ describe("PR dispatch lease fencing", () => {
     const store = openState(stateDir);
     try {
       store.db.query(
-        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at)
-         VALUES ('run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z')`,
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee')`,
       ).run();
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-pause-run",
-        kind: "run",
+        kind: "pr",
         projectId: "melee",
         reason: "pause boundary test",
-        workflowId: "run-1",
+        workflowId: "pr-handoff:run-1",
       });
       if (dispatch.queued) throw new Error("expected run lease acquisition");
     } finally {
@@ -327,17 +327,17 @@ describe("PR dispatch lease fencing", () => {
     const store = openState(stateDir);
     try {
       store.db.query(
-        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at)
-         VALUES ('run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z')`,
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee')`,
       ).run();
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-pause-run-failure",
-        kind: "run",
+        kind: "pr",
         projectId: "melee",
         reason: "pause boundary failure test",
-        workflowId: "run-1",
+        workflowId: "pr-handoff:run-1",
       });
       if (dispatch.queued) throw new Error("expected run lease acquisition");
     } finally {
@@ -354,8 +354,8 @@ describe("PR dispatch lease fencing", () => {
     const store = openState(stateDir);
     try {
       store.db.query(
-        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at)
-         VALUES ('run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z')`,
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee')`,
       ).run();
     } finally {
       store.db.close();
@@ -479,6 +479,14 @@ describe("PR dispatch lease fencing", () => {
     const store = openState(stateDir);
     let runLeaseId = "";
     try {
+      store.db
+        .query(
+          `INSERT INTO runs (
+             id, goal_kind, goal_value, desired_workers, status, created_at,
+             project_id, revision, trace_id, blockers_json
+           ) VALUES ('run-1', 'matched_code_percent', 100, 1, 'active', ?, 'melee', 0, 'trace-run-1', '[]')`,
+        )
+        .run("2026-08-12T12:00:00.000Z");
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
       const run = requestDispatch(store, {
         actor: "operator",
@@ -510,30 +518,71 @@ describe("PR dispatch lease fencing", () => {
           target_workflow_id: "pr-handoff:run-1",
         },
       });
-      const handedOff = releaseDispatch(drainingStore, {
+      settlePausedRun({
         actor: "guardian",
         commandId: "command-run-settled",
         correlationId: "run-1",
         leaseId: runLeaseId,
-        projectId: "melee",
+        reason: "supervisor settled PR handoff",
+        runId: "run-1",
+        store: drainingStore,
       });
-      expect(handedOff.active_workflow).toMatchObject({
+      const handedOff = getProjectState(drainingStore, "melee");
+      expect(handedOff?.active_workflow).toMatchObject({
         kind: "pr",
         status: "active",
         workflow_id: "pr-handoff:run-1",
       });
-      expect(handedOff.active_workflow?.lease_id).not.toBe(runLeaseId);
-      expect(handedOff.queued_dispatch_requests).toEqual([]);
+      expect(handedOff?.active_workflow?.lease_id).not.toBe(runLeaseId);
+      expect(handedOff?.queued_dispatch_requests).toEqual([]);
       expect(listProjectEvents(drainingStore.db).map((event) => event.eventType)).toEqual([
         "project.dispatch_requested",
         "project.dispatch_acquired",
         "project.dispatch_requested",
+        "run.draining",
         "project.dispatch_drain_started",
         "project.dispatch_released",
         "project.dispatch_acquired",
+        "run.paused",
       ]);
     } finally {
       drainingStore.db.close();
+    }
+  });
+
+  test("reacquires the run dispatch lease before resuming a paused run", () => {
+    const { runtime, stateDir } = runtimeFixture();
+    const store = openState(stateDir);
+    try {
+      store.db
+        .query(
+          `INSERT INTO runs (
+             id, goal_kind, goal_value, desired_workers, status, created_at,
+             project_id, revision, trace_id, blockers_json
+           ) VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', ?, 'melee', 0, 'trace-run-1', '[]')`,
+        )
+        .run("2026-08-12T12:00:00.000Z");
+    } finally {
+      store.db.close();
+    }
+
+    const result = runtime.resumeRunForPr({ runId: "run-1", commandId: "command-resume-test" });
+    expect(result).toMatchObject({ resumed: true, run: { id: "run-1", status: "active", revision: 1 } });
+
+    const verified = openState(stateDir);
+    try {
+      expect(getProjectState(verified, "melee")?.active_workflow).toMatchObject({
+        kind: "run",
+        status: "active",
+        workflow_id: "run-1",
+      });
+      expect(listProjectEvents(verified.db).map((event) => [event.eventType, event.causationId])).toEqual([
+        ["project.dispatch_requested", "command-resume-test"],
+        ["project.dispatch_acquired", expect.any(String)],
+        ["run.activated", "command-resume-test"],
+      ]);
+    } finally {
+      verified.db.close();
     }
   });
 });

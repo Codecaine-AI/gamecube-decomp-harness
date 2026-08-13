@@ -10,6 +10,24 @@ import {
   type RunningStopReason,
 } from "@server/core/project-session";
 
+export {
+  cancelRun,
+  hardStopRun,
+  isStaleRunDispatchLease,
+  runDispatchLeaseStaleness,
+  recoverRun,
+  RunControlBlockedError,
+  RunControlConfirmationRequiredError,
+  type CancelRunInput,
+  type HardStopRunInput,
+  type HardStopRunResult,
+  type RecoverRunInput,
+  type RecoverRunResult,
+  type ProcessLiveness,
+  type RunDispatchLeaseStaleness,
+  type SettledRunControlResult,
+} from "./run-control.js";
+
 export function setRunningSubphase(
   record: ProjectSessionRecord,
   now: string,

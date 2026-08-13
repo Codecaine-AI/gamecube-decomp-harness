@@ -4,6 +4,12 @@ import { baselineMigration } from "./001-baseline.js";
 import { projectEventsMigration } from "./002-project-events.js";
 import { projectStateMigration } from "./003-project-state.js";
 import { projectSessionContainerMigration } from "./004-project-session-container.js";
+import { runScopedRunIdMigration } from "./005-run-scoped-run-id.js";
+import { runStateContractMigration } from "./006-run-state-contract.js";
+import { pendingIntegrationsMigration } from "./007-pending-integrations.js";
+import { runRecoveryJournalMigration } from "./008-run-recovery-journal.js";
+import { pendingIntegrationAttemptsMigration } from "./009-pending-integration-attempts.js";
+import { runScopedIndexNamesMigration } from "./010-run-scoped-index-names.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -15,6 +21,12 @@ export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   projectEventsMigration,
   projectStateMigration,
   projectSessionContainerMigration,
+  runScopedRunIdMigration,
+  runStateContractMigration,
+  pendingIntegrationsMigration,
+  runRecoveryJournalMigration,
+  pendingIntegrationAttemptsMigration,
+  runScopedIndexNamesMigration,
 ]);
 
 interface AppliedMigrationRow {

@@ -17,7 +17,7 @@ export type WorkerOutputIntegrationStatus =
 const APPLYING_STALE_MS = 15 * 60 * 1000;
 
 export interface WorkerOutputIntegrationInput {
-  sessionId: string;
+  runId: string;
   epochId: string;
   epochTargetId: string;
   targetClaimId: string;
@@ -32,7 +32,7 @@ export interface WorkerOutputIntegrationInput {
 
 export interface WorkerOutputIntegrationRecord {
   id: string;
-  sessionId: string;
+  runId: string;
   epochId: string;
   epochTargetId: string;
   targetClaimId: string;
@@ -106,7 +106,7 @@ function encodeObject(value: Record<string, unknown>): string {
 function integrationFromRow(row: Record<string, unknown>): WorkerOutputIntegrationRecord {
   return {
     id: String(row.id),
-    sessionId: String(row.session_id),
+    runId: String(row.run_id),
     epochId: String(row.epoch_id),
     epochTargetId: String(row.epoch_target_id),
     targetClaimId: String(row.target_claim_id),
@@ -153,7 +153,7 @@ export function enqueueWorkerOutputIntegration(store: StateStore, input: WorkerO
       .query(
         `
           INSERT INTO worker_output_integrations (
-            id, session_id, epoch_id, epoch_target_id, target_claim_id,
+            id, run_id, epoch_id, epoch_target_id, target_claim_id,
             worker_state_id, worker_checkpoint_id, status, disposition, target_key,
             patch_path, diff_path, write_set_json, conflict_paths_json,
             failure_reasons_json, metadata_json, created_at, updated_at
@@ -163,7 +163,7 @@ export function enqueueWorkerOutputIntegration(store: StateStore, input: WorkerO
       )
       .run(
         id,
-        input.sessionId,
+        input.runId,
         input.epochId,
         input.epochTargetId,
         input.targetClaimId,
@@ -183,7 +183,7 @@ export function enqueueWorkerOutputIntegration(store: StateStore, input: WorkerO
   });
 }
 
-export function claimNextWorkerOutputIntegration(store: StateStore, sessionId: string): WorkerOutputIntegrationRecord | null {
+export function claimNextWorkerOutputIntegration(store: StateStore, runId: string): WorkerOutputIntegrationRecord | null {
   return immediateTransaction(store.db, () => {
     const updatedAt = now();
     const staleBefore = new Date(Date.now() - APPLYING_STALE_MS).toISOString();
@@ -194,16 +194,16 @@ export function claimNextWorkerOutputIntegration(store: StateStore, sessionId: s
           SET status = 'queued',
               disposition = 'stale_applying_requeued',
               updated_at = ?
-          WHERE session_id = ?
+          WHERE run_id = ?
             AND status = 'applying'
             AND updated_at < ?
         `,
       )
-      .run(updatedAt, sessionId, staleBefore);
+      .run(updatedAt, runId, staleBefore);
 
     const active = store.db
-      .query("SELECT id FROM worker_output_integrations WHERE session_id = ? AND status = 'applying' LIMIT 1")
-      .get(sessionId) as Record<string, unknown> | undefined;
+      .query("SELECT id FROM worker_output_integrations WHERE run_id = ? AND status = 'applying' LIMIT 1")
+      .get(runId) as Record<string, unknown> | undefined;
     if (active) return null;
 
     const row = store.db
@@ -211,13 +211,13 @@ export function claimNextWorkerOutputIntegration(store: StateStore, sessionId: s
         `
           SELECT *
           FROM worker_output_integrations
-          WHERE session_id = ?
+          WHERE run_id = ?
             AND status = 'queued'
           ORDER BY created_at ASC
           LIMIT 1
         `,
       )
-      .get(sessionId) as Record<string, unknown> | undefined;
+      .get(runId) as Record<string, unknown> | undefined;
     if (!row) return null;
 
     store.db.query("UPDATE worker_output_integrations SET status = 'applying', updated_at = ? WHERE id = ?").run(updatedAt, String(row.id));
@@ -228,15 +228,15 @@ export function claimNextWorkerOutputIntegration(store: StateStore, sessionId: s
 
 export function nextWorkerOutputIntegrationConflictForResolver(
   store: StateStore,
-  sessionId: string,
+  runId: string,
   excludedIds: Iterable<string> = [],
 ): WorkerOutputIntegrationRecord | null {
-  return workerOutputIntegrationConflictsForResolver(store, sessionId, { excludedIds, limit: 1 })[0] ?? null;
+  return workerOutputIntegrationConflictsForResolver(store, runId, { excludedIds, limit: 1 })[0] ?? null;
 }
 
 export function workerOutputIntegrationConflictsForResolver(
   store: StateStore,
-  sessionId: string,
+  runId: string,
   options: { excludedIds?: Iterable<string>; limit?: number } = {},
 ): WorkerOutputIntegrationRecord[] {
   const excluded = [...new Set([...(options.excludedIds ?? [])].filter(Boolean))];
@@ -249,7 +249,7 @@ export function workerOutputIntegrationConflictsForResolver(
           `
             SELECT *
             FROM worker_output_integrations
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND status = 'conflict'
               AND item_path IS NOT NULL
               AND item_path != ''
@@ -258,7 +258,7 @@ export function workerOutputIntegrationConflictsForResolver(
             LIMIT ?
           `,
         )
-        .all(sessionId, ...excluded, limit) as Record<string, unknown>[],
+        .all(runId, ...excluded, limit) as Record<string, unknown>[],
   );
   return rows.map((row) => integrationFromRow(row));
 }
@@ -310,7 +310,7 @@ export function updateWorkerOutputIntegration(store: StateStore, id: string, pat
   });
 }
 
-export function workerOutputIntegrationQueueSummary(store: StateStore, sessionId: string): Record<string, unknown> {
+export function workerOutputIntegrationQueueSummary(store: StateStore, runId: string): Record<string, unknown> {
   const rows = withBusyRetry(
     () =>
       store.db
@@ -318,12 +318,12 @@ export function workerOutputIntegrationQueueSummary(store: StateStore, sessionId
           `
             SELECT status, COUNT(*) AS count
             FROM worker_output_integrations
-            WHERE session_id = ?
+            WHERE run_id = ?
             GROUP BY status
             ORDER BY status ASC
           `,
         )
-        .all(sessionId) as Record<string, unknown>[],
+        .all(runId) as Record<string, unknown>[],
   );
   const counts: Record<string, number> = {};
   for (const row of rows) counts[String(row.status)] = Number(row.count ?? 0);
@@ -334,22 +334,22 @@ export function workerOutputIntegrationQueueSummary(store: StateStore, sessionId
           `
             SELECT id, worker_state_id, worker_checkpoint_id, status, target_key, patch_path, item_path, created_at, updated_at
             FROM worker_output_integrations
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND status IN ('queued', 'applying', 'conflict', 'failed', 'needs_rework', 'blocked', 'resolver_failed')
             ORDER BY created_at ASC
           `,
         )
-        .all(sessionId) as Record<string, unknown>[],
+        .all(runId) as Record<string, unknown>[],
   );
   return {
     schema_version: "worker_output_integration_queue_summary_v1",
-    run_id: sessionId,
+    run_id: runId,
     counts,
     pending,
   };
 }
 
-export function blockingWorkerOutputIntegrationCount(store: StateStore, sessionId: string): number {
+export function blockingWorkerOutputIntegrationCount(store: StateStore, runId: string): number {
   const row = withBusyRetry(
     () =>
       store.db
@@ -357,11 +357,11 @@ export function blockingWorkerOutputIntegrationCount(store: StateStore, sessionI
           `
             SELECT COUNT(*) AS count
             FROM worker_output_integrations
-            WHERE session_id = ?
+            WHERE run_id = ?
               AND status IN ('queued', 'applying', 'conflict', 'failed', 'needs_rework', 'blocked', 'resolver_failed')
           `,
         )
-        .get(sessionId) as Record<string, unknown>,
+        .get(runId) as Record<string, unknown>,
   );
   return Number(row.count ?? 0);
 }

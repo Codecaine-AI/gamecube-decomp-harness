@@ -27,7 +27,7 @@ export {
 export { addEvent, markEventHandled, nextUnhandledEvent } from "./events.js";
 export {
   activeWorkerCount,
-  activeClaimsForSession,
+  activeClaimsForRun,
   appendWorkerSessionId,
   bestCheckpointForWorkerState,
   claimNextEpochTarget,
@@ -66,6 +66,21 @@ export {
   unhandledEventCount,
   unhandledPoolEventCount,
 } from "./target-pressure.js";
-export { createRun, getLatestRun, getRun, setRunDesiredWorkers, updateRunStatus } from "./runs.js";
+export {
+  createRun,
+  getLatestRun,
+  getRun,
+  policyRevisionForConfiguration,
+  setRunDesiredWorkers,
+  setRunSchedulerCondition,
+  startingKnowledgeRevision,
+  StaleRunRevisionError,
+  transitionRun,
+  updateRunStatus,
+  type CreateRunOptions,
+  type RunCommandContext,
+  type RunTransitionInput,
+  type RunTransitionPatch,
+} from "./runs.js";
 export { statusSnapshot } from "./status.js";
 export { activeLockedSourcePaths, admitPriorityTargets } from "./targets.js";

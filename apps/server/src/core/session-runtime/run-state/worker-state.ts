@@ -12,7 +12,7 @@ export interface ClaimedTarget {
   workerStateId: string;
   epochTargetId: string;
   epochId: string;
-  sessionId: string;
+  runId: string;
   workerId: string;
   targetId: string;
   target: Record<string, unknown>;
@@ -30,7 +30,7 @@ export interface ActiveClaimRecord extends ClaimedTarget {
 
 export interface WorkerCheckpointInput {
   workerStateId: string;
-  sessionId: string;
+  runId: string;
   epochId: string;
   epochTargetId: string;
   targetClaimId: string;
@@ -162,7 +162,7 @@ function epochTargetToClaim(row: Record<string, unknown>, params: { claimId: str
     workerStateId: params.workerStateId,
     epochTargetId: String(row.id),
     epochId: String(row.epoch_id),
-    sessionId: String(row.session_id),
+    runId: String(row.run_id),
     workerId: params.workerId,
     targetId: String(row.id),
     target: {
@@ -187,17 +187,17 @@ function epochTargetToClaim(row: Record<string, unknown>, params: { claimId: str
   };
 }
 
-export function activeWorkerCount(store: StateStore, sessionId: string): number {
+export function activeWorkerCount(store: StateStore, runId: string): number {
   const row = withBusyRetry(
     () =>
       store.db
-        .query("SELECT COUNT(*) AS count FROM target_claims WHERE session_id = ? AND status = 'active'")
-        .get(sessionId) as Record<string, unknown>,
+        .query("SELECT COUNT(*) AS count FROM target_claims WHERE run_id = ? AND status = 'active'")
+        .get(runId) as Record<string, unknown>,
   );
   return Number(row.count ?? 0);
 }
 
-export function activeClaimsForSession(store: StateStore, sessionId: string): ActiveClaimRecord[] {
+export function activeClaimsForRun(store: StateStore, runId: string): ActiveClaimRecord[] {
   const rows = withBusyRetry(
     () =>
       store.db
@@ -216,7 +216,7 @@ export function activeClaimsForSession(store: StateStore, sessionId: string): Ac
               worker_state.id AS worker_state_id,
               epoch_targets.id AS epoch_target_id,
               epoch_targets.epoch_id,
-              epoch_targets.session_id,
+              epoch_targets.run_id,
               epoch_targets.unit,
               epoch_targets.symbol,
               epoch_targets.source_path,
@@ -228,12 +228,12 @@ export function activeClaimsForSession(store: StateStore, sessionId: string): Ac
             FROM target_claims
             JOIN worker_state ON worker_state.target_claim_id = target_claims.id
             JOIN epoch_targets ON epoch_targets.id = target_claims.epoch_target_id
-            WHERE target_claims.session_id = ?
+            WHERE target_claims.run_id = ?
               AND target_claims.status = 'active'
             ORDER BY target_claims.heartbeat_at ASC
           `,
         )
-        .all(sessionId) as Record<string, unknown>[],
+        .all(runId) as Record<string, unknown>[],
   );
 
   return rows.map((row) => {
@@ -243,7 +243,7 @@ export function activeClaimsForSession(store: StateStore, sessionId: string): Ac
       workerStateId: String(row.worker_state_id),
       epochTargetId: String(row.epoch_target_id),
       epochId: String(row.epoch_id),
-      sessionId: String(row.session_id),
+      runId: String(row.run_id),
       workerId: String(row.worker_id),
       baseRev: String(row.base_rev ?? "unknown"),
       worktreePath: row.worktree_path == null ? null : String(row.worktree_path),
@@ -285,7 +285,7 @@ export function workerStateHasExecutionEvidence(store: StateStore, workerStateId
 
 export function claimNextEpochTarget(params: {
   store: StateStore;
-  sessionId: string;
+  runId: string;
   workerId: string;
   baseRev?: string;
   ttlSeconds: number;
@@ -313,7 +313,7 @@ export function claimNextEpochTarget(params: {
             ) AS active_source_claims
           FROM epoch_targets
           JOIN epochs ON epochs.id = epoch_targets.epoch_id
-          WHERE epoch_targets.session_id = ?
+          WHERE epoch_targets.run_id = ?
             AND epochs.status = 'active'
             AND epoch_targets.status = 'admitted'
             AND NOT EXISTS (
@@ -326,7 +326,7 @@ export function claimNextEpochTarget(params: {
           LIMIT 1
         `,
       )
-      .get(params.sessionId) as Record<string, unknown> | undefined;
+      .get(params.runId) as Record<string, unknown> | undefined;
     if (!target) return null;
 
     const sourcePath = String(target.source_path ?? "").trim();
@@ -431,7 +431,7 @@ export function claimNextEpochTarget(params: {
       .query(
         `
           INSERT INTO target_claims (
-            id, session_id, epoch_id, epoch_target_id, worker_id, base_rev,
+            id, run_id, epoch_id, epoch_target_id, worker_id, base_rev,
             write_set_json, write_set_hash, write_set_entries_json, worktree_path, ttl, heartbeat_at,
             status, claimed_at
           )
@@ -440,7 +440,7 @@ export function claimNextEpochTarget(params: {
       )
       .run(
         claimId,
-        String(target.session_id),
+        String(target.run_id),
         String(target.epoch_id),
         String(target.id),
         params.workerId,
@@ -458,7 +458,7 @@ export function claimNextEpochTarget(params: {
       .query(
         `
           INSERT INTO worker_state (
-            id, session_id, epoch_id, epoch_target_id, target_claim_id, worker_id,
+            id, run_id, epoch_id, epoch_target_id, target_claim_id, worker_id,
             target_key, lifecycle_status, write_set_json, write_set_entries_json, worker_session_ids_json,
             artifact_dir, started_at, baseline_score, best_score, exact, summary_json
           )
@@ -467,7 +467,7 @@ export function claimNextEpochTarget(params: {
       )
       .run(
         workerStateId,
-        String(target.session_id),
+        String(target.run_id),
         String(target.epoch_id),
         String(target.id),
         claimId,
@@ -583,7 +583,7 @@ function checkpointFromRow(row: Record<string, unknown>): WorkerCheckpointRecord
   return {
     id: String(row.id),
     workerStateId: String(row.worker_state_id),
-    sessionId: String(row.session_id),
+    runId: String(row.run_id),
     epochId: String(row.epoch_id),
     epochTargetId: String(row.epoch_target_id),
     targetClaimId: String(row.target_claim_id),
@@ -660,7 +660,7 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
       .query(
         `
           INSERT INTO worker_checkpoints (
-            id, worker_state_id, session_id, epoch_id, epoch_target_id, target_claim_id,
+            id, worker_state_id, run_id, epoch_id, epoch_target_id, target_claim_id,
             attempt_index, validation_time, old_score, new_score, delta, exact_match,
             hard_gates_passed, improved_over_baseline, selectable, selected,
             build_status, qa_status, objdiff_status, validation_status, artifact_path,
@@ -672,7 +672,7 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
       .run(
         id,
         input.workerStateId,
-        input.sessionId,
+        input.runId,
         input.epochId,
         input.epochTargetId,
         input.targetClaimId,

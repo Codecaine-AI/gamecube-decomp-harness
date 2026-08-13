@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { runEpochCycle } from "@server/core/session-runtime/phases/running/epochs";
 import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
-import { recordDeferredSavePointEvidenceDurably, recordEpochCompleted } from "@server/core/project-session";
+import {
+  reconcilePendingIntegrationAttempt,
+  recordDeferredSavePointEvidenceDurably,
+  recordEpochCompleted,
+} from "@server/core/project-session";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 import { publishSessionDraftPr } from "./session-draft-pr.js";
 import { writeSetIntegrationFlags } from "@server/core/session-runtime/phases/running/integration/write-set-options.js";
@@ -19,6 +23,13 @@ export async function epochRun(globals: GlobalArgs, args: Map<string, string | t
     const runId = stringArg(args, "--run-id", getLatestRun(store)?.id ?? "");
     if (!runId) throw new Error("No run found. Run init-run first.");
     const epochId = stringArg(args, "--epoch-id", "") || `manual-epoch-${randomUUID()}`;
+    const leaseId = stringArg(args, "--lease-id", "").trim();
+    if (!leaseId) throw new Error("epoch-run requires --lease-id");
+    const retained = reconcilePendingIntegrationAttempt(store, { runId, epochId });
+    if (retained.status === "completed") {
+      console.log(JSON.stringify({ reconciled: true, ...retained.completed }, null, 2));
+      return;
+    }
     const writeSetFlags = writeSetIntegrationFlags(args);
     const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
       baseRef: globals.project?.baseRef,
@@ -26,6 +37,7 @@ export async function epochRun(globals: GlobalArgs, args: Map<string, string | t
       configureCommand: stringArg(args, "--configure-command", "python3 configure.py --require-protos"),
       epochId,
       label: stringArg(args, "--label", "") || null,
+      leaseId,
       linkPaths: stringArg(args, "--link-paths", "orig")
         .split(",")
         .map((path) => path.trim())

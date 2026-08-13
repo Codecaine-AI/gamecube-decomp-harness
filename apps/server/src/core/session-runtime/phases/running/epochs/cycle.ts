@@ -6,13 +6,19 @@ import { readRegressionReport, type RegressionReport, type ReportEntry } from "@
 import { runQaScanDiff, type QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 import { forceReportRun, trustedReportFromRegressionReport, type ReportRunResult } from "@server/core/validation/report";
 import { addSavePoint, ensureCampaign, type SavePointRecord } from "@server/core/session-runtime/phases/pr/state";
-import type { DeferredSavePointEvidence } from "@server/core/project-session";
+import {
+  epochIntegrationCommitMessage,
+  preparePendingIntegration,
+  recordPendingIntegrationFailure,
+  type DeferredSavePointEvidence,
+} from "@server/core/project-session";
 import type { BoundarySavePointResult } from "@server/core/session-runtime/phases/pr/save-points-runtime.js";
 import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
 import { blockingWorkerOutputIntegrationCount } from "@server/core/session-runtime/run-state";
 import { addEvent } from "@server/core/session-runtime/run-state/events.js";
 import { activeLockedSourcePaths, admitPriorityTargets } from "@server/core/session-runtime/run-state/targets.js";
 import { processWorkerOutputIntegrationQueue } from "@server/core/session-runtime/phases/running/integration/worker-output-queue.js";
+import { requireLease } from "@server/core/project-state";
 import { processWriteSetIntegrationFlags } from "@server/core/session-runtime/phases/running/integration/write-set-options.js";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import {
@@ -42,6 +48,8 @@ export interface EpochCycleOptions {
   /** Durable scheduler epoch identity for session timeline evidence. */
   epochId?: string;
   label?: string | null;
+  /** Current dispatch fencing token for every checkout mutation. */
+  leaseId: string;
   /** Untracked build inputs symlinked from the live repo into the worktree (e.g. orig assets). */
   linkPaths?: string[];
   /** Uses merge-on-finish queue semantics while draining boundary leftovers. */
@@ -140,10 +148,14 @@ function pathspecExcludes(paths: string[]): string[] {
  * here simply lands in the next epoch's commit.
  */
 async function commitEpochSnapshot(params: {
+  store: StateStore;
+  runId: string;
+  epochId: string;
   repoRoot: string;
   excludePaths: string[];
   stateDirRelative: string | null;
   message: string;
+  revalidateLease: () => void;
 }): Promise<{ commitSha: string | null; committed: boolean; warning: string | null }> {
   const candidateExcludes = [...EPOCH_COMMIT_EXCLUDES, ...(params.stateDirRelative ? [params.stateDirRelative] : []), ...params.excludePaths];
   // Gitignored paths can never be staged by `add -A`, and naming one in a
@@ -154,19 +166,59 @@ async function commitEpochSnapshot(params: {
     const ignored = await git(params.repoRoot, ["check-ignore", "-q", path]);
     if (!ignored.ok) excludes.push(path);
   }
+  params.revalidateLease();
   const add = await git(params.repoRoot, ["add", "-A", "--", ".", ...pathspecExcludes(excludes)]);
-  let warning: string | null = null;
-  let committed = false;
   if (!add.ok) {
-    warning = `git add failed: ${add.text}`;
-  } else {
-    // Snapshot commits are internal checkpoints, and target-repo pre-commit hooks (e.g. formatters that modify files) must not abort them.
-    const commit = await git(params.repoRoot, ["commit", "--no-verify", "-m", params.message]);
-    if (commit.ok) committed = true;
-    else if (!/nothing to commit|nothing added to commit/.test(commit.text)) warning = `git commit failed: ${commit.text}`;
+    throw new Error(`epoch integration git add failed: ${add.text}`);
+  }
+  const branch = await git(params.repoRoot, ["symbolic-ref", "--short", "HEAD"]);
+  if (!branch.ok || !branch.text.trim()) {
+    throw new Error(`epoch integration branch resolution failed: ${branch.text || "detached HEAD"}`);
+  }
+  const parent = await git(params.repoRoot, ["rev-parse", "HEAD"]);
+  if (!parent.ok || !parent.text.trim()) {
+    throw new Error(`epoch integration parent resolution failed: ${parent.text}`);
+  }
+  const pending = preparePendingIntegration(params.store, {
+    runId: params.runId,
+    epochId: params.epochId,
+    branch: branch.text,
+    parentSha: parent.text,
+  });
+  // Snapshot commits are internal checkpoints, and target-repo pre-commit
+  // hooks must not abort them. An empty marked commit is intentional: every
+  // epoch needs a unique, recoverable integration boundary.
+  let commit: GitResult;
+  try {
+    params.revalidateLease();
+    commit = await git(params.repoRoot, [
+      "commit",
+      "--allow-empty",
+      "--no-verify",
+      "-m",
+      epochIntegrationCommitMessage(params.message, params.epochId),
+    ]);
+  } catch (error) {
+    recordPendingIntegrationFailure(params.store, {
+      runId: params.runId,
+      epochId: params.epochId,
+      attempt: pending.attempt,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+  if (!commit.ok) {
+    const error = new Error(`epoch integration git commit failed: ${commit.text}`);
+    recordPendingIntegrationFailure(params.store, {
+      runId: params.runId,
+      epochId: params.epochId,
+      attempt: pending.attempt,
+      reason: error.message,
+    });
+    throw error;
   }
   const head = await git(params.repoRoot, ["rev-parse", "HEAD"]);
-  return { commitSha: head.ok ? head.text : null, committed, warning };
+  return { commitSha: head.ok ? head.text : null, committed: true, warning: null };
 }
 
 /**
@@ -174,24 +226,30 @@ async function commitEpochSnapshot(params: {
  * builds. It trails the live tree by one epoch, so its ninja state makes each
  * report build incremental; only the first build pays full cost.
  */
-async function ensureEpochWorktree(params: { repoRoot: string; worktreeDir: string; commitSha: string; linkPaths: string[] }): Promise<void> {
+async function ensureEpochWorktree(params: { repoRoot: string; worktreeDir: string; commitSha: string; linkPaths: string[]; revalidateLease: () => void }): Promise<void> {
   const hasGitFile = existsSync(resolve(params.worktreeDir, ".git"));
   const usable = hasGitFile ? await git(params.worktreeDir, ["rev-parse", "--is-inside-work-tree"]) : null;
   if (hasGitFile && !usable?.ok) {
+    params.revalidateLease();
     await git(params.repoRoot, ["worktree", "prune"]);
+    params.revalidateLease();
     await rm(params.worktreeDir, { recursive: true, force: true });
   }
 
   if (!existsSync(resolve(params.worktreeDir, ".git"))) {
+    params.revalidateLease();
     await mkdir(resolve(params.worktreeDir, ".."), { recursive: true });
     // A manually deleted worktree directory can stay registered; prune before
     // re-adding so the cycle recovers instead of failing forever. A stale .git
     // file can also point at an old checkout; in that case the generated epoch
     // worktree is discarded above and rebuilt from the current repo.
+    params.revalidateLease();
     await git(params.repoRoot, ["worktree", "prune"]);
+    params.revalidateLease();
     const added = await git(params.repoRoot, ["worktree", "add", "--detach", params.worktreeDir, params.commitSha]);
     if (!added.ok) throw new Error(`epoch worktree add failed: ${added.text}`);
   } else {
+    params.revalidateLease();
     const checkout = await git(params.worktreeDir, ["checkout", "--force", "--detach", params.commitSha]);
     if (!checkout.ok) throw new Error(`epoch worktree checkout failed: ${checkout.text}`);
   }
@@ -199,6 +257,7 @@ async function ensureEpochWorktree(params: { repoRoot: string; worktreeDir: stri
     const source = resolve(params.repoRoot, linkPath);
     const destination = resolve(params.worktreeDir, linkPath);
     if (!existsSync(source)) continue;
+    params.revalidateLease();
     if (statSync(source).isDirectory()) {
       linkMissingTree(source, destination);
     } else if (!existsSync(destination)) {
@@ -306,9 +365,10 @@ function regressionSourcePaths(report: RegressionReport, reportPath: string): st
     .filter((path): path is string => Boolean(path));
 }
 
-async function restoreProbePatches(worktreeDir: string, removed: ConfirmationCandidate[]): Promise<void> {
+async function restoreProbePatches(worktreeDir: string, removed: ConfirmationCandidate[], revalidateLease: () => void): Promise<void> {
   for (const candidate of [...removed].reverse()) {
     if (!candidate.patchPath) continue;
+    revalidateLease();
     const restored = await git(worktreeDir, ["apply", candidate.patchPath]);
     if (!restored.ok) throw new Error(`confirmation probe could not restore ${candidate.integrationId}: ${restored.text}`);
   }
@@ -321,6 +381,7 @@ async function probeWithoutCandidates(params: {
   runId: string;
   toolPlatform: ToolPlatform;
   worktreeDir: string;
+  revalidateLease: () => void;
 }): Promise<boolean> {
   const ordered = [...params.candidates].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   const removed: ConfirmationCandidate[] = [];
@@ -329,6 +390,7 @@ async function probeWithoutCandidates(params: {
       if (!candidate.patchPath || !existsSync(candidate.patchPath)) return false;
       const check = await git(params.worktreeDir, ["apply", "--reverse", "--check", candidate.patchPath]);
       if (!check.ok) return false;
+      params.revalidateLease();
       const reverse = await git(params.worktreeDir, ["apply", "--reverse", candidate.patchPath]);
       if (!reverse.ok) return false;
       removed.push(candidate);
@@ -340,11 +402,11 @@ async function probeWithoutCandidates(params: {
     const report = await readRegressionReport(params.reportChangesPath, `Confirmation probe for run ${params.runId}`, 50);
     return isCleanGlobalRegression(report);
   } finally {
-    await restoreProbePatches(params.worktreeDir, removed);
+    await restoreProbePatches(params.worktreeDir, removed, params.revalidateLease);
   }
 }
 
-async function revertConfirmationCandidate(repoRoot: string, candidate: ConfirmationCandidate): Promise<{ ok: boolean; revision?: string | null; error?: string }> {
+async function revertConfirmationCandidate(repoRoot: string, candidate: ConfirmationCandidate, revalidateLease: () => void): Promise<{ ok: boolean; revision?: string | null; error?: string }> {
   if (!candidate.patchPath || !existsSync(candidate.patchPath)) {
     return { ok: false, error: `patch is missing: ${candidate.patchPath ?? "(none)"}` };
   }
@@ -352,14 +414,19 @@ async function revertConfirmationCandidate(repoRoot: string, candidate: Confirma
   if (paths.length === 0) return { ok: false, error: "candidate write set is empty" };
   const check = await git(repoRoot, ["apply", "--reverse", "--check", candidate.patchPath]);
   if (!check.ok) return { ok: false, error: `reverse apply check failed: ${check.text}` };
+  revalidateLease();
   const reverse = await git(repoRoot, ["apply", "--reverse", candidate.patchPath]);
   if (!reverse.ok) return { ok: false, error: `reverse apply failed: ${reverse.text}` };
+  revalidateLease();
   const stage = await git(repoRoot, ["add", "--", ...paths]);
   if (!stage.ok) {
+    revalidateLease();
     await git(repoRoot, ["apply", candidate.patchPath]);
+    revalidateLease();
     await git(repoRoot, ["add", "--", ...paths]);
     return { ok: false, error: `revert staging failed: ${stage.text}` };
   }
+  revalidateLease();
   const commit = await git(repoRoot, [
     "commit",
     "--no-verify",
@@ -369,7 +436,9 @@ async function revertConfirmationCandidate(repoRoot: string, candidate: Confirma
     ...paths,
   ]);
   if (!commit.ok) {
+    revalidateLease();
     await git(repoRoot, ["apply", candidate.patchPath]);
+    revalidateLease();
     await git(repoRoot, ["add", "--", ...paths]);
     return { ok: false, error: `revert commit failed: ${commit.text}` };
   }
@@ -509,6 +578,10 @@ export async function runEpochCycle(store: StateStore, runId: string, repoRoot: 
 
 async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: string, stateDir: string, options: EpochCycleOptions): Promise<EpochCycleResult> {
   const startedAt = Date.now();
+  const revalidateLease = (): void => {
+    requireLease(store, options.leaseId, options.projectId ?? undefined);
+  };
+  revalidateLease();
   const label = options.label ?? null;
   const reportRelPath = options.reportRelPath ?? "build/GALE01/report.json";
   const reportChangesRelPath = options.reportChangesRelPath ?? "build/GALE01/report_changes.json";
@@ -523,10 +596,11 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   });
   const integrationDrain = await processWorkerOutputIntegrationQueue({
     dryRun: false,
+    leaseId: options.leaseId,
     limit: 64,
     mergeOnFinish: options.mergeOnFinish,
     repoRoot,
-    sessionId: runId,
+    runId,
     stateDir,
     store,
   });
@@ -545,6 +619,8 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   });
   const lockedPaths = [...activeLockedSourcePaths(store)].sort();
   const stateDirRelative = options.stateDirRelative !== undefined ? options.stateDirRelative : stateDirRelativeToRepo(repoRoot, stateDir);
+  const epochId = options.epochId?.trim();
+  if (!epochId) throw new Error("epochId is required for a recoverable epoch integration commit");
 
   epochProgress(store, runId, {
     label,
@@ -554,10 +630,14 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     locked_path_count: lockedPaths.length,
   });
   let snapshot = await commitEpochSnapshot({
+    store,
+    runId,
+    epochId,
     repoRoot,
     excludePaths: lockedPaths,
     stateDirRelative,
     message: `epoch(${runId.slice(0, 8)}): ${label ?? artifactTimestamp()}`,
+    revalidateLease,
   });
   if (snapshot.warning) {
     console.error(`[epoch] ${snapshot.warning}`);
@@ -590,7 +670,9 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     worktreeDir: options.worktreeDir,
     commitSha: snapshot.commitSha,
     linkPaths: options.linkPaths ?? ["orig"],
+    revalidateLease,
   });
+  revalidateLease();
   const hasLocalWibo = await seedEpochWibo(options.worktreeDir, stateDir, toolPlatform);
   const configureCommand = hasLocalWibo
     ? configureCommandWithLocalWrapper(options.configureCommand ?? "python3 configure.py --require-protos", "build/tools/wibo")
@@ -602,6 +684,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     message: configureCommand.trim() ? `running configure command: ${configureCommand}` : "configure command is empty",
     worktree_dir: options.worktreeDir,
   });
+  revalidateLease();
   await runConfigure(options.worktreeDir, configureCommand);
   if (configureCommand.trim()) {
     epochProgress(store, runId, {
@@ -622,6 +705,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     reset_baseline: !existsSync(worktreeBaselinePath),
     worktree_dir: options.worktreeDir,
   });
+  revalidateLease();
   let buildResult = await forceReportRun(options.worktreeDir, {
     resetBaseline: !existsSync(worktreeBaselinePath),
     toolPlatform,
@@ -674,7 +758,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       runConfirmationPass({
         enabled: true,
         store,
-        sessionId: runId,
+        runId,
         global: {
           clean: isCleanGlobalRegression(regressionReport),
           buildId: snapshot.commitSha ?? `epoch:${label ?? runId}`,
@@ -690,8 +774,9 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
               runId,
               toolPlatform,
               worktreeDir: options.worktreeDir,
+              revalidateLease,
             }),
-          revertLive: (candidate) => revertConfirmationCandidate(repoRoot, candidate),
+          revertLive: (candidate) => revertConfirmationCandidate(repoRoot, candidate, revalidateLease),
         },
       });
 
@@ -706,8 +791,11 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
         worktreeDir: options.worktreeDir,
         commitSha: revertedHead.text,
         linkPaths: options.linkPaths ?? ["orig"],
+        revalidateLease,
       });
+      revalidateLease();
       await rm(worktreeReportPath, { force: true });
+      revalidateLease();
       const recheckBuild = await forceReportRun(options.worktreeDir, { resetBaseline: false, toolPlatform });
       buildResult = { ...recheckBuild, steps: [...buildResult.steps, ...recheckBuild.steps] };
       regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch confirmation recheck for run ${runId}`, 50);
@@ -727,7 +815,9 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     } else if (confirmation.probes.length > 0) {
       // Probes restore source files, but their generated report reflects the
       // last removal. Rebuild the original snapshot before publishing it.
+      revalidateLease();
       await rm(worktreeReportPath, { force: true });
+      revalidateLease();
       const restoredBuild = await forceReportRun(options.worktreeDir, { resetBaseline: false, toolPlatform });
       buildResult = { ...restoredBuild, steps: [...buildResult.steps, ...restoredBuild.steps] };
       regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint restored after confirmation probes for run ${runId}`, 50);
@@ -831,7 +921,9 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       message: "publishing epoch report back to the live repo",
       report_path: repoReportPath,
     });
+    revalidateLease();
     await copyFile(worktreeReportPath, repoReportPath);
+    revalidateLease();
     await copyFile(worktreeChangesPath, repoChangesPath);
     reportCopiedToRepo = true;
     epochProgress(store, runId, {
@@ -854,6 +946,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
 
   // Advance the baseline so the next epoch diffs epoch-over-epoch. A regression
   // is flagged (and readmitted) exactly once, then tracked through epoch targets.
+  revalidateLease();
   await copyFile(worktreeReportPath, worktreeBaselinePath);
 
   epochProgress(store, runId, {

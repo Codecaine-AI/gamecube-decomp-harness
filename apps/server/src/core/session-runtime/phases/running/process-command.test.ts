@@ -1,11 +1,60 @@
 import { describe, expect, test } from "bun:test";
-import { buildRunningProcessCommand, runningScheduling } from "./process-command.js";
+import type { RunInputs } from "@server/core/shared/types";
+import {
+  buildRunningProcessCommand,
+  runningProcessConfigurationConflicts,
+  runningScheduling,
+} from "./process-command.js";
+
+function runInputs(configuration: Record<string, unknown> = {}): RunInputs {
+  return {
+    base_revision: "base-test",
+    policy_revision: "policy-test",
+    starting_knowledge_revision: "kg-test",
+    configuration_snapshot: {
+      agent_timeout_seconds: 1800,
+      candidate_rerank: "priority",
+      candidate_window: 64,
+      desired_workers: 4,
+      dry_run_agents: false,
+      epoch_configure_command: "",
+      epoch_size: { mode: "fixed", value: 64 },
+      goal_kind: "matched_code_percent",
+      goal_value: 100,
+      integration_resolver_concurrency: 4,
+      model: "gpt-5.6-sol",
+      provider: "codex-lb",
+      thinking_level: "xhigh",
+      worker_configure_command: "",
+      ...configuration,
+    },
+  };
+}
 
 describe("running process command", () => {
   test("derives worker count from requested workers", () => {
     expect(runningScheduling(8)).toEqual({
       maxWorkers: 8,
     });
+  });
+
+  test("returns a typed blocker for request options that conflict with the stored snapshot", () => {
+    const inputs = runInputs({ desired_workers: 4, model: "gpt-5.6-sol" });
+
+    expect(runningProcessConfigurationConflicts({ maxWorkers: 8, model: "gpt-5.5" }, inputs, "run-1"))
+      .toEqual([
+        expect.objectContaining({
+          field: "maxWorkers",
+          requested: 8,
+          stored: 4,
+          blocker: expect.objectContaining({ code: "run_configuration_conflict", source_id: "run-1" }),
+        }),
+        expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-5.6-sol" }),
+      ]);
+  });
+
+  test("matches scalar request epoch size against the stored structured snapshot", () => {
+    expect(runningProcessConfigurationConflicts({ epochSize: "64" }, runInputs(), "run-1")).toEqual([]);
   });
 
   test("builds the babysit command owned by the running phase", () => {
@@ -22,6 +71,13 @@ describe("running process command", () => {
       project: { projectId: "melee", processName: "melee-live", dashboard: { epochSize: "64", candidateWindow: "128", candidateRerank: "opseq_hot_lane" } },
       repoRoot: "/repo",
       runId: "run-1",
+      runInputs: runInputs({
+        candidate_rerank: "opseq_hot_lane",
+        candidate_window: 128,
+        dry_run_agents: true,
+        model: "gpt-5.5",
+        thinking_level: "medium",
+      }),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });
@@ -63,6 +119,7 @@ describe("running process command", () => {
       project: { projectId: "melee", processName: "melee-live" },
       repoRoot: "/repo",
       runId: "run-1",
+      runInputs: runInputs({ agent_timeout_seconds: 3000 }),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });
@@ -82,6 +139,7 @@ describe("running process command", () => {
       project: { projectId: "melee", processName: "melee-live" },
       repoRoot: "/repo",
       runId: "run-1",
+      runInputs: runInputs(),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });
@@ -102,6 +160,10 @@ describe("running process command", () => {
       project: { projectId: "melee", processName: "melee-live" },
       repoRoot: "/repo",
       runId: "run-1",
+      runInputs: runInputs({
+        epoch_configure_command: "python3 configure.py --require-protos --wrapper /state/tools/wibo",
+        worker_configure_command: "python3 configure.py --require-protos --wrapper /state/tools/wibo",
+      }),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });
@@ -131,6 +193,7 @@ describe("running process command", () => {
       project: { projectId: "melee", processName: "melee-live" },
       repoRoot: "/repo",
       runId: "run-1",
+      runInputs: runInputs({ candidate_rerank: "opseq_hot_lane", candidate_window: 256, desired_workers: 64 }),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });
@@ -158,6 +221,7 @@ describe("running process command", () => {
       project: { projectId: "melee", processName: "melee-live", dashboard: { agentTimeoutSeconds: 2400 } },
       repoRoot: "/repo",
       runId: "run-1",
+      runInputs: runInputs({ agent_timeout_seconds: 2400 }),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });
@@ -178,6 +242,7 @@ describe("running process command", () => {
       project: { projectId: "melee", processName: "melee-live", dashboard: { integrationResolverConcurrency: 2 } },
       repoRoot: "/repo",
       runId: "run-1",
+      runInputs: runInputs({ integration_resolver_concurrency: 8 }),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });
@@ -194,6 +259,7 @@ describe("running process command", () => {
       project: { projectId: "melee" },
       repoRoot: "/repo",
       runId: "run-1",
+      runInputs: runInputs(),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });

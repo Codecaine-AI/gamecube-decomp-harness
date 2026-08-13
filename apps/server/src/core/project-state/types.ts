@@ -78,8 +78,10 @@ export interface HeartbeatDispatchInput {
 
 export interface BeginDrainInput extends TransitionContext {
   leaseId: string;
-  targetKind: DispatchKind;
-  targetWorkflowId: string;
+  /** Omitted when the current workflow is parking rather than handing off. */
+  targetKind?: DispatchKind;
+  /** Omitted when the current workflow is parking rather than handing off. */
+  targetWorkflowId?: string;
   reason: string;
 }
 

@@ -316,15 +316,35 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
   const command = [
     ...serverJobPrefix(commandPaths, deps.serverJobPath),
     ...(boolValue(body.dryRunAgents) ? ["--dry-run-agents"] : []),
+    "--provider",
+    stringValue(body.provider, "codex-lb"),
+    "--model",
+    stringValue(body.model, "gpt-5.6-sol"),
+    "--thinking-level",
+    stringValue(body.thinkingLevel, "xhigh"),
+    "--agent-timeout-seconds",
+    String(numberValue(body.agentTimeoutSeconds, numberValue(project?.dashboard.agentTimeoutSeconds, 1800))),
     "init-run",
     "--desired-workers",
     String(maxWorkers),
     "--epoch-size",
     stringValue(body.epochSize, project?.dashboard.epochSize == null ? "64" : String(project.dashboard.epochSize)),
     "--candidate-window",
-    stringValue(body.candidateWindow, project?.dashboard.candidateWindow == null ? "128" : String(project.dashboard.candidateWindow)),
+    String(
+      Math.max(
+        1,
+        Math.trunc(
+          numberValue(
+            body.candidateWindow,
+            numberValue(project?.dashboard.candidateWindow, 128),
+          ),
+        ),
+      ),
+    ),
     "--candidate-rerank",
     stringValue(body.candidateRerank, project?.dashboard.candidateRerank == null ? "priority" : String(project.dashboard.candidateRerank)),
+    "--integration-resolver-concurrency",
+    String(numberValue(body.integrationResolverConcurrency, numberValue(project?.dashboard.integrationResolverConcurrency, 4))),
     "--goal-kind",
     stringValue(body.goalKind, "matched_code_percent"),
     "--goal-value",
@@ -332,6 +352,10 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
     "--graph-db",
     graphDbPath,
   ];
+  const workerConfigureCommand = stringValue(body.workerConfigureCommand).trim();
+  if (workerConfigureCommand) command.push("--worker-configure-command", workerConfigureCommand);
+  const epochConfigureCommand = stringValue(body.epochConfigureCommand).trim();
+  if (epochConfigureCommand) command.push("--epoch-configure-command", epochConfigureCommand);
   return { command, repoRoot, stateDir, graphDbPath, project };
 }
 
@@ -989,8 +1013,8 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
         let run = getRun(store, runId);
         try {
           if (!run) throw new Error(`Run not found: ${runId}`);
-          if (run.status !== "complete") {
-            run = updateRunStatus(store, runId, "complete", "ui");
+          if (run.status !== "completed") {
+            run = updateRunStatus(store, runId, "completed", "ui");
             deps.appendLog("ui", `run ${runId} marked complete`);
           }
         } finally {

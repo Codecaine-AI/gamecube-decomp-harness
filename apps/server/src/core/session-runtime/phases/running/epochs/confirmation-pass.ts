@@ -78,20 +78,20 @@ function metadataMarksWidened(metadata: Record<string, unknown>): boolean {
   });
 }
 
-function loadTentativeWindow(store: StateStore, sessionId: string): ConfirmationCandidate[] {
+function loadTentativeWindow(store: StateStore, runId: string): ConfirmationCandidate[] {
   const rows = store.db
     .query(
       `
         SELECT id, worker_checkpoint_id, target_claim_id, patch_path,
                write_set_json, metadata_json, created_at
         FROM worker_output_integrations
-        WHERE session_id = ?
+        WHERE run_id = ?
           AND status IN ('applied', 'resolved')
           AND validation_state = 'tentative'
         ORDER BY created_at ASC, id ASC
       `,
     )
-    .all(sessionId) as Record<string, unknown>[];
+    .all(runId) as Record<string, unknown>[];
 
   return rows.map((row) => {
     const metadata = jsonObject(row.metadata_json);
@@ -213,7 +213,7 @@ function writeValidationState(params: {
 export async function runConfirmationPass(params: {
   enabled: boolean;
   store: StateStore;
-  sessionId: string;
+  runId: string;
   global: ConfirmationGlobalVerdict;
   deps: ConfirmationPassDeps;
 }): Promise<ConfirmationPassResult> {
@@ -228,7 +228,7 @@ export async function runConfirmationPass(params: {
   };
   if (!params.enabled) return disabled;
 
-  const tentative = loadTentativeWindow(params.store, params.sessionId);
+  const tentative = loadTentativeWindow(params.store, params.runId);
   if (tentative.length === 0) return { ...disabled, status: "no_tentatives" };
   const finishedAt = (params.deps.now ?? (() => new Date().toISOString()))();
   const confirmation = {
@@ -247,7 +247,7 @@ export async function runConfirmationPass(params: {
         confirmation,
       });
     });
-    addEvent(params.store, params.sessionId, "epoch_checkpoint_progress", "confirmation-pass", {
+    addEvent(params.store, params.runId, "epoch_checkpoint_progress", "confirmation-pass", {
       phase: "confirmation_pass",
       status: "confirmed",
       build_id: params.global.buildId,
@@ -320,7 +320,7 @@ export async function runConfirmationPass(params: {
       confirmation: { ...confirmation, revert_revision: reverted.revision ?? null },
     });
   });
-  addEvent(params.store, params.sessionId, "epoch_checkpoint_progress", "confirmation-pass", {
+  addEvent(params.store, params.runId, "epoch_checkpoint_progress", "confirmation-pass", {
     phase: "confirmation_pass",
     status: "regressed",
     build_id: params.global.buildId,

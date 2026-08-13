@@ -6,7 +6,7 @@ import { modelAdmissionCap } from "@server/core/session-runtime/phases/running/b
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
-  activeClaimsForSession,
+  activeClaimsForRun,
   admitEpochTargets,
   bestCheckpointForWorkerState,
   claimNextEpochTarget as claimNextEpochTargetRaw,
@@ -24,6 +24,7 @@ import {
 } from "./index.js";
 import { createRun } from "./runs.js";
 import { processWorkerOutputIntegrationQueue } from "@server/core/session-runtime/phases/running/integration/worker-output-queue.js";
+import { initializeProjectState, requestDispatch } from "@server/core/project-state";
 
 const tempDirs: string[] = [];
 const TEST_WORKER_TIMEOUT_SECONDS = 1800;
@@ -55,7 +56,7 @@ function candidate(index: number, sourcePath: string, priority = 100 - index): T
 }
 
 function setupEpoch(store: StateStore, candidates: TargetCandidate[], desiredWorkers = 2) {
-  const run = createRun(store, "matched_code_percent", 100, desiredWorkers);
+  const run = createRun(store, "matched_code_percent", 100, desiredWorkers, { projectId: "test" }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
     size: { mode: "fixed", value: candidates.length },
     workerPoolSize: desiredWorkers,
@@ -69,6 +70,20 @@ function setupEpoch(store: StateStore, candidates: TargetCandidate[], desiredWor
     workerPoolSize: desiredWorkers,
   });
   return { run, epoch, admission };
+}
+
+function integrationLease(store: StateStore, runId: string): string {
+  initializeProjectState(store, { projectId: "test", traceId: "trace-project-test" });
+  const decision = requestDispatch(store, {
+    actor: "operator",
+    commandId: `command-integrate-${runId}`,
+    kind: "run",
+    projectId: "test",
+    reason: "test worker output integration",
+    workflowId: runId,
+  });
+  if (decision.queued) throw new Error("test integration lease was unexpectedly queued");
+  return decision.leaseId;
 }
 
 function git(repo: string, args: string[]): string {
@@ -188,7 +203,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
   test("caps persisted full-mode admissions", () => {
     const { store } = tempState();
     try {
-      const run = createRun(store, "matched_code_percent", 100, 2);
+      const run = createRun(store, "matched_code_percent", 100, 2, { projectId: "test" }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "full", value: null },
         workerPoolSize: 2,
@@ -220,7 +235,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
       expect(refreshEpochTargetAvailability(store, epoch.id)).toMatchObject({ inserted: 0, availableBefore: 3, availableAfter: 3 });
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 3, available: 3, claimed: 0, finished: 0, remaining: 3 });
 
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 3, available: 2, claimed: 1, finished: 0, remaining: 3 });
       expect(count(store, "SELECT COUNT(*) AS count FROM worker_state WHERE target_claim_id = ?", claim?.claimId ?? "")).toBe(1);
@@ -247,7 +262,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
       expect(refresh).toMatchObject({ retiredExact: 1, availableBefore: 2, availableAfter: 1 });
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 2, available: 1, finished: 1, remaining: 1 });
 
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim?.target.symbol).toBe("fn_2");
     } finally {
       store.db.close();
@@ -258,7 +273,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
       closeWorkerState(store, {
         workerStateId: claim?.workerStateId ?? "",
@@ -292,7 +307,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run, epoch: firstEpoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
-      const firstClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const firstClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(firstClaim).not.toBeNull();
       closeWorkerState(store, {
         workerStateId: firstClaim?.workerStateId ?? "",
@@ -313,7 +328,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
         size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
-      const secondClaim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-2", baseRev: "base" });
+      const secondClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-2", baseRev: "base" });
       expect(secondClaim).not.toBeNull();
       closeWorkerState(store, {
         workerStateId: secondClaim?.workerStateId ?? "",
@@ -350,7 +365,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
       closeWorkerState(store, {
         workerStateId: claim?.workerStateId ?? "",
@@ -393,14 +408,14 @@ describe("scheduler epoch and worker state lifecycle", () => {
     try {
       const { run, epoch } = setupEpoch(store, [candidate(1, "src/shared.c", 500), candidate(2, "src/shared.c", 499)], 2);
 
-      const first = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
-      const second = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-2", baseRev: "base" });
+      const first = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
+      const second = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-2", baseRev: "base" });
 
       expect(first).not.toBeNull();
       expect(second).not.toBeNull();
       expect(first?.writeSet).toEqual(["src/shared.c"]);
       expect(second?.writeSet).toEqual(["src/shared.c"]);
-      expect(activeClaimsForSession(store, run.id)).toHaveLength(2);
+      expect(activeClaimsForRun(store, run.id)).toHaveLength(2);
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ available: 0, claimed: 2, finished: 0 });
     } finally {
       store.db.close();
@@ -416,12 +431,12 @@ describe("scheduler epoch and worker state lifecycle", () => {
         3,
       );
 
-      const first = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
-      const second = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-2", baseRev: "base" });
+      const first = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
+      const second = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-2", baseRev: "base" });
 
       expect(first?.target.source_path).toBe("src/a.c");
       expect(second?.target.source_path).toBe("src/b.c");
-      expect(activeClaimsForSession(store, run.id)).toHaveLength(2);
+      expect(activeClaimsForRun(store, run.id)).toHaveLength(2);
     } finally {
       store.db.close();
     }
@@ -431,7 +446,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
-      const first = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const first = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(first).not.toBeNull();
 
       closeWorkerState(store, {
@@ -442,16 +457,16 @@ describe("scheduler epoch and worker state lifecycle", () => {
         summary: { source: "test" },
       });
 
-      expect(activeClaimsForSession(store, run.id)).toHaveLength(0);
+      expect(activeClaimsForRun(store, run.id)).toHaveLength(0);
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ available: 1, claimed: 0, finished: 0, remaining: 1 });
 
-      const second = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-2", baseRev: "base" });
+      const second = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-2", baseRev: "base" });
       expect(second).not.toBeNull();
       expect(second?.epochTargetId).toBe(first?.epochTargetId);
       expect(second?.claimId).toBe(first?.claimId);
       expect(second?.workerStateId).toBe(first?.workerStateId);
       expect(count(store, "SELECT COUNT(*) AS count FROM target_claims WHERE epoch_target_id = ?", first?.epochTargetId ?? "")).toBe(1);
-      expect(activeClaimsForSession(store, run.id)[0]?.workerId).toBe("worker-2");
+      expect(activeClaimsForRun(store, run.id)[0]?.workerId).toBe("worker-2");
       const row = store.db.query("SELECT lifecycle_status, worker_id, ended_at FROM worker_state WHERE id = ?").get(first?.workerStateId ?? "") as
         | Record<string, unknown>
         | undefined;
@@ -467,11 +482,11 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
-      const first = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const first = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(first).not.toBeNull();
       recordWorkerCheckpoint(store, {
         workerStateId: first?.workerStateId ?? "",
-        sessionId: run.id,
+        runId: run.id,
         epochId: first?.epochId ?? "",
         epochTargetId: first?.epochTargetId ?? "",
         targetClaimId: first?.claimId ?? "",
@@ -492,7 +507,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
       });
 
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ available: 1, claimed: 0, finished: 0, remaining: 1 });
-      const second = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-2", baseRev: "base" });
+      const second = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-2", baseRev: "base" });
       expect(second).not.toBeNull();
       expect(second?.epochTargetId).toBe(first?.epochTargetId);
       expect(second?.claimId).toBe(first?.claimId);
@@ -508,11 +523,11 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run } = setupEpoch(store, [candidate(1, "src/a.c")]);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
       const base = {
         workerStateId: claim?.workerStateId ?? "",
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -585,11 +600,11 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run } = setupEpoch(store, [candidate(1, "src/a.c")]);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
       recordWorkerCheckpoint(store, {
         workerStateId: claim?.workerStateId ?? "",
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -623,7 +638,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run } = setupEpoch(store, [candidate(1, "src/a.c")]);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
 
       updateWorkerStateBaselineScore(store, claim?.workerStateId ?? "", 87.25);
@@ -637,7 +652,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
 
       const checkpoint = recordWorkerCheckpoint(store, {
         workerStateId: claim?.workerStateId ?? "",
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -661,12 +676,12 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run } = setupEpoch(store, [candidate(1, "src/a.c")]);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
 
       const checkpoint = recordWorkerCheckpoint(store, {
         workerStateId: claim?.workerStateId ?? "",
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -694,11 +709,11 @@ describe("scheduler epoch and worker state lifecycle", () => {
     const { store } = tempState();
     try {
       const { run } = setupEpoch(store, [candidate(1, "src/a.c")]);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
       const checkpoint = recordWorkerCheckpoint(store, {
         workerStateId: claim?.workerStateId ?? "",
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -747,11 +762,11 @@ describe("scheduler epoch and worker state lifecycle", () => {
       writePatch(repo, patchPath, "int value = 1;\n");
 
       const { run } = setupEpoch(store, [candidate(1, "src/a.c", 100)], 1);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
       const checkpoint = recordWorkerCheckpoint(store, {
         workerStateId: claim?.workerStateId ?? "",
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -765,7 +780,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
         diffPath: patchPath,
       });
       const item = enqueueWorkerOutputIntegration(store, {
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -777,7 +792,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
         writeSet: ["src/a.c"],
       });
 
-      const result = await processWorkerOutputIntegrationQueue({ dryRun: false, repoRoot: repo, sessionId: run.id, stateDir: dir, store });
+      const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId: integrationLease(store, run.id), repoRoot: repo, runId: run.id, stateDir: dir, store });
       expect(result.processed).toHaveLength(1);
       expect(result.processed[0]?.id).toBe(item.id);
       expect(result.processed[0]?.status).toBe("applied");
@@ -798,11 +813,11 @@ describe("scheduler epoch and worker state lifecycle", () => {
       writeFileSync(join(repo, "src/a.c"), "int value = 2;\n");
 
       const { run } = setupEpoch(store, [candidate(1, "src/a.c", 100)], 1);
-      const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base" });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
       expect(claim).not.toBeNull();
       const checkpoint = recordWorkerCheckpoint(store, {
         workerStateId: claim?.workerStateId ?? "",
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -816,7 +831,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
         diffPath: patchPath,
       });
       const item = enqueueWorkerOutputIntegration(store, {
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim?.epochId ?? "",
         epochTargetId: claim?.epochTargetId ?? "",
         targetClaimId: claim?.claimId ?? "",
@@ -828,7 +843,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
         writeSet: ["src/a.c"],
       });
 
-      const result = await processWorkerOutputIntegrationQueue({ dryRun: false, repoRoot: repo, sessionId: run.id, stateDir: dir, store });
+      const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId: integrationLease(store, run.id), repoRoot: repo, runId: run.id, stateDir: dir, store });
       expect(result.processed).toHaveLength(1);
       expect(result.processed[0]?.status).toBe("conflict");
       expect(result.processed[0]?.conflictPaths).toContain("src/a.c");

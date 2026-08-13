@@ -22,7 +22,7 @@ import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 
 export interface LibrarianWorkerStateRow extends AttemptWorkerStateRow {
-  session_id: string;
+  run_id: string;
   epoch_id: string;
   epoch_target_id: string;
   worker_id: string;
@@ -255,7 +255,7 @@ export function loadWorkerCondenseInput(db: Database, workerStateId: string): Li
     .query(
       `
         SELECT
-          id, session_id, epoch_id, epoch_target_id, worker_id, target_key,
+          id, run_id, epoch_id, epoch_target_id, worker_id, target_key,
           lifecycle_status, started_at, ended_at, baseline_score,
           best_checkpoint_id, best_score, exact, worker_session_ids_json,
           summary_json

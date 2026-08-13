@@ -7,7 +7,7 @@ import {
   updatePreparingSubphase,
 } from "@server/core/session-runtime";
 import { getActiveProjectSession } from "@server/core/project-session/store";
-import { openState } from "@server/core/session-runtime/run-state";
+import { createRun, openState, updateRunStatus } from "@server/core/session-runtime/run-state";
 import { DispatchLeaseUnavailableError } from "@server/core/session-runtime/dispatch-guard.js";
 import { getProjectState, initializeProjectState, requestDispatch } from "@server/core/project-state";
 import type { PreparingRuntimeDeps, PreparingRuntimeProjectContext } from "./runtime-shared.js";
@@ -27,6 +27,56 @@ afterEach(() => {
 });
 
 describe("preparing runtime baseline", () => {
+  test("forwards every process-policy option into init-run snapshot capture", () => {
+    const root = tempDir();
+    const paths: PreparingRuntimeProjectContext = {
+      graphDbPath: resolve(root, "graph.sqlite"),
+      project: {
+        projectId: "melee",
+        dashboard: {},
+      } as PreparingRuntimeProjectContext["project"],
+      repoRoot: resolve(root, "repo"),
+      stateDir: resolve(root, "state"),
+    };
+    const runtime = createPreparingRuntime({
+      resolveDashboardProject: () => paths,
+      serverJobPath: resolve(root, "job-runner.ts"),
+    } as unknown as PreparingRuntimeDeps);
+
+    const { command } = runtime.initRunCommand({
+      agentTimeoutSeconds: 2400,
+      candidateRerank: "opseq_hot_lane",
+      candidateWindow: 96,
+      dryRunAgents: true,
+      epochConfigureCommand: "configure epoch",
+      epochSize: "48",
+      goalKind: "matched_code_percent",
+      goalValue: 88,
+      integrationResolverConcurrency: 3,
+      maxWorkers: 12,
+      model: "gpt-5.5",
+      provider: "codex-lb",
+      thinkingLevel: "high",
+      workerConfigureCommand: "configure worker",
+    });
+    const option = (flag: string): string | undefined => command[command.indexOf(flag) + 1];
+
+    expect(command).toContain("--dry-run-agents");
+    expect(option("--provider")).toBe("codex-lb");
+    expect(option("--model")).toBe("gpt-5.5");
+    expect(option("--thinking-level")).toBe("high");
+    expect(option("--agent-timeout-seconds")).toBe("2400");
+    expect(option("--desired-workers")).toBe("12");
+    expect(option("--epoch-size")).toBe("48");
+    expect(option("--candidate-window")).toBe("96");
+    expect(option("--candidate-rerank")).toBe("opseq_hot_lane");
+    expect(option("--integration-resolver-concurrency")).toBe("3");
+    expect(option("--goal-kind")).toBe("matched_code_percent");
+    expect(option("--goal-value")).toBe("88");
+    expect(option("--worker-configure-command")).toBe("configure worker");
+    expect(option("--epoch-configure-command")).toBe("configure epoch");
+  });
+
   test("persists failed baseline status when report generation fails", async () => {
     const root = tempDir();
     const stateDir = resolve(root, "state");
@@ -110,16 +160,30 @@ describe("preparing runtime baseline", () => {
     const repoRoot = resolve(root, "repo");
     const store = openState(stateDir);
     try {
+      createNewProjectSession(store.db, {
+        id: "project-session:session-uuid",
+        projectId: "melee",
+        sessionUuid: "session-uuid",
+      });
+      const run = createRun(
+        store,
+        "matched_code_percent",
+        100,
+        1,
+        { projectId: "melee", repoRoot, stateDir },
+        { baseRevision: "base-test", sessionUuid: "session-uuid" },
+      );
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
-      const run = requestDispatch(store, {
+      const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-run-start",
         kind: "run",
         projectId: "melee",
         reason: "start run",
-        workflowId: "run-1",
+        workflowId: run.id,
       });
-      if (run.queued) throw new Error("expected run lease acquisition");
+      if (dispatch.queued) throw new Error("expected run lease acquisition");
+      updateRunStatus(store, run.id, "active", "operator");
     } finally {
       store.db.close();
     }

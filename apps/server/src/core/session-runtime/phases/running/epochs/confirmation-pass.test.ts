@@ -29,7 +29,7 @@ function insertTentative(
     .query(
       `
         INSERT INTO worker_checkpoints (
-          id, worker_state_id, session_id, epoch_id, epoch_target_id,
+          id, worker_state_id, run_id, epoch_id, epoch_target_id,
           target_claim_id, attempt_index, validation_time, validation_status,
           validation_state, write_set_json
         ) VALUES (?, ?, 'run-1', 'epoch-1', ?, ?, 0, ?, 'passed', 'tentative', ?)
@@ -40,7 +40,7 @@ function insertTentative(
     .query(
       `
         INSERT INTO worker_output_integrations (
-          id, session_id, epoch_id, epoch_target_id, target_claim_id,
+          id, run_id, epoch_id, epoch_target_id, target_claim_id,
           worker_state_id, worker_checkpoint_id, status, disposition,
           patch_path, write_set_json, validation_state, metadata_json,
           created_at, updated_at
@@ -79,7 +79,7 @@ describe("runConfirmationPass", () => {
       const result = await runConfirmationPass({
         enabled: true,
         store,
-        sessionId: "run-1",
+        runId: "run-1",
         global: { clean: true, buildId: "epoch-build-1", reportPath: "/reports/clean.json", regressionPaths: [] },
         deps: {
           probeWithout: async () => {
@@ -114,7 +114,7 @@ describe("runConfirmationPass", () => {
       const result = await runConfirmationPass({
         enabled: true,
         store,
-        sessionId: "run-1",
+        runId: "run-1",
         global: {
           clean: false,
           buildId: "epoch-build-dirty",
@@ -165,7 +165,7 @@ describe("runConfirmationPass", () => {
       const result = await runConfirmationPass({
         enabled: false,
         store,
-        sessionId: "run-1",
+        runId: "run-1",
         global: { clean: true, buildId: "unused", reportPath: "/unused", regressionPaths: [] },
         deps: {
           probeWithout: async () => false,

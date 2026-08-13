@@ -18,7 +18,7 @@ import { loadKnowledgeBoardSnapshot, openKnowledgeGraph } from "@server/core/kno
 import { planRegressionRepair } from "@server/core/session-runtime/phases/running/epochs";
 import { evaluatePrPromotion, readRegressionReport } from "@server/core/validation/objdiff/report";
 import {
-  activeClaimsForSession,
+  activeClaimsForRun,
   addEvent,
   admitEpochTargets,
   createRun,
@@ -574,7 +574,7 @@ async function main(): Promise<void> {
 
     const firstClaim = claimNextEpochTarget({
       store: workerStateStore,
-      sessionId: run.id,
+      runId: run.id,
       workerId: "worker-state-smoke-1",
       baseRev: "smoke-base",
     });
@@ -586,15 +586,15 @@ async function main(): Promise<void> {
     );
     const secondClaim = claimNextEpochTarget({
       store: workerStateStore,
-      sessionId: run.id,
+      runId: run.id,
       workerId: "worker-state-smoke-2",
       baseRev: "smoke-base",
     });
     assertSmoke("same-source epoch target can claim concurrently", Boolean(secondClaim) && firstClaim?.writeSet[0] === secondClaim?.writeSet[0]);
-    assertSmoke("worker-state smoke tracks active claims", activeClaimsForSession(workerStateStore, run.id).length === 2);
+    assertSmoke("worker-state smoke tracks active claims", activeClaimsForRun(workerStateStore, run.id).length === 2);
     const selected = recordWorkerCheckpoint(workerStateStore, {
       workerStateId: firstClaim?.workerStateId ?? "",
-      sessionId: run.id,
+      runId: run.id,
       epochId: firstClaim?.epochId ?? "",
       epochTargetId: firstClaim?.epochTargetId ?? "",
       targetClaimId: firstClaim?.claimId ?? "",
@@ -843,8 +843,8 @@ async function main(): Promise<void> {
   try {
     const runId = init.run.id;
     assertSmoke("runs row exists", count(store, "SELECT COUNT(*) AS count FROM runs WHERE id = ?", runId) === 1);
-    assertSmoke("epoch row exists", count(store, "SELECT COUNT(*) AS count FROM epochs WHERE session_id = ?", runId) === 1);
-    assertSmoke("epoch target row exists", count(store, "SELECT COUNT(*) AS count FROM epoch_targets WHERE session_id = ?", runId) === 1);
+    assertSmoke("epoch row exists", count(store, "SELECT COUNT(*) AS count FROM epochs WHERE run_id = ?", runId) === 1);
+    assertSmoke("epoch target row exists", count(store, "SELECT COUNT(*) AS count FROM epoch_targets WHERE run_id = ?", runId) === 1);
     assertSmoke("events include run start and worker wake", count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ?", runId) >= 2);
     assertSmoke("run_started event handled", count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'run_started' AND handled_at IS NOT NULL", runId) === 1);
     assertSmoke("worker wake remains unhandled", count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'worker_finished' AND handled_at IS NULL", runId) === 1);
@@ -948,7 +948,7 @@ async function main(): Promise<void> {
       const workerArtifactDir = join(checkpointFixtureDir, params.key);
       const claimed = claimNextEpochTarget({
         store: checkpointSeedStore,
-        sessionId: init.run.id,
+        runId: init.run.id,
         workerId: `${params.key}-worker`,
         baseRev: "smoke-base",
         artifactDir: workerArtifactDir,
@@ -956,7 +956,7 @@ async function main(): Promise<void> {
       if (!claimed) throw new Error(`Could not claim synthetic checkpoint target ${params.key}`);
       const checkpointRecord = recordWorkerCheckpoint(checkpointSeedStore, {
         workerStateId: claimed.workerStateId,
-        sessionId: init.run.id,
+        runId: init.run.id,
         epochId: claimed.epochId,
         epochTargetId: claimed.epochTargetId,
         targetClaimId: claimed.claimId,
@@ -977,7 +977,7 @@ async function main(): Promise<void> {
       });
       const statePath = join(workerArtifactDir, "state", "worker_state.json");
       const workerStateSummary = {
-        session_id: init.run.id,
+        run_id: init.run.id,
         epoch_id: claimed.epochId,
         epoch_target_id: claimed.epochTargetId,
         target_claim_id: claimed.claimId,
@@ -1205,7 +1205,7 @@ async function main(): Promise<void> {
     });
     const claimed = claimNextEpochTarget({
       store: recoveryStore,
-      sessionId: recoveryInit.run.id,
+      runId: recoveryInit.run.id,
       workerId: "interrupted-smoke-worker",
       baseRev: "smoke-base",
     });
@@ -1256,7 +1256,7 @@ async function main(): Promise<void> {
     });
     const released = claimNextEpochTarget({
       store: recoveredStore,
-      sessionId: recoveryInit.run.id,
+      runId: recoveryInit.run.id,
       workerId: "reused-claim-smoke-worker",
       baseRev: "smoke-base",
     });
@@ -1320,7 +1320,7 @@ async function main(): Promise<void> {
     assertSmoke("run-loop leaves no active workers", triggerRun.finalStatus.activeWorkers === 0);
     assertSmoke("run-loop drains unhandled events", triggerRun.finalStatus.unhandledEvents === 0);
     assertSmoke("run-loop does not record director cycles", count(triggerStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", triggerInit.run.id) === 0);
-    assertSmoke("run-loop records one worker state per started worker", count(triggerStore, "SELECT COUNT(*) AS count FROM worker_state WHERE session_id = ?", triggerInit.run.id) === triggerRun.workersStarted);
+    assertSmoke("run-loop records one worker state per started worker", count(triggerStore, "SELECT COUNT(*) AS count FROM worker_state WHERE run_id = ?", triggerInit.run.id) === triggerRun.workersStarted);
     assertSmoke("run-loop handled all wake events", count(triggerStore, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", triggerInit.run.id) === 0);
   } finally {
     triggerStore.db.close();
@@ -1376,7 +1376,7 @@ async function main(): Promise<void> {
     assertSmoke("babysit performs no incident restarts", babysitRun.restarts === 0);
     assertSmoke("babysit leaves no active claims", babysitRun.finalStatus.activeClaims === 0);
     assertSmoke("babysit drains wake events", babysitRun.finalStatus.unhandledEvents === 0);
-    assertSmoke("babysit records bounded worker states", count(babysitStore, "SELECT COUNT(*) AS count FROM worker_state WHERE session_id = ?", babysitInit.run.id) > 0);
+    assertSmoke("babysit records bounded worker states", count(babysitStore, "SELECT COUNT(*) AS count FROM worker_state WHERE run_id = ?", babysitInit.run.id) > 0);
     assertSmoke("babysit system stdout artifact exists", existsSync(babysitRun.systemRuns[0]?.stdoutPath ?? ""));
     assertSmoke("babysit system stderr artifact exists", existsSync(babysitRun.systemRuns[0]?.stderrPath ?? ""));
     assertSmoke("babysit system result artifact exists", existsSync(babysitRun.systemRuns[0]?.resultPath ?? ""));
@@ -1547,7 +1547,7 @@ async function main(): Promise<void> {
       kernelWorkerContext.includes('"target_symbol"') &&
       kernelWorkerContext.includes('"mismatch_patterns"') &&
       kernelWorkerContext.includes('"past_prs"') &&
-      kernelWorkerContext.includes('"path_facts"') &&
+      !kernelWorkerContext.includes('"path_facts"') &&
       kernelWorkerContext.includes('"follow_up_queries"') &&
       !kernelWorkerContext.includes("path_facts_resolve") &&
       !kernelWorkerContext.includes('"scheduling_signals"') &&
@@ -1565,6 +1565,7 @@ async function main(): Promise<void> {
     .find((line) => line.startsWith("custom_tools: ")) ?? "";
   const expectedWorkerTools = [...defaultWorkerToolProfile];
   const deprecatedWorkerToolIds = [
+    "mismatch_db_search",
     "discord_knowledge_search",
     "ssbm_data_sheet_lookup_address",
     "external_mirrors_search",

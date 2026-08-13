@@ -9,6 +9,7 @@ export {
   type StateStore,
 } from "./storage/store.js";
 export * from "./storage/schema.js";
+export { casRunEnvelope, type RunEnvelopeCasInput } from "./run-envelope-cas.js";
 export {
   dashboardArtifactPayloads,
   latestDashboardArtifact,

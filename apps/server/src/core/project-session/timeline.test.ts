@@ -15,6 +15,7 @@ import {
 import { eventsForSubject, listProjectEvents } from "@server/core/project-state/events.js";
 import { closeSchedulerEpochWithEvidence, startSchedulerEpoch } from "@server/core/session-runtime/run-state";
 import { createProjectSession, getProjectSessionByUuid } from "./store.js";
+import { listPendingIntegrations, preparePendingIntegration } from "./pending-integrations.js";
 import {
   closeProjectSession,
   listSessionTimeline,
@@ -49,8 +50,13 @@ function createSession(store: StateStore): string {
   const commitSha = new TextDecoder().decode(head.stdout).trim();
   store.db
     .query(
-      `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_repo_root)
-       VALUES ('run-1', 'matched_code_percent', 100, 1, 'running', '2026-08-12T12:00:00.000Z', ?)`,
+      `INSERT INTO runs (
+         id, goal_kind, goal_value, desired_workers, status, created_at,
+         project_id, project_repo_root, session_uuid, head_revision
+       ) VALUES (
+         'run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z',
+         'melee', ?, 'session-1', 'base-sha'
+       )`,
     )
     .run(repoRoot);
   createProjectSession(store.db, {
@@ -108,6 +114,11 @@ describe("project session timeline", () => {
     const saved = getProjectSessionByUuid(store.db, "session-1");
     expect(saved).toMatchObject({ head_revision: commitSha, revision: 1 });
     expect(saved?.caused_by_event_id).toBe(first[0]?.caused_by_event_id);
+    expect(store.db.query("SELECT head_revision, revision, caused_by_event_id FROM runs WHERE id = 'run-1'").get()).toEqual({
+      head_revision: commitSha,
+      revision: 1,
+      caused_by_event_id: first[0]?.caused_by_event_id,
+    });
     expect(eventsForSubject(store.db, "run", "run-1")).toHaveLength(1);
 
     expect(() =>
@@ -235,6 +246,110 @@ describe("project session timeline", () => {
     expect(listSessionTimeline(store.db, "session-1")).toEqual([]);
     expect(eventsForSubject(store.db, "run", "run-1")).toEqual([]);
     expect(getProjectSessionByUuid(store.db, "session-1")).toMatchObject({ head_revision: "base-sha", revision: 0 });
+  });
+
+  test("rejects an old run after a newer session becomes active and rolls back the whole boundary", () => {
+    const store = openTestStore();
+    const commitSha = createSession(store);
+    const repoRoot = String(
+      (store.db.query("SELECT project_repo_root FROM runs WHERE id = 'run-1'").get() as Record<string, unknown>)
+        .project_repo_root,
+    );
+    const branchResult = Bun.spawnSync(["git", "-C", repoRoot, "branch", "--show-current"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const branch = new TextDecoder().decode(branchResult.stdout).trim();
+    store.db
+      .query("UPDATE project_sessions SET status = 'completed', closed_at = ? WHERE session_uuid = 'session-1'")
+      .run("2026-08-12T12:02:00.000Z");
+    store.db.query("UPDATE runs SET session_uuid = NULL WHERE id = 'run-1'").run();
+    store.db
+      .query(
+        `INSERT INTO runs (
+           id, goal_kind, goal_value, desired_workers, status, created_at,
+           project_id, project_repo_root, session_uuid, head_revision
+         ) VALUES (
+           'run-2', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:03:00.000Z',
+           'melee', ?, 'session-2', 'newer-base'
+         )`,
+      )
+      .run(repoRoot);
+    createProjectSession(store.db, {
+      projectId: "melee",
+      sessionUuid: "session-2",
+      id: "project-session:session-2",
+      baseSha: "newer-base",
+      activeRunId: "run-2",
+      correlationId: "run-2",
+      commandId: "command-session-2-open",
+      openingSyncId: "sync-open-2",
+      traceId: "trace-session-2",
+      worktreeIdentity: repoRoot,
+      now: "2026-08-12T12:03:00.000Z",
+    });
+    preparePendingIntegration(store, {
+      runId: "run-1",
+      epochId: "epoch-old",
+      branch,
+      parentSha: commitSha,
+    });
+    const beforeSession2 = getProjectSessionByUuid(store.db, "session-2");
+    const beforeRun1 = store.db
+      .query("SELECT revision, head_revision, caused_by_event_id FROM runs WHERE id = 'run-1'")
+      .get();
+
+    expect(() =>
+      immediateTransaction(store.db, () => {
+        store.db
+          .query("INSERT INTO integrations (id, status, integrated_rev) VALUES ('integration-old', 'integrated', ?)")
+          .run(commitSha);
+        recordEpochCompletedInTransaction(store.db, {
+          projectId: "melee",
+          epochId: "epoch-old",
+          runId: "run-1",
+          integrationCommit: commitSha,
+          commandId: "command-epoch-old",
+          actor: "runner",
+        });
+      }),
+    ).toThrow("must resolve to exactly one project session");
+
+    expect(store.db.query("SELECT 1 FROM integrations WHERE id = 'integration-old'").get()).toBeNull();
+    expect(listSessionTimeline(store.db, "session-1")).toEqual([]);
+    expect(listSessionTimeline(store.db, "session-2")).toEqual([]);
+    expect(eventsForSubject(store.db, "run", "run-1")).toEqual([]);
+    expect(getProjectSessionByUuid(store.db, "session-2")).toEqual(beforeSession2);
+    expect(
+      store.db.query("SELECT revision, head_revision, caused_by_event_id FROM runs WHERE id = 'run-1'").get(),
+    ).toEqual(beforeRun1);
+    expect(listPendingIntegrations(store).map((pending) => pending.epochId)).toEqual(["epoch-old"]);
+  });
+
+  test("resolves a null run session only through active_run_id and always advances the run CAS", () => {
+    const store = openTestStore();
+    const commitSha = createSession(store);
+    store.db.query("UPDATE runs SET session_uuid = NULL WHERE id = 'run-1'").run();
+
+    immediateTransaction(store.db, () => {
+      recordEpochCompletedInTransaction(store.db, {
+        projectId: "melee",
+        sessionUuid: "session-1",
+        epochId: "epoch-null-session",
+        runId: "run-1",
+        integrationCommit: commitSha,
+        commandId: "command-epoch-null-session",
+        actor: "runner",
+      });
+    });
+
+    const entry = listSessionTimeline(store.db, "session-1")[0];
+    expect(getProjectSessionByUuid(store.db, "session-1")).toMatchObject({ revision: 1, head_revision: commitSha });
+    expect(store.db.query("SELECT revision, head_revision, caused_by_event_id FROM runs WHERE id = 'run-1'").get()).toEqual({
+      revision: 1,
+      head_revision: commitSha,
+      caused_by_event_id: entry?.caused_by_event_id,
+    });
   });
 
   test("save-point transitions write one same-transaction event and maintain blocker staleness", () => {

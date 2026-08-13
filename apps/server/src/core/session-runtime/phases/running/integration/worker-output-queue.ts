@@ -23,10 +23,16 @@ import {
   type WorkerOutputIntegrationRecord,
   type WorkerOutputIntegrationStatus,
 } from "@server/core/session-runtime/run-state";
+import { requireLease } from "@server/core/project-state";
 import type { RunProjectMetadata } from "@server/core/shared/types";
 import { processWriteSetIntegrationFlags } from "./write-set-options.js";
 
 type CommandRunner = typeof runCommand;
+
+function revalidateIntegrationLease(store: StateStore, leaseId: string): void {
+  if (!leaseId.trim()) throw new Error("worker output integration requires a dispatch lease id");
+  requireLease(store, leaseId);
+}
 
 export interface WorkerOutputConflictResolverConfig {
   runner: ConflictResolverAgentRunner;
@@ -178,13 +184,13 @@ function incumbentClaimSnapshots(store: StateStore, record: WorkerOutputIntegrat
                target_key, write_set_json, validation_state, metadata_json,
                created_at, updated_at
         FROM worker_output_integrations
-        WHERE session_id = ?
+        WHERE run_id = ?
           AND id != ?
           AND status IN ('applied', 'resolved')
         ORDER BY updated_at DESC, created_at DESC
       `,
     )
-    .all(record.sessionId, record.id) as Record<string, unknown>[];
+    .all(record.runId, record.id) as Record<string, unknown>[];
   return rows
     .filter((row) => stringArray(row.write_set_json).some((path) => paths.has(path)))
     .map((row) => ({
@@ -346,7 +352,7 @@ function conflictItem(params: {
     schema_version: "integration_conflict_item_v1",
     id: params.record.id,
     queue_item_id: params.record.id,
-    run_id: params.record.sessionId,
+    run_id: params.record.runId,
     epoch_id: params.record.epochId,
     epoch_target_id: params.record.epochTargetId,
     target_claim_id: params.record.targetClaimId,
@@ -452,14 +458,18 @@ function markTentative(store: StateStore, record: WorkerOutputIntegrationRecord)
 
 async function compensateAppliedPatch(params: {
   commandRunner: CommandRunner;
+  leaseId: string;
   repoRoot: string;
   patchPath: string;
   paths: string[];
+  store: StateStore;
 }): Promise<string[]> {
   const failures: string[] = [];
+  revalidateIntegrationLease(params.store, params.leaseId);
   const reverse = await params.commandRunner(params.repoRoot, ["git", "apply", "--reverse", params.patchPath]);
   if (reverse.exitCode !== 0) failures.push(`reverse apply failed: ${outputTail(reverse.stderr || reverse.stdout, 1000)}`);
   if (params.paths.length > 0) {
+    revalidateIntegrationLease(params.store, params.leaseId);
     const restage = await params.commandRunner(params.repoRoot, ["git", "add", "--", ...params.paths]);
     if (restage.exitCode !== 0) failures.push(`index cleanup failed: ${outputTail(restage.stderr || restage.stdout, 1000)}`);
   }
@@ -468,10 +478,12 @@ async function compensateAppliedPatch(params: {
 
 async function commitAppliedPatch(params: {
   commandRunner: CommandRunner;
+  leaseId: string;
   repoRoot: string;
   record: WorkerOutputIntegrationRecord;
   patchPath: string;
   paths?: string[];
+  store: StateStore;
 }): Promise<{ preApplyRev: string; integratedRev: string }> {
   const paths = uniqueStrings(params.paths ?? params.record.writeSet);
   if (paths.length === 0) throw new Error("merge-on-finish cannot commit an empty write set");
@@ -479,6 +491,7 @@ async function commitAppliedPatch(params: {
   if (before.exitCode !== 0 || !before.stdout.trim()) {
     throw new Error(`merge-on-finish could not resolve pre-apply revision: ${outputTail(before.stderr || before.stdout)}`);
   }
+  revalidateIntegrationLease(params.store, params.leaseId);
   const stage = await params.commandRunner(params.repoRoot, ["git", "add", "--", ...paths]);
   if (stage.exitCode !== 0) {
     const cleanup = await compensateAppliedPatch({ ...params, paths });
@@ -487,6 +500,7 @@ async function commitAppliedPatch(params: {
     );
   }
   const target = (params.record.targetKey ?? params.record.id).replace(/[\r\n]+/g, " ");
+  revalidateIntegrationLease(params.store, params.leaseId);
   const commit = await params.commandRunner(params.repoRoot, [
     "git",
     "commit",
@@ -513,6 +527,7 @@ async function tryConflictResolver(params: {
   artifacts: ApplyArtifacts;
   commandRunner: CommandRunner;
   config: WorkerOutputConflictResolverConfig | undefined;
+  leaseId: string;
   mergeContext: { request: ConflictResolverRequest; incumbents: Record<string, unknown>[] } | undefined;
   repoRoot: string;
   stateDir: string;
@@ -536,6 +551,7 @@ async function tryConflictResolver(params: {
   let acceptedResult: WorkerOutputIntegrationApplyResult | null = null;
   let invocation: ConflictResolverInvocationResult | null = null;
   try {
+    revalidateIntegrationLease(params.store, params.leaseId);
     const worktreeAdd = await params.commandRunner(params.repoRoot, [
       "git",
       "worktree",
@@ -577,12 +593,14 @@ async function tryConflictResolver(params: {
         if (check.exitCode !== 0) {
           return { applied: false, recorded: false, summary: `resolved patch check failed: ${outputTail(check.stderr || check.stdout)}` };
         }
+        revalidateIntegrationLease(params.store, params.leaseId);
         const apply = await params.commandRunner(params.repoRoot, ["git", "apply", resolvedPatchPath]);
         if (apply.exitCode !== 0) {
           return { applied: false, recorded: false, summary: `resolved patch apply failed: ${outputTail(apply.stderr || apply.stdout)}` };
         }
         const revisions = await commitAppliedPatch({
           commandRunner: params.commandRunner,
+          leaseId: params.leaseId,
           repoRoot: params.repoRoot,
           record: params.record,
           patchPath: resolvedPatchPath,
@@ -590,6 +608,7 @@ async function tryConflictResolver(params: {
             ...params.record.writeSet,
             ...request.conflict_paths.filter((path) => path.includes("/") || /\.[A-Za-z0-9_+-]+$/.test(path)),
           ]),
+          store: params.store,
         });
         acceptedResult = await updateAndSummarize(params.store, params.record, {
           status: "applied",
@@ -606,7 +625,7 @@ async function tryConflictResolver(params: {
           },
         });
         markTentative(params.store, params.record);
-        addEvent(params.store, params.record.sessionId, "worker_integration_applied", "conflict-resolver", acceptedResult);
+        addEvent(params.store, params.record.runId, "worker_integration_applied", "conflict-resolver", acceptedResult);
         return { applied: true, recorded: true, summary: "resolved patch applied serially, committed, and recorded" };
       },
     });
@@ -615,6 +634,7 @@ async function tryConflictResolver(params: {
   } finally {
     if (worktreeAdded) {
       try {
+        revalidateIntegrationLease(params.store, params.leaseId);
         await params.commandRunner(params.repoRoot, ["git", "worktree", "remove", "--force", request.isolated_worktree.path]);
       } catch {
         // Cleanup failure must not replace the resolver disposition. The
@@ -633,6 +653,7 @@ async function handleApplyConflict(params: {
   exitCode: number;
   failureReasons: string[];
   conflictPaths: string[];
+  leaseId: string;
   mergeOnFinish: boolean;
   patchText: string;
   repoRoot: string;
@@ -683,6 +704,7 @@ async function handleApplyConflict(params: {
     artifacts: params.artifacts,
     commandRunner: params.commandRunner,
     config: params.mergeOnFinish ? params.conflictResolver : undefined,
+    leaseId: params.leaseId,
     mergeContext,
     repoRoot: params.repoRoot,
     stateDir: params.stateDir,
@@ -716,9 +738,9 @@ async function handleApplyConflict(params: {
   });
   await writeFile(
     params.artifacts.queueSummaryPath,
-    `${JSON.stringify(workerOutputIntegrationQueueSummary(params.store, params.record.sessionId), null, 2)}\n`,
+    `${JSON.stringify(workerOutputIntegrationQueueSummary(params.store, params.record.runId), null, 2)}\n`,
   );
-  addEvent(params.store, params.record.sessionId, "worker_integration_conflict", "worker-output-integration", result);
+  addEvent(params.store, params.record.runId, "worker_integration_conflict", "worker-output-integration", result);
   return result;
 }
 
@@ -726,13 +748,14 @@ async function applyClaimedWorkerOutput(params: {
   commandRunner: CommandRunner;
   conflictResolver?: WorkerOutputConflictResolverConfig;
   dryRun: boolean;
+  leaseId: string;
   mergeOnFinish: boolean;
   repoRoot: string;
   stateDir: string;
   store: StateStore;
   record: WorkerOutputIntegrationRecord;
 }): Promise<WorkerOutputIntegrationApplyResult> {
-  const artifacts = integrationArtifacts(params.stateDir, params.record.sessionId, params.record.id);
+  const artifacts = integrationArtifacts(params.stateDir, params.record.runId, params.record.id);
   await mkdir(artifacts.artifactDir, { recursive: true });
 
   if (params.dryRun) {
@@ -742,7 +765,7 @@ async function applyClaimedWorkerOutput(params: {
       artifacts,
       failureReasons: ["dry-run agents do not apply worker output patches"],
     });
-    addEvent(params.store, params.record.sessionId, "worker_integration_skipped", "worker-output-integration", result);
+    addEvent(params.store, params.record.runId, "worker_integration_skipped", "worker-output-integration", result);
     return result;
   }
 
@@ -753,7 +776,7 @@ async function applyClaimedWorkerOutput(params: {
       artifacts,
       failureReasons: [`selected checkpoint patch is missing: ${params.record.patchPath ?? "(none)"}`],
     });
-    addEvent(params.store, params.record.sessionId, "worker_integration_conflict", "worker-output-integration", result);
+    addEvent(params.store, params.record.runId, "worker_integration_conflict", "worker-output-integration", result);
     return result;
   }
 
@@ -765,7 +788,7 @@ async function applyClaimedWorkerOutput(params: {
       artifacts,
       failureReasons: ["selected checkpoint patch was empty"],
     });
-    addEvent(params.store, params.record.sessionId, "worker_integration_skipped", "worker-output-integration", result);
+    addEvent(params.store, params.record.runId, "worker_integration_skipped", "worker-output-integration", result);
     return result;
   }
 
@@ -784,6 +807,7 @@ async function applyClaimedWorkerOutput(params: {
       exitCode: check.exitCode,
       failureReasons,
       conflictPaths,
+      leaseId: params.leaseId,
       mergeOnFinish: params.mergeOnFinish,
       patchText,
       repoRoot: params.repoRoot,
@@ -799,6 +823,7 @@ async function applyClaimedWorkerOutput(params: {
   }
 
   const applyCommand = ["git", "apply", params.record.patchPath];
+  revalidateIntegrationLease(params.store, params.leaseId);
   const apply = await params.commandRunner(params.repoRoot, applyCommand);
   await writeFile(artifacts.applyStdoutPath, apply.stdout);
   await writeFile(artifacts.applyStderrPath, apply.stderr);
@@ -813,6 +838,7 @@ async function applyClaimedWorkerOutput(params: {
       exitCode: apply.exitCode,
       failureReasons,
       conflictPaths,
+      leaseId: params.leaseId,
       mergeOnFinish: params.mergeOnFinish,
       patchText,
       repoRoot: params.repoRoot,
@@ -830,9 +856,11 @@ async function applyClaimedWorkerOutput(params: {
   const revisions = params.mergeOnFinish
     ? await commitAppliedPatch({
         commandRunner: params.commandRunner,
+        leaseId: params.leaseId,
         repoRoot: params.repoRoot,
         record: params.record,
         patchPath: params.record.patchPath,
+        store: params.store,
       })
     : null;
   const result = await updateAndSummarize(params.store, params.record, {
@@ -853,7 +881,7 @@ async function applyClaimedWorkerOutput(params: {
       : undefined,
   });
   if (params.mergeOnFinish) markTentative(params.store, params.record);
-  addEvent(params.store, params.record.sessionId, "worker_integration_applied", "worker-output-integration", result);
+  addEvent(params.store, params.record.runId, "worker_integration_applied", "worker-output-integration", result);
   return result;
 }
 
@@ -861,11 +889,12 @@ export async function processWorkerOutputIntegrationQueue(params: {
   commandRunner?: CommandRunner;
   conflictResolver?: WorkerOutputConflictResolverConfig;
   dryRun: boolean;
+  leaseId: string;
   limit?: number;
   mergeOnFinish?: boolean;
   mergeOnFinishWaitMs?: number;
   repoRoot: string;
-  sessionId: string;
+  runId: string;
   stateDir: string;
   store: StateStore;
 }): Promise<WorkerOutputIntegrationQueueResult> {
@@ -876,7 +905,8 @@ export async function processWorkerOutputIntegrationQueue(params: {
   const commandRunner = params.commandRunner ?? runCommand;
 
   while (processed.length < limit) {
-    const record = claimNextWorkerOutputIntegration(params.store, params.sessionId);
+    revalidateIntegrationLease(params.store, params.leaseId);
+    const record = claimNextWorkerOutputIntegration(params.store, params.runId);
     if (!record) {
       if (mergeOnFinish && Date.now() < waitDeadline) {
         const pending = params.store.db
@@ -886,10 +916,10 @@ export async function processWorkerOutputIntegrationQueue(params: {
                 SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END) AS queued,
                 SUM(CASE WHEN status = 'applying' THEN 1 ELSE 0 END) AS applying
               FROM worker_output_integrations
-              WHERE session_id = ?
+              WHERE run_id = ?
             `,
           )
-          .get(params.sessionId) as Record<string, unknown>;
+          .get(params.runId) as Record<string, unknown>;
         if (Number(pending.queued ?? 0) > 0 && Number(pending.applying ?? 0) > 0) {
           await new Promise((resolveWait) => setTimeout(resolveWait, 25));
           continue;
@@ -903,6 +933,7 @@ export async function processWorkerOutputIntegrationQueue(params: {
           commandRunner,
           conflictResolver: params.conflictResolver,
           dryRun: params.dryRun,
+          leaseId: params.leaseId,
           mergeOnFinish,
           repoRoot: params.repoRoot,
           stateDir: params.stateDir,
@@ -911,7 +942,7 @@ export async function processWorkerOutputIntegrationQueue(params: {
         }),
       );
     } catch (error) {
-      const artifacts = integrationArtifacts(params.stateDir, record.sessionId, record.id);
+      const artifacts = integrationArtifacts(params.stateDir, record.runId, record.id);
       await mkdir(artifacts.artifactDir, { recursive: true });
       const result = await updateAndSummarize(params.store, record, {
         status: "failed",
@@ -919,14 +950,14 @@ export async function processWorkerOutputIntegrationQueue(params: {
         artifacts,
         failureReasons: [error instanceof Error ? error.message : String(error)],
       });
-      addEvent(params.store, record.sessionId, "worker_integration_conflict", "worker-output-integration", result);
+      addEvent(params.store, record.runId, "worker_integration_conflict", "worker-output-integration", result);
       processed.push(result);
     }
   }
 
   return {
     processed,
-    queueSummary: workerOutputIntegrationQueueSummary(params.store, params.sessionId),
+    queueSummary: workerOutputIntegrationQueueSummary(params.store, params.runId),
   };
 }
 

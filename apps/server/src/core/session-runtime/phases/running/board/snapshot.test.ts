@@ -304,7 +304,6 @@ function featureFor(sourcePath: string, overrides: Partial<BoardRankFeature> = {
     connected_incomplete_function_count: 0,
     connected_matched_reference_count: 0,
     resource_evidence_count: 0,
-    path_fact_count: 0,
     historical_lesson_count: 0,
     curated_signal_count: 0,
     proposal_fact_count: 0,

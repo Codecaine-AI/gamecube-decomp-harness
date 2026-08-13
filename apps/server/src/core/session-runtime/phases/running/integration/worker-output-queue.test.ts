@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
+import { initializeProjectState, releaseDispatch, requestDispatch, StaleLeaseError } from "@server/core/project-state";
 import { processWorkerOutputIntegrationQueue, processWorkerOutputOnFinish } from "./worker-output-queue.js";
 
 const tempDirs: string[] = [];
@@ -58,7 +59,7 @@ function insertQueued(store: StateStore, patchPath: string, id = "integration-1"
     .query(
       `
         INSERT INTO worker_checkpoints (
-          id, worker_state_id, session_id, epoch_id, epoch_target_id,
+          id, worker_state_id, run_id, epoch_id, epoch_target_id,
           target_claim_id, attempt_index, validation_time, hard_gates_passed,
           validation_status, validation_state, patch_path, diff_path, write_set_json
         ) VALUES (?, 'worker-1', 'run-1', 'epoch-1', 'target-1', 'claim-1', 0,
@@ -70,7 +71,7 @@ function insertQueued(store: StateStore, patchPath: string, id = "integration-1"
     .query(
       `
         INSERT INTO worker_output_integrations (
-          id, session_id, epoch_id, epoch_target_id, target_claim_id,
+          id, run_id, epoch_id, epoch_target_id, target_claim_id,
           worker_state_id, worker_checkpoint_id, status, target_key,
           patch_path, diff_path, write_set_json, validation_state, metadata_json,
           created_at, updated_at
@@ -86,6 +87,21 @@ function integration(store: StateStore, id = "integration-1"): Record<string, un
   return store.db.query("SELECT * FROM worker_output_integrations WHERE id = ?").get(id) as Record<string, unknown>;
 }
 
+function acquireLease(store: StateStore, kind: "pr" | "run" = "run", workflowId = "run-1"): string {
+  initializeProjectState(store, { projectId: "test", traceId: "trace-test" });
+  const decision = requestDispatch(store, {
+    actor: "operator",
+    commandId: `command-${kind}-${workflowId}`,
+    correlationId: workflowId,
+    kind,
+    projectId: "test",
+    reason: "worker output integration test",
+    workflowId,
+  });
+  if (decision.queued) throw new Error(`test dispatch unexpectedly queued behind ${decision.blockedBy.lease_id}`);
+  return decision.leaseId;
+}
+
 describe("merge-on-finish worker output integration", () => {
   test("flag on applies, commits into session ancestry, and records tentative validation", async () => {
     const stateDir = tempDir("merge-on-finish-state-");
@@ -94,11 +110,13 @@ describe("merge-on-finish worker output integration", () => {
       const repo = setupRepo();
       const patchPath = patchFile(stateDir);
       insertQueued(store, patchPath);
+      const leaseId = acquireLease(store);
 
       const result = await processWorkerOutputOnFinish({
         dryRun: false,
+        leaseId,
         repoRoot: repo,
-        sessionId: "run-1",
+        runId: "run-1",
         stateDir,
         store,
       });
@@ -129,13 +147,15 @@ describe("merge-on-finish worker output integration", () => {
       git(repo, ["add", "src/a.c"]);
       git(repo, ["commit", "-m", "current side"]);
       insertQueued(store, patchPath);
+      const leaseId = acquireLease(store);
       let resolverCalls = 0;
 
       const result = await processWorkerOutputIntegrationQueue({
         dryRun: false,
+        leaseId,
         mergeOnFinish: true,
         repoRoot: repo,
-        sessionId: "run-1",
+        runId: "run-1",
         stateDir,
         store,
         conflictResolver: {
@@ -170,6 +190,7 @@ describe("merge-on-finish worker output integration", () => {
       git(repo, ["add", "src/a.c"]);
       git(repo, ["commit", "-m", "current side"]);
       insertQueued(store, patchPath);
+      const leaseId = acquireLease(store);
       const resolvedPatch = [
         "diff --git a/src/a.c b/src/a.c",
         "--- a/src/a.c",
@@ -182,9 +203,10 @@ describe("merge-on-finish worker output integration", () => {
 
       const result = await processWorkerOutputIntegrationQueue({
         dryRun: false,
+        leaseId,
         mergeOnFinish: true,
         repoRoot: repo,
-        sessionId: "run-1",
+        runId: "run-1",
         stateDir,
         store,
         conflictResolver: {
@@ -222,12 +244,14 @@ describe("merge-on-finish worker output integration", () => {
       const repo = setupRepo();
       const patchPath = patchFile(stateDir);
       insertQueued(store, patchPath);
+      const leaseId = acquireLease(store);
 
       const result = await processWorkerOutputIntegrationQueue({
         dryRun: false,
+        leaseId,
         mergeOnFinish: false,
         repoRoot: repo,
-        sessionId: "run-1",
+        runId: "run-1",
         stateDir,
         store,
       });
@@ -236,6 +260,44 @@ describe("merge-on-finish worker output integration", () => {
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 1;\n");
       expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(1);
       expect(JSON.parse(String(integration(store).metadata_json))).toEqual({ scoped_checks_passed: true });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a stale lease cannot claim or mutate queued checkout work", async () => {
+    const stateDir = tempDir("merge-on-finish-stale-lease-state-");
+    const store = openState(stateDir);
+    try {
+      const repo = setupRepo();
+      const patchPath = patchFile(stateDir);
+      insertQueued(store, patchPath);
+      const staleLeaseId = acquireLease(store);
+      releaseDispatch(store, {
+        actor: "operator",
+        commandId: "command-release-run-1",
+        correlationId: "run-1",
+        leaseId: staleLeaseId,
+        projectId: "test",
+      });
+      const prLeaseId = acquireLease(store, "pr", "pr-1");
+
+      await expect(
+        processWorkerOutputIntegrationQueue({
+          dryRun: false,
+          leaseId: staleLeaseId,
+          mergeOnFinish: true,
+          repoRoot: repo,
+          runId: "run-1",
+          stateDir,
+          store,
+        }),
+      ).rejects.toBeInstanceOf(StaleLeaseError);
+
+      expect(prLeaseId).not.toBe(staleLeaseId);
+      expect(integration(store).status).toBe("queued");
+      expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 0;\n");
+      expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(1);
     } finally {
       store.db.close();
     }

@@ -7,7 +7,7 @@ import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import { admitEpochTargets, startSchedulerEpoch } from "./epochs.js";
 import { createRun } from "./runs.js";
 import {
-  activeClaimsForSession,
+  activeClaimsForRun,
   claimNextEpochTarget,
   closeWorkerState,
   normalizeWriteSetEntries,
@@ -38,7 +38,7 @@ function setupClaim(store: StateStore) {
     priority: 100,
     reason: "test target",
   };
-  const run = createRun(store, "matched_code_percent", 100, 1);
+  const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
     size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
@@ -51,7 +51,7 @@ function setupClaim(store: StateStore) {
     size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
   });
-  const claim = claimNextEpochTarget({ store, sessionId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1_800 });
+  const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1_800 });
   if (!claim) throw new Error("expected test claim");
   return { run, epoch, claim };
 }
@@ -82,7 +82,7 @@ describe("write-set-aware worker state", () => {
         },
       ]);
       expect(widened.writeSet).toEqual(["src/melee/ft/target.c", "src/melee/ft/target.h"]);
-      expect(activeClaimsForSession(store, run.id)[0]?.writeSetEntries).toEqual(widened.entries);
+      expect(activeClaimsForRun(store, run.id)[0]?.writeSetEntries).toEqual(widened.entries);
 
       const claimRow = store.db
         .query("SELECT write_set_json, write_set_hash, write_set_entries_json FROM target_claims WHERE id = ?")
@@ -111,7 +111,7 @@ describe("write-set-aware worker state", () => {
         .query(
           `
             INSERT INTO write_set_widenings (
-              id, session_id, epoch_id, target_claim_id, worker_state_id,
+              id, run_id, epoch_id, target_claim_id, worker_state_id,
               attempt_index, category, rung, requested_paths_json,
               approved_paths_json, evidence_json, status, created_at
             ) VALUES (?, ?, ?, ?, ?, 0, 'config-metadata', 2, '[]', '[]', '{}', 'approved', ?)
@@ -122,7 +122,7 @@ describe("write-set-aware worker state", () => {
       closeWorkerState(store, { workerStateId: claim.workerStateId, lifecycleStatus: "error", epochTargetStatus: "admitted" });
       const recycled = claimNextEpochTarget({
         store,
-        sessionId: run.id,
+        runId: run.id,
         workerId: "worker-2",
         baseRev: "next-base",
         ttlSeconds: 1_800,
@@ -155,7 +155,7 @@ describe("write-set-aware worker state", () => {
       const writeSet = ["src/melee/ft/target.c", "config/GALE01/symbols.txt"];
       recordWorkerCheckpoint(store, {
         workerStateId: claim.workerStateId,
-        sessionId: run.id,
+        runId: run.id,
         epochId: claim.epochId,
         epochTargetId: claim.epochTargetId,
         targetClaimId: claim.claimId,
