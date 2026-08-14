@@ -240,9 +240,22 @@ describe("project session API routes", () => {
     });
 
     seedNamedAnchor(stateDir);
+    const unconfirmed = await routeJson(stateDir, "/api/project-session/close?projectId=melee", {
+      method: "POST",
+    });
+    expect(unconfirmed.response.status).toBe(409);
+    expect(unconfirmed.data).toMatchObject({
+      action_id: "session.close",
+      enabled: true,
+      blocked_by: [],
+      confirmation_required: true,
+      error: "session.close requires operator confirmation",
+      result: null,
+    });
+
     const closed = await routeJson(stateDir, "/api/project-session/close?projectId=melee", {
       method: "POST",
-      body: JSON.stringify({ aheadOfBase: 99, worktreeDirtyBeyondHead: true }),
+      body: JSON.stringify({ aheadOfBase: 99, confirmed: true, worktreeDirtyBeyondHead: true }),
     });
     expect(closed.response.status).toBe(200);
     expect(closed.data).toMatchObject({
@@ -316,6 +329,7 @@ describe("project session API routes", () => {
     seedNamedAnchor(stateDir);
     const closed = await routeJson(stateDir, "/api/project-session/complete?projectId=melee", {
       method: "POST",
+      body: JSON.stringify({ confirmed: true }),
     });
     expect(closed.response.status).toBe(200);
     expect(closed.data).toMatchObject({
@@ -363,7 +377,7 @@ describe("project session API routes", () => {
     const closed = await routeJson(
       stateDir,
       "/api/project-session/close?projectId=melee",
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify({ confirmed: true }) },
       {
         campaignStatus: (repoRoot) => {
           seenRepoRoots.push(repoRoot);

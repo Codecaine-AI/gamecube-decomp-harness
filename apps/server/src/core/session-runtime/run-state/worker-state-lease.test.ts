@@ -67,6 +67,21 @@ describe("worker claim dispatch fencing", () => {
         leaseId: dispatch.leaseId,
       });
       expect(claim?.workerId).toBe("worker-current");
+      if (!claim) throw new Error("Expected a current worker claim");
+
+      store.db.exec("DROP TABLE background_knowledge_jobs");
+      expect(() => closeWorkerState(store, {
+        workerStateId: claim.workerStateId,
+        lifecycleStatus: "finished",
+      })).toThrow();
+      expect(store.db.query("SELECT lifecycle_status, ended_at FROM worker_state WHERE id = ?").get(claim.workerStateId)).toEqual({
+        lifecycle_status: "running",
+        ended_at: null,
+      });
+      expect(store.db.query("SELECT status, closed_at FROM target_claims WHERE id = ?").get(claim.claimId)).toEqual({
+        status: "active",
+        closed_at: null,
+      });
     } finally {
       store.db.close();
     }
@@ -191,6 +206,13 @@ describe("worker claim dispatch fencing", () => {
         }),
       ).not.toThrow();
       expect(store.db.query("SELECT status FROM target_claims WHERE id = ?").get(existingClaim.claimId)).toEqual({ status: "closed" });
+      expect(() => closeWorkerState(store, {
+        workerStateId: existingClaim.workerStateId,
+        lifecycleStatus: "finished",
+        epochTargetStatus: "finished",
+        summary: { replayed_close: true },
+      })).not.toThrow();
+      expect(store.db.query("SELECT COUNT(*) AS count FROM background_knowledge_jobs WHERE worker_state_id = ?").get(existingClaim.workerStateId)).toEqual({ count: 1 });
     } finally {
       store.db.close();
     }

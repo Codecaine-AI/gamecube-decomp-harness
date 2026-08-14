@@ -40,7 +40,6 @@ describe("projected PR campaign controls", () => {
       prCloseCampaign: "pr.close_campaign",
       prAbandonCampaign: "pr.abandon_campaign",
       prCampaignRecover: "pr.campaign_recover",
-      prAdoptLegacy: "pr.adopt_legacy",
     });
     expect(PR_CAMPAIGN_ENDPOINTS).toEqual({
       prOpenCampaign: "/api/pr/open-campaign",
@@ -50,7 +49,6 @@ describe("projected PR campaign controls", () => {
       prCloseCampaign: "/api/pr/close-campaign",
       prAbandonCampaign: "/api/pr/abandon-campaign",
       prCampaignRecover: "/api/pr/campaign-recover",
-      prAdoptLegacy: "/api/pr/adopt-legacy",
     });
   });
 
@@ -77,10 +75,11 @@ describe("projected PR campaign controls", () => {
       "pr.close_campaign",
       "pr.abandon_campaign",
       "pr.campaign_recover",
-      "pr.adopt_legacy",
     ]) {
       expect(card).toContain(`actionId: "${actionId}"`);
     }
+    expect(card).toContain('projectStateCompatibilityAction(projectState, "pr.adopt_legacy")');
+    expect(card).toContain("Compatibility — legacy migration only");
     expect(card).toContain("campaign.series_by_status");
     expect(card).toContain("campaign.pending_work_items.items");
     expect(card).toContain("campaign.next_batch.series");
@@ -90,7 +89,7 @@ describe("projected PR campaign controls", () => {
     expect(legacy).not.toContain('onAction("openDraftBatch")');
     expect(legacy).not.toContain('onAction("openAllPrs")');
     expect(dispatcher).toContain("projectedPrAction?.confirmation_required");
-    expect(dispatcher).toContain("prCampaignConfirmationMessage(nextAction, projectState?.pr ?? null)");
+    expect(dispatcher).toContain("prCampaignConfirmationMessage(nextAction, projectedCampaign)");
     expect(dispatcher).toContain("PR_CAMPAIGN_ENDPOINTS[nextAction]");
   });
 });

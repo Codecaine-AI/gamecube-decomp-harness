@@ -25,7 +25,7 @@ function WorkspaceSectionContent(props: ProjectWorkspaceProps & { nav: Workspace
     return <TracePage form={props.form} view={props.view} />;
   }
   if (props.route.section === "knowledge") {
-    return <KnowledgePage form={props.form} />;
+    return <KnowledgePage busy={props.busy} form={props.form} onAction={props.onAction} projectState={props.view.projectState} />;
   }
   if (props.route.section === "style") {
     return <StylePage grainSettings={props.grainSettings} onGrainSettingsChange={props.onGrainSettingsChange} view={props.view} />;

@@ -86,8 +86,12 @@ function projectionBlocker(
   };
 }
 
-function commandResponse(action: ActionProjection, result: unknown): JsonObject {
-  return { ...action, result: result as JsonObject | null };
+function commandResponse(action: ActionProjection, result: unknown, error?: string): JsonObject {
+  return {
+    ...action,
+    ...(error ? { error } : {}),
+    result: result as JsonObject | null,
+  };
 }
 
 export async function handleProjectSessionApiRoute(req: Request, url: URL, deps: ProjectSessionApiRouteDeps): Promise<Response | null> {
@@ -117,6 +121,12 @@ export async function handleProjectSessionApiRoute(req: Request, url: URL, deps:
       const action = actionState.availableActions.find((candidate) => candidate.action_id === actionId);
       if (!action) throw new Error(`Missing ${actionId} action projection`);
       if (!action.enabled) return deps.json(commandResponse(action, null), { status: 409 });
+      if (action.confirmation_required && body.confirmed !== true) {
+        return deps.json(
+          commandResponse(action, null, `${actionId} requires operator confirmation`),
+          { status: 409 },
+        );
+      }
 
       if (command === "save-point") {
         const label = text(body.label).trim() || `manual-${new Date().toISOString()}`;

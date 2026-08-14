@@ -30,6 +30,7 @@ import { getSyncState, recordSyncRequested, transitionSync } from "@server/core/
 import {
   buildProjectStateReadModel,
   createDashboardReadModel,
+  getProjectStateView,
   projectRunActionState,
   type JsonObject,
 } from "./read-model.js";
@@ -57,6 +58,41 @@ afterAll(() => {
 });
 
 describe("dashboard read model", () => {
+  test("canonical ProjectStateView always projects the 21 actions and isolates compatibility actions", () => {
+    const { store } = tempState();
+    try {
+      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      const view = getProjectStateView(store, "melee");
+      expect(view.project_id).toBe("melee");
+      expect(view.project_revision).toBe(0);
+      expect(view.run).toBeNull();
+      expect(view.pr_work).toEqual([]);
+      expect(view.knowledge).toMatchObject({ queued: 0, processing: 0, waiting: 0, failed: 0, active_lease: null });
+      expect(view.available_actions).toHaveLength(21);
+      expect(view.available_actions.map((action) => action.action_id)).toEqual([
+        "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
+        "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
+        "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
+        "session.save_point", "session.close", "knowledge.process",
+      ]);
+      expect(view.available_actions.every((action) => action.confirmation_required === [
+        "run.hard_stop", "run.cancel", "run.recover", "pr.publish_batch", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
+        "sync.publish", "sync.cancel", "sync.recover", "session.close",
+      ].includes(action.action_id))).toBeTrue();
+      expect(view.available_actions.find((action) => action.action_id === "run.start")?.blocked_by).toEqual([
+        expect.objectContaining({ code: "run_not_found" }),
+      ]);
+      expect(view.available_actions.find((action) => action.action_id === "knowledge.process")?.blocked_by).toEqual([
+        expect.objectContaining({ code: "knowledge_queue_empty" }),
+      ]);
+      expect(view.compatibility_actions).toHaveLength(1);
+      expect(view.compatibility_actions[0]?.action_id).toBe("pr.adopt_legacy");
+      expect(view.available_actions.some((action) => action.action_id === "pr.adopt_legacy")).toBeFalse();
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("projects canonical authority, session evidence, queued dispatch, and server-owned actions", () => {
     const { store } = tempState();
     try {

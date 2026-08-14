@@ -52,6 +52,61 @@ export const PR_BATCH_PUBLICATION_RESERVATIONS_DDL = `
     ON pr_batch_publication_series (publication_id, ordinal);
 `;
 
+export const BACKGROUND_KNOWLEDGE_JOBS_DDL = `
+  CREATE TABLE IF NOT EXISTS background_knowledge_jobs (
+    job_id TEXT PRIMARY KEY,
+    worker_state_id TEXT NOT NULL REFERENCES worker_state(id),
+    project_id TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0 CONSTRAINT background_knowledge_jobs_revision_check CHECK (
+      revision >= 0
+    ),
+    status TEXT NOT NULL DEFAULT 'queued' CONSTRAINT background_knowledge_jobs_status_check CHECK (
+      status IN ('queued', 'processing', 'waiting', 'succeeded', 'failed', 'cancelled')
+    ),
+    execution_class TEXT NOT NULL CONSTRAINT background_knowledge_jobs_execution_class_check CHECK (
+      execution_class IN ('background_safe', 'sync_stage')
+    ),
+    source_kind TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0 CONSTRAINT background_knowledge_jobs_attempts_check CHECK (
+      attempts >= 0
+    ),
+    next_attempt_at TEXT,
+    lease_id TEXT,
+    lease_expires_at TEXT,
+    evidence_provenance_json TEXT NOT NULL DEFAULT '{}'
+      CONSTRAINT background_knowledge_jobs_evidence_provenance_json_check CHECK (
+        json_valid(evidence_provenance_json)
+      ),
+    publication_provenance_json TEXT
+      CONSTRAINT background_knowledge_jobs_publication_provenance_json_check CHECK (
+        publication_provenance_json IS NULL OR json_valid(publication_provenance_json)
+      ),
+    published_digest TEXT,
+    error_json TEXT CONSTRAINT background_knowledge_jobs_error_json_check CHECK (
+      error_json IS NULL OR json_valid(error_json)
+    ),
+    trace_id TEXT NOT NULL,
+    caused_by_event_id TEXT REFERENCES project_events(event_id),
+    blockers_json TEXT NOT NULL DEFAULT '[]' CONSTRAINT background_knowledge_jobs_blockers_json_check CHECK (
+      json_valid(blockers_json)
+    ),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS background_knowledge_jobs_worker_state
+    ON background_knowledge_jobs (worker_state_id);
+
+  CREATE INDEX IF NOT EXISTS background_knowledge_jobs_claim
+    ON background_knowledge_jobs (status, next_attempt_at);
+
+  CREATE INDEX IF NOT EXISTS background_knowledge_jobs_project_claim
+    ON background_knowledge_jobs (project_id, status, next_attempt_at);
+`;
+
 export const PROJECT_EVENTS_DDL = `
   CREATE TABLE IF NOT EXISTS project_events (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,

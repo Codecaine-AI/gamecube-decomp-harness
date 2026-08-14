@@ -34,6 +34,7 @@ export type DashboardAction =
   | "prAbandonCampaign"
   | "prCampaignRecover"
   | "prAdoptLegacy"
+  | "knowledgeProcess"
   | "start"
   | "startWork"
   | "finishEpoch"
@@ -264,6 +265,7 @@ export interface ProjectStateDispatchLease {
   status: "acquiring" | "active" | "draining" | "blocked" | "releasing";
   acquired_at: string;
   heartbeat_at: string;
+  headline: string;
   requested_handoff?: ProjectStateDispatchHandoff;
   blockers: ProjectStateBlocker[];
 }
@@ -304,16 +306,55 @@ export interface ProjectStateSessionReadModel {
   timeline: ProjectStateTimelineEntry[];
 }
 
+export interface ProjectStateKnowledgeLease extends JsonObject {
+  id: string;
+  expires_at: string;
+}
+
+export interface ProjectStateKnowledgeFailure extends JsonObject {
+  job_id: string;
+  worker_state_id: string;
+  error: string;
+  attempts: number;
+  updated_at: string;
+}
+
+export interface ProjectStateKnowledgeFreshness extends JsonObject {
+  published_revision: string | null;
+  queued: number;
+  processing: number;
+  waiting: number;
+  failed: number;
+  oldest_pending_at: string | null;
+  active_lease: ProjectStateKnowledgeLease | null;
+  retry: JsonObject | null;
+  recent_failures: ProjectStateKnowledgeFailure[];
+}
+
+export interface ProjectStateOperationSummary extends JsonObject {
+  operation_id: string;
+  status: string;
+}
+
+export interface ProjectStateEventSummary extends JsonObject {
+  event_type: string;
+  sequence: number;
+}
+
 export interface ProjectStateReadModel {
-  revision: number;
+  project_id: string;
+  project_revision: number;
   active_workflow: ProjectStateDispatchLease | null;
   queued_dispatch_requests: ProjectStateQueuedDispatchRequest[];
   session: ProjectStateSessionReadModel | null;
   run: ProjectStateRunReadModel | null;
-  pr: ProjectStatePrReadModel | null;
+  pr_work: ProjectStatePrReadModel[];
+  knowledge: ProjectStateKnowledgeFreshness;
   sync: ProjectStateSyncReadModel | null;
-  latest_event_sequence: number;
+  active_operations: ProjectStateOperationSummary[];
+  recent_events: ProjectStateEventSummary[];
   available_actions: ProjectStateActionProjection[];
+  compatibility_actions: ProjectStateActionProjection[];
 }
 
 export interface PrFlowRecord {

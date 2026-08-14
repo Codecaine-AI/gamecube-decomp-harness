@@ -16,6 +16,7 @@ import { syncPublicationIntentsMigration } from "./013-sync-publication-intents.
 import { prCampaignMigration } from "./014-pr-campaign.js";
 import { prBatchPublicationReservationsMigration } from "./015-pr-batch-publication-reservations.js";
 import { eventConventionsMigration } from "./016-event-conventions.js";
+import { backgroundKnowledgeJobsMigration } from "./017-background-knowledge-jobs.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -39,6 +40,7 @@ export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   prCampaignMigration,
   prBatchPublicationReservationsMigration,
   eventConventionsMigration,
+  backgroundKnowledgeJobsMigration,
 ]);
 
 interface AppliedMigrationRow {

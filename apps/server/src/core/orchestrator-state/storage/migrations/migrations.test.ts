@@ -8,6 +8,7 @@ import { configureConnection, ensureLegacySchema } from "../ddl.js";
 import { openState, type StateStore } from "../store.js";
 import { immediateTransaction } from "../transaction.js";
 import {
+  BACKGROUND_KNOWLEDGE_JOBS_DDL,
   PENDING_INTEGRATIONS_DDL,
   PR_BATCH_PUBLICATION_RESERVATIONS_DDL,
   PROJECT_EVENTS_DDL,
@@ -15,6 +16,7 @@ import {
   SYNC_PUBLICATION_INTENTS_DDL,
   SYNC_STATE_DDL,
 } from "./ddl.js";
+import { backgroundKnowledgeJobsMigration } from "./017-background-knowledge-jobs.js";
 import { runStorageMigrations } from "./index.js";
 import { rebuildTable } from "./rebuild-table.js";
 import { eventConventionsMigration } from "./016-event-conventions.js";
@@ -1442,6 +1444,7 @@ describe("orchestrator storage migrations", () => {
       { version: 14, name: "pr_campaign" },
       { version: 15, name: "pr_batch_publication_reservations" },
       { version: 16, name: "event_conventions" },
+      { version: 17, name: "background_knowledge_jobs" },
     ]);
     expect(
       store.db
@@ -1719,8 +1722,54 @@ describe("orchestrator storage migrations", () => {
     closeStore(store);
 
     const reopened = trackStore(openState(stateDir));
-    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 16 });
+    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 17 });
     expect(schemaSnapshot(reopened.db)).toEqual(firstSnapshot);
+  });
+
+  test("migration 017 creates the durable background knowledge queue with claim indexes and constraints", () => {
+    const store = trackStore(openState(createTempDir("orchestrator-migrations-background-knowledge-")));
+    const db = store.db;
+
+    expect((db.query("PRAGMA table_info(background_knowledge_jobs)").all() as Array<{ name: string }>).map(
+      (column) => column.name,
+    )).toEqual([
+      "job_id", "worker_state_id", "project_id", "run_id", "revision", "status",
+      "execution_class", "source_kind", "source_id", "attempts", "next_attempt_at",
+      "lease_id", "lease_expires_at", "evidence_provenance_json",
+      "publication_provenance_json", "published_digest", "error_json", "trace_id",
+      "caused_by_event_id", "blockers_json", "created_at", "updated_at", "completed_at",
+    ]);
+    expect((db.query("PRAGMA foreign_key_list(background_knowledge_jobs)").all() as Array<{
+      table: string;
+      from: string;
+      to: string;
+    }>).map(({ table, from, to }) => ({ table, from, to })).sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: "project_events", from: "caused_by_event_id", to: "event_id" },
+      { table: "worker_state", from: "worker_state_id", to: "id" },
+    ]);
+    expect(db.query(`
+      SELECT name FROM sqlite_master
+      WHERE type = 'index' AND name LIKE 'background_knowledge_jobs_%'
+      ORDER BY name
+    `).all()).toEqual([
+      { name: "background_knowledge_jobs_claim" },
+      { name: "background_knowledge_jobs_project_claim" },
+      { name: "background_knowledge_jobs_worker_state" },
+    ]);
+
+    const tableSql = (db.query(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'background_knowledge_jobs'",
+    ).get() as { sql: string }).sql;
+    expect(tableSql).toContain("'queued', 'processing', 'waiting', 'succeeded', 'failed', 'cancelled'");
+    expect(tableSql).toContain("'background_safe', 'sync_stage'");
+    expect(db.query("SELECT COUNT(*) AS count FROM background_knowledge_jobs").get()).toEqual({ count: 0 });
+    expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
+
+    const before = schemaSnapshot(db);
+    backgroundKnowledgeJobsMigration.up(db);
+    backgroundKnowledgeJobsMigration.up(db);
+    expect(schemaSnapshot(db)).toEqual(before);
+    expect(BACKGROUND_KNOWLEDGE_JOBS_DDL).not.toContain("INSERT INTO");
   });
 
   test("openState converges a frozen version-10 pre-slice-3 database", () => {
@@ -1732,7 +1781,7 @@ describe("orchestrator storage migrations", () => {
     closeDatabase(legacyDb);
 
     const migrated = trackStore(openState(stateDir));
-    expect(migrated.db.query("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 16 });
+    expect(migrated.db.query("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 17 });
     expect(
       migrated.db
         .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('sync_state', 'pr_campaigns') ORDER BY name")
@@ -1864,6 +1913,7 @@ describe("orchestrator storage migrations", () => {
       { version: 14, name: "pr_campaign" },
       { version: 15, name: "pr_batch_publication_reservations" },
       { version: 16, name: "event_conventions" },
+      { version: 17, name: "background_knowledge_jobs" },
     ]);
     expect(
       migrated.db
@@ -1940,7 +1990,7 @@ describe("orchestrator storage migrations", () => {
     closeStore(migrated);
 
     const reopened = trackStore(openState(stateDir));
-    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 16 });
+    expect(reopened.db.query("SELECT count(*) AS count FROM schema_migrations").get()).toEqual({ count: 17 });
     expect(schemaSnapshot(reopened.db)).toEqual(migratedSnapshot);
     expect(reopened.db.query("SELECT id, run_id FROM epochs").get()).toEqual({
       id: "epoch-legacy",
@@ -1979,6 +2029,7 @@ describe("orchestrator storage migrations", () => {
       { version: 14, name: "pr_campaign" },
       { version: 15, name: "pr_batch_publication_reservations" },
       { version: 16, name: "event_conventions" },
+      { version: 17, name: "background_knowledge_jobs" },
     ]);
     expect(
       migrated.db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_events'").get(),
@@ -2332,7 +2383,7 @@ describe("orchestrator storage migrations", () => {
       FROM dispatch_handoff_snapshots
     `).all()).toEqual([]);
     expect(migrated.db.query("SELECT MAX(version) AS version, COUNT(*) AS count FROM schema_migrations").get())
-      .toEqual({ version: 16, count: 16 });
+      .toEqual({ version: 17, count: 17 });
     expect(migrated.db.query(`
       SELECT sync_id, status, blocked_origin_status, validation_evidence_json, resolved_conflict_paths_json
       FROM sync_state WHERE sync_id = 'sync-legacy-fixture'
@@ -2423,6 +2474,8 @@ describe("orchestrator storage migrations", () => {
     closeStore(migrated);
     const reopened = trackStore(openState(stateDir));
     expect(reopened.db.query("SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 16").get())
+      .toEqual({ count: 1 });
+    expect(reopened.db.query("SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 17").get())
       .toEqual({ count: 1 });
     expect(reopened.db.query(`
       SELECT snapshot_id, project_id, content_json, content_hash, release_event_id, acquisition_event_id

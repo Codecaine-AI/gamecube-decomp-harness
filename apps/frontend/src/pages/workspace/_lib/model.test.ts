@@ -3,13 +3,83 @@
 import { describe, expect, test } from "bun:test";
 import type { Dashboard, FormState } from "@/lib/format";
 import { activeSessionFocus } from "@/pages/workspace/sessions/_lib/sessionRoute";
-import { deriveSessionView, projectStateAction, projectStateReadModel } from "./model";
+import { deriveSessionView, projectStateAction, projectStateCompatibilityAction, projectStateReadModel } from "./model";
 
 const form = {
   projectId: "melee",
   processName: "melee-live",
   usePathOverrides: false,
 } as unknown as FormState;
+
+const canonicalActionIds = [
+  "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
+  "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign",
+  "pr.abandon_campaign", "pr.campaign_recover", "sync.start", "sync.resolve_conflict",
+  "sync.publish", "sync.cancel", "sync.recover", "session.save_point", "session.close",
+  "knowledge.process",
+] as const;
+
+describe("canonical ProjectState DTO", () => {
+  test("preserves canonical summaries, all 21 actions, and compatibility separation", () => {
+    const action = (action_id: string) => ({
+      action_id,
+      subject_kind: action_id.split(".")[0],
+      subject_id: `${action_id}-subject`,
+      enabled: action_id === "knowledge.process",
+      blocked_by: action_id === "knowledge.process" ? [] : [{
+        code: "fixture_blocker", message: "Fixture blocker", source_kind: "project",
+        source_id: "melee", recoverable: true,
+      }],
+      expected_transition: `${action_id} transition`,
+      confirmation_required: action_id === "session.close",
+    });
+    const dashboard = {
+      projectState: {
+        project_id: "melee",
+        project_revision: 1842,
+        session: null,
+        active_workflow: {
+          kind: "run", workflow_id: "run-1", lease_id: "lease-1", status: "blocked",
+          acquired_at: "2026-08-14T10:00:00Z", heartbeat_at: "2026-08-14T10:01:00Z",
+          headline: "Run waits for claims", blockers: [action("run.start").blocked_by[0]],
+        },
+        queued_dispatch_requests: [{
+          kind: "sync", workflow_id: "sync-1", reason: "upstream moved",
+          requested_at: "2026-08-14T10:02:00Z", requested_by: "operator",
+        }],
+        run: null,
+        pr_work: [{ workflow_id: "pr-1", status: "in_review" }, { workflow_id: "pr-2", status: "working" }],
+        knowledge: {
+          published_revision: "knowledge-381", queued: 6, processing: 1, waiting: 2, failed: 1,
+          oldest_pending_at: "2026-08-14T09:00:00Z",
+          active_lease: { id: "knowledge-lease-1", expires_at: "2026-08-14T10:05:00Z", fence: 7 },
+          retry: { next_attempt_at: "2026-08-14T10:03:00Z", attempts: 2 },
+          recent_failures: [{ job_id: "job-9", worker_state_id: "worker-9", error: "materializer failed", updated_at: "2026-08-14T09:59:00Z", attempts: 3 }],
+        },
+        sync: null,
+        active_operations: [{ operation_id: "operation-1", status: "running", trace_id: "trace-1" }],
+        recent_events: [{ event_type: "project.dispatch_requested", sequence: 92811, event_id: "event-1" }],
+        available_actions: canonicalActionIds.map(action),
+        compatibility_actions: [action("pr.adopt_legacy")],
+      },
+    } as unknown as Dashboard;
+
+    const state = projectStateReadModel(dashboard);
+    expect(state?.project_id).toBe("melee");
+    expect(state?.project_revision).toBe(1842);
+    expect(state?.active_workflow?.headline).toBe("Run waits for claims");
+    expect(state?.queued_dispatch_requests[0]?.requested_by).toBe("operator");
+    expect(state?.pr_work.map((campaign) => campaign.workflow_id)).toEqual(["pr-1", "pr-2"]);
+    expect(state?.knowledge.active_lease?.fence).toBe(7);
+    expect(state?.knowledge.retry?.next_attempt_at).toBe("2026-08-14T10:03:00Z");
+    expect(state?.knowledge.recent_failures[0]?.attempts).toBe(3);
+    expect(state?.active_operations[0]?.trace_id).toBe("trace-1");
+    expect(state?.recent_events[0]?.event_id).toBe("event-1");
+    expect(state?.available_actions.map(({ action_id }) => action_id)).toEqual([...canonicalActionIds]);
+    expect(projectStateAction(state, "pr.adopt_legacy")).toBeNull();
+    expect(projectStateCompatibilityAction(state, "pr.adopt_legacy")?.subject_kind).toBe("pr");
+  });
+});
 
 describe("workspace session view", () => {
   test("projects canonical authority, session timeline, and action decisions without deriving client gates", () => {
@@ -386,7 +456,7 @@ describe("workspace session view", () => {
         queued_dispatch_requests: [],
         session: null,
         run: null,
-        pr: {
+        pr_work: [{
           workflow_id: "campaign-31",
           status: "in_review",
           source_anchor: { save_point_id: "save-31", source_revision: "head-31" },
@@ -418,7 +488,7 @@ describe("workspace session view", () => {
             status: null,
             blockers: [],
           },
-        },
+        }],
         sync: null,
         latest_event_sequence: 31,
         available_actions: [{
@@ -435,7 +505,7 @@ describe("workspace session view", () => {
 
     const state = projectStateReadModel(dashboard);
 
-    expect(state?.pr).toMatchObject({
+    expect(state?.pr_work[0]).toMatchObject({
       workflow_id: "campaign-31",
       status: "in_review",
       source_anchor: { save_point_id: "save-31", source_revision: "head-31" },
@@ -457,8 +527,8 @@ describe("workspace session view", () => {
       },
       activation: { active: false, queued: false, lease_id: null, status: null },
     });
-    expect(state?.pr?.series_by_status.changes_requested).toHaveLength(1);
-    expect(state?.pr?.series_by_status.prepared).toEqual([]);
+    expect(state?.pr_work[0]?.series_by_status.changes_requested).toHaveLength(1);
+    expect(state?.pr_work[0]?.series_by_status.prepared).toEqual([]);
     expect(projectStateAction(state, "pr.activate")).toMatchObject({
       subject_kind: "pr_campaign",
       enabled: true,

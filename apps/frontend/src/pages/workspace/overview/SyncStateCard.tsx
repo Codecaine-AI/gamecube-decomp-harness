@@ -75,10 +75,13 @@ export function SyncStateCard({
   const percent = sync?.staging
     ? progressPercent(sync.staging.epochs_applied, sync.staging.epochs_total)
     : 0;
-  const terminal = sync?.status === "published" || sync?.status === "cancelled";
-  const showStart = !sync || sync.status === "requested" || terminal;
-  const showCancel = Boolean(sync && !terminal);
-  const showRecover = Boolean(sync && !sync.staleness.stale && recover?.enabled);
+  const canonicalControls = [
+    { action: "syncStart" as const, label: "Start sync", icon: <Database size={13} />, projection: start, tone: "primary" as const },
+    { action: "syncResolveConflict" as const, label: "Resolve conflict", icon: <Check size={13} />, projection: resolveConflict },
+    { action: "syncPublish" as const, label: "Publish", icon: <Check size={13} />, projection: publish, tone: "primary" as const },
+    { action: "syncCancel" as const, label: "Cancel", icon: <X size={13} />, projection: cancel, tone: "danger" as const },
+    { action: "syncRecover" as const, label: "Recover", icon: <RotateCcw size={13} />, projection: recover, tone: "warning" as const },
+  ];
 
   return (
     <PanelSection>
@@ -204,27 +207,16 @@ export function SyncStateCard({
         </div>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {showStart ? (
-          <ProjectedButton action="syncStart" busy={busy} icon={<Database size={13} />} onAction={onAction} projection={start} tone="primary">
-            {terminal ? "Start new sync" : "Start sync"}
-          </ProjectedButton>
-        ) : null}
-        {sync?.status === "validated" ? (
-          <ProjectedButton action="syncPublish" busy={busy} icon={<Check size={13} />} onAction={onAction} projection={publish} tone="primary">
-            Publish
-          </ProjectedButton>
-        ) : null}
-        {showRecover ? (
-          <ProjectedButton action="syncRecover" busy={busy} icon={<RotateCcw size={13} />} onAction={onAction} projection={recover} tone="warning">
-            Recover
-          </ProjectedButton>
-        ) : null}
-        {showCancel && !sync?.staleness.stale ? (
-          <ProjectedButton action="syncCancel" busy={busy} icon={<X size={13} />} onAction={onAction} projection={cancel} tone="danger">
-            Cancel
-          </ProjectedButton>
-        ) : null}
+      <div className="mt-4 grid gap-2 @[760px]:grid-cols-5" aria-label="Canonical sync actions">
+        {canonicalControls.map((control) => (
+          <div className="border border-line bg-card p-2" key={control.action}>
+            <ProjectedButton {...control} busy={busy} onAction={onAction}>{control.label}</ProjectedButton>
+            <div className="mt-1.5 text-[10px] text-dim">{control.projection?.expected_transition ?? "Missing server projection"}</div>
+            {!control.projection?.enabled && control.projection?.blocked_by.length ? (
+              <div className="mt-1 text-[10px] text-warn">{control.projection.blocked_by.map((blocker) => blocker.message || prettyStatus(blocker.code)).join("; ")}</div>
+            ) : null}
+          </div>
+        ))}
       </div>
     </PanelSection>
   );

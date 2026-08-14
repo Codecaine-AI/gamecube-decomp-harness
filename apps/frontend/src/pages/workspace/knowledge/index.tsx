@@ -9,6 +9,8 @@ import {
   type KnowledgeLearningEvidence,
 } from "@/lib/api";
 import type { FormState } from "@/lib/format";
+import { projectStateAction } from "@/pages/workspace/_lib/model";
+import type { DashboardAction, ProjectStateReadModel } from "@/pages/workspace/_lib/types";
 
 const PAGE_SIZE = 100;
 const MAX_LEARNINGS = 1000;
@@ -409,7 +411,27 @@ function LearningRows({
   );
 }
 
-export function KnowledgePage({ form }: { form: FormState }) {
+function pendingAge(value: string | null): string {
+  if (!value) return "none";
+  const milliseconds = Date.now() - Date.parse(value);
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return value;
+  const minutes = Math.floor(milliseconds / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+}
+
+export function KnowledgePage({
+  busy,
+  form,
+  onAction,
+  projectState,
+}: {
+  busy: boolean;
+  form: FormState;
+  onAction: (action: DashboardAction) => void;
+  projectState: ProjectStateReadModel | null;
+}) {
   void form;
   const [payload, setPayload] = useState<Awaited<ReturnType<typeof fetchKnowledgeLearnings>> | null>(null);
   const [search, setSearch] = useState("");
@@ -423,6 +445,8 @@ export function KnowledgePage({ form }: { form: FormState }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const freshness = projectState?.knowledge ?? null;
+  const processAction = projectStateAction(projectState, "knowledge.process");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -507,6 +531,42 @@ export function KnowledgePage({ form }: { form: FormState }) {
           {error}
         </div>
       ) : null}
+
+      <section className="mb-4 rounded-lg border border-border bg-card p-3" aria-label="Knowledge freshness and processing authority">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-[0.12em]">Knowledge freshness</h2>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-muted-foreground">
+              <span>published <strong className="text-foreground">{freshness?.published_revision ?? "none"}</strong></span>
+              <span>oldest pending <strong className="text-foreground">{pendingAge(freshness?.oldest_pending_at ?? null)}</strong></span>
+              <span>queued <strong className="text-foreground">{freshness?.queued ?? 0}</strong></span>
+              <span>processing <strong className="text-foreground">{freshness?.processing ?? 0}</strong></span>
+              <span>waiting <strong className="text-foreground">{freshness?.waiting ?? 0}</strong></span>
+              <span>failed <strong className={freshness?.failed ? "text-destructive" : "text-foreground"}>{freshness?.failed ?? 0}</strong></span>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={busy || !processAction?.enabled}
+            onClick={() => onAction("knowledgeProcess")}
+            title={processAction?.blocked_by.map((blocker) => blocker.message || blocker.code).join("; ") || processAction?.expected_transition || "Knowledge process action is missing from the server projection."}
+            className="rounded-[2px] border border-status-info-border bg-status-info-fill px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Process queue
+          </button>
+        </div>
+        <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+          <div>Expected transition: {processAction?.expected_transition ?? "missing server projection"}</div>
+          <div>Active lease: {freshness?.active_lease ? `${freshness.active_lease.id} until ${freshness.active_lease.expires_at}` : "none"}</div>
+          <div>Retry/backoff: {freshness?.retry ? JSON.stringify(freshness.retry) : "none"}</div>
+          {freshness?.recent_failures.map((failure, index) => (
+            <div className="text-destructive" key={`${failure.job_id}:${failure.updated_at}:${index}`}>Failure {failure.job_id}: {failure.error} ({failure.updated_at || "time unknown"})</div>
+          ))}
+          {!processAction?.enabled && processAction?.blocked_by.map((blocker, index) => (
+            <div className="text-status-warning" key={`${blocker.code}:${index}`}>{blocker.message || blocker.code}</div>
+          ))}
+        </div>
+      </section>
 
       <section className="grid h-[calc(100vh-2rem)] min-h-[620px] grid-cols-[260px_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-card">
         <aside className="flex min-h-0 min-w-0 flex-col border-r border-border">

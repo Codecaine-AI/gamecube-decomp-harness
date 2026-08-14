@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { requireActiveLease } from "@server/core/project-state";
 import { immediateTransaction, now, withBusyRetry, writeSetHash, type StateStore } from "@server/core/orchestrator-state";
 import type { WriteSetEntry } from "./write-set-categories.js";
+import { enqueueBackgroundKnowledgeForWorker } from "@server/core/knowledge/background/index.js";
 
 export type EpochTargetStatus = "admitted" | "claimed" | "finished";
 export type TargetClaimStatus = "active" | "closed";
@@ -777,5 +778,6 @@ export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput
         `,
       )
       .run(String(row.epoch_id));
+    enqueueBackgroundKnowledgeForWorker(store, input.workerStateId);
   });
 }

@@ -60,6 +60,8 @@ import {
 } from "@server/core/session-runtime/phases/running/scheduler/tick.js";
 import type { WorkerCycleResult } from "@server/core/session-runtime/phases/running/workers/worker-cycle.js";
 import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
+import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
+import { startBackgroundKnowledgeProcessor } from "@server/core/knowledge/background/index.js";
 import { recoverActiveClaims } from "@server/core/session-runtime/phases/running/jobs/recover-claims.js";
 import { workerTtlSeconds } from "@server/core/session-runtime/phases/running/worker-ttl.js";
 import {
@@ -820,6 +822,13 @@ async function runWorkerProcess(
 
 export async function runRunLoop(globals: GlobalArgs, args: Map<string, string | true>): Promise<RunLoopResult> {
   const store = openState(globals.stateDir);
+  const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(store, async (backgroundJob) => {
+    const publication = await kgLibrarianCondense(globals, new Map<string, string | true>([
+      ["--worker-state-id", backgroundJob.workerStateId],
+      ["--run-id", typeof backgroundJob.provenance.run_id === "string" ? backgroundJob.provenance.run_id : ""],
+    ]));
+    return publication;
+  });
   let observedRunId = "";
   const workerResults: WorkerCycleResult[] = [];
   const workerErrors: WorkerError[] = [];
@@ -906,7 +915,6 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       markEventHandled(store, flagEvent);
     }
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
-    const librarianOnWorkerFinish = booleanArg(args, "--librarian-on-worker-finish");
     const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
     const workerConfigureCommand = stringArg(args, "--worker-configure-command", defaultConfigureCommand(globals));
     const maintenanceIntervalMs = knowledgeMaintenanceIntervalMs(globals, args);
@@ -943,7 +951,6 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     let lastFastMaintenanceReportIso = latestFastRefreshFinishedAt(store, runId, run.createdAt);
     let runningFastKnowledgeMaintenance: Promise<void> | null = null;
     let pendingFastKnowledgeMaintenance = false;
-    let lastLibrarianWorkerFinishIso = new Date().toISOString();
     let schedulerBlocked = false;
     const syncSchedulerCondition = (fallback: "planning" | "dispatching" | "waiting"): void => {
       setRunSchedulerCondition(
@@ -1353,58 +1360,6 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         }
         if (result.after) lastSchedulerEpoch = result.after;
         didWork = true;
-      }
-
-      if (librarianOnWorkerFinish) {
-        const finishedWorkers = withBusyRetry(
-          () =>
-            store.db
-              .query(
-                `
-                  SELECT id, ended_at
-                  FROM worker_state
-                  WHERE run_id = ?
-                    AND ended_at IS NOT NULL
-                    AND ended_at > ?
-                  ORDER BY ended_at ASC
-                `,
-              )
-              .all(runId, lastLibrarianWorkerFinishIso) as Array<{ id: string; ended_at: string }>,
-        );
-        for (const row of finishedWorkers) {
-          if (row.ended_at > lastLibrarianWorkerFinishIso) lastLibrarianWorkerFinishIso = row.ended_at;
-          const command = [
-            "bun",
-            resolve(orchestratorRoot(), "apps/server/src/job-runner.ts"),
-            "--repo-root",
-            globals.repoRoot,
-            "--state-dir",
-            globals.stateDir,
-            "--provider",
-            globals.provider,
-            "--model",
-            globals.model,
-            "--thinking-level",
-            globals.thinkingLevel,
-          ];
-          if (globals.projectId) command.splice(2, 0, "--project", globals.projectId);
-          if (globals.dryRunAgents) command.push("--dry-run-agents");
-          if (globals.agentTimeoutSeconds != null) command.push("--agent-timeout-seconds", String(globals.agentTimeoutSeconds));
-          command.push("kg-librarian-condense", "--worker-state-id", row.id, "--run-id", runId);
-          try {
-            const proc = Bun.spawn(command, { cwd: orchestratorRoot(), stdout: "ignore", stderr: "ignore" });
-            proc.unref?.();
-          } catch (error) {
-            console.error(
-              `[run-loop] failed to enqueue librarian condensation for worker ${row.id}: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            continue;
-          }
-          addEvent(store, runId, "librarian_condense_enqueued" as Parameters<typeof addEvent>[2], "run-loop", {
-            worker_state_id: row.id,
-            created_by: "run-loop",
-          });
-        }
       }
 
       if (
@@ -1891,6 +1846,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       },
     };
   } finally {
+    await stopBackgroundKnowledge();
     if (observedRunId) setRunSchedulerCondition(store, observedRunId, "idle");
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);

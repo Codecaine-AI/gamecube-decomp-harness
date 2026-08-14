@@ -4,7 +4,7 @@ import { asObject, numberValue, type Dashboard, type FormState, type JsonObject,
 import { useDashboardStream } from "@/hooks/useDashboardStream";
 import { DetailsRail, type DetailsTab } from "@/components/details-rail";
 import { ProjectWorkspace, type DashboardAction } from "@/pages/workspace";
-import { projectStateAction, projectStateReadModel } from "@/pages/workspace/_lib/model";
+import { projectStateAction, projectStateCompatibilityAction, projectStateReadModel } from "@/pages/workspace/_lib/model";
 import { type ImprovedMode, type WorkMode } from "@/pages/workspace/sessions/active/subphases/run/components/work-tables";
 import { type AppRoute, routeFromUrl, saveRoute } from "@/routing";
 import { loadGrainSettings, normalizeGrainSettings, saveGrainSettings, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
@@ -14,7 +14,7 @@ import { GrainOverlay } from "@/components/app/_components/GrainOverlay";
 import { clampDetailsWidth, loadDetailsCollapsed, loadDetailsWidth, loadSidebarCollapsed, saveDetailsCollapsed, saveDetailsWidth, saveSidebarCollapsed } from "@/components/app/_lib/railState";
 import { initialForm, saveRunSettings, schedulingForWorkers } from "@/components/app/_lib/runSettings";
 import { useHotReload } from "@/components/app/_lib/useHotReload";
-import { RUN_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedRunControls";
+import { RUN_CONTROL_ACTION_IDS, RUN_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedRunControls";
 import {
   PR_CAMPAIGN_ACTION_IDS,
   PR_CAMPAIGN_ENDPOINTS,
@@ -26,6 +26,9 @@ import {
   syncControlRequestPatch,
   syncConfirmationMessage,
 } from "@/components/app/_lib/projectedSyncControls";
+import { PR_COMPATIBILITY_ACTION_IDS, PR_COMPATIBILITY_ENDPOINTS } from "@/components/app/_lib/projectedCompatibilityControls";
+import { KNOWLEDGE_CONTROL_ACTION_IDS, KNOWLEDGE_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedKnowledgeControls";
+import { SESSION_CONTROL_ACTION_IDS, sessionConfirmationMessage } from "@/components/app/_lib/projectedSessionControls";
 import { PrCampaignAuthorityProvider } from "@/pages/workspace/sessions/active/subphases/pr/components/PrStageCard";
 
 type Action = DashboardAction;
@@ -35,17 +38,8 @@ const DEFAULT_THINKING_LEVEL = "xhigh";
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRevalidate", "prOpenCampaign", "prActivate", "prPublishBatch", "prRelease", "prCloseCampaign", "prAbandonCampaign", "prCampaignRecover", "prAdoptLegacy", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRevalidate", "prOpenCampaign", "prActivate", "prPublishBatch", "prRelease", "prCloseCampaign", "prAbandonCampaign", "prCampaignRecover", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
 const legacyPublicationActions: ReadonlySet<Action> = new Set(["openPr", "openDraftBatch", "openAllPrs"]);
-
-const runActionIds: Partial<Record<Action, string>> = {
-  runStart: "run.start",
-  runPause: "run.pause",
-  runResume: "run.resume",
-  runHardStop: "run.hard_stop",
-  runCancel: "run.cancel",
-  runRecover: "run.recover",
-};
 
 function newSessionBody(body: JsonObject): JsonObject {
   const next = { ...body };
@@ -367,10 +361,10 @@ export function App() {
   const runAction = useCallback(
     async (requestedAction: Action, payload?: Record<string, unknown>) => {
       const projectState = projectStateReadModel(currentDashboard);
-      const nextAction: Action = projectState?.pr && legacyPublicationActions.has(requestedAction)
+      const nextAction: Action = (projectState?.pr_work.length ?? 0) > 0 && legacyPublicationActions.has(requestedAction)
         ? "prPublishBatch"
         : requestedAction;
-      const projectedRunActionId = runActionIds[nextAction];
+      const projectedRunActionId = RUN_CONTROL_ACTION_IDS[nextAction];
       const projectedRunAction = projectedRunActionId
         ? projectStateAction(projectState, projectedRunActionId)
         : null;
@@ -378,6 +372,17 @@ export function App() {
       const projectedPrAction = projectedPrActionId
         ? projectStateAction(projectState, projectedPrActionId)
         : null;
+      const projectedCampaign = projectedPrAction?.subject_id
+        ? projectState?.pr_work.find((candidate) => candidate.workflow_id === projectedPrAction.subject_id) ?? null
+        : projectState?.pr_work[0] ?? null;
+      const compatibilityActionId = PR_COMPATIBILITY_ACTION_IDS[nextAction];
+      const compatibilityAction = compatibilityActionId
+        ? projectStateCompatibilityAction(projectState, compatibilityActionId)
+        : null;
+      const sessionActionId = SESSION_CONTROL_ACTION_IDS[nextAction];
+      const sessionAction = sessionActionId ? projectStateAction(projectState, sessionActionId) : null;
+      const knowledgeActionId = KNOWLEDGE_CONTROL_ACTION_IDS[nextAction];
+      const knowledgeAction = knowledgeActionId ? projectStateAction(projectState, knowledgeActionId) : null;
       const syncControlAction = nextAction === "syncGit" || nextAction === "indexPrs"
         ? "syncStart"
         : nextAction;
@@ -390,7 +395,7 @@ export function App() {
         !window.confirm(`${projectedRunActionId}?\n\n${projectedRunAction.expected_transition}`)
       ) return;
       if (projectedPrAction?.confirmation_required) {
-        const confirmation = prCampaignConfirmationMessage(nextAction, projectState?.pr ?? null) ??
+        const confirmation = prCampaignConfirmationMessage(nextAction, projectedCampaign) ??
           `${projectedPrActionId}?\n\n${projectedPrAction.expected_transition}`;
         if (!window.confirm(confirmation)) return;
       }
@@ -399,6 +404,11 @@ export function App() {
           `${projectedSyncActionId}?\n\n${projectedSyncAction.expected_transition}`;
         if (!window.confirm(confirmation)) return;
       }
+      if (compatibilityAction?.confirmation_required && !window.confirm(`${compatibilityActionId}?\n\n${compatibilityAction.expected_transition}`)) return;
+      if (sessionAction?.confirmation_required) {
+        if (!window.confirm(sessionConfirmationMessage(nextAction) ?? `${sessionActionId}?\n\n${sessionAction.expected_transition}`)) return;
+      }
+      if (knowledgeAction?.confirmation_required && !window.confirm(`${knowledgeActionId}?\n\n${knowledgeAction.expected_transition}`)) return;
       if (
         nextAction === "finishEpoch" &&
         !window.confirm("Finish the current epoch now?\n\nThis cancels active workers in the current epoch, treats remaining epoch work as finished, and lets the scheduler run the normal baseline/rebuild checkpoint path.")
@@ -410,15 +420,6 @@ export function App() {
         !window.confirm("Close this legacy session?\n\nThis records a save point and marks the run complete. Use this when PR work is already shipped, closed, or intentionally carried forward. Stale ship/QA blockers will be overridden.")
       ) {
         return;
-      }
-      if (nextAction === "sessionClose") {
-        const closeAction = projectStateAction(projectStateReadModel(currentDashboard), "session.close");
-        if (
-          closeAction?.confirmation_required &&
-          !window.confirm("Close this session?\n\nThis is a terminal action. The session will stop accepting workflows; the next baseline sync opens its successor.")
-        ) {
-          return;
-        }
       }
       if (nextAction === "openPr") {
         const seriesName = String(payload?.prBranch || "this series");
@@ -433,14 +434,16 @@ export function App() {
         if (projectedRunAction?.confirmation_required) body.confirmed = true;
         if (
           projectedPrAction?.subject_id &&
-          projectState?.pr?.workflow_id === projectedPrAction.subject_id
+          projectedCampaign?.workflow_id === projectedPrAction.subject_id
         ) body.campaignId = projectedPrAction.subject_id;
+        if (compatibilityAction?.subject_id) body.campaignId = compatibilityAction.subject_id;
         if (projectedPrAction?.confirmation_required) body.confirmed = true;
         if (
           projectedSyncAction?.subject_id &&
           projectState?.sync?.workflow_id === projectedSyncAction.subject_id
         ) body.syncId = projectedSyncAction.subject_id;
         if (projectedSyncAction?.confirmation_required) body.confirmed = true;
+        if (compatibilityAction?.confirmation_required || sessionAction?.confirmation_required || knowledgeAction?.confirmation_required) body.confirmed = true;
         Object.assign(body, syncControlRequestPatch(syncControlAction));
         const projectSession = asObject(currentDashboard?.projectSession);
         const projectStateSession = asObject(asObject(currentDashboard?.projectState).session);
@@ -461,6 +464,16 @@ export function App() {
           await manualRefresh();
         } else if (projectedPrActionId) {
           const endpoint = PR_CAMPAIGN_ENDPOINTS[nextAction];
+          if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
+          await postJson(endpoint, body);
+          await manualRefresh();
+        } else if (compatibilityActionId) {
+          const endpoint = PR_COMPATIBILITY_ENDPOINTS[nextAction];
+          if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
+          await postJson(endpoint, body);
+          await manualRefresh();
+        } else if (knowledgeActionId) {
+          const endpoint = KNOWLEDGE_CONTROL_ENDPOINTS[nextAction];
           if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
           await postJson(endpoint, body);
           await manualRefresh();
@@ -580,8 +593,9 @@ export function App() {
           await postJson("/api/pr/qa", body);
           await manualRefresh();
         } else if (nextAction === "qaRepair") {
-          const leaseId = projectState?.pr?.activation.lease_id;
-          if (leaseId) Object.assign(body, { campaignId: projectState?.pr?.workflow_id, leaseId, lease_id: leaseId });
+          const campaign = projectState?.pr_work[0];
+          const leaseId = campaign?.activation.lease_id;
+          if (leaseId) Object.assign(body, { campaignId: campaign.workflow_id, leaseId, lease_id: leaseId });
           await postJson("/api/pr/qa-repair", body);
           await manualRefresh();
         } else if (nextAction === "reconcile") {
@@ -679,7 +693,7 @@ export function App() {
       className={`app-shell ${styleEffectClass(grainSettings)} ${detailsResizing ? "app-shell-resizing" : ""} grid h-screen min-h-[620px] bg-ink text-fg max-[1180px]:h-auto max-[780px]:block max-[780px]:min-h-0`}
       style={shellStyle}
     >
-      <PrCampaignAuthorityProvider authoritative={Boolean(projectStateReadModel(currentDashboard)?.pr)}>
+      <PrCampaignAuthorityProvider authoritative={(projectStateReadModel(currentDashboard)?.pr_work.length ?? 0) > 0}>
         <ProjectWorkspace
           busy={busy}
           collapsed={sidebarCollapsed}

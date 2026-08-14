@@ -11,7 +11,7 @@ import {
 } from "@/icons";
 import { num, shortId } from "@/lib/format";
 import { Button, PanelSection, PanelTitle, StatCard } from "@/components/primitives";
-import { prettyStatus, projectStateAction, statusClass } from "@/pages/workspace/_lib/model";
+import { prettyStatus, projectStateAction, projectStateCompatibilityAction, statusClass } from "@/pages/workspace/_lib/model";
 import type {
   DashboardAction,
   ProjectStateActionProjection,
@@ -30,7 +30,6 @@ const CAMPAIGN_ACTIONS: ReadonlyArray<{
   { actionId: "pr.activate", dashboardAction: "prActivate", icon: Play, label: "Activate", primary: true },
   { actionId: "pr.publish_batch", dashboardAction: "prPublishBatch", icon: GitPullRequest, label: "Publish batch", primary: true },
   { actionId: "pr.release", dashboardAction: "prRelease", icon: Save, label: "Release" },
-  { actionId: "pr.adopt_legacy", dashboardAction: "prAdoptLegacy", icon: Archive, label: "Adopt legacy" },
   { actionId: "pr.close_campaign", dashboardAction: "prCloseCampaign", icon: Archive, label: "Close campaign" },
   { actionId: "pr.abandon_campaign", dashboardAction: "prAbandonCampaign", icon: Ban, label: "Abandon" },
   { actionId: "pr.campaign_recover", dashboardAction: "prCampaignRecover", icon: RotateCcw, label: "Recover" },
@@ -39,6 +38,24 @@ const CAMPAIGN_ACTIONS: ReadonlyArray<{
 function projectionTitle(projection: ProjectStateActionProjection): string {
   if (projection.enabled) return projection.expected_transition;
   return projection.blocked_by.map((blocker) => blocker.message || prettyStatus(blocker.code)).join("; ") || "Blocked by the server projection.";
+}
+
+function missingProjection(actionId: string): ProjectStateActionProjection {
+  return {
+    action_id: actionId,
+    subject_kind: "pr_campaign",
+    subject_id: "",
+    enabled: false,
+    blocked_by: [{
+      code: "projection_missing",
+      message: "This canonical action is missing from the server projection.",
+      source_kind: "project",
+      source_id: "",
+      recoverable: true,
+    }],
+    expected_transition: "Unavailable: server projection is incomplete.",
+    confirmation_required: false,
+  };
 }
 
 function validationLabel(series: ProjectStatePrSeriesSummary): string {
@@ -70,7 +87,9 @@ function ProjectedCampaignButton({
   projection: ProjectStateActionProjection;
   tone?: "default" | "primary" | "warning" | "danger";
 }) {
-  const dashboardAction = CAMPAIGN_ACTIONS.find((candidate) => candidate.actionId === projection.action_id)?.dashboardAction;
+  const dashboardAction = projection.action_id === "pr.adopt_legacy"
+    ? "prAdoptLegacy"
+    : CAMPAIGN_ACTIONS.find((candidate) => candidate.actionId === projection.action_id)?.dashboardAction;
   return (
     <Button
       disabled={busy || !projection.enabled || !dashboardAction}
@@ -94,14 +113,15 @@ export function PrCampaignCard({
   onAction: (action: DashboardAction) => void;
   projectState: ProjectStateReadModel | null;
 }) {
-  const campaign = projectState?.pr ?? null;
+  const campaignSubjectId = CAMPAIGN_ACTIONS
+    .map((definition) => projectStateAction(projectState, definition.actionId)?.subject_id)
+    .find(Boolean);
+  const campaign = projectState?.pr_work.find((candidate) => candidate.workflow_id === campaignSubjectId)
+    ?? projectState?.pr_work[0]
+    ?? null;
   const projectedActions = CAMPAIGN_ACTIONS
-    .map((definition) => ({ definition, projection: projectStateAction(projectState, definition.actionId) }))
-    .filter((candidate): candidate is typeof candidate & { projection: ProjectStateActionProjection } => Boolean(candidate.projection))
-    .filter(({ definition, projection }) => !(
-      definition.actionId === "pr.activate" &&
-      projection.blocked_by.some((blocker) => blocker.code === "pr_already_active")
-    ));
+    .map((definition) => ({ definition, projection: projectStateAction(projectState, definition.actionId) ?? missingProjection(definition.actionId) }));
+  const compatibilityProjection = projectStateCompatibilityAction(projectState, "pr.adopt_legacy");
   const statusCounts = campaign
     ? Object.entries(campaign.series_by_status).filter(([, series]) => series.length > 0)
     : [];
@@ -260,6 +280,28 @@ export function PrCampaignCard({
           })}
       </div>
 
+      {compatibilityProjection ? (
+        <section className="mt-4 border-t border-dashed border-line pt-3" aria-label="PR compatibility actions">
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-warn">Compatibility — legacy migration only</div>
+          <div className="flex flex-wrap items-start gap-3">
+            <ProjectedCampaignButton
+              busy={busy}
+              icon={<Archive size={13} />}
+              onAction={onAction}
+              projection={compatibilityProjection}
+            >
+              Adopt legacy
+            </ProjectedCampaignButton>
+            <div className="max-w-xl text-xs text-dim">
+              <div>{compatibilityProjection.expected_transition}</div>
+              {!compatibilityProjection.enabled && compatibilityProjection.blocked_by.length > 0
+                ? <div className="mt-1 text-warn">{compatibilityProjection.blocked_by.map((blocker) => blocker.message || prettyStatus(blocker.code)).join("; ")}</div>
+                : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {projectedActions.some(({ projection }) => !projection.enabled && projection.blocked_by.length > 0) ? (
         <details className="control-disclosure mt-3">
           <summary>Campaign action blockers</summary>
@@ -272,6 +314,11 @@ export function PrCampaignCard({
           </ul>
         </details>
       ) : null}
+      <div className="mt-3 grid gap-1 text-[11px] text-dim" aria-label="PR action transitions">
+        {projectedActions.map(({ definition, projection }) => (
+          <div key={`${definition.actionId}:transition`}><span className="text-soft">{definition.label}:</span> {projection.expected_transition}</div>
+        ))}
+      </div>
     </PanelSection>
   );
 }

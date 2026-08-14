@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Database } from "bun:sqlite";
@@ -309,7 +310,13 @@ export function loadWorkerCondenseInput(db: Database, workerStateId: string): Li
   };
 }
 
-export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
+export interface LibrarianCondensePublication {
+  digest: string;
+  provenance: { worker_state_id: string; ledger_path: string; learning_ids: string[]; output_path: string | null };
+}
+
+/** Programmatic materializer used by both the durable queue and the CLI wrapper. */
+export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string, string | true>): Promise<LibrarianCondensePublication> {
   const workerStateId = stringArg(args, "--worker-state-id", "").trim();
   if (!workerStateId) throw new Error("kg-librarian-condense requires --worker-state-id");
 
@@ -387,7 +394,7 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
           learnings_appended: 0,
         }),
       );
-      return;
+      return { digest: `dry-run:${workerStateId}`, provenance: { worker_state_id: workerStateId, ledger_path: ledgerPath, learning_ids: [], output_path: result.outputPath ?? null } };
     }
 
     const parsed = parseJsonObject(result.rawText);
@@ -419,6 +426,11 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
         verdicts: Array.isArray(parsed.object?.verdicts) ? parsed.object.verdicts.length : 0,
       }),
     );
+    const learningIds = records.map((record) => record.id).sort();
+    return {
+      digest: `sha256:${createHash("sha256").update(JSON.stringify({ worker_state_id: workerStateId, learning_ids: learningIds })).digest("hex")}`,
+      provenance: { worker_state_id: workerStateId, ledger_path: ledgerPath, learning_ids: learningIds, output_path: result.outputPath ?? null },
+    };
   } finally {
     store.db.close();
   }

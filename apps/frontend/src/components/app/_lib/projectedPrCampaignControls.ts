@@ -12,7 +12,6 @@ export const PR_CAMPAIGN_ACTION_IDS: Partial<Record<DashboardAction, string>> = 
   prCloseCampaign: "pr.close_campaign",
   prAbandonCampaign: "pr.abandon_campaign",
   prCampaignRecover: "pr.campaign_recover",
-  prAdoptLegacy: "pr.adopt_legacy",
 };
 
 export const PR_CAMPAIGN_ENDPOINTS: Partial<Record<DashboardAction, string>> = {
@@ -23,7 +22,6 @@ export const PR_CAMPAIGN_ENDPOINTS: Partial<Record<DashboardAction, string>> = {
   prCloseCampaign: "/api/pr/close-campaign",
   prAbandonCampaign: "/api/pr/abandon-campaign",
   prCampaignRecover: "/api/pr/campaign-recover",
-  prAdoptLegacy: "/api/pr/adopt-legacy",
 };
 
 function seriesLabel(series: ProjectStatePrSeriesSummary): string {

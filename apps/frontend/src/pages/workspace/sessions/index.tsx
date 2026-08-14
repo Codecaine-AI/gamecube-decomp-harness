@@ -25,12 +25,11 @@ function SessionsIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: 
   const savePointAction = projectStateAction(projectState, "session.save_point");
   const closeAction = projectStateAction(projectState, "session.close");
   const activeWorkflow = projectState?.active_workflow ?? null;
-  const handoff = activeWorkflow?.requested_handoff;
   const queuedCount = projectState?.queued_dispatch_requests.length ?? 0;
   const authorityLabel = !projectState
     ? "Authority unavailable"
     : activeWorkflow
-      ? `${prettyStatus(activeWorkflow.kind)} · ${prettyStatus(activeWorkflow.status)}${handoff ? ` → ${prettyStatus(handoff.target_kind)}` : ""}${queuedCount > 0 ? ` · ${queuedCount} queued` : ""}`
+      ? `${prettyStatus(activeWorkflow.kind)} · ${prettyStatus(activeWorkflow.status)}${queuedCount > 0 ? ` · ${queuedCount} queued` : ""}`
       : `Lease free${queuedCount > 0 ? ` · ${queuedCount} queued` : ""}`;
   return (
     <>
@@ -41,7 +40,7 @@ function SessionsIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: 
             <PanelTitle className="mb-0">Active Session</PanelTitle>
             <span
               className={`status-tag ${activeWorkflow && ["draining", "blocked", "releasing"].includes(activeWorkflow.status) ? "status-tag-warn" : activeWorkflow ? "status-tag-live" : ""}`}
-              title={handoff ? `${handoff.reason} (${handoff.target_workflow_id})` : activeWorkflow?.lease_id}
+              title={activeWorkflow?.headline}
             >
               <span className="lamp" />
               {authorityLabel}
@@ -55,7 +54,7 @@ function SessionsIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: 
                   <>
                     Head <span className="font-mono text-soft" title={session.head_revision ?? undefined}>{session.head_revision ? session.head_revision.slice(0, 10) : "unknown"}</span>
                     {" / "}status {prettyStatus(session.status)}
-                    {" / "}project revision {projectState?.revision ?? 0}
+                    {" / "}project revision {projectState?.project_revision ?? 0}
                   </>
                 ) : (
                   <>
@@ -92,6 +91,21 @@ function SessionsIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: 
                   {view.newSessionReasons.length > 3 ? " ..." : ""}
                 </div>
               ) : null}
+              {activeWorkflow ? (
+                <div className="mt-2 text-xs text-soft">
+                  <span className="font-medium text-fg">{activeWorkflow.headline}</span>
+                  {activeWorkflow.blockers.length > 0 ? ` — ${activeWorkflow.blockers.map((blocker) => blocker.message || prettyStatus(blocker.code)).join("; ")}` : ""}
+                </div>
+              ) : null}
+              {(projectState?.queued_dispatch_requests.length ?? 0) > 0 ? (
+                <ul className="mb-0 mt-2 grid gap-1 p-0 text-xs text-dim" aria-label="Queued dispatch requests">
+                  {projectState?.queued_dispatch_requests.map((request, index) => (
+                    <li className="list-none" key={`${request.kind}:${request.workflow_id}:${index}`}>
+                      Queued {prettyStatus(request.kind)} · {request.workflow_id}{request.reason ? ` — ${request.reason}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
             <div className="flex flex-wrap gap-2">
               <Button icon={<Archive size={13} />} onClick={() => nav.goToSession(sessionFocus, view.recommendedSub)} tone="primary" type="button">
@@ -102,44 +116,43 @@ function SessionsIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: 
                   {view.process.draining ? "Draining" : "Drain Run"}
                 </Button>
               ) : null}
-              {session ? (
-                <>
-                  <Button
-                    disabled={busy || !savePointAction?.enabled}
-                    icon={<Save size={13} />}
-                    onClick={() => onAction("sessionSavePoint")}
-                    title={actionTitle(savePointAction, "Save-point action is not available in the server projection.")}
-                    type="button"
-                  >
-                    Record save point
-                  </Button>
-                  <Button
-                    disabled={busy || !closeAction?.enabled}
-                    icon={<Archive size={13} />}
-                    onClick={() => onAction("sessionClose")}
-                    title={actionTitle(closeAction, "Close action is not available in the server projection.")}
-                    tone="warning"
-                    type="button"
-                  >
-                    Close session
-                  </Button>
-                </>
-              ) : view.canCompleteRun ? (
+              <Button
+                disabled={busy || !savePointAction?.enabled}
+                icon={<Save size={13} />}
+                onClick={() => onAction("sessionSavePoint")}
+                title={actionTitle(savePointAction, "Save-point action is not available in the server projection.")}
+                type="button"
+              >
+                Record save point
+              </Button>
+              <Button
+                disabled={busy || !closeAction?.enabled}
+                icon={<Archive size={13} />}
+                onClick={() => onAction("sessionClose")}
+                title={actionTitle(closeAction, "Close action is not available in the server projection.")}
+                tone="warning"
+                type="button"
+              >
+                Close session
+              </Button>
+              {!session && view.canCompleteRun ? (
                 <Button disabled={busy} icon={<Archive size={13} />} onClick={() => onAction("completeRun")} title="Mark this idle legacy run complete; confirmation can override stale ship or QA blockers." tone="warning" type="button">
-                  Close Session
+                  Close legacy session
                 </Button>
               ) : null}
               <Button icon={<RotateCcw size={13} />} disabled={busy || view.newSessionBlocked} onClick={() => onAction("fresh")} title={view.newSessionBlocked ? view.newSessionReasons.join("; ") : "Checkpoint, reset baseline, and start a new session."} tone="warning" type="button">
                 New Session
               </Button>
             </div>
-            {session ? <ActionBlockers label="Record save point" projection={savePointAction} /> : null}
-            {session ? <ActionBlockers label="Close session" projection={closeAction} /> : null}
+            <div className="text-[11px] text-dim">Record save point: {savePointAction?.expected_transition ?? "missing server projection"}</div>
+            <ActionBlockers label="Record save point" projection={savePointAction} />
+            <div className="text-[11px] text-dim">Close session: {closeAction?.expected_transition ?? "missing server projection"}</div>
+            <ActionBlockers label="Close session" projection={closeAction} />
             {session ? (
               <div className="border-t border-line pt-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Session timeline</span>
-                  <span className="text-[10px] text-dim">event {projectState?.latest_event_sequence ?? 0}</span>
+                  <span className="text-[10px] text-dim">event {projectState?.recent_events[0]?.sequence ?? 0}</span>
                 </div>
                 {session.timeline.length > 0 ? (
                   <ol className="m-0 grid gap-1.5 p-0">

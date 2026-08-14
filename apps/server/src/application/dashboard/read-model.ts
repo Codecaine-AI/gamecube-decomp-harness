@@ -4,6 +4,7 @@ import { relative, resolve } from "node:path";
 import { latestCheckpointSummary } from "@server/core/session-runtime/phases/pr/checkpoint";
 import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/core/session-runtime/phases/running/epochs";
 import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
+import { queryBackgroundKnowledgeSummary } from "@server/core/knowledge/background/index.js";
 import {
   activeSchedulerEpoch,
   activeWorkerCount,
@@ -104,9 +105,10 @@ export interface ActionProjection {
     | "run.recover"
     | "session.close"
     | "session.save_point"
+    | "knowledge.process"
     | PrCampaignActionId
     | SyncActionId;
-  subject_kind: "run" | "session" | "sync" | "pr_campaign";
+  subject_kind: "run" | "session" | "sync" | "pr_campaign" | "project";
   subject_id: string;
   enabled: boolean;
   blocked_by: Blocker[];
@@ -281,6 +283,44 @@ export interface DashboardProjectState {
   latest_event_sequence: number;
   recent_events: ProjectEventDto[];
   available_actions: ActionProjection[];
+}
+
+/** The server-owned, operator-facing project projection. */
+export interface ProjectStateView {
+  project_id: string;
+  project_revision: number;
+  session: (NonNullable<DashboardProjectState["session"]> & { latest_timeline_entry: SessionTimelineEntry | null }) | null;
+  active_workflow: (DispatchLease & { headline: string }) | null;
+  queued_dispatch_requests: QueuedDispatchRequest[];
+  run: DashboardRunSummary | null;
+  pr_work: DashboardPrSummary[];
+  knowledge: {
+    published_revision: string | null;
+    queued: number;
+    processing: number;
+    waiting: number;
+    failed: number;
+    oldest_pending_at: string | null;
+    active_lease: { id: string; expires_at: string } | null;
+    retry: { next_attempt_at: string; attempts: number } | null;
+    recent_failures: Array<{
+      job_id: string;
+      worker_state_id: string;
+      error: string;
+      attempts: number;
+      updated_at: string;
+    }>;
+  };
+  sync: DashboardSyncSummary | null;
+  active_operations: Array<{ operation_id: string; status: string; [key: string]: unknown }>;
+  recent_events: ProjectEventDto[];
+  available_actions: ActionProjection[];
+  compatibility_actions: ActionProjection[];
+}
+
+export interface ProjectStateViewOptions extends Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now"> {
+  /** Legacy dashboard evidence used by the session close/readiness gates. */
+  campaign?: JsonObject;
 }
 
 export interface DashboardReadModelDependencies {
@@ -726,7 +766,30 @@ export function projectRunActionState(
   const projectState = getProjectState(store, projectId);
   const session = getActiveProjectSession(store.db, projectId);
   const run = latestRunForProject(store, projectId, session, options.runId);
-  if (!run || run.projectId !== projectId) return { availableActions: [], run: null };
+  if (!run || run.projectId !== projectId) {
+    const subjectId = options.runId ?? `run:new:${projectId}`;
+    const missing = stateBlocker("run_not_found", "No run exists for this project.", "project", projectId);
+    const absent = (actionId: Extract<ActionProjection["action_id"], `run.${string}`>, transition: string, confirmationRequired: boolean): ActionProjection => ({
+      action_id: actionId,
+      subject_kind: "run",
+      subject_id: subjectId,
+      enabled: false,
+      blocked_by: [missing],
+      expected_transition: transition,
+      confirmation_required: confirmationRequired,
+    });
+    return {
+      availableActions: [
+        absent("run.start", "ready → active", false),
+        absent("run.pause", "active → draining → paused", false),
+        absent("run.resume", "paused → active", false),
+        absent("run.hard_stop", "active/draining → paused", true),
+        absent("run.cancel", "paused/failed → cancelled", true),
+        absent("run.recover", "failed/stale → paused via run.recovered", true),
+      ],
+      run: null,
+    };
+  }
 
   const lease = projectState?.active_workflow ?? null;
   const ownLease = lease?.kind === "run" && lease.workflow_id === run.id ? lease : null;
@@ -1246,6 +1309,191 @@ export function buildProjectStateReadModel(
       ...syncState.availableActions,
       ...actions.availableActions,
     ],
+  };
+}
+
+const CANONICAL_ACTION_IDS = [
+  "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
+  "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
+  "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
+  "session.save_point", "session.close", "knowledge.process",
+] as const;
+
+function workflowHeadline(lease: DispatchLease): string {
+  const label = lease.kind === "pr" ? "PR campaign" : lease.kind[0]!.toUpperCase() + lease.kind.slice(1);
+  return `${label} ${lease.workflow_id} is ${lease.status}.`;
+}
+
+function canonicalActiveWorkflow(lease: DispatchLease | null): ProjectStateView["active_workflow"] {
+  if (!lease) return null;
+  return { ...lease, headline: workflowHeadline(lease) };
+}
+
+function projectKnowledgeSummary(store: ReturnType<typeof openState>, projectId: string): ProjectStateView["knowledge"] {
+  const summary = queryBackgroundKnowledgeSummary(store, projectId);
+  return {
+    published_revision: summary.publishedRevision,
+    queued: summary.queued,
+    processing: summary.processing,
+    waiting: summary.waiting,
+    failed: summary.failed,
+    oldest_pending_at: summary.oldestPendingAt,
+    active_lease: summary.activeLease
+      ? { id: summary.activeLease.id, expires_at: summary.activeLease.expiresAt }
+      : null,
+    retry: summary.retry
+      ? { next_attempt_at: summary.retry.nextAttemptAt, attempts: summary.retry.attempts }
+      : null,
+    recent_failures: summary.recentFailures.map((failure) => ({
+      job_id: failure.jobId,
+      worker_state_id: failure.workerStateId,
+      error: failure.error,
+      attempts: failure.attempts,
+      updated_at: failure.updatedAt,
+    })),
+  };
+}
+
+function knowledgeActionProjection(
+  projectId: string,
+  knowledge: ProjectStateView["knowledge"],
+): ActionProjection {
+  const blockers: Blocker[] = [];
+  const now = Date.now();
+  if (knowledge.active_lease) {
+    blockers.push(stateBlocker(
+      "knowledge_materializer_lease_held",
+      "The knowledge materializer lease is held by another processor.",
+      "knowledge",
+      knowledge.active_lease.id,
+    ));
+  }
+  if (knowledge.retry && Date.parse(knowledge.retry.next_attempt_at) > now) {
+    blockers.push(stateBlocker(
+      "knowledge_retry_backoff",
+      `Knowledge processing is in retry backoff until ${knowledge.retry.next_attempt_at}.`,
+      "project",
+      projectId,
+    ));
+  }
+  if (knowledge.queued === 0) {
+    blockers.push(stateBlocker(
+      "knowledge_queue_empty",
+      "The background knowledge queue has no processable work.",
+      "project",
+      projectId,
+    ));
+  }
+  return {
+    action_id: "knowledge.process",
+    subject_kind: "project",
+    subject_id: projectId,
+    enabled: blockers.length === 0,
+    blocked_by: dedupeBlockers(blockers),
+    expected_transition: "queued → processing → succeeded",
+    confirmation_required: false,
+  };
+}
+
+/**
+ * Build the canonical operator authority view.  The older
+ * buildProjectStateReadModel remains available for legacy dashboard payloads;
+ * callers of this function receive the Slice 6 DTO and never need to derive
+ * action availability themselves.
+ */
+export function getProjectStateView(
+  store: ReturnType<typeof openState>,
+  projectId: string,
+  options: ProjectStateViewOptions = {},
+): ProjectStateView {
+  const campaign = options.campaign ?? {};
+  const session = getActiveProjectSession(store.db, projectId);
+  const allTimeline = session
+    ? listSessionTimeline(store.db, session.session_uuid, ALL_SESSION_EVIDENCE_LIMIT)
+    : [];
+  const savePoints = listSavePoints(store, ALL_SESSION_EVIDENCE_LIMIT);
+  const evidence = sessionEvidenceState(store, projectId, campaign, session, allTimeline, savePoints);
+  const runState = projectRunActionState(store, projectId, options);
+  const syncState = projectSyncActionState(store, projectId, session, options);
+  const prState = prActionState(store, projectId, session, evidence.freshNamedSavePoint, options);
+  const sessionState = sessionActionState(store, projectId, campaign, session, allTimeline, savePoints);
+  const knowledge = projectKnowledgeSummary(store, projectId);
+  const knowledgeAction = knowledgeActionProjection(projectId, knowledge);
+  const canonical = getProjectState(store, projectId);
+  const canonicalActions = [
+    ...runState.availableActions,
+    ...prState.availableActions.filter((action) => action.action_id !== "pr.adopt_legacy"),
+    ...syncState.availableActions,
+    ...sessionState.availableActions,
+    knowledgeAction,
+  ];
+  const actionsById = new Map(canonicalActions.map((action) => [action.action_id, action]));
+  const availableActions = CANONICAL_ACTION_IDS.map((actionId) => actionsById.get(actionId)).filter(
+    (action): action is ActionProjection => Boolean(action),
+  );
+  // The fixed inventory above is an invariant.  Keep a defensive projection
+  // for malformed legacy state rather than silently omitting an authority.
+  for (const actionId of CANONICAL_ACTION_IDS) {
+    if (availableActions.some((action) => action.action_id === actionId)) continue;
+    const missingKind = actionId.startsWith("run.")
+      ? "run"
+      : actionId.startsWith("pr.")
+        ? "pr_campaign"
+        : actionId.startsWith("sync.")
+          ? "sync"
+          : actionId.startsWith("session.")
+            ? "session"
+            : "project";
+    const missingCode = missingKind === "project" ? "action_projection_unavailable" : `${missingKind}_not_found`;
+    const missingMessage = missingKind === "project"
+      ? `Action ${actionId} could not be projected.`
+      : `No ${missingKind.replace("_", " ")} exists for project ${projectId}.`;
+    availableActions.push({
+      action_id: actionId,
+      subject_kind: missingKind,
+      subject_id: projectId,
+      enabled: false,
+      blocked_by: [stateBlocker(missingCode, missingMessage, missingKind, projectId)],
+      expected_transition: "state transition unavailable",
+      confirmation_required: ["run.hard_stop", "run.cancel", "run.recover", "pr.publish_batch", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover", "sync.publish", "sync.cancel", "sync.recover", "session.close"].includes(actionId),
+    });
+  }
+  const compatibility = prState.availableActions.filter((action) => action.action_id === "pr.adopt_legacy");
+  const latestSavePoint = savePointByEntry(savePoints, allTimeline.find((entry) => entry.entry_kind === "save_point"));
+  return {
+    project_id: projectId,
+    project_revision: canonical?.revision ?? 0,
+    session: session
+      ? {
+          session_uuid: session.session_uuid,
+          head_revision: session.head_revision,
+          status: session.status,
+          latest_save_point: latestSavePoint
+            ? {
+                id: latestSavePoint.id,
+                triggerKind: latestSavePoint.triggerKind,
+                label: latestSavePoint.label,
+                commitSha: latestSavePoint.commitSha,
+                matchedCodePercent: latestSavePoint.matchedCodePercent,
+                createdAt: latestSavePoint.createdAt,
+              }
+            : null,
+          save_point_stale: evidence.stale,
+          blockers: evidence.blockers,
+          timeline: allTimeline.slice(0, 20),
+          latest_timeline_entry: allTimeline[0] ?? null,
+        }
+      : null,
+    active_workflow: canonicalActiveWorkflow(canonical?.active_workflow ?? null),
+    queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
+    run: runState.run,
+    pr_work: prState.pr ? [prState.pr] : [],
+    knowledge,
+    sync: syncState.sync,
+    active_operations: [],
+    recent_events: recentProjectEvents(store.db, projectId, 20),
+    available_actions: availableActions,
+    compatibility_actions: compatibility,
   };
 }
 
@@ -3323,11 +3571,12 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   const handoff = runId ? handoffForRun(stateDir, runId, checkpoint) : { checkpoint: null, qa: null, splitPlan: null };
   const epochs = runningEpochHistory(stateDir);
   const projectId = paths.project?.projectId ?? stringValue(projectSession?.projectId);
-  let projectState: DashboardProjectState | null = null;
+  let projectState: ProjectStateView | null = null;
   if (projectId) {
     const projectStateStore = openState(stateDir);
     try {
-      projectState = buildProjectStateReadModel(projectStateStore, projectId, campaign, {
+      projectState = getProjectStateView(projectStateStore, projectId, {
+        campaign,
         hasActiveProcess: dashboardDeps().hasActiveProcess,
       });
     } finally {

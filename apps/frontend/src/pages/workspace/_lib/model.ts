@@ -7,6 +7,7 @@ import type {
   ProjectStatePrSeriesStatus,
   ProjectStatePrSeriesSummary,
   ProjectStatePrWorkItem,
+  ProjectStatePrReadModel,
   ProjectStateReadModel,
   ProjectStateRunRecoveryPoint,
   ProjectStateRunSchedulerCondition,
@@ -114,6 +115,19 @@ function projectStateBlocker(value: unknown): ProjectStateBlocker {
   };
 }
 
+function projectStateActionProjection(value: unknown): ProjectStateActionProjection {
+  const action = asObject(value);
+  return {
+    action_id: text(action.action_id),
+    subject_kind: text(action.subject_kind),
+    subject_id: text(action.subject_id),
+    enabled: booleanValue(action.enabled),
+    blocked_by: asArray(action.blocked_by).map(projectStateBlocker),
+    expected_transition: text(action.expected_transition),
+    confirmation_required: booleanValue(action.confirmation_required),
+  };
+}
+
 const PROJECT_STATE_PR_SERIES_STATUSES = [
   "prepared",
   "published",
@@ -164,8 +178,8 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
   const requestedHandoffRaw = asObject(activeWorkflowRaw.requested_handoff);
   const sessionRaw = asObject(raw.session);
   const runRaw = asObject(raw.run);
-  const prRaw = asObject(raw.pr);
   const syncRaw = asObject(raw.sync);
+  const knowledgeRaw = asObject(raw.knowledge);
   const activeEpochRaw = asObject(runRaw.active_epoch);
   const progressRaw = asObject(runRaw.progress);
   const syncIntakeRaw = asObject(syncRaw.intake);
@@ -176,18 +190,13 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
   const syncStalenessRaw = asObject(syncRaw.staleness);
   const syncStalenessBlockerRaw = asObject(syncStalenessRaw.blocker);
   const latestSavePointRaw = asObject(sessionRaw.latest_save_point);
-  const prSourceAnchorRaw = asObject(prRaw.source_anchor);
-  const prPublicationPolicyRaw = asObject(prRaw.publication_policy);
-  const prSeriesByStatusRaw = asObject(prRaw.series_by_status);
-  const prNextBatchRaw = asObject(prRaw.next_batch);
-  const prPendingWorkItemsRaw = asObject(prRaw.pending_work_items);
-  const prActivationRaw = asObject(prRaw.activation);
   const activeWorkflow = Object.keys(activeWorkflowRaw).length > 0
     ? {
         kind: text(activeWorkflowRaw.kind) as "run" | "pr" | "sync",
         workflow_id: text(activeWorkflowRaw.workflow_id),
         lease_id: text(activeWorkflowRaw.lease_id),
         status: text(activeWorkflowRaw.status) as "acquiring" | "active" | "draining" | "blocked" | "releasing",
+        headline: text(activeWorkflowRaw.headline),
         acquired_at: text(activeWorkflowRaw.acquired_at),
         heartbeat_at: text(activeWorkflowRaw.heartbeat_at),
         ...(Object.keys(requestedHandoffRaw).length > 0
@@ -273,10 +282,16 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
       }
     : null;
 
-  const pr = Object.keys(prRaw).length > 0
-    ? {
+  const parsePr = (prRaw: JsonObject): ProjectStatePrReadModel => {
+    const prSourceAnchorRaw = asObject(prRaw.source_anchor);
+    const prPublicationPolicyRaw = asObject(prRaw.publication_policy);
+    const prSeriesByStatusRaw = asObject(prRaw.series_by_status);
+    const prNextBatchRaw = asObject(prRaw.next_batch);
+    const prPendingWorkItemsRaw = asObject(prRaw.pending_work_items);
+    const prActivationRaw = asObject(prRaw.activation);
+    return {
         workflow_id: text(prRaw.workflow_id),
-        status: text(prRaw.status) as NonNullable<ProjectStateReadModel["pr"]>["status"],
+        status: text(prRaw.status) as ProjectStatePrReadModel["status"],
         source_anchor: {
           save_point_id: text(prSourceAnchorRaw.save_point_id),
           source_revision: text(prSourceAnchorRaw.source_revision),
@@ -291,7 +306,7 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
             status,
             asArray(prSeriesByStatusRaw[status]).map(projectStatePrSeries),
           ]),
-        ) as NonNullable<ProjectStateReadModel["pr"]>["series_by_status"],
+        ) as ProjectStatePrReadModel["series_by_status"],
         next_batch: Object.keys(prNextBatchRaw).length > 0
           ? {
               batch_index: numberValue(prNextBatchRaw.batch_index),
@@ -312,8 +327,8 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
           status: text(prActivationRaw.status) || null,
           blockers: asArray(prActivationRaw.blockers).map(projectStateBlocker),
         },
-      }
-    : null;
+      };
+  };
 
   const sync = Object.keys(syncRaw).length > 0
     ? {
@@ -374,8 +389,12 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
       }
     : null;
 
+  const parsePreservedSummary = (value: unknown): JsonObject => ({ ...asObject(value) });
+  const knowledgeLeaseRaw = asObject(knowledgeRaw.active_lease);
+
   return {
-    revision: numberValue(raw.revision),
+    project_id: text(raw.project_id),
+    project_revision: numberValue(raw.project_revision),
     active_workflow: activeWorkflow,
     queued_dispatch_requests: asArray(raw.queued_dispatch_requests).map((value) => {
       const request = asObject(value);
@@ -389,21 +408,48 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
     }),
     session,
     run,
-    pr,
+    pr_work: asArray(raw.pr_work).map((value) => parsePr(asObject(value))),
+    knowledge: {
+      ...knowledgeRaw,
+      published_revision: text(knowledgeRaw.published_revision) || null,
+      queued: numberValue(knowledgeRaw.queued),
+      processing: numberValue(knowledgeRaw.processing),
+      waiting: numberValue(knowledgeRaw.waiting),
+      failed: numberValue(knowledgeRaw.failed),
+      oldest_pending_at: text(knowledgeRaw.oldest_pending_at) || null,
+      active_lease: Object.keys(knowledgeLeaseRaw).length > 0
+        ? {
+            ...knowledgeLeaseRaw,
+            id: text(knowledgeLeaseRaw.id),
+            expires_at: text(knowledgeLeaseRaw.expires_at),
+          }
+        : null,
+      retry: Object.keys(asObject(knowledgeRaw.retry)).length > 0
+        ? parsePreservedSummary(knowledgeRaw.retry)
+        : null,
+      recent_failures: asArray(knowledgeRaw.recent_failures).map((value) => {
+        const failure = asObject(value);
+        return {
+          ...failure,
+          job_id: text(failure.job_id),
+          worker_state_id: text(failure.worker_state_id),
+          error: text(failure.error),
+          attempts: numberValue(failure.attempts),
+          updated_at: text(failure.updated_at),
+        };
+      }),
+    },
     sync,
-    latest_event_sequence: numberValue(raw.latest_event_sequence),
-    available_actions: asArray(raw.available_actions).map((value): ProjectStateActionProjection => {
-      const action = asObject(value);
-      return {
-        action_id: text(action.action_id),
-        subject_kind: text(action.subject_kind),
-        subject_id: text(action.subject_id),
-        enabled: booleanValue(action.enabled),
-        blocked_by: asArray(action.blocked_by).map(projectStateBlocker),
-        expected_transition: text(action.expected_transition),
-        confirmation_required: booleanValue(action.confirmation_required),
-      };
+    active_operations: asArray(raw.active_operations).map((value) => {
+      const operation = asObject(value);
+      return { ...operation, operation_id: text(operation.operation_id), status: text(operation.status) };
     }),
+    recent_events: asArray(raw.recent_events).map((value) => {
+      const event = asObject(value);
+      return { ...event, event_type: text(event.event_type), sequence: numberValue(event.sequence) };
+    }),
+    available_actions: asArray(raw.available_actions).map(projectStateActionProjection),
+    compatibility_actions: asArray(raw.compatibility_actions).map(projectStateActionProjection),
   };
 }
 
@@ -412,6 +458,13 @@ export function projectStateAction(
   actionId: string,
 ): ProjectStateActionProjection | null {
   return projectState?.available_actions.find((action) => action.action_id === actionId) ?? null;
+}
+
+export function projectStateCompatibilityAction(
+  projectState: ProjectStateReadModel | null,
+  actionId: string,
+): ProjectStateActionProjection | null {
+  return projectState?.compatibility_actions.find((action) => action.action_id === actionId) ?? null;
 }
 
 function artifactStatus(value: JsonObject, keys: string[]): boolean {

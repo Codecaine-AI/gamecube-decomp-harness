@@ -9,6 +9,7 @@ import { createOperationStateService } from "@server/application/dashboard/opera
 import { createDashboardProjectContextService, projectToSummary } from "@server/application/dashboard/project-context";
 import {
   createDashboardReadModel,
+  getProjectStateView,
   projectRunActionState,
   type ActionProjection,
 } from "@server/application/dashboard/read-model";
@@ -25,6 +26,13 @@ import { handleKnowledgeLearningsApiRoute } from "@server/api/routes/knowledge-l
 import { handleEventsApiRoute } from "@server/api/routes/events";
 import { createStandardsService } from "@server/core/knowledge/standards";
 import { sourceRoot } from "@server/core/knowledge";
+import { triggerBackgroundKnowledgeProcess } from "@server/core/knowledge/background/index.js";
+import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
+import {
+  DEFAULT_PI_MODEL,
+  DEFAULT_PI_PROVIDER,
+  DEFAULT_PI_THINKING_LEVEL,
+} from "@server/core/project-registry/runtime-defaults.js";
 import {
   queryProjectEvents,
   reconstructProjectEvents,
@@ -777,10 +785,56 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   if (agents) return agents;
 
   const knowledge = await handleKnowledgeApiRoute(req, url, {
+    action: (body) => {
+      const paths = projectContext.resolveDashboardProject(body, { useDefaultProject: true });
+      const projectId = paths.project?.projectId ?? (typeof body.projectId === "string" ? body.projectId.trim() : "");
+      if (!projectId) throw new Error("Cannot project knowledge.process without a project id");
+      const store = openState(paths.stateDir);
+      try {
+        const action = getProjectStateView(store, projectId).available_actions.find(
+          (candidate) => candidate.action_id === "knowledge.process",
+        );
+        if (!action || action.action_id !== "knowledge.process") throw new Error("Missing knowledge.process action projection");
+        return {
+          ...action,
+          action_id: "knowledge.process" as const,
+          subject_kind: "project" as const,
+          confirmation_required: false as const,
+        };
+      } finally {
+        store.db.close();
+      }
+    },
     applyStandardEdit: (edit, project) => standards.applyStandardEdit(edit, project as ResolvedProject | null),
     json,
     loadStandardsPayload: (project) => standards.loadStandardsPayload(project as ResolvedProject | null),
     requestPaths: projectContext.requestPaths,
+    triggerBackgroundKnowledgeProcess: async (paths) => {
+      const project = paths.project as ResolvedProject | undefined;
+      if (!project) throw new Error("knowledge.process requires a resolved project");
+      const store = openState(paths.stateDir);
+      try {
+        return await triggerBackgroundKnowledgeProcess(store, (job) =>
+          kgLibrarianCondense({
+            repoRoot: project.repoRoot,
+            stateDir: paths.stateDir,
+            projectId: project.projectId,
+            project,
+            graphDbPath: project.graphDbPath,
+            dryRunAgents: false,
+            provider: DEFAULT_PI_PROVIDER,
+            model: DEFAULT_PI_MODEL,
+            thinkingLevel: DEFAULT_PI_THINKING_LEVEL,
+            agentTimeoutSeconds: project.dashboard.agentTimeoutSeconds,
+          }, new Map<string, string | true>([
+            ["--worker-state-id", job.workerStateId],
+            ["--run-id", typeof job.provenance.run_id === "string" ? job.provenance.run_id : ""],
+          ])),
+        );
+      } finally {
+        store.db.close();
+      }
+    },
   });
   if (knowledge) return knowledge;
 

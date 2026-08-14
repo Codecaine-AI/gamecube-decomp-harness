@@ -2,19 +2,35 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { RUN_CONTROL_ACTIONS, RUN_CONTROL_ENDPOINTS } from "./projectedRunControls";
+import { RUN_CONTROL_ACTION_IDS, RUN_CONTROL_ACTIONS, RUN_CONTROL_ENDPOINTS } from "./projectedRunControls";
 
 const sourceRoot = resolve(import.meta.dir, "../../..");
 
 describe("legacy process controls", () => {
-  test("map Drain and Kill onto the projected run actions", () => {
+  test("maps all canonical run controls onto projected actions and routes", () => {
     expect(RUN_CONTROL_ACTIONS).toEqual({
+      start: "runStart",
       pause: "runPause",
+      resume: "runResume",
       hardStop: "runHardStop",
+      cancel: "runCancel",
+      recover: "runRecover",
+    });
+    expect(RUN_CONTROL_ACTION_IDS).toEqual({
+      runStart: "run.start",
+      runPause: "run.pause",
+      runResume: "run.resume",
+      runHardStop: "run.hard_stop",
+      runCancel: "run.cancel",
+      runRecover: "run.recover",
     });
     expect(RUN_CONTROL_ENDPOINTS).toEqual({
+      runStart: "/api/process/start",
       runPause: "/api/run/pause",
+      runResume: "/api/run/resume",
       runHardStop: "/api/run/hard-stop",
+      runCancel: "/api/run/cancel",
+      runRecover: "/api/run/recover",
     });
   });
 

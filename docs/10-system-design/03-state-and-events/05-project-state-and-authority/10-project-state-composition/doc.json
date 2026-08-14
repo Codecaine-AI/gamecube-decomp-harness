@@ -1,0 +1,531 @@
+{
+  "schemaVersion": 1,
+  "id": "03-state-and-events-05-project-state-and-authority-10-project-state-composition-doc-json-60b39358",
+  "title": "Project State Composition",
+  "root": "b-doc-root-10",
+  "blocks": {
+    "b-doc-root-10": {
+      "id": "b-doc-root-10",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-doc-every-durable-run-pr-ca-1",
+        "b-doc-common-state-envelope-2",
+        "b-doc-the-envelope-carries-ide-3",
+        "b-struct-state-envelope",
+        "b-doc-state-remains-authoritat-4",
+        "b-doc-canonical-projectstate-5",
+        "b-doc-one-projectstate-per-pro-6",
+        "b-doc-the-session-slot-carries-7",
+        "b-struct-project-state",
+        "b-doc-related-contracts-8",
+        "b-doc-dispatch-authority-and-9"
+      ]
+    },
+    "b-doc-every-durable-run-pr-ca-1": {
+      "id": "b-doc-every-durable-run-pr-ca-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every durable run, PR campaign, sync, and session object wears one StateEnvelope, while ProjectState composes their current identities and statuses. This split lets shared machinery order, trace, block, and display state without replacing each workflow's canonical detail or status vocabulary."
+        }
+      ],
+      "children": []
+    },
+    "b-doc-common-state-envelope-2": {
+      "id": "b-doc-common-state-envelope-2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Common State Envelope"
+        }
+      ],
+      "children": []
+    },
+    "b-doc-the-envelope-carries-ide-3": {
+      "id": "b-doc-the-envelope-carries-ide-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The envelope carries identity (id, project"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id, kind), a domain-owned status, monotonic revision, created"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "at and updated"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "at, trace"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id, optional caused"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "by"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "event"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id, and blockers. Revision increments once per accepted transition; caused"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "by"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "event"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id identifies the accepted fact that produced it. Blockers share code, message, source"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "kind, source"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id, and recoverable, so every surface can explain a blocked object uniformly."
+        }
+      ],
+      "children": []
+    },
+    "b-struct-state-envelope": {
+      "id": "b-struct-state-envelope",
+      "type": "state-shape",
+      "props": {
+        "description": "Shared metadata carried by every durable project state object.",
+        "example": "{\n  \"id\": \"run-2026-08-11-01\",\n  \"project_id\": \"melee\",\n  \"kind\": \"run\",\n  \"status\": \"draining\",\n  \"revision\": 288,\n  \"created_at\": \"2026-08-11T18:00:00Z\",\n  \"updated_at\": \"2026-08-11T18:42:08Z\",\n  \"trace_id\": \"trace-run-2026-08-11-01\",\n  \"caused_by_event_id\": \"event-92811\",\n  \"blockers\": []\n}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "StateObjectId",
+            "description": "Stable identity of the state object."
+          },
+          {
+            "name": "project_id",
+            "type": "ProjectId",
+            "description": "Owning project."
+          },
+          {
+            "name": "kind",
+            "type": "StateKind",
+            "description": "Domain state-machine kind."
+          },
+          {
+            "name": "status",
+            "type": "domain-specific enum",
+            "description": "A value owned by this state kind."
+          },
+          {
+            "name": "revision",
+            "type": "integer",
+            "description": "Monotonic accepted-transition version."
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId",
+            "description": "Root trace for the object."
+          },
+          {
+            "name": "caused_by_event_id",
+            "type": "EventId",
+            "required": false,
+            "description": "Event that produced the current revision."
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]",
+            "fields": [
+              {
+                "name": "code",
+                "type": "string"
+              },
+              {
+                "name": "message",
+                "type": "string"
+              },
+              {
+                "name": "source_kind",
+                "type": "string"
+              },
+              {
+                "name": "source_id",
+                "type": "string"
+              },
+              {
+                "name": "recoverable",
+                "type": "boolean"
+              }
+            ]
+          }
+        ],
+        "name": "StateEnvelope"
+      },
+      "children": []
+    },
+    "b-doc-state-remains-authoritat-4": {
+      "id": "b-doc-state-remains-authoritat-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "State remains authoritative. Events are accepted-fact history used for causation and reconstruction, never a replacement for the current revision. A new state kind joins by adopting this envelope and supplying its own payload and status enum."
+        }
+      ],
+      "children": []
+    },
+    "b-doc-canonical-projectstate-5": {
+      "id": "b-doc-canonical-projectstate-5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Canonical ProjectState"
+        }
+      ],
+      "children": []
+    },
+    "b-doc-one-projectstate-per-pro-6": {
+      "id": "b-doc-one-projectstate-per-pro-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "One ProjectState per project answers what exists and who may act. It contains project"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id, monotonic revision, nullable session, run, PR, and sync slots, active"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "workflow, background"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "knowledge, trace, and updated"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "at. Each slot mirrors identity and status only; SessionState, RunState, PrCampaignState, and SyncState remain canonical for detail."
+        }
+      ],
+      "children": []
+    },
+    "b-doc-the-session-slot-carries-7": {
+      "id": "b-doc-the-session-slot-carries-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The session slot carries session"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id and head"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "revision. Workflow slots carry workflow"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id and their domain-specific status. Null active"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "workflow means no workflow may dispatch, but every workflow slot remains durable and visible. background"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "knowledge carries queued, processing, and failed counts, published"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "revision, and oldest"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "pending"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "at; trace carries trace"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "id, latest"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "event"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "sequence, and active"
+        },
+        {
+          "insert": "_"
+        },
+        {
+          "insert": "operation_ids."
+        }
+      ],
+      "children": []
+    },
+    "b-struct-project-state": {
+      "id": "b-struct-project-state",
+      "type": "state-shape",
+      "props": {
+        "description": "Canonical project state: the session, one always-present slot per workflow, the dispatch lease, background knowledge, and trace summary.",
+        "example": "{\n  \"project_id\": \"melee\",\n  \"revision\": 1842,\n  \"session\": {\n    \"session_id\": \"session-7\",\n    \"head_revision\": \"upstream-9ba1\"\n  },\n  \"run\": {\n    \"workflow_id\": \"run-2026-08-11-01\",\n    \"status\": \"draining\"\n  },\n  \"pr\": {\n    \"workflow_id\": \"pr-campaign-4\",\n    \"status\": \"in_review\"\n  },\n  \"sync\": {\n    \"workflow_id\": \"sync-2026-08-11-02\",\n    \"status\": \"requested\"\n  },\n  \"active_workflow\": {\n    \"kind\": \"run\",\n    \"workflow_id\": \"run-2026-08-11-01\",\n    \"lease_id\": \"lease-7f3b\",\n    \"status\": \"draining\"\n  },\n  \"background_knowledge\": {\n    \"queued\": 6,\n    \"processing\": 1,\n    \"failed\": 0,\n    \"published_revision\": \"knowledge-381\",\n    \"oldest_pending_at\": \"2026-08-11T18:35:12Z\"\n  },\n  \"trace\": {\n    \"trace_id\": \"trace-project-melee\",\n    \"latest_event_sequence\": 92811,\n    \"active_operation_ids\": [\n      \"operation-run-drain-44\"\n    ]\n  },\n  \"updated_at\": \"2026-08-11T18:42:08Z\"\n}",
+        "fields": [
+          {
+            "name": "project_id",
+            "type": "ProjectId",
+            "description": "Stable project identity."
+          },
+          {
+            "name": "revision",
+            "type": "integer",
+            "description": "Monotonic state version used for ordering and stale-write protection."
+          },
+          {
+            "name": "session",
+            "type": "SessionSlot | null",
+            "description": "Active session identity and head. The SessionState object is canonical.",
+            "fields": [
+              {
+                "name": "session_id",
+                "type": "SessionId"
+              },
+              {
+                "name": "head_revision",
+                "type": "SourceRevision"
+              }
+            ]
+          },
+          {
+            "name": "run",
+            "type": "WorkflowSlot | null",
+            "description": "Always-present run slot: the current run's identity and status, mirrored for at-a-glance reads. The RunState object is canonical. Null only when no run exists in the session.",
+            "fields": [
+              {
+                "name": "workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "status",
+                "type": "domain-specific enum"
+              }
+            ]
+          },
+          {
+            "name": "pr",
+            "type": "WorkflowSlot | null",
+            "description": "Always-present PR slot mirroring the open campaign. The PrCampaignState object is canonical.",
+            "fields": [
+              {
+                "name": "workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "status",
+                "type": "domain-specific enum"
+              }
+            ]
+          },
+          {
+            "name": "sync",
+            "type": "WorkflowSlot | null",
+            "description": "Always-present sync slot mirroring the current or requested sync. The SyncState object is canonical.",
+            "fields": [
+              {
+                "name": "workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "status",
+                "type": "domain-specific enum"
+              }
+            ]
+          },
+          {
+            "name": "active_workflow",
+            "type": "DispatchLease | null",
+            "description": "The exclusive dispatch grant. Dispatch Authority and Handoffs owns its full contract."
+          },
+          {
+            "name": "background_knowledge",
+            "type": "BackgroundKnowledgeState",
+            "fields": [
+              {
+                "name": "queued",
+                "type": "integer"
+              },
+              {
+                "name": "processing",
+                "type": "integer"
+              },
+              {
+                "name": "failed",
+                "type": "integer"
+              },
+              {
+                "name": "published_revision",
+                "type": "KnowledgeRevision"
+              },
+              {
+                "name": "oldest_pending_at",
+                "type": "timestamp | null"
+              }
+            ]
+          },
+          {
+            "name": "trace",
+            "type": "TraceCursor",
+            "fields": [
+              {
+                "name": "trace_id",
+                "type": "TraceId"
+              },
+              {
+                "name": "latest_event_sequence",
+                "type": "integer"
+              },
+              {
+                "name": "active_operation_ids",
+                "type": "OperationId[]"
+              }
+            ]
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp"
+          }
+        ],
+        "name": "ProjectState"
+      },
+      "children": []
+    },
+    "b-doc-related-contracts-8": {
+      "id": "b-doc-related-contracts-8",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related Contracts"
+        }
+      ],
+      "children": []
+    },
+    "b-doc-dispatch-authority-and-9": {
+      "id": "b-doc-dispatch-authority-and-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Dispatch Authority and Handoffs",
+          "attributes": {
+            "link": "../20-dispatch-authority-and-handoffs"
+          }
+        },
+        {
+          "insert": " owns active_workflow lease semantics. "
+        },
+        {
+          "insert": "Execution Classes and Jobs",
+          "attributes": {
+            "link": "../../../40-knowledge/70-execution-classes-and-jobs"
+          }
+        },
+        {
+          "insert": " owns background processing and publication semantics."
+        }
+      ],
+      "children": []
+    }
+  }
+}

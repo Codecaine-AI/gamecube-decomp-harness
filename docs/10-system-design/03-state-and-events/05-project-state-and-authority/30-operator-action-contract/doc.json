@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "id": "03-state-and-events-05-project-state-and-authority-30-operator-action-contract-doc-json-26f68768",
+  "title": "Operator Action Contract",
+  "root": "b-doc-root-11",
+  "blocks": {
+    "b-doc-root-11": {
+      "id": "b-doc-root-11",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-doc-the-server-projects-the-1",
+        "b-doc-decision-decision-20-2",
+        "b-doc-confirmation-rule-3",
+        "b-doc-publishing-a-pr-batch-or-4",
+        "b-doc-run-actions-5",
+        "b-doc-action-enabled-when-6",
+        "b-doc-pr-actions-7",
+        "b-doc-action-enabled-when-8",
+        "b-doc-sync-session-and-knowl-9",
+        "b-doc-action-enabled-when-10"
+      ]
+    },
+    "b-doc-the-server-projects-the-1": {
+      "id": "b-doc-the-server-projects-the-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The server projects the complete v1 inventory of 21 operator actions from authoritative state. Each projection names its subject, enabled state, blockers, expected transition, and whether confirmation is required; clients display this decision and never manufacture authority."
+        }
+      ],
+      "children": []
+    },
+    "b-doc-decision-decision-20-2": {
+      "id": "b-doc-decision-decision-20-2",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — two-tier confirmation and an explicit sync publish gate",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "confirmation_required is true exactly when an action is outward-facing or irreversible: it pushes anything upstream, discards work, or is terminal. Sync rests at validated until the operator triggers its confirm-gated publish action."
+        }
+      ],
+      "children": []
+    },
+    "b-doc-confirmation-rule-3": {
+      "id": "b-doc-confirmation-rule-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Confirmation Rule"
+        }
+      ],
+      "children": []
+    },
+    "b-doc-publishing-a-pr-batch-or-4": {
+      "id": "b-doc-publishing-a-pr-batch-or-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Publishing a PR batch or sync boundary is outward-facing. Hard-stopping or cancelling work discards it. Cancellation, campaign or session closure, and lease recovery are terminal. Those actions require confirmation; pause, resume, drain, sync start, PR activation, and manual save points are single-click actions gated by blockers. After validation, sync rests at validated; upstream movement adds a staleness blocker and requires re-validation before confirm-gated publication."
+        }
+      ],
+      "children": []
+    },
+    "b-doc-run-actions-5": {
+      "id": "b-doc-run-actions-5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Run Actions"
+        }
+      ],
+      "children": []
+    },
+    "b-doc-action-enabled-when-6": {
+      "id": "b-doc-action-enabled-when-6",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Action",
+          "Enabled when",
+          "Blocked by",
+          "Expected result",
+          "Confirm"
+        ],
+        "rows": [
+          [
+            "run.start",
+            "the dispatch lease is free, the session is active, and run readiness passes",
+            "another workflow holds the dispatch lease; stale baseline; unresolved sync request",
+            "run lease becomes active",
+            "no"
+          ],
+          [
+            "run.pause",
+            "the run owns the lease",
+            "—",
+            "active → draining → paused once work settles",
+            "no"
+          ],
+          [
+            "run.resume",
+            "the run is paused and the dispatch lease is free",
+            "another workflow holds the dispatch lease; baseline invalidated by an unpublished sync",
+            "paused → active",
+            "no"
+          ],
+          [
+            "run.hard_stop",
+            "the run is active or draining",
+            "—",
+            "in-flight work is recovered or cancelled; the run becomes paused",
+            "yes"
+          ],
+          [
+            "run.cancel",
+            "the run is paused or failed",
+            "unsettled claims",
+            "run becomes cancelled (terminal)",
+            "yes"
+          ],
+          [
+            "run.recover",
+            "the run is failed or its lease is stale",
+            "—",
+            "orphaned work settles or cancels; failed → paused via run.recovered",
+            "yes"
+          ]
+        ],
+        "title": "Run actions"
+      },
+      "children": []
+    },
+    "b-doc-pr-actions-7": {
+      "id": "b-doc-pr-actions-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "PR Actions"
+        }
+      ],
+      "children": []
+    },
+    "b-doc-action-enabled-when-8": {
+      "id": "b-doc-action-enabled-when-8",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Action",
+          "Enabled when",
+          "Blocked by",
+          "Expected result",
+          "Confirm"
+        ],
+        "rows": [
+          [
+            "pr.open_campaign",
+            "no campaign is open and a validated stable save point exists",
+            "an open campaign; no reproducible ship snapshot",
+            "campaign created in preparing",
+            "no"
+          ],
+          [
+            "pr.activate",
+            "a campaign exists and the dispatch lease is free",
+            "another workflow holds the dispatch lease",
+            "campaign → working; a pr_phase timeline entry opens",
+            "no"
+          ],
+          [
+            "pr.publish_batch",
+            "the campaign is working and the next batch is prepared and validated",
+            "unvalidated series; sync invalidation blockers",
+            "batch series prepared → published; PRs open upstream",
+            "yes"
+          ],
+          [
+            "pr.release",
+            "the campaign is working and fixers have settled",
+            "running fixers",
+            "campaign working → in_review; lease released",
+            "no"
+          ],
+          [
+            "pr.close_campaign",
+            "every series is merged or closed",
+            "non-terminal series",
+            "campaign becomes completed (terminal)",
+            "yes"
+          ],
+          [
+            "pr.abandon_campaign",
+            "the campaign is not terminal",
+            "—",
+            "campaign becomes abandoned (terminal)",
+            "yes"
+          ],
+          [
+            "pr.campaign_recover",
+            "an activation lease is stale or failed",
+            "—",
+            "pr.campaign_recovered; campaign returns to in_review",
+            "yes"
+          ]
+        ],
+        "title": "PR actions"
+      },
+      "children": []
+    },
+    "b-doc-sync-session-and-knowl-9": {
+      "id": "b-doc-sync-session-and-knowl-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Sync, Session, and Knowledge Actions"
+        }
+      ],
+      "children": []
+    },
+    "b-doc-action-enabled-when-10": {
+      "id": "b-doc-action-enabled-when-10",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Action",
+          "Enabled when",
+          "Blocked by",
+          "Expected result",
+          "Confirm"
+        ],
+        "rows": [
+          [
+            "sync.start",
+            "the dispatch lease is free and the operator initiates it; upstream movement or staged corpora may exist but are not required to ask",
+            "another workflow holds the dispatch lease; a prior sync's staging awaiting a decision",
+            "sync requested → ingesting under the sync lease",
+            "no"
+          ],
+          [
+            "sync.resolve_conflict",
+            "sync is blocked with conflicts awaiting the operator",
+            "—",
+            "blocked → reconciling",
+            "no"
+          ],
+          [
+            "sync.publish",
+            "sync is validated",
+            "upstream moved after validation (staleness); missing validation evidence",
+            "validated → publishing → published; head advances atomically and PR branches push",
+            "yes"
+          ],
+          [
+            "sync.cancel",
+            "sync holds any pre-publish status",
+            "publish already committing",
+            "sync becomes cancelled; staging discarded; session untouched",
+            "yes"
+          ],
+          [
+            "sync.recover",
+            "a sync crashed before publish",
+            "—",
+            "resume from the last durable stage, or discard staging at the operator's choice",
+            "yes"
+          ],
+          [
+            "session.save_point",
+            "the session is active",
+            "—",
+            "evidence anchor recorded at the current commit",
+            "no"
+          ],
+          [
+            "session.close",
+            "the dispatch lease is free and no unshipped work would be orphaned",
+            "another workflow holds the dispatch lease; unshipped local work without a named save point",
+            "session becomes closed; the next baseline sync opens the successor",
+            "yes"
+          ],
+          [
+            "knowledge.process",
+            "the background queue has work",
+            "materializer lease or retry backoff",
+            "knowledge revision may advance",
+            "no"
+          ]
+        ],
+        "title": "Sync, session, and knowledge actions"
+      },
+      "children": []
+    }
+  }
+}
