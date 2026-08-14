@@ -1187,7 +1187,6 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                         },
                       },
                       savePointEvidence: result.savePointEvidence,
-                      workflowCorrelationId: runId,
                     });
                   }
                   nextEpochAllowedMs = Date.now() + epochRetryMs;
@@ -1254,7 +1253,6 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                       },
                     },
                     savePointEvidence: boundaryResult.savePointEvidence,
-                    workflowCorrelationId: runId,
                   });
                 } else {
                   closeSchedulerEpoch(store, schedulerEpochId, {

@@ -23,7 +23,6 @@ export function enterPrPhase(record: ProjectSessionRecord, now: string, options:
   }
   const runningState = record.phase === "running" && record.running_state_json.completed_at ? record.running_state_json : completePhase(record.running_state_json, now);
   return {
-    status: "active",
     phase: "pr",
     running_state_json: runningState,
     pr_state_json: {

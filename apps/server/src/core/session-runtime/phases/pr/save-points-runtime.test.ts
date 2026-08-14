@@ -21,6 +21,7 @@ describe("boundary save points", () => {
     const store = openState(stateDir);
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         id: "project-session:session-1",
         projectId: "melee",
         sessionUuid: "session-1",
@@ -44,6 +45,7 @@ describe("boundary save points", () => {
     const result = await runtime.boundarySavePoint(
       { project: null, repoRoot: "/repo", stateDir, graphDbPath: "/graph.sqlite", usePathOverrides: true },
       "qa",
+      "session-1",
       "QA boundary",
     );
 
@@ -63,10 +65,14 @@ describe("boundary save points", () => {
       const events = eventsForSubject(savedStore.db, "session", "session-1");
       expect(events.map((event) => event.eventType)).toEqual(["session.opened", "session.save_point_failed"]);
       expect(events[1]?.payload).toEqual({
+        anchored_commit: "base-sha",
         trigger_kind: "qa",
         blocker_code: "save_point_failed",
+        failed_or_missing_artifact_classes: ["save_point_boundary"],
+        replay_key: expect.stringMatching(/^save-point-/),
         staleness_flag_raised: true,
       });
+      expect(events[1]?.correlationId).toBe("session-1");
       expect(session?.caused_by_event_id).toBe(events[1]?.eventId);
     } finally {
       savedStore.db.close();
@@ -93,13 +99,16 @@ describe("boundary save points", () => {
       runtime.boundarySavePoint(
         { project: { projectId: "melee" } as never, repoRoot: "/repo", stateDir, graphDbPath: "/graph.sqlite", usePathOverrides: true },
         "checkpoint",
+        "session-intended",
       ),
     ).resolves.toEqual({ ok: false, savePointId: null, blockerRaised: true });
     const files = readdirSync(join(stateDir, "save_point_failures"));
     expect(files).toHaveLength(1);
     expect(JSON.parse(readFileSync(join(stateDir, "save_point_failures", files[0]!), "utf8"))).toMatchObject({
       event_type: "session.save_point_failed",
+      correlation_id: "session-intended",
       project_id: "melee",
+      session_uuid: "session-intended",
       source_kind: "save_point_boundary",
       trigger_kind: "checkpoint",
     });
@@ -121,6 +130,7 @@ describe("boundary save points", () => {
     await expect(runtime.boundarySavePoint(
       { project: { projectId: "melee" } as never, repoRoot: "/repo", stateDir, graphDbPath: "/graph.sqlite", usePathOverrides: true },
       "qa",
+      "session-intended",
     )).resolves.toEqual({ ok: false, savePointId: null, blockerRaised: true });
     expect(readdirSync(join(stateDir, "save_point_failures"))).toHaveLength(1);
   });

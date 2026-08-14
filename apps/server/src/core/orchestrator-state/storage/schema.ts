@@ -49,6 +49,7 @@ export const projectEvents = sqliteTable(
     actor: text("actor").$type<ProjectEventActor>().notNull(),
     occurredAt: text("occurred_at").notNull(),
     payloadJson: text("payload_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
+    parentSpanId: text("parent_span_id"),
   },
   (table) => [
     index("project_events_subject_sequence").on(table.subjectKind, table.subjectId, table.sequence),
@@ -75,6 +76,30 @@ export const projectState = sqliteTable("project_state", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const dispatchHandoffSnapshots = sqliteTable(
+  "dispatch_handoff_snapshots",
+  {
+    snapshotId: text("snapshot_id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    contentJson: text("content_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    contentHash: text("content_hash").notNull().unique(),
+    oldLeaseHolderJson: text("old_lease_holder_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    requestedHandoffJson: text("requested_handoff_json", { mode: "json" }).$type<JsonObject>(),
+    terminalProjectRevision: integer("terminal_project_revision").notNull(),
+    releaseEventId: text("release_event_id").notNull().unique().references(() => projectEvents.eventId),
+    acquisitionEventId: text("acquisition_event_id").unique().references(() => projectEvents.eventId),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("dispatch_handoff_snapshots_project_created").on(table.projectId, table.createdAt),
+    check("dispatch_handoff_snapshots_content_json_check", sql`json_valid(${table.contentJson})`),
+    check(
+      "dispatch_handoff_snapshots_content_hash_check",
+      sql`length(${table.contentHash}) = 64 AND ${table.contentHash} NOT GLOB '*[^0-9a-f]*'`,
+    ),
+  ],
+);
 
 export const syncState = sqliteTable(
   "sync_state",
@@ -109,6 +134,14 @@ export const syncState = sqliteTable(
       .notNull()
       .default(sql`'[]'`),
     publicationJson: text("publication_json", { mode: "json" }).$type<JsonObject>(),
+    blockedOriginStatus: text("blocked_origin_status").$type<
+      "requested" | "ingesting" | "reconciling" | "validating" | "validated" | "publishing"
+    >(),
+    validationEvidenceJson: text("validation_evidence_json", { mode: "json" }).$type<JsonObject>(),
+    resolvedConflictPathsJson: text("resolved_conflict_paths_json", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'`),
   },
   (table) => [
     uniqueIndex("sync_state_one_non_terminal_project")
@@ -831,6 +864,7 @@ export const orchestratorStateSchema = {
   prBatchPublicationSeries,
   prBatchPublications,
   runRecoveryJournal,
+  dispatchHandoffSnapshots,
   projectEvents,
   projectSessions,
   projectState,
@@ -889,6 +923,8 @@ export type DashboardArtifactRow = typeof dashboardArtifacts.$inferSelect;
 export type SchemaMigrationRow = typeof schemaMigrations.$inferSelect;
 export type ProjectEventRow = typeof projectEvents.$inferSelect;
 export type NewProjectEventRow = typeof projectEvents.$inferInsert;
+export type DispatchHandoffSnapshotRow = typeof dispatchHandoffSnapshots.$inferSelect;
+export type NewDispatchHandoffSnapshotRow = typeof dispatchHandoffSnapshots.$inferInsert;
 export type ProjectStateRow = typeof projectState.$inferSelect;
 export type NewProjectStateRow = typeof projectState.$inferInsert;
 export type PrBatchPublicationRow = typeof prBatchPublications.$inferSelect;

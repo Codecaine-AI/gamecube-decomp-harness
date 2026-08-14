@@ -12,6 +12,7 @@ import {
 import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
 import type { RegressionReport } from "@server/core/validation/objdiff/report";
 import type { DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard";
+import type { ProjectEventTraceLinkage } from "@server/core/project-state/kernel-links.js";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -38,12 +39,16 @@ export interface PrWorktreeProjectContext {
 type LogStream = "stdout" | "stderr" | "ui";
 type WorkflowStatus = "started" | "completed" | "failed" | "skipped";
 
-interface WorkflowEventInput {
+interface WorkflowEventInput extends ProjectEventTraceLinkage {
   kind: "baseline";
   operation: string;
   status?: WorkflowStatus;
   detail?: string | null;
   metadata?: Record<string, unknown>;
+}
+
+export interface PrProductionWorkflowLinkage extends ProjectEventTraceLinkage {
+  workflowId: string;
 }
 
 interface RunGitOptions {
@@ -86,6 +91,27 @@ function numberValue(value: unknown, fallback = 0): number {
 
 function dedupeStrings(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function requiredProductionTraceLinkage(
+  input: PrProductionWorkflowLinkage | undefined,
+): ProjectEventTraceLinkage {
+  if (!input) {
+    throw new Error("Production baseline tracing requires durable PR dispatch linkage");
+  }
+  const workflowId = input.workflowId.trim();
+  const correlationId = input.correlationId.trim();
+  const projectEventId = input.projectEventId.trim();
+  const causedByEventId = input.causedByEventId?.trim() ?? "";
+  if (!workflowId || !correlationId || !projectEventId || !causedByEventId) {
+    throw new Error("Production baseline tracing requires complete durable PR dispatch linkage");
+  }
+  if (correlationId !== workflowId) {
+    throw new Error(
+      `Production baseline trace correlation ${correlationId} does not match owning PR workflow ${workflowId}`,
+    );
+  }
+  return { correlationId, projectEventId, causedByEventId };
 }
 
 /** Preserve the legacy primary manifest exactly; append only novel support paths. */
@@ -202,9 +228,10 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     updatePrRecord,
   } = deps;
 
-  async function rebuildProductionBaseline(
+  async function rebuildProductionBaselineWithTrace(
     paths: Context,
     revalidateLease?: DispatchLeaseRevalidator,
+    traceLinkage: ProjectEventTraceLinkage | null = null,
   ): Promise<JsonObject> {
     const { repoRoot } = paths;
     const baseRef = paths.project?.baseRef ?? "origin/master";
@@ -212,13 +239,16 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     const worktreeDir = resolve(tmpdir(), `melee-baseline-${baseSha}`);
     const worktreeBaseline = resolve(worktreeDir, "build/GALE01/baseline.json");
     const cached = existsSync(worktreeBaseline);
-    await submitWorkflowEvent?.(paths, {
-      kind: "baseline",
-      operation: "rebuildProductionBaseline",
-      status: "started",
-      detail: `${baseRef} ${baseSha.slice(0, 10)}${cached ? " cached" : ""}`.trim(),
-      metadata: { baseRef, baseSha, cached, worktreeDir },
-    });
+    if (submitWorkflowEvent) {
+      await submitWorkflowEvent(paths, {
+        kind: "baseline",
+        operation: "rebuildProductionBaseline",
+        status: "started",
+        detail: `${baseRef} ${baseSha.slice(0, 10)}${cached ? " cached" : ""}`.trim(),
+        metadata: { baseRef, baseSha, cached, worktreeDir },
+        ...traceLinkage!,
+      });
+    }
     if (!cached) {
       if (!existsSync(worktreeDir)) {
         appendLog("ui", `baseline worktree add ${worktreeDir} @ ${baseSha.slice(0, 10)}`);
@@ -257,19 +287,34 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
     const statusPath = resolve(paths.handoffDir ?? resolve(paths.stateDir, "pr_handoff"), "baseline_status.json");
     mkdirSync(dirname(statusPath), { recursive: true });
     writeFileSync(statusPath, JSON.stringify(status, null, 2), "utf8");
-    await submitWorkflowEvent?.(paths, {
-      kind: "baseline",
-      operation: "rebuildProductionBaseline",
-      status: "completed",
-      detail: `${baseSha.slice(0, 10)} installed`,
-      metadata: status,
-    });
+    if (submitWorkflowEvent) {
+      await submitWorkflowEvent(paths, {
+        kind: "baseline",
+        operation: "rebuildProductionBaseline",
+        status: "completed",
+        detail: `${baseSha.slice(0, 10)} installed`,
+        metadata: status,
+        ...traceLinkage!,
+      });
+    }
     return status as unknown as JsonObject;
+  }
+
+  async function rebuildProductionBaseline(
+    paths: Context,
+    revalidateLease?: DispatchLeaseRevalidator,
+    productionLinkage?: PrProductionWorkflowLinkage,
+  ): Promise<JsonObject> {
+    const traceLinkage = submitWorkflowEvent
+      ? requiredProductionTraceLinkage(productionLinkage)
+      : null;
+    return rebuildProductionBaselineWithTrace(paths, revalidateLease, traceLinkage);
   }
 
   async function ensureOpenPrBaseline(
     paths: Context,
     revalidateLease?: DispatchLeaseRevalidator,
+    productionLinkage?: PrProductionWorkflowLinkage,
   ): Promise<JsonObject> {
     const baseRef = paths.project?.baseRef ?? "origin/master";
     const baseSha = (await runGit(paths.repoRoot, ["rev-parse", "--verify", baseRef], { failureHint: `Unable to resolve ${baseRef}` })).stdout.trim();
@@ -284,8 +329,11 @@ export function createPrWorktreeService<Context extends PrWorktreeProjectContext
         : worktreeDir && !existsSync(baselinePath)
           ? `baseline cache is missing at ${worktreeDir}`
           : "baseline cache is missing";
+    const traceLinkage = submitWorkflowEvent
+      ? requiredProductionTraceLinkage(productionLinkage)
+      : null;
     appendLog("ui", `open draft: ${reason}; rebuilding production baseline`);
-    return rebuildProductionBaseline(paths, revalidateLease);
+    return rebuildProductionBaselineWithTrace(paths, revalidateLease, traceLinkage);
   }
 
   async function verifyShipSet(

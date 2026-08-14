@@ -16,6 +16,10 @@ export interface DispatchHandoffRequest {
   target_workflow_id: string;
   reason: string;
   requested_at: string;
+  requested_by: EventActor;
+  request_command_id: string;
+  request_root_span_id: string;
+  request_event_id: string;
 }
 
 export interface DispatchLease {
@@ -35,6 +39,9 @@ export interface QueuedDispatchRequest {
   reason: string;
   requested_at: string;
   requested_by: EventActor;
+  request_command_id: string;
+  request_root_span_id: string;
+  request_event_id: string;
 }
 
 export interface ProjectState {
@@ -58,8 +65,9 @@ export interface InitializeProjectStateInput {
 export interface TransitionContext {
   projectId?: string;
   commandId: string;
+  causationId?: string;
   actor: EventActor;
-  correlationId?: string;
+  correlationId: string;
   spanId?: string;
   now?: string;
 }
@@ -105,6 +113,7 @@ export interface RecoverDispatchInput extends TransitionContext {
 export interface DispatchAcquiredDecision {
   queued: false;
   leaseId: string;
+  acquiredEventId: string;
   state: ProjectState;
 }
 
@@ -115,6 +124,24 @@ export interface DispatchQueuedDecision {
 }
 
 export type RequestDispatchDecision = DispatchAcquiredDecision | DispatchQueuedDecision;
+
+export interface DispatchSuccessorActivationContext {
+  actor: EventActor;
+  commandId: string;
+  correlationId: string;
+  causationId: string;
+  spanId: string;
+  kind: DispatchKind;
+  workflowId: string;
+  leaseId: string;
+}
+
+export interface ReleaseDispatchResult {
+  state: ProjectState;
+  releasedEventId?: string;
+  acquiredEventId?: string;
+  successorActivation?: DispatchSuccessorActivationContext;
+}
 
 export interface DispatchRecoveryResult {
   recovered: true;

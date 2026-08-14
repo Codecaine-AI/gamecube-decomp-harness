@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import type { GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 import { immediateTransaction } from "@server/core/orchestrator-state";
 import { reconcilePendingIntegrations } from "@server/core/project-session";
+import { newSpanId, type EventActor } from "@server/core/project-state/events.js";
 import {
   beginDrain,
   getProjectState,
   initializeProjectState,
   recoverDispatch,
   releaseDispatch,
+  releaseDispatchDetailed,
   requestDispatch,
   requireLease,
   STALE_DISPATCH_LEASE_MS,
@@ -33,9 +35,9 @@ import type { RunBlocker, RunRecord } from "@server/core/shared/types";
 interface ConfirmedRunControlInput {
   commandId?: string;
   confirmed: boolean;
-  correlationId?: string;
   reason: string;
   runId: string;
+  spanId?: string;
   store: StateStore;
 }
 
@@ -154,9 +156,32 @@ function requireProjectId(run: RunRecord, explicit?: string): string {
   return projectId;
 }
 
+function dispatchReleaseEventId(store: StateStore, causedByEventId: string | null): string {
+  if (!causedByEventId) throw new Error("Dispatch release did not record a causal event");
+  const event = store.db
+    .query("SELECT event_type, causation_id FROM project_events WHERE event_id = ?")
+    .get(causedByEventId) as { event_type: string; causation_id: string } | null;
+  if (!event) throw new Error(`Dispatch release event ${causedByEventId} was not found`);
+  if (event.event_type === "project.dispatch_released") return causedByEventId;
+  if (event.event_type === "project.dispatch_acquired") return event.causation_id;
+  throw new Error(`Dispatch release ended with unexpected event ${event.event_type}`);
+}
+
+function settlementReleaseCausationId(store: StateStore, projectId: string, fallbackCommandId: string): string {
+  const causedByEventId = getProjectState(store, projectId)?.caused_by_event_id;
+  if (!causedByEventId) return fallbackCommandId;
+  const event = store.db
+    .query("SELECT event_type FROM project_events WHERE event_id = ? AND project_id = ?")
+    .get(causedByEventId, projectId) as { event_type: string } | null;
+  return event?.event_type === "project.dispatch_drain_started" || event?.event_type === "project.dispatch_requested"
+    ? causedByEventId
+    : fallbackCommandId;
+}
+
 /** Atomically acquires dispatch authority and activates a ready/paused run. */
 export function activateRun(input: ActivateRunInput): { leaseId: string; run: RunRecord } {
   const operationCommandId = commandId({ ...input, confirmed: true }, "run-activate");
+  const actionSpanId = input.spanId ?? newSpanId();
   return immediateTransaction(input.store.db, () => {
     const original = requireRun(input.store, input.runId);
     if (original.status === "active") {
@@ -171,13 +196,15 @@ export function activateRun(input: ActivateRunInput): { leaseId: string; run: Ru
     }
     const projectId = requireProjectId(original, input.projectId);
     initializeProjectState(input.store, { projectId, traceId: `trace-project-${projectId}` });
+    const actor = input.actor ?? "operator";
     const decision = requestDispatch(input.store, {
-      actor: input.actor ?? "operator",
+      actor,
       commandId: operationCommandId,
-      correlationId: input.correlationId ?? original.id,
+      correlationId: original.id,
       kind: "run",
       projectId,
       reason: input.reason,
+      spanId: actionSpanId,
       workflowId: original.id,
     });
     if (decision.queued) {
@@ -187,13 +214,15 @@ export function activateRun(input: ActivateRunInput): { leaseId: string; run: Ru
       );
     }
     const run = transitionRun(input.store, original.id, {
-      actor: input.actor ?? "operator",
+      actor,
+      causationId: decision.state.caused_by_event_id ?? operationCommandId,
       commandId: operationCommandId,
-      correlationId: input.correlationId ?? original.id,
+      correlationId: original.id,
       eventType: "run.activated",
       expectedRevision: original.revision,
       patch: { status: "active", stopRequest: null },
-      payload: { lease_id: decision.leaseId, previous_status: original.status, resulting_status: "active" },
+      payload: { lease_id: decision.leaseId },
+      spanId: actionSpanId,
     });
     return { leaseId: decision.leaseId, run };
   });
@@ -202,6 +231,7 @@ export function activateRun(input: ActivateRunInput): { leaseId: string; run: Ru
 /** Atomically disables admission in both the run and its dispatch lease. */
 export function pauseRun(input: PauseRunInput): PauseRunResult {
   const operationCommandId = commandId({ ...input, confirmed: true }, "run-pause");
+  const actionSpanId = input.spanId ?? newSpanId();
   return immediateTransaction(input.store.db, () => {
     const original = requireRun(input.store, input.runId);
     const lease = runLease(input.store, original);
@@ -215,22 +245,26 @@ export function pauseRun(input: PauseRunInput): PauseRunResult {
     if (!lease || lease.status !== "active") {
       throw new RunControlBlockedError(`Run ${original.id} cannot pause without its active dispatch lease`, ["run_lease_disagreement"]);
     }
+    const actor = input.actor ?? "operator";
     const run = transitionRun(input.store, original.id, {
-      actor: input.actor ?? "operator",
+      actor,
       commandId: operationCommandId,
-      correlationId: input.correlationId ?? original.id,
+      correlationId: original.id,
       eventType: "run.draining",
       expectedRevision: original.revision,
       patch: { status: "draining", stopRequest: { mode: "pause", reason: input.reason } },
-      payload: { lease_id: lease.lease_id, reason: input.reason, resulting_status: "draining" },
+      payload: { lease_id: lease.lease_id, reason: input.reason },
+      spanId: actionSpanId,
     });
     beginDrain(input.store, {
-      actor: input.actor ?? "operator",
+      actor,
+      causationId: run.causedByEventId ?? operationCommandId,
       commandId: operationCommandId,
-      correlationId: input.correlationId ?? original.id,
+      correlationId: original.id,
       leaseId: lease.lease_id,
       projectId: requireProjectId(original),
       reason: input.reason,
+      spanId: actionSpanId,
       targetKind: input.targetKind,
       targetWorkflowId: input.targetWorkflowId,
     });
@@ -241,6 +275,7 @@ export function pauseRun(input: PauseRunInput): PauseRunResult {
 /** Supervisor-owned boundary report: release/park authority and then pause. */
 export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
   const operationCommandId = commandId({ ...input, confirmed: true }, "run-pause-settled");
+  const actionSpanId = input.spanId ?? newSpanId();
   return immediateTransaction(input.store.db, () => {
     const original = requireRun(input.store, input.runId);
     const lease = runLease(input.store, original);
@@ -258,47 +293,78 @@ export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
     if (!lease || (input.leaseId && lease.lease_id !== input.leaseId)) {
       throw new RunControlBlockedError(`Run ${original.id} lost its dispatch lease before supervisor settlement`, ["run_lease_disagreement"]);
     }
-    const released = releaseDispatch(input.store, {
-      actor: input.actor ?? "guardian",
+    const actor = input.actor ?? "runner";
+    const projectId = requireProjectId(original);
+    const release = releaseDispatchDetailed(input.store, {
+      actor,
+      causationId: settlementReleaseCausationId(input.store, projectId, operationCommandId),
       commandId: operationCommandId,
-      correlationId: input.correlationId ?? original.id,
+      correlationId: original.id,
       leaseId: lease.lease_id,
-      projectId: requireProjectId(original),
+      projectId,
+      spanId: actionSpanId,
     });
+    const released = release.state;
     if (released.active_workflow?.kind === "run" && released.active_workflow.workflow_id === original.id) {
       throw new RunControlBlockedError(`Run ${original.id} dispatch lease could not be released`, ["dispatch_release_blocked"]);
     }
+    if (!release.releasedEventId) throw new Error(`Run ${original.id} dispatch release did not accept a release event`);
+    const releaseEventId = release.releasedEventId;
     if (released.active_workflow?.kind === "sync") {
+      const successor = release.successorActivation;
+      if (
+        !successor || successor.kind !== "sync" ||
+        successor.workflowId !== released.active_workflow.workflow_id ||
+        successor.leaseId !== released.active_workflow.lease_id
+      ) {
+        throw new Error(`Run ${original.id} sync handoff is missing its accepted request activation context`);
+      }
       activateAcquiredSync({
+        actor: successor.actor,
+        causationId: successor.causationId,
         store: input.store,
-        projectId: requireProjectId(original),
-        syncId: released.active_workflow.workflow_id,
-        leaseId: released.active_workflow.lease_id,
-        commandId: `${operationCommandId}:sync-started`,
-        correlationId: released.active_workflow.workflow_id,
+        projectId,
+        syncId: successor.workflowId,
+        leaseId: successor.leaseId,
+        commandId: successor.commandId,
+        correlationId: successor.correlationId,
+        spanId: successor.spanId,
       });
     }
     if (
       released.active_workflow?.kind === "pr" &&
       getPrCampaign(input.store, released.active_workflow.workflow_id)
     ) {
+      const successor = release.successorActivation;
+      if (
+        !successor || successor.kind !== "pr" ||
+        successor.workflowId !== released.active_workflow.workflow_id ||
+        successor.leaseId !== released.active_workflow.lease_id
+      ) {
+        throw new Error(`Run ${original.id} PR handoff is missing its accepted request activation context`);
+      }
       activateAcquiredPrCampaign({
+        actor: successor.actor,
+        causationId: successor.causationId,
         store: input.store,
-        projectId: requireProjectId(original),
-        campaignId: released.active_workflow.workflow_id,
-        leaseId: released.active_workflow.lease_id,
-        commandId: `${operationCommandId}:pr-activated`,
-        correlationId: released.active_workflow.workflow_id,
+        projectId,
+        campaignId: successor.workflowId,
+        leaseId: successor.leaseId,
+        commandId: successor.commandId,
+        correlationId: successor.correlationId,
+        spanId: successor.spanId,
       });
     }
     const run = transitionRun(input.store, original.id, {
-      actor: input.actor ?? "guardian",
+      actor,
+      causationId: releaseEventId,
       commandId: operationCommandId,
-      correlationId: input.correlationId ?? original.id,
+      correlationId: original.id,
       eventType: "run.paused",
       expectedRevision: original.revision,
-      patch: { status: "paused", stopRequest: null },
-      payload: { reason: input.reason, resulting_status: "paused" },
+      patch: { status: "paused" },
+      payload: {},
+      spanId: actionSpanId,
     });
     return { leaseId: null, run, settled: true };
   });
@@ -307,6 +373,7 @@ export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
 /** Loud startup repair for the two status/lease crash-window shapes. */
 export function reconcileRunLeaseState(input: PauseRunInput): RunLeaseReconciliation | null {
   const operationCommandId = commandId({ ...input, confirmed: true }, "run-lease-reconcile");
+  const actionSpanId = input.spanId ?? newSpanId();
   return immediateTransaction(input.store.db, () => {
     const original = requireRun(input.store, input.runId);
     const projectId = requireProjectId(original);
@@ -315,9 +382,10 @@ export function reconcileRunLeaseState(input: PauseRunInput): RunLeaseReconcilia
       const released = releaseDispatch(input.store, {
         actor: "guardian",
         commandId: operationCommandId,
-        correlationId: input.correlationId ?? original.id,
+        correlationId: original.id,
         leaseId: lease.lease_id,
         projectId,
+        spanId: actionSpanId,
       });
       if (released.active_workflow?.kind === "run" && released.active_workflow.workflow_id === original.id) {
         throw new Error(`Startup reconciliation could not release unexpected lease ${lease.lease_id} from ${original.status} run ${original.id}`);
@@ -332,11 +400,12 @@ export function reconcileRunLeaseState(input: PauseRunInput): RunLeaseReconcilia
       const run = transitionRun(input.store, original.id, {
         actor: "guardian",
         commandId: operationCommandId,
-        correlationId: input.correlationId ?? original.id,
-        eventType: "run.lease_reconciled",
+        correlationId: original.id,
+        eventType: "run.draining",
         expectedRevision: original.revision,
         patch: { status: "draining", stopRequest: { mode: "pause", reason: input.reason } },
-        payload: { lease_id: lease.lease_id, previous_status: "active", resulting_status: "draining", reason: input.reason },
+        payload: { lease_id: lease.lease_id, reason: input.reason },
+        spanId: actionSpanId,
       });
       return {
         action: "aligned_run_to_draining_lease",
@@ -348,11 +417,15 @@ export function reconcileRunLeaseState(input: PauseRunInput): RunLeaseReconcilia
       const run = transitionRun(input.store, original.id, {
         actor: "guardian",
         commandId: operationCommandId,
-        correlationId: input.correlationId ?? original.id,
-        eventType: "run.lease_reconciled",
+        correlationId: original.id,
+        eventType: "run.paused",
         expectedRevision: original.revision,
-        patch: { status: "paused", stopRequest: null },
-        payload: { previous_status: original.status, resulting_status: "paused", reason: input.reason },
+        patch: {
+          status: "paused",
+          stopRequest: original.stopRequest ?? { mode: "pause", reason: input.reason },
+        },
+        payload: {},
+        spanId: actionSpanId,
       });
       return {
         action: "paused_lease_free_run",
@@ -412,7 +485,7 @@ async function prepareSettlingRunClaims(
   return prepareRunClaimRecovery({
     action,
     commandId: operationCommandId,
-    correlationId: input.correlationId ?? run.id,
+    correlationId: run.id,
     expectedRunRevision: run.revision,
     force: true,
     globals: input.globals,
@@ -430,19 +503,22 @@ function recoverHeldLease(
   lease: DispatchLease | null,
   cancelledClaimIds: string[],
   operationCommandId: string,
-): boolean {
-  if (!lease) return false;
+  actionSpanId: string,
+  actor: EventActor,
+): string | null {
+  if (!lease) return null;
   if (!run.projectId) throw new Error(`Run ${run.id} cannot recover its dispatch lease without a project id`);
-  recoverDispatch(input.store, {
-    actor: "operator",
+  const recovered = recoverDispatch(input.store, {
+    actor,
     cancelledSubjectIds: cancelledClaimIds,
     commandId: operationCommandId,
-    correlationId: input.correlationId ?? run.id,
+    correlationId: run.id,
     leaseId: lease.lease_id,
     projectId: run.projectId,
     recoveryReason: input.reason,
+    spanId: actionSpanId,
   });
-  return true;
+  return dispatchReleaseEventId(input.store, recovered.state.caused_by_event_id);
 }
 
 /**
@@ -452,6 +528,7 @@ function recoverHeldLease(
 export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResult> {
   requireConfirmation(input.confirmed, "run.recover");
   const operationCommandId = commandId(input, "run-recover");
+  const actionSpanId = input.spanId ?? newSpanId();
   const original = requireRun(input.store, input.runId);
   if (original.status === "completed" || original.status === "cancelled") {
     throw new RunControlBlockedError(`Run ${original.id} is terminal (${original.status})`, ["run_terminal"]);
@@ -481,10 +558,11 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
     const decision = requestDispatch(input.store, {
       actor: "operator",
       commandId: operationCommandId,
-      correlationId: input.correlationId ?? original.id,
+      correlationId: original.id,
       kind: "run",
       projectId,
       reason: `recover run: ${input.reason}`,
+      spanId: actionSpanId,
       workflowId: original.id,
     });
     if (!decision.queued) lease = decision.state.active_workflow;
@@ -520,23 +598,25 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
     );
     const currentLease = runLease(input.store, current);
     dispatchLeaseRecovered = Boolean(currentLease);
-    if (currentLease) {
-      recoverHeldLease(
-        {
-          ...input,
-          correlationId: prepared.journal.correlationId,
-          reason: prepared.journal.recoveryReason,
-        },
-        current,
-        currentLease,
-        cancelledClaimIds,
-        prepared.journal.commandId,
-      );
-    }
+    const releaseEventId = currentLease
+      ? recoverHeldLease(
+          {
+            ...input,
+            reason: prepared.journal.recoveryReason,
+          },
+          current,
+          currentLease,
+          cancelledClaimIds,
+          prepared.journal.commandId,
+          actionSpanId,
+          "operator",
+        )
+      : null;
     const transitioned = transitionRun(input.store, current.id, {
       actor: "operator",
+      causationId: releaseEventId ?? prepared.journal.commandId,
       commandId: prepared.journal.commandId,
-      correlationId: prepared.journal.correlationId,
+      correlationId: current.id,
       eventType: "run.recovered",
       expectedRevision: current.revision,
       patch: {
@@ -553,6 +633,7 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
         queued_work: recovery.workerOutputIntegration?.queued ?? [],
         resulting_status: "paused",
       },
+      spanId: actionSpanId,
     });
     if (!transitioned.causedByEventId) {
       throw new Error(`Recovered run ${transitioned.id} has no transition event id`);
@@ -576,6 +657,7 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
 export async function hardStopRun(input: HardStopRunInput): Promise<HardStopRunResult> {
   requireConfirmation(input.confirmed, "run.hard_stop");
   const operationCommandId = commandId(input, "run-hard-stop");
+  const actionSpanId = input.spanId ?? newSpanId();
   const original = requireRun(input.store, input.runId);
   const originalLease = runLease(input.store, original);
   if (original.status === "paused" && !originalLease && activeClaimsForRun(input.store, original.id).length === 0) {
@@ -613,39 +695,44 @@ export async function hardStopRun(input: HardStopRunInput): Promise<HardStopRunR
     );
     const currentLease = runLease(input.store, current);
     dispatchLeaseRecovered = Boolean(currentLease);
-    if (currentLease) {
-      recoverHeldLease(
-        {
-          ...input,
-          correlationId: prepared.journal.correlationId,
-          reason: prepared.journal.recoveryReason,
-        },
-        current,
-        currentLease,
-        cancelledClaimIds,
-        prepared.journal.commandId,
-      );
-    }
-    const transitioned = current.status === "paused" ? current : transitionRun(input.store, current.id, {
-      actor: "operator",
-      commandId: prepared.journal.commandId,
-      correlationId: prepared.journal.correlationId,
-      eventType: "run.paused",
-      expectedRevision: current.revision,
-      patch: {
-        blockers: mergeRunBlockers(current.blockers, recovery.blockers),
-        status: "paused",
-        stopRequest: { mode: "hard_stop", reason: input.reason },
-      },
-      payload: {
-        recovery_id: prepared.journal.recoveryId,
-        recovery_reason: prepared.journal.recoveryReason,
-        cancelled_claim_ids: cancelledClaimIds,
-        cancelled_operation_ids: cancelledOperationIds,
-        queued_work: recovery.workerOutputIntegration?.queued ?? [],
-        resulting_status: "paused",
-      },
-    });
+    const releaseEventId = currentLease
+      ? recoverHeldLease(
+          {
+            ...input,
+            reason: prepared.journal.recoveryReason,
+          },
+          current,
+          currentLease,
+          cancelledClaimIds,
+          prepared.journal.commandId,
+          actionSpanId,
+          "operator",
+        )
+      : null;
+    const transitioned =
+      current.status === "paused"
+        ? current
+        : transitionRun(input.store, current.id, {
+            actor: "operator",
+            causationId: releaseEventId ?? prepared.journal.commandId,
+            commandId: prepared.journal.commandId,
+            correlationId: current.id,
+            eventType: "run.paused",
+            expectedRevision: current.revision,
+            patch: {
+              blockers: mergeRunBlockers(current.blockers, recovery.blockers),
+              status: "paused",
+              stopRequest: { mode: "hard_stop", reason: input.reason },
+            },
+            payload: {
+              recovery_id: prepared.journal.recoveryId,
+              recovery_reason: prepared.journal.recoveryReason,
+              cancelled_claim_ids: cancelledClaimIds,
+              cancelled_operation_ids: cancelledOperationIds,
+              queued_work: recovery.workerOutputIntegration?.queued ?? [],
+            },
+            spanId: actionSpanId,
+          });
     const causedByEventId =
       transitioned === current
         ? getProjectState(input.store, requireProjectId(current))?.caused_by_event_id ?? null
@@ -664,6 +751,7 @@ export async function hardStopRun(input: HardStopRunInput): Promise<HardStopRunR
 export function cancelRun(input: CancelRunInput): RunRecord {
   requireConfirmation(input.confirmed, "run.cancel");
   const operationCommandId = commandId(input, "run-cancel");
+  const actionSpanId = input.spanId ?? newSpanId();
   const original = requireRun(input.store, input.runId);
   if (original.status !== "paused" && original.status !== "failed") {
     throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; cancellation requires paused or failed`, ["run_not_paused_or_failed"]);
@@ -677,19 +765,27 @@ export function cancelRun(input: CancelRunInput): RunRecord {
   }
   return immediateTransaction(input.store.db, () => {
     const current = requireRun(input.store, original.id);
-    recoverHeldLease(input, current, runLease(input.store, current), [], operationCommandId);
+    const releaseEventId = recoverHeldLease(
+      input,
+      current,
+      runLease(input.store, current),
+      [],
+      operationCommandId,
+      actionSpanId,
+      "operator",
+    );
     return transitionRun(input.store, current.id, {
       actor: "operator",
+      causationId: releaseEventId ?? operationCommandId,
       commandId: operationCommandId,
-      correlationId: input.correlationId ?? current.id,
+      correlationId: current.id,
       eventType: "run.cancelled",
       expectedRevision: current.revision,
       patch: { status: "cancelled", stopRequest: null, terminalReason: input.reason },
       payload: {
         cancellation_reason: input.reason,
-        previous_status: current.status,
-        resulting_status: "cancelled",
       },
+      spanId: actionSpanId,
     });
   });
 }

@@ -42,6 +42,7 @@ import {
   meleeRootContainerId,
   meleeSyncIntakeContainerId,
   meleeWorkerContainerId,
+  meleeWorkflowTraceEventId,
 } from "./session-mapping.js";
 import { createMeleeKernelSpawnContext } from "./spawn-context.js";
 import {
@@ -252,6 +253,51 @@ describe("session and container mapping", () => {
       prId: "draft-1",
       branch: "pr/demo",
     });
+  });
+
+  test("keeps bridge-owned container identity authoritative over caller metadata", () => {
+    const ref = { projectId: "melee", sessionId: "session-real" };
+    const container = buildMeleeContainer({
+      kind: "pr-publication",
+      ref,
+      metadata: {
+        appSessionId: "spoofed-app-session",
+        containerId: "spoofed-container",
+        containerKind: "worker",
+        projectId: "spoofed-project",
+        sessionId: "spoofed-session",
+        prId: "draft-real",
+      },
+    });
+
+    expect(container.metadata).toMatchObject({
+      appSessionId: meleeAppSessionId(ref),
+      containerId: container.id,
+      containerKind: "pr-publication",
+      projectId: "melee",
+      sessionId: "session-real",
+      prId: "draft-real",
+    });
+  });
+
+  test("derives stable, submission-specific workflow trace event ids", () => {
+    const input = {
+      projectId: "melee",
+      sessionId: "session-1",
+      projectEventId: "project-event-1",
+      containerId: "container-1",
+      eventType: "melee:baseline_completed",
+      operation: "prepare.calculateBaseline",
+      status: "completed",
+    };
+
+    expect(meleeWorkflowTraceEventId(input)).toMatch(UUID_RE);
+    expect(meleeWorkflowTraceEventId({ ...input })).toBe(
+      meleeWorkflowTraceEventId(input),
+    );
+    expect(meleeWorkflowTraceEventId({ ...input, status: "failed" })).not.toBe(
+      meleeWorkflowTraceEventId(input),
+    );
   });
 
   test("maps prepare intake containers under the Prepare tree", () => {
@@ -501,15 +547,16 @@ describe("workflow trace helper", () => {
     const ref = { projectId: "melee", sessionId: "run-1" };
     const upsertedContexts: unknown[] = [];
     const traceInputs: unknown[] = [];
+    const submittedTraceEvents: unknown[] = [];
     const runtime = {
       upsertSpawnContainers: async (context: unknown) => {
         upsertedContexts.push(context);
       },
       traceWriter: {
-        submitAppEvent: async (input: any) => {
+        createAppEvent: (input: any) => {
           traceInputs.push(input);
           return {
-            eventId: `event-${traceInputs.length}`,
+            eventId: "55555555-5555-5555-8555-555555555555",
             appSessionId: input.appSessionId,
             userId: "00000000-0000-0000-0000-000000000001",
             type: input.type,
@@ -520,7 +567,16 @@ describe("workflow trace helper", () => {
             containerId: input.containerId,
           };
         },
+        submit: async (event: unknown) => {
+          submittedTraceEvents.push(event);
+          return 1;
+        },
       },
+    };
+    const linkage = {
+      correlationId: "run-1",
+      projectEventId: "project-event-1",
+      causedByEventId: null,
     };
 
     const prepare = await submitMeleeWorkflowTraceEvent({
@@ -531,6 +587,7 @@ describe("workflow trace helper", () => {
       operation: "prepareSession",
       status: "started",
       workingDir: "/repo",
+      ...linkage,
     });
     const setup = await submitMeleeWorkflowTraceEvent({
       runtime,
@@ -541,6 +598,7 @@ describe("workflow trace helper", () => {
       status: "completed",
       workingDir: "/repo",
       metadata: { mergedPrs: [123] },
+      ...linkage,
     });
     const baseline = await submitMeleeWorkflowTraceEvent({
       runtime,
@@ -549,7 +607,18 @@ describe("workflow trace helper", () => {
       sessionId: ref.sessionId,
       operation: "rebuildProductionBaseline",
       status: "completed",
-      metadata: { baseSha: "abc123" },
+      metadata: {
+        baseSha: "abc123",
+        correlation_id: "spoofed-correlation",
+        project_event_id: "spoofed-event",
+        caused_by_event_id: "semantic-token",
+        appSessionId: "spoofed-app-session",
+        containerId: "spoofed-container",
+        containerKind: "worker",
+        projectId: "spoofed-project",
+        sessionId: "spoofed-session",
+      },
+      ...linkage,
     });
     const intakeKnowledge = await submitMeleeWorkflowTraceEvent({
       runtime,
@@ -560,6 +629,7 @@ describe("workflow trace helper", () => {
       operation: "prepare.intake.knowledge",
       status: "completed",
       metadata: { outputPath: "/state/knowledge-intake/pr-2764.json" },
+      ...linkage,
     });
     const publication = await submitMeleeWorkflowTraceEvent({
       runtime,
@@ -569,7 +639,8 @@ describe("workflow trace helper", () => {
       prId: "draft-1",
       operation: "openPrForSlice",
       status: "started",
-      metadata: { branch: "pr/demo" },
+      metadata: { branch: "pr/demo", prId: "spoofed-pr" },
+      ...linkage,
     });
 
     expect(prepare.containerId).toBe(meleePrepareContainerId(ref));
@@ -582,6 +653,10 @@ describe("workflow trace helper", () => {
       meleePrPublicationContainerId({ ...ref, prId: "draft-1" }),
     );
     expect(upsertedContexts).toHaveLength(5);
+    expect(submittedTraceEvents).toHaveLength(5);
+    expect(new Set(
+      (submittedTraceEvents as Array<{ eventId: string }>).map((event) => event.eventId),
+    ).size).toBe(5);
     expect((upsertedContexts[0] as any).containerLineage.map((container: NewContainer) => container.id)).toEqual([
       meleeRootContainerId(ref),
       meleePrepareContainerId(ref),
@@ -618,6 +693,21 @@ describe("workflow trace helper", () => {
       meleePrContainerId({ ...ref, prId: "draft-1" }),
       meleePrPublicationContainerId({ ...ref, prId: "draft-1" }),
     ]);
+    expect((upsertedContexts[2] as any).containerLineage.at(-1).metadata).toMatchObject({
+      appSessionId: meleeAppSessionId(ref),
+      containerId: meleeBaselineContainerId(ref),
+      containerKind: "baseline",
+      projectId: "melee",
+      sessionId: "run-1",
+      correlation_id: "run-1",
+      project_event_id: "project-event-1",
+      caused_by_event_id: null,
+    });
+    expect((upsertedContexts[4] as any).containerLineage.at(-1).metadata).toMatchObject({
+      prId: "draft-1",
+      projectId: "melee",
+      sessionId: "run-1",
+    });
     expect(traceInputs).toMatchObject([
       {
         type: "melee:prepare_started",
@@ -671,6 +761,16 @@ describe("workflow trace helper", () => {
         },
       },
     ]);
+    for (const input of traceInputs as Array<{ eventData: Record<string, unknown> }>) {
+      expect(input.eventData).toMatchObject({
+        projectId: "melee",
+        sessionId: "run-1",
+        appSessionId: meleeAppSessionId(ref),
+        correlation_id: "run-1",
+        project_event_id: "project-event-1",
+        caused_by_event_id: null,
+      });
+    }
   });
 });
 

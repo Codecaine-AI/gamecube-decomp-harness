@@ -10,6 +10,7 @@ import type { MeleeKernelRuntime } from "./runtime.js";
 import {
   buildMeleeContainer,
   meleeAppSessionId,
+  meleeWorkflowTraceEventId,
   type MeleeContainerKind,
   type MeleeProjectSessionRef,
 } from "./session-mapping.js";
@@ -23,7 +24,7 @@ export type MeleeWorkflowTraceStatus =
 
 export interface MeleeWorkflowTraceRuntime {
   upsertSpawnContainers: MeleeKernelRuntime["upsertSpawnContainers"];
-  traceWriter: Pick<MeleeKernelRuntime["traceWriter"], "submitAppEvent">;
+  traceWriter: Pick<MeleeKernelRuntime["traceWriter"], "createAppEvent" | "submit">;
 }
 
 export interface SubmitMeleeWorkflowTraceEventInput {
@@ -48,6 +49,9 @@ export interface SubmitMeleeWorkflowTraceEventInput {
   >;
   projectId: string;
   sessionId: string;
+  correlationId: string;
+  projectEventId: string;
+  causedByEventId: string | null;
   operation: string;
   status?: MeleeWorkflowTraceStatus;
   prId?: string | null;
@@ -81,6 +85,12 @@ function containerStatus(status: MeleeWorkflowTraceStatus): NewContainer["status
 
 function eventTypePhase(phase: string): string {
   return phase.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase() || "workflow";
+}
+
+function requiredText(value: string, label: string): string {
+  const normalized = value.trim();
+  if (!normalized) throw new Error(`${label} must be a nonblank string`);
+  return normalized;
 }
 
 function withEventStatus(
@@ -128,8 +138,8 @@ function childContainerLineage(input: {
   if (input.kind === "prepare") return [root, withEventStatus(prepare, input.status, input.timestamp)];
 
   const childMetadata = {
-    ...(input.prId ? { prId: input.prId } : {}),
     ...(input.metadata ?? {}),
+    ...(input.prId ? { prId: input.prId } : {}),
   };
   if (
     input.kind === "intake" ||
@@ -207,9 +217,25 @@ function childContainerLineage(input: {
 export async function submitMeleeWorkflowTraceEvent(
   input: SubmitMeleeWorkflowTraceEventInput,
 ): Promise<SubmittedMeleeWorkflowTraceEvent> {
+  const projectId = requiredText(input.projectId, "projectId");
+  const sessionId = requiredText(input.sessionId, "sessionId");
+  const correlationId = requiredText(input.correlationId, "correlationId");
+  const projectEventId = requiredText(input.projectEventId, "projectEventId");
+  const operation = requiredText(input.operation, "operation");
+  const causedByEventId = input.causedByEventId === null
+    ? null
+    : requiredText(input.causedByEventId, "causedByEventId");
   const status = input.status ?? "completed";
-  const ref = { projectId: input.projectId, sessionId: input.sessionId };
+  const ref = { projectId, sessionId };
   const appSessionId = meleeAppSessionId(ref);
+  const protectedMetadata = {
+    ...(input.metadata ?? {}),
+    projectId,
+    sessionId,
+    correlation_id: correlationId,
+    project_event_id: projectEventId,
+    caused_by_event_id: causedByEventId,
+  };
   const containers = childContainerLineage({
     ref,
     kind: input.kind,
@@ -218,21 +244,26 @@ export async function submitMeleeWorkflowTraceEvent(
     workingDir: input.workingDir,
     worktreePath: input.worktreePath,
     timestamp: input.timestamp,
-    metadata: input.metadata,
+    metadata: protectedMetadata,
   });
   const container = containers.at(-1);
   if (!container) throw new Error("Unable to build Melee workflow trace container lineage");
   const phase = String(container.phase ?? input.kind);
   const eventData: EventData = {
+    ...(input.metadata ?? {}),
     phase,
     status,
-    operation: input.operation,
+    operation,
+    appSessionId,
+    containerId: container.id,
     containerKind: input.kind,
-    projectId: input.projectId,
-    sessionId: input.sessionId,
+    projectId,
+    sessionId,
     ...(input.prId ? { prId: input.prId } : {}),
     ...(input.detail ? { detail: input.detail } : {}),
-    ...(input.metadata ?? {}),
+    correlation_id: correlationId,
+    project_event_id: projectEventId,
+    caused_by_event_id: causedByEventId,
   };
   const context: MeleeKernelSpawnContext = {
     appSessionId,
@@ -244,14 +275,28 @@ export async function submitMeleeWorkflowTraceEvent(
   };
 
   await input.runtime.upsertSpawnContainers(context);
-  const event = await input.runtime.traceWriter.submitAppEvent({
-    appSessionId,
+  const eventType = input.type ?? `melee:${eventTypePhase(phase)}_${status}`;
+  const eventId = meleeWorkflowTraceEventId({
+    projectId,
+    sessionId,
+    projectEventId,
     containerId: container.id,
-    type: input.type ?? `melee:${eventTypePhase(phase)}_${status}`,
-    eventData,
-    traceLevel: input.traceLevel ?? TraceLevel.SUMMARY,
-    timestamp: input.timestamp,
+    eventType,
+    operation,
+    status,
   });
+  const event = {
+    ...input.runtime.traceWriter.createAppEvent({
+      appSessionId,
+      containerId: container.id,
+      type: eventType,
+      eventData,
+      traceLevel: input.traceLevel ?? TraceLevel.SUMMARY,
+      timestamp: input.timestamp,
+    }),
+    eventId,
+  };
+  await input.runtime.traceWriter.submit(event);
 
   return {
     appSessionId,

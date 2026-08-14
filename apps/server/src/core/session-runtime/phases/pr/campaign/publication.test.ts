@@ -6,7 +6,7 @@ import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { prBatchPublicationReservationsMigration } from "@server/core/orchestrator-state/storage/migrations/015-pr-batch-publication-reservations.js";
 import { createProjectSession } from "@server/core/project-session/store.js";
 import { recordSavePointAnchor } from "@server/core/project-session/timeline.js";
-import { eventsForSubject } from "@server/core/project-state/events.js";
+import { eventsForSubject, newSpanId } from "@server/core/project-state/events.js";
 import { initializeProjectState, requestDispatch } from "@server/core/project-state";
 import { activateAcquiredPrCampaign } from "./activation.js";
 import { prPublishBatchBlockers, publishPrBatch } from "./publication.js";
@@ -34,6 +34,7 @@ function fixture() {
   prBatchPublicationReservationsMigration.up(store.db);
   stores.push(store);
   createProjectSession(store.db, {
+    actor: "operator",
     baseSha: "session-head",
     id: "project-session:session-1",
     projectId: "melee",
@@ -49,6 +50,7 @@ function fixture() {
   recordSavePointAnchor(store, {
     actor: "operator",
     commandId: "command-anchor",
+    correlationId: "session-1",
     commitSha: "session-head",
     occurredAt: "2026-08-13T10:01:00.000Z",
     projectId: "melee",
@@ -64,6 +66,7 @@ function fixture() {
     actor: "operator",
     campaignId: "campaign-1",
     commandId: "command-open",
+    correlationId: "campaign-1",
     namedSavePointId: "save-1",
     projectId: "melee",
     publicationPolicy: { batch_size: 2 },
@@ -77,6 +80,7 @@ function fixture() {
   const dispatch = requestDispatch(store, {
     actor: "operator",
     commandId: "command-pr-dispatch",
+    correlationId: "campaign-1",
     kind: "pr",
     projectId: "melee",
     reason: "publish fixture",
@@ -86,6 +90,7 @@ function fixture() {
   activateAcquiredPrCampaign({
     campaignId: "campaign-1",
     commandId: "command-pr-activate",
+    correlationId: "campaign-1",
     leaseId: dispatch.leaseId,
     projectId: "melee",
     store,
@@ -111,10 +116,12 @@ describe("PR campaign batch publication", () => {
     git(source, ["remote", "add", "fork", remote]);
     for (const branch of ["codex/split-01-alpha", "codex/split-02-beta"]) git(source, ["branch", branch]);
     let prNumber = 100;
+    const actionSpanId = newSpanId();
 
     const result = await publishPrBatch({
       campaignId: "campaign-1",
       commandId: "command-publish",
+      correlationId: "campaign-1",
       confirmed: true,
       leaseId,
       projectId: "melee",
@@ -124,6 +131,7 @@ describe("PR campaign batch publication", () => {
         return { upstreamPrNumber: ++prNumber };
       },
       store,
+      spanId: actionSpanId,
     });
 
     expect(result.batch_index).toBe(0);
@@ -142,6 +150,23 @@ describe("PR campaign batch publication", () => {
       eventType: "pr.batch_published",
       payload: { batch_index: 0, series_ids: ["series-1", "series-2"] },
     });
+    const actionEvents = [
+      ...result.series.map((series) => eventsForSubject(store.db, "pr_series", series.series_id).at(-1)!),
+      eventsForSubject(store.db, "pr_campaign", "campaign-1").at(-1)!,
+    ];
+    expect(actionEvents.map((event) => event.correlationId)).toEqual([
+      "campaign-1",
+      "campaign-1",
+      "campaign-1",
+    ]);
+    expect(actionEvents.map((event) => event.causationId)).toEqual([
+      "command-publish",
+      "command-publish",
+      "command-publish",
+    ]);
+    expect(actionEvents.every((event) => event.actor === "operator")).toBe(true);
+    expect(actionEvents.every((event) => event.parentSpanId === actionSpanId)).toBe(true);
+    expect(new Set(actionEvents.map((event) => event.spanId)).size).toBe(3);
     expect(listPrSeriesForCampaign(store, "campaign-1").every((series) => series.status === "published")).toBe(true);
   });
 
@@ -152,6 +177,7 @@ describe("PR campaign batch publication", () => {
     await expect(publishPrBatch({
       campaignId: "campaign-1",
       commandId: "command-unvalidated",
+      correlationId: "campaign-1",
       confirmed: true,
       leaseId,
       projectId: "melee",
@@ -175,6 +201,7 @@ describe("PR campaign batch publication", () => {
     await expect(publishPrBatch({
       campaignId: "campaign-1",
       commandId: "command-invalidated",
+      correlationId: "campaign-1",
       confirmed: true,
       leaseId,
       projectId: "melee",
@@ -208,6 +235,7 @@ describe("PR campaign batch publication", () => {
       const publish = () => publishPrBatch({
         campaignId: "campaign-1",
         commandId: `command-retry-${failure}`,
+        correlationId: "campaign-1",
         confirmed: true,
         leaseId,
         projectId: "melee",
@@ -255,6 +283,7 @@ describe("PR campaign batch publication", () => {
     await expect(publishPrBatch({
       campaignId: "campaign-1",
       commandId: "command-mid-batch-invalidation",
+      correlationId: "campaign-1",
       confirmed: true,
       leaseId,
       projectId: "melee",
@@ -289,6 +318,7 @@ describe("PR campaign batch publication", () => {
     const publish = () => publishPrBatch({
       campaignId: "campaign-1",
       commandId: "command-mid-batch-retry",
+      correlationId: "campaign-1",
       confirmed: true,
       leaseId,
       projectId: "melee",
@@ -322,6 +352,7 @@ describe("PR campaign batch publication", () => {
     const first = publishPrBatch({
       campaignId: "campaign-1",
       commandId: "command-concurrent-first",
+      correlationId: "campaign-1",
       confirmed: true,
       leaseId,
       projectId: "melee",
@@ -340,6 +371,7 @@ describe("PR campaign batch publication", () => {
     await expect(publishPrBatch({
       campaignId: "campaign-1",
       commandId: "command-concurrent-second",
+      correlationId: "campaign-1",
       confirmed: true,
       leaseId,
       projectId: "melee",

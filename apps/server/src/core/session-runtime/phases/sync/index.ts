@@ -14,6 +14,7 @@ export {
   isSyncStatusTransitionAllowed,
   isTerminalSyncStatus,
   recordSyncRequested,
+  syncActionSpanId,
   StaleSyncRevisionError,
   transitionSync,
 } from "./state.js";

@@ -32,6 +32,7 @@ import {
   type DispatchLease,
   type QueuedDispatchRequest,
 } from "@server/core/project-state";
+import { recentProjectEvents, type ProjectEventDto } from "@server/core/project-state/event-query";
 import type { RunRecord, RunSchedulerCondition, RunStatus } from "@server/core/shared/types";
 import { readPrRecordsArtifact } from "@server/core/session-runtime/phases/pr/pr-records.js";
 import { listSavePoints, type SavePointRecord } from "@server/core/session-runtime/phases/pr/state";
@@ -278,6 +279,7 @@ export interface DashboardProjectState {
   session_blockers: Blocker[];
   save_point_stale: boolean;
   latest_event_sequence: number;
+  recent_events: ProjectEventDto[];
   available_actions: ActionProjection[];
 }
 
@@ -1237,6 +1239,7 @@ export function buildProjectStateReadModel(
     session_blockers: evidence.blockers,
     save_point_stale: evidence.stale,
     latest_event_sequence: latestSequence(store.db, projectId),
+    recent_events: recentProjectEvents(store.db, projectId, 20),
     available_actions: [
       ...runState.availableActions,
       ...prState.availableActions,

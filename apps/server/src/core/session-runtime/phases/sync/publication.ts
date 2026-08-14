@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import type { Database } from "bun:sqlite";
 import { immediateTransaction, now as currentTime } from "@server/core/orchestrator-state";
 import { recordRemoteApplicationInTransaction, recordSavePointAnchor } from "@server/core/project-session/timeline.js";
-import { appendProjectEvent, type JsonObject } from "@server/core/project-state/events.js";
+import { appendProjectEvent, eventSpan, type EventActor, type JsonObject } from "@server/core/project-state/events.js";
 import { releaseDispatch, requireLease } from "@server/core/project-state/lease.js";
 import { fetchUpstreamAndFindMergedPrs } from "@server/core/session-runtime/phases/preparing/subphases/git-intake.js";
 import { ensureCampaign } from "@server/core/session-runtime/phases/pr/state/save-points.js";
@@ -18,6 +18,7 @@ import {
 } from "./git.js";
 import {
   getSyncState,
+  syncActionSpanId,
   transitionSync,
 } from "./state.js";
 import {
@@ -122,6 +123,7 @@ export interface PublishSyncInput {
   commandId: string;
   confirmed: boolean;
   scoreDelta?: number | null;
+  actor?: EventActor;
 }
 
 export interface ContinueSyncPublicationInput {
@@ -130,6 +132,7 @@ export interface ContinueSyncPublicationInput {
   expectedRevision: number;
   commandId: string;
   scoreDelta?: number | null;
+  actor?: EventActor;
 }
 
 export interface PrepareSyncPublicationInput extends PublishSyncInput {}
@@ -205,32 +208,21 @@ function blockSync(
   commandId: string,
   code: string,
   message: string,
+  actor: EventActor = "runner",
 ): SyncState {
   return transitionSync(context.store, sync.sync_id, {
-    actor: "runner",
+    actor,
     commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "blocked", blockers: [publicationBlocker(sync, code, message)] },
-    payload: { blocker_code: code, failure: message },
   });
 }
 
 function validationEvidence(db: Database, sync: SyncState): JsonObject {
-  if (sync.staging?.validation_evidence) return sync.staging.validation_evidence;
-  const row = db
-    .query(
-      `SELECT payload_json FROM project_events
-       WHERE subject_kind = 'sync' AND subject_id = ? AND event_type = 'sync.validated'
-       ORDER BY sequence DESC LIMIT 1`,
-    )
-    .get(sync.sync_id) as { payload_json: string } | null;
-  if (!row) throw new Error(`Sync ${sync.sync_id} has no validation evidence`);
-  const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
-  const evidence = payload.validation_evidence;
-  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
-    throw new Error(`Sync ${sync.sync_id} has invalid validation evidence`);
-  }
-  return evidence as JsonObject;
+  void db;
+  if (!sync.validation_evidence) throw new Error(`Sync ${sync.sync_id} has no durable validation evidence`);
+  return sync.validation_evidence;
 }
 
 function placeholders(values: readonly unknown[]): string {
@@ -324,28 +316,6 @@ function deriveInvalidations(
   );
 }
 
-function resolvedConflictPaths(db: Database, sync: SyncState): string[] {
-  const paths = new Set<string>(sync.staging?.auto_resolved_paths ?? []);
-  for (const workspace of sync.staging?.pr_workspaces ?? []) {
-    for (const path of workspace.auto_resolved_paths ?? []) paths.add(`${workspace.branch}:${path}`);
-  }
-  const rows = db
-    .query(
-      `SELECT payload_json FROM project_events
-       WHERE subject_kind = 'sync' AND subject_id = ? AND event_type = 'sync.reconciliation_blocked'
-       ORDER BY sequence`,
-    )
-    .all(sync.sync_id) as Array<{ payload_json: string }>;
-  for (const row of rows) {
-    const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
-    if (!Array.isArray(payload.conflict_identities)) continue;
-    for (const value of payload.conflict_identities) {
-      if (typeof value === "string" && value.trim()) paths.add(value);
-    }
-  }
-  return [...paths].sort();
-}
-
 async function remoteBranchHead(
   context: SyncPublicationContext,
   remoteName: string,
@@ -413,7 +383,7 @@ async function buildBoundaryPlan(context: SyncPublicationContext, sync: SyncStat
     priorHead,
     pushes: await plannedPushes(context, sync),
     ...(sync.intake.knowledge_only ? {} : { remoteApplicationId: stableId("remote-application", sync.sync_id) }),
-    resolvedConflicts: resolvedConflictPaths(context.store.db, sync),
+    resolvedConflicts: [...sync.resolved_conflict_paths].sort(),
     validationEvidence: validationEvidence(context.store.db, sync),
   };
 }
@@ -704,6 +674,7 @@ function durableBoundary(
   plan: BoundaryPlan,
   commandId: string,
   scoreDelta: number | null | undefined,
+  actor: EventActor = "operator",
 ): SyncState {
   return immediateTransaction(context.store.db, () => {
     const intent = getSyncPublicationIntent(context.store.db, sync.sync_id);
@@ -722,8 +693,10 @@ function durableBoundary(
       invalidated_ids: plan.invalidations.map((record) => record.invalidationId),
     };
     const boundary = transitionSync(context.store, sync.sync_id, {
-      actor: "operator",
-      commandId: `${commandId}:boundary`,
+      actor,
+      causationId: sync.caused_by_event_id,
+      commandId,
+      correlationId: sync.sync_id,
       eventType: "sync.boundary_published",
       expectedRevision: sync.revision,
       patch: { publication },
@@ -736,12 +709,12 @@ function durableBoundary(
     });
     const occurredAt = operationTime(context);
     const knowledge = publishSyncKnowledgeInTransaction(context.store.db, {
-      actor: "runner",
+      actor,
       commandId: boundary.caused_by_event_id,
       correlationId: sync.sync_id,
       manifest: plan.knowledgeManifest,
       projectId: sync.project_id,
-      spanId: `span-${stableId("knowledge", sync.sync_id, knowledgeRevision)}`,
+      spanId: syncActionSpanId(commandId),
       syncId: sync.sync_id,
       traceId: sync.trace_id,
       occurredAt,
@@ -751,10 +724,9 @@ function durableBoundary(
     }
     if (plan.remoteApplicationId) {
       recordRemoteApplicationInTransaction(context.store.db, {
-        actor: "operator",
+        actor,
         boundaryEventId: boundary.caused_by_event_id,
-        commandId: `${commandId}:remote-application`,
-        correlationId: sync.sync_id,
+        commandId,
         newHead: plan.newHead,
         priorHead: plan.priorHead,
         projectId: sync.project_id,
@@ -786,6 +758,7 @@ export function commitSyncPublicationBoundary(input: {
   expectedRevision: number;
   commandId: string;
   scoreDelta?: number | null;
+  actor?: EventActor;
 }): SyncState {
   const sync = requireCurrentSync(input.context, input.syncId, input.expectedRevision);
   if (sync.status !== "publishing" || sync.publication) {
@@ -793,7 +766,7 @@ export function commitSyncPublicationBoundary(input: {
   }
   const intent = getSyncPublicationIntent(input.context.store.db, sync.sync_id);
   if (!intent) throw new Error(`Sync ${sync.sync_id} has no durable publication intent`);
-  return durableBoundary(input.context, sync, intent.boundaryPlan, input.commandId, input.scoreDelta);
+  return durableBoundary(input.context, sync, intent.boundaryPlan, input.commandId, input.scoreDelta, input.actor);
 }
 
 function selectPushRecords(db: Database, syncId: string): PushRecordRow[] {
@@ -809,6 +782,8 @@ function transitionPushRecord(
   next: PushRecordRow["status"],
   commandId: string,
   lastError?: string | null,
+  actor: EventActor = "runner",
+  causationId?: string,
 ): PushRecordRow {
   return immediateTransaction(context.store.db, () => {
     const current = context.store.db.query("SELECT * FROM sync_push_records WHERE push_id = ?").get(row.push_id) as
@@ -824,24 +799,23 @@ function transitionPushRecord(
     if (!allowed) throw new Error(`Invalid sync push transition ${current.status} -> ${next}`);
     const occurredAt = operationTime(context);
     const event = appendProjectEvent(context.store.db, {
-      actor: "runner",
-      causationId: commandId,
+      actor,
+      causationId: causationId ?? current.caused_by_event_id,
       correlationId: sync.sync_id,
       eventType: next === "pushing" ? "sync.pr_push_started" : next === "pushed" ? "sync.pr_push_succeeded" : "sync.pr_push_failed",
       occurredAt,
       payload: {
-        previous_status: current.status,
-        status: next,
+        from_status: current.status,
+        to_status: next,
         series_id: current.series_id,
         branch: current.branch,
         remote_name: current.remote_name,
-        expected_remote_head: current.expected_remote_head,
         new_head: current.new_head,
         attempt: current.attempt_count + (next === "pushing" ? 1 : 0),
         ...(lastError ? { error: lastError } : {}),
       },
       projectId: sync.project_id,
-      spanId: `span-${stableId("push", current.push_id, String(current.revision + 1))}`,
+      ...eventSpan(syncActionSpanId(commandId)),
       subjectId: current.push_id,
       subjectKind: "sync_push",
       traceId: sync.trace_id,
@@ -876,6 +850,7 @@ export function startSyncPublicationPush(input: {
   syncId: string;
   seriesId: string;
   commandId: string;
+  actor?: EventActor;
 }): void {
   const sync = requireCurrentSync(input.context, input.syncId);
   if (sync.status !== "publishing" || !sync.publication) {
@@ -885,7 +860,7 @@ export function startSyncPublicationPush(input: {
     .find((candidate) => candidate.series_id === input.seriesId);
   if (!row) throw new Error(`Sync ${sync.sync_id} has no push record for ${input.seriesId}`);
   if (row.status === "pushing" || row.status === "pushed") return;
-  transitionPushRecord(input.context, sync, row, "pushing", input.commandId);
+  transitionPushRecord(input.context, sync, row, "pushing", input.commandId, undefined, input.actor);
 }
 
 async function executePush(
@@ -893,11 +868,13 @@ async function executePush(
   sync: SyncState,
   initial: PushRecordRow,
   commandId: string,
-): Promise<void> {
-  if (initial.status === "pushed") return;
+  actor: EventActor,
+  causationId?: string,
+): Promise<PushRecordRow> {
+  if (initial.status === "pushed") return initial;
   let row = initial.status === "pushing"
     ? initial
-    : transitionPushRecord(context, sync, initial, "pushing", `${commandId}:started:${initial.series_id}`);
+    : transitionPushRecord(context, sync, initial, "pushing", commandId, undefined, actor, causationId);
   try {
     revalidatePublicationLease(context, sync);
     const currentRemoteHead = await remoteBranchHead(context, row.remote_name, row.branch);
@@ -920,12 +897,12 @@ async function executePush(
         `Unable to push reconciled PR series ${row.series_id}`,
       );
     }
-    row = transitionPushRecord(context, sync, row, "pushed", `${commandId}:succeeded:${row.series_id}`);
-    void row;
+    row = transitionPushRecord(context, sync, row, "pushed", commandId, undefined, actor);
+    return row;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     immediateTransaction(context.store.db, () => {
-      const failed = transitionPushRecord(context, sync, row, "failed", `${commandId}:failed:${row.series_id}`, message);
+      const failed = transitionPushRecord(context, sync, row, "failed", commandId, message, actor);
       const currentSync = requireCurrentSync(context, sync.sync_id);
       if (currentSync.status !== "publishing") {
         throw new Error(`Sync ${sync.sync_id} left publishing while recording push failure`);
@@ -933,9 +910,10 @@ async function executePush(
       blockSync(
         context,
         currentSync,
-        `${commandId}:blocked:${failed.series_id}`,
+        commandId,
         "pr_push_failed",
         message,
+        actor,
       );
     });
     throw new Error(`Sync PR push failed: ${message}`, { cause: error });
@@ -951,6 +929,7 @@ function anchorPublishedRemoteApplication(
   context: SyncPublicationContext,
   sync: SyncState,
   commandId: string,
+  actor: EventActor,
 ): void {
   const publication = sync.publication;
   const remoteApplicationId = publication?.remote_application_id;
@@ -1012,9 +991,11 @@ function anchorPublishedRemoteApplication(
     triggerKind: "sync",
     artifactPaths: [],
     payload,
-    commandId: `${commandId}:save-point:${remoteApplicationId}`,
-    correlationId: remoteApplicationId,
-    actor: "runner",
+    causationId: sync.caused_by_event_id,
+    commandId,
+    correlationId: sync.session_uuid,
+    spanId: syncActionSpanId(commandId),
+    actor,
     occurredAt: at,
   });
 }
@@ -1023,6 +1004,8 @@ function finalizePublication(
   context: SyncPublicationContext,
   sync: SyncState,
   commandId: string,
+  actor: EventActor,
+  causationId?: string,
 ): SyncState {
   return immediateTransaction(context.store.db, () => {
     const current = requireCurrentSync(context, sync.sync_id);
@@ -1043,22 +1026,25 @@ function finalizePublication(
     if (lease.requested_handoff) {
       throw new Error(`Sync lease ${lease.lease_id} cannot auto-handoff after publication`);
     }
-    anchorPublishedRemoteApplication(context, current, commandId);
+    anchorPublishedRemoteApplication(context, current, commandId, actor);
     const prReconciliation: SyncPrReconciliation[] = current.pr_reconciliation.map((entry) => ({ ...entry, pushed: true }));
     const published = transitionSync(context.store, current.sync_id, {
-      actor: "runner",
-      commandId: `${commandId}:published`,
+      actor,
+      causationId: causationId ?? records.at(-1)?.caused_by_event_id ?? current.caused_by_event_id,
+      commandId,
+      correlationId: current.sync_id,
       eventType: "sync.published",
       expectedRevision: current.revision,
       patch: { status: "published", blockers: [], prReconciliation },
-      payload: { push_record_ids: records.map((record) => record.push_id) },
     });
     releaseDispatch(context.store, {
-      actor: "runner",
-      commandId: `${commandId}:lease-released`,
+      actor,
+      causationId: published.caused_by_event_id,
+      commandId,
       correlationId: current.sync_id,
       leaseId: context.leaseId,
       projectId: current.project_id,
+      spanId: syncActionSpanId(commandId),
       now: operationTime(context),
     });
     const deleted = context.store.db.query(
@@ -1075,6 +1061,7 @@ async function continuePublishing(
   input: ContinueSyncPublicationInput,
   initial: SyncState,
 ): Promise<SyncState> {
+  const actor = input.actor ?? "runner";
   let sync = initial;
   if (!sync.publication) {
     let intent = getSyncPublicationIntent(input.context.store.db, sync.sync_id);
@@ -1093,6 +1080,7 @@ async function continuePublishing(
         expectedRevision: sync.revision,
         commandId: input.commandId,
         scoreDelta: input.scoreDelta,
+        actor,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1101,7 +1089,8 @@ async function continuePublishing(
         const reconciled = await reconcileInterruptedSyncPublication({
           context: input.context,
           syncId: sync.sync_id,
-          commandId: `${input.commandId}:reconcile-failed-boundary`,
+          commandId: input.commandId,
+          actor,
         });
         if (reconciled.status !== "blocked") return reconciled;
       } catch (recoveryError) {
@@ -1110,16 +1099,19 @@ async function continuePublishing(
       throw new Error(`Sync publication boundary failed: ${detail}`, { cause: error });
     }
   }
+  let causationId = sync.caused_by_event_id;
   for (const push of selectPushRecords(input.context.store.db, sync.sync_id)) {
-    await executePush(input.context, sync, push, input.commandId);
+    const accepted = await executePush(input.context, sync, push, input.commandId, actor, causationId);
+    causationId = accepted.caused_by_event_id;
   }
-  return finalizePublication(input.context, sync, input.commandId);
+  return finalizePublication(input.context, sync, input.commandId, actor, causationId);
 }
 
 /** Persists exact recursive repoint intent in the same transaction as validated -> publishing. */
 export async function prepareSyncPublication(input: PrepareSyncPublicationInput): Promise<SyncState> {
   if (input.confirmed !== true) throw new Error("sync.publish requires explicit confirmation");
   const sync = requireCurrentSync(input.context, input.syncId, input.expectedRevision);
+  const actor = input.actor ?? "operator";
   if (sync.status !== "validated") {
     throw new Error(`sync.publish requires validated status; ${sync.sync_id} is ${sync.status}`);
   }
@@ -1132,24 +1124,25 @@ export async function prepareSyncPublication(input: PrepareSyncPublicationInput)
       return blockSync(
         input.context,
         sync,
-        `${input.commandId}:stale`,
+        input.commandId,
         "upstream_moved_after_validation",
         `Validated ${sync.intake.upstream_to}, but upstream is now ${observed}`,
+        actor,
       );
     }
     states = await buildPublicationWorktreeStates(input.context, sync, plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    blockSync(input.context, sync, `${input.commandId}:preflight-failed`, "publication_preflight_failed", message);
+    blockSync(input.context, sync, input.commandId, "publication_preflight_failed", message, actor);
     throw new Error(`Sync publication preflight failed: ${message}`, { cause: error });
   }
   return immediateTransaction(input.context.store.db, () => {
     const publishing = transitionSync(input.context.store, sync.sync_id, {
-      actor: "operator",
-      commandId: `${input.commandId}:publishing`,
+      actor,
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
       expectedRevision: sync.revision,
       patch: { status: "publishing", blockers: [] },
-      payload: { confirmed: true },
     });
     insertPublicationIntent(input.context, publishing, plan, states, publishing.caused_by_event_id);
     return publishing;
@@ -1164,6 +1157,7 @@ export async function reconcileInterruptedSyncPublication(input: {
   context: SyncPublicationContext;
   syncId: string;
   commandId: string;
+  actor?: EventActor;
 }): Promise<SyncState> {
   const sync = requireCurrentSync(input.context, input.syncId);
   if (sync.status !== "publishing") {
@@ -1174,16 +1168,18 @@ export async function reconcileInterruptedSyncPublication(input: {
     return blockSync(
       input.context,
       sync,
-      `${input.commandId}:intent-missing`,
+      input.commandId,
       "publication_intent_missing",
       "Publishing state has no durable repoint intent; no worktree mutation was attempted",
+      input.actor ?? "runner",
     );
   }
   assertIntentContext(input.context, sync, intent);
   const boundaryEvent = intent.boundaryEventId
     ? input.context.store.db.query(
         `SELECT event_id FROM project_events
-         WHERE event_id = ? AND subject_kind = 'sync' AND subject_id = ? AND event_type = 'sync.boundary_published'`,
+         WHERE event_id = ? AND subject_kind = 'sync_workflow'
+           AND subject_id = ? AND event_type = 'sync.boundary_published'`,
       ).get(intent.boundaryEventId, sync.sync_id) as { event_id: string } | null
     : null;
   const raw = sync.publication === null && intent.boundaryEventId === null && boundaryEvent === null;
@@ -1196,7 +1192,8 @@ export async function reconcileInterruptedSyncPublication(input: {
       context: input.context,
       syncId: sync.sync_id,
       expectedRevision: sync.revision,
-      commandId: `${input.commandId}:continue`,
+      commandId: input.commandId,
+      actor: input.actor ?? "runner",
     }, sync);
   }
   await compensateSessionHead(input.context, sync, intent);
@@ -1204,17 +1201,19 @@ export async function reconcileInterruptedSyncPublication(input: {
   return blockSync(
     input.context,
     current,
-    `${input.commandId}:blocked`,
+    input.commandId,
     "publication_interrupted",
     "Publication stopped before the durable boundary; the exact recursive session state was restored",
+    input.actor ?? "runner",
   );
 }
 
 /** Confirm-gated operator entry point. Valid only from the validated resting state. */
 export async function publishSync(input: PublishSyncInput): Promise<SyncState> {
-  const prepared = await prepareSyncPublication(input);
+  const action = { ...input, actor: input.actor ?? "operator" };
+  const prepared = await prepareSyncPublication(action);
   if (prepared.status !== "publishing") return prepared;
-  return continuePublishing({ ...input, expectedRevision: prepared.revision }, prepared);
+  return continuePublishing({ ...action, expectedRevision: prepared.revision }, prepared);
 }
 
 /** Resumes a recovered/crashed publication while the durable status is publishing. */

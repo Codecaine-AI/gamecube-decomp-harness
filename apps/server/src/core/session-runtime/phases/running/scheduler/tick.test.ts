@@ -31,6 +31,7 @@ function activateRun(store: StateStore, runId: string) {
   const dispatch = requestDispatch(store, {
     actor: "runner",
     commandId: `command-test-activate-${runId}`,
+    correlationId: runId,
     kind: "run",
     projectId: "test",
     reason: "scheduler test",

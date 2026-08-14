@@ -34,6 +34,7 @@ describe("save-point evidence capture", () => {
     const store = openState(stateDir);
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         id: "project-session:session-1",
         projectId: "melee",
         sessionUuid: "session-1",
@@ -59,6 +60,7 @@ describe("save-point evidence capture", () => {
           ["--trigger", "manual"],
           ["--label", "manual anchor"],
           ["--base-ref", "HEAD"],
+          ["--session-uuid", "session-1"],
         ]),
       );
     } finally {

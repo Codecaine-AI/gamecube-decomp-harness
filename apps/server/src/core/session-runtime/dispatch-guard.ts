@@ -10,6 +10,7 @@ import {
   type DispatchKind,
   type EventActor,
 } from "@server/core/project-state";
+import { newSpanId } from "@server/core/project-state/events.js";
 import { openState } from "@server/core/orchestrator-state";
 import { pauseRun } from "@server/core/session-runtime/phases/running/run-control.js";
 
@@ -22,10 +23,10 @@ export interface DispatchGuardInput {
   actor?: EventActor;
   beginHandoffOnQueue?: boolean;
   commandId?: string;
-  correlationId?: string;
   kind: DispatchKind;
   projectId?: string;
   reason: string;
+  spanId?: string;
   workflowId: string;
 }
 
@@ -60,7 +61,7 @@ export async function withDispatchLease<T>(
   const projectId = projectIdFor(context, input);
   const actor = input.actor ?? "operator";
   const commandId = input.commandId ?? `command-${input.kind}-${randomUUID()}`;
-  const correlationId = input.correlationId ?? input.workflowId;
+  const actionSpanId = input.spanId ?? newSpanId();
   const store = openState(context.stateDir);
   let leaseId: string | null = null;
   try {
@@ -80,11 +81,12 @@ export async function withDispatchLease<T>(
     const decision = requestDispatch(store, {
       actor,
       commandId,
-      correlationId,
+      correlationId: input.workflowId,
       kind: input.kind,
       projectId,
       reason: input.reason,
       workflowId: input.workflowId,
+      spanId: actionSpanId,
     });
     if (decision.queued) {
       if (input.beginHandoffOnQueue) {
@@ -113,10 +115,10 @@ export async function withDispatchLease<T>(
           }
           pauseRun({
             actor,
-            commandId: `command-${input.kind}-handoff-${randomUUID()}`,
-            correlationId,
+            commandId,
             reason: input.reason,
             runId: holder.workflow_id,
+            spanId: actionSpanId,
             store,
             targetKind: input.kind,
             targetWorkflowId: input.workflowId,
@@ -138,10 +140,11 @@ export async function withDispatchLease<T>(
       if (leaseId) {
         releaseDispatch(store, {
           actor,
-          commandId: `command-${input.kind}-release-${randomUUID()}`,
-          correlationId,
+          commandId,
+          correlationId: input.workflowId,
           leaseId,
           projectId,
+          spanId: actionSpanId,
         });
       }
     } finally {

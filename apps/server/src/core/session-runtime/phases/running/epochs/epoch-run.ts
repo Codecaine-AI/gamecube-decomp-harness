@@ -10,6 +10,7 @@ import {
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 import { publishSessionDraftPr } from "./session-draft-pr.js";
 import { writeSetIntegrationFlags } from "@server/core/session-runtime/phases/running/integration/write-set-options.js";
+import { newSpanId } from "@server/core/project-state";
 
 /**
  * Run one epoch checkpoint cycle by hand: commit validated work (excluding
@@ -53,26 +54,30 @@ export async function epochRun(globals: GlobalArgs, args: Map<string, string | t
     });
     if (!result.commitSha) throw new Error("Manual epoch integration commit is missing");
     const projectId = globals.project?.projectId ?? globals.projectId;
-    recordEpochCompleted(store, {
+    const actionCommandId = `command-epoch-integrated-${randomUUID()}`;
+    const actionSpanId = newSpanId();
+    const epochEntry = recordEpochCompleted(store, {
       projectId,
       epochId,
       runId,
       integrationCommit: result.commitSha,
       scoreDelta: result.scoreDelta,
-      commandId: `command-epoch-integrated-${randomUUID()}`,
+      commandId: actionCommandId,
       correlationId: runId,
-      spanId: `span-epoch-integrated-${randomUUID()}`,
+      spanId: actionSpanId,
       actor: "runner",
     });
     const evidenceContext = {
       projectId,
-      correlationId: runId,
       actor: "runner" as const,
     };
     recordDeferredSavePointEvidenceDurably(store, result.savePointEvidence, {
       ...evidenceContext,
-      commandId: `command-epoch-save-point-${randomUUID()}`,
-      spanId: `span-save-point-${randomUUID()}`,
+      causationId: epochEntry.caused_by_event_id ?? actionCommandId,
+      commandId: actionCommandId,
+      correlationId: epochEntry.session_uuid,
+      sessionUuid: epochEntry.session_uuid,
+      spanId: actionSpanId,
     });
     const publish = booleanArg(args, "--no-session-draft-pr")
       ? null

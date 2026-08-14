@@ -8,6 +8,8 @@ import {
   eventsForSubject,
   getProjectState,
   initializeProjectState,
+  listProjectEvents,
+  newSpanId,
   releaseDispatch,
   requestDispatch,
   STALE_DISPATCH_LEASE_MS,
@@ -73,6 +75,7 @@ function activeRun(store: StateStore, dir: string) {
   const dispatch = requestDispatch(store, {
     actor: "operator",
     commandId: `command-activate-${run.id}`,
+    correlationId: run.id,
     kind: "run",
     projectId: "melee",
     reason: "test activation",
@@ -139,6 +142,44 @@ describe("run recovery controls", () => {
     expect(getProjectState(store, "melee")?.active_workflow).toBeNull();
   });
 
+  test("activation uses one command, one actor, and a root span with causal leaf events", () => {
+    const { dir, store } = tempState();
+    const run = createRun(
+      store,
+      "matched_code_percent",
+      100,
+      1,
+      { projectId: "melee", repoRoot: dir, stateDir: dir },
+      { baseRevision: "base-test" },
+    );
+    initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+    const beforeSequence = listProjectEvents(store.db).at(-1)?.sequence ?? 0;
+
+    activateRun({
+      actor: "operator",
+      commandId: "command-run-activate-test",
+      reason: "operator activated run",
+      runId: run.id,
+      store,
+    });
+
+    const events = listProjectEvents(store.db, { afterSequence: beforeSequence });
+    expect(events.map((event) => event.eventType)).toEqual([
+      "project.dispatch_requested",
+      "project.dispatch_acquired",
+      "run.activated",
+    ]);
+    expect(events.map((event) => event.causationId)).toEqual([
+      "command-run-activate-test",
+      events[0]?.eventId,
+      events[1]?.eventId,
+    ]);
+    expect(new Set(events.map((event) => event.actor))).toEqual(new Set(["operator"]));
+    expect(new Set(events.map((event) => event.correlationId))).toEqual(new Set([run.id]));
+    expect(new Set(events.map((event) => event.parentSpanId)).size).toBe(1);
+    expect(new Set(events.map((event) => event.spanId)).size).toBe(3);
+  });
+
   test("recovers a failed run in place and names every settled claim", async () => {
     const { dir, store } = tempState();
     const active = activeRun(store, dir);
@@ -147,6 +188,7 @@ describe("run recovery controls", () => {
     releaseDispatch(store, {
       actor: "operator",
       commandId: "command-release-failed-run",
+      correlationId: failed.id,
       leaseId: active.leaseId,
       projectId: "melee",
     });
@@ -222,18 +264,28 @@ describe("run recovery controls", () => {
     releaseDispatch(store, {
       actor: "operator",
       commandId: "command-release-failed-for-pr",
+      correlationId: failed.id,
       leaseId: active.leaseId,
       projectId: "melee",
     });
-    const pr = requestDispatch(store, {
+    const competingRun = createRun(
+      store,
+      "matched_code_percent",
+      100,
+      1,
+      { projectId: "melee", repoRoot: dir, stateDir: dir },
+      { baseRevision: "base-test" },
+    );
+    const competingDispatch = requestDispatch(store, {
       actor: "operator",
-      commandId: "command-pr-owns-checkout",
-      kind: "pr",
+      commandId: "command-competing-run-owns-checkout",
+      correlationId: competingRun.id,
+      kind: "run",
       projectId: "melee",
-      reason: "PR owns checkout during recovery",
-      workflowId: "pr-1",
+      reason: "another run owns checkout during recovery",
+      workflowId: competingRun.id,
     });
-    if (pr.queued) throw new Error("test PR lease was unexpectedly queued");
+    if (competingDispatch.queued) throw new Error("test competing run lease was unexpectedly queued");
 
     const recovered = await recoverRun({
       confirmed: true,
@@ -254,7 +306,7 @@ describe("run recovery controls", () => {
     ]);
     expect(integrationId).not.toBe("");
     expect(getProjectState(store, "melee")).toMatchObject({
-      active_workflow: { kind: "pr", workflow_id: "pr-1" },
+      active_workflow: { kind: "run", workflow_id: competingRun.id },
       queued_dispatch_requests: [expect.objectContaining({ kind: "run", workflow_id: failed.id })],
     });
   });
@@ -284,7 +336,11 @@ describe("run recovery controls", () => {
     const event = eventsForSubject(store.db, "run", active.run.id).at(-1);
     expect(event).toMatchObject({
       eventType: "run.paused",
-      payload: { cancelled_claim_ids: [claim.claimId], resulting_status: "paused" },
+      payload: {
+        cancelled_claim_ids: [claim.claimId],
+        from_status: "active",
+        to_status: "paused",
+      },
     });
     expect(stopped.run.causedByEventId).toBe(event?.eventId ?? null);
   });
@@ -318,21 +374,47 @@ describe("run recovery controls", () => {
       summary: { settled_for_pause: true },
       workerStateId: claim.workerStateId,
     });
+    const beforeSettlement = listProjectEvents(store.db).at(-1)?.sequence ?? 0;
+    const drainEvent = [...listProjectEvents(store.db)].reverse().find(
+      (event) => event.eventType === "project.dispatch_drain_started",
+    )!;
+    const settlementRoot = newSpanId();
     const paused = settlePausedRun({
-      actor: "guardian",
+      commandId: "command-supervisor-settled-test",
       leaseId: active.leaseId,
       reason: "supervisor drained",
       runId: active.run.id,
+      spanId: settlementRoot,
       store,
     });
 
-    expect(paused).toMatchObject({ settled: true, run: { status: "paused" } });
+    expect(paused).toMatchObject({
+      settled: true,
+      run: {
+        status: "paused",
+        stopRequest: { mode: "pause", reason: "operator pause" },
+      },
+    });
     expect(getProjectState(store, "melee")?.active_workflow).toBeNull();
     expect(eventsForSubject(store.db, "run", active.run.id).slice(-3).map((event) => event.eventType)).toEqual([
       "run.draining",
       "project.dispatch_drain_started",
       "run.paused",
     ]);
+    const settlementEvents = listProjectEvents(store.db, { afterSequence: beforeSettlement });
+    expect(settlementEvents.map((event) => event.eventType)).toEqual(["project.dispatch_released", "run.paused"]);
+    expect(settlementEvents.map((event) => event.actor)).toEqual(["runner", "runner"]);
+    expect(settlementEvents.map((event) => event.correlationId)).toEqual([active.run.id, active.run.id]);
+    expect(settlementEvents.map((event) => event.causationId)).toEqual([
+      drainEvent.eventId,
+      settlementEvents[0]?.eventId,
+    ]);
+    expect(settlementEvents.map((event) => event.parentSpanId)).toEqual([settlementRoot, settlementRoot]);
+    expect(settlementEvents[0]?.spanId).not.toBe(settlementEvents[1]?.spanId);
+    expect(settlementEvents[1]?.payload).toEqual({
+      from_status: "draining",
+      to_status: "paused",
+    });
   });
 
   test("pause rolls the run transition back when the lease cannot enter draining", () => {
@@ -397,6 +479,7 @@ describe("run recovery controls", () => {
     releaseDispatch(second.store, {
       actor: "operator",
       commandId: "command-crash-window-release",
+      correlationId: leaseFree.run.id,
       leaseId: leaseFree.leaseId,
       projectId: "melee",
     });
@@ -407,12 +490,54 @@ describe("run recovery controls", () => {
     });
     expect(repaired).toMatchObject({
       action: "paused_lease_free_run",
-      run: { revision: leaseFree.run.revision + 1, status: "paused" },
+      run: {
+        revision: leaseFree.run.revision + 1,
+        status: "paused",
+        stopRequest: { mode: "pause", reason: "startup reconciliation" },
+      },
     });
     expect(eventsForSubject(second.store.db, "run", leaseFree.run.id).at(-1)).toMatchObject({
-      eventType: "run.lease_reconciled",
-      payload: { previous_status: "active", resulting_status: "paused" },
+      eventType: "run.paused",
+      payload: { from_status: "active", to_status: "paused" },
     });
+
+    const third = tempState();
+    const drainingLease = activeRun(third.store, third.dir);
+    const currentState = getProjectState(third.store, "melee");
+    if (!currentState?.active_workflow) throw new Error("test run has no draining lease");
+    third.store.db
+      .query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = ?")
+      .run(
+        JSON.stringify({ ...currentState.active_workflow, status: "draining" }),
+        "melee",
+      );
+    const aligned = reconcileRunLeaseState({
+      reason: "startup reconciliation",
+      runId: drainingLease.run.id,
+      store: third.store,
+    });
+    expect(aligned).toMatchObject({
+      action: "aligned_run_to_draining_lease",
+      run: { revision: drainingLease.run.revision + 1, status: "draining" },
+    });
+    expect(eventsForSubject(third.store.db, "run", drainingLease.run.id).at(-1)).toMatchObject({
+      eventType: "run.draining",
+      payload: {
+        from_status: "active",
+        lease_id: drainingLease.leaseId,
+        reason: "startup reconciliation",
+        to_status: "draining",
+      },
+    });
+    for (const [store, runId] of [
+      [first.store, pausedWithLease.run.id],
+      [second.store, leaseFree.run.id],
+      [third.store, drainingLease.run.id],
+    ] as const) {
+      expect(eventsForSubject(store.db, "run", runId).map((event) => event.eventType)).not.toContain(
+        "run.lease_reconciled",
+      );
+    }
   });
 
   test("recovers an active run only when its old lease has no active managed process", async () => {
@@ -486,6 +611,7 @@ describe("run recovery controls", () => {
     const dispatch = requestDispatch(store, {
       actor: "operator",
       commandId: "command-ready-run-lease",
+      correlationId: run.id,
       kind: "run",
       projectId: "melee",
       reason: "simulate unsupported ready run with lease",
@@ -656,7 +782,11 @@ describe("run recovery controls", () => {
     });
     expect(eventsForSubject(store.db, "run", paused.id).at(-1)).toMatchObject({
       eventType: "run.cancelled",
-      payload: { cancellation_reason: "abandon run", resulting_status: "cancelled" },
+      payload: {
+        cancellation_reason: "abandon run",
+        from_status: "paused",
+        to_status: "cancelled",
+      },
     });
   });
 

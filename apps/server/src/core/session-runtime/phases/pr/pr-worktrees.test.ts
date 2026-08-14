@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import {
   createPrWorktreeService,
@@ -73,6 +73,91 @@ async function git(repoRoot: string, args: string[]): Promise<CliResult> {
 afterEach(() => {
   for (const path of cleanupPaths.reverse()) rmSync(path, { force: true, recursive: true });
   cleanupPaths.length = 0;
+});
+
+describe("production baseline tracing", () => {
+  test("carries one owning-workflow linkage unchanged into started and completed events", async () => {
+    const repoRoot = tempDir("pr-baseline-repo-");
+    const stateDir = tempDir("pr-baseline-state-");
+    const baseSha = `base-${basename(stateDir)}`;
+    const worktreeDir = resolve(tmpdir(), `melee-baseline-${baseSha}`);
+    cleanupPaths.push(worktreeDir);
+    mkdirSync(resolve(worktreeDir, "build/GALE01"), { recursive: true });
+    writeFileSync(resolve(worktreeDir, "build/GALE01/baseline.json"), "{}", "utf8");
+    const events: unknown[] = [];
+    const service = createService({
+      runGit: async () => successResult(`${baseSha}\n`),
+      submitWorkflowEvent: async (_paths, input) => {
+        events.push(input);
+        return null;
+      },
+    });
+    const productionLinkage = {
+      workflowId: "pr-handoff:run-1",
+      correlationId: "pr-handoff:run-1",
+      projectEventId: "project-event-acquired",
+      causedByEventId: "project-event-requested",
+    };
+
+    await service.rebuildProductionBaseline(
+      { project: { baseRef: "origin/main" }, repoRoot, stateDir },
+      undefined,
+      productionLinkage,
+    );
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      operation: "rebuildProductionBaseline",
+      status: "started",
+      correlationId: productionLinkage.correlationId,
+      projectEventId: productionLinkage.projectEventId,
+      causedByEventId: productionLinkage.causedByEventId,
+    });
+    expect(events[1]).toMatchObject({
+      operation: "rebuildProductionBaseline",
+      status: "completed",
+      correlationId: productionLinkage.correlationId,
+      projectEventId: productionLinkage.projectEventId,
+      causedByEventId: productionLinkage.causedByEventId,
+    });
+  });
+
+  test("rejects absent or mismatched owning-workflow linkage before baseline side effects", async () => {
+    const sideEffects: string[] = [];
+    const paths = {
+      project: { baseRef: "origin/main" },
+      repoRoot: tempDir("pr-baseline-reject-repo-"),
+      stateDir: tempDir("pr-baseline-reject-state-"),
+    };
+    const service = createService({
+      appendLog: () => sideEffects.push("log"),
+      runCli: async () => {
+        sideEffects.push("cli");
+        return successResult();
+      },
+      runGit: async () => {
+        sideEffects.push("git");
+        return successResult("base-sha\n");
+      },
+      submitWorkflowEvent: async () => {
+        sideEffects.push("event");
+        return null;
+      },
+    });
+
+    await expect(service.rebuildProductionBaseline(paths)).rejects.toThrow(
+      "Production baseline tracing requires durable PR dispatch linkage",
+    );
+    await expect(service.rebuildProductionBaseline(paths, undefined, {
+      workflowId: "pr-handoff:run-1",
+      correlationId: "pr-handoff:run-2",
+      projectEventId: "project-event-acquired",
+      causedByEventId: "project-event-requested",
+    })).rejects.toThrow(
+      "Production baseline trace correlation pr-handoff:run-2 does not match owning PR workflow pr-handoff:run-1",
+    );
+    expect(sideEffects).toEqual([]);
+  });
 });
 
 describe("PR support-file worktrees", () => {

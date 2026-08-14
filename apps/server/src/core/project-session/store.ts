@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { Database } from "bun:sqlite";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
@@ -14,19 +13,62 @@ import {
 } from "./state.js";
 import type {
   CreateProjectSessionInput,
+  ProjectSessionKernelTracePatch,
   ProjectSessionPatch,
+  ProjectSessionPayloadByEvent,
   ProjectSessionRecord,
+  ProjectSessionDerivedStatusTransitionEventType,
+  ProjectSessionDerivedStatusTransitionInput,
+  ProjectSessionStatus,
+  ProjectSessionStatusPreservingEventType,
+  ProjectSessionStatusPreservingTransitionInput,
   ProjectSessionTelemetryPatch,
   ProjectSessionTransitionInput,
+  ProjectSessionTransitionEventType,
   ProjectSessionView,
 } from "./types.js";
 import { newProjectSessionId, newProjectSessionUuid } from "./identity.js";
 import { createOrchestratorStateOrm, immediateTransaction, now as currentTime } from "@server/core/orchestrator-state";
 import { projectSessions, type ProjectSessionRow } from "@server/core/orchestrator-state/storage/schema";
-import { appendProjectEvent } from "@server/core/project-state/events.js";
+import {
+  appendProjectEvent,
+  eventSpan,
+  newSpanId,
+  type JsonObject,
+} from "@server/core/project-state/events.js";
 
 type Row = ProjectSessionRow;
 type SqlValue = string | number | bigint | boolean | null | Uint8Array;
+
+type ProjectSessionTransitionRule =
+  | { destination: "preserve" }
+  | { destination: ProjectSessionStatus; entryOnly?: boolean };
+
+const PROJECT_SESSION_TRANSITION_RULES = {
+  "session.preparing_subphase_updated": { destination: "preserve" },
+  "session.preparing_completed": { destination: "preserve" },
+  "session.running_started": { destination: "preserve" },
+  "session.running_subphase_updated": { destination: "preserve" },
+  "session.running_stopped": { destination: "preserve" },
+  "session.pr_entered": { destination: "preserve" },
+  "session.pr_final_build_completed": { destination: "preserve" },
+  "session.pr_subphase_updated": { destination: "preserve" },
+  "session.pr_completed": { destination: "preserve" },
+  "session.running_unblocked": { destination: "active", entryOnly: true },
+  "session.blocked": { destination: "blocked", entryOnly: true },
+  "session.blockers_updated": { destination: "preserve" },
+  "session.complete": { destination: "complete", entryOnly: true },
+  "session.closing": { destination: "closing", entryOnly: true },
+  "session.closed": { destination: "closed", entryOnly: true },
+} as const satisfies Readonly<Record<ProjectSessionTransitionEventType, ProjectSessionTransitionRule>>;
+
+const PROJECT_SESSION_STATUS_TRANSITIONS = {
+  active: ["blocked", "complete", "closing"],
+  blocked: ["active", "closing"],
+  complete: ["closing"],
+  closing: ["closed"],
+  closed: [],
+} as const satisfies Readonly<Record<ProjectSessionStatus, readonly ProjectSessionStatus[]>>;
 
 function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -44,6 +86,36 @@ function parseJson(value: unknown): unknown {
   } catch {
     return {};
   }
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function mergeJsonObjects(
+  current: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged = { ...current };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    const currentValue = merged[key];
+    merged[key] =
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      currentValue &&
+      typeof currentValue === "object" &&
+      !Array.isArray(currentValue)
+        ? mergeJsonObjects(
+            currentValue as Record<string, unknown>,
+            value as Record<string, unknown>,
+          )
+        : value;
+  }
+  return merged;
 }
 
 export function rowToProjectSession(row: Row): ProjectSessionRecord {
@@ -114,6 +186,7 @@ export function insertProjectSession(db: Database, record: ProjectSessionRecord)
 }
 
 export function createProjectSession(db: Database, input: CreateProjectSessionInput): ProjectSessionRecord {
+  if (!input.actor) throw new Error("Session creation requires an explicit actor");
   const at = input.now ?? currentTime();
   const sessionUuid = input.sessionUuid ?? newProjectSessionUuid();
   const id = input.id ?? newProjectSessionId(sessionUuid);
@@ -124,22 +197,25 @@ export function createProjectSession(db: Database, input: CreateProjectSessionIn
     sessionUuid,
   });
   return immediateTransaction(db, () => {
+    const actionSpanId = input.spanId ?? newSpanId();
     const opened = appendProjectEvent(db, {
       eventType: "session.opened",
       projectId: record.project_id,
       subjectKind: "session",
       subjectId: record.session_uuid,
-      correlationId: input.correlationId ?? input.openingSyncId ?? input.activeRunId ?? record.session_uuid,
+      correlationId: record.session_uuid,
       causationId: input.commandId ?? `command-session-open-${record.session_uuid}`,
       traceId: record.trace_id,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
-      actor: input.actor ?? "operator",
+      ...eventSpan(actionSpanId),
+      actor: input.actor,
       occurredAt: at,
       payload: {
         baseline_revision: record.base_sha,
+        initial_head_revision: record.head_revision,
         worktree_identity:
           input.worktreeIdentity ?? `project-session:${record.project_id}:${record.session_uuid}`,
         opening_sync_id: input.openingSyncId ?? null,
+        state_revision: record.revision,
       },
     });
     return insertProjectSession(db, { ...record, caused_by_event_id: opened.eventId });
@@ -214,15 +290,247 @@ function patchedProjectSession(
   return next;
 }
 
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
+function requiredBlockerString(
+  blocker: ProjectSessionRecord["blockers_json"][number],
+  index: number,
+  field: "code" | "source_kind" | "source_id",
+): string {
+  const value = typeof blocker[field] === "string" ? blocker[field].trim() : "";
+  if (!value) throw new Error(`blockers[${index}] must include ${field}`);
+  return value;
+}
+
+function blockerPayloadFacts(
+  blockers: ProjectSessionRecord["blockers_json"],
+): {
+  blocker_codes: string[];
+  recovery_choices: string[];
+  source_identities: Array<{ source_kind: string; source_id: string }>;
+} {
+  if (blockers.length === 0) {
+    throw new Error("A blocked session transition requires at least one blocker");
+  }
+  const blockerCodes: string[] = [];
+  const recoveryChoices: string[] = [];
+  const identities = new Map<
+    string,
+    { source_kind: string; source_id: string }
+  >();
+  blockers.forEach((blocker, index) => {
+    const code = requiredBlockerString(blocker, index, "code");
+    const sourceKind = requiredBlockerString(blocker, index, "source_kind");
+    const sourceId = requiredBlockerString(blocker, index, "source_id");
+    if (!Array.isArray(blocker.recovery_choices)) {
+      throw new Error(`blockers[${index}] must include explicit recovery_choices`);
+    }
+    const choices = blocker.recovery_choices.map((choice, choiceIndex) => {
+      const normalized = typeof choice === "string" ? choice.trim() : "";
+      if (!normalized) {
+        throw new Error(
+          `blockers[${index}].recovery_choices[${choiceIndex}] must be a nonblank string`,
+        );
+      }
+      return normalized;
+    });
+    blockerCodes.push(code);
+    recoveryChoices.push(...choices);
+    identities.set(`${sourceKind}\0${sourceId}`, {
+      source_kind: sourceKind,
+      source_id: sourceId,
+    });
+  });
+  return {
+    blocker_codes: uniqueStrings(blockerCodes),
+    recovery_choices: uniqueStrings(recoveryChoices),
+    source_identities: [...identities.values()],
+  };
+}
+
+function assertProjectSessionTransitionCompatibility(
+  current: ProjectSessionRecord,
+  input: ProjectSessionTransitionInput<string>,
+): void {
+  const rule = (
+    PROJECT_SESSION_TRANSITION_RULES as Readonly<
+      Record<string, ProjectSessionTransitionRule | undefined>
+    >
+  )[input.eventType];
+  if (!rule) {
+    throw new Error(`Unsupported project session transition event: ${input.eventType}`);
+  }
+
+  const nextStatus = input.patch.status ?? current.status;
+  if (rule.destination === "preserve") {
+    if (input.patch.status !== undefined) {
+      throw new Error(`${input.eventType} must preserve project session status`);
+    }
+    if (input.eventType === "session.blockers_updated") {
+      const blockersChanged =
+        JSON.stringify(input.patch.blockers_json ?? current.blockers_json) !==
+        JSON.stringify(current.blockers_json);
+      if (current.status !== "blocked" || !blockersChanged) {
+        throw new Error(
+          "session.blockers_updated requires changed blockers while remaining blocked",
+        );
+      }
+    }
+    if (
+      input.eventType === "session.pr_entered" &&
+      (current.status !== "active" || current.phase === "pr" || input.patch.phase !== "pr")
+    ) {
+      throw new Error(
+        "session.pr_entered requires an active session transitioning to phase pr",
+      );
+    }
+    return;
+  }
+  if (nextStatus !== rule.destination) {
+    throw new Error(
+      `${input.eventType} requires destination status ${rule.destination}; received ${nextStatus}`,
+    );
+  }
+  if (rule.entryOnly && current.status === rule.destination) {
+    throw new Error(`${input.eventType} is valid only on entry to ${rule.destination}`);
+  }
+  if (
+    current.status !== nextStatus &&
+    !(PROJECT_SESSION_STATUS_TRANSITIONS[current.status] as readonly ProjectSessionStatus[])
+      .includes(nextStatus)
+  ) {
+    throw new Error(
+      `Invalid project session status transition ${current.status} -> ${nextStatus}`,
+    );
+  }
+}
+
+function projectSessionTransitionPayload(
+  current: ProjectSessionRecord,
+  input: ProjectSessionTransitionInput<string>,
+): JsonObject {
+  if (input.eventType === "session.blocked") {
+    const facts = blockerPayloadFacts(
+      input.patch.blockers_json ?? current.blockers_json,
+    );
+    return {
+      from_status: current.status,
+      to_status: "blocked",
+      prior_status: current.status,
+      ...facts,
+      state_revision: current.revision + 1,
+    };
+  }
+  if (input.eventType === "session.blockers_updated") {
+    const facts = blockerPayloadFacts(
+      input.patch.blockers_json ?? current.blockers_json,
+    );
+    const previousCodes = uniqueStrings(
+      current.blockers_json.map((blocker) => blocker.code),
+    );
+    const previousCodeSet = new Set(previousCodes);
+    const nextCodeSet = new Set(facts.blocker_codes);
+    return {
+      added_blocker_codes: facts.blocker_codes.filter(
+        (code) => !previousCodeSet.has(code),
+      ),
+      removed_blocker_codes: previousCodes.filter(
+        (code) => !nextCodeSet.has(code),
+      ),
+      ...facts,
+      state_revision: current.revision + 1,
+    };
+  }
+  if (input.eventType === "session.running_unblocked") {
+    return { from_status: current.status, to_status: "active" };
+  }
+  if (input.eventType === "session.complete") {
+    return { from_status: current.status, to_status: "complete" };
+  }
+  if (input.eventType === "session.closing") {
+    return { from_status: current.status, to_status: "closing" };
+  }
+  if (input.eventType === "session.closed") {
+    const supplied = requireSessionClosedPayload(input.payload);
+    return {
+      final_head: input.patch.head_revision ?? current.head_revision,
+      shipped_and_unshipped_work_summary:
+        supplied.shipped_and_unshipped_work_summary,
+      final_save_point_id: supplied.final_save_point_id,
+      closing_operator: input.actor,
+      state_revision: current.revision + 1,
+    };
+  }
+  return {
+    ...(input.payload ?? {}),
+    previous_phase: current.phase,
+    previous_status: current.status,
+    phase: input.patch.phase ?? current.phase,
+    status: input.patch.status ?? current.status,
+  };
+}
+
+function isJsonObject(value: JsonObject[string] | undefined): value is JsonObject {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function requireSessionClosedPayload(
+  payload: JsonObject | undefined,
+): Pick<
+  ProjectSessionPayloadByEvent["session.closed"],
+  "final_save_point_id" | "shipped_and_unshipped_work_summary"
+> {
+  const summary = payload?.shipped_and_unshipped_work_summary;
+  const finalSavePointId = payload?.final_save_point_id;
+  if (
+    !isJsonObject(summary) ||
+    typeof summary.ahead_of_base !== "number" ||
+    typeof summary.worktree_dirty_beyond_head !== "boolean" ||
+    (finalSavePointId !== null && typeof finalSavePointId !== "string")
+  ) {
+    throw new Error("session.closed requires explicit closeout facts");
+  }
+  return {
+    final_save_point_id: finalSavePointId,
+    shipped_and_unshipped_work_summary: {
+      ahead_of_base: summary.ahead_of_base,
+      worktree_dirty_beyond_head: summary.worktree_dirty_beyond_head,
+    },
+  };
+}
+
 /**
  * Accepts one durable session transition. The semantic event and revision-CAS
  * update share the caller-visible transaction and therefore succeed or roll
  * back as one fact.
  */
+export function transitionProjectSession<
+  const TEvent extends ProjectSessionStatusPreservingEventType,
+>(
+  db: Database,
+  id: string,
+  input: ProjectSessionStatusPreservingTransitionInput<TEvent>,
+): ProjectSessionRecord;
+export function transitionProjectSession<
+  const TEvent extends ProjectSessionDerivedStatusTransitionEventType,
+>(
+  db: Database,
+  id: string,
+  input: ProjectSessionDerivedStatusTransitionInput<TEvent>,
+): ProjectSessionRecord;
+export function transitionProjectSession<
+  const TEvent extends ProjectSessionTransitionEventType,
+>(
+  db: Database,
+  id: string,
+  input: ProjectSessionTransitionInput<TEvent>,
+): ProjectSessionRecord;
 export function transitionProjectSession(
   db: Database,
   id: string,
-  input: ProjectSessionTransitionInput,
+  input: ProjectSessionTransitionInput<string>,
 ): ProjectSessionRecord {
   return immediateTransaction(db, () => {
     const current = getProjectSessionById(db, id);
@@ -237,18 +545,24 @@ export function transitionProjectSession(
       throw new Error(`Project session UUID mismatch: ${input.sessionUuid}`);
     }
     const at = input.occurredAt ?? currentTime();
+    if (input.correlationId !== current.session_uuid) {
+      throw new Error(`Session event correlation_id must equal session UUID ${current.session_uuid}`);
+    }
+    assertProjectSessionTransitionCompatibility(current, input);
+    const actionSpanId = input.spanId ?? newSpanId();
+    const payload = projectSessionTransitionPayload(current, input);
     const event = appendProjectEvent(db, {
       eventType: input.eventType,
       projectId: current.project_id,
       subjectKind: "session",
       subjectId: current.session_uuid,
-      correlationId: input.correlationId ?? current.active_run_id ?? current.session_uuid,
-      causationId: input.commandId,
+      correlationId: current.session_uuid,
+      causationId: input.causationId ?? input.commandId,
       traceId: current.trace_id,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
+      ...eventSpan(actionSpanId),
       actor: input.actor,
       occurredAt: at,
-      payload: input.payload,
+      payload,
     });
     const next = patchedProjectSession(current, input.patch, at);
 
@@ -339,9 +653,52 @@ export function updateProjectSessionWith(
   updater: (record: ProjectSessionRecord, now: string) => ProjectSessionTelemetryPatch,
   at = currentTime(),
 ): ProjectSessionRecord {
-  const current = getProjectSessionById(db, id);
-  if (!current) throw new Error(`Project session not found: ${id}`);
-  return updateProjectSession(db, id, updater(current, at), at);
+  return immediateTransaction(db, () => {
+    const current = getProjectSessionById(db, id);
+    if (!current) throw new Error(`Project session not found: ${id}`);
+    return updateProjectSession(db, id, updater(current, at), at);
+  });
+}
+
+/**
+ * Losslessly merges kernel telemetry under an immediate lock. The linkage
+ * cursor is replaced atomically while unrelated nested metadata survives.
+ */
+export function mergeProjectSessionKernelTrace(
+  db: Database,
+  id: string,
+  patch: ProjectSessionKernelTracePatch,
+  at = currentTime(),
+): ProjectSessionRecord {
+  return immediateTransaction(db, () => {
+    const current = getProjectSessionById(db, id);
+    if (!current) throw new Error(`Project session not found: ${id}`);
+    const currentTrace = objectValue(
+      current.kernel_trace_json ?? defaultKernelTraceState(current.session_uuid),
+    );
+    const patchObject = objectValue(patch);
+    const merged = mergeJsonObjects(currentTrace, patchObject);
+    if (Object.prototype.hasOwnProperty.call(patchObject, "last_linkage_cursor")) {
+      merged.last_linkage_cursor = patch.last_linkage_cursor ?? null;
+    }
+    const kernelTrace = normalizeKernelTraceState(
+      {
+        ...merged,
+        session_uuid: current.session_uuid,
+      },
+      current.session_uuid,
+    );
+    createOrchestratorStateOrm(db)
+      .update(projectSessions)
+      .set({ kernelTraceJson: kernelTrace, updatedAt: at })
+      .where(eq(projectSessions.id, id))
+      .run();
+    const saved = getProjectSessionById(db, id);
+    if (!saved) {
+      throw new Error(`Project session disappeared after kernel trace merge: ${id}`);
+    }
+    return saved;
+  });
 }
 
 export function projectSessionProjection(record: ProjectSessionRecord | null): ProjectSessionView | null {

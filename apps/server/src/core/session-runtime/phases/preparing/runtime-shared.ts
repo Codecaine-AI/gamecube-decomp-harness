@@ -40,6 +40,9 @@ export interface PreparingRuntimeWorkflowEventInput {
   prId?: string | null;
   detail?: string | null;
   metadata?: Record<string, unknown>;
+  correlationId?: string;
+  projectEventId?: string;
+  causedByEventId?: string | null;
 }
 
 export interface PreparingRuntimeState {
@@ -51,7 +54,7 @@ export interface PreparingRuntimeDeps {
   activeSessionPrBlockers: (stateDir: string) => string[];
   appendLog: (stream: ProcessLogLine["stream"], text: string) => void;
   beginOperation: (name: string, label: string, stepNames: string[]) => void;
-  boundarySavePoint: (paths: PreparingRuntimeProjectContext, trigger: string, label?: string) => Promise<BoundarySavePointResult>;
+  boundarySavePoint: (paths: PreparingRuntimeProjectContext, trigger: string, sessionUuid: string, label?: string) => Promise<BoundarySavePointResult>;
   endOperation: (error?: unknown) => void;
   hasActiveProcess: (stateDir: string) => { active: boolean; name?: unknown };
   kernelDatabaseUrl?: () => string | null;

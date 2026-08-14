@@ -91,6 +91,99 @@ export interface Dashboard {
   prs?: JsonObject | null;
 }
 
+export type ProjectEventActor =
+  | "operator"
+  | "runner"
+  | "agent"
+  | "guardian"
+  | "external_observer";
+
+export type ProjectEventSubjectKind =
+  | "project"
+  | "run"
+  | "sync_workflow"
+  | "sync_push"
+  | "session"
+  | "pr_campaign"
+  | "pr_series"
+  | "knowledge_job"
+  | "project_knowledge";
+
+export type ProjectEventJsonPrimitive = boolean | null | number | string;
+export type ProjectEventJsonValue =
+  | ProjectEventJsonPrimitive
+  | ProjectEventJsonObject
+  | ProjectEventJsonValue[];
+export interface ProjectEventJsonObject {
+  [key: string]: ProjectEventJsonValue;
+}
+
+export interface ProjectEventDto {
+  event_id: string;
+  sequence: number;
+  event_type: string;
+  schema_version: number;
+  project_id: string;
+  subject_kind: ProjectEventSubjectKind;
+  subject_id: string;
+  correlation_id: string;
+  causation_id: string;
+  trace_id: string;
+  span_id: string;
+  parent_span_id: string | null;
+  actor: ProjectEventActor;
+  occurred_at: string;
+  payload_summary: ProjectEventJsonObject;
+}
+
+export interface ProjectEventQueryPage {
+  events: ProjectEventDto[];
+  has_more: boolean;
+  next_after_sequence: number | null;
+}
+
+export interface ProjectEventCauseEvent {
+  kind: "event";
+  event_id: string;
+  sequence: number;
+  event_type: string;
+  correlation_id: string;
+  subject_kind: ProjectEventSubjectKind;
+  subject_id: string;
+}
+
+export interface ProjectEventCauseCommand {
+  kind: "command";
+  command_id: string;
+}
+
+export type ProjectEventCause = ProjectEventCauseEvent | ProjectEventCauseCommand;
+
+export interface ReconstructedProjectEvent extends ProjectEventDto {
+  caused_by: ProjectEventCause;
+}
+
+export interface KernelTraceDeepLinkDto {
+  app_session_id: string;
+  container_id: string;
+  kernel_event_id: string;
+  href: string;
+}
+
+/** A server-projected event-to-kernel-trace join. The trace target comes only from href. */
+export interface ProjectEventKernelTraceProjection extends KernelTraceDeepLinkDto {
+  event_id: string;
+}
+
+export interface ProjectEventReconstructionPage {
+  project_id: string;
+  correlation_id: string;
+  events: ReconstructedProjectEvent[];
+  has_more: boolean;
+  next_after_sequence: number | null;
+  kernel_traces: ProjectEventKernelTraceProjection[];
+}
+
 export interface RunDetails {
   project?: ProjectSummary | null;
   stateDir: string;

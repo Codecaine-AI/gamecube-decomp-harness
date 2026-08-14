@@ -8,6 +8,8 @@ import type { RegressionReport } from "@server/core/validation/objdiff/report.js
 import {
   DispatchLeaseUnavailableError,
 } from "@server/core/session-runtime/dispatch-guard.js";
+import { createProjectSessionRecord } from "@server/core/project-session";
+import { createProjectSession } from "@server/core/project-session/store";
 import {
   getProjectState,
   initializeProjectState,
@@ -18,6 +20,7 @@ import {
 } from "@server/core/project-state";
 import { openState } from "@server/core/orchestrator-state";
 import { settlePausedRun } from "@server/core/session-runtime/phases/running/run-control.js";
+import { enterPrPhase } from "./index.js";
 
 const cleanupPaths: string[] = [];
 
@@ -25,6 +28,117 @@ function tempDir(prefix: string): string {
   const path = mkdtempSync(join(tmpdir(), prefix));
   cleanupPaths.push(path);
   return path;
+}
+
+function seedDurablePrWorkflow(
+  stateDir: string,
+  workflowId: string,
+  projectId = "melee",
+  status: "preparing" | "completed" = "preparing",
+): void {
+  const store = openState(stateDir);
+  try {
+    store.db.query(`
+      INSERT INTO pr_campaigns (
+        campaign_id, project_id, session_uuid, revision, status, trace_id,
+        caused_by_event_id, created_at, source_anchor_json
+      ) VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)
+    `).run(
+      workflowId,
+      projectId,
+      `session-${workflowId}`,
+      status,
+      `trace-${workflowId}`,
+      `event-${workflowId}-opened`,
+      "2026-08-13T09:59:00.000Z",
+      JSON.stringify({
+        save_point_id: `save-point-${workflowId}`,
+        source_revision: "fixture-revision",
+      }),
+    );
+  } finally {
+    store.db.close();
+  }
+}
+
+function seedDurableRunWorkflow(
+  stateDir: string,
+  workflowId: string,
+  projectId = "melee",
+): void {
+  const store = openState(stateDir);
+  try {
+    store.db.query(`
+      INSERT INTO runs (
+        id, goal_kind, goal_value, desired_workers, status, created_at,
+        project_id, revision, trace_id
+      ) VALUES (?, 'matched_code_percent', 100, 1, 'ready', ?, ?, 0, ?)
+      ON CONFLICT(id) DO NOTHING
+    `).run(
+      workflowId,
+      "2026-08-13T09:59:00.000Z",
+      projectId,
+      `trace-${workflowId}`,
+    );
+  } finally {
+    store.db.close();
+  }
+}
+
+function seedDurableSyncWorkflow(
+  stateDir: string,
+  workflowId: string,
+  projectId = "melee",
+): void {
+  const store = openState(stateDir);
+  try {
+    store.db.query(`
+      INSERT INTO sync_state (
+        sync_id, project_id, session_uuid, revision, status, trace_id,
+        caused_by_event_id, created_at, updated_at
+      ) VALUES (?, ?, ?, 0, 'requested', ?, ?, ?, ?)
+    `).run(
+      workflowId,
+      projectId,
+      `session-${workflowId}`,
+      `trace-${workflowId}`,
+      `event-${workflowId}-requested`,
+      "2026-08-13T09:59:00.000Z",
+      "2026-08-13T09:59:00.000Z",
+    );
+  } finally {
+    store.db.close();
+  }
+}
+
+function acquirePrWorkflow(
+  stateDir: string,
+  workflowId: string,
+  projectId = "melee",
+) {
+  seedDurablePrWorkflow(stateDir, workflowId, projectId);
+  const store = openState(stateDir);
+  try {
+    initializeProjectState(store, {
+      projectId,
+      traceId: `trace-project-${projectId}`,
+    });
+    const decision = requestDispatch(store, {
+      actor: "operator",
+      commandId: `command-${workflowId}`,
+      correlationId: workflowId,
+      kind: "pr",
+      projectId,
+      reason: "PR publication trace fixture",
+      workflowId,
+    });
+    if (decision.queued || !decision.state.active_workflow) {
+      throw new Error(`expected ${workflowId} lease acquisition`);
+    }
+    return decision.state.active_workflow;
+  } finally {
+    store.db.close();
+  }
 }
 
 function cleanReport(): RegressionReport {
@@ -40,6 +154,50 @@ function cleanReport(): RegressionReport {
 afterEach(() => {
   for (const path of cleanupPaths.reverse()) rmSync(path, { recursive: true, force: true });
   cleanupPaths.length = 0;
+});
+
+test("enterPrPhase preserves durable session status while activating PR work", () => {
+  const record = createProjectSessionRecord({
+    actor: "operator",
+    id: "project-session:session-pr",
+    now: "2026-08-14T10:00:00.000Z",
+    projectId: "melee",
+    sessionUuid: "session-pr",
+  });
+  const patch = enterPrPhase({
+    ...record,
+    blockers_json: [{
+      code: "worker_error",
+      message: "worker process failed",
+      recovery_choices: ["retry_workers"],
+      source_id: "session-pr",
+      source_kind: "session",
+    }],
+    phase: "running",
+    running_state_json: {
+      ...record.running_state_json,
+      blockers: [{
+        code: "worker_error",
+        message: "worker process failed",
+        recovery_choices: ["retry_workers"],
+        source_id: "session-pr",
+        source_kind: "session",
+      }],
+      completed_at: null,
+      manual_stop_mode: "hard_stop",
+      started_at: "2026-08-14T10:01:00.000Z",
+      status: "blocked",
+      stop_reason: "manual_stop",
+      subphase: "draining",
+    },
+    status: "active",
+  }, "2026-08-14T10:02:00.000Z", { force: true });
+
+  expect(patch.status).toBeUndefined();
+  expect(patch.phase).toBe("pr");
+  expect(patch.running_state_json?.status).toBe("complete");
+  expect(patch.pr_state_json?.status).toBe("active");
+  expect(patch.pr_state_json?.subphase).toBe("final_build");
 });
 
 function runtimeFixture(
@@ -234,27 +392,24 @@ describe("openPrForSlice support manifests", () => {
   test("publishes under an existing campaign lease without acquiring or releasing a legacy lease", async () => {
     const { branch, runtime, stateDir } = runtimeFixture();
     let revalidations = 0;
+    const lease = acquirePrWorkflow(stateDir, "campaign-1");
+    const before = openState(stateDir);
+    const eventCount = listProjectEvents(before.db, { projectId: "melee" }).length;
+    before.db.close();
 
     await runtime.openPrForSliceUnderLease(
       { prBranch: branch, postLedgerComments: false },
       () => {
         revalidations += 1;
-        return {
-          kind: "pr",
-          workflow_id: "campaign-1",
-          lease_id: "lease-campaign-1",
-          status: "active",
-          acquired_at: "2026-08-13T10:00:00.000Z",
-          heartbeat_at: "2026-08-13T10:00:00.000Z",
-          blockers: [],
-        };
+        return lease;
       },
     );
 
     expect(revalidations).toBeGreaterThan(3);
     const store = openState(stateDir);
     try {
-      expect(getProjectState(store, "melee")).toBeNull();
+      expect(getProjectState(store, "melee")?.active_workflow).toEqual(lease);
+      expect(listProjectEvents(store.db, { projectId: "melee" })).toHaveLength(eventCount);
     } finally {
       store.db.close();
     }
@@ -262,7 +417,8 @@ describe("openPrForSlice support manifests", () => {
 
   test("passes declared support files through local source capture and isolation", async () => {
     const supportFiles = ["include/melee/gr/ground.h"];
-    const { branch, calls, runtime } = runtimeFixture(supportFiles);
+    const { branch, calls, runtime, stateDir } = runtimeFixture(supportFiles);
+    seedDurablePrWorkflow(stateDir, "pr-publish:run-1");
 
     await runtime.openPrForSlice({ prBranch: branch, postLedgerComments: false });
 
@@ -276,7 +432,8 @@ describe("openPrForSlice support manifests", () => {
   });
 
   test("keeps the legacy call and event shape when no support files are declared", async () => {
-    const { branch, calls, runtime } = runtimeFixture();
+    const { branch, calls, runtime, stateDir } = runtimeFixture();
+    seedDurablePrWorkflow(stateDir, "pr-publish:run-1");
 
     await runtime.openPrForSlice({ prBranch: branch, postLedgerComments: false });
 
@@ -288,17 +445,45 @@ describe("openPrForSlice support manifests", () => {
     }
   });
 
-  test("adopts an existing GitHub PR by exact head and base instead of creating a duplicate", async () => {
-    const { branch, calls, runtime } = runtimeFixture();
-    calls.existingPr = {
-      baseRefName: "master",
-      headRefName: branch,
-      headRepositoryOwner: { login: "fork-owner" },
-      number: 123,
-      url: "https://example.test/pr/123",
-    };
+  test("links PR publication traces to the persisted dispatch acquisition", async () => {
+    const { branch, calls, runtime, stateDir } = runtimeFixture();
+    seedDurablePrWorkflow(stateDir, "pr-publish:run-1");
 
-    const result = await runtime.openPrForSliceUnderLease(
+    await runtime.openPrForSlice({ prBranch: branch, postLedgerComments: false });
+
+    const store = openState(stateDir);
+    try {
+      const events = listProjectEvents(store.db, { projectId: "melee" });
+      const requested = events.find(
+        (event) => event.eventType === "project.dispatch_requested",
+      );
+      const acquired = events.find(
+        (event) => event.eventType === "project.dispatch_acquired",
+      );
+      expect(requested).toBeDefined();
+      expect(acquired).toBeDefined();
+      expect(calls.events).toHaveLength(2);
+      expect(calls.events).toMatchObject([
+        {
+          correlationId: "pr-publish:run-1",
+          projectEventId: acquired?.eventId,
+          causedByEventId: requested?.eventId,
+        },
+        {
+          correlationId: "pr-publish:run-1",
+          projectEventId: acquired?.eventId,
+          causedByEventId: requested?.eventId,
+        },
+      ]);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("rejects PR publication before trace submission when dispatch lineage is absent", async () => {
+    const { branch, calls, runtime } = runtimeFixture();
+
+    await expect(runtime.openPrForSliceUnderLease(
       { prBranch: branch, postLedgerComments: false },
       () => ({
         kind: "pr",
@@ -309,6 +494,83 @@ describe("openPrForSlice support manifests", () => {
         heartbeat_at: "2026-08-13T10:00:00.000Z",
         blockers: [],
       }),
+    )).rejects.toThrow(
+      "PR publication tracing requires durable dispatch lineage for project melee",
+    );
+    expect(calls.events).toEqual([]);
+    expect(calls.publish).toBe(0);
+  });
+
+  test("rejects PR publication before trace submission when dispatch correlation is wrong", async () => {
+    const { branch, calls, runtime, stateDir } = runtimeFixture();
+    const lease = acquirePrWorkflow(stateDir, "campaign-1");
+    seedDurablePrWorkflow(stateDir, "other-campaign", "melee", "completed");
+    const store = openState(stateDir);
+    try {
+      const queued = requestDispatch(store, {
+        actor: "operator",
+        commandId: "command-other-campaign",
+        correlationId: "other-campaign",
+        kind: "pr",
+        projectId: "melee",
+        reason: "replace current durable cause",
+        workflowId: "other-campaign",
+      });
+      expect(queued.queued).toBeTrue();
+    } finally {
+      store.db.close();
+    }
+
+    await expect(runtime.openPrForSliceUnderLease(
+      { prBranch: branch, postLedgerComments: false },
+      () => lease,
+    )).rejects.toThrow(
+      "Dispatch trace correlation other-campaign does not match campaign-1",
+    );
+    expect(calls.events).toEqual([]);
+    expect(calls.publish).toBe(0);
+  });
+
+  test("rejects PR publication before trace submission when dispatch lineage is cross-project", async () => {
+    const { branch, calls, runtime, stateDir } = runtimeFixture();
+    const lease = acquirePrWorkflow(stateDir, "campaign-1");
+    acquirePrWorkflow(stateDir, "other-campaign", "other-project");
+    const store = openState(stateDir);
+    try {
+      const otherEventId = getProjectState(
+        store,
+        "other-project",
+      )?.caused_by_event_id;
+      if (!otherEventId) throw new Error("expected other-project dispatch lineage");
+      store.db.query(
+        "UPDATE project_state SET caused_by_event_id = ? WHERE project_id = 'melee'",
+      ).run(otherEventId);
+    } finally {
+      store.db.close();
+    }
+
+    await expect(runtime.openPrForSliceUnderLease(
+      { prBranch: branch, postLedgerComments: false },
+      () => lease,
+    )).rejects.toThrow("Project event not found");
+    expect(calls.events).toEqual([]);
+    expect(calls.publish).toBe(0);
+  });
+
+  test("adopts an existing GitHub PR by exact head and base instead of creating a duplicate", async () => {
+    const { branch, calls, runtime, stateDir } = runtimeFixture();
+    const lease = acquirePrWorkflow(stateDir, "campaign-1");
+    calls.existingPr = {
+      baseRefName: "master",
+      headRefName: branch,
+      headRepositoryOwner: { login: "fork-owner" },
+      number: 123,
+      url: "https://example.test/pr/123",
+    };
+
+    const result = await runtime.openPrForSliceUnderLease(
+      { prBranch: branch, postLedgerComments: false },
+      () => lease,
     );
 
     expect(result).toMatchObject({ adopted: true, opened: false });
@@ -331,7 +593,8 @@ describe("openPrForSlice support manifests", () => {
       status: "planned",
       local: { status: "ready", commitSha: "peer-sha" },
     };
-    const { branch, calls, runtime } = runtimeFixture(supportFiles, [peer]);
+    const { branch, calls, runtime, stateDir } = runtimeFixture(supportFiles, [peer]);
+    seedDurablePrWorkflow(stateDir, "pr-local:run-1");
 
     await runtime.prepareLocalPr({ prBranch: branch, runId: "run-1" });
 
@@ -356,7 +619,8 @@ describe("openPrForSlice support manifests", () => {
       prNumber: 321,
       local: { status: "not_prepared" },
     };
-    const { branch, calls, runtime } = runtimeFixture(supportFiles, [publishedPeer], false);
+    const { branch, calls, runtime, stateDir } = runtimeFixture(supportFiles, [publishedPeer], false);
+    seedDurablePrWorkflow(stateDir, "pr-publish:run-1");
 
     await expect(
       runtime.openPrForSlice({ prBranch: branch, postLedgerComments: false }),
@@ -370,16 +634,18 @@ describe("openPrForSlice support manifests", () => {
 describe("PR dispatch lease fencing", () => {
   test("pause commits boundary work before anchoring the resulting HEAD", async () => {
     const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "local_only", " M src/melee/gm/gmtest.c\n");
+    seedDurablePrWorkflow(stateDir, "pr-handoff:run-1");
     const store = openState(stateDir);
     try {
       store.db.query(
-        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id)
-         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee')`,
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id, session_uuid)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee', 'session-1')`,
       ).run();
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-pause-run",
+        correlationId: "pr-handoff:run-1",
         kind: "pr",
         projectId: "melee",
         reason: "pause boundary test",
@@ -400,16 +666,18 @@ describe("PR dispatch lease fencing", () => {
 
   test("pause fails loudly and never records an anchor when its boundary commit fails", async () => {
     const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "local_only", " M src/melee/gm/gmtest.c\n", true);
+    seedDurablePrWorkflow(stateDir, "pr-handoff:run-1");
     const store = openState(stateDir);
     try {
       store.db.query(
-        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id)
-         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee')`,
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id, session_uuid)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee', 'session-1')`,
       ).run();
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-pause-run-failure",
+        correlationId: "pr-handoff:run-1",
         kind: "pr",
         projectId: "melee",
         reason: "pause boundary failure test",
@@ -427,11 +695,12 @@ describe("PR dispatch lease fencing", () => {
 
   test("ship commits its boundary before recording the ship anchor", async () => {
     const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "local_only", " M src/melee/gm/gmtest.c\n");
+    seedDurablePrWorkflow(stateDir, "pr-handoff:run-1");
     const store = openState(stateDir);
     try {
       store.db.query(
-        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id)
-         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee')`,
+        `INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id, session_uuid)
+         VALUES ('run-1', 'matched_code_percent', 100, 1, 'paused', '2026-08-12T12:00:00.000Z', 'melee', 'session-1')`,
       ).run();
     } finally {
       store.db.close();
@@ -448,12 +717,15 @@ describe("PR dispatch lease fencing", () => {
 
   test("refuses prepare-local while another workflow holds the lease", async () => {
     const { branch, calls, runtime, stateDir } = runtimeFixture();
+    seedDurableRunWorkflow(stateDir, "run-1");
+    seedDurablePrWorkflow(stateDir, "pr-local:run-1");
     const store = openState(stateDir);
     try {
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
       const run = requestDispatch(store, {
         actor: "operator",
         commandId: "command-run-start",
+        correlationId: "run-1",
         kind: "run",
         projectId: "melee",
         reason: "start run",
@@ -481,12 +753,15 @@ describe("PR dispatch lease fencing", () => {
 
   test("refuses prepare-local-batch while another workflow holds the lease", async () => {
     const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "not_prepared");
+    seedDurableRunWorkflow(stateDir, "run-1");
+    seedDurablePrWorkflow(stateDir, "pr-local:run-1");
     const store = openState(stateDir);
     try {
       initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
       const run = requestDispatch(store, {
         actor: "operator",
         commandId: "command-run-start",
+        correlationId: "run-1",
         kind: "run",
         projectId: "melee",
         reason: "start run",
@@ -514,6 +789,7 @@ describe("PR dispatch lease fencing", () => {
           actor: "operator",
           cancelledSubjectIds: [],
           commandId: "command-recover-stale-pr",
+          correlationId: current.workflow_id,
           leaseId: current.lease_id,
           projectId: "melee",
           recoveryReason: "test replacement",
@@ -521,6 +797,7 @@ describe("PR dispatch lease fencing", () => {
         const replacement = requestDispatch(store, {
           actor: "operator",
           commandId: "command-sync-replacement",
+          correlationId: "sync-replacement",
           kind: "sync",
           projectId: "melee",
           reason: "replace stale PR callback",
@@ -532,6 +809,8 @@ describe("PR dispatch lease fencing", () => {
       }
     });
     stateDir = fixture.stateDir;
+    seedDurablePrWorkflow(stateDir, "pr-local:run-1");
+    seedDurableSyncWorkflow(stateDir, "sync-replacement");
 
     await expect(
       fixture.runtime.prepareLocalPr({ prBranch: fixture.branch, runId: "run-1" }),
@@ -552,9 +831,16 @@ describe("PR dispatch lease fencing", () => {
 
   test("queues an operator PR activation, drains the run, and hands the lease to PR", async () => {
     const { runtime, stateDir } = runtimeFixture();
+    seedDurablePrWorkflow(stateDir, "pr-handoff:run-1");
     const store = openState(stateDir);
     let runLeaseId = "";
     try {
+      createProjectSession(store.db, {
+        actor: "operator",
+        id: "project-session:session-pr-handoff:run-1",
+        projectId: "melee",
+        sessionUuid: "session-pr-handoff:run-1",
+      });
       store.db
         .query(
           `INSERT INTO runs (
@@ -595,11 +881,10 @@ describe("PR dispatch lease fencing", () => {
         },
       });
       settlePausedRun({
-        actor: "guardian",
+        actor: "operator",
         commandId: "command-run-settled",
-        correlationId: "run-1",
         leaseId: runLeaseId,
-        reason: "supervisor settled PR handoff",
+        reason: "operator settled PR handoff",
         runId: "run-1",
         store: drainingStore,
       });
@@ -612,6 +897,7 @@ describe("PR dispatch lease fencing", () => {
       expect(handedOff?.active_workflow?.lease_id).not.toBe(runLeaseId);
       expect(handedOff?.queued_dispatch_requests).toEqual([]);
       expect(listProjectEvents(drainingStore.db).map((event) => event.eventType)).toEqual([
+        "session.opened",
         "project.dispatch_requested",
         "project.dispatch_acquired",
         "project.dispatch_requested",
@@ -619,6 +905,7 @@ describe("PR dispatch lease fencing", () => {
         "project.dispatch_drain_started",
         "project.dispatch_released",
         "project.dispatch_acquired",
+        "pr.campaign_working",
         "run.paused",
       ]);
     } finally {
@@ -652,10 +939,16 @@ describe("PR dispatch lease fencing", () => {
         status: "active",
         workflow_id: "run-1",
       });
-      expect(listProjectEvents(verified.db).map((event) => [event.eventType, event.causationId])).toEqual([
-        ["project.dispatch_requested", "command-resume-test"],
-        ["project.dispatch_acquired", expect.any(String)],
-        ["run.activated", "command-resume-test"],
+      const events = listProjectEvents(verified.db);
+      expect(events.map((event) => event.eventType)).toEqual([
+        "project.dispatch_requested",
+        "project.dispatch_acquired",
+        "run.activated",
+      ]);
+      expect(events.map((event) => event.causationId)).toEqual([
+        "command-resume-test",
+        events[0]!.eventId,
+        events[1]!.eventId,
       ]);
     } finally {
       verified.db.close();

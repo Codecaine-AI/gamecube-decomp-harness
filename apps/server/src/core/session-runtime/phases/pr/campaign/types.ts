@@ -42,9 +42,16 @@ export const PR_DERIVED_STATUS_EVENT_TYPES = [
   "pr.series_approved",
 ] as const;
 
+export const PR_PROGRESS_EVENT_TYPES = [
+  "pr.work_items_claimed",
+  "pr.work_items_resolved",
+  "pr.work_items_declined",
+] as const;
+
 export const PR_EVENT_TYPES = [
   ...PR_LIFECYCLE_EVENT_TYPES,
   ...PR_DERIVED_STATUS_EVENT_TYPES,
+  ...PR_PROGRESS_EVENT_TYPES,
 ] as const;
 
 export type PrCampaignStatus = (typeof PR_CAMPAIGN_STATUSES)[number];
@@ -52,6 +59,7 @@ export type PrSeriesStatus = (typeof PR_SERIES_STATUSES)[number];
 export type PrWorkItemStatus = (typeof PR_WORK_ITEM_STATUSES)[number];
 export type PrLifecycleEventType = (typeof PR_LIFECYCLE_EVENT_TYPES)[number];
 export type PrDerivedStatusEventType = (typeof PR_DERIVED_STATUS_EVENT_TYPES)[number];
+export type PrProgressEventType = (typeof PR_PROGRESS_EVENT_TYPES)[number];
 export type PrEventType = (typeof PR_EVENT_TYPES)[number];
 
 export interface PrSourceAnchor {
@@ -111,7 +119,8 @@ export interface PrCampaignState {
 export interface PrTransitionContext {
   actor: EventActor;
   commandId: string;
-  correlationId?: string;
+  correlationId: string;
+  causationId?: string;
   occurredAt?: string;
   spanId?: string;
 }
@@ -193,13 +202,21 @@ export interface ObservePrSeriesFeedbackInput {
 }
 
 export interface ObservePrSeriesRemoteInput {
+  /** Required nonblank when reviewDecision resolves to APPROVED. */
+  approvalSourceIdentity?: string;
+  /** Required nonblank when reviewDecision resolves to APPROVED. */
+  approvedRevision?: string;
+  /** Required nonblank when reviewDecision resolves to APPROVED. */
+  approvingActor?: string;
   branch: string;
   commandId: string;
+  correlationId: string;
   feedback?: ObservePrSeriesFeedbackInput[];
   mergedUpstreamRevision?: string;
   occurredAt?: string;
   reviewDecision?: string;
   state: string;
+  spanId?: string;
   upstreamPrNumber: number;
 }
 

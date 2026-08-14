@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GlobalArgs } from "@server/core/project-registry/runtime-options.js";
 import { initializeProjectState, requestDispatch } from "@server/core/project-state";
+import { createProjectSession } from "@server/core/project-session";
+import { recordSavePointAnchor } from "@server/core/project-session/timeline.js";
+import { openPrCampaign } from "@server/core/session-runtime/phases/pr/campaign";
+import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
 import {
   activeClaimsForRun,
   admitEpochTargets,
@@ -160,15 +164,49 @@ describe("recoverActiveClaims", () => {
         diffPath: patchPath,
         writeSet: ["src/a.c"],
       });
+      createProjectSession(store.db, {
+        actor: "operator",
+        baseSha: "base-test",
+        id: "project-session:session-pr",
+        projectId: "test",
+        sessionUuid: "session-pr",
+      });
+      const legacyCampaign = ensureCampaign(store, { projectId: "test" });
+      const savePoint = addSavePoint(store, {
+        campaignId: legacyCampaign.id,
+        triggerKind: "manual",
+        label: "stable PR handoff",
+        commitSha: "base-test",
+        committed: true,
+      });
+      recordSavePointAnchor(store, {
+        actor: "operator",
+        commandId: "command-anchor-pr",
+        correlationId: "session-pr",
+        commitSha: "base-test",
+        projectId: "test",
+        savePointId: savePoint.id,
+        triggerKind: "manual",
+      });
+      const campaign = openPrCampaign(store, {
+        actor: "operator",
+        campaignId: "campaign-recover-claims",
+        commandId: "command-open-pr",
+        correlationId: "campaign-recover-claims",
+        namedSavePointId: savePoint.id,
+        projectId: "test",
+        series: [{ batchIndex: 0, branch: "codex/test-pr", seriesId: "series-recover-claims", targetUnits: ["src/a.c"] }],
+        sessionUuid: "session-pr",
+      });
       initializeProjectState(store, { projectId: "test", traceId: "trace-test" });
       const prDispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-pr-1",
-        correlationId: "pr-1",
+        correlationId: campaign.campaign_id,
         kind: "pr",
         projectId: "test",
         reason: "PR owns checkout",
-        workflowId: "pr-1",
+        workflowId: campaign.campaign_id,
       });
       if (prDispatch.queued) throw new Error("expected PR dispatch lease");
 

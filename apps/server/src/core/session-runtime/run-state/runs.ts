@@ -10,7 +10,14 @@ import type {
   RunStatus,
 } from "@server/core/shared/types/index.js";
 import { casRunEnvelope, immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
-import { appendProjectEvent, type EventActor, type JsonObject } from "@server/core/project-state/events.js";
+import {
+  appendProjectEvent,
+  eventSpan,
+  newSpanId,
+  type EventActor,
+  type JsonObject,
+  type JsonValue,
+} from "@server/core/project-state/events.js";
 import { getProjectState } from "@server/core/project-state/lease.js";
 import { latestPublishedKnowledgeRevision } from "@server/core/session-runtime/phases/sync/knowledge.js";
 
@@ -53,10 +60,10 @@ export interface CreateRunOptions {
   baseRevision?: string;
   configurationSnapshot?: Record<string, unknown>;
   commandId?: string;
-  correlationId?: string;
   actor?: EventActor;
   sessionUuid?: string;
   requireReady?: boolean;
+  spanId?: string;
 }
 
 export interface RunTransitionPatch {
@@ -69,22 +76,96 @@ export interface RunTransitionPatch {
   terminalReason?: string | null;
 }
 
-export interface RunTransitionInput {
+export type RunStatusPreservingEventType = "run.desired_workers_changed";
+
+export interface RunDestinationStatusByEvent {
+  "run.readied": "ready";
+  "run.activated": "active";
+  "run.draining": "draining";
+  "run.paused": "paused";
+  "run.completed": "completed";
+  "run.failed": "failed";
+  "run.cancelled": "cancelled";
+  "run.recovered": "paused";
+}
+
+export type RunRecoveryEventType = "run.recovered";
+export type RunStatusTransitionEventType = Exclude<
+  keyof RunDestinationStatusByEvent,
+  RunRecoveryEventType
+>;
+export type RunStateChangingEventType =
+  | RunStatusTransitionEventType
+  | RunRecoveryEventType;
+export type RunTransitionEventType =
+  | RunStatusPreservingEventType
+  | RunStateChangingEventType;
+export type RunTransitionStatus = Exclude<RunStatus, "draft">;
+
+export type RunPausedEventPayload = {
+  from_status: RunStatus;
+  to_status: "paused";
+  recovery_id?: string;
+  recovery_reason?: string;
+  cancelled_claim_ids?: string[];
+  cancelled_operation_ids?: string[];
+  queued_work?: JsonValue[];
+};
+
+interface RunPayloadInputByEvent {
+  "run.desired_workers_changed": {
+    previous_desired_workers: number;
+    desired_workers: number;
+  };
+  "run.readied": {
+    base_revision: string;
+    policy_revision: string;
+    starting_knowledge_revision: string;
+  };
+  "run.activated": { lease_id: string };
+  "run.draining": { lease_id: string; reason: string };
+  "run.paused": Omit<RunPausedEventPayload, "from_status" | "to_status">;
+  "run.completed": Record<string, never>;
+  "run.failed": { terminal_reason?: string };
+  "run.cancelled": { cancellation_reason: string };
+  "run.recovered": {
+    recovery_id?: string;
+    recovery_reason: string;
+    cancelled_claim_ids: string[];
+    cancelled_operation_ids: string[];
+    queued_work?: JsonValue[];
+    resulting_status: "paused";
+  };
+}
+
+type RunTransitionPatchForEvent<TEvent extends RunTransitionEventType> =
+  TEvent extends RunStatusPreservingEventType
+    ? Omit<RunTransitionPatch, "status"> & { status?: never }
+    : TEvent extends RunStateChangingEventType
+      ? Omit<RunTransitionPatch, "status"> & {
+          status: RunDestinationStatusByEvent[TEvent];
+        }
+      : never;
+
+export type RunTransitionInput<
+  TEvent extends RunTransitionEventType = RunTransitionEventType,
+> = {
   actor: EventActor;
+  causationId?: string;
   commandId: string;
-  correlationId?: string;
-  eventType: string;
+  correlationId: string;
+  eventType: TEvent;
   expectedRevision: number;
   legacyProducer?: string;
   occurredAt?: string;
-  patch: RunTransitionPatch;
-  payload?: JsonObject;
+  patch: RunTransitionPatchForEvent<NoInfer<TEvent>>;
   spanId?: string;
-}
+} & { payload: RunPayloadInputByEvent[NoInfer<TEvent>] };
 
 export interface RunCommandContext {
   commandId?: string;
-  correlationId?: string;
+  causationId?: string;
+  spanId?: string;
 }
 
 export class StaleRunRevisionError extends Error {
@@ -257,14 +338,55 @@ function readinessFailures(run: RunRecord): string[] {
   return failures;
 }
 
-function eventTypeForStatus(status: RunStatus): string {
-  if (status === "ready") return "run.readied";
-  if (status === "active") return "run.activated";
-  return `run.${status}`;
+const RUN_STATUS_EVENT_BY_DESTINATION = {
+  ready: "run.readied",
+  active: "run.activated",
+  draining: "run.draining",
+  paused: "run.paused",
+  completed: "run.completed",
+  failed: "run.failed",
+  cancelled: "run.cancelled",
+} as const satisfies Readonly<Record<RunTransitionStatus, RunStatusTransitionEventType>>;
+
+const RUN_EVENT_DESTINATION_STATUSES = {
+  "run.desired_workers_changed": "preserve",
+  "run.readied": ["ready"],
+  "run.activated": ["active"],
+  "run.draining": ["draining"],
+  "run.paused": ["paused"],
+  "run.completed": ["completed"],
+  "run.failed": ["failed"],
+  "run.cancelled": ["cancelled"],
+  "run.recovered": ["paused"],
+} as const satisfies Readonly<
+  Record<RunTransitionEventType, "preserve" | readonly RunStatus[]>
+>;
+
+function eventTypeForStatus(status: RunTransitionStatus): RunStatusTransitionEventType {
+  return RUN_STATUS_EVENT_BY_DESTINATION[status];
 }
 
 function actorForProducer(producer: string): EventActor {
-  return producer === "ui" || producer === "dashboard" || producer === "operator" ? "operator" : "runner";
+  switch (producer) {
+    case "operator":
+    case "ui":
+      return "operator";
+    case "guardian":
+    case "babysit":
+      return "guardian";
+    case "agent":
+      return "agent";
+    case "external_observer":
+      return "external_observer";
+    case "dashboard":
+    case "runner":
+    case "scheduler":
+    case "supervisor":
+    case "test":
+      return "runner";
+    default:
+      throw new Error(`Unknown run event producer: ${producer}`);
+  }
 }
 
 function isAfterActivation(status: RunStatus): boolean {
@@ -285,6 +407,67 @@ function assertStatusTransition(current: RunStatus, next: RunStatus): void {
   if (!allowed[current].includes(next)) throw new Error(`Invalid run status transition ${current} -> ${next}`);
 }
 
+function assertRunTransitionCompatibility<TEvent extends RunTransitionEventType>(
+  current: RunRecord,
+  input: RunTransitionInput<TEvent>,
+): void {
+  const rule = (
+    RUN_EVENT_DESTINATION_STATUSES as Readonly<
+      Record<string, "preserve" | readonly RunStatus[] | undefined>
+    >
+  )[input.eventType];
+  if (!rule) {
+    throw new Error(`Unsupported run transition event: ${input.eventType}`);
+  }
+  if (rule === "preserve") {
+    if (input.patch.status !== undefined) {
+      throw new Error(`${input.eventType} must preserve run status`);
+    }
+    return;
+  }
+  if (input.patch.status === undefined) {
+    throw new Error(`${input.eventType} requires an explicit destination status`);
+  }
+  const nextStatus = input.patch.status;
+  if (!(rule as readonly RunStatus[]).includes(nextStatus)) {
+    throw new Error(
+      `${input.eventType} is incompatible with destination status ${nextStatus}`,
+    );
+  }
+  if (
+    isRunStatusTransitionEvent(input.eventType) &&
+    current.status === nextStatus
+  ) {
+    throw new Error(`${input.eventType} is valid only on entry to ${nextStatus}`);
+  }
+}
+
+function isRunStatusTransitionEvent(
+  eventType: RunTransitionEventType,
+): eventType is RunStatusTransitionEventType {
+  return eventType !== "run.desired_workers_changed" && eventType !== "run.recovered";
+}
+
+function runTransitionPayload<TEvent extends RunTransitionEventType>(
+  current: RunRecord,
+  input: RunTransitionInput<TEvent>,
+): JsonObject {
+  if (input.eventType === "run.paused" && input.payload && "reason" in input.payload) {
+    throw new Error("run.paused payload must not include reason");
+  }
+  const payload: JsonObject = { ...input.payload };
+  if (!isRunStatusTransitionEvent(input.eventType)) return payload;
+  delete payload.previous_status;
+  delete payload.status;
+  delete payload.from_status;
+  delete payload.to_status;
+  return {
+    ...payload,
+    from_status: current.status,
+    to_status: input.patch.status ?? current.status,
+  };
+}
+
 function assertActiveRunLease(store: StateStore, run: RunRecord): void {
   const state = getProjectState(store, run.projectId ?? undefined);
   const lease = state?.active_workflow;
@@ -293,7 +476,11 @@ function assertActiveRunLease(store: StateStore, run: RunRecord): void {
   }
 }
 
-export function transitionRun(store: StateStore, runId: string, input: RunTransitionInput): RunRecord {
+export function transitionRun<const TEvent extends RunTransitionEventType>(
+  store: StateStore,
+  runId: string,
+  input: RunTransitionInput<TEvent>,
+): RunRecord {
   return immediateTransaction(store.db, () => {
     const currentRow = selectRun(store, runId);
     if (!currentRow) throw new Error(`Run not found: ${runId}`);
@@ -302,6 +489,8 @@ export function transitionRun(store: StateStore, runId: string, input: RunTransi
       throw new StaleRunRevisionError(runId, input.expectedRevision, current.revision);
     }
     if (!current.projectId) throw new Error(`Run ${runId} has no project id; canonical transitions require project ownership`);
+    if (input.correlationId !== runId) throw new Error(`Run event correlation_id must equal run id ${runId}`);
+    assertRunTransitionCompatibility(current, input);
     const nextStatus = input.patch.status ?? current.status;
     if (input.patch.status && input.patch.status !== current.status) assertStatusTransition(current.status, input.patch.status);
     if (nextStatus === "active" && current.status !== "active") assertActiveRunLease(store, current);
@@ -319,18 +508,19 @@ export function transitionRun(store: StateStore, runId: string, input: RunTransi
     }
 
     const at = input.occurredAt ?? now();
+    const actionSpanId = input.spanId ?? newSpanId();
     const event = appendProjectEvent(store.db, {
       eventType: input.eventType,
       projectId: current.projectId,
       subjectKind: "run",
       subjectId: runId,
-      correlationId: input.correlationId ?? runId,
-      causationId: input.commandId,
+      correlationId: input.correlationId,
+      causationId: input.causationId ?? input.commandId,
       traceId: current.traceId,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
+      ...eventSpan(actionSpanId),
       actor: input.actor,
       occurredAt: at,
-      payload: input.payload ?? {},
+      payload: runTransitionPayload(current, input),
     });
     const accepted = casRunEnvelope(store.db, {
       blockersJson: JSON.stringify(nextBlockers),
@@ -401,6 +591,7 @@ export function createRun(
   const traceId = `trace-run-${id}`;
   const actor = options.actor ?? "runner";
   const commandId = options.commandId ?? `command-run-create-${id}`;
+  const actionSpanId = options.spanId ?? newSpanId();
   const run = immediateTransaction(store.db, () => {
     const publishedKnowledge = latestPublishedKnowledgeRevision(store.db, projectId);
     const inputs: RunInputs = {
@@ -414,10 +605,10 @@ export function createRun(
       projectId,
       subjectKind: "run",
       subjectId: id,
-      correlationId: options.correlationId ?? id,
+      correlationId: id,
       causationId: commandId,
       traceId,
-      spanId: `span-${randomUUID()}`,
+      ...eventSpan(actionSpanId),
       actor,
       occurredAt: createdAt,
       payload: {
@@ -467,8 +658,9 @@ export function createRun(
   }
   return transitionRun(store, id, {
     actor,
+    causationId: run.causedByEventId ?? commandId,
     commandId,
-    correlationId: options.correlationId ?? id,
+    correlationId: id,
     eventType: "run.readied",
     expectedRevision: run.revision,
     patch: { status: "ready" },
@@ -477,6 +669,7 @@ export function createRun(
       policy_revision: run.inputs!.policy_revision,
       starting_knowledge_revision: run.inputs!.starting_knowledge_revision,
     },
+    spanId: actionSpanId,
   });
 }
 
@@ -517,41 +710,48 @@ export function setRunDesiredWorkers(
       : undefined;
   const changed = transitionRun(store, runId, {
     actor: actorForProducer(producer),
+    causationId: context.causationId,
     commandId: context.commandId ?? `command-run-desired-workers-${randomUUID()}`,
-    correlationId: context.correlationId,
+    correlationId: runId,
     eventType: "run.desired_workers_changed",
     expectedRevision: current.revision,
     patch: { desiredWorkers: next, inputs: nextInputs },
     payload: { previous_desired_workers: current.desiredWorkers, desired_workers: next },
+    spanId: context.spanId ?? newSpanId(),
   });
-  store.db
-    .query(
-      `INSERT INTO events (id, run_id, event_type, producer, payload_json, handled_at, created_at)
-       VALUES (?, ?, 'run_desired_workers_changed', ?, ?, ?, ?)`,
-    )
-    .run(randomUUID(), runId, producer, JSON.stringify({ previous_desired_workers: current.desiredWorkers, desired_workers: next }), now(), now());
   return changed;
 }
 
 export function updateRunStatus(
   store: StateStore,
   runId: string,
-  status: RunStatus,
+  status: RunTransitionStatus,
   producer = "operator",
   context: RunCommandContext = {},
 ): RunRecord {
   const current = getRun(store, runId);
   if (!current) throw new Error(`Run not found: ${runId}`);
   if (current.status === status) return current;
+  const statusPayload: JsonObject = {};
+  if (status === "active") {
+    const lease = getProjectState(store, current.projectId ?? undefined)?.active_workflow;
+    if (!lease || lease.kind !== "run" || lease.workflow_id !== runId) {
+      throw new Error(`Run ${runId} cannot activate without its active project dispatch lease`);
+    }
+    statusPayload.lease_id = lease.lease_id;
+  }
+  if (status === "cancelled") statusPayload.cancellation_reason = current.terminalReason ?? "status update";
   const changed = transitionRun(store, runId, {
     actor: actorForProducer(producer),
+    causationId: context.causationId,
     commandId: context.commandId ?? `command-run-status-${randomUUID()}`,
-    correlationId: context.correlationId,
+    correlationId: runId,
     eventType: eventTypeForStatus(status),
     expectedRevision: current.revision,
     legacyProducer: producer,
     patch: { status },
-    payload: { previous_status: current.status, status },
+    payload: statusPayload,
+    spanId: context.spanId ?? newSpanId(),
   });
   return changed;
 }

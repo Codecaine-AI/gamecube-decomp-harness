@@ -11,16 +11,36 @@ import {
   SYNC_STATUSES,
   appendSyncKnowledgeEventInTransaction,
   assertSyncStatusTransition,
+  getSyncBlockedOriginStatus,
+  getSyncState,
   isSyncStatusTransitionAllowed,
-  recordSyncRequested,
+  recordSyncRequested as recordSyncRequestedStrict,
+  syncActionSpanId,
   StaleSyncRevisionError,
-  transitionSync,
+  transitionSync as transitionSyncStrict,
   type SyncIntake,
   type SyncStatus,
+  type SyncTransitionInput,
+  type RecordSyncRequestedInput,
 } from "./index.js";
 
 const tempDirs: string[] = [];
 const stores: StateStore[] = [];
+
+function transitionSync(store: StateStore, syncId: string, input: Omit<SyncTransitionInput, "correlationId"> & Partial<Pick<SyncTransitionInput, "correlationId">>) {
+  return transitionSyncStrict(store, syncId, { correlationId: syncId, ...input });
+}
+
+function recordSyncRequested(store: StateStore, input: Omit<RecordSyncRequestedInput, "actor" | "correlationId" | "commandId" | "observationSourceIdentity"> & Partial<Pick<RecordSyncRequestedInput, "actor" | "correlationId" | "commandId" | "observationSourceIdentity">>) {
+  const syncId = input.syncId ?? "sync-observed";
+  return recordSyncRequestedStrict(store, {
+    actor: "external_observer",
+    commandId: `command-observe-${syncId}`,
+    correlationId: syncId,
+    observationSourceIdentity: `test-source:${syncId}`,
+    ...input,
+  });
+}
 
 const MOVING_INTAKE: SyncIntake = {
   upstream_from: "upstream-old",
@@ -36,6 +56,7 @@ function setup(projectId = "melee"): StateStore {
   const store = openState(dir);
   stores.push(store);
   createProjectSession(store.db, {
+    actor: "operator",
     baseSha: "session-head",
     id: `project-session:${projectId}`,
     projectId,
@@ -52,12 +73,13 @@ function requested(store: StateStore, syncId = "sync-1") {
     intake: MOVING_INTAKE,
     syncId,
     commandId: `command-request-${syncId}`,
-    correlationId: `workflow-${syncId}`,
+    correlationId: syncId,
     occurredAt: "2026-08-13T12:00:00.000Z",
   });
   const lease = requestDispatch(store, {
     actor: "operator",
     commandId: `command-acquire-${syncId}`,
+    correlationId: syncId,
     kind: "sync",
     projectId: sync.project_id,
     reason: "sync state test fixture",
@@ -71,6 +93,7 @@ function acquireSyncLease(store: StateStore, syncId: string, projectId = "melee"
   const lease = requestDispatch(store, {
     actor: "operator",
     commandId: `command-acquire-${syncId}`,
+    correlationId: syncId,
     kind: "sync",
     projectId,
     reason: "sync state test fixture",
@@ -99,8 +122,10 @@ describe("SyncState", () => {
     ]);
     expect(SYNC_EVENT_TYPES).toEqual([
       "sync.requested",
+      "sync.observation_refreshed",
       "sync.ingesting",
       "sync.reconciling",
+      "sync.staging_progressed",
       "sync.validating",
       "sync.validated",
       "sync.publishing",
@@ -156,7 +181,7 @@ describe("SyncState", () => {
       intake: MOVING_INTAKE,
       syncId: "sync-1",
       commandId: "command-request-sync-1",
-      correlationId: "workflow-sync-1",
+      correlationId: "sync-1",
       occurredAt: "2026-08-13T12:00:00.000Z",
     });
 
@@ -172,12 +197,13 @@ describe("SyncState", () => {
       publication: null,
       blockers: [],
     });
-    const events = eventsForSubject(store.db, "sync", "sync-1");
+    const events = eventsForSubject(store.db, "sync_workflow", "sync-1");
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       eventType: "sync.requested",
+      subjectKind: "sync_workflow",
       actor: "external_observer",
-      correlationId: "workflow-sync-1",
+      correlationId: "sync-1",
       causationId: "command-request-sync-1",
       payload: MOVING_INTAKE,
     });
@@ -194,27 +220,137 @@ describe("SyncState", () => {
   test("accepts each CAS transition with exactly one same-transaction event", () => {
     const store = setup();
     let sync = requested(store);
-    const before = eventsForSubject(store.db, "sync", sync.sync_id).length;
+    const before = eventsForSubject(store.db, "sync_workflow", sync.sync_id).length;
 
     sync = transitionSync(store, sync.sync_id, {
       actor: "operator",
       commandId: "command-sync-start",
       expectedRevision: sync.revision,
       patch: { status: "ingesting" },
+      payload: { lease_id: "lease-sync", activation: "operator_sync_start" },
     });
 
-    const events = eventsForSubject(store.db, "sync", sync.sync_id);
+    const events = eventsForSubject(store.db, "sync_workflow", sync.sync_id);
     expect(events).toHaveLength(before + 1);
     expect(events.at(-1)).toMatchObject({
       eventType: "sync.ingesting",
-      payload: { previous_status: "requested", status: "ingesting" },
+      payload: { from_status: "requested", to_status: "ingesting" },
     });
+    expect(events.at(-1)!.payload).toEqual({ from_status: "requested", to_status: "ingesting" });
     expect(sync).toMatchObject({
       revision: 1,
       status: "ingesting",
       caused_by_event_id: events.at(-1)!.eventId,
       latest_event_sequence: events.at(-1)!.sequence,
     });
+  });
+
+  test("requires explicit workflow correlation and links fresh leaf spans to one action root", () => {
+    const store = setup();
+    const sync = requested(store, "sync-conventions");
+    expect(() => transitionSync(store, sync.sync_id, {
+      actor: "operator",
+      commandId: "command-sync-conventions",
+      correlationId: " ",
+      expectedRevision: sync.revision,
+      patch: { status: "ingesting" },
+    })).toThrow("correlation_id must equal sync id sync-conventions");
+
+    const rootSpanId = syncActionSpanId("command-sync-conventions");
+    const ingesting = transitionSync(store, sync.sync_id, {
+      actor: "operator",
+      commandId: "command-sync-conventions",
+      correlationId: sync.sync_id,
+      expectedRevision: sync.revision,
+      patch: { status: "ingesting" },
+      spanId: rootSpanId,
+    });
+    transitionSync(store, ingesting.sync_id, {
+      actor: "operator",
+      commandId: "command-sync-conventions",
+      correlationId: ingesting.sync_id,
+      expectedRevision: ingesting.revision,
+      patch: { staging: {
+        workspace_id: "staging-conventions",
+        epochs_total: 1,
+        epochs_applied: 0,
+        minor_conflicts_resolved: 0,
+        conflicts_awaiting_operator: 0,
+      } },
+      spanId: rootSpanId,
+    });
+    const events = eventsForSubject(store.db, "sync_workflow", sync.sync_id).slice(-2);
+    expect(events.map((event) => event.eventType)).toEqual(["sync.ingesting", "sync.staging_progressed"]);
+    expect(events[1]!.payload).toEqual({
+      staging_workspace_id: "staging-conventions",
+      durable_stage: "workspace_created",
+      epochs_total: 1,
+      epochs_applied: 0,
+      minor_conflicts_resolved: 0,
+      conflicts_awaiting_operator: 0,
+      pr_series_reconciliation_summary: {
+        series_total: 0,
+        clean: 0,
+        auto_resolved: 0,
+        needs_operator: 0,
+        pushed: 0,
+      },
+      state_revision: 2,
+      progress_kind: "staging_updated",
+    });
+    expect(events.map((event) => event.parentSpanId)).toEqual([rootSpanId, rootSpanId]);
+    expect(events[0]!.spanId).not.toBe(events[1]!.spanId);
+    expect(events.filter((event) => event.eventType === "sync.ingesting")).toHaveLength(1);
+  });
+
+  test("reads blocked origin and validation evidence from durable sync state columns", () => {
+    const store = setup();
+    let sync = requested(store, "sync-durable-facts");
+    sync = transitionSync(store, sync.sync_id, {
+      actor: "operator",
+      commandId: "command-durable-start",
+      expectedRevision: sync.revision,
+      patch: { status: "ingesting" },
+    });
+    sync = transitionSync(store, sync.sync_id, {
+      actor: "runner",
+      commandId: "command-durable-block",
+      expectedRevision: sync.revision,
+      patch: { status: "blocked", blockers: [{
+        code: "recovery_required",
+        message: "durable fact test",
+        source_kind: "sync",
+        source_id: sync.sync_id,
+        recoverable: true,
+      }, {
+        code: "recovery_required",
+        message: "duplicate durable fact source",
+        source_kind: "sync",
+        source_id: sync.sync_id,
+        recoverable: true,
+      }, {
+        code: "recovery_required",
+        message: "second durable fact source",
+        source_kind: "session",
+        source_id: "session-melee",
+        recoverable: true,
+      }] },
+      payload: { validation_evidence: { report: "durable.json" } },
+    });
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id).at(-1)?.payload).toEqual({
+      from_status: "ingesting",
+      to_status: "blocked",
+      blocker_codes: ["recovery_required"],
+      source_identities: [
+        { source_kind: "sync", source_id: sync.sync_id },
+        { source_kind: "session", source_id: "session-melee" },
+      ],
+      recovery_choices: ["resume", "discard"],
+    });
+    store.db.query("UPDATE project_events SET payload_json = '{}' WHERE subject_kind = 'sync_workflow' AND subject_id = ?").run(sync.sync_id);
+    const reloaded = getSyncState(store, sync.sync_id)!;
+    expect(getSyncBlockedOriginStatus(store.db, reloaded)).toBe("ingesting");
+    expect(reloaded.validation_evidence).toEqual({ report: "durable.json" });
   });
 
   test("rejects lease-free ingest even when the operator requests it", () => {
@@ -225,7 +361,7 @@ describe("SyncState", () => {
       intake: MOVING_INTAKE,
       syncId: "sync-lease-free",
     });
-    const eventCount = eventsForSubject(store.db, "sync", sync.sync_id).length;
+    const eventCount = eventsForSubject(store.db, "sync_workflow", sync.sync_id).length;
 
     expect(() =>
       transitionSync(store, sync.sync_id, {
@@ -235,7 +371,7 @@ describe("SyncState", () => {
         patch: { status: "ingesting" },
       }),
     ).toThrow("requires its matching active dispatch lease");
-    expect(eventsForSubject(store.db, "sync", sync.sync_id)).toHaveLength(eventCount);
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id)).toHaveLength(eventCount);
     expect(getProjectState(store, "melee")?.active_workflow).toBeNull();
   });
 
@@ -309,7 +445,7 @@ describe("SyncState", () => {
       expectedRevision: initial.revision,
       patch: { status: "ingesting" },
     });
-    const eventCount = eventsForSubject(store.db, "sync", initial.sync_id).length;
+    const eventCount = eventsForSubject(store.db, "sync_workflow", initial.sync_id).length;
 
     expect(() =>
       transitionSync(store, initial.sync_id, {
@@ -319,7 +455,7 @@ describe("SyncState", () => {
         patch: { status: "reconciling" },
       }),
     ).toThrow(StaleSyncRevisionError);
-    expect(eventsForSubject(store.db, "sync", initial.sync_id)).toHaveLength(eventCount);
+    expect(eventsForSubject(store.db, "sync_workflow", initial.sync_id)).toHaveLength(eventCount);
     expect(store.db.query("SELECT revision, status FROM sync_state WHERE sync_id = ?").get(initial.sync_id)).toEqual({
       revision: current.revision,
       status: "ingesting",
@@ -329,7 +465,7 @@ describe("SyncState", () => {
   test("rolls back the transition event when the envelope update fails", () => {
     const store = setup();
     const sync = requested(store);
-    const eventCount = eventsForSubject(store.db, "sync", sync.sync_id).length;
+    const eventCount = eventsForSubject(store.db, "sync_workflow", sync.sync_id).length;
     store.db.exec(`CREATE TRIGGER reject_sync_transition
       BEFORE UPDATE ON sync_state
       BEGIN SELECT RAISE(ABORT, 'reject sync transition'); END`);
@@ -342,7 +478,7 @@ describe("SyncState", () => {
         patch: { status: "ingesting" },
       }),
     ).toThrow("reject sync transition");
-    expect(eventsForSubject(store.db, "sync", sync.sync_id)).toHaveLength(eventCount);
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id)).toHaveLength(eventCount);
     expect(store.db.query("SELECT revision, status FROM sync_state WHERE sync_id = ?").get(sync.sync_id)).toEqual({
       revision: 0,
       status: "requested",
@@ -388,12 +524,13 @@ describe("SyncState", () => {
     })).not.toThrow();
   });
 
-  test("refreshes a requested observation without acquiring a lease", () => {
+  test("records one exact non-status event per requested observation refresh", () => {
     const store = setup();
     const first = recordSyncRequested(store, {
       projectId: "melee",
       sessionUuid: "session-melee",
       intake: MOVING_INTAKE,
+      observationSourceIdentity: "origin/master",
       syncId: "sync-observed",
     });
     const nextIntake: SyncIntake = {
@@ -401,20 +538,163 @@ describe("SyncState", () => {
       upstream_to: "upstream-newer",
       merged_pr_ids: ["pr-101", "pr-102"],
     };
+    const finalIntake: SyncIntake = {
+      ...nextIntake,
+      upstream_to: "upstream-newest",
+      corpus_batch_ids: ["corpus-1", "corpus-2"],
+    };
 
     const refreshed = recordSyncRequested(store, {
       projectId: "melee",
       sessionUuid: "session-melee",
       intake: nextIntake,
       commandId: "command-refresh-sync",
+      observationSourceIdentity: "origin/master",
+    });
+    const refreshedAgain = recordSyncRequested(store, {
+      projectId: "melee",
+      sessionUuid: "session-melee",
+      intake: finalIntake,
+      commandId: "command-refresh-sync-again",
+      observationSourceIdentity: "origin/master",
     });
 
     expect(refreshed).toMatchObject({ sync_id: first.sync_id, revision: 1, status: "requested", intake: nextIntake });
-    expect(eventsForSubject(store.db, "sync", first.sync_id).map((event) => event.eventType)).toEqual([
+    expect(refreshedAgain).toMatchObject({
+      sync_id: first.sync_id,
+      revision: 2,
+      status: "requested",
+      intake: finalIntake,
+    });
+    const events = eventsForSubject(store.db, "sync_workflow", first.sync_id);
+    expect(events.map((event) => event.eventType)).toEqual([
       "sync.requested",
-      "sync.requested",
+      "sync.observation_refreshed",
+      "sync.observation_refreshed",
     ]);
+    const refreshEvents = events.slice(1);
+    expect(refreshEvents.map((event) => event.payload)).toEqual([
+      {
+        prior_upstream_revision: "upstream-new",
+        observed_upstream_revision: "upstream-newer",
+        merged_pr_ids: ["pr-101", "pr-102"],
+        corpus_batch_ids: ["corpus-1"],
+        knowledge_only: false,
+        observation_source_identity: "origin/master",
+        state_revision: 1,
+      },
+      {
+        prior_upstream_revision: "upstream-newer",
+        observed_upstream_revision: "upstream-newest",
+        merged_pr_ids: ["pr-101", "pr-102"],
+        corpus_batch_ids: ["corpus-1", "corpus-2"],
+        knowledge_only: false,
+        observation_source_identity: "origin/master",
+        state_revision: 2,
+      },
+    ]);
+    expect(refreshEvents.map((event) => Object.keys(event.payload))).toEqual([
+      [
+        "prior_upstream_revision",
+        "observed_upstream_revision",
+        "merged_pr_ids",
+        "corpus_batch_ids",
+        "knowledge_only",
+        "observation_source_identity",
+        "state_revision",
+      ],
+      [
+        "prior_upstream_revision",
+        "observed_upstream_revision",
+        "merged_pr_ids",
+        "corpus_batch_ids",
+        "knowledge_only",
+        "observation_source_identity",
+        "state_revision",
+      ],
+    ]);
+    expect(refreshEvents.map((event) => event.actor)).toEqual(["external_observer", "external_observer"]);
+    expect(refreshEvents.map((event) => event.correlationId)).toEqual([first.sync_id, first.sync_id]);
+    expect(refreshEvents.map((event) => event.traceId)).toEqual([first.trace_id, first.trace_id]);
+    expect(refreshEvents.map((event) => event.causationId)).toEqual([
+      "command-refresh-sync",
+      "command-refresh-sync-again",
+    ]);
+    expect(refreshEvents.map((event) => event.parentSpanId)).toEqual([
+      syncActionSpanId("command-refresh-sync"),
+      syncActionSpanId("command-refresh-sync-again"),
+    ]);
+    expect(new Set(refreshEvents.map((event) => event.spanId)).size).toBe(2);
+    expect(refreshEvents.every((event) => event.spanId !== event.parentSpanId)).toBeTrue();
+    expect(events.filter((event) => event.eventType === "sync.requested")).toHaveLength(1);
+    expect(events.filter((event) => event.eventType === "sync.staging_progressed")).toHaveLength(0);
     expect(getProjectState(store, "melee")?.active_workflow).toBeNull();
+  });
+
+  test("defers requested-refresh actor acceptance to the event registry without a failed revision", () => {
+    const store = setup();
+    const initial = recordSyncRequested(store, {
+      projectId: "melee",
+      sessionUuid: "session-melee",
+      intake: MOVING_INTAKE,
+      syncId: "sync-refresh-actors",
+    });
+    let current = initial;
+    for (const [actor, upstreamTo] of [
+      ["external_observer", "upstream-external"],
+      ["operator", "upstream-operator"],
+      ["runner", "upstream-runner"],
+    ] as const) {
+      current = recordSyncRequested(store, {
+        actor,
+        commandId: `command-refresh-${actor}`,
+        correlationId: initial.sync_id,
+        projectId: "melee",
+        sessionUuid: "session-melee",
+        intake: { ...MOVING_INTAKE, upstream_to: upstreamTo },
+        observationSourceIdentity: `source:${actor}`,
+        syncId: initial.sync_id,
+      });
+    }
+
+    const beforeRejected = getSyncState(store, initial.sync_id)!;
+    const eventsBeforeRejected = eventsForSubject(store.db, "sync_workflow", initial.sync_id);
+    expect(beforeRejected).toMatchObject({ revision: 3, status: "requested", intake: current.intake });
+    expect(eventsBeforeRejected.slice(1).map((event) => [event.eventType, event.actor])).toEqual([
+      ["sync.observation_refreshed", "external_observer"],
+      ["sync.observation_refreshed", "operator"],
+      ["sync.observation_refreshed", "runner"],
+    ]);
+    expect(eventsBeforeRejected.slice(1).map((event) => event.payload.observation_source_identity)).toEqual([
+      "source:external_observer",
+      "source:operator",
+      "source:runner",
+    ]);
+
+    expect(() => recordSyncRequested(store, {
+      actor: "external_observer",
+      commandId: "command-refresh-blank-source",
+      correlationId: initial.sync_id,
+      projectId: "melee",
+      sessionUuid: "session-melee",
+      intake: { ...MOVING_INTAKE, upstream_to: "upstream-blank-source" },
+      observationSourceIdentity: "   ",
+      syncId: initial.sync_id,
+    })).toThrow("observationSourceIdentity is required");
+
+    expect(() => recordSyncRequested(store, {
+      actor: "guardian",
+      commandId: "command-refresh-guardian",
+      correlationId: initial.sync_id,
+      projectId: "melee",
+      sessionUuid: "session-melee",
+      intake: { ...MOVING_INTAKE, upstream_to: "upstream-guardian" },
+      observationSourceIdentity: "source:guardian",
+      syncId: initial.sync_id,
+    })).toThrow("Project event sync.observation_refreshed does not allow actor guardian");
+
+    expect(getSyncState(store, initial.sync_id)).toEqual(beforeRejected);
+    expect(eventsForSubject(store.db, "sync_workflow", initial.sync_id)).toEqual(eventsBeforeRejected);
   });
 
   test("rejects terminal revisions and semantic events without required facts", () => {
@@ -427,8 +707,8 @@ describe("SyncState", () => {
         expectedRevision: sync.revision,
         patch: { status: "cancelled" },
       }),
-    ).toThrow("sync.cancelled requires a payload");
-    expect(eventsForSubject(store.db, "sync", sync.sync_id)).toHaveLength(1);
+    ).toThrow("sync.cancelled untouched_session_head does not match session session-melee");
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id)).toHaveLength(1);
 
     sync = transitionSync(store, sync.sync_id, {
       actor: "operator",
@@ -441,7 +721,14 @@ describe("SyncState", () => {
         untouched_submodule_heads: [],
       },
     });
-    const eventCount = eventsForSubject(store.db, "sync", sync.sync_id).length;
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id).at(-1)?.payload).toEqual({
+      from_status: "requested",
+      to_status: "cancelled",
+      discarded_staging_workspace_id: null,
+      untouched_session_head: "session-head",
+      untouched_submodule_heads: [],
+    });
+    const eventCount = eventsForSubject(store.db, "sync_workflow", sync.sync_id).length;
     expect(() =>
       transitionSync(store, sync.sync_id, {
         actor: "operator",
@@ -455,7 +742,7 @@ describe("SyncState", () => {
         },
       }),
     ).toThrow("is terminal in cancelled");
-    expect(eventsForSubject(store.db, "sync", sync.sync_id)).toHaveLength(eventCount);
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id)).toHaveLength(eventCount);
   });
 
   test("records the reconciliation, conflict, validation, and publication event path", () => {
@@ -514,6 +801,12 @@ describe("SyncState", () => {
         conflicts_awaiting_operator: 1,
       },
     });
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id).at(-1)?.payload).toEqual({
+      from_status: "reconciling",
+      to_status: "blocked",
+      conflict_identities: ["src/example.c"],
+      conflicts_awaiting_operator: 1,
+    });
     sync = transitionSync(store, sync.sync_id, {
       actor: "operator",
       commandId: "command-conflict-resolved",
@@ -526,7 +819,9 @@ describe("SyncState", () => {
     });
     advance("validating", "command-validate");
     advance("validated", "command-validation-passed", {
+      payload: { validation_evidence: { report: "validation.json" } },
       patch: {
+        validationEvidence: { report: "validation.json" },
         staging: {
           ...staging,
           epochs_applied: 2,
@@ -557,7 +852,7 @@ describe("SyncState", () => {
       },
     });
     expect(sync.status).toBe("publishing");
-    const eventCountBeforePush = eventsForSubject(store.db, "sync", sync.sync_id).length;
+    const eventCountBeforePush = eventsForSubject(store.db, "sync_workflow", sync.sync_id).length;
     expect(() =>
       transitionSync(store, sync.sync_id, {
         actor: "runner",
@@ -574,7 +869,7 @@ describe("SyncState", () => {
         patch: { status: "published" },
       }),
     ).toThrow("sync.published requires every reconciled PR series push to be complete");
-    expect(eventsForSubject(store.db, "sync", sync.sync_id)).toHaveLength(eventCountBeforePush);
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id)).toHaveLength(eventCountBeforePush);
     expect(() =>
       transitionSync(store, sync.sync_id, {
         actor: "runner",
@@ -586,7 +881,7 @@ describe("SyncState", () => {
         },
       }),
     ).toThrow("sync.published requires one durable push record per reconciled PR series");
-    expect(eventsForSubject(store.db, "sync", sync.sync_id)).toHaveLength(eventCountBeforePush);
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id)).toHaveLength(eventCountBeforePush);
     store.db.query(
       `INSERT INTO sync_push_records (
          push_id, sync_id, series_id, branch, remote_name, expected_remote_head,
@@ -615,7 +910,7 @@ describe("SyncState", () => {
       revision: 9,
       pr_reconciliation: [{ series_id: "series-1", branch: "series/1", result: "clean", pushed: true }],
     });
-    expect(eventsForSubject(store.db, "sync", sync.sync_id).map((event) => event.eventType)).toEqual([
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id).map((event) => event.eventType)).toEqual([
       "sync.requested",
       "sync.ingesting",
       "sync.reconciling",
@@ -681,6 +976,14 @@ describe("SyncState", () => {
       },
     });
     expect(sync.status).toBe("ingesting");
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id).at(-1)?.payload).toEqual({
+      from_status: "blocked",
+      to_status: "ingesting",
+      staging_preserved: true,
+      staging_discarded: false,
+      resume_stage: "ingesting",
+      recovery_reason: "runner process exited",
+    });
 
     store.db.exec("BEGIN IMMEDIATE");
     try {
@@ -692,11 +995,11 @@ describe("SyncState", () => {
         actor: "runner",
         causationId: "command-enqueue-knowledge",
         correlationId: sync.sync_id,
-        spanId: "span-knowledge-enqueue",
+        spanId: syncActionSpanId("command-enqueue-knowledge"),
         payload: {
           source_class: "sync_stage",
           provenance: { corpus_batch_id: "corpus-1" },
-          execution_class: "sync",
+          execution_class: "sync_stage",
         },
       });
       appendSyncKnowledgeEventInTransaction(store.db, {
@@ -707,7 +1010,7 @@ describe("SyncState", () => {
         actor: "runner",
         causationId: "command-advance-knowledge",
         correlationId: sync.sync_id,
-        spanId: "span-knowledge-advance",
+        spanId: syncActionSpanId("command-advance-knowledge"),
         payload: {
           old_revision: "knowledge-1",
           new_revision: "knowledge-2",
@@ -741,7 +1044,7 @@ describe("SyncState", () => {
         patch: { intake: { ...sync.intake, upstream_to: "rewritten" } },
       }),
     ).toThrow("intake is immutable after start");
-    expect(eventsForSubject(store.db, "sync", sync.sync_id)).toHaveLength(2);
+    expect(eventsForSubject(store.db, "sync_workflow", sync.sync_id)).toHaveLength(2);
   });
 
   test("recovery cannot skip the durable stage that entered blocked", () => {
@@ -859,6 +1162,9 @@ describe("SyncState", () => {
         commandId: `command-publish-block-${status}-${sync.revision}`,
         expectedRevision: sync.revision,
         patch: { status, ...patch },
+        payload: status === "validated"
+          ? { validation_evidence: { report: "validation.json" } }
+          : undefined,
       });
     };
     transition("ingesting", "operator");

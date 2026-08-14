@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getActiveProjectSession, recordSavePointAnchor, transitionProjectSession } from "@server/core/project-session";
 import { initializeProjectState, listProjectEvents, releaseDispatch, requestDispatch } from "@server/core/project-state";
-import { openState } from "@server/core/session-runtime/run-state";
+import { createRun, openState } from "@server/core/session-runtime/run-state";
 import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
 import { handleProjectSessionApiRoute } from "./routes.js";
 
@@ -60,6 +60,8 @@ async function routeJson(
 function seedNamedAnchor(stateDir: string, commitSha = "head-sha"): void {
   const store = openState(stateDir);
   try {
+    const session = getActiveProjectSession(store.db, "melee");
+    if (!session) throw new Error("active session fixture is missing");
     const campaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
     const savePoint = addSavePoint(store, {
       campaignId: campaign.id,
@@ -73,6 +75,7 @@ function seedNamedAnchor(stateDir: string, commitSha = "head-sha"): void {
       commitSha,
       triggerKind: "manual",
       commandId: `command-${savePoint.id}`,
+      correlationId: session.session_uuid,
       actor: "operator",
     });
   } finally {
@@ -258,14 +261,24 @@ describe("project session API routes", () => {
       body: JSON.stringify({ baseSha: "head-sha" }),
     });
     const leaseStore = openState(stateDir);
+    const session = getActiveProjectSession(leaseStore.db, "melee");
+    if (!session) throw new Error("expected an active melee session");
+    const run = createRun(
+      leaseStore,
+      "matched_code_percent",
+      100,
+      1,
+      { projectId: "melee", stateDir },
+      { baseRevision: "head-sha", sessionUuid: session.session_uuid },
+    );
     initializeProjectState(leaseStore, { projectId: "melee", traceId: "trace-project-melee" });
     const dispatch = requestDispatch(leaseStore, {
       projectId: "melee",
       kind: "run",
-      workflowId: "run-1",
+      workflowId: run.id,
       reason: "test complete gate",
       commandId: "command-complete-gate-dispatch",
-      correlationId: "run-1",
+      correlationId: run.id,
       actor: "operator",
     });
     if (dispatch.queued) throw new Error("expected a free dispatch lease");
@@ -286,7 +299,7 @@ describe("project session API routes", () => {
       projectId: "melee",
       leaseId: dispatch.leaseId,
       commandId: "command-complete-gate-release",
-      correlationId: "run-1",
+      correlationId: run.id,
       actor: "operator",
     });
     releaseStore.db.close();

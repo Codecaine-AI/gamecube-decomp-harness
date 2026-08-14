@@ -1,5 +1,6 @@
 import { existsSync, watch, type FSWatcher } from "node:fs";
 import { resolve } from "node:path";
+import { Database } from "bun:sqlite";
 import { handleProjectSessionApiRoute } from "@server/api/project-session/routes";
 import { handleAgentsApiRoute } from "@server/api/routes/agents";
 import { createCampaignStatusService } from "@server/application/dashboard/campaign-status";
@@ -21,8 +22,25 @@ import { handleHandoffApiRoute } from "@server/api/routes/handoff";
 import { handleKernelApiRoute, handleKernelReadRoute } from "@server/api/routes/kernel";
 import { handleKnowledgeApiRoute } from "@server/api/routes/knowledge";
 import { handleKnowledgeLearningsApiRoute } from "@server/api/routes/knowledge-learnings";
+import { handleEventsApiRoute } from "@server/api/routes/events";
 import { createStandardsService } from "@server/core/knowledge/standards";
 import { sourceRoot } from "@server/core/knowledge";
+import {
+  queryProjectEvents,
+  reconstructProjectEvents,
+  type ProjectEventQueryInput,
+  type ProjectEventReconstructionPageOptions,
+} from "@server/core/project-state/event-query";
+import {
+  buildProjectKernelTraceQuery,
+  enrichProjectEventReconstructionFromKernelReader,
+  kernelTraceLinkagesFromObservations,
+  readKernelTraceLinkagesFromConfiguredReader,
+  readProjectKernelAppSessionIds,
+  type KernelTraceDatabase,
+  type KernelTraceEventObservation,
+  type KernelTraceLinkage,
+} from "@server/core/project-state/kernel-links";
 import { createProcessControlRuntime } from "@server/core/session-runtime/phases/running/process-control/runtime";
 import { createRunControlRuntime } from "@server/core/session-runtime/phases/running/run-control-runtime";
 import { handleProcessControlApiRoute } from "@server/api/routes/process-control";
@@ -250,6 +268,97 @@ const kernelRuntime = createDashboardKernelRuntimeService({
   recordProjectSessionKernelTrace,
 });
 
+function projectKernelTraceHref(
+  projectId: string,
+  appSessionId: string,
+  containerId: string,
+): string {
+  const params = new URLSearchParams({
+    projectId,
+    traceId: appSessionId,
+    containerId,
+  });
+  return `/workspace/trace?${params.toString()}`;
+}
+
+function kernelTraceRowText(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Kernel trace row has invalid ${field}`);
+  }
+  return value.trim();
+}
+
+async function readKernelTraceLinkages(
+  projectId: string,
+  projectEventIds: readonly string[],
+  appSessionIds: readonly string[],
+): Promise<readonly KernelTraceLinkage[]> {
+  return readKernelTraceLinkagesFromConfiguredReader(
+    kernelRuntime.databaseUrl(),
+    appSessionIds,
+    projectEventIds,
+    () => kernelRuntime.runtime(),
+    async (current) => {
+      const db = current.db as KernelTraceDatabase;
+      const rows = await buildProjectKernelTraceQuery(
+        db,
+        projectId,
+        projectEventIds,
+        appSessionIds,
+      );
+      const observations = rows.flatMap((row): KernelTraceEventObservation[] => {
+        const appSessionId = kernelTraceRowText(row.appSessionId, "app_session_id");
+        const containerId = kernelTraceRowText(row.containerId, "container_id");
+        const kernelEventId = kernelTraceRowText(row.kernelEventId, "id");
+        return [{
+          app_session_id: appSessionId,
+          container_id: containerId,
+          event_data: row.eventData,
+          kernel_event_id: kernelEventId,
+          trace_url: projectKernelTraceHref(projectId, appSessionId, containerId),
+        }];
+      });
+      return kernelTraceLinkagesFromObservations(observations, projectId, projectEventIds);
+    },
+  );
+}
+
+function readProjectEventDatabase<T>(stateDir: string, read: (db: Database) => T): T {
+  const databasePath = resolve(stateDir, "orchestrator.sqlite");
+  if (!existsSync(databasePath)) throw new Error("Project event database is unavailable");
+  const db = new Database(databasePath, { readonly: true });
+  try {
+    return read(db);
+  } finally {
+    db.close();
+  }
+}
+
+const eventReadApi = {
+  queryEvents(stateDir: string, input: ProjectEventQueryInput) {
+    return readProjectEventDatabase(stateDir, (db) => queryProjectEvents(db, input));
+  },
+  async reconstructEvents(
+    stateDir: string,
+    projectId: string,
+    correlationId: string,
+    options: ProjectEventReconstructionPageOptions,
+  ) {
+    const kernelConfigured = Boolean(kernelRuntime.databaseUrl()?.trim());
+    const { reconstruction, appSessionIds } = readProjectEventDatabase(stateDir, (db) => ({
+      reconstruction: reconstructProjectEvents(db, projectId, correlationId, options),
+      appSessionIds: kernelConfigured
+        ? readProjectKernelAppSessionIds(db, projectId)
+        : [],
+    }));
+    return enrichProjectEventReconstructionFromKernelReader(
+      reconstruction,
+      (projectEventIds) =>
+        readKernelTraceLinkages(projectId, projectEventIds, appSessionIds),
+    );
+  },
+};
+
 export async function closeKernelRuntimeForTests(): Promise<void> {
   await kernelRuntime.closeForTests();
 }
@@ -331,7 +440,8 @@ const preparingRuntime = createPreparingRuntime({
   activeSessionPrBlockers: prRecords.activeSessionPrBlockers,
   appendLog,
   beginOperation: operationState.beginOperation,
-  boundarySavePoint: (paths, trigger, label) => savePoints.boundarySavePoint(paths as ProjectRuntimeContext, trigger, label),
+  boundarySavePoint: (paths, trigger, sessionUuid, label) =>
+    savePoints.boundarySavePoint(paths as ProjectRuntimeContext, trigger, sessionUuid, label),
   endOperation: operationState.endOperation,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   kernelDatabaseUrl: kernelRuntime.databaseUrl,
@@ -518,6 +628,14 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   const localFont = localFontResponse(req, url);
   if (localFont) return localFont;
 
+  const events = await handleEventsApiRoute(req, url, {
+    json,
+    projectContext,
+    queryEvents: eventReadApi.queryEvents,
+    reconstructEvents: eventReadApi.reconstructEvents,
+  });
+  if (events) return events;
+
   const prCampaign = await handlePrApiRoute(req, url, {
     abandonCampaign: prCampaignRuntime.abandonCampaign,
     action: prCampaignRuntime.action,
@@ -581,8 +699,50 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     json,
     projectIdForProject: (project) => (project as ResolvedProject | null)?.projectId ?? "",
     requestPaths: projectContext.requestPaths,
-    submitSessionStartedTrace: (paths, session) =>
-      kernelRuntime.submitWorkflowEvent(paths as ProjectRuntimeContext, {
+    submitSessionStartedTrace: async (paths, session) => {
+      const runtimePaths = paths as ProjectRuntimeContext;
+      const projectId = kernelRuntime.projectId(runtimePaths);
+      if (session.projectId !== projectId) {
+        throw new Error(
+          `Session trace project ${session.projectId} does not match request project ${projectId}`,
+        );
+      }
+      const { resolveProjectEventTraceLinkage } = await import(
+        "@server/core/project-state/kernel-links"
+      );
+      const traceLinkage = (() => {
+        const store = openState(runtimePaths.stateDir);
+        try {
+          const durableSession = getProjectSessionByUuid(
+            store.db,
+            session.sessionUuid,
+          );
+          if (!durableSession || durableSession.project_id !== projectId) {
+            throw new Error(
+              `Session ${session.sessionUuid} has no durable state in project ${projectId}`,
+            );
+          }
+          if (!durableSession.caused_by_event_id) {
+            throw new Error(
+              `Session ${session.sessionUuid} has no durable opening event`,
+            );
+          }
+          const linkage = resolveProjectEventTraceLinkage(
+            store.db,
+            projectId,
+            durableSession.caused_by_event_id,
+          );
+          if (linkage.correlationId !== session.sessionUuid) {
+            throw new Error(
+              `Session trace correlation ${linkage.correlationId} does not match ${session.sessionUuid}`,
+            );
+          }
+          return linkage;
+        } finally {
+          store.db.close();
+        }
+      })();
+      return kernelRuntime.submitWorkflowEvent(runtimePaths, {
         kind: "session",
         operation: "New session started",
         status: "started",
@@ -593,7 +753,11 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
           baseSha: session.baseSha,
           sessionUuid: session.sessionUuid,
         },
-      }),
+        correlationId: traceLinkage.correlationId,
+        projectEventId: traceLinkage.projectEventId,
+        causedByEventId: traceLinkage.causedByEventId,
+      });
+    },
   });
   if (projectSession) return projectSession;
 

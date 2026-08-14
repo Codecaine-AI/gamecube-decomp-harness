@@ -69,9 +69,12 @@ export function createProjectSessionProcessMirror(deps: ProjectSessionProcessMir
       if (!record) return;
       if (params.createIfMissing && record.phase === "preparing") {
         if (record.preparing_state_json.status !== "complete") {
-          record = runtimeMarkPreparingComplete(store.db, { id: record.id }, { completion: { source: "process_start" } }).record;
+          record = runtimeMarkPreparingComplete(store.db, { id: record.id }, {
+            completion: { source: "process_start" },
+            correlationId: record.session_uuid,
+          }).record;
         }
-        record = runtimeStartRunning(store.db, { id: record.id }).record;
+        record = runtimeStartRunning(store.db, { id: record.id }, { correlationId: record.session_uuid }).record;
       }
       updateProjectSession(store.db, record.id, {
         process_state_json: sessionProcessState({

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { eventsForSubject, getProjectState } from "@server/core/project-state";
+import { eventsForSubject, getProjectState, listProjectEvents } from "@server/core/project-state";
 import {
   createProjectSession,
   epochIntegrationCommitMessage,
@@ -376,6 +376,90 @@ describe("process control runtime", () => {
     });
   });
 
+  test("keeps the operator actor across start action spawn-failure compensation", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "process-control-spawn-failure-"));
+    try {
+      const store = openState(stateDir);
+      const run = createRun(
+        store,
+        "matched_code_percent",
+        100,
+        2,
+        { projectId: "melee", stateDir },
+        { baseRevision: "base-test" },
+      );
+      const baselineSequence = listProjectEvents(store.db, { projectId: "melee" }).at(-1)!.sequence;
+      store.db.close();
+
+      const spawnError = new Error("managed process spawn failed");
+      const processController = {
+        hasActiveProcess: () => ({ active: false }),
+        spawn: () => {
+          throw spawnError;
+        },
+      } as unknown as ManagedProcessController;
+      const project = {
+        projectId: "melee",
+        processName: "melee-live",
+        dashboard: {},
+        repoRoot: "/tmp/melee-checkout",
+        stateDir,
+        graphDbPath: "/tmp/melee-graph.sqlite",
+      } as unknown as ResolvedProject;
+      const runtime = createProcessControlRuntime({
+        appendLog: () => undefined,
+        json: (data, init) => new Response(JSON.stringify(data), init),
+        processController,
+        processStatus: () => ({}),
+        projectToSummary: () => ({ id: "melee" }) as never,
+        resolveDashboardProject: () => ({
+          project,
+          repoRoot: project.repoRoot,
+          stateDir,
+          graphDbPath: project.graphDbPath,
+          usePathOverrides: false,
+        }),
+        runCli: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+        serverJobPath: "/tmp/orchestrator/apps/server/src/job-runner.ts",
+      });
+
+      await expect(runtime.startManagedProcess({
+        commandId: "command-operator-start",
+        maxWorkers: 2,
+        projectId: "melee",
+        runId: run.id,
+      })).rejects.toThrow(spawnError.message);
+
+      const verifyStore = openState(stateDir);
+      try {
+        const actionEvents = listProjectEvents(verifyStore.db, {
+          afterSequence: baselineSequence,
+          projectId: "melee",
+        });
+        expect(actionEvents.map((event) => event.eventType)).toEqual([
+          "project.dispatch_requested",
+          "project.dispatch_acquired",
+          "run.activated",
+          "run.failed",
+          "project.dispatch_released",
+        ]);
+        expect(new Set(actionEvents.map((event) => event.actor))).toEqual(new Set(["operator"]));
+        expect(new Set(actionEvents.map((event) => event.correlationId))).toEqual(new Set([run.id]));
+        expect(new Set(actionEvents.map((event) => event.parentSpanId)).size).toBe(1);
+        expect(actionEvents[0]!.causationId).toBe("command-operator-start");
+        for (let index = 1; index < actionEvents.length; index += 1) {
+          expect(actionEvents[index]!.causationId).toBe(actionEvents[index - 1]!.eventId);
+        }
+        expect(getRun(verifyStore, run.id)).toMatchObject({ status: "failed", revision: 3 });
+        expect(getProjectState(verifyStore, "melee")?.active_workflow).toBeNull();
+      } finally {
+        verifyStore.db.close();
+      }
+    } finally {
+      rmSync(stateDir, { force: true, recursive: true });
+    }
+  });
+
   test("reconciles a committed pending epoch before spawning the managed process", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "process-control-reconcile-state-"));
     const repoRoot = mkdtempSync(join(tmpdir(), "process-control-reconcile-repo-"));
@@ -411,6 +495,7 @@ describe("process control runtime", () => {
       );
       store.db.query("UPDATE runs SET session_uuid = 'session-startup' WHERE id = ?").run(run.id);
       createProjectSession(store.db, {
+        actor: "operator",
         activeRunId: run.id,
         baseSha: parentSha,
         commandId: "command-session-startup",

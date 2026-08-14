@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Database } from "bun:sqlite";
+import { validateRegisteredProjectEvent } from "./event-registry.js";
 
 export type JsonPrimitive = boolean | null | number | string;
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
@@ -20,6 +21,7 @@ export interface ProjectEventEnvelope {
   causationId: string;
   traceId: string;
   spanId: string;
+  parentSpanId: string | null;
   actor: ProjectEventActor;
   occurredAt?: string;
   payload?: JsonObject;
@@ -39,6 +41,7 @@ export interface ProjectEventRecord {
   causationId: string;
   traceId: string;
   spanId: string;
+  parentSpanId: string | null;
   actor: ProjectEventActor;
   occurredAt: string;
   payload: JsonObject;
@@ -61,6 +64,21 @@ function eventId(): string {
   return `event-${randomUUID()}`;
 }
 
+export function newSpanId(): string {
+  return `span-${randomUUID()}`;
+}
+
+/** Produces a stable UUID-shaped span id without reusing a domain identifier as a span. */
+export function spanIdFromSeed(seed: string): string {
+  const hex = createHash("sha256").update(seed).digest("hex").slice(0, 32);
+  return `span-${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** Every event gets a fresh leaf span; a null parent identifies a root span. */
+export function eventSpan(parentSpanId: string | null = newSpanId()): Pick<ProjectEventEnvelope, "spanId" | "parentSpanId"> {
+  return { spanId: newSpanId(), parentSpanId };
+}
+
 function assertNonBlankEnvelopeValue(label: string, value: unknown): void {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`Project event ${label} must be a nonblank string`);
@@ -76,6 +94,16 @@ function validateProjectEventEnvelope(envelope: ProjectEventEnvelope): void {
   assertNonBlankEnvelopeValue("causationId", envelope.causationId);
   assertNonBlankEnvelopeValue("traceId", envelope.traceId);
   assertNonBlankEnvelopeValue("spanId", envelope.spanId);
+  const spanPattern = /^span-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!spanPattern.test(envelope.spanId)) {
+    throw new Error(`Project event spanId must use the span-<uuid> scheme: ${envelope.spanId}`);
+  }
+  if (envelope.parentSpanId !== null && !spanPattern.test(envelope.parentSpanId)) {
+    throw new Error(`Project event parentSpanId must use the span-<uuid> scheme: ${envelope.parentSpanId}`);
+  }
+  if (envelope.parentSpanId !== null && envelope.spanId === envelope.parentSpanId) {
+    throw new Error("Project event leaf spanId must differ from parentSpanId");
+  }
   if (envelope.occurredAt !== undefined) {
     assertNonBlankEnvelopeValue("occurredAt", envelope.occurredAt);
   }
@@ -105,6 +133,7 @@ function rowToProjectEvent(row: Record<string, unknown>): ProjectEventRecord {
     causationId: String(row.causation_id),
     traceId: String(row.trace_id),
     spanId: String(row.span_id),
+    parentSpanId: row.parent_span_id === null ? null : String(row.parent_span_id),
     actor: String(row.actor) as ProjectEventActor,
     occurredAt: String(row.occurred_at),
     payload: parsePayload(row.payload_json),
@@ -145,7 +174,7 @@ function queryProjectEvents(
         SELECT
           sequence, event_id, event_type, schema_version, project_id,
           subject_kind, subject_id, correlation_id, causation_id,
-          trace_id, span_id, actor, occurred_at, payload_json
+          trace_id, span_id, parent_span_id, actor, occurred_at, payload_json
         FROM project_events
         ${where}
         ORDER BY sequence ASC
@@ -162,6 +191,14 @@ function queryProjectEvents(
  */
 export function appendProjectEvent(db: Database, envelope: ProjectEventEnvelope): AppendedProjectEvent {
   validateProjectEventEnvelope(envelope);
+  const payload = envelope.payload ?? {};
+  const contract = validateRegisteredProjectEvent(
+    envelope.eventType,
+    envelope.subjectKind,
+    envelope.actor,
+    payload,
+    envelope.schemaVersion,
+  );
   const id = eventId();
   const result = db
     .query(
@@ -169,15 +206,15 @@ export function appendProjectEvent(db: Database, envelope: ProjectEventEnvelope)
         INSERT INTO project_events (
           event_id, event_type, schema_version, project_id,
           subject_kind, subject_id, correlation_id, causation_id,
-          trace_id, span_id, actor, occurred_at, payload_json
+          trace_id, span_id, parent_span_id, actor, occurred_at, payload_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
     )
     .run(
       id,
       envelope.eventType,
-      envelope.schemaVersion ?? 1,
+      contract.schemaVersion,
       envelope.projectId,
       envelope.subjectKind,
       envelope.subjectId,
@@ -185,9 +222,10 @@ export function appendProjectEvent(db: Database, envelope: ProjectEventEnvelope)
       envelope.causationId,
       envelope.traceId,
       envelope.spanId,
+      envelope.parentSpanId,
       envelope.actor,
       envelope.occurredAt ?? new Date().toISOString(),
-      JSON.stringify(envelope.payload ?? {}),
+      JSON.stringify(payload),
     );
   return { eventId: id, sequence: Number(result.lastInsertRowid) };
 }

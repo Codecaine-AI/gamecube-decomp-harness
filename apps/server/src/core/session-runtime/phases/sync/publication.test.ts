@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { createProjectSession } from "@server/core/project-session/store.js";
 import { listSessionTimeline } from "@server/core/project-session/timeline.js";
-import { eventsForSubject, listProjectEvents } from "@server/core/project-state/events.js";
+import { appendProjectEvent, eventSpan, eventsForSubject, listProjectEvents, newSpanId } from "@server/core/project-state/events.js";
 import { getProjectState, initializeProjectState, requestDispatch, requireLease } from "@server/core/project-state/lease.js";
 import {
   continueSyncPublication,
@@ -15,6 +15,8 @@ import {
   completeSyncKnowledgeIngest,
   defaultSyncGitRunner,
   enqueueSyncKnowledgeJobs,
+  getSyncState,
+  getSyncPublicationIntent,
   publishSync,
   prepareSyncPublication,
   reconcileInterruptedSyncPublication,
@@ -25,6 +27,7 @@ import {
   recoverSync,
   stageSyncKnowledge,
   startSyncPublicationPush,
+  syncActionSpanId,
   transitionSync,
   validateSync,
   type SyncEngineContext,
@@ -33,6 +36,8 @@ import {
 
 const tempDirs: string[] = [];
 const stores: StateStore[] = [];
+const UUID_EVENT_ID = /^event-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const UUID_SPAN_ID = /^span-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 interface PublicationFixture {
   base: string;
@@ -176,6 +181,7 @@ function createFixture(input: {
      )`,
   ).run(session, localHead);
   createProjectSession(store.db, {
+    actor: "operator",
     activeRunId: "run-publication",
     baseSha: localHead,
     commandId: "command-session-open",
@@ -188,6 +194,8 @@ function createFixture(input: {
   initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
   let sync = recordSyncRequested(store, {
     commandId: `${input.syncId}:requested`,
+    actor: "external_observer",
+    correlationId: input.syncId,
     intake: {
       upstream_from: base,
       upstream_to: upstream,
@@ -202,6 +210,7 @@ function createFixture(input: {
   const dispatch = requestDispatch(store, {
     actor: "operator",
     commandId: `${input.syncId}:dispatch`,
+    correlationId: input.syncId,
     kind: "sync",
     projectId: "melee",
     reason: "publication fixture",
@@ -211,6 +220,7 @@ function createFixture(input: {
   sync = transitionSync(store, sync.sync_id, {
     actor: "operator",
     commandId: `${input.syncId}:start`,
+    correlationId: input.syncId,
     expectedRevision: sync.revision,
     patch: { status: "ingesting" },
   });
@@ -271,6 +281,7 @@ async function stageKnowledge(fixture: PublicationFixture): Promise<void> {
     stateDir: fixture.stateDir,
     store: fixture.store,
     syncId: fixture.sync.sync_id,
+    commandId: `${fixture.sync.sync_id}:knowledge-stage`,
     revalidateOwnership: () => {
       requireLease(fixture.store, fixture.context.leaseId, "melee");
     },
@@ -322,6 +333,40 @@ afterEach(() => {
 });
 
 describe("sync atomic publication", () => {
+  test("builds resolved-conflict publication evidence from sync state, not event payloads", async () => {
+    const fixture = createFixture({ syncId: "sync-durable-resolved-conflicts" });
+    const validated = await sourceMovingValidated(fixture);
+    fixture.store.db.query("UPDATE sync_state SET resolved_conflict_paths_json = ? WHERE sync_id = ?")
+      .run(JSON.stringify(["durable.c"]), validated.sync_id);
+    appendProjectEvent(fixture.store.db, {
+      actor: "runner",
+      causationId: "command-fake-legacy-conflict",
+      correlationId: validated.sync_id,
+      eventType: "sync.reconciliation_blocked",
+      payload: {
+        from_status: "reconciling",
+        to_status: "blocked",
+        conflict_identities: ["payload-only.c"],
+        conflicts_awaiting_operator: 1,
+      },
+      projectId: validated.project_id,
+      ...eventSpan(newSpanId()),
+      subjectId: validated.sync_id,
+      subjectKind: "sync_workflow",
+      traceId: validated.trace_id,
+    });
+
+    const publishing = await prepareSyncPublication({
+      commandId: "command-durable-resolved-conflicts",
+      confirmed: true,
+      context: fixture.context,
+      expectedRevision: validated.revision,
+      syncId: validated.sync_id,
+    });
+    expect(getSyncPublicationIntent(fixture.store.db, publishing.sync_id)?.boundaryPlan.resolvedConflicts)
+      .toEqual(["durable.c"]);
+  }, 30_000);
+
   test("invalidates active epoch targets whose source changed", async () => {
     const fixture = createFixture({ syncId: "sync-publish-epoch-target" });
     fixture.store.db.query(
@@ -478,22 +523,94 @@ describe("sync atomic publication", () => {
       .toEqual(expect.arrayContaining([
         "sync.boundary_published",
         "knowledge.revision_advanced",
-        "run.remote_applied",
         "sync.pr_push_started",
         "sync.pr_push_succeeded",
         "sync.published",
         "project.dispatch_released",
       ]));
-    const savePointEvent = projectEvents.find((event) =>
+    const savePointEvents = projectEvents.filter((event) =>
       event.eventType === "session.save_point_recorded" &&
-      event.payload.remote_application_id === published.publication?.remote_application_id
+      event.subjectKind === "session" &&
+      event.subjectId === "session-publication"
     );
+    expect(savePointEvents).toHaveLength(1);
+    const savePointEvent = savePointEvents[0]!;
+    const publishingEvent = projectEvents.find((event) => event.eventType === "sync.publishing");
     const publishedEvent = projectEvents.find((event) => event.eventType === "sync.published");
     const releasedEvent = projectEvents.find((event) => event.eventType === "project.dispatch_released");
-    expect(savePointEvent?.payload.anchored_commit).toBe(published.publication?.new_head);
+    const boundaryEvent = projectEvents.find((event) => event.eventType === "sync.boundary_published");
+    const remoteAppliedEvent = projectEvents.find((event) => event.eventType === "run.remote_applied");
+    const pushEvents = projectEvents.filter((event) => event.eventType.startsWith("sync.pr_push_"));
+    const lastPushEvent = pushEvents.at(-1);
+    const actionRootSpanId = syncActionSpanId("command-publish-success");
+    expect(publishingEvent).toMatchObject({
+      subjectKind: "sync_workflow",
+      correlationId: published.sync_id,
+      causationId: "command-publish-success",
+      traceId: published.trace_id,
+      parentSpanId: actionRootSpanId,
+    });
+    expect(boundaryEvent).toMatchObject({
+      subjectKind: "sync_workflow",
+      correlationId: published.sync_id,
+      causationId: publishingEvent!.eventId,
+      traceId: published.trace_id,
+      parentSpanId: actionRootSpanId,
+    });
+    expect(Object.keys(boundaryEvent!.payload).sort()).toEqual([
+      "invalidations",
+      "knowledge_revision",
+      "upstream_revision",
+      "validation_evidence",
+    ]);
+    expect(publishedEvent).toMatchObject({
+      subjectKind: "sync_workflow",
+      correlationId: published.sync_id,
+      causationId: lastPushEvent!.eventId,
+      traceId: published.trace_id,
+      parentSpanId: actionRootSpanId,
+    });
+    expect(releasedEvent).toMatchObject({
+      correlationId: published.sync_id,
+      causationId: publishedEvent!.eventId,
+      parentSpanId: actionRootSpanId,
+    });
+    const causalChain = [publishingEvent!, boundaryEvent!, ...pushEvents, publishedEvent!, releasedEvent!];
+    expect(publishingEvent!.payload).toEqual({ from_status: "validated", to_status: "publishing" });
+    expect(publishedEvent!.payload).toEqual({ from_status: "publishing", to_status: "published" });
+    expect(pushEvents.map((event) => event.payload)).toEqual([
+      expect.objectContaining({ from_status: "pending", to_status: "pushing" }),
+      expect.objectContaining({ from_status: "pushing", to_status: "pushed" }),
+    ]);
+    expect(causalChain.every((event) => event.actor === "operator")).toBe(true);
+    expect(published.caused_by_event_id).toBe(publishedEvent!.eventId);
+    expect(getProjectState(fixture.store, "melee")?.caused_by_event_id).toBe(releasedEvent!.eventId);
+    expect(actionRootSpanId).toMatch(UUID_SPAN_ID);
+    expect(causalChain.every((event) => UUID_EVENT_ID.test(event.eventId))).toBe(true);
+    expect(causalChain.every((event) => UUID_SPAN_ID.test(event.spanId))).toBe(true);
+    expect(new Set(causalChain.map((event) => event.spanId)).size).toBe(causalChain.length);
+    for (let index = 1; index < causalChain.length; index += 1) {
+      expect(causalChain[index]!.causationId).toBe(causalChain[index - 1]!.eventId);
+    }
+    expect(remoteAppliedEvent).toMatchObject({
+      correlationId: "run-publication",
+      causationId: boundaryEvent!.eventId,
+    });
+    expect(savePointEvent).toMatchObject({
+      correlationId: "session-publication",
+      causationId: boundaryEvent!.eventId,
+    });
+    expect(savePointEvent.payload).toEqual({
+      anchored_commit: published.publication!.new_head,
+      trigger_kind: "sync",
+      headline_score: null,
+      artifact_paths: [],
+      replay_key: expect.stringMatching(/^save-point-[0-9a-f]{24}$/),
+      replayed_failure_event_id: null,
+    });
     expect(savePointEvent!.sequence).toBeLessThan(publishedEvent!.sequence);
     expect(savePointEvent!.sequence).toBeLessThan(releasedEvent!.sequence);
-    const syncEvents = eventsForSubject(fixture.store.db, "sync", published.sync_id).map((event) => event.eventType);
+    const syncEvents = eventsForSubject(fixture.store.db, "sync_workflow", published.sync_id).map((event) => event.eventType);
     expect(syncEvents.slice(-3)).toEqual(["sync.publishing", "sync.boundary_published", "sync.published"]);
   }, 30_000);
 
@@ -563,6 +680,17 @@ describe("sync atomic publication", () => {
     const blocked = fixture.store.db.query("SELECT status, publication_json FROM sync_state WHERE sync_id = ?")
       .get(validated.sync_id) as { status: string; publication_json: string | null };
     expect(blocked).toEqual({ status: "blocked", publication_json: null });
+    expect(eventsForSubject(fixture.store.db, "sync_workflow", validated.sync_id).at(-1)).toMatchObject({
+      actor: "operator",
+      eventType: "sync.blocked",
+      payload: {
+        from_status: "publishing",
+        to_status: "blocked",
+        blocker_codes: ["publication_interrupted"],
+        source_identities: [{ source_kind: "sync", source_id: validated.sync_id }],
+        recovery_choices: ["resume"],
+      },
+    });
     expect(git(fixture.session, "rev-parse", "HEAD")).toBe(fixture.localHead);
     expect(git(fixture.session, "status", "--porcelain=v1", "--untracked-files=all")).toBe("");
     expect(listSessionTimeline(fixture.store.db, "session-publication")).toEqual([]);
@@ -654,7 +782,7 @@ describe("sync atomic publication", () => {
     expect(git(fixture.session, "rev-parse", "HEAD")).toBe(fixture.localHead);
   }, 30_000);
 
-  test("fresh-store recovery after boundary commit moves forward and finalizes", async () => {
+  test("fresh-store recovery rejects a noncanonical sync-subject boundary", async () => {
     const fixture = createFixture({ syncId: "sync-kill-after-boundary-commit" });
     const validated = await sourceMovingValidated(fixture);
     const publishing = await prepareSyncPublication({
@@ -673,28 +801,18 @@ describe("sync atomic publication", () => {
     });
     expect(boundary.status).toBe("publishing");
     expect(boundary.publication).not.toBeNull();
+    const legacySubject = fixture.store.db.query(
+      "UPDATE project_events SET subject_kind = 'sync' WHERE event_id = ? AND subject_kind = 'sync_workflow'",
+    ).run(boundary.caused_by_event_id);
+    expect(legacySubject.changes).toBe(1);
 
     reopenFixture(fixture);
-    const published = await reconcileInterruptedSyncPublication({
+    await expect(reconcileInterruptedSyncPublication({
       commandId: "command-fresh-recover-after-boundary",
       context: fixture.context,
       syncId: boundary.sync_id,
-    });
-    expect(published.status).toBe("published");
-    expect(listSessionTimeline(fixture.store.db, "session-publication")).toEqual(expect.arrayContaining([
-      expect.objectContaining({ entry_kind: "remote_application", entry_id: published.publication?.remote_application_id }),
-      expect.objectContaining({
-        entry_kind: "save_point",
-        payload: expect.objectContaining({
-          remote_application_id: published.publication?.remote_application_id,
-          anchored_commit: published.publication?.new_head,
-        }),
-      }),
-    ]));
-    expect(fixture.store.db.query(
-      "SELECT COUNT(*) AS count, MIN(commit_sha) AS commit_sha FROM save_points WHERE trigger_kind = 'sync'",
-    ).get()).toEqual({ count: 1, commit_sha: published.publication?.new_head });
-    expect(fixture.store.db.query("SELECT 1 FROM sync_publication_intents").get()).toBeNull();
+    })).rejects.toThrow("inconsistent publication intent/boundary durability");
+    expect(getSyncState(fixture.store, boundary.sync_id)?.status).toBe("publishing");
   }, 30_000);
 
   test("fresh-store recovery completes a push killed after the remote accepted it", async () => {
@@ -801,7 +919,7 @@ describe("sync atomic publication", () => {
       syncId: cancelValidated.sync_id,
     });
     expect(cancelled.status).toBe("cancelled");
-    const cancelledEvent = eventsForSubject(cancelFixture.store.db, "sync", cancelled.sync_id).at(-1);
+    const cancelledEvent = eventsForSubject(cancelFixture.store.db, "sync_workflow", cancelled.sync_id).at(-1);
     expect(cancelledEvent?.eventType).toBe("sync.cancelled");
     expect(cancelledEvent?.payload.untouched_submodule_heads).toEqual([{
       path: "deps/sub",

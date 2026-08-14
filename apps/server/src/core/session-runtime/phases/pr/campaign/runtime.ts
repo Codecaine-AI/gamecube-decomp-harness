@@ -13,7 +13,7 @@ import {
 } from "@server/core/project-state";
 import { getActiveProjectSession } from "@server/core/project-session/store.js";
 import { unresolvedSavePointFailures } from "@server/core/project-session/timeline.js";
-import type { JsonObject as EventJsonObject } from "@server/core/project-state/events.js";
+import { newSpanId, type JsonObject as EventJsonObject } from "@server/core/project-state/events.js";
 import { pauseRun } from "@server/core/session-runtime/phases/running/run-control.js";
 import type { ProjectRuntimeContext } from "@server/core/project-registry";
 import type { DispatchLeaseRevalidator } from "@server/core/session-runtime/dispatch-guard.js";
@@ -165,7 +165,9 @@ function actionProjection(
 }
 
 function selectedCampaign(store: StateStore, projectId: string, campaignId?: string): PrCampaignState | null {
-  return campaignId ? getPrCampaign(store, campaignId) : getOpenPrCampaignForProject(store, projectId);
+  if (!campaignId) return getOpenPrCampaignForProject(store, projectId);
+  const candidate = getPrCampaign(store, campaignId);
+  return candidate?.project_id === projectId ? candidate : null;
 }
 
 function hasLegacyPrRecords(stateDir: string): boolean {
@@ -630,15 +632,19 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
       if (series.length === 0) {
         throw new Error("PR campaign requires at least one series from the request, final split plan, or PR records");
       }
+      const operationCommandId = commandId(body, "pr-open-campaign");
+      const operationCampaignId = campaignId(body) ?? `pr-campaign-${randomUUID()}`;
       return openPrCampaign(store, {
         actor: "operator",
-        campaignId: campaignId(body),
-        commandId: commandId(body, "pr-open-campaign"),
+        campaignId: operationCampaignId,
+        commandId: operationCommandId,
+        correlationId: operationCampaignId,
         namedSavePointId: projectedContext.namedSavePointId!,
         projectId,
         publicationPolicy: { batch_size: batchSize },
         series,
         sessionUuid: projectedContext.sessionUuid!,
+        spanId: newSpanId(),
       });
     } finally {
       store.db.close();
@@ -654,6 +660,7 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
       const campaign = selectedCampaign(store, projectId, campaignId(body));
       if (!campaign) throw new Error(`PR campaign not found for ${projectId}`);
       const operationCommandId = commandId(body, "pr-activate");
+      const operationSpanId = newSpanId();
       return immediateTransaction(store.db, () => {
         initializeProjectState(store, { projectId, traceId: `trace-project-${projectId}` });
         const existing = getProjectState(store, projectId)?.active_workflow;
@@ -661,8 +668,11 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
           const activated = activateAcquiredPrCampaign({
             campaignId: campaign.campaign_id,
             commandId: operationCommandId,
+            correlationId: campaign.campaign_id,
             leaseId: existing.lease_id,
             projectId,
+            causationId: getProjectState(store, projectId)?.caused_by_event_id ?? operationCommandId,
+            spanId: operationSpanId,
             store,
           });
           return { campaign: activated, lease_id: existing.lease_id, queued: false, run_draining: false };
@@ -675,14 +685,18 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
           projectId,
           reason: text(body.reason, "operator activated PR campaign"),
           workflowId: campaign.campaign_id,
+          spanId: operationSpanId,
         });
         if (!dispatch.queued) {
           const activated = activateAcquiredPrCampaign({
             campaignId: campaign.campaign_id,
-            commandId: `${operationCommandId}:acquired`,
+            commandId: operationCommandId,
+            correlationId: campaign.campaign_id,
             leaseId: dispatch.leaseId,
             projectId,
+            causationId: dispatch.acquiredEventId,
             store,
+            spanId: operationSpanId,
           });
           return { campaign: activated, lease_id: dispatch.leaseId, queued: false, run_draining: false };
         }
@@ -693,10 +707,10 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
         if (holder.status === "active") {
           pauseRun({
             actor: "operator",
-            commandId: `${operationCommandId}:handoff`,
-            correlationId: campaign.campaign_id,
+            commandId: operationCommandId,
             reason: text(body.reason, "operator activated PR campaign"),
             runId: holder.workflow_id,
+            spanId: operationSpanId,
             store,
             targetKind: "pr",
             targetWorkflowId: campaign.campaign_id,
@@ -704,13 +718,14 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
         } else if (holder.status === "draining" && !holder.requested_handoff) {
           beginDrain(store, {
             actor: "operator",
-            commandId: `${operationCommandId}:handoff`,
-            correlationId: campaign.campaign_id,
+            commandId: operationCommandId,
+            correlationId: holder.workflow_id,
             leaseId: holder.lease_id,
             projectId,
             reason: text(body.reason, "operator activated PR campaign"),
             targetKind: "pr",
             targetWorkflowId: campaign.campaign_id,
+            spanId: operationSpanId,
           });
         } else if (
           holder.status !== "draining" ||
@@ -736,12 +751,15 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
       if (!campaign) throw new Error(`PR campaign not found for ${projectId}`);
       const lease = getProjectState(store, projectId)?.active_workflow;
       if (!lease) throw new Error(`PR campaign ${campaign.campaign_id} has no dispatch lease`);
+      const operationCommandId = commandId(body, "pr-release");
       return releasePrCampaign({
         campaignId: campaign.campaign_id,
-        commandId: commandId(body, "pr-release"),
+        commandId: operationCommandId,
+        correlationId: campaign.campaign_id,
         leaseId: lease.lease_id,
         projectId,
         store,
+        spanId: newSpanId(),
       });
     } finally {
       store.db.close();
@@ -758,13 +776,16 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
       if (!campaign) throw new Error(`PR campaign not found for ${projectId}`);
       const lease = getProjectState(store, projectId)?.active_workflow;
       if (!lease) throw new Error(`PR campaign ${campaign.campaign_id} has no dispatch lease`);
+      const operationCommandId = commandId(body, "pr-publish-batch");
       return await publishPrBatch({
         campaignId: campaign.campaign_id,
-        commandId: commandId(body, "pr-publish-batch"),
+        commandId: operationCommandId,
         confirmed: body.confirmed === true,
+        correlationId: campaign.campaign_id,
         leaseId: lease.lease_id,
         projectId,
         store,
+        spanId: newSpanId(),
         publishSeries: async (series, revalidateLease) => {
           const records = readPrRecordsArtifact(paths.stateDir);
           const existing = Array.isArray(records.records)
@@ -812,13 +833,17 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
     const { itemIds, leaseId, paths, projectId, seriesId } = workItemCommandContext(body);
     const store = openState(paths.stateDir);
     try {
+      const series = getPrSeries(store, seriesId);
+      if (!series) throw new Error(`PR series not found: ${seriesId}`);
       return claimPrCampaignWorkItems({
         commandId: commandId(body, "pr-work-items-claim"),
+        correlationId: series.campaign_id,
         itemIds,
         leaseId,
         projectId,
         seriesId,
         store,
+        spanId: newSpanId(),
       });
     } finally {
       store.db.close();
@@ -829,14 +854,18 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
     const { itemIds, leaseId, paths, projectId, seriesId } = workItemCommandContext(body);
     const store = openState(paths.stateDir);
     try {
+      const series = getPrSeries(store, seriesId);
+      if (!series) throw new Error(`PR series not found: ${seriesId}`);
       return resolvePrCampaignWorkItems({
         commandId: commandId(body, "pr-work-items-resolve"),
+        correlationId: series.campaign_id,
         itemIds,
         leaseId,
         projectId,
         resolution: text(body.resolution) || undefined,
         seriesId,
         store,
+        spanId: newSpanId(),
       });
     } finally {
       store.db.close();
@@ -847,14 +876,18 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
     const { itemIds, leaseId, paths, projectId, seriesId } = workItemCommandContext(body);
     const store = openState(paths.stateDir);
     try {
+      const series = getPrSeries(store, seriesId);
+      if (!series) throw new Error(`PR series not found: ${seriesId}`);
       return declinePrCampaignWorkItems({
         commandId: commandId(body, "pr-work-items-decline"),
+        correlationId: series.campaign_id,
         itemIds,
         leaseId,
         projectId,
         reason: text(body.reason),
         seriesId,
         store,
+        spanId: newSpanId(),
       });
     } finally {
       store.db.close();
@@ -865,13 +898,17 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
     const { leaseId, paths, projectId, seriesId } = workItemCommandContext(body);
     const store = openState(paths.stateDir);
     try {
+      const series = getPrSeries(store, seriesId);
+      if (!series) throw new Error(`PR series not found: ${seriesId}`);
       return revisePrCampaignSeries({
         commandId: commandId(body, "pr-work-items-revise"),
+        correlationId: series.campaign_id,
         leaseId,
         projectId,
         pushedRevision: text(body.pushedRevision, text(body.pushed_revision)),
         seriesId,
         store,
+        spanId: newSpanId(),
       });
     } finally {
       store.db.close();
@@ -922,12 +959,14 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
   function transitionTerminalCampaign(
     store: StateStore,
     campaign: PrCampaignState,
-    body: JsonObject,
+    operation: { causationId?: string; commandId: string; spanId: string },
     outcome: Extract<PrCampaignStatus, "completed" | "abandoned">,
   ): PrCampaignState {
     return transitionPrCampaign(store, campaign.campaign_id, {
       actor: "operator",
-      commandId: commandId(body, outcome === "completed" ? "pr-close-campaign" : "pr-abandon-campaign"),
+      causationId: operation.causationId,
+      commandId: operation.commandId,
+      correlationId: campaign.campaign_id,
       eventType: "pr.campaign_closed",
       expectedRevision: campaign.revision,
       patch: { status: outcome },
@@ -935,6 +974,7 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
         outcome,
         per_series_terminal_summary: terminalSeriesSummary(store, campaign.campaign_id),
       },
+      spanId: operation.spanId,
     });
   }
 
@@ -943,17 +983,23 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
     projectId: string,
     campaign: PrCampaignState,
     body: JsonObject,
-  ): void {
-    if (!getProjectState(store, projectId)) return;
-    cancelDispatchRequest(store, {
+    operation: { commandId: string; spanId: string },
+  ): string | undefined {
+    const before = getProjectState(store, projectId);
+    if (!before) return undefined;
+    const cancelled = cancelDispatchRequest(store, {
       actor: "operator",
-      commandId: `${commandId(body, "pr-terminal-campaign")}:cancel-dispatch`,
+      commandId: operation.commandId,
       correlationId: campaign.campaign_id,
       kind: "pr",
       projectId,
       reason: text(body.reason, `PR campaign ${campaign.campaign_id} became terminal`),
       workflowId: campaign.campaign_id,
+      spanId: operation.spanId,
     });
+    return cancelled.caused_by_event_id !== before.caused_by_event_id
+      ? cancelled.caused_by_event_id ?? undefined
+      : undefined;
   }
 
   async function closeCampaign(body: JsonObject): Promise<PrCampaignState> {
@@ -963,24 +1009,34 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
       const projected = projectPrCampaignAction(store, projectId, "pr.close_campaign", campaignId(body));
       if (!projected.enabled) throw new PrCampaignActionBlockedError(projected);
       requireConfirmation(body, "pr.close_campaign");
+      const operation = { commandId: commandId(body, "pr-close-campaign"), spanId: newSpanId() };
       return immediateTransaction(store.db, () => {
         let campaign = selectedCampaign(store, projectId, campaignId(body));
         if (!campaign) throw new Error(`PR campaign not found for ${projectId}`);
-        cancelQueuedCampaignActivation(store, projectId, campaign, body);
+        let terminalCausationId = cancelQueuedCampaignActivation(store, projectId, campaign, body, operation);
         if (campaign.status === "working") {
           const lease = getProjectState(store, projectId)?.active_workflow;
           if (!lease || lease.kind !== "pr" || lease.workflow_id !== campaign.campaign_id) {
             throw new Error(`Working PR campaign ${campaign.campaign_id} has no matching dispatch lease`);
           }
-          campaign = releasePrCampaign({
+          const released = releasePrCampaign({
             campaignId: campaign.campaign_id,
-            commandId: `${commandId(body, "pr-close-campaign")}:release`,
+            commandId: operation.commandId,
+            correlationId: campaign.campaign_id,
             leaseId: lease.lease_id,
             projectId,
             store,
-          }).campaign;
+            spanId: operation.spanId,
+          });
+          campaign = released.campaign;
+          terminalCausationId = released.projectState.caused_by_event_id ?? terminalCausationId;
         }
-        return transitionTerminalCampaign(store, campaign, body, "completed");
+        return transitionTerminalCampaign(
+          store,
+          campaign,
+          { ...operation, causationId: terminalCausationId },
+          "completed",
+        );
       });
     } finally {
       store.db.close();
@@ -995,6 +1051,8 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
     recoveryReason: string,
   ): PrCampaignState {
     return immediateTransaction(store.db, () => {
+      const operationCommandId = commandId(body, "pr-campaign-recover");
+      const operationSpanId = newSpanId();
       const lease = getProjectState(store, projectId)?.active_workflow;
       if (!lease || lease.kind !== "pr" || lease.workflow_id !== campaign.campaign_id) {
         throw new Error(`PR campaign ${campaign.campaign_id} has no recoverable activation lease`);
@@ -1012,6 +1070,7 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
         .all(campaign.campaign_id) as Array<{ series_id: string }>;
       const cancelledSubjectIds = new Set<string>();
       const reconciliationBlockers: Blocker[] = [];
+      let recoveryCauseEventId = operationCommandId;
       for (const row of interruptedRows) {
         const series = getPrSeries(store, row.series_id);
         if (!series) throw new Error(`PR series disappeared during recovery: ${row.series_id}`);
@@ -1029,42 +1088,42 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
           ));
           continue;
         }
-        const payload = {
-          cancelled_work_item_ids: inProgressItems.map((item) => item.item_id),
-          lease_id: lease.lease_id,
-          recovery_reason: recoveryReason,
-        };
-        if (inProgressItems.length > 0) {
-          transitionPrWorkItems(store, {
+        const recoveredSeries = inProgressItems.length > 0
+          ? transitionPrWorkItems(store, {
             actor: "operator",
-            commandId: `${commandId(body, "pr-campaign-recover")}:series:${series.series_id}`,
+            causationId: recoveryCauseEventId,
+            commandId: operationCommandId,
+            correlationId: campaign.campaign_id,
             eventType: "pr.series_changes_requested",
             expectedRevision: series.revision,
             occurredAt,
             patch: { status: "changes_requested" },
-            payload,
             seriesId: series.series_id,
             workItems: inProgressItems.map((item) => ({
               expectedStatus: "in_progress",
               itemId: item.item_id,
               status: "pending",
             })),
-          });
-        } else {
-          transitionPrSeries(store, series.series_id, {
+            spanId: operationSpanId,
+          })
+          : transitionPrSeries(store, series.series_id, {
             actor: "operator",
-            commandId: `${commandId(body, "pr-campaign-recover")}:series:${series.series_id}`,
+            causationId: recoveryCauseEventId,
+            commandId: operationCommandId,
+            correlationId: campaign.campaign_id,
             expectedRevision: series.revision,
             occurredAt,
             patch: { status: "changes_requested" },
-            payload,
+            spanId: operationSpanId,
           });
-        }
+        recoveryCauseEventId = recoveredSeries.caused_by_event_id;
       }
       const cancelledIds = [...cancelledSubjectIds];
       const recovered = transitionPrCampaign(store, campaign.campaign_id, {
         actor: "operator",
-        commandId: commandId(body, "pr-campaign-recover"),
+        causationId: recoveryCauseEventId,
+        commandId: operationCommandId,
+        correlationId: campaign.campaign_id,
         eventType: "pr.campaign_recovered",
         expectedRevision: campaign.revision,
         occurredAt,
@@ -1074,6 +1133,7 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
           recovery_reason: recoveryReason,
           resulting_status: "in_review",
         },
+        spanId: operationSpanId,
       });
       recordPrPhaseBoundaryInTransaction(store.db, {
         boundary: "released",
@@ -1084,12 +1144,14 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
       recoverDispatch(store, {
         actor: "operator",
         cancelledSubjectIds: cancelledIds,
-        commandId: `${commandId(body, "pr-campaign-recover")}:dispatch`,
+        causationId: recovered.caused_by_event_id,
+        commandId: operationCommandId,
         correlationId: campaign.campaign_id,
         leaseId: lease.lease_id,
         now: occurredAt,
         projectId,
         recoveryReason,
+        spanId: operationSpanId,
       });
       return recovered;
     });
@@ -1100,6 +1162,7 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
     projectId: string,
     campaign: PrCampaignState,
     body: JsonObject,
+    operation: { commandId: string; spanId: string },
   ): PrCampaignState {
     const lease = getProjectState(store, projectId)?.active_workflow;
     if (!lease || lease.kind !== "pr" || lease.workflow_id !== campaign.campaign_id) {
@@ -1119,7 +1182,7 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
         .all(campaign.campaign_id) as Array<{ id: string }>),
     ].map((entry) => entry.id);
     const occurredAt = currentTime();
-    const abandoned = transitionTerminalCampaign(store, campaign, body, "abandoned");
+    const abandoned = transitionTerminalCampaign(store, campaign, operation, "abandoned");
     recordPrPhaseBoundaryInTransaction(store.db, {
       boundary: "released",
       campaign: abandoned,
@@ -1129,12 +1192,14 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
     recoverDispatch(store, {
       actor: "operator",
       cancelledSubjectIds,
-      commandId: `${commandId(body, "pr-abandon-campaign")}:dispatch`,
+      causationId: abandoned.caused_by_event_id,
+      commandId: operation.commandId,
       correlationId: campaign.campaign_id,
       leaseId: lease.lease_id,
       now: abandoned.closed_at ?? occurredAt,
       projectId,
       recoveryReason: text(body.reason, "operator abandoned PR campaign"),
+      spanId: operation.spanId,
     });
     return abandoned;
   }
@@ -1146,14 +1211,20 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
       const projected = projectPrCampaignAction(store, projectId, "pr.abandon_campaign", campaignId(body));
       if (!projected.enabled) throw new PrCampaignActionBlockedError(projected);
       requireConfirmation(body, "pr.abandon_campaign");
+      const operation = { commandId: commandId(body, "pr-abandon-campaign"), spanId: newSpanId() };
       return immediateTransaction(store.db, () => {
         let campaign = selectedCampaign(store, projectId, campaignId(body));
         if (!campaign) throw new Error(`PR campaign not found for ${projectId}`);
-        cancelQueuedCampaignActivation(store, projectId, campaign, body);
+        const terminalCausationId = cancelQueuedCampaignActivation(store, projectId, campaign, body, operation);
         if (campaign.status === "working") {
-          return abandonWorkingCampaign(store, projectId, campaign, body);
+          return abandonWorkingCampaign(store, projectId, campaign, body, operation);
         }
-        return transitionTerminalCampaign(store, campaign, body, "abandoned");
+        return transitionTerminalCampaign(
+          store,
+          campaign,
+          { ...operation, causationId: terminalCausationId },
+          "abandoned",
+        );
       });
     } finally {
       store.db.close();
@@ -1218,41 +1289,53 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
         throw new Error(`Unable to inspect legacy split branches: ${refs.stderr || refs.stdout}`);
       }
       const operationCommandId = commandId(body, "pr-adopt-legacy");
+      const operationSpanId = newSpanId();
+      const adoptionCampaignId = projectedContext.adoptionCampaignId ?? campaignId(body) ?? `pr-campaign-${randomUUID()}`;
       const adopted = immediateTransaction(store.db, () => {
         const opened = openPrCampaign(store, {
           actor: "operator",
-          campaignId: projectedContext.adoptionCampaignId ?? campaignId(body),
-          commandId: `${operationCommandId}:open`,
+          campaignId: adoptionCampaignId,
+          commandId: operationCommandId,
+          correlationId: adoptionCampaignId,
           namedSavePointId: projectedContext.namedSavePointId!,
           projectId,
           sessionUuid: projectedContext.sessionUuid!,
+          spanId: operationSpanId,
         }, { allowEmptyForLegacyAdoption: true });
         initializeProjectState(store, { projectId, traceId: `trace-project-${projectId}` });
         const dispatch = requestDispatch(store, {
           actor: "operator",
-          commandId: `${operationCommandId}:dispatch`,
+          causationId: opened.caused_by_event_id,
+          commandId: operationCommandId,
           correlationId: opened.campaign_id,
           kind: "pr",
           projectId,
           reason: text(body.reason, "operator adopted legacy PR records"),
           workflowId: opened.campaign_id,
+          spanId: operationSpanId,
         });
         if (dispatch.queued) throw new Error("Legacy adoption requires a free dispatch lease");
         const activated = activateAcquiredPrCampaign({
           campaignId: opened.campaign_id,
-          commandId: `${operationCommandId}:activate`,
+          causationId: dispatch.acquiredEventId,
+          commandId: operationCommandId,
+          correlationId: opened.campaign_id,
           leaseId: dispatch.leaseId,
           projectId,
           store,
+          spanId: operationSpanId,
         });
         return adoptLegacyPrSeries({
           campaignId: activated.campaign_id,
+          causationId: activated.caused_by_event_id,
           commandId: operationCommandId,
+          correlationId: activated.campaign_id,
           discoveredBranches: refs.stdout.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean),
           leaseId: dispatch.leaseId,
           projectId,
           recordsPayload,
           store,
+          spanId: operationSpanId,
         });
       });
       await deps.prSync.syncPrRecords(body);

@@ -69,7 +69,8 @@ export const PROJECT_EVENTS_DDL = `
       actor IN ('operator', 'runner', 'agent', 'guardian', 'external_observer')
     ),
     occurred_at TEXT NOT NULL,
-    payload_json TEXT NOT NULL DEFAULT '{}'
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    parent_span_id TEXT
   );
 
   CREATE INDEX IF NOT EXISTS project_events_subject_sequence
@@ -96,6 +97,44 @@ export const PROJECT_STATE_DDL = `
   );
 `;
 
+export const DISPATCH_HANDOFF_SNAPSHOTS_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS dispatch_handoff_snapshots (
+    snapshot_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    content_json TEXT NOT NULL CONSTRAINT dispatch_handoff_snapshots_content_json_check CHECK (
+      json_valid(content_json)
+    ),
+    content_hash TEXT NOT NULL UNIQUE CONSTRAINT dispatch_handoff_snapshots_content_hash_check CHECK (
+      length(content_hash) = 64 AND content_hash NOT GLOB '*[^0-9a-f]*'
+    ),
+    old_lease_holder_json TEXT NOT NULL,
+    requested_handoff_json TEXT,
+    terminal_project_revision INTEGER NOT NULL,
+    release_event_id TEXT NOT NULL UNIQUE REFERENCES project_events(event_id),
+    acquisition_event_id TEXT UNIQUE REFERENCES project_events(event_id),
+    created_at TEXT NOT NULL
+  );
+`;
+
+export const DISPATCH_HANDOFF_SNAPSHOTS_DDL = `
+  ${DISPATCH_HANDOFF_SNAPSHOTS_TABLE_DDL}
+
+  CREATE INDEX IF NOT EXISTS dispatch_handoff_snapshots_project_created
+    ON dispatch_handoff_snapshots (project_id, created_at);
+
+  CREATE TRIGGER IF NOT EXISTS dispatch_handoff_snapshots_immutable_update
+    BEFORE UPDATE ON dispatch_handoff_snapshots
+    BEGIN
+      SELECT RAISE(ABORT, 'dispatch handoff snapshots are immutable');
+    END;
+
+  CREATE TRIGGER IF NOT EXISTS dispatch_handoff_snapshots_immutable_delete
+    BEFORE DELETE ON dispatch_handoff_snapshots
+    BEGIN
+      SELECT RAISE(ABORT, 'dispatch handoff snapshots are immutable');
+    END;
+`;
+
 export const SYNC_STATE_DDL = `
   CREATE TABLE IF NOT EXISTS sync_state (
     sync_id TEXT PRIMARY KEY,
@@ -117,7 +156,10 @@ export const SYNC_STATE_DDL = `
     intake_json TEXT NOT NULL DEFAULT '{}',
     staging_json TEXT,
     pr_reconciliation_json TEXT NOT NULL DEFAULT '[]',
-    publication_json TEXT
+    publication_json TEXT,
+    blocked_origin_status TEXT,
+    validation_evidence_json TEXT,
+    resolved_conflict_paths_json TEXT NOT NULL DEFAULT '[]'
   );
 
   CREATE UNIQUE INDEX IF NOT EXISTS sync_state_one_non_terminal_project

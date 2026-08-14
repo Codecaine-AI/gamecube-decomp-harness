@@ -57,7 +57,6 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
     const run = createRun(store, goalKind, goalValue, desiredWorkers, project, {
       commandId: stringArg(args, "--command-id", "") || undefined,
       configurationSnapshot,
-      correlationId: stringArg(args, "--correlation-id", "") || undefined,
       requireReady: true,
     });
     const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, candidateWindow, {

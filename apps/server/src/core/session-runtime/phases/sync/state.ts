@@ -1,7 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Database } from "bun:sqlite";
 import { immediateTransaction, now as currentTime, type StateStore } from "@server/core/orchestrator-state";
-import { appendProjectEvent, type AppendedProjectEvent, type JsonObject } from "@server/core/project-state/events.js";
+import {
+  appendProjectEvent,
+  eventSpan,
+  type AppendedProjectEvent,
+  type JsonObject,
+} from "@server/core/project-state/events.js";
 import { getProjectState } from "@server/core/project-state/lease.js";
 import { casSyncEnvelope } from "./cas.js";
 import {
@@ -9,6 +14,7 @@ import {
   type RecordSyncRequestedInput,
   type SyncIntake,
   type SyncKnowledgeEventInput,
+  type SyncObservationRefreshedPayload,
   type SyncPublication,
   type SyncPrReconciliation,
   type SyncStagingProgress,
@@ -34,6 +40,9 @@ type SyncStateRow = {
   staging_json: string | null;
   pr_reconciliation_json: string;
   publication_json: string | null;
+  blocked_origin_status: string | null;
+  validation_evidence_json: string | null;
+  resolved_conflict_paths_json: string;
 };
 
 const TERMINAL_SYNC_STATUSES = new Set<SyncStatus>(["published", "cancelled"]);
@@ -119,6 +128,13 @@ function rowToSyncState(row: SyncStateRow): SyncState {
     staging: parseNullableObject<SyncStagingProgress>(row.staging_json, "staging"),
     pr_reconciliation: parseArray<SyncPrReconciliation>(row.pr_reconciliation_json, "pr_reconciliation"),
     publication: parseNullableObject<SyncPublication>(row.publication_json, "publication"),
+    blocked_origin_status: row.blocked_origin_status === null
+      ? null
+      : isSyncStatus(row.blocked_origin_status)
+        ? row.blocked_origin_status
+        : (() => { throw new Error(`Invalid blocked origin status in sync_state: ${row.blocked_origin_status}`); })(),
+    validation_evidence: parseNullableObject<JsonObject>(row.validation_evidence_json, "validation_evidence"),
+    resolved_conflict_paths: parseArray<string>(row.resolved_conflict_paths_json, "resolved_conflict_paths"),
   };
 }
 
@@ -166,11 +182,27 @@ export function eventTypeForSyncStatus(status: SyncStatus): SyncWorkflowEventTyp
   }
 }
 
+/** Deterministic root span shared by all events caused by one action command. */
+export function syncActionSpanId(commandId: string): string {
+  const digest = createHash("sha256").update(requiredText(commandId, "commandId")).digest("hex");
+  return `span-${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-a${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+}
+
 function assertEventMatchesTransition(
   current: SyncStatus,
   next: SyncStatus,
   eventType: SyncWorkflowEventType,
 ): void {
+  if (eventType === "sync.observation_refreshed") {
+    if (current !== "requested" || next !== "requested") {
+      throw new Error(`sync.observation_refreshed cannot record ${current} -> ${next}`);
+    }
+    return;
+  }
+  if (eventType === "sync.staging_progressed") {
+    if (current !== next) throw new Error(`sync.staging_progressed cannot record ${current} -> ${next}`);
+    return;
+  }
   if (eventType === "sync.recovered") {
     const confirmedOrphanIngest = current === "ingesting" && next === "ingesting";
     if (!confirmedOrphanIngest && (current !== "blocked" || next === "blocked" || next === "published")) {
@@ -200,10 +232,193 @@ function assertEventMatchesTransition(
   if (eventType !== expected) {
     throw new Error(`Event ${eventType} cannot produce sync status ${next}; expected ${expected}`);
   }
+  if (current === next) throw new Error(`${eventType} is valid only on entry to ${next}`);
 }
 
 function stringifyNullable(value: object | null): string | null {
   return value === null ? null : JSON.stringify(value);
+}
+
+function progressKind(input: SyncTransitionInput): string {
+  if (typeof input.payload?.progress_kind === "string" && input.payload.progress_kind.trim()) {
+    return input.payload.progress_kind;
+  }
+  if (input.patch.staging !== undefined) return "staging_updated";
+  if (input.patch.prReconciliation !== undefined) return "pr_reconciliation_updated";
+  if (input.patch.intake !== undefined) return "observation_refreshed";
+  if (input.patch.publication !== undefined) return "publication_updated";
+  return "workflow_progressed";
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => requiredText(value, "event payload text")))];
+}
+
+function blockerRecoveryChoices(blockers: SyncState["blockers"]): string[] {
+  return uniqueStrings(blockers.flatMap((blocker) => {
+    if (!blocker.recoverable) return [];
+    if (blocker.code === "conflict_needs_operator") return ["resolve_conflict"];
+    if (blocker.code === "upstream_moved_after_validation") return ["cancel"];
+    if (blocker.code.startsWith("publication_") || blocker.code === "pr_push_failed") return ["resume"];
+    return ["resume", "discard"];
+  }));
+}
+
+function blockerSourceIdentities(
+  blockers: SyncState["blockers"],
+): Array<{ source_kind: string; source_id: string }> {
+  const identities = new Map<string, { source_kind: string; source_id: string }>();
+  for (const blocker of blockers) {
+    const sourceKind = requiredText(blocker.source_kind, "blocker source_kind");
+    const sourceId = requiredText(blocker.source_id, "blocker source_id");
+    identities.set(JSON.stringify([sourceKind, sourceId]), {
+      source_kind: sourceKind,
+      source_id: sourceId,
+    });
+  }
+  return [...identities.values()];
+}
+
+function blockerPayload(blockers: SyncState["blockers"]): JsonObject {
+  return {
+    blocker_codes: uniqueStrings(blockers.map((blocker) => blocker.code)),
+    source_identities: blockerSourceIdentities(blockers),
+    recovery_choices: blockerRecoveryChoices(blockers),
+  };
+}
+
+function durableStagingStage(sync: SyncState): string {
+  const staging = sync.staging;
+  if (!staging) throw new Error("sync.staging_progressed requires accepted staging state");
+  if (staging.last_durable_stage) return staging.last_durable_stage;
+  if (staging.validation_evidence) return "validated";
+  if (sync.pr_reconciliation.length > 0 || (staging.pr_workspaces?.length ?? 0) > 0) {
+    return "pr_series_reconciled";
+  }
+  if (staging.epochs_total > 0 && staging.epochs_applied >= staging.epochs_total) return "session_rebased";
+  return "workspace_created";
+}
+
+function prSeriesReconciliationSummary(sync: SyncState): JsonObject {
+  const count = (result: SyncPrReconciliation["result"]): number =>
+    sync.pr_reconciliation.filter((entry) => entry.result === result).length;
+  return {
+    series_total: sync.pr_reconciliation.length,
+    clean: count("clean"),
+    auto_resolved: count("auto_resolved"),
+    needs_operator: count("needs_operator"),
+    pushed: sync.pr_reconciliation.filter((entry) => entry.pushed).length,
+  };
+}
+
+function acceptedSessionHead(db: Database, sync: SyncState): string {
+  const session = db
+    .query("SELECT head_revision FROM project_sessions WHERE session_uuid = ?")
+    .get(sync.session_uuid) as { head_revision: string | null } | null;
+  if (!session) throw new Error(`Project session not found: ${sync.session_uuid}`);
+  return requiredText(session.head_revision ?? "", `session ${sync.session_uuid} head_revision`);
+}
+
+function canonicalSyncEventPayload(
+  db: Database,
+  current: SyncState,
+  next: SyncState,
+  eventType: SyncWorkflowEventType,
+  input: SyncTransitionInput,
+): JsonObject {
+  const supplied = input.payload ?? {};
+  const transition = { from_status: current.status, to_status: next.status };
+  if (eventType === "sync.observation_refreshed") {
+    return {
+      prior_upstream_revision: current.intake.upstream_to,
+      observed_upstream_revision: next.intake.upstream_to,
+      merged_pr_ids: next.intake.merged_pr_ids,
+      corpus_batch_ids: next.intake.corpus_batch_ids,
+      knowledge_only: next.intake.knowledge_only,
+      observation_source_identity: requiredText(
+        String(supplied.observation_source_identity ?? ""),
+        "observation_source_identity",
+      ),
+      state_revision: current.revision + 1,
+    };
+  }
+  if (eventType === "sync.staging_progressed") {
+    const staging = next.staging;
+    if (!staging) throw new Error("sync.staging_progressed requires accepted staging state");
+    return {
+      staging_workspace_id: requiredText(staging.workspace_id, "staging.workspace_id"),
+      durable_stage: durableStagingStage(next),
+      epochs_total: staging.epochs_total,
+      epochs_applied: staging.epochs_applied,
+      minor_conflicts_resolved: staging.minor_conflicts_resolved,
+      conflicts_awaiting_operator: staging.conflicts_awaiting_operator,
+      pr_series_reconciliation_summary: prSeriesReconciliationSummary(next),
+      state_revision: current.revision + 1,
+      progress_kind: progressKind(input),
+    };
+  }
+  if (eventType === "sync.reconciliation_blocked") {
+    const durableIdentities = next.staging?.conflicting_paths ?? [];
+    const conflictIdentities = durableIdentities.length > 0
+      ? stringArray(durableIdentities, "staging.conflicting_paths")
+      : stringArray(supplied.conflict_identities, "conflict_identities");
+    return {
+      ...transition,
+      conflict_identities: conflictIdentities,
+      conflicts_awaiting_operator: next.staging?.conflicts_awaiting_operator ?? 0,
+    };
+  }
+  if (eventType === "sync.cancelled") {
+    const untouchedSessionHead = acceptedSessionHead(db, current);
+    if (input.eventType !== "sync.recovered") {
+      if (supplied.untouched_session_head !== untouchedSessionHead) {
+        throw new Error(`sync.cancelled untouched_session_head does not match session ${current.session_uuid}`);
+      }
+      if (supplied.discarded_staging_workspace_id !== (current.staging?.workspace_id ?? null)) {
+        throw new Error("sync.cancelled discarded workspace must match current staging state");
+      }
+    }
+    return {
+      ...transition,
+      discarded_staging_workspace_id: current.staging?.workspace_id ?? null,
+      untouched_session_head: untouchedSessionHead,
+      untouched_submodule_heads: supplied.untouched_submodule_heads as JsonObject[],
+    };
+  }
+  if (eventType === "sync.boundary_published") {
+    if (!next.publication) throw new Error("sync.boundary_published requires publication state");
+    if (!next.validation_evidence) throw new Error("sync.boundary_published requires durable validation evidence");
+    return {
+      upstream_revision: next.intake.upstream_to,
+      knowledge_revision: next.publication.knowledge_revision,
+      invalidations: next.publication.invalidated_ids,
+      validation_evidence: next.validation_evidence,
+    };
+  }
+  if (eventType === "sync.recovered") {
+    return {
+      ...transition,
+      staging_preserved: supplied.staging_preserved as boolean,
+      staging_discarded: supplied.staging_discarded as boolean,
+      resume_stage: supplied.resume_stage as string,
+      recovery_reason: requiredText(String(supplied.recovery_reason ?? ""), "recovery_reason"),
+    };
+  }
+  if (eventType === "sync.validated") {
+    if (!next.validation_evidence) throw new Error("sync.validated requires durable validation evidence");
+    return { ...transition, validation_evidence: next.validation_evidence };
+  }
+  if (eventType === "sync.blocked") return { ...transition, ...blockerPayload(next.blockers) };
+  if (
+    eventType === "sync.ingesting" ||
+    eventType === "sync.reconciling" ||
+    eventType === "sync.validating" ||
+    eventType === "sync.publishing" ||
+    eventType === "sync.published"
+  ) {
+    return transition;
+  }
+  throw new Error(`Event ${eventType} has no transition payload builder`);
 }
 
 function canonicalJson(value: unknown): string {
@@ -217,6 +432,15 @@ function canonicalJson(value: unknown): string {
     );
   };
   return JSON.stringify(sort(value));
+}
+
+function resolvedPathsFromStaging(staging: SyncStagingProgress | null): string[] {
+  if (!staging) return [];
+  const paths = new Set(staging.auto_resolved_paths ?? []);
+  for (const workspace of staging.pr_workspaces ?? []) {
+    for (const path of workspace.auto_resolved_paths ?? []) paths.add(`${workspace.branch}:${path}`);
+  }
+  return [...paths];
 }
 
 function payloadObject(payload: JsonObject | undefined, eventType: string): JsonObject {
@@ -252,6 +476,70 @@ function assertSemanticEventPayload(
   eventType: SyncWorkflowEventType,
   payload: JsonObject | undefined,
 ): void {
+  if (eventType === "sync.observation_refreshed") {
+    const value = payloadObject(payload, eventType);
+    if (value.prior_upstream_revision !== current.intake.upstream_to) {
+      throw new Error("sync.observation_refreshed prior revision must match durable intake");
+    }
+    if (value.observed_upstream_revision !== next.intake.upstream_to) {
+      throw new Error("sync.observation_refreshed observed revision must match accepted intake");
+    }
+    if (canonicalJson(value.merged_pr_ids) !== canonicalJson(next.intake.merged_pr_ids)) {
+      throw new Error("sync.observation_refreshed merged PR ids must match accepted intake");
+    }
+    if (canonicalJson(value.corpus_batch_ids) !== canonicalJson(next.intake.corpus_batch_ids)) {
+      throw new Error("sync.observation_refreshed corpus batch ids must match accepted intake");
+    }
+    if (value.knowledge_only !== next.intake.knowledge_only) {
+      throw new Error("sync.observation_refreshed knowledge-only flag must match accepted intake");
+    }
+    requiredText(String(value.observation_source_identity ?? ""), "observation_source_identity");
+    if (value.state_revision !== current.revision + 1) {
+      throw new Error("sync.observation_refreshed state revision must equal the next accepted revision");
+    }
+    return;
+  }
+  if (eventType === "sync.staging_progressed") {
+    const value = payloadObject(payload, eventType);
+    const staging = next.staging;
+    if (!staging) throw new Error("sync.staging_progressed requires accepted staging state");
+    if (value.staging_workspace_id !== staging.workspace_id) {
+      throw new Error("sync.staging_progressed workspace must match accepted staging state");
+    }
+    if (value.durable_stage !== durableStagingStage(next)) {
+      throw new Error("sync.staging_progressed durable stage must match accepted staging state");
+    }
+    for (const [field, accepted] of [
+      ["epochs_total", staging.epochs_total],
+      ["epochs_applied", staging.epochs_applied],
+      ["minor_conflicts_resolved", staging.minor_conflicts_resolved],
+      ["conflicts_awaiting_operator", staging.conflicts_awaiting_operator],
+      ["state_revision", current.revision + 1],
+    ] as const) {
+      if (!Number.isInteger(value[field]) || value[field] !== accepted) {
+        throw new Error(`sync.staging_progressed ${field} must match accepted staging state`);
+      }
+    }
+    if (canonicalJson(value.pr_series_reconciliation_summary) !== canonicalJson(prSeriesReconciliationSummary(next))) {
+      throw new Error("sync.staging_progressed PR-series summary must match accepted reconciliation state");
+    }
+    requiredText(String(value.progress_kind ?? ""), "progress_kind");
+    return;
+  }
+  if (eventType === "sync.blocked") {
+    const value = payloadObject(payload, eventType);
+    const accepted = blockerPayload(next.blockers);
+    if (canonicalJson(value.blocker_codes) !== canonicalJson(accepted.blocker_codes)) {
+      throw new Error("sync.blocked blocker codes must match accepted blockers");
+    }
+    if (canonicalJson(value.source_identities) !== canonicalJson(accepted.source_identities)) {
+      throw new Error("sync.blocked source identities must match accepted blockers");
+    }
+    if (canonicalJson(value.recovery_choices) !== canonicalJson(accepted.recovery_choices)) {
+      throw new Error("sync.blocked recovery choices must match accepted blockers");
+    }
+    return;
+  }
   if (eventType === "sync.reconciliation_blocked") {
     const value = payloadObject(payload, eventType);
     const identities = stringArray(value.conflict_identities, "conflict_identities");
@@ -341,6 +629,9 @@ function assertSemanticEventPayload(
     }
     if (canonicalJson(value.invalidations) !== canonicalJson(next.publication.invalidated_ids)) {
       throw new Error("sync.boundary_published invalidations must match publication state");
+    }
+    if (canonicalJson(value.validation_evidence) !== canonicalJson(next.validation_evidence)) {
+      throw new Error("sync.boundary_published validation evidence must match durable validation state");
     }
     if (current.publication !== null) {
       throw new Error("sync.boundary_published cannot replace an existing publication state");
@@ -441,26 +732,10 @@ function assertStateInvariants(current: SyncState, next: SyncState, eventType: S
 }
 
 export function getSyncBlockedOriginStatus(db: Database, sync: SyncState): SyncStatus | null {
+  void db;
   if (sync.status !== "blocked") return null;
-  const rows = db
-    .query(
-      `SELECT payload_json FROM project_events
-       WHERE subject_kind = 'sync' AND subject_id = ? AND sequence <= ?
-       ORDER BY sequence DESC`,
-    )
-    .all(sync.sync_id, sync.latest_event_sequence) as Array<{ payload_json: string }>;
-  for (const row of rows) {
-    const payload = parseObject<JsonObject>(row.payload_json, "blocking event payload");
-    if (payload.status !== "blocked") continue;
-    if (
-      typeof payload.previous_status === "string" &&
-      isSyncStatus(payload.previous_status) &&
-      payload.previous_status !== "blocked"
-    ) {
-      return payload.previous_status;
-    }
-  }
-  throw new Error(`Sync ${sync.sync_id} has no event recording entry into blocked`);
+  if (!sync.blocked_origin_status) throw new Error(`Sync ${sync.sync_id} has no durable blocked origin`);
+  return sync.blocked_origin_status;
 }
 
 export function transitionSync(store: StateStore, syncId: string, input: SyncTransitionInput): SyncState {
@@ -468,6 +743,7 @@ export function transitionSync(store: StateStore, syncId: string, input: SyncTra
     const currentRow = selectSync(store.db, syncId);
     if (!currentRow) throw new Error(`Sync not found: ${syncId}`);
     const current = rowToSyncState(currentRow);
+    if (input.correlationId !== syncId) throw new Error(`Sync event correlation_id must equal sync id ${syncId}`);
     if (current.revision !== input.expectedRevision) {
       throw new StaleSyncRevisionError(syncId, input.expectedRevision, current.revision);
     }
@@ -494,10 +770,22 @@ export function transitionSync(store: StateStore, syncId: string, input: SyncTra
     if (current.status === "blocked" && nextStatus === "cancelled" && blockedOrigin === "publishing") {
       throw new Error(`Sync ${syncId} cannot be cancelled after publishing has started`);
     }
-    const eventType = input.eventType ?? eventTypeForSyncStatus(nextStatus);
+    const requestedEventType = input.eventType ?? (
+      nextStatus === current.status
+        ? current.status === "requested" && input.patch.intake !== undefined
+          ? "sync.observation_refreshed"
+          : "sync.staging_progressed"
+        : eventTypeForSyncStatus(nextStatus)
+    );
+    const eventType = nextStatus === "cancelled" && requestedEventType === "sync.recovered"
+      ? "sync.cancelled"
+      : requestedEventType;
     assertEventMatchesTransition(current.status, nextStatus, eventType);
-    if (current.status === "requested" && nextStatus === "ingesting" && input.actor !== "operator") {
-      throw new Error(`Sync ${syncId} can start only through an operator action`);
+    if (
+      current.status === "requested" && nextStatus === "ingesting" &&
+      input.actor !== "operator" && !(input.actor === "guardian" && input.causationId?.startsWith("event-"))
+    ) {
+      throw new Error(`Sync ${syncId} can start only through an operator action or its guardian-settled handoff`);
     }
     if (
       (eventType === "sync.cancelled" ||
@@ -512,14 +800,29 @@ export function transitionSync(store: StateStore, syncId: string, input: SyncTra
     if (nextStatus === "blocked" && nextBlockers.length === 0) {
       throw new Error(`Sync ${syncId} cannot enter blocked without a blocker`);
     }
+    const nextStaging = input.patch.staging === undefined ? current.staging : input.patch.staging;
     const next: SyncState = {
       ...current,
       status: nextStatus,
       blockers: nextBlockers,
       intake: input.patch.intake ?? current.intake,
-      staging: input.patch.staging === undefined ? current.staging : input.patch.staging,
+      staging: nextStaging,
       pr_reconciliation: input.patch.prReconciliation ?? current.pr_reconciliation,
       publication: input.patch.publication === undefined ? current.publication : input.patch.publication,
+      blocked_origin_status: nextStatus === "blocked"
+        ? current.status === "blocked" ? current.blocked_origin_status : current.status
+        : null,
+      validation_evidence: input.patch.validationEvidence === undefined
+        ? input.payload?.validation_evidence && typeof input.payload.validation_evidence === "object" &&
+            !Array.isArray(input.payload.validation_evidence)
+          ? input.payload.validation_evidence as JsonObject
+          : current.validation_evidence
+        : input.patch.validationEvidence,
+      resolved_conflict_paths: [...new Set([
+        ...current.resolved_conflict_paths,
+        ...(input.patch.resolvedConflictPaths ?? []),
+        ...resolvedPathsFromStaging(nextStaging),
+      ])].sort(),
     };
     assertIntake(next.intake);
     if (
@@ -537,28 +840,31 @@ export function transitionSync(store: StateStore, syncId: string, input: SyncTra
       }
     }
     assertStateInvariants(current, next, eventType);
-    assertSemanticEventPayload(store.db, current, next, eventType, input.payload);
+    if (requestedEventType === "sync.recovered") {
+      assertSemanticEventPayload(store.db, current, next, requestedEventType, input.payload);
+    }
+    const eventPayload = canonicalSyncEventPayload(store.db, current, next, eventType, input);
+    if (eventType !== "sync.recovered") {
+      assertSemanticEventPayload(store.db, current, next, eventType, eventPayload);
+    }
 
     const at = input.occurredAt ?? currentTime();
     const event = appendProjectEvent(store.db, {
       eventType,
       projectId: current.project_id,
-      subjectKind: "sync",
+      subjectKind: "sync_workflow",
       subjectId: syncId,
-      correlationId: input.correlationId ?? syncId,
-      causationId: requiredText(input.commandId, "commandId"),
+      correlationId: requiredText(input.correlationId, "correlationId"),
+      causationId: requiredText(input.causationId ?? input.commandId, "causationId"),
       traceId: current.trace_id,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
+      ...eventSpan(input.parentSpanId ?? input.spanId ?? syncActionSpanId(input.commandId)),
       actor: input.actor,
       occurredAt: at,
-      payload: {
-        ...(input.payload ?? {}),
-        previous_status: current.status,
-        status: nextStatus,
-      },
+      payload: eventPayload,
     });
     const accepted = casSyncEnvelope(store.db, {
       blockersJson: JSON.stringify(nextBlockers),
+      blockedOriginStatus: next.blocked_origin_status,
       eventId: event.eventId,
       eventSequence: event.sequence,
       expectedRevision: current.revision,
@@ -569,6 +875,8 @@ export function transitionSync(store: StateStore, syncId: string, input: SyncTra
       status: nextStatus,
       syncId,
       updatedAt: at,
+      validationEvidenceJson: stringifyNullable(next.validation_evidence),
+      resolvedConflictPathsJson: JSON.stringify(next.resolved_conflict_paths),
     });
     if (!accepted) {
       throw new StaleSyncRevisionError(syncId, current.revision, getSyncState(store, syncId)?.revision ?? -1);
@@ -623,47 +931,61 @@ export function appendSyncKnowledgeEventInTransaction(
     if (!input.payload.provenance || typeof input.payload.provenance !== "object") {
       throw new Error("knowledge.job_enqueued requires provenance");
     }
+    requiredText(input.payload.source_class, "source_class");
+    if (input.payload.execution_class !== "sync_stage" && input.payload.execution_class !== "background_safe") {
+      throw new Error("knowledge.job_enqueued requires execution_class sync_stage or background_safe");
+    }
   } else if (input.eventType === "knowledge.revision_advanced") {
     requiredText(input.payload.old_revision, "old_revision");
     requiredText(input.payload.new_revision, "new_revision");
     stringArray(input.payload.accepted_job_ids, "accepted_job_ids");
   } else {
-    requiredText(input.payload.sync_id, "sync_id");
-    requiredText(input.payload.source_id, "source_id");
-    if (input.payload.source_kind !== "merged_pr" && input.payload.source_kind !== "corpus") {
-      throw new Error(`${input.eventType} requires source_kind merged_pr or corpus`);
+    requiredText(input.payload.source_class, "source_class");
+    if (!input.payload.provenance || typeof input.payload.provenance !== "object" || Array.isArray(input.payload.provenance)) {
+      throw new Error(`${input.eventType} requires provenance`);
     }
-    if (input.eventType === "knowledge.job_processing") {
-      if (!(["queued", "waiting"] as const).includes(input.payload.previous_status)) {
-        throw new Error("knowledge.job_processing requires queued or waiting previous_status");
+    if (input.payload.execution_class === "sync_stage") {
+      requiredText(input.payload.sync_id, "sync_id");
+    } else if (input.payload.execution_class === "background_safe") {
+      if (input.payload.sync_id !== null) {
+        throw new Error(`${input.eventType} requires sync_id null for background_safe execution`);
       }
-      if (input.payload.status !== "processing") {
-        throw new Error("knowledge.job_processing requires processing status");
+    } else {
+      throw new Error(`${input.eventType} requires execution_class sync_stage or background_safe`);
+    }
+    requiredText(input.payload.source_id, "source_id");
+    requiredText(input.payload.source_kind, "source_kind");
+    if (input.eventType === "knowledge.job_processing") {
+      if (!(["queued", "waiting"] as const).includes(input.payload.from_status)) {
+        throw new Error("knowledge.job_processing requires queued or waiting from_status");
+      }
+      if (input.payload.to_status !== "processing") {
+        throw new Error("knowledge.job_processing requires processing to_status");
       }
     } else if (input.eventType === "knowledge.job_waiting") {
       if (
-        !(["processing", "succeeded", "failed"] as const).includes(input.payload.previous_status) ||
-        input.payload.status !== "waiting"
+        !(["processing", "succeeded", "failed"] as const).includes(input.payload.from_status) ||
+        input.payload.to_status !== "waiting"
       ) {
         throw new Error("knowledge.job_waiting requires processing, succeeded, or failed -> waiting");
       }
       requiredText(input.payload.reason, "reason");
     } else if (input.eventType === "knowledge.job_succeeded") {
-      if (input.payload.previous_status !== "processing" || input.payload.status !== "succeeded") {
+      if (input.payload.from_status !== "processing" || input.payload.to_status !== "succeeded") {
         throw new Error("knowledge.job_succeeded requires processing -> succeeded");
       }
       requiredText(input.payload.staged_digest, "staged_digest");
     } else if (input.eventType === "knowledge.job_cancelled") {
       if (
         !(["queued", "processing", "waiting", "succeeded", "failed"] as const)
-          .includes(input.payload.previous_status) ||
-        input.payload.status !== "cancelled"
+          .includes(input.payload.from_status) ||
+        input.payload.to_status !== "cancelled"
       ) {
-        throw new Error("knowledge.job_cancelled requires a non-cancelled previous_status -> cancelled");
+        throw new Error("knowledge.job_cancelled requires a non-cancelled from_status -> cancelled");
       }
       requiredText(input.payload.reason, "reason");
     } else {
-      if (input.payload.previous_status !== "processing" || input.payload.status !== "failed") {
+      if (input.payload.from_status !== "processing" || input.payload.to_status !== "failed") {
         throw new Error("knowledge.job_failed requires processing -> failed");
       }
       requiredText(input.payload.error, "error");
@@ -677,7 +999,7 @@ export function appendSyncKnowledgeEventInTransaction(
     correlationId: input.correlationId,
     causationId: input.causationId,
     traceId: input.traceId,
-    spanId: input.spanId,
+    ...eventSpan(input.parentSpanId ?? input.spanId),
     actor: input.actor,
     occurredAt: input.occurredAt,
     payload: input.payload,
@@ -694,8 +1016,34 @@ function requestedPayload(intake: SyncIntake): JsonObject {
   };
 }
 
+function observationRefreshedPayload(
+  current: SyncState,
+  intake: SyncIntake,
+  observationSourceIdentity: string,
+): SyncObservationRefreshedPayload {
+  return {
+    prior_upstream_revision: current.intake.upstream_to,
+    observed_upstream_revision: intake.upstream_to,
+    merged_pr_ids: intake.merged_pr_ids,
+    corpus_batch_ids: intake.corpus_batch_ids,
+    knowledge_only: intake.knowledge_only,
+    observation_source_identity: requiredText(observationSourceIdentity, "observationSourceIdentity"),
+    state_revision: current.revision + 1,
+  };
+}
+
+type LegacySyncCreationInput = Omit<RecordSyncRequestedInput, "observationSourceIdentity"> & {
+  observationSourceIdentity?: undefined;
+};
+
 /** Records observation only. It deliberately does not request or acquire the dispatch lease. */
-export function recordSyncRequested(store: StateStore, input: RecordSyncRequestedInput): SyncState {
+export function recordSyncRequested(store: StateStore, input: RecordSyncRequestedInput): SyncState;
+/** Compatibility for direct creation fixtures; observation refresh still requires an explicit source identity. */
+export function recordSyncRequested(store: StateStore, input: LegacySyncCreationInput): SyncState;
+export function recordSyncRequested(
+  store: StateStore,
+  input: RecordSyncRequestedInput | LegacySyncCreationInput,
+): SyncState {
   return immediateTransaction(store.db, () => {
     const projectId = requiredText(input.projectId, "projectId");
     const sessionUuid = requiredText(input.sessionUuid, "sessionUuid");
@@ -703,6 +1051,9 @@ export function recordSyncRequested(store: StateStore, input: RecordSyncRequeste
     assertOwningSession(store.db, projectId, sessionUuid);
     const existing = getNonTerminalSyncForProject(store, projectId);
     if (existing) {
+      if (input.correlationId !== existing.sync_id) {
+        throw new Error(`Sync event correlation_id must equal sync id ${existing.sync_id}`);
+      }
       if (existing.status !== "requested") {
         throw new Error(`Project ${projectId} already has non-terminal sync ${existing.sync_id} in ${existing.status}`);
       }
@@ -713,31 +1064,32 @@ export function recordSyncRequested(store: StateStore, input: RecordSyncRequeste
         throw new Error(`Requested sync ${existing.sync_id} belongs to session ${existing.session_uuid}, not ${sessionUuid}`);
       }
       return transitionSync(store, existing.sync_id, {
-        actor: input.actor ?? "external_observer",
-        commandId: input.commandId ?? `command-sync-observe-${randomUUID()}`,
-        correlationId: input.correlationId ?? existing.sync_id,
-        eventType: "sync.requested",
+        actor: input.actor,
+        commandId: input.commandId,
+        correlationId: input.correlationId,
+        eventType: "sync.observation_refreshed",
         expectedRevision: existing.revision,
         occurredAt: input.occurredAt,
         patch: { intake: input.intake },
-        payload: requestedPayload(input.intake),
+        payload: observationRefreshedPayload(existing, input.intake, input.observationSourceIdentity ?? ""),
         spanId: input.spanId,
       });
     }
 
     const syncId = requiredText(input.syncId ?? `sync-${randomUUID()}`, "syncId");
+    if (input.correlationId !== syncId) throw new Error(`Sync event correlation_id must equal sync id ${syncId}`);
     const at = input.occurredAt ?? currentTime();
     const traceId = requiredText(input.traceId ?? `trace-sync-${syncId}`, "traceId");
     const event = appendProjectEvent(store.db, {
       eventType: "sync.requested",
       projectId,
-      subjectKind: "sync",
+      subjectKind: "sync_workflow",
       subjectId: syncId,
-      correlationId: input.correlationId ?? syncId,
-      causationId: input.commandId ?? `command-sync-observe-${syncId}`,
+      correlationId: requiredText(input.correlationId, "correlationId"),
+      causationId: requiredText(input.commandId, "commandId"),
       traceId,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
-      actor: input.actor ?? "external_observer",
+      ...eventSpan(input.spanId ?? syncActionSpanId(input.commandId)),
+      actor: input.actor,
       occurredAt: at,
       payload: requestedPayload(input.intake),
     });
@@ -747,8 +1099,9 @@ export function recordSyncRequested(store: StateStore, input: RecordSyncRequeste
            sync_id, project_id, session_uuid, revision, status, trace_id,
            caused_by_event_id, blockers_json, created_at, updated_at,
            latest_event_sequence, intake_json, staging_json,
-           pr_reconciliation_json, publication_json
-         ) VALUES (?, ?, ?, 0, 'requested', ?, ?, '[]', ?, ?, ?, ?, NULL, '[]', NULL)`,
+           pr_reconciliation_json, publication_json,
+           blocked_origin_status, validation_evidence_json, resolved_conflict_paths_json
+         ) VALUES (?, ?, ?, 0, 'requested', ?, ?, '[]', ?, ?, ?, ?, NULL, '[]', NULL, NULL, NULL, '[]')`,
       )
       .run(
         syncId,

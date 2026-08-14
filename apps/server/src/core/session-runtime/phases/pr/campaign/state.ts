@@ -3,7 +3,7 @@ import type { Database } from "bun:sqlite";
 import { immediateTransaction, now as currentTime, type StateStore } from "@server/core/orchestrator-state";
 import { getActiveProjectSession } from "@server/core/project-session/store.js";
 import { unresolvedSavePointFailures } from "@server/core/project-session/timeline.js";
-import { appendProjectEvent, type JsonObject } from "@server/core/project-state/events.js";
+import { appendProjectEvent, eventSpan, newSpanId, type JsonObject } from "@server/core/project-state/events.js";
 import { casPrCampaignEnvelope, casPrSeriesEnvelope } from "./cas.js";
 import {
   PR_CAMPAIGN_STATUSES,
@@ -384,6 +384,7 @@ function campaignEventMatchesTransition(
   if (eventType !== expected) {
     throw new Error(`Event ${eventType} cannot produce PR campaign status ${next}; expected ${expected}`);
   }
+  if (current === next) throw new Error(`${eventType} is valid only on entry to ${next}`);
 }
 
 function assertCampaignSemanticPayload(
@@ -448,6 +449,9 @@ export function transitionPrCampaign(
     const row = selectCampaign(store.db, campaignId);
     if (!row) throw new Error(`PR campaign not found: ${campaignId}`);
     const current = rowToCampaignState(store.db, row);
+    if (input.correlationId !== campaignId) {
+      throw new Error(`PR event correlation_id must equal campaign id ${campaignId}`);
+    }
     if (current.revision !== input.expectedRevision) {
       throw new StalePrCampaignRevisionError(campaignId, input.expectedRevision, current.revision);
     }
@@ -458,11 +462,11 @@ export function transitionPrCampaign(
     if (nextStatus !== current.status) assertPrCampaignStatusTransition(current.status, nextStatus);
     const eventType = input.eventType ?? eventTypeForPrCampaignStatus(nextStatus);
     campaignEventMatchesTransition(current.status, nextStatus, eventType);
-    if (
-      (nextStatus !== current.status || ["pr.batch_published", "pr.campaign_recovered", "pr.campaign_closed"].includes(eventType)) &&
-      input.actor !== "operator"
-    ) {
+    if (["pr.batch_published", "pr.campaign_recovered", "pr.campaign_closed"].includes(eventType) && input.actor !== "operator") {
       throw new Error(`Event ${eventType} is operator-only`);
+    }
+    if (nextStatus !== current.status && ["agent", "external_observer"].includes(input.actor)) {
+      throw new Error(`Actor ${input.actor} cannot execute PR campaign transitions`);
     }
     assertCampaignSemanticPayload(store.db, current, nextStatus, eventType, input.payload);
 
@@ -490,13 +494,13 @@ export function transitionPrCampaign(
       projectId: current.project_id,
       subjectKind: "pr_campaign",
       subjectId: campaignId,
-      correlationId: campaignId,
-      causationId: requiredText(input.commandId, "commandId"),
+      correlationId: requiredText(input.correlationId, "correlationId"),
+      causationId: requiredText(input.causationId ?? input.commandId, "causationId"),
       traceId: current.trace_id,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
+      ...eventSpan(input.spanId ?? newSpanId()),
       actor: input.actor,
       occurredAt: at,
-      payload: { ...(input.payload ?? {}), previous_status: current.status, status: nextStatus },
+      payload: { ...(input.payload ?? {}), from_status: current.status, to_status: nextStatus },
     });
     const accepted = casPrCampaignEnvelope(store.db, {
       blockersJson: JSON.stringify(nextBlockers),
@@ -521,6 +525,24 @@ function seriesEventMatchesTransition(
   next: PrSeriesStatus,
   eventType: PrEventType,
 ): void {
+  if (eventType === "pr.work_items_claimed") {
+    if (current !== "revising" || next !== "revising") {
+      throw new Error(`pr.work_items_claimed cannot record ${current} -> ${next}`);
+    }
+    return;
+  }
+  if (eventType === "pr.work_items_resolved") {
+    if (current !== "revising" || next !== "revising") {
+      throw new Error(`pr.work_items_resolved cannot record ${current} -> ${next}`);
+    }
+    return;
+  }
+  if (eventType === "pr.work_items_declined") {
+    if (current !== next || !["changes_requested", "revising"].includes(current)) {
+      throw new Error(`pr.work_items_declined cannot record ${current} -> ${next}`);
+    }
+    return;
+  }
   if (eventType === "pr.series_published") {
     if (current !== "prepared" || next !== "published") {
       throw new Error(`pr.series_published cannot record ${current} -> ${next}`);
@@ -528,8 +550,7 @@ function seriesEventMatchesTransition(
     return;
   }
   if (eventType === "pr.feedback_ingested") {
-    if (!["published", "changes_requested", "revising", "approved"].includes(current) ||
-        !["changes_requested", "revising"].includes(next)) {
+    if (!["published", "changes_requested", "revising", "approved"].includes(current) || current !== next) {
       throw new Error(`pr.feedback_ingested cannot record ${current} -> ${next}`);
     }
     return;
@@ -552,6 +573,7 @@ function seriesEventMatchesTransition(
   if (eventType !== expected) {
     throw new Error(`Event ${eventType} cannot produce PR series status ${next}; expected ${expected}`);
   }
+  if (current === next) throw new Error(`${eventType} is valid only on entry to ${next}`);
 }
 
 function assertSeriesSemanticPayload(
@@ -616,6 +638,11 @@ function assertSeriesSemanticPayload(
         throw new Error("pr.series_revised requires every named work item to be resolved");
       }
     }
+  } else if (eventType === "pr.series_approved") {
+    const value = payloadObject(payload, eventType);
+    requiredText(String(value.approval_source_identity ?? ""), "approval_source_identity");
+    requiredText(String(value.approved_revision ?? ""), "approved_revision");
+    requiredText(String(value.approving_actor ?? ""), "approving_actor");
   } else if (eventType === "pr.series_merged") {
     const value = payloadObject(payload, eventType);
     if (value.upstream_pr_number !== nextUpstreamPrNumber) {
@@ -625,7 +652,9 @@ function assertSeriesSemanticPayload(
   } else if (eventType === "pr.series_closed") {
     const value = payloadObject(payload, eventType);
     requiredText(String(value.close_reason ?? ""), "close_reason");
-    requiredText(String(value.closing_actor ?? ""), "closing_actor");
+    if (requiredText(String(value.closing_actor ?? ""), "closing_actor") !== actor) {
+      throw new Error("pr.series_closed closing_actor must match the event actor");
+    }
   }
   if (eventType === "pr.series_prepared") {
     throw new Error(`pr.series_prepared cannot revise existing series ${current.series_id}`);
@@ -654,6 +683,9 @@ export function transitionPrSeries(
     const campaignRow = selectCampaign(store.db, current.campaign_id);
     if (!campaignRow) throw new Error(`PR campaign not found: ${current.campaign_id}`);
     const campaign = rowToCampaignState(store.db, campaignRow);
+    if (input.correlationId !== campaign.campaign_id) {
+      throw new Error(`PR event correlation_id must equal campaign id ${campaign.campaign_id}`);
+    }
     if (isTerminalPrCampaignStatus(campaign.status)) {
       throw new Error(`PR campaign ${current.campaign_id} is terminal`);
     }
@@ -707,13 +739,13 @@ export function transitionPrSeries(
       projectId: campaignRow.project_id,
       subjectKind: "pr_series",
       subjectId: seriesId,
-      correlationId: current.campaign_id,
-      causationId: requiredText(input.commandId, "commandId"),
-      traceId: current.trace_id,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
+      correlationId: requiredText(input.correlationId, "correlationId"),
+      causationId: requiredText(input.causationId ?? input.commandId, "causationId"),
+      traceId: campaign.trace_id,
+      ...eventSpan(input.spanId ?? newSpanId()),
       actor: input.actor,
       occurredAt: at,
-      payload: { ...(input.payload ?? {}), previous_status: current.status, status: nextStatus },
+      payload: { ...(input.payload ?? {}), from_status: current.status, to_status: nextStatus },
     });
     const accepted = casPrSeriesEnvelope(store.db, {
       blockersJson: JSON.stringify(nextBlockers),
@@ -792,6 +824,9 @@ function insertPreparedSeries(
   campaign: PrCampaignRow,
   input: RecordPreparedPrSeriesInput,
 ): PrSeriesState {
+  if (input.correlationId !== campaign.campaign_id) {
+    throw new Error(`PR event correlation_id must equal campaign id ${campaign.campaign_id}`);
+  }
   if (!isPrCampaignStatus(campaign.status)) throw new Error(`Invalid PR campaign status: ${campaign.status}`);
   if (isTerminalPrCampaignStatus(campaign.status)) {
     throw new Error(`PR campaign ${campaign.campaign_id} is terminal in ${campaign.status}`);
@@ -799,9 +834,7 @@ function insertPreparedSeries(
   if (campaign.status !== "preparing" && campaign.status !== "working") {
     throw new Error(`PR campaign ${campaign.campaign_id} cannot prepare series while ${campaign.status}`);
   }
-  if (input.actor === "external_observer" || input.actor === "guardian") {
-    throw new Error(`Actor ${input.actor} cannot prepare a PR series`);
-  }
+  if (input.actor !== "operator") throw new Error("pr.series_prepared is operator-only");
   if (!Number.isInteger(input.batchIndex) || input.batchIndex < 0) {
     throw new Error("batchIndex must be a nonnegative integer");
   }
@@ -816,24 +849,26 @@ function insertPreparedSeries(
     throw new Error(`PR campaign ${campaign.campaign_id} already has branch ${branch} in ${duplicateBranch.series_id}`);
   }
   const at = input.occurredAt ?? currentTime();
-  const traceId = requiredText(input.traceId ?? `trace-pr-series-${seriesId}`, "traceId");
+  const traceId = requiredText(campaign.trace_id, "campaign traceId");
+  if (input.traceId !== undefined && requiredText(input.traceId, "traceId") !== traceId) {
+    throw new Error(`PR series trace_id must equal campaign trace_id ${traceId}`);
+  }
   const event = appendProjectEvent(store.db, {
     eventType: "pr.series_prepared",
     projectId: campaign.project_id,
     subjectKind: "pr_series",
     subjectId: seriesId,
-    correlationId: campaign.campaign_id,
-    causationId: requiredText(input.commandId, "commandId"),
+    correlationId: requiredText(input.correlationId, "correlationId"),
+    causationId: requiredText(input.causationId ?? input.commandId, "causationId"),
     traceId,
-    spanId: input.spanId ?? `span-${randomUUID()}`,
+    ...eventSpan(input.spanId ?? newSpanId()),
     actor: input.actor,
     occurredAt: at,
     payload: {
-      previous_status: null,
-      status: "prepared",
+      from_status: null,
+      to_status: "prepared",
       branch,
       batch_index: input.batchIndex,
-      target_units: targetUnits,
     },
   });
   store.db
@@ -883,6 +918,9 @@ export function openPrCampaign(
     }
     const sourceAnchor = assertStableNamedSavePoint(store, projectId, sessionUuid, namedSavePointId);
     const campaignId = requiredText(input.campaignId ?? `pr-campaign-${randomUUID()}`, "campaignId");
+    if (input.correlationId !== campaignId) {
+      throw new Error(`PR event correlation_id must equal campaign id ${campaignId}`);
+    }
     if (selectCampaign(store.db, campaignId)) throw new Error(`PR campaign already exists: ${campaignId}`);
     const publicationPolicy: PrPublicationPolicy = { batch_size: input.publicationPolicy?.batch_size ?? 4 };
     assertPublicationPolicy(publicationPolicy);
@@ -895,21 +933,22 @@ export function openPrCampaign(
       throw new Error("PR campaign series ids must be unique");
     }
     const at = input.occurredAt ?? currentTime();
+    const actionSpanId = input.spanId ?? newSpanId();
     const traceId = requiredText(input.traceId ?? `trace-pr-campaign-${campaignId}`, "traceId");
     const event = appendProjectEvent(store.db, {
       eventType: "pr.campaign_opened",
       projectId,
       subjectKind: "pr_campaign",
       subjectId: campaignId,
-      correlationId: campaignId,
-      causationId: requiredText(input.commandId, "commandId"),
+      correlationId: requiredText(input.correlationId, "correlationId"),
+      causationId: requiredText(input.causationId ?? input.commandId, "causationId"),
       traceId,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
+      ...eventSpan(actionSpanId),
       actor: input.actor,
       occurredAt: at,
       payload: {
-        previous_status: null,
-        status: "preparing",
+        from_status: null,
+        to_status: "preparing",
         source_anchor: {
           save_point_id: sourceAnchor.save_point_id,
           source_revision: sourceAnchor.source_revision,
@@ -939,14 +978,17 @@ export function openPrCampaign(
       );
     const campaign = selectCampaign(store.db, campaignId);
     if (!campaign) throw new Error(`PR campaign was not recorded: ${campaignId}`);
-    for (const [index, prepared] of series.entries()) {
+    for (const prepared of series) {
       insertPreparedSeries(store, campaign, {
         ...prepared,
         actor: input.actor,
         campaignId,
-        commandId: `${input.commandId}:series:${prepared.seriesId ?? index}`,
+        causationId: event.eventId,
+        commandId: input.commandId,
+        correlationId: input.correlationId,
         occurredAt: at,
-        spanId: input.spanId,
+        spanId: actionSpanId,
+        traceId,
       });
     }
     const saved = selectCampaign(store.db, campaignId);

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { StateStore } from "@server/core/orchestrator-state";
-import type { JsonObject } from "@server/core/project-state/events.js";
+import { newSpanId, type JsonObject } from "@server/core/project-state/events.js";
 import { getPrSeries, isPrSeriesStatusTransitionAllowed, transitionPrSeries } from "./state.js";
 import { ingestPrFeedback } from "./work-items.js";
 import type {
@@ -35,6 +35,12 @@ function eventForStatus(status: PrSeriesStatus): PrEventType {
   throw new Error(`No remote-observation event for PR series status ${status}`);
 }
 
+function requiredApprovalFact(value: string | undefined, fact: string): string {
+  const normalized = value?.trim() ?? "";
+  if (!normalized) throw new Error(`Approved PR observation requires ${fact}`);
+  return normalized;
+}
+
 function payloadForStatus(input: ObservePrSeriesRemoteInput, status: PrSeriesStatus): JsonObject {
   if (status === "merged") {
     return {
@@ -43,6 +49,13 @@ function payloadForStatus(input: ObservePrSeriesRemoteInput, status: PrSeriesSta
     };
   }
   if (status === "closed") return { close_reason: "closed_upstream", closing_actor: "external_observer" };
+  if (status === "approved") {
+    return {
+      approval_source_identity: requiredApprovalFact(input.approvalSourceIdentity, "approvalSourceIdentity"),
+      approved_revision: requiredApprovalFact(input.approvedRevision, "approvedRevision"),
+      approving_actor: requiredApprovalFact(input.approvingActor, "approvingActor"),
+    };
+  }
   return { review_decision: input.reviewDecision ?? "", upstream_pr_number: input.upstreamPrNumber };
 }
 
@@ -68,6 +81,11 @@ export function observePrSeriesRemote(store: StateStore, input: ObservePrSeriesR
     );
   }
   const identity = identities[0]!;
+  const correlationId = input.correlationId.trim();
+  if (correlationId !== identity.campaign_id) {
+    throw new Error(`PR observation correlation_id must equal campaign id ${identity.campaign_id}`);
+  }
+  const actionSpanId = input.spanId ?? newSpanId();
 
   let series = getPrSeries(store, identity.series_id);
   if (!series) return { feedbackItemIds: [], ignored: true, series: null };
@@ -84,7 +102,8 @@ export function observePrSeriesRemote(store: StateStore, input: ObservePrSeriesR
   if (feedback.length && series.status !== "merged" && series.status !== "closed") {
     const ingestion = ingestPrFeedback(store, {
       actor: "external_observer",
-      commandId: `${input.commandId}:feedback`,
+      commandId: input.commandId,
+      correlationId,
       expectedRevision: series.revision,
       items: feedback.map((item) => ({
         itemId: feedbackItemId(series!.series_id, item.sourceKind, item.sourceId),
@@ -92,6 +111,7 @@ export function observePrSeriesRemote(store: StateStore, input: ObservePrSeriesR
       })),
       occurredAt: input.occurredAt,
       seriesId: series.series_id,
+      spanId: actionSpanId,
     });
     feedbackItemIds.push(...ingestion.acceptedItemIds);
     series = ingestion.series;
@@ -100,12 +120,14 @@ export function observePrSeriesRemote(store: StateStore, input: ObservePrSeriesR
   if (target && target !== series.status && isPrSeriesStatusTransitionAllowed(series.status, target)) {
     series = transitionPrSeries(store, series.series_id, {
       actor: "external_observer",
-      commandId: `${input.commandId}:status:${target}`,
+      commandId: input.commandId,
+      correlationId,
       eventType: eventForStatus(target),
       expectedRevision: series.revision,
       occurredAt: input.occurredAt,
       patch: { status: target, upstreamPrNumber: input.upstreamPrNumber },
       payload: payloadForStatus(input, target),
+      spanId: actionSpanId,
     });
   }
   return { feedbackItemIds, ignored: false, series };

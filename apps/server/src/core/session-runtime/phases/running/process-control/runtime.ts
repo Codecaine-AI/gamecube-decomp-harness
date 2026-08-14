@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { releaseDispatch } from "@server/core/project-state";
+import { newSpanId, releaseDispatch } from "@server/core/project-state";
 import { immediateTransaction } from "@server/core/orchestrator-state";
 import { reconcilePendingIntegrations } from "@server/core/project-session";
 import {
@@ -214,8 +214,11 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
         return deps.json({ error: "process already running", process: deps.processStatus(stateDir, project) }, { status: 409 });
       }
       const startCommandId = stringValue(body.commandId, `command-run-start-${randomUUID()}`);
+      const startCorrelationId = runId;
+      const startSpanId = newSpanId();
       let acquiredLease: { leaseId: string; projectId: string } | null = null;
       let activatedRun = false;
+      let spawnCausationId = startCommandId;
       try {
         const store = openState(stateDir);
         try {
@@ -227,7 +230,6 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
             const repair = reconcileRunLeaseState({
               actor: "guardian",
               commandId: `command-run-startup-reconcile-${randomUUID()}`,
-              correlationId: runId,
               reason: "startup repaired run status and dispatch lease disagreement",
               runId,
               store,
@@ -249,14 +251,17 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
           const activation = activateRun({
             actor: "operator",
             commandId: startCommandId,
-            correlationId: runId,
             projectId,
             reason: stringValue(body.reason, "start managed run process"),
             runId,
+            spanId: startSpanId,
             store,
           });
           acquiredLease = { leaseId: activation.leaseId, projectId };
           activatedRun = true;
+          spawnCausationId = currentRun.status === "active"
+            ? startCommandId
+            : (activation.run.causedByEventId ?? startCommandId);
           deps.appendLog("ui", `run ${currentRun.id} activated under dispatch lease ${acquiredLease.leaseId}`);
         } finally {
           store.db.close();
@@ -270,16 +275,26 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
           const store = openState(stateDir);
           try {
             immediateTransaction(store.db, () => {
+              let releaseCausationId = spawnCausationId;
               if (activatedRun) {
                 const activeRun = getRun(store, runId);
-                if (activeRun?.status === "active") updateRunStatus(store, runId, "failed", "dashboard");
+                if (activeRun?.status === "active") {
+                  const failedRun = updateRunStatus(store, runId, "failed", "operator", {
+                    causationId: spawnCausationId,
+                    commandId: startCommandId,
+                    spanId: startSpanId,
+                  });
+                  releaseCausationId = failedRun.causedByEventId ?? spawnCausationId;
+                }
               }
               releaseDispatch(store, {
                 leaseId: acquiredLease!.leaseId,
                 projectId: acquiredLease!.projectId,
-                commandId: `command-run-start-failed-${randomUUID()}`,
-                correlationId: runId,
                 actor: "operator",
+                causationId: releaseCausationId,
+                commandId: startCommandId,
+                correlationId: startCorrelationId,
+                spanId: startSpanId,
               });
             });
           } finally {

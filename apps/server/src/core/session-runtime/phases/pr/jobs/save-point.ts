@@ -10,7 +10,7 @@ import {
   type SavePointTrigger,
 } from "@server/core/session-runtime/phases/pr/state";
 import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
-import { recordSavePointAnchor } from "@server/core/project-session";
+import { getActiveProjectSession, recordSavePointAnchor } from "@server/core/project-session";
 import type { EventActor, JsonObject as ProjectEventJsonObject } from "@server/core/project-state/events.js";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { loadTrustedReportFile } from "@server/core/validation/report";
@@ -83,6 +83,8 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
     const label = stringArg(args, "--label", "") || null;
     const commandId = stringArg(args, "--command-id", `command-save-point-${randomUUID()}`);
     const actor = parseActor(stringArg(args, "--actor", "operator"));
+    const sessionUuid = stringArg(args, "--session-uuid", "").trim();
+    if (!sessionUuid) throw new Error("--session-uuid is required");
     const baseRef = stringArg(args, "--base-ref", globals.project?.baseRef ?? "origin/master");
     const stateDirRelative = stateDirRelativeToRepo(globals.repoRoot, globals.stateDir);
 
@@ -213,8 +215,15 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
       }
     }
 
+    const projectId = globals.project?.projectId ?? globals.projectId;
+    const session = projectId ? getActiveProjectSession(store.db, projectId) : null;
+    if (!session) throw new Error("Save-point recording requires an active project session");
+    if (session.session_uuid !== sessionUuid) {
+      throw new Error(`Save-point session mismatch: active session is ${session.session_uuid}, received ${sessionUuid}`);
+    }
     recordSavePointAnchor(store, {
-      projectId: globals.project?.projectId ?? globals.projectId,
+      projectId,
+      sessionUuid: session.session_uuid,
       savePointId: record.id,
       commitSha: record.commitSha ?? "",
       triggerKind: record.triggerKind,
@@ -224,6 +233,7 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
       ),
       payload: record.payload as ProjectEventJsonObject,
       commandId,
+      correlationId: sessionUuid,
       actor,
       occurredAt: record.createdAt,
     });

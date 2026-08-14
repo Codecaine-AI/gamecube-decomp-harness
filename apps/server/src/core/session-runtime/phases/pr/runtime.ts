@@ -6,7 +6,10 @@ import { latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckS
 import { createRunCheckpoint, latestCheckpointSummary } from "@server/core/session-runtime/phases/pr/checkpoint";
 import { DEFAULT_PR_BATCH_LIMIT, type PrRecordContext } from "@server/core/session-runtime/phases/pr/pr-records";
 import { upstreamRepoSlug } from "@server/core/session-runtime/phases/pr/pr-sync";
-import type { CodeIssuesResult } from "@server/core/session-runtime/phases/pr/pr-worktrees";
+import type {
+  CodeIssuesResult,
+  PrProductionWorkflowLinkage,
+} from "@server/core/session-runtime/phases/pr/pr-worktrees";
 import { planRegressionRepair } from "@server/core/session-runtime/phases/running/epochs";
 import { getLatestRun, getRun, openState, admitPriorityTargets } from "@server/core/session-runtime/run-state";
 import { compactCheckpointResult } from "@server/core/session-runtime/phases/preparing/runtime";
@@ -16,6 +19,10 @@ import { DispatchLeaseUnavailableError, withDispatchLease, type DispatchLeaseRev
 import { activateRun } from "@server/core/session-runtime/phases/running/run-control.js";
 import { commitBoundaryWorktree } from "./boundary-commit.js";
 import { getProjectState, requireLease } from "@server/core/project-state";
+import {
+  resolveProjectEventTraceLinkage,
+  type ProjectEventTraceLinkage,
+} from "@server/core/project-state/kernel-links.js";
 import type { SavePointRuntime } from "./save-points-runtime.js";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 import type { ProjectRuntimeContext, ProjectSummary, ResolvedProject } from "@server/core/project-registry";
@@ -46,7 +53,7 @@ type WorkflowEventInput = {
   prId?: string | null;
   detail?: string | null;
   metadata?: Record<string, unknown>;
-};
+} & ProjectEventTraceLinkage;
 
 export interface HandoffRuntimeDeps {
   appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
@@ -70,7 +77,11 @@ export interface HandoffRuntimeDeps {
   };
   prWorktrees: {
     assertSliceVerificationClean: (branch: string, validation: JsonObject) => void;
-    ensureOpenPrBaseline: (paths: ProjectRuntimeContext, revalidateLease?: DispatchLeaseRevalidator) => Promise<JsonObject>;
+    ensureOpenPrBaseline: (
+      paths: ProjectRuntimeContext,
+      revalidateLease?: DispatchLeaseRevalidator,
+      productionLinkage?: PrProductionWorkflowLinkage,
+    ) => Promise<JsonObject>;
     prepareLocalPrWorkspace: (params: {
       baseSha: string;
       branch: string;
@@ -87,7 +98,11 @@ export interface HandoffRuntimeDeps {
     }) => Promise<JsonObject>;
     publishPatchToFork: (params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; patchPath: string; repoRoot: string; revalidateLease?: DispatchLeaseRevalidator; title: string }) => Promise<void>;
     readyLocalPrSource: (params: { baseSha: string; branch: string; files: string[]; supportFiles?: string[]; record: JsonObject; repoRoot: string; stateDir: string }) => Promise<JsonObject | null>;
-    rebuildProductionBaseline: (paths: ProjectRuntimeContext, revalidateLease?: DispatchLeaseRevalidator) => Promise<JsonObject>;
+    rebuildProductionBaseline: (
+      paths: ProjectRuntimeContext,
+      revalidateLease?: DispatchLeaseRevalidator,
+      productionLinkage?: PrProductionWorkflowLinkage,
+    ) => Promise<JsonObject>;
     remoteOwner: (repoRoot: string, remote: string) => string;
     sliceValidationSummary: (report: RegressionReport, issues: CodeIssuesResult) => JsonObject;
     verifyPrSliceInBaseline: (params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string; revalidateLease?: DispatchLeaseRevalidator }) => Promise<{ issues: CodeIssuesResult; report: RegressionReport }>;
@@ -147,6 +162,40 @@ function asObject(value: unknown): JsonObject {
 
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function dispatchTraceLinkage(
+  stateDir: string,
+  projectId: string,
+  workflowId: string,
+): ProjectEventTraceLinkage {
+  const store = openState(stateDir);
+  try {
+    const projectEventId = getProjectState(store, projectId)?.caused_by_event_id;
+    if (!projectEventId) {
+      throw new Error(
+        `PR publication tracing requires durable dispatch lineage for project ${projectId}`,
+      );
+    }
+    const linkage = resolveProjectEventTraceLinkage(
+      store.db,
+      projectId,
+      projectEventId,
+    );
+    if (linkage.correlationId !== workflowId) {
+      throw new Error(
+        `Dispatch trace correlation ${linkage.correlationId} does not match ${workflowId}`,
+      );
+    }
+    if (!linkage.causedByEventId) {
+      throw new Error(
+        `Dispatch trace event ${projectEventId} has no persisted event cause`,
+      );
+    }
+    return linkage;
+  } finally {
+    store.db.close();
+  }
 }
 
 function stringValue(value: unknown, fallback = ""): string {
@@ -259,6 +308,17 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       store.db.close();
     }
     throw new Error("No run found. Run init-run first.");
+  }
+
+  function sessionUuidForRun(stateDir: string, runId: string): string {
+    const store = openState(stateDir);
+    try {
+      const run = getRun(store, runId);
+      if (!run?.sessionUuid) throw new Error(`Run ${runId} has no project session for save-point evidence`);
+      return run.sessionUuid;
+    } finally {
+      store.db.close();
+    }
   }
 
   function prGroupMode(value: unknown): string {
@@ -476,7 +536,8 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       stateDir,
     });
     appendLog("ui", `run ${runId} boundary recorded after supervisor settlement`);
-    const savePoint = await savePoints.boundarySavePoint(paths, "pause");
+    if (!run.sessionUuid) throw new Error(`Run ${runId} has no project session for pause save-point evidence`);
+    const savePoint = await savePoints.boundarySavePoint(paths, "pause", run.sessionUuid);
     return {
       paused: true,
       project: paths.project ? projectToSummary(paths.project) : null,
@@ -503,7 +564,6 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       const { run } = activateRun({
         actor: "operator",
         commandId,
-        correlationId: runId,
         projectId,
         reason: "resume run after PR handoff pause",
         runId,
@@ -548,7 +608,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       } finally {
         store.db.close();
       }
-      const savePoint = await savePoints.boundarySavePoint(paths, "checkpoint");
+      const savePoint = await savePoints.boundarySavePoint(paths, "checkpoint", sessionUuidForRun(stateDir, runId));
       return { project: paths.project ? projectToSummary(paths.project) : null, ...result, savePoint };
     });
   }
@@ -592,7 +652,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         );
       }
       operationStepDetail("QA build & regression gate", verdictParts.join(" · "));
-      const savePoint = await savePoints.boundarySavePoint(paths, "qa");
+      const savePoint = await savePoints.boundarySavePoint(paths, "qa", sessionUuidForRun(stateDir, runId));
       return {
         ...merged,
         savePoint,
@@ -1167,6 +1227,18 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     const steps = ["prepare baseline", "prepare source patch", "verify slice in isolation", "check code issues", "publish branch", "create draft PR", "sync PR records"];
     const publishUnderLease = (revalidateLease: DispatchLeaseRevalidator) =>
       withOperation("open-pr", `Open PR — ${stringValue(record.displayName, branch)}`, steps, async () => {
+      const lease = revalidateLease();
+      const projectId = paths.project?.projectId;
+      if (!projectId) throw new Error("PR publication tracing requires a project id");
+      const traceLinkage = dispatchTraceLinkage(
+        stateDir,
+        projectId,
+        lease.workflow_id,
+      );
+      const productionLinkage: PrProductionWorkflowLinkage = {
+        ...traceLinkage,
+        workflowId: lease.workflow_id,
+      };
       await deps.submitWorkflowEvent(paths, {
         kind: "pr-publication",
         operation: "openPrForSlice",
@@ -1180,11 +1252,16 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
           files,
           ...(supportFiles.length > 0 ? { supportFiles } : {}),
         },
+        ...traceLinkage,
       });
       const baseRef = paths.project?.baseRef ?? "origin/master";
       operationStep("prepare baseline", baseRef);
       revalidateLease();
-      const baselineStatus = await prWorktrees.ensureOpenPrBaseline(paths, revalidateLease);
+      const baselineStatus = await prWorktrees.ensureOpenPrBaseline(
+        paths,
+        revalidateLease,
+        productionLinkage,
+      );
       const baseSha = stringValue(baselineStatus.baseSha);
       const baselineWorktree = stringValue(baselineStatus.worktreeDir);
       const baselineJson = baselineWorktree ? resolve(baselineWorktree, "build/GALE01/baseline.json") : "";
@@ -1400,6 +1477,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
           files,
           ...(supportFiles.length > 0 ? { supportFiles } : {}),
         },
+        ...traceLinkage,
       });
         return {
           opened: !existingPr,
@@ -1566,14 +1644,26 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         workflowId: `pr-handoff:${runId}`,
         reason: `prepare PR handoff for run ${runId}`,
       },
-      (_leaseId, revalidateLease) => withOperation("prepare", "Prepare Handoff", prepareSteps, async () => {
+      (_leaseId, revalidateLease) => {
+        const lease = revalidateLease();
+        const projectId = paths.project?.projectId;
+        if (!projectId) throw new Error("Production baseline tracing requires a project id");
+        const productionLinkage: PrProductionWorkflowLinkage = {
+          ...dispatchTraceLinkage(stateDir, projectId, lease.workflow_id),
+          workflowId: lease.workflow_id,
+        };
+        return withOperation("prepare", "Prepare Handoff", prepareSteps, async () => {
       assertHandoffIdle(stateDir, "Prepare handoff");
       operationStep("stop worker scheduling");
       const pause = body.pauseBeforeHandoff !== false ? await pauseRunForPr(body, revalidateLease) : null;
 
       operationStep("rebuild production baseline");
       revalidateLease();
-      const baseline = await prWorktrees.rebuildProductionBaseline(paths, revalidateLease);
+      const baseline = await prWorktrees.rebuildProductionBaseline(
+        paths,
+        revalidateLease,
+        productionLinkage,
+      );
       recordHandoffStatus(paths, runId, "baseline", baseline);
       operationStepDetail("rebuild production baseline", `${stringValue(baseline.baseSha).slice(0, 10)} ${baseline.cached ? "(cached)" : "(full build)"}`);
 
@@ -1692,7 +1782,12 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         runGit: deps.runGit,
         stateDir,
       });
-      const savePoint = await savePoints.boundarySavePoint(paths, "ship", `handoff ${stringValue(baseline.baseSha).slice(0, 10)}`);
+      const savePoint = await savePoints.boundarySavePoint(
+        paths,
+        "ship",
+        sessionUuidForRun(stateDir, runId),
+        `handoff ${stringValue(baseline.baseSha).slice(0, 10)}`,
+      );
       if (savePoint.ok) operationStepDetail("save point", `ship save point recorded (${savePoint.savePointId})`);
 
       return {
@@ -1714,7 +1809,8 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         splitPlan: finalSplitPlan,
         ship,
       };
-      }),
+      });
+      },
     );
   }
 

@@ -12,7 +12,7 @@ export interface BoundarySavePointResult extends JsonObject {
 }
 
 export interface SavePointRuntime {
-  boundarySavePoint: (paths: ProjectRuntimeContext, trigger: string, label?: string) => Promise<BoundarySavePointResult>;
+  boundarySavePoint: (paths: ProjectRuntimeContext, trigger: string, sessionUuid: string, label?: string) => Promise<BoundarySavePointResult>;
   createSavePoint: (body: JsonObject) => Promise<JsonObject>;
   parseCliJsonOutput: (stdout: string) => JsonObject;
 }
@@ -61,14 +61,20 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
     message: string,
     commandId: string,
     actor: "operator" | "runner",
+    sessionUuid: string,
   ): boolean {
+    const projectId = paths.project?.projectId;
+    const workflowCorrelationId = sessionUuid.trim();
+    if (!workflowCorrelationId) throw new Error("Save-point boundary requires an explicit session UUID");
     const result = recordSavePointFailureDurably(paths.stateDir, {
-        projectId: paths.project?.projectId,
+        projectId,
+        sessionUuid: workflowCorrelationId,
         triggerKind: trigger,
         sourceKind: "save_point_boundary",
         sourceId: label || trigger,
         message,
         commandId,
+        correlationId: workflowCorrelationId,
         actor,
       });
     if (!result.blockerRaised) {
@@ -80,13 +86,20 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
     return result.blockerRaised;
   }
 
-  async function boundarySavePoint(paths: ProjectRuntimeContext, trigger: string, label = ""): Promise<BoundarySavePointResult> {
+  async function boundarySavePoint(
+    paths: ProjectRuntimeContext,
+    trigger: string,
+    sessionUuid: string,
+    label = "",
+  ): Promise<BoundarySavePointResult> {
     const commandId = `command-save-point-${randomUUID()}`;
     const actor = trigger === "manual" ? "operator" : "runner";
+    const workflowCorrelationId = sessionUuid.trim();
+    if (!workflowCorrelationId) throw new Error("Save-point boundary requires an explicit session UUID");
     try {
       const command = [...serverJobPrefix(paths, deps.serverJobPath), "save-point", "--trigger", trigger];
       if (label) command.push("--label", label);
-      command.push("--command-id", commandId, "--actor", actor);
+      command.push("--command-id", commandId, "--actor", actor, "--session-uuid", workflowCorrelationId);
       const result = await deps.runCli(command);
       deps.invalidateCampaignCache();
       if (result.exitCode !== 0) {
@@ -95,7 +108,7 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
         return {
           ok: false,
           savePointId: null,
-          blockerRaised: recordBoundaryFailure(paths, trigger, label, message, commandId, actor),
+          blockerRaised: recordBoundaryFailure(paths, trigger, label, message, commandId, actor, workflowCorrelationId),
         };
       }
       const parsed = parseCliJsonOutput(result.stdout);
@@ -106,7 +119,7 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
         return {
           ok: false,
           savePointId: null,
-          blockerRaised: recordBoundaryFailure(paths, trigger, label, message, commandId, actor),
+          blockerRaised: recordBoundaryFailure(paths, trigger, label, message, commandId, actor, workflowCorrelationId),
         };
       }
       deps.appendLog("ui", `save-point (${trigger}) recorded`);
@@ -117,7 +130,7 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
       return {
         ok: false,
         savePointId: null,
-        blockerRaised: recordBoundaryFailure(paths, trigger, label, message, commandId, actor),
+        blockerRaised: recordBoundaryFailure(paths, trigger, label, message, commandId, actor, workflowCorrelationId),
       };
     }
   }
@@ -127,7 +140,9 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
     const trigger = stringValue(body.trigger, "manual");
     if (!SAVE_POINT_TRIGGERS.has(trigger)) throw new Error(`Unknown save-point trigger: ${trigger}`);
     const label = stringValue(body.label).trim() || (trigger === "manual" ? `manual-${new Date().toISOString()}` : "");
-    const result = await boundarySavePoint(paths, trigger, label);
+    const sessionUuid = stringValue(body.sessionUuid, stringValue(body.session_uuid)).trim();
+    if (!sessionUuid) throw new Error("Save-point creation requires an explicit session UUID");
+    const result = await boundarySavePoint(paths, trigger, sessionUuid, label);
     if (!result.ok) throw new Error("save-point failed; see process logs");
     return result;
   }

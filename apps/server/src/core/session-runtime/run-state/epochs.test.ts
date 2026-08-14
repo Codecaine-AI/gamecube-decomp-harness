@@ -77,6 +77,7 @@ function integrationLease(store: StateStore, runId: string): string {
   const decision = requestDispatch(store, {
     actor: "operator",
     commandId: `command-integrate-${runId}`,
+    correlationId: runId,
     kind: "run",
     projectId: "test",
     reason: "test worker output integration",

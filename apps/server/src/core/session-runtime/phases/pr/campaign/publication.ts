@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Database } from "bun:sqlite";
 import { immediateTransaction, now as currentTime, type StateStore } from "@server/core/orchestrator-state";
+import { newSpanId } from "@server/core/project-state/events.js";
 import {
   getProjectState,
   requireActiveLease,
@@ -20,7 +21,7 @@ export interface PublishPrBatchInput {
   campaignId: string;
   commandId: string;
   confirmed: boolean;
-  correlationId?: string;
+  correlationId: string;
   leaseId: string;
   occurredAt?: string;
   projectId: string;
@@ -581,8 +582,8 @@ function commitPublishedSeries(
     }
     const published = transitionPrSeries(input.store, gate.series.series_id, {
       actor: "operator",
-      commandId: `${reservation.idempotencyKey}:series:${gate.series.series_id}`,
-      correlationId: input.correlationId ?? reservation.campaignId,
+      commandId: input.commandId,
+      correlationId: input.correlationId,
       eventType: "pr.series_published",
       expectedRevision: gate.series.revision,
       occurredAt: input.occurredAt,
@@ -662,8 +663,8 @@ function completeBatchReservation(
     if (!campaign) throw new Error(`PR campaign not found: ${current.campaignId}`);
     campaign = transitionPrCampaign(input.store, campaign.campaign_id, {
       actor: "operator",
-      commandId: `${current.idempotencyKey}:batch:${current.batchIndex}`,
-      correlationId: input.correlationId ?? campaign.campaign_id,
+      commandId: input.commandId,
+      correlationId: input.correlationId,
       eventType: "pr.batch_published",
       expectedRevision: campaign.revision,
       occurredAt: input.occurredAt,
@@ -698,10 +699,20 @@ function completeBatchReservation(
 export async function publishPrBatch(input: PublishPrBatchInput): Promise<PublishPrBatchResult> {
   if (!input.confirmed) throw new Error("pr.publish_batch requires explicit confirmation");
   const commandId = requiredText(input.commandId, "commandId");
+  const correlationId = requiredText(input.correlationId, "correlationId");
+  const actionInput: PublishPrBatchInput = {
+    ...input,
+    commandId,
+    correlationId,
+    spanId: input.spanId ?? newSpanId(),
+  };
   let campaign = getPrCampaign(input.store, input.campaignId);
   if (!campaign) throw new Error(`PR campaign not found: ${input.campaignId}`);
   if (campaign.project_id !== input.projectId) {
     throw new Error(`PR campaign ${campaign.campaign_id} belongs to ${campaign.project_id}, not ${input.projectId}`);
+  }
+  if (correlationId !== campaign.campaign_id) {
+    throw new Error(`PR event correlation_id must equal campaign id ${campaign.campaign_id}`);
   }
   requireReservationSchema(input.store.db);
 
@@ -723,7 +734,7 @@ export async function publishPrBatch(input: PublishPrBatchInput): Promise<Publis
     return lease;
   };
   revalidateLease();
-  const reservation = reserveFrozenBatch({ ...input, commandId }, revalidateLease);
+  const reservation = reserveFrozenBatch(actionInput, revalidateLease);
   if (reservation.status === "completed") return resultForReservation(input.store, reservation);
 
   const ownerToken = `pr-batch-owner-${randomUUID()}`;
@@ -732,22 +743,22 @@ export async function publishPrBatch(input: PublishPrBatchInput): Promise<Publis
   try {
     for (const seriesId of claimed.seriesIds) {
       const gate = reserveSeriesBeforeExternalSideEffect(
-        input,
+        actionInput,
         claimed,
         seriesId,
         ownerToken,
         revalidateLease,
       );
       if (gate.alreadyPublished) continue;
-      const external = await input.publishSeries(gate.series, revalidateLease);
+      const external = await actionInput.publishSeries(gate.series, revalidateLease);
       if (!Number.isInteger(external.upstreamPrNumber) || external.upstreamPrNumber < 1) {
         throw new Error(`Publishing ${gate.series.series_id} did not return a positive upstream PR number`);
       }
       revalidateLease();
-      commitPublishedSeries(input, claimed, gate, ownerToken, external.upstreamPrNumber);
+      commitPublishedSeries(actionInput, claimed, gate, ownerToken, external.upstreamPrNumber);
     }
     revalidateLease();
-    return completeBatchReservation(input, claimed, ownerToken);
+    return completeBatchReservation(actionInput, claimed, ownerToken);
   } catch (error) {
     releaseBatchReservation(input.store.db, claimed.publicationId, ownerToken);
     throw error;

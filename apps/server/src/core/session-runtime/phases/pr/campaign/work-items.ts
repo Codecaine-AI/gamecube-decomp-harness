@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { immediateTransaction, now as currentTime, type StateStore } from "@server/core/orchestrator-state";
 import { requireActiveLease } from "@server/core/project-state";
+import { newSpanId } from "@server/core/project-state/events.js";
 import {
   StalePrSeriesRevisionError,
   getPrCampaign,
@@ -31,6 +32,7 @@ type WorkItemRow = {
 
 export interface PrCampaignWorkItemCommandInput {
   commandId: string;
+  correlationId: string;
   itemIds: string[];
   leaseId: string;
   projectId: string;
@@ -109,6 +111,9 @@ function fencedCampaignSeries(input: Omit<PrCampaignWorkItemCommandInput, "itemI
   if (!series) throw new Error(`PR series not found: ${seriesId}`);
   const campaign = getPrCampaign(input.store, series.campaign_id);
   if (!campaign) throw new Error(`PR campaign not found: ${series.campaign_id}`);
+  if (input.correlationId !== campaign.campaign_id) {
+    throw new Error(`PR event correlation_id must equal campaign id ${campaign.campaign_id}`);
+  }
   if (campaign.project_id !== projectId) {
     throw new Error(`PR campaign ${campaign.campaign_id} belongs to ${campaign.project_id}, not ${projectId}`);
   }
@@ -158,14 +163,17 @@ export function claimPrCampaignWorkItems(input: PrCampaignWorkItemCommandInput):
     return transitionPrWorkItems(input.store, {
       actor: "agent",
       commandId: requiredText(input.commandId, "commandId"),
-      eventType: "pr.series_revising",
+      correlationId: requiredText(input.correlationId, "correlationId"),
+      eventType: series.status === "revising" ? "pr.work_items_claimed" : "pr.series_revising",
       expectedRevision: series.revision,
       occurredAt,
       patch: { status: "revising" },
-      payload: {
-        claimed_work_item_ids: items.map((item) => item.item_id),
-        lease_id: input.leaseId,
-      },
+      payload: series.status === "revising"
+        ? {
+            claimed_work_item_ids: items.map((item) => item.item_id),
+            lease_id: input.leaseId,
+          }
+        : undefined,
       seriesId: series.series_id,
       spanId: input.spanId,
       workItems: items.map((item) => ({
@@ -189,7 +197,8 @@ export function resolvePrCampaignWorkItems(input: ResolvePrCampaignWorkItemsInpu
     return transitionPrWorkItems(input.store, {
       actor: "agent",
       commandId: requiredText(input.commandId, "commandId"),
-      eventType: "pr.series_revising",
+      correlationId: requiredText(input.correlationId, "correlationId"),
+      eventType: "pr.work_items_resolved",
       expectedRevision: series.revision,
       occurredAt,
       patch: { status: "revising" },
@@ -209,7 +218,30 @@ export function resolvePrCampaignWorkItems(input: ResolvePrCampaignWorkItemsInpu
   });
 }
 
-/** Declines review work with its reason preserved in the correlated series event. */
+function persistDeclinedWorkItems(
+  store: StateStore,
+  seriesId: string,
+  items: PrWorkItem[],
+  resolvedAt: string,
+): void {
+  for (const item of items) {
+    assertPrWorkItemStatusTransition(item.status, "declined");
+    const result = store.db
+      .query(
+        `UPDATE pr_work_items SET status = 'declined', resolved_at = ?
+         WHERE item_id = ? AND series_id = ? AND status = ?`,
+      )
+      .run(resolvedAt, item.item_id, seriesId, item.status);
+    if (result.changes !== 1) {
+      const actual = store.db
+        .query("SELECT status FROM pr_work_items WHERE item_id = ?")
+        .get(item.item_id) as { status: PrWorkItemStatus } | null;
+      throw new StalePrWorkItemStatusError(item.item_id, item.status, actual?.status ?? item.status);
+    }
+  }
+}
+
+/** Declines review work, then derives revising only after the progress fact is durable. */
 export function declinePrCampaignWorkItems(input: DeclinePrCampaignWorkItemsInput): PrSeriesState {
   return immediateTransaction(input.store.db, () => {
     const series = fencedCampaignSeries(input);
@@ -220,29 +252,43 @@ export function declinePrCampaignWorkItems(input: DeclinePrCampaignWorkItemsInpu
     const items = selectedWorkItems(input.store, series.series_id, input.itemIds, ["pending", "in_progress"]);
     const selectedPending = items.filter((item) => item.status === "pending").length;
     const remainingPending = series.work_items.filter((item) => item.status === "pending").length - selectedPending;
-    const nextStatus = series.status === "changes_requested" && remainingPending > 0
-      ? "changes_requested"
-      : "revising";
+    const commandId = requiredText(input.commandId, "commandId");
+    const correlationId = requiredText(input.correlationId, "correlationId");
     const occurredAt = currentTime();
-    return transitionPrWorkItems(input.store, {
+    const actionSpanId = input.spanId ?? newSpanId();
+    const declined = transitionPrSeries(input.store, series.series_id, {
       actor: "agent",
-      commandId: requiredText(input.commandId, "commandId"),
-      eventType: nextStatus === "revising" ? "pr.series_revising" : "pr.series_changes_requested",
+      commandId,
+      correlationId,
+      eventType: "pr.work_items_declined",
       expectedRevision: series.revision,
       occurredAt,
-      patch: { status: nextStatus },
+      patch: { status: series.status },
       payload: {
         decline_reason: reason,
         declined_work_item_ids: items.map((item) => item.item_id),
         lease_id: input.leaseId,
       },
-      seriesId: series.series_id,
-      spanId: input.spanId,
-      workItems: items.map((item) => ({
-        expectedStatus: item.status,
-        itemId: item.item_id,
-        status: "declined",
-      })),
+      spanId: actionSpanId,
+    });
+    persistDeclinedWorkItems(input.store, series.series_id, items, occurredAt);
+
+    if (series.status !== "changes_requested" || remainingPending > 0) {
+      const saved = getPrSeries(input.store, series.series_id);
+      if (!saved) throw new Error(`PR series disappeared after declining work items: ${series.series_id}`);
+      return saved;
+    }
+
+    return transitionPrSeries(input.store, series.series_id, {
+      actor: "agent",
+      causationId: declined.caused_by_event_id,
+      commandId,
+      correlationId,
+      eventType: "pr.series_revising",
+      expectedRevision: declined.revision,
+      occurredAt,
+      patch: { status: "revising" },
+      spanId: actionSpanId,
     });
   });
 }
@@ -264,15 +310,12 @@ export function revisePrCampaignSeries(input: RevisePrCampaignSeriesInput): PrSe
     return transitionPrSeries(input.store, series.series_id, {
       actor: "agent",
       commandId: requiredText(input.commandId, "commandId"),
+      correlationId: requiredText(input.correlationId, "correlationId"),
       eventType: "pr.series_revised",
       expectedRevision: series.revision,
       occurredAt: currentTime(),
       patch: { status: "published" },
       payload: {
-        declined_work_item_ids: series.work_items
-          .filter((item) => item.status === "declined")
-          .map((item) => item.item_id),
-        lease_id: input.leaseId,
         pushed_revision: pushedRevision,
         resolved_work_item_ids: series.work_items
           .filter((item) => item.status === "resolved")
@@ -344,7 +387,7 @@ export function transitionPrWorkItems(store: StateStore, input: TransitionPrWork
       throw new Error("Claiming PR work items requires the owning series to enter revising");
     }
     if (becomingResolved.size > 0) {
-      const recordsActiveRevision = input.eventType === "pr.series_revising" && input.patch.status === "revising";
+      const recordsActiveRevision = input.eventType === "pr.work_items_resolved" && input.patch.status === "revising";
       const finishesRevision = input.eventType === "pr.series_revised" && input.patch.status === "published";
       if (!recordsActiveRevision && !finishesRevision) {
         throw new Error("Resolving PR work items requires a revising or revised series event");
@@ -468,21 +511,36 @@ export function ingestPrFeedback(store: StateStore, input: IngestPrFeedbackInput
     }
 
     const actor = input.actor ?? "external_observer";
-    const nextStatus = current.status === "revising" ? "revising" : "changes_requested";
-    const series = transitionPrSeries(store, seriesId, {
+    const actionSpanId = input.spanId ?? newSpanId();
+    const progress = transitionPrSeries(store, seriesId, {
       actor,
+      causationId: input.causationId,
       commandId: input.commandId,
+      correlationId: requiredText(input.correlationId, "correlationId"),
       expectedRevision: current.revision,
       eventType: "pr.feedback_ingested",
       occurredAt: at,
-      patch: { status: nextStatus },
+      patch: { status: current.status },
       payload: {
         work_item_ids: acceptedItemIds,
         review_source_identities: acceptedSourceIdentities,
         ingesting_actor: actor,
       },
-      spanId: input.spanId,
+      spanId: actionSpanId,
     });
+    const series = current.status === "published" || current.status === "approved"
+      ? transitionPrSeries(store, seriesId, {
+        actor,
+        causationId: progress.caused_by_event_id,
+        commandId: input.commandId,
+        correlationId: requiredText(input.correlationId, "correlationId"),
+        expectedRevision: progress.revision,
+        eventType: "pr.series_changes_requested",
+        occurredAt: at,
+        patch: { status: "changes_requested" },
+        spanId: actionSpanId,
+      })
+      : progress;
     return { acceptedItemIds, duplicateItemIds, series };
   });
 }

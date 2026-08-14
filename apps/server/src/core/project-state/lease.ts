@@ -1,19 +1,28 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "bun:sqlite";
 import { immediateTransaction, now as currentTime, type StateStore } from "@server/core/orchestrator-state";
-import { appendProjectEvent, type JsonObject, type ProjectEventInput } from "./events.js";
+import {
+  appendProjectEvent,
+  eventSpan,
+  newSpanId,
+  type JsonObject,
+  type JsonValue,
+  type ProjectEventInput,
+} from "./events.js";
 import type {
   BeginDrainInput,
   Blocker,
   CancelDispatchRequestInput,
   DispatchLease,
   DispatchRecoveryResult,
+  DispatchHandoffRequest,
   HeartbeatDispatchInput,
   InitializeProjectStateInput,
   ProjectState,
   QueuedDispatchRequest,
   RecoverDispatchInput,
   ReleaseDispatchInput,
+  ReleaseDispatchResult,
   RequestDispatchDecision,
   RequestDispatchInput,
   TransitionContext,
@@ -140,13 +149,13 @@ function leaseId(): string {
   return `lease-${randomBytes(16).toString("hex")}`;
 }
 
-function contextValues(state: ProjectState, context: TransitionContext, at: string) {
+function contextValues(state: ProjectState, context: TransitionContext, at: string, traceId: string) {
   return {
-    correlationId: context.correlationId ?? context.commandId,
-    spanId: context.spanId ?? `span-${randomUUID()}`,
+    correlationId: context.correlationId,
+    ...eventSpan(context.spanId),
     occurredAt: at,
     projectId: state.project_id,
-    traceId: state.trace_id,
+    traceId,
     actor: context.actor,
   } as const;
 }
@@ -156,16 +165,17 @@ function appendEvent(
   state: ProjectState,
   context: TransitionContext,
   at: string,
+  traceId: string,
   event: Pick<ProjectEventInput, "eventType" | "subjectKind" | "subjectId" | "payload"> & {
     causationId?: string;
   },
 ) {
   return appendProjectEvent(store.db, {
-    ...contextValues(state, context, at),
+    ...contextValues(state, context, at, traceId),
     eventType: event.eventType,
     subjectKind: event.subjectKind,
     subjectId: event.subjectId,
-    causationId: event.causationId ?? context.commandId,
+    causationId: event.causationId ?? context.causationId ?? context.commandId,
     payload: event.payload,
   });
 }
@@ -218,6 +228,111 @@ function requestedPayload(input: RequestDispatchInput, holder: DispatchLease | n
   };
 }
 
+type DispatchRequestProvenance = Pick<
+  QueuedDispatchRequest,
+  "requested_by" | "request_command_id" | "request_root_span_id" | "request_event_id"
+>;
+
+const REQUEST_PROVENANCE_FIELDS = [
+  "requested_by",
+  "request_command_id",
+  "request_root_span_id",
+  "request_event_id",
+] as const;
+
+function requireRequestProvenance(
+  request: Partial<DispatchRequestProvenance>,
+  label: string,
+): DispatchRequestProvenance {
+  for (const field of REQUEST_PROVENANCE_FIELDS) {
+    if (typeof request[field] !== "string" || request[field]!.trim() === "") {
+      throw new Error(`${label} is missing accepted request provenance field ${field}`);
+    }
+  }
+  return request as DispatchRequestProvenance;
+}
+
+function assertDurableRequestProvenance(
+  store: StateStore,
+  state: ProjectState,
+  request: QueuedDispatchRequest,
+): void {
+  const provenance = requireRequestProvenance(request, `Queued dispatch ${request.kind}:${request.workflow_id}`);
+  const row = store.db
+    .query(
+      `SELECT event_type, project_id, subject_kind, subject_id, correlation_id,
+              actor, parent_span_id, payload_json
+       FROM project_events WHERE event_id = ?`,
+    )
+    .get(provenance.request_event_id) as {
+      event_type: string;
+      project_id: string;
+      subject_kind: string;
+      subject_id: string;
+      correlation_id: string;
+      actor: string;
+      parent_span_id: string | null;
+      payload_json: string;
+    } | null;
+  if (!row) {
+    throw new Error(
+      `Queued dispatch ${request.kind}:${request.workflow_id} request event ${provenance.request_event_id} was not found`,
+    );
+  }
+  const payload = parseJson<JsonObject>(row.payload_json, {}, "dispatch request event payload");
+  const mismatches = [
+    row.event_type !== "project.dispatch_requested" ? "event_type" : null,
+    row.project_id !== state.project_id ? "project_id" : null,
+    row.subject_kind !== "project" || row.subject_id !== state.project_id ? "subject" : null,
+    row.correlation_id !== request.workflow_id ? "correlation_id" : null,
+    row.actor !== provenance.requested_by ? "actor" : null,
+    row.parent_span_id !== provenance.request_root_span_id ? "request_root_span_id" : null,
+    payload.requested_kind !== request.kind ? "requested_kind" : null,
+    payload.workflow_id !== request.workflow_id ? "workflow_id" : null,
+    payload.reason !== request.reason ? "reason" : null,
+  ].filter((field): field is string => field !== null);
+  if (mismatches.length > 0) {
+    throw new Error(
+      `Queued dispatch ${request.kind}:${request.workflow_id} request provenance does not match durable event ${provenance.request_event_id}: ${mismatches.join(", ")}`,
+    );
+  }
+}
+
+function matchingQueuedHandoff(
+  store: StateStore,
+  state: ProjectState,
+  handoff: DispatchHandoffRequest,
+): QueuedDispatchRequest {
+  const queued = state.queued_dispatch_requests.find(
+    (request) => request.kind === handoff.target_kind && request.workflow_id === handoff.target_workflow_id,
+  );
+  if (!queued) {
+    throw new Error(`Dispatch handoff target ${handoff.target_kind}:${handoff.target_workflow_id} is not queued`);
+  }
+  const queuedProvenance = requireRequestProvenance(
+    queued,
+    `Queued dispatch ${queued.kind}:${queued.workflow_id}`,
+  );
+  const handoffProvenance = requireRequestProvenance(
+    handoff,
+    `Dispatch handoff ${handoff.target_kind}:${handoff.target_workflow_id}`,
+  );
+  const mismatches = [
+    queued.reason !== handoff.reason ? "reason" : null,
+    queued.requested_at !== handoff.requested_at ? "requested_at" : null,
+    ...REQUEST_PROVENANCE_FIELDS.map((field) =>
+      queuedProvenance[field] !== handoffProvenance[field] ? field : null
+    ),
+  ].filter((field): field is string => field !== null);
+  if (mismatches.length > 0) {
+    throw new Error(
+      `Dispatch handoff ${handoff.target_kind}:${handoff.target_workflow_id} does not match its queued request: ${mismatches.join(", ")}`,
+    );
+  }
+  assertDurableRequestProvenance(store, state, queued);
+  return queued;
+}
+
 function terminalPrDispatchTarget(db: Database, request: DispatchLease["requested_handoff"]): boolean {
   if (request?.target_kind !== "pr") return false;
   const table = db
@@ -230,17 +345,159 @@ function terminalPrDispatchTarget(db: Database, request: DispatchLease["requeste
   return campaign?.status === "completed" || campaign?.status === "abandoned";
 }
 
+function workflowSubjectKind(kind: DispatchLease["kind"]): "run" | "pr_campaign" | "sync_workflow" {
+  if (kind === "pr") return "pr_campaign";
+  return kind === "sync" ? "sync_workflow" : "run";
+}
+
+function assertWorkflowCorrelation(context: TransitionContext, workflowId: string): void {
+  if (context.correlationId !== workflowId) {
+    throw new Error(`Dispatch correlation_id must equal workflow id ${workflowId}`);
+  }
+}
+
+type DurableWorkflowTraceRow = {
+  workflow_id: string;
+  project_id: string | null;
+  trace_id: string | null;
+};
+
+function durableWorkflowTrace(
+  db: Database,
+  state: ProjectState,
+  kind: DispatchLease["kind"],
+  workflowId: string,
+): string {
+  const row = (kind === "run"
+    ? db.query("SELECT id AS workflow_id, project_id, trace_id FROM runs WHERE id = ?").get(workflowId)
+    : kind === "sync"
+      ? db.query("SELECT sync_id AS workflow_id, project_id, trace_id FROM sync_state WHERE sync_id = ?").get(workflowId)
+      : db.query("SELECT campaign_id AS workflow_id, project_id, trace_id FROM pr_campaigns WHERE campaign_id = ?").get(workflowId)
+  ) as DurableWorkflowTraceRow | null;
+  const label = kind === "pr" ? "PR campaign" : kind;
+  if (!row) throw new Error(`Durable ${label} workflow ${workflowId} was not found for dispatch`);
+  if (row.workflow_id !== workflowId) {
+    throw new Error(`Durable ${label} workflow identity ${row.workflow_id} does not match dispatch workflow ${workflowId}`);
+  }
+  if (row.project_id !== state.project_id) {
+    throw new Error(
+      `Durable ${label} workflow ${workflowId} belongs to project ${row.project_id ?? "(missing)"}, not ${state.project_id}`,
+    );
+  }
+  if (typeof row.trace_id !== "string" || row.trace_id.trim() === "") {
+    throw new Error(`Durable ${label} workflow ${workflowId} is missing its dispatch trace_id`);
+  }
+  return row.trace_id;
+}
+
+function canonicalJson(value: JsonValue): string {
+  if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key]!)}`).join(",")}}`;
+}
+
+interface HandoffSnapshot {
+  contentHash: string;
+  contentJson: string;
+  oldLeaseHolder: JsonObject;
+  projectId: string;
+  requestedHandoff: JsonObject;
+  snapshotId: string;
+  terminalProjectRevision: number;
+}
+
+function handoffSnapshot(
+  state: ProjectState,
+  lease: DispatchLease,
+  handoff: NonNullable<DispatchLease["requested_handoff"]>,
+  requestedSnapshotId?: string,
+): HandoffSnapshot {
+  const oldLeaseHolder: JsonObject = {
+    kind: lease.kind,
+    workflow_id: lease.workflow_id,
+    lease_id: lease.lease_id,
+  };
+  const requestedHandoff: JsonObject = {
+    target_kind: handoff.target_kind,
+    target_workflow_id: handoff.target_workflow_id,
+    reason: handoff.reason,
+    requested_at: handoff.requested_at,
+    requested_by: handoff.requested_by,
+    request_command_id: handoff.request_command_id,
+    request_root_span_id: handoff.request_root_span_id,
+    request_event_id: handoff.request_event_id,
+  };
+  const terminalProjectRevision = state.revision + 1;
+  const contentJson = canonicalJson({
+    schema_version: 1,
+    project_id: state.project_id,
+    old_lease_holder: oldLeaseHolder,
+    requested_handoff: requestedHandoff,
+    terminal_project_revision: terminalProjectRevision,
+  });
+  const contentHash = createHash("sha256").update(contentJson).digest("hex");
+  return {
+    contentHash,
+    contentJson,
+    oldLeaseHolder,
+    projectId: state.project_id,
+    requestedHandoff,
+    snapshotId: requestedSnapshotId ?? `handoff-snapshot-${contentHash}`,
+    terminalProjectRevision,
+  };
+}
+
+function insertHandoffSnapshot(
+  store: StateStore,
+  snapshot: HandoffSnapshot,
+  releaseEventId: string,
+  acquisitionEventId: string | null,
+  createdAt: string,
+): void {
+  const inserted = store.db.query(`
+    INSERT INTO dispatch_handoff_snapshots (
+      snapshot_id, project_id, content_json, content_hash,
+      old_lease_holder_json, requested_handoff_json, terminal_project_revision,
+      release_event_id, acquisition_event_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    snapshot.snapshotId,
+    snapshot.projectId,
+    snapshot.contentJson,
+    snapshot.contentHash,
+    JSON.stringify(snapshot.oldLeaseHolder),
+    JSON.stringify(snapshot.requestedHandoff),
+    snapshot.terminalProjectRevision,
+    releaseEventId,
+    acquisitionEventId,
+    createdAt,
+  );
+  if (inserted.changes !== 1) throw new Error(`Dispatch handoff snapshot ${snapshot.snapshotId} was not persisted`);
+}
+
 export function requestDispatch(store: StateStore, input: RequestDispatchInput): RequestDispatchDecision {
   return immediateTransaction(store.db, () => {
+    assertWorkflowCorrelation(input, input.workflowId);
+    const context = { ...input, spanId: input.spanId ?? newSpanId() };
     let state = requireState(store, input.projectId);
     assertProject(state, input.projectId);
+    const workflowTraceId = durableWorkflowTrace(store.db, state, input.kind, input.workflowId);
     const at = input.now ?? currentTime();
 
     if (state.active_workflow) {
       const holder = state.active_workflow;
+      durableWorkflowTrace(store.db, state, holder.kind, holder.workflow_id);
       const alreadyQueued = state.queued_dispatch_requests.some(
         (request) => request.kind === input.kind && request.workflow_id === input.workflowId,
       );
+      const requested = appendEvent(store, state, context, at, workflowTraceId, {
+        eventType: "project.dispatch_requested",
+        subjectKind: "project",
+        subjectId: state.project_id,
+        payload: requestedPayload(input, holder),
+      });
       const queuedRequests = alreadyQueued
         ? state.queued_dispatch_requests
         : [
@@ -251,14 +508,11 @@ export function requestDispatch(store: StateStore, input: RequestDispatchInput):
               reason: input.reason,
               requested_at: at,
               requested_by: input.actor,
+              request_command_id: input.commandId,
+              request_root_span_id: context.spanId,
+              request_event_id: requested.eventId,
             },
           ];
-      const requested = appendEvent(store, state, input, at, {
-        eventType: "project.dispatch_requested",
-        subjectKind: "project",
-        subjectId: state.project_id,
-        payload: { ...requestedPayload(input, holder), queued: true, duplicate: alreadyQueued },
-      });
       state = updateRevision(store, state, requested.eventId, at, {
         activeWorkflow: holder,
         queuedRequests,
@@ -279,16 +533,16 @@ export function requestDispatch(store: StateStore, input: RequestDispatchInput):
       heartbeat_at: at,
       blockers: [],
     };
-    const requested = appendEvent(store, state, input, at, {
+    const requested = appendEvent(store, state, context, at, workflowTraceId, {
       eventType: "project.dispatch_requested",
       subjectKind: "project",
       subjectId: state.project_id,
-      payload: { ...requestedPayload(input, null), queued: false },
+      payload: requestedPayload(input, null),
     });
     state = updateRevision(store, state, requested.eventId, at, { activeWorkflow: acquiring, queuedRequests });
 
     const active: DispatchLease = { ...acquiring, status: "active" };
-    const acquired = appendEvent(store, state, input, at, {
+    const acquired = appendEvent(store, state, context, at, workflowTraceId, {
       eventType: "project.dispatch_acquired",
       subjectKind: "project",
       subjectId: state.project_id,
@@ -301,7 +555,7 @@ export function requestDispatch(store: StateStore, input: RequestDispatchInput):
       },
     });
     state = updateRevision(store, state, acquired.eventId, at, { activeWorkflow: active });
-    return { queued: false, leaseId: mintedLeaseId, state };
+    return { queued: false, leaseId: mintedLeaseId, acquiredEventId: acquired.eventId, state };
   });
 }
 
@@ -346,43 +600,55 @@ export function heartbeatDispatch(store: StateStore, input: HeartbeatDispatchInp
 
 export function beginDrain(store: StateStore, input: BeginDrainInput): ProjectState {
   return immediateTransaction(store.db, () => {
+    const context = { ...input, spanId: input.spanId ?? newSpanId() };
     const { state, lease } = requireCurrentLease(store, input.leaseId, input.projectId);
+    assertWorkflowCorrelation(input, lease.workflow_id);
+    const holderTraceId = durableWorkflowTrace(store.db, state, lease.kind, lease.workflow_id);
     if ((input.targetKind === undefined) !== (input.targetWorkflowId === undefined)) {
       throw new Error("Dispatch drain must provide both targetKind and targetWorkflowId, or neither");
     }
+    let targetRequest: QueuedDispatchRequest | undefined;
     if (input.targetKind && input.targetWorkflowId) {
-      const targetIsQueued = state.queued_dispatch_requests.some(
+      durableWorkflowTrace(store.db, state, input.targetKind, input.targetWorkflowId);
+      targetRequest = state.queued_dispatch_requests.find(
         (request) => request.kind === input.targetKind && request.workflow_id === input.targetWorkflowId,
       );
-      if (!targetIsQueued) {
+      if (!targetRequest) {
         throw new Error(`Dispatch handoff target ${input.targetKind}:${input.targetWorkflowId} is not queued`);
       }
+      assertDurableRequestProvenance(store, state, targetRequest);
     }
     const at = input.now ?? currentTime();
     const draining: DispatchLease = {
       ...lease,
       status: "draining",
-      ...(input.targetKind && input.targetWorkflowId
+      ...(targetRequest
         ? {
             requested_handoff: {
-              target_kind: input.targetKind,
-              target_workflow_id: input.targetWorkflowId,
-              reason: input.reason,
-              requested_at: at,
+              target_kind: targetRequest.kind,
+              target_workflow_id: targetRequest.workflow_id,
+              reason: targetRequest.reason,
+              requested_at: targetRequest.requested_at,
+              requested_by: targetRequest.requested_by,
+              request_command_id: targetRequest.request_command_id,
+              request_root_span_id: targetRequest.request_root_span_id,
+              request_event_id: targetRequest.request_event_id,
             },
           }
         : { requested_handoff: undefined }),
     };
-    const event = appendEvent(store, state, input, at, {
+    const event = appendEvent(store, state, context, at, holderTraceId, {
       eventType: "project.dispatch_drain_started",
-      subjectKind: lease.kind,
+      subjectKind: workflowSubjectKind(lease.kind),
       subjectId: lease.workflow_id,
       payload: {
         lease_id: lease.lease_id,
-        target_kind: input.targetKind ?? null,
-        target_workflow_id: input.targetWorkflowId ?? null,
-        reason: input.reason,
-        open_obligations: lease.blockers.map((blocker) => ({ code: blocker.code, source_kind: blocker.source_kind, source_id: blocker.source_id })),
+        target_kind: input.targetKind ?? "none",
+        open_obligations: lease.blockers.map((blocker) => ({
+          code: blocker.code,
+          source_kind: blocker.source_kind,
+          source_id: blocker.source_id,
+        })),
       },
     });
     return updateRevision(store, state, event.eventId, at, { activeWorkflow: draining });
@@ -396,8 +662,11 @@ export function beginDrain(store: StateStore, input: BeginDrainInput): ProjectSt
  */
 export function cancelDispatchRequest(store: StateStore, input: CancelDispatchRequestInput): ProjectState {
   return immediateTransaction(store.db, () => {
+    assertWorkflowCorrelation(input, input.workflowId);
+    const context = { ...input, spanId: input.spanId ?? newSpanId() };
     const state = requireState(store, input.projectId);
     assertProject(state, input.projectId);
+    const workflowTraceId = durableWorkflowTrace(store.db, state, input.kind, input.workflowId);
     const queuedRequests = state.queued_dispatch_requests.filter(
       (request) => !(request.kind === input.kind && request.workflow_id === input.workflowId),
     );
@@ -408,9 +677,9 @@ export function cancelDispatchRequest(store: StateStore, input: CancelDispatchRe
       ? { ...state.active_workflow, requested_handoff: undefined }
       : state.active_workflow;
     const at = input.now ?? currentTime();
-    const event = appendEvent(store, state, input, at, {
+    const event = appendEvent(store, state, context, at, workflowTraceId, {
       eventType: "project.dispatch_request_cancelled",
-      subjectKind: input.kind,
+      subjectKind: workflowSubjectKind(input.kind),
       subjectId: input.workflowId,
       payload: {
         kind: input.kind,
@@ -423,16 +692,20 @@ export function cancelDispatchRequest(store: StateStore, input: CancelDispatchRe
   });
 }
 
-export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput): ProjectState {
+export function releaseDispatchDetailed(store: StateStore, input: ReleaseDispatchInput): ReleaseDispatchResult {
   return immediateTransaction(store.db, () => {
+    const context = { ...input, spanId: input.spanId ?? newSpanId() };
     let { state, lease } = requireCurrentLease(store, input.leaseId, input.projectId);
+    assertWorkflowCorrelation(input, lease.workflow_id);
+    const holderTraceId = durableWorkflowTrace(store.db, state, lease.kind, lease.workflow_id);
     const at = input.now ?? currentTime();
 
     if (lease.blockers.length > 0) {
+      if (lease.status === "blocked") return { state };
       const blocked: DispatchLease = { ...lease, status: "blocked" };
-      const blockedEvent = appendEvent(store, state, input, at, {
+      const blockedEvent = appendEvent(store, state, context, at, holderTraceId, {
         eventType: "project.dispatch_blocked",
-        subjectKind: lease.kind,
+        subjectKind: workflowSubjectKind(lease.kind),
         subjectId: lease.workflow_id,
         payload: {
           lease_id: lease.lease_id,
@@ -444,32 +717,40 @@ export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput):
           recovery_choices: ["settle_obligations", "recover_dispatch"],
         },
       });
-      return updateRevision(store, state, blockedEvent.eventId, at, { activeWorkflow: blocked });
+      return { state: updateRevision(store, state, blockedEvent.eventId, at, { activeWorkflow: blocked }) };
     }
 
     const handoff = lease.requested_handoff;
+    if (handoff) matchingQueuedHandoff(store, state, handoff);
+    const successorTraceId = handoff
+      ? durableWorkflowTrace(store.db, state, handoff.target_kind, handoff.target_workflow_id)
+      : null;
     const handoffTargetTerminal = terminalPrDispatchTarget(store.db, handoff);
     const queuedAfterRelease = handoffTargetTerminal && handoff
       ? state.queued_dispatch_requests.filter(
           (request) => !(request.kind === handoff.target_kind && request.workflow_id === handoff.target_workflow_id),
         )
       : state.queued_dispatch_requests;
+    const snapshot = handoff ? handoffSnapshot(state, lease, handoff, input.handoffSnapshotId) : null;
     // `releasing` is the in-command release phase while evidence is appended.
     // It is not a separately accepted durable revision: the one durable release
     // transition below moves canonical state to null and is caused by the one
     // project.dispatch_released event in this transaction.
     lease = { ...lease, status: "releasing" };
-    const released = appendEvent(store, state, input, at, {
+    const released = appendEvent(store, state, context, at, holderTraceId, {
       eventType: "project.dispatch_released",
       subjectKind: "project",
       subjectId: state.project_id,
       payload: {
-        old_lease_holder: { kind: lease.kind, workflow_id: lease.workflow_id, lease_id: lease.lease_id },
-        handoff_snapshot_id: input.handoffSnapshotId ?? null,
-        terminal_revision: state.revision + 1,
-        requested_handoff: handoff
-          ? { target_kind: handoff.target_kind, target_workflow_id: handoff.target_workflow_id }
-          : null,
+        old_lease_holder: snapshot?.oldLeaseHolder ?? {
+          kind: lease.kind,
+          workflow_id: lease.workflow_id,
+          lease_id: lease.lease_id,
+        },
+        handoff_snapshot_id: snapshot?.snapshotId ?? null,
+        handoff_snapshot_content_hash: snapshot?.contentHash ?? null,
+        terminal_revision: snapshot?.terminalProjectRevision ?? state.revision + 1,
+        requested_handoff: snapshot?.requestedHandoff ?? null,
         handoff_result: handoffTargetTerminal ? "terminal_target_cancelled" : handoff ? "promoted" : "none",
       },
     });
@@ -478,7 +759,12 @@ export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput):
       queuedRequests: queuedAfterRelease,
     });
 
-    if (!handoff || handoffTargetTerminal) return state;
+    if (!handoff || handoffTargetTerminal) {
+      if (snapshot) insertHandoffSnapshot(store, snapshot, released.eventId, null, at);
+      return { state, releasedEventId: released.eventId };
+    }
+    if (!snapshot) throw new Error("Dispatch handoff snapshot was not prepared");
+    if (!successorTraceId) throw new Error("Dispatch handoff successor trace was not resolved");
 
     const handoffLeaseId = leaseId();
     const active: DispatchLease = {
@@ -493,38 +779,76 @@ export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput):
     const queuedRequests = state.queued_dispatch_requests.filter(
       (request) => !(request.kind === handoff.target_kind && request.workflow_id === handoff.target_workflow_id),
     );
-    const acquired = appendEvent(store, state, input, at, {
-      eventType: "project.dispatch_acquired",
-      subjectKind: "project",
-      subjectId: state.project_id,
+    const successorContext = {
+      actor: handoff.requested_by,
+      commandId: handoff.request_command_id,
+      correlationId: handoff.target_workflow_id,
       causationId: released.eventId,
-      payload: {
-        kind: handoff.target_kind,
-        workflow_id: handoff.target_workflow_id,
-        lease_id: handoffLeaseId,
-        state_revision: state.revision + 1,
-        handoff_from_lease_id: lease.lease_id,
+      spanId: handoff.request_root_span_id,
+    };
+    const acquired = appendEvent(
+      store,
+      state,
+      successorContext,
+      at,
+      successorTraceId,
+      {
+        eventType: "project.dispatch_acquired",
+        subjectKind: "project",
+        subjectId: state.project_id,
+        causationId: released.eventId,
+        payload: {
+          kind: handoff.target_kind,
+          workflow_id: handoff.target_workflow_id,
+          lease_id: handoffLeaseId,
+          state_revision: state.revision + 1,
+          handoff_from_lease_id: lease.lease_id,
+          handoff_snapshot_id: snapshot.snapshotId,
+          handoff_snapshot_content_hash: snapshot.contentHash,
+          handoff_release_event_id: released.eventId,
+        },
       },
-    });
-    return updateRevision(store, state, acquired.eventId, at, {
+    );
+    state = updateRevision(store, state, acquired.eventId, at, {
       activeWorkflow: active,
       queuedRequests,
     });
+    insertHandoffSnapshot(store, snapshot, released.eventId, acquired.eventId, at);
+    return {
+      state,
+      releasedEventId: released.eventId,
+      acquiredEventId: acquired.eventId,
+      successorActivation: {
+        ...successorContext,
+        causationId: acquired.eventId,
+        kind: handoff.target_kind,
+        workflowId: handoff.target_workflow_id,
+        leaseId: handoffLeaseId,
+      },
+    };
   });
+}
+
+export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput): ProjectState {
+  return releaseDispatchDetailed(store, input).state;
 }
 
 export function recoverDispatch(store: StateStore, input: RecoverDispatchInput): DispatchRecoveryResult {
   if (input.actor !== "operator") throw new Error("Dispatch recovery is operator-only");
   return immediateTransaction(store.db, () => {
+    const context = { ...input, spanId: input.spanId ?? newSpanId() };
     const { state, lease } = requireCurrentLease(store, input.leaseId, input.projectId);
+    assertWorkflowCorrelation(input, lease.workflow_id);
+    const holderTraceId = durableWorkflowTrace(store.db, state, lease.kind, lease.workflow_id);
     const at = input.now ?? currentTime();
-    const released = appendEvent(store, state, input, at, {
+    const released = appendEvent(store, state, context, at, holderTraceId, {
       eventType: "project.dispatch_released",
       subjectKind: "project",
       subjectId: state.project_id,
       payload: {
         old_lease_holder: { kind: lease.kind, workflow_id: lease.workflow_id, lease_id: lease.lease_id },
         handoff_snapshot_id: null,
+        handoff_snapshot_content_hash: null,
         terminal_revision: state.revision + 1,
         recovery: true,
         recovery_reason: input.recoveryReason,

@@ -28,7 +28,11 @@
         "b-index-epoch-regression-pause-17",
         "b-index-epoch-cycle-error-18",
         "b-index-in-the-default-epoch-cyc-19",
-        "b-index-epoch-regression-pause-20"
+        "b-index-epoch-regression-pause-20",
+        "b-e5-dispatch-handoff-heading",
+        "b-e5-dispatch-handoff-contract",
+        "b-e5-spool-heading",
+        "b-e5-spool-contract"
       ]
     },
     "b-index-events-are-the-handshake-1": {
@@ -37,7 +41,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Events are the handshake between workers, the runner, and the sleeping scheduler loop. A producer writes an event with payload and provenance. The runner handles the oldest relevant unhandled event by invoking the correct next step. The event is marked handled only after the resulting decision or state transition is stored."
+          "insert": "Scheduler wake events are the handshake between workers, the runner, and the sleeping scheduler loop. They are durable work-queue signals, not accepted project facts. A producer writes a wake request with payload and provenance; the runner handles the oldest relevant unhandled request and marks it handled only after the resulting decision or state transition is stored."
         }
       ],
       "children": []
@@ -48,7 +52,20 @@
       "props": {},
       "text": [
         {
-          "insert": "Accepted run transitions append a durable project event and update RunState under its expected revision in one transaction. The accepted transition increments revision once and points "
+          "insert": "When a wake request leads to an accepted run transition, the transition appends one "
+        },
+        {
+          "insert": "project event",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/03-state-and-events/40-project-events.mdx",
+              "label": "project event"
+            }
+          }
+        },
+        {
+          "insert": " and updates RunState under its expected revision in one transaction. The transition increments revision once and points "
         },
         {
           "insert": "caused_by_event_id",
@@ -57,7 +74,7 @@
           }
         },
         {
-          "insert": " at that event; a stale revision refuses the transition. Scheduler-condition updates stay outside this handshake because they are observability only."
+          "insert": " at that event; a stale revision refuses the state write, event, and publication work together. Scheduler-condition updates stay outside this accepted-fact transaction because they are observability only."
         }
       ],
       "children": []
@@ -70,7 +87,7 @@
       },
       "text": [
         {
-          "insert": "Wake Events"
+          "insert": "Scheduler Wake Events"
         }
       ],
       "children": []
@@ -370,6 +387,63 @@
         },
         {
           "insert": " records a failed epoch commit or report build. Both carry enough payload for deterministic routing or an operator to decide whether to repair, revert, or resume."
+        }
+      ],
+      "children": []
+    },
+    "b-e5-dispatch-handoff-heading": {
+      "id": "b-e5-dispatch-handoff-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Transactional Dispatch Handoff"
+        }
+      ],
+      "children": []
+    },
+    "b-e5-dispatch-handoff-contract": {
+      "id": "b-e5-dispatch-handoff-contract",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A dispatch transfer validates the participating state and lease revisions, persists the release and acquisition facts, and stores one immutable handoff snapshot in a single transaction. The release event carries the snapshot reference and content identity with the old holder and terminal revision; the acquisition event references that same snapshot with the new lease and accepted state revision. Consumers follow and verify the stored reference instead of reconstructing handoff state from event payload fragments."
+        }
+      ],
+      "children": []
+    },
+    "b-e5-spool-heading": {
+      "id": "b-e5-spool-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Transactional Spool Replay"
+        }
+      ],
+      "children": []
+    },
+    "b-e5-spool-contract": {
+      "id": "b-e5-spool-contract",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every accepted project-event transaction writes its outgoing delivery records to a durable spool in the same commit. Each delivery has a deterministic identity derived from "
+        },
+        {
+          "insert": "event_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and destination. Replay uses that identity transactionally with the consumer effect, so a crash before acknowledgement retries the same delivery and a duplicate becomes an acknowledged no-op rather than a second transition. A delivery is cleared only after acceptance is durable."
         }
       ],
       "children": []

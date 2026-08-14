@@ -27,6 +27,7 @@
         "b-index-scheduler-condition-16",
         "b-index-scheduler-condition-is-17",
         "b-index-condition-observed-a-18",
+        "b-e5-run-progress-separation",
         "b-index-epoch-integration-crash-19",
         "b-index-epoch-completion-crosses-20",
         "b-index-before-the-git-integrati-21",
@@ -168,7 +169,20 @@
       "props": {},
       "text": [
         {
-          "insert": "The control status is the sole run lifecycle vocabulary; scheduler activity and process liveness never substitute for it:"
+          "insert": "The control status is the sole run lifecycle vocabulary; scheduler activity, process liveness, and registered progress events never substitute for it. Each accepted status edge has its own semantic event in the "
+        },
+        {
+          "insert": "project event contract",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/03-state-and-events/40-project-events.mdx",
+              "label": "project event contract"
+            }
+          }
+        },
+        {
+          "insert": ":"
         }
       ],
       "children": []
@@ -401,7 +415,7 @@
           }
         },
         {
-          "insert": " for authority and terminality."
+          "insert": " for authority and terminality. Scheduler wake requests may prompt reevaluation of this mirror, but they remain queue signals rather than accepted project facts."
         }
       ],
       "children": []
@@ -413,6 +427,35 @@
       "text": [
         {
           "insert": "| Condition | Observed activity |\n| --- | --- |\n| idle | No scheduler operation is executing. |\n| planning | Candidate evidence is becoming an admission decision. |\n| dispatching | Admitted work is being assigned to capacity. |\n| waiting | The active run is sleeping for a durable wake event. |\n| boundary | Confirmation, integration, report refresh, or save-point work is executing. |\n| blocked | Progress requires recovery or operator action. |"
+        }
+      ],
+      "children": []
+    },
+    "b-e5-run-progress-separation": {
+      "id": "b-e5-run-progress-separation",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Registered progress events such as "
+        },
+        {
+          "insert": "run.epoch_integrated",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "run.remote_applied",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " record accepted facts without pretending that the run crossed a status edge. If a progress fact revises durable state, that revision still receives exactly one event and one revision increment; it never reuses a status-transition name."
         }
       ],
       "children": []

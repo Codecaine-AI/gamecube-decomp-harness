@@ -13,6 +13,7 @@ import {
   getRun,
   openState,
   policyRevisionForConfiguration,
+  setRunDesiredWorkers,
   setRunSchedulerCondition,
   StaleRunRevisionError,
   startingKnowledgeRevision,
@@ -52,12 +53,21 @@ function acquireRunLease(store: StateStore, runId: string): void {
   const decision = requestDispatch(store, {
     actor: "operator",
     commandId: `command-lease-${runId}`,
+    correlationId: runId,
     kind: "run",
     projectId: "melee",
     reason: "test activation",
     workflowId: runId,
   });
   if (decision.queued) throw new Error("test dispatch unexpectedly queued");
+}
+
+function invokeRunTransition(
+  store: StateStore,
+  runId: string,
+  input: Record<string, unknown>,
+) {
+  return Reflect.apply(transitionRun, undefined, [store, runId, input]);
 }
 
 afterEach(() => {
@@ -74,6 +84,16 @@ describe("run state contract", () => {
     expect(ready).toMatchObject({ status: "ready", revision: 1, inputs: { base_revision: "base-abc" } });
     expect(creationEvents.map((event) => event.eventType)).toEqual(["run.drafted", "run.readied"]);
     expect(ready.causedByEventId).toBe(creationEvents[1]?.eventId);
+    expect(creationEvents[1]?.causationId).toBe(creationEvents[0]?.eventId);
+    expect(creationEvents[0]?.correlationId).toBe(ready.id);
+    expect(creationEvents[1]?.correlationId).toBe(ready.id);
+    expect(creationEvents[0]?.parentSpanId).toBe(creationEvents[1]?.parentSpanId);
+    expect(creationEvents[0]?.spanId).not.toBe(creationEvents[1]?.spanId);
+    expect(creationEvents.every((event) => /^span-[0-9a-f-]{36}$/.test(event.spanId))).toBe(true);
+    expect(creationEvents[1]?.payload).toMatchObject({
+      from_status: "draft",
+      to_status: "ready",
+    });
 
     expect(() => updateRunStatus(store, ready.id, "active", "operator")).toThrow("active project dispatch lease");
     expect(eventsForSubject(store.db, "run", ready.id)).toHaveLength(2);
@@ -83,18 +103,118 @@ describe("run state contract", () => {
     expect(active).toMatchObject({ status: "active", revision: 2 });
     expect(acceptedEvents).toHaveLength(3);
     expect(acceptedEvents[2]?.eventType).toBe("run.activated");
+    expect(acceptedEvents[2]?.payload).toMatchObject({
+      from_status: "ready",
+      to_status: "active",
+    });
     expect(active.causedByEventId).toBe(acceptedEvents[2]?.eventId);
 
     expect(() =>
       transitionRun(store, ready.id, {
         actor: "operator",
         commandId: "command-stale-pause",
+        correlationId: ready.id,
         eventType: "run.paused",
         expectedRevision: ready.revision,
         patch: { status: "paused" },
+        payload: {},
       }),
     ).toThrow(StaleRunRevisionError);
     expect(eventsForSubject(store.db, "run", ready.id)).toHaveLength(3);
+
+    invokeRunTransition(store, ready.id, {
+      actor: "operator",
+      commandId: "command-spoofed-pause",
+      correlationId: ready.id,
+      eventType: "run.paused",
+      expectedRevision: active.revision,
+      patch: { status: "paused" },
+      payload: { from_status: "draft", to_status: "completed" },
+    });
+    expect(eventsForSubject(store.db, "run", ready.id).at(-1)?.payload).toEqual({
+      from_status: "active",
+      to_status: "paused",
+    });
+  });
+
+  test("rejects run events whose destination status is incompatible", () => {
+    const { store } = testStore();
+    const ready = readyRun(store);
+
+    if (false) {
+      transitionRun(store, ready.id, {
+        actor: "operator",
+        commandId: "command-type-mismatch",
+        correlationId: ready.id,
+        eventType: "run.paused",
+        expectedRevision: ready.revision,
+        // @ts-expect-error run.paused can only commit a paused destination.
+        patch: { status: "active" },
+        payload: {},
+      });
+      transitionRun(store, ready.id, {
+        actor: "operator",
+        commandId: "command-type-reason-extra",
+        correlationId: ready.id,
+        eventType: "run.paused",
+        expectedRevision: ready.revision,
+        patch: { status: "paused" },
+        payload: {
+          // @ts-expect-error run.paused has no generic reason extra.
+          reason: "forbidden",
+        },
+      });
+    }
+
+    expect(() =>
+      invokeRunTransition(store, ready.id, {
+        actor: "operator",
+        commandId: "command-status-mismatch",
+        correlationId: ready.id,
+        eventType: "run.paused",
+        expectedRevision: ready.revision,
+        patch: { status: "active" },
+        payload: {},
+      }),
+    ).toThrow("run.paused is incompatible with destination status active");
+    expect(() =>
+      invokeRunTransition(store, ready.id, {
+        actor: "operator",
+        commandId: "command-progress-status-mismatch",
+        correlationId: ready.id,
+        eventType: "run.desired_workers_changed",
+        expectedRevision: ready.revision,
+        patch: { desiredWorkers: 5, status: "paused" },
+        payload: { previous_desired_workers: 4, desired_workers: 5 },
+      }),
+    ).toThrow("run.desired_workers_changed must preserve run status");
+    expect(() =>
+      invokeRunTransition(store, ready.id, {
+        actor: "guardian",
+        commandId: "command-legacy-reconcile",
+        correlationId: ready.id,
+        eventType: "run.lease_reconciled",
+        expectedRevision: ready.revision,
+        patch: { status: "paused" },
+        payload: {},
+      }),
+    ).toThrow("Unsupported run transition event: run.lease_reconciled");
+    acquireRunLease(store, ready.id);
+    const active = updateRunStatus(store, ready.id, "active", "operator");
+    const beforeForbiddenPayload = eventsForSubject(store.db, "run", ready.id).length;
+    expect(() =>
+      invokeRunTransition(store, active.id, {
+        actor: "operator",
+        commandId: "command-paused-reason",
+        correlationId: active.id,
+        eventType: "run.paused",
+        expectedRevision: active.revision,
+        patch: { status: "paused" },
+        payload: { reason: "forbidden" },
+      }),
+    ).toThrow("run.paused payload must not include reason");
+    expect(getRun(store, ready.id)).toMatchObject({ revision: active.revision, status: "active" });
+    expect(eventsForSubject(store.db, "run", ready.id)).toHaveLength(beforeForbiddenPayload);
   });
 
   test("rejects changes to every RunInputs field after activation without accepting an event", () => {
@@ -121,9 +241,11 @@ describe("run state contract", () => {
         transitionRun(store, active.id, {
           actor: "operator",
           commandId: `command-change-${field}`,
+          correlationId: active.id,
           eventType: "run.paused",
           expectedRevision: active.revision,
           patch: { inputs: changedInputs, status: "paused" },
+          payload: {},
         }),
       ).toThrow("inputs are immutable after activation");
       expect(() =>
@@ -211,6 +333,33 @@ describe("run state contract", () => {
       causedByEventId: ready.causedByEventId,
     });
     expect(eventsForSubject(store.db, "run", ready.id)).toHaveLength(beforeEvents);
+    expect(Number((store.db.query("SELECT COUNT(*) AS count FROM events WHERE run_id = ?").get(ready.id) as { count: number }).count)).toBe(
+      beforeLegacyEvents,
+    );
+  });
+
+  test("records desired-worker changes only in the project log and maps dashboard work to runner", () => {
+    const { store } = testStore();
+    const ready = readyRun(store);
+    const beforeLegacyEvents = Number(
+      (store.db.query("SELECT COUNT(*) AS count FROM events WHERE run_id = ?").get(ready.id) as { count: number }).count,
+    );
+
+    const resized = setRunDesiredWorkers(store, ready.id, 7, "dashboard", {
+      commandId: "command-dashboard-resize",
+      spanId: "span-22222222-2222-4222-8222-222222222222",
+    });
+    const event = eventsForSubject(store.db, "run", ready.id).at(-1);
+
+    expect(resized).toMatchObject({ desiredWorkers: 7, revision: ready.revision + 1 });
+    expect(event).toMatchObject({
+      actor: "runner",
+      causationId: "command-dashboard-resize",
+      correlationId: ready.id,
+      eventType: "run.desired_workers_changed",
+      payload: { desired_workers: 7, previous_desired_workers: 4 },
+    });
+    expect(event?.parentSpanId).toBe("span-22222222-2222-4222-8222-222222222222");
     expect(Number((store.db.query("SELECT COUNT(*) AS count FROM events WHERE run_id = ?").get(ready.id) as { count: number }).count)).toBe(
       beforeLegacyEvents,
     );

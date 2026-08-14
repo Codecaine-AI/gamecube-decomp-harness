@@ -1,19 +1,19 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   immediateTransaction,
   now as currentTime,
   type StateStore,
 } from "@server/core/orchestrator-state";
-import { appendProjectEvent, type JsonObject } from "@server/core/project-state/events.js";
+import { appendProjectEvent, eventSpan, newSpanId, type JsonObject } from "@server/core/project-state/events.js";
 import { requireActiveLease } from "@server/core/project-state";
-import { getPrCampaign, getPrSeries } from "./state.js";
-import { ingestPrFeedback } from "./work-items.js";
+import { getPrCampaign, getPrSeries, transitionPrSeries } from "./state.js";
 import type { PrEventType, PrSeriesState, PrSeriesStatus } from "./types.js";
 
 export interface AdoptLegacyPrSeriesInput {
   campaignId: string;
+  causationId?: string;
   commandId: string;
-  correlationId?: string;
+  correlationId: string;
   discoveredBranches?: string[];
   leaseId: string;
   occurredAt?: string;
@@ -90,6 +90,21 @@ function eventType(status: PrSeriesStatus): PrEventType {
   }
 }
 
+function requiredApprovalEvidence(record: JsonObject, branch: string, field: string): string {
+  if (!Object.prototype.hasOwnProperty.call(record, field)) {
+    throw new Error(`Approved legacy PR series ${branch} is missing ${field}`);
+  }
+  const value = record[field];
+  if (typeof value !== "string") {
+    throw new Error(`Approved legacy PR series ${branch} requires ${field} to be a string`);
+  }
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error(`Approved legacy PR series ${branch} requires non-empty ${field}`);
+  }
+  return normalized;
+}
+
 function eventPayload(
   record: JsonObject,
   status: PrSeriesStatus,
@@ -97,17 +112,34 @@ function eventPayload(
   batchIndex: number,
   upstreamPrNumber: number | null,
 ): JsonObject {
+  if (status === "prepared") {
+    return {
+      adoption: "legacy_pr_records",
+      batch_index: batchIndex,
+      branch,
+      from_status: null,
+      to_status: "prepared",
+    };
+  }
   const common: JsonObject = {
     adoption: "legacy_pr_records",
     batch_index: batchIndex,
     branch,
-    previous_status: null,
-    status,
+    from_status: status === "published" ? "prepared" : "published",
+    to_status: status,
   };
-  if (status === "prepared") return common;
   if (status === "published") return { ...common, upstream_pr_number: upstreamPrNumber };
-  if (status === "changes_requested" || status === "approved") {
-    return { ...common, review_decision: status === "approved" ? "APPROVED" : "CHANGES_REQUESTED", upstream_pr_number: upstreamPrNumber };
+  if (status === "changes_requested") {
+    return { ...common, review_decision: "CHANGES_REQUESTED", upstream_pr_number: upstreamPrNumber };
+  }
+  if (status === "approved") {
+    return {
+      ...common,
+      approval_source_identity: requiredApprovalEvidence(record, branch, "approvalSourceIdentity"),
+      approved_revision: requiredApprovalEvidence(record, branch, "approvedRevision"),
+      approving_actor: requiredApprovalEvidence(record, branch, "approvingActor"),
+      upstream_pr_number: upstreamPrNumber,
+    };
   }
   if (status === "merged") {
     const github = asObject(record.github);
@@ -161,6 +193,12 @@ export function adoptLegacyPrSeries(input: AdoptLegacyPrSeriesInput): AdoptLegac
     const adopted: PrSeriesState[] = [];
     const skippedSeriesIds: string[] = [];
     const occurredAt = input.occurredAt ?? currentTime();
+    const correlationId = text(input.correlationId);
+    if (correlationId !== campaign.campaign_id) {
+      throw new Error(`PR event correlation_id must equal campaign id ${campaign.campaign_id}`);
+    }
+    const actionSpanId = input.spanId ?? newSpanId();
+    let adoptionRootEventId: string | null = null;
     for (const [index, [branch, record]] of ordered.entries()) {
       const existing = input.store.db
         .query("SELECT series_id FROM pr_series WHERE campaign_id = ? AND branch = ?")
@@ -188,20 +226,20 @@ export function adoptLegacyPrSeries(input: AdoptLegacyPrSeriesInput): AdoptLegac
       const batchIndex = Math.floor(Math.max(0, Math.trunc(ordinal) - 1) / campaign.publication_policy.batch_size);
       const targetUnits = [...new Set([...stringArray(record.files), ...stringArray(record.supportFiles)])];
       const validation = asObject(record.validation);
-      const traceId = `trace-pr-series-${seriesId}`;
       const event = appendProjectEvent(input.store.db, {
-        actor: "operator",
-        causationId: `${input.commandId}:series:${seriesId}`,
-        correlationId: input.correlationId ?? campaign.campaign_id,
+        actor: status === "approved" ? "external_observer" : "operator",
+        causationId: adoptionRootEventId ?? input.causationId ?? input.commandId,
+        correlationId,
         eventType: eventType(status),
         occurredAt,
         payload: eventPayload(record, status, branch, batchIndex, upstreamPrNumber),
         projectId: campaign.project_id,
-        spanId: input.spanId ?? `span-${randomUUID()}`,
+        ...eventSpan(actionSpanId),
         subjectId: seriesId,
         subjectKind: "pr_series",
-        traceId,
+        traceId: campaign.trace_id,
       });
+      adoptionRootEventId ??= event.eventId;
       input.store.db
         .query(
           `INSERT INTO pr_series (
@@ -219,23 +257,55 @@ export function adoptLegacyPrSeries(input: AdoptLegacyPrSeriesInput): AdoptLegac
           upstreamPrNumber,
           JSON.stringify(targetUnits),
           Object.keys(validation).length > 0 ? JSON.stringify(validation) : null,
-          traceId,
+          campaign.trace_id,
           event.eventId,
           occurredAt,
         );
       if (observedStatus === "changes_requested") {
-        ingestPrFeedback(input.store, {
-          actor: "operator",
-          commandId: `${input.commandId}:feedback:${seriesId}`,
+        const itemId = stableWorkItemId(seriesId);
+        const sourceKind = "legacy_pr_status";
+        const sourceId = `pr-${upstreamPrNumber}:changes_requested`;
+        input.store.db
+          .query(
+            `INSERT INTO pr_work_items (
+               item_id, series_id, source_kind, source_id, status,
+               summary, created_at, resolved_at
+             ) VALUES (?, ?, ?, ?, 'pending', ?, ?, NULL)`,
+          )
+          .run(
+            itemId,
+            seriesId,
+            sourceKind,
+            sourceId,
+            "Legacy PR records reported changes requested; retained artifact contains the detailed evidence.",
+            occurredAt,
+          );
+        const feedback = transitionPrSeries(input.store, seriesId, {
+          actor: "external_observer",
+          causationId: event.eventId,
+          commandId: input.commandId,
+          correlationId,
+          eventType: "pr.feedback_ingested",
           expectedRevision: 0,
-          items: [{
-            itemId: stableWorkItemId(seriesId),
-            sourceKind: "legacy_pr_status",
-            sourceId: `pr-${upstreamPrNumber}:changes_requested`,
-            summary: "Legacy PR records reported changes requested; retained artifact contains the detailed evidence.",
-          }],
           occurredAt,
-          seriesId,
+          patch: { status: "published" },
+          payload: {
+            ingesting_actor: "external_observer",
+            review_source_identities: [`${sourceKind}:${sourceId}`],
+            work_item_ids: [itemId],
+          },
+          spanId: actionSpanId,
+        });
+        transitionPrSeries(input.store, seriesId, {
+          actor: "external_observer",
+          causationId: feedback.caused_by_event_id,
+          commandId: input.commandId,
+          correlationId,
+          eventType: "pr.series_changes_requested",
+          expectedRevision: feedback.revision,
+          occurredAt,
+          patch: { status: "changes_requested" },
+          spanId: actionSpanId,
         });
       }
       const saved = getPrSeries(input.store, seriesId);

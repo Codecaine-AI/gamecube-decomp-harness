@@ -91,6 +91,7 @@ function hashWorktree(root: string): string {
 function startSync(fixture: Omit<Fixture, "sync" | "context">, syncId: string): Pick<Fixture, "sync" | "context"> {
   initializeProjectState(fixture.store, { projectId: "melee", traceId: "trace-project-melee" });
   createProjectSession(fixture.store.db, {
+    actor: "operator",
     baseSha: git(fixture.session, "rev-parse", "HEAD"),
     id: "project-session:melee",
     projectId: "melee",
@@ -108,10 +109,13 @@ function startSync(fixture: Omit<Fixture, "sync" | "context">, syncId: string): 
     },
     syncId,
     commandId: `${syncId}:requested`,
+    actor: "external_observer",
+    correlationId: syncId,
   });
   const decision = requestDispatch(fixture.store, {
     actor: "operator",
     commandId: `${syncId}:lease-requested`,
+    correlationId: syncId,
     kind: "sync",
     projectId: "melee",
     reason: "test staged reconciliation",
@@ -121,6 +125,7 @@ function startSync(fixture: Omit<Fixture, "sync" | "context">, syncId: string): 
   sync = transitionSync(fixture.store, syncId, {
     actor: "operator",
     commandId: `${syncId}:started`,
+    correlationId: syncId,
     expectedRevision: sync.revision,
     patch: { status: "ingesting" },
   });
@@ -296,7 +301,11 @@ describe("staged sync reconciliation", () => {
     expect(sync.blockers).toEqual([
       expect.objectContaining({ code: "conflict_needs_operator", message: expect.stringContaining("ambiguous.c") }),
     ]);
-    expect(eventsForSubject(fixture.store.db, "sync", sync.sync_id).at(-1)?.eventType).toBe("sync.reconciliation_blocked");
+    expect(sync.resolved_conflict_paths).toEqual(["trivial.c"]);
+    expect(eventsForSubject(fixture.store.db, "sync_workflow", sync.sync_id).at(-1)).toMatchObject({
+      eventType: "sync.reconciliation_blocked",
+      payload: expect.objectContaining({ from_status: "reconciling", to_status: "blocked" }),
+    });
 
     const staging = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
     expect(staging.session).toMatchObject({ exists: true, rebaseInProgress: true, conflictingPaths: ["ambiguous.c"] });
@@ -313,6 +322,11 @@ describe("staged sync reconciliation", () => {
     expect(sync.pr_reconciliation).toEqual([
       { series_id: "series-01", branch: "codex/split-01-series", result: "needs_operator", pushed: false },
       { series_id: "series-02", branch: "codex/split-02-trivial", result: "auto_resolved", pushed: false },
+    ]);
+    expect(sync.resolved_conflict_paths).toEqual([
+      "ambiguous.c",
+      "codex/split-02-trivial:series-trivial.c",
+      "trivial.c",
     ]);
     expect(sync.staging?.pr_workspaces?.find((workspace) => workspace.series_id === "series-02")?.auto_resolved_paths)
       .toEqual(["series-trivial.c"]);
@@ -335,6 +349,12 @@ describe("staged sync reconciliation", () => {
     expect(sync.pr_reconciliation).toEqual([
       { series_id: "series-01", branch: "codex/split-01-series", result: "needs_operator", pushed: false },
       { series_id: "series-02", branch: "codex/split-02-trivial", result: "auto_resolved", pushed: false },
+    ]);
+    expect(sync.resolved_conflict_paths).toEqual([
+      "ambiguous.c",
+      "codex/split-01-series:series.c",
+      "codex/split-02-trivial:series-trivial.c",
+      "trivial.c",
     ]);
     expect(git(fixture.session, "rev-parse", "codex/split-01-series")).toBe(originalPrHead);
     const prWorkspace = sync.staging?.pr_workspaces?.[0];
@@ -436,9 +456,13 @@ describe("staged sync reconciliation", () => {
     expect(getProjectState(fixture.store, "melee")?.active_workflow).toBeNull();
     expect(hashWorktree(fixture.session)).toBe(before);
     expect(existsSync(syncStagingPaths(fixture.stateDir, sync.sync_id).root)).toBe(false);
-    expect(eventsForSubject(fixture.store.db, "sync", sync.sync_id).at(-1)).toMatchObject({
+    expect(eventsForSubject(fixture.store.db, "sync_workflow", sync.sync_id).at(-1)).toMatchObject({
       eventType: "sync.cancelled",
-      payload: expect.objectContaining({ untouched_session_head: git(fixture.session, "rev-parse", "HEAD") }),
+      payload: expect.objectContaining({
+        from_status: "blocked",
+        to_status: "cancelled",
+        untouched_session_head: git(fixture.session, "rev-parse", "HEAD"),
+      }),
     });
   }, 30_000);
 
@@ -478,9 +502,13 @@ describe("staged sync reconciliation", () => {
     expect(sync.status).toBe("cancelled");
     expect(getProjectState(fixture.store, "melee")?.active_workflow).toBeNull();
     expect(existsSync(syncStagingPaths(fixture.stateDir, sync.sync_id).root)).toBe(false);
-    expect(eventsForSubject(fixture.store.db, "sync", sync.sync_id).at(-1)).toMatchObject({
-      eventType: "sync.recovered",
-      payload: expect.objectContaining({ recovery_path: "discard", staging_discarded: true }),
+    expect(eventsForSubject(fixture.store.db, "sync_workflow", sync.sync_id).at(-1)).toMatchObject({
+      eventType: "sync.cancelled",
+      payload: expect.objectContaining({
+        from_status: "blocked",
+        to_status: "cancelled",
+        untouched_session_head: git(fixture.session, "rev-parse", "HEAD"),
+      }),
     });
   }, 30_000);
 });

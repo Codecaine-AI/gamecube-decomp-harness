@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { NewContainer } from "@agent-kernel/db";
 
 const MELEE_APP_SESSION_NAMESPACE = "0dbd5814-75c3-4dc8-9b3b-0f6277cc2b08";
+const MELEE_WORKFLOW_TRACE_EVENT_NAMESPACE = "ced83bd4-c12c-5a72-9ae8-507d0da283cf";
 
 export type MeleeContainerKind =
   | "session"
@@ -31,6 +32,14 @@ export type MeleeContainerKind =
 export interface MeleeProjectSessionRef {
   projectId: string;
   sessionId: string;
+}
+
+export interface MeleeWorkflowTraceEventRef extends MeleeProjectSessionRef {
+  containerId: string;
+  eventType: string;
+  operation: string;
+  projectEventId: string;
+  status: string;
 }
 
 export interface MeleeRunRef extends MeleeProjectSessionRef {
@@ -111,6 +120,26 @@ export function meleeAppSessionId(ref: MeleeProjectSessionRef): string {
   return stableUuid(
     MELEE_APP_SESSION_NAMESPACE,
     `project:${ref.projectId}\nsession:${ref.sessionId}`,
+  );
+}
+
+/**
+ * Stable kernel event identity for one project-event trace submission.
+ * Kernel inserts are conflict-safe by event id, so retrying after a local
+ * cursor failure replays the same event instead of appending a duplicate.
+ */
+export function meleeWorkflowTraceEventId(ref: MeleeWorkflowTraceEventRef): string {
+  return stableUuid(
+    MELEE_WORKFLOW_TRACE_EVENT_NAMESPACE,
+    [
+      `project:${ref.projectId}`,
+      `session:${ref.sessionId}`,
+      `project-event:${ref.projectEventId}`,
+      `container:${ref.containerId}`,
+      `type:${ref.eventType}`,
+      `operation:${ref.operation}`,
+      `status:${ref.status}`,
+    ].join("\n"),
   );
 }
 
@@ -219,7 +248,7 @@ export function describeMeleeContainer(
         parentContainerId: null,
         label: `Project session ${ref.sessionId}`,
         phase: "session",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId },
       };
     case "prepare":
       return {
@@ -229,7 +258,7 @@ export function describeMeleeContainer(
         parentContainerId: rootId,
         label: "Prepare",
         phase: "prepare",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId },
       };
     case "sync-intake":
       return {
@@ -239,7 +268,7 @@ export function describeMeleeContainer(
         parentContainerId: meleePrepareContainerId(ref),
         label: "Sync Intake",
         phase: "setup",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId },
       };
     case "intake":
       return {
@@ -249,7 +278,7 @@ export function describeMeleeContainer(
         parentContainerId: meleePrepareContainerId(ref),
         label: "Intake",
         phase: "intake",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId },
       };
     case "intake-item": {
       const prId = typeof metadata.prId === "string" && metadata.prId ? metadata.prId : "item";
@@ -261,7 +290,7 @@ export function describeMeleeContainer(
         parentContainerId: meleeIntakeContainerId(ref),
         label: prId.startsWith("#") ? `${prId} intake` : `PR #${prId} intake`,
         phase: "intake-item",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, prId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId, prId },
       };
     }
     case "intake-postmortem": {
@@ -274,7 +303,7 @@ export function describeMeleeContainer(
         parentContainerId: meleeIntakeItemContainerId(intakeRef),
         label: prId.startsWith("#") ? `${prId} postmortem` : `PR #${prId} postmortem`,
         phase: "postmortem",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, prId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId, prId },
       };
     }
     case "intake-knowledge": {
@@ -287,7 +316,7 @@ export function describeMeleeContainer(
         parentContainerId: meleeIntakeItemContainerId(intakeRef),
         label: prId.startsWith("#") ? `${prId} knowledge intake` : `PR #${prId} knowledge intake`,
         phase: "knowledge-intake",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, prId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId, prId },
       };
     }
     case "pr-index":
@@ -298,7 +327,7 @@ export function describeMeleeContainer(
         parentContainerId: meleePrepareContainerId(ref),
         label: "PR index",
         phase: "pr-index",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId },
       };
     case "knowledge-refresh":
       return {
@@ -308,7 +337,7 @@ export function describeMeleeContainer(
         parentContainerId: meleePrepareContainerId(ref),
         label: "Knowledge refresh",
         phase: "knowledge-refresh",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId },
       };
     case "baseline":
       return {
@@ -318,7 +347,7 @@ export function describeMeleeContainer(
         parentContainerId: meleePrepareContainerId(ref),
         label: "Baseline and rebuild",
         phase: "baseline",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId },
       };
     case "pr": {
       const prId = typeof metadata.prId === "string" && metadata.prId ? metadata.prId : "session";
@@ -330,7 +359,7 @@ export function describeMeleeContainer(
         parentContainerId: rootId,
         label: "PR mode",
         phase: "pr",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, prId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId, prId },
       };
     }
     case "pr-publication": {
@@ -343,7 +372,7 @@ export function describeMeleeContainer(
         parentContainerId: meleePrContainerId(prRef),
         label: "PR publication",
         phase: "publication",
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, prId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId, prId },
       };
     }
     default:
@@ -354,7 +383,7 @@ export function describeMeleeContainer(
         parentContainerId: rootId,
         label: kind,
         phase: kind,
-        metadata: { projectId: ref.projectId, sessionId: ref.sessionId, ...metadata },
+        metadata: { ...metadata, projectId: ref.projectId, sessionId: ref.sessionId },
       };
   }
 }
@@ -390,6 +419,7 @@ export function buildMeleeContainer(input: BuildMeleeContainerInput): NewContain
     metadata: {
       ...descriptor.metadata,
       appSessionId: descriptor.appSessionId,
+      containerId: descriptor.id,
       containerKind: descriptor.kind,
     },
     startedAt: input.startedAt ?? new Date().toISOString(),

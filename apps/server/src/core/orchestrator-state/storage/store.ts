@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { configureConnection, ensureSchema } from "./ddl.js";
 import { orchestratorStateSchema } from "./schema.js";
 import { withBusyRetry } from "./transaction.js";
+import { replaySavePointFailureSpool } from "@server/core/project-session/save-point-failure-spool.js";
 
 export { immediateTransaction, withBusyRetry } from "./transaction.js";
 
@@ -37,5 +38,6 @@ export function openState(stateDir: string): StateStore {
   const db = new Database(dbPath);
   withBusyRetry(() => configureConnection(db));
   withBusyRetry(() => ensureSchema(db));
+  withBusyRetry(() => replaySavePointFailureSpool(db, stateDir));
   return { db, orm: createOrchestratorStateOrm(db), path: dbPath, stateDir };
 }

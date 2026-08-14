@@ -30,6 +30,12 @@ export interface PrSyncRecordsService {
   writePrRecords: (stateDir: string, payload: JsonObject) => JsonObject;
 }
 
+export type PrSyncCampaignObservationInput = Omit<ObservePrSeriesRemoteInput, "correlationId"> & {
+  approvalSourceIdentity?: string;
+  approvedRevision?: string;
+  approvingActor?: string;
+};
+
 export interface PrSyncServiceDeps<Context extends PrSyncProjectContext> {
   appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   latestPrSplitPlanSummary: (stateDir: string, runId: string) => JsonObject | null;
@@ -39,7 +45,8 @@ export interface PrSyncServiceDeps<Context extends PrSyncProjectContext> {
   resolveDashboardProject: (input: JsonObject, options?: { useDefaultProject?: boolean }) => Context;
   runCli: (command: string[], cwd?: string) => Promise<CliResult>;
   runGitQuiet?: (repoRoot: string, args: string[]) => CliResult;
-  observeCampaignPr?: (stateDir: string, input: ObservePrSeriesRemoteInput) => ObservePrSeriesRemoteResult;
+  openCampaignState?: typeof openState;
+  observeCampaignPr?: (stateDir: string, input: PrSyncCampaignObservationInput) => ObservePrSeriesRemoteResult;
 }
 
 function asObject(value: unknown): JsonObject {
@@ -187,10 +194,23 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
     readPrRecords,
     writePrRecords,
   } = deps.records;
-  const observeCampaignPr = deps.observeCampaignPr ?? ((stateDir, input) => {
-    const store = openState(stateDir);
+  const observeCampaignPr = deps.observeCampaignPr ?? ((stateDir: string, input: PrSyncCampaignObservationInput) => {
+    const store = (deps.openCampaignState ?? openState)(stateDir);
     try {
-      return observePrSeriesRemote(store, input);
+      const rows = store.db.query(
+        `SELECT DISTINCT series.campaign_id
+         FROM pr_series AS series
+         JOIN pr_campaigns AS campaign ON campaign.campaign_id = series.campaign_id
+         WHERE series.upstream_pr_number = ?
+           AND campaign.status IN ('preparing', 'in_review', 'working')
+         ORDER BY series.campaign_id`,
+      ).all(input.upstreamPrNumber) as Array<{ campaign_id: string }>;
+      if (rows.length > 1) {
+        throw new Error(`Blocked PR observation for upstream PR #${input.upstreamPrNumber}: ambiguous open campaigns`);
+      }
+      const correlationId = rows[0]?.campaign_id;
+      if (!correlationId) return { feedbackItemIds: [], ignored: true, series: null };
+      return observePrSeriesRemote(store, { ...input, correlationId });
     } finally {
       store.db.close();
     }
@@ -309,6 +329,7 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
   async function hydratePrRecordFromGithub(record: JsonObject, pr: JsonObject, repoSlug: string, repoRoot: string, stateDir?: string): Promise<JsonObject> {
     const prNumber = numberValue(pr.number, NaN);
     if (!Number.isFinite(prNumber)) return record;
+    const reviewDecision = stringValue(pr.reviewDecision);
     const update: JsonObject = {
       prNumber,
       url: stringValue(pr.url),
@@ -330,6 +351,8 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
     );
     let comments = numberValue(record.comments, 0);
     let feedback: ObservePrSeriesRemoteInput["feedback"] = [];
+    let approvalSourceIdentity = "";
+    let approvingActor = "";
     if (view.exitCode === 0) {
       const detail = asObject(JSON.parse(view.stdout || "{}"));
       comments = asArray(detail.comments).length;
@@ -338,11 +361,26 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
         const summary = stringValue(comment.body).trim();
         return sourceId && summary ? [{ sourceKind: "issue_comment", sourceId, summary }] : [];
       });
-      feedback.push(...asArray(detail.reviews).map(asObject).flatMap((review) => {
+      const reviews = asArray(detail.reviews).map(asObject);
+      feedback.push(...reviews.flatMap((review) => {
         const sourceId = identityValue(review.id) || identityValue(review.databaseId) || stringValue(review.url);
         const summary = stringValue(review.body).trim();
         return sourceId && summary ? [{ sourceKind: "pull_request_review", sourceId, summary }] : [];
       }));
+      const approvedReview = reviews
+        .filter((review) => stringValue(review.state).toUpperCase() === "APPROVED")
+        .sort((left, right) => {
+          const submittedAt = stringValue(right.submittedAt).localeCompare(stringValue(left.submittedAt));
+          if (submittedAt !== 0) return submittedAt;
+          return identityValue(right.id).localeCompare(identityValue(left.id));
+        })[0];
+      if (approvedReview) {
+        const sourceId = identityValue(approvedReview.id)
+          || identityValue(approvedReview.databaseId)
+          || stringValue(approvedReview.url);
+        if (sourceId) approvalSourceIdentity = `github-review:${sourceId}`;
+        approvingActor = stringValue(asObject(approvedReview.author).login);
+      }
       const ci = ciVerdict(detail.statusCheckRollup);
       update.comments = comments;
       update.ci = ci;
@@ -364,10 +402,16 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
       }));
     }
     const githubStatus = stringValue(update.status);
-    const reviewDecision = stringValue(pr.reviewDecision);
     update.review = deriveReviewSubState(asObject(record.review), githubStatus, reviewDecision, comments);
     if (stateDir) {
       observeCampaignPr(stateDir, {
+        ...(reviewDecision.toUpperCase() === "APPROVED"
+          ? {
+              approvalSourceIdentity,
+              approvedRevision: stringValue(pr.headRefOid),
+              approvingActor,
+            }
+          : {}),
         branch: stringValue(record.branch, stringValue(pr.headRefName)),
         commandId: `pr-sync:${prNumber}:${stringValue(pr.updatedAt, "observed")}`,
         feedback,
@@ -494,7 +538,7 @@ export function createPrSyncService<Context extends PrSyncProjectContext>(deps: 
     let warning = "";
     if (repoSlug) {
       const list = await deps.runCli(
-        ["gh", "pr", "list", "--repo", repoSlug, "--state", "all", "--limit", "100", "--json", "number,title,state,isDraft,url,headRefName,author,reviewDecision,updatedAt,mergeCommit"],
+        ["gh", "pr", "list", "--repo", repoSlug, "--state", "all", "--limit", "100", "--json", "number,title,state,isDraft,url,headRefName,headRefOid,author,reviewDecision,updatedAt,mergeCommit"],
         repoRoot,
       );
       if (list.exitCode === 0) {

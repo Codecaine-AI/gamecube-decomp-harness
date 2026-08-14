@@ -69,6 +69,13 @@ function requireConfirmed(body: JsonObject, action: string): void {
   if (body.confirmed !== true) throw new RunControlConfirmationRequiredError(action);
 }
 
+function assertWorkflowCorrelation(body: JsonObject, runId: string): void {
+  const supplied = stringValue(body.correlationId, stringValue(body.correlation_id));
+  if (supplied && supplied !== runId) {
+    throw new Error(`Run action correlation_id must equal run id ${runId}`);
+  }
+}
+
 function currentStatus(paths: RunControlProjectContext, runId: string): string {
   const store = openState(paths.stateDir);
   try {
@@ -90,12 +97,12 @@ export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
     cancel(body): JsonObject {
       const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
       const runId = runIdFromBody(body, paths.stateDir);
+      assertWorkflowCorrelation(body, runId);
       const store = openState(paths.stateDir);
       try {
         const run = cancelRun({
           commandId: stringValue(body.commandId) || undefined,
           confirmed: body.confirmed === true,
-          correlationId: stringValue(body.correlationId) || runId,
           reason: stringValue(body.reason, "operator cancelled run"),
           runId,
           store,
@@ -110,6 +117,7 @@ export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
       requireConfirmed(body, "run.hard_stop");
       const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
       const runId = runIdFromBody(body, paths.stateDir);
+      assertWorkflowCorrelation(body, runId);
       const process = deps.hasActiveProcess(paths.stateDir).active
         ? await deps.stopManaged({ ...body, recoverClaims: false, runId })
         : { stopped: false, reason: "not_running" };
@@ -118,7 +126,6 @@ export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
         const result = await hardStopRun({
           commandId: stringValue(body.commandId) || undefined,
           confirmed: true,
-          correlationId: stringValue(body.correlationId) || runId,
           globals: globalsFor(paths),
           reason: stringValue(body.reason, "operator hard-stopped run"),
           runId,
@@ -133,12 +140,12 @@ export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
     async pause(body): Promise<JsonObject> {
       const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
       const runId = runIdFromBody(body, paths.stateDir);
+      assertWorkflowCorrelation(body, runId);
       const store = openState(paths.stateDir);
       let result;
       try {
         result = pauseRun({
           commandId: stringValue(body.commandId) || undefined,
-          correlationId: stringValue(body.correlationId) || runId,
           reason: stringValue(body.reason, "operator paused run"),
           runId,
           store,
@@ -155,6 +162,7 @@ export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
       requireConfirmed(body, "run.recover");
       const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
       const runId = runIdFromBody(body, paths.stateDir);
+      assertWorkflowCorrelation(body, runId);
       const status = currentStatus(paths, runId);
       const process = status === "failed" && deps.hasActiveProcess(paths.stateDir).active
         ? await deps.stopManaged({ ...body, recoverClaims: false, runId })
@@ -164,7 +172,6 @@ export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
         const result = await recoverRun({
           commandId: stringValue(body.commandId) || undefined,
           confirmed: true,
-          correlationId: stringValue(body.correlationId) || runId,
           globals: globalsFor(paths),
           hasActiveProcess: deps.hasActiveProcess,
           reason: stringValue(body.reason, "operator recovered run"),

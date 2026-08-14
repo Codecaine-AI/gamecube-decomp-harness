@@ -17,8 +17,10 @@ export type SyncStatus = (typeof SYNC_STATUSES)[number];
 
 export const SYNC_WORKFLOW_EVENT_TYPES = [
   "sync.requested",
+  "sync.observation_refreshed",
   "sync.ingesting",
   "sync.reconciling",
+  "sync.staging_progressed",
   "sync.validating",
   "sync.validated",
   "sync.publishing",
@@ -52,6 +54,16 @@ export type SyncEventType = (typeof SYNC_EVENT_TYPES)[number];
 export interface SyncReconciliationBlockedPayload extends JsonObject {
   conflict_identities: string[];
   conflicts_awaiting_operator: number;
+}
+
+export interface SyncObservationRefreshedPayload extends JsonObject {
+  prior_upstream_revision: string;
+  observed_upstream_revision: string;
+  merged_pr_ids: string[];
+  corpus_batch_ids: string[];
+  knowledge_only: boolean;
+  observation_source_identity: string;
+  state_revision: number;
 }
 
 export interface SyncRecoveredPayload {
@@ -89,71 +101,73 @@ interface SyncKnowledgeEventContext {
   causationId: string;
   correlationId: string;
   spanId: string;
+  parentSpanId?: string;
   occurredAt?: string;
 }
+
+export type KnowledgeJobExecutionFacts =
+  | {
+      execution_class: "sync_stage";
+      sync_id: string;
+      source_class: string;
+      provenance: JsonObject;
+      source_kind: string;
+      source_id: string;
+    }
+  | {
+      execution_class: "background_safe";
+      sync_id: null;
+      source_class: string;
+      provenance: JsonObject;
+      source_kind: string;
+      source_id: string;
+    };
+
+type KnowledgeJobTransitionPayload<
+  TFrom extends string,
+  TTo extends string,
+  TFacts extends object = Record<never, never>,
+> = KnowledgeJobExecutionFacts & {
+  from_status: TFrom;
+  to_status: TTo;
+} & TFacts;
 
 export type SyncKnowledgeEventInput =
   | (SyncKnowledgeEventContext & {
       eventType: "knowledge.job_enqueued";
       payload: {
-        source_class: "sync_stage";
+        source_class: string;
         provenance: JsonObject;
-        execution_class: "sync";
+        execution_class: "sync_stage" | "background_safe";
       };
     })
   | (SyncKnowledgeEventContext & {
       eventType: "knowledge.job_processing";
-      payload: {
-        sync_id: string;
-        source_kind: "merged_pr" | "corpus";
-        source_id: string;
-        previous_status: "queued" | "waiting";
-        status: "processing";
-      };
+      payload: KnowledgeJobTransitionPayload<"queued" | "waiting", "processing">;
     })
   | (SyncKnowledgeEventContext & {
       eventType: "knowledge.job_waiting";
-      payload: {
-        sync_id: string;
-        source_kind: "merged_pr" | "corpus";
-        source_id: string;
-        previous_status: "processing" | "succeeded" | "failed";
-        status: "waiting";
-        reason: string;
-      };
+      payload: KnowledgeJobTransitionPayload<
+        "processing" | "succeeded" | "failed",
+        "waiting",
+        { reason: string }
+      >;
     })
   | (SyncKnowledgeEventContext & {
       eventType: "knowledge.job_succeeded";
-      payload: {
-        sync_id: string;
-        source_kind: "merged_pr" | "corpus";
-        source_id: string;
-        previous_status: "processing";
-        status: "succeeded";
-        staged_digest: string;
-      };
+      payload: KnowledgeJobTransitionPayload<"processing", "succeeded", { staged_digest: string }>;
     })
   | (SyncKnowledgeEventContext & {
       eventType: "knowledge.job_failed";
-      payload: {
-        sync_id: string;
-        source_kind: "merged_pr" | "corpus";
-        source_id: string;
-        previous_status: "processing";
-        status: "failed";
-        error: string;
-      };
+      payload: KnowledgeJobTransitionPayload<"processing", "failed", { error: string }>;
     })
   | (SyncKnowledgeEventContext & {
       eventType: "knowledge.job_cancelled";
-      payload: {
-        sync_id: string;
-        source_kind: "merged_pr" | "corpus";
-        source_id: string;
-        previous_status: "queued" | "processing" | "waiting" | "succeeded" | "failed";
-        status: "cancelled";
-        reason: string;
-      };
+      payload: KnowledgeJobTransitionPayload<
+        "queued" | "processing" | "waiting" | "succeeded" | "failed",
+        "cancelled",
+        { reason: string }
+      >;
     })
   | (SyncKnowledgeEventContext & {
       eventType: "knowledge.revision_advanced";
@@ -233,6 +247,9 @@ export interface SyncState {
   staging: SyncStagingProgress | null;
   pr_reconciliation: SyncPrReconciliation[];
   publication: SyncPublication | null;
+  blocked_origin_status: SyncStatus | null;
+  validation_evidence: JsonObject | null;
+  resolved_conflict_paths: string[];
 }
 
 export interface SyncTransitionPatch {
@@ -242,29 +259,34 @@ export interface SyncTransitionPatch {
   staging?: SyncStagingProgress | null;
   prReconciliation?: SyncPrReconciliation[];
   publication?: SyncPublication | null;
+  validationEvidence?: JsonObject | null;
+  resolvedConflictPaths?: string[];
 }
 
 export interface SyncTransitionInput {
   actor: EventActor;
   commandId: string;
-  correlationId?: string;
+  correlationId: string;
+  causationId?: string;
   eventType?: SyncWorkflowEventType;
   expectedRevision: number;
   occurredAt?: string;
   patch: SyncTransitionPatch;
   payload?: JsonObject;
   spanId?: string;
+  parentSpanId?: string;
 }
 
 export interface RecordSyncRequestedInput {
   projectId: string;
   sessionUuid: string;
   intake: SyncIntake;
+  observationSourceIdentity: string;
   syncId?: string;
   traceId?: string;
-  actor?: EventActor;
-  commandId?: string;
-  correlationId?: string;
+  actor: EventActor;
+  commandId: string;
+  correlationId: string;
   spanId?: string;
   occurredAt?: string;
 }

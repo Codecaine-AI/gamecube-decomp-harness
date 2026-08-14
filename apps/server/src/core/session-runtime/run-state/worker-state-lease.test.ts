@@ -9,6 +9,10 @@ import {
   requestDispatch,
   StaleLeaseError,
 } from "@server/core/project-state";
+import { createProjectSession } from "@server/core/project-session";
+import { recordSavePointAnchor } from "@server/core/project-session/timeline.js";
+import { openPrCampaign } from "@server/core/session-runtime/phases/pr/campaign";
+import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
 import { admitEpochTargets, claimNextEpochTarget, closeWorkerState, createRun, openState, startSchedulerEpoch } from "./index.js";
 
 describe("worker claim dispatch fencing", () => {
@@ -35,6 +39,7 @@ describe("worker claim dispatch fencing", () => {
         workflowId: run.id,
         reason: "test worker fencing",
         commandId: "command-run-start",
+        correlationId: run.id,
         actor: "operator",
         projectId: "melee",
       });
@@ -93,6 +98,7 @@ describe("worker claim dispatch fencing", () => {
         workflowId: run.id,
         reason: "test draining worker fencing",
         commandId: "command-run-start",
+        correlationId: run.id,
         actor: "operator",
         projectId: "melee",
       });
@@ -108,11 +114,47 @@ describe("worker claim dispatch fencing", () => {
       });
       if (!existingClaim) throw new Error("Expected an existing claim before drain");
 
+      createProjectSession(store.db, {
+        actor: "operator",
+        baseSha: "base-test",
+        id: "project-session:session-pr",
+        projectId: "melee",
+        sessionUuid: "session-pr",
+      });
+      const legacyCampaign = ensureCampaign(store, { projectId: "melee" });
+      const savePoint = addSavePoint(store, {
+        campaignId: legacyCampaign.id,
+        triggerKind: "manual",
+        label: "stable PR handoff",
+        commitSha: "base-test",
+        committed: true,
+      });
+      recordSavePointAnchor(store, {
+        actor: "operator",
+        commandId: "command-anchor-pr",
+        correlationId: "session-pr",
+        commitSha: "base-test",
+        projectId: "melee",
+        savePointId: savePoint.id,
+        triggerKind: "manual",
+      });
+      const campaign = openPrCampaign(store, {
+        actor: "operator",
+        campaignId: "campaign-worker-drain",
+        commandId: "command-open-pr",
+        correlationId: "campaign-worker-drain",
+        namedSavePointId: savePoint.id,
+        projectId: "melee",
+        series: [{ batchIndex: 0, branch: "codex/test-pr", seriesId: "series-worker-drain", targetUnits: ["src/a.c"] }],
+        sessionUuid: "session-pr",
+      });
+
       const queuedPr = requestDispatch(store, {
         kind: "pr",
-        workflowId: "pr-1",
+        workflowId: campaign.campaign_id,
         reason: "operator requested PR handoff",
         commandId: "command-pr-activate",
+        correlationId: campaign.campaign_id,
         actor: "operator",
         projectId: "melee",
       });
@@ -120,9 +162,10 @@ describe("worker claim dispatch fencing", () => {
       beginDrain(store, {
         leaseId: dispatch.leaseId,
         targetKind: "pr",
-        targetWorkflowId: "pr-1",
+        targetWorkflowId: campaign.campaign_id,
         reason: "handoff to PR",
         commandId: "command-run-drain",
+        correlationId: run.id,
         actor: "operator",
         projectId: "melee",
       });

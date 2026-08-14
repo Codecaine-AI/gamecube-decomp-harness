@@ -6,8 +6,8 @@ import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { createProjectSession } from "@server/core/project-session/store.js";
 import { recordSavePointAnchor } from "@server/core/project-session/timeline.js";
 import { initializeProjectState } from "@server/core/project-state";
+import { eventsForSubject } from "@server/core/project-state/events.js";
 import { observePrSeriesRemote } from "./observation.js";
-import { openPrCampaign, transitionPrCampaign, transitionPrSeries } from "./state.js";
 
 const stores: StateStore[] = [];
 const directories: string[] = [];
@@ -23,6 +23,7 @@ function setup(): StateStore {
   const store = openState(directory);
   stores.push(store);
   createProjectSession(store.db, {
+    actor: "operator",
     baseSha: "session-head",
     id: "project-session:session-1",
     projectId: "melee",
@@ -40,6 +41,7 @@ function setup(): StateStore {
   recordSavePointAnchor(store, {
     actor: "operator",
     commandId: "anchor",
+    correlationId: "session-1",
     commitSha: "session-head",
     projectId: "melee",
     savePointId: "save-1",
@@ -49,29 +51,28 @@ function setup(): StateStore {
 }
 
 function createPublishedSeries(store: StateStore, campaignId: string, seriesId: string, prNumber: number) {
-  let campaign = openPrCampaign(store, {
-    actor: "operator",
+  const traceId = `trace-${campaignId}`;
+  store.db.query(
+    `INSERT INTO pr_campaigns (
+       campaign_id, project_id, session_uuid, revision, status, trace_id,
+       caused_by_event_id, blockers_json, created_at, closed_at,
+       latest_event_sequence, source_anchor_json, publication_policy_json
+     ) VALUES (?, 'melee', 'session-1', 0, 'working', ?, ?, '[]', ?, NULL, 0, ?, '{"batch_size":4}')`,
+  ).run(
     campaignId,
-    commandId: `open-${campaignId}`,
-    namedSavePointId: "save-1",
-    projectId: "melee",
-    series: [{ batchIndex: 0, branch: "codex/split-01-reused", seriesId, targetUnits: ["src/reused.c"] }],
-    sessionUuid: "session-1",
-  });
-  campaign = transitionPrCampaign(store, campaignId, {
-    actor: "operator",
-    commandId: `working-${campaignId}`,
-    expectedRevision: campaign.revision,
-    patch: { status: "working" },
-  });
-  transitionPrSeries(store, seriesId, {
-    actor: "operator",
-    commandId: `publish-${seriesId}`,
-    expectedRevision: 0,
-    patch: { status: "published", upstreamPrNumber: prNumber },
-    payload: { upstream_pr_number: prNumber, branch: "codex/split-01-reused", batch_index: 0 },
-  });
-  return campaign;
+    traceId,
+    `fixture-event-${campaignId}`,
+    "2026-08-13T10:00:00.000Z",
+    JSON.stringify({ save_point_id: "save-1", source_revision: "session-head" }),
+  );
+  store.db.query(
+    `INSERT INTO pr_series (
+       series_id, campaign_id, revision, batch_index, status, branch,
+       upstream_pr_number, target_units_json, last_validation_json,
+       trace_id, caused_by_event_id, blockers_json, updated_at
+     ) VALUES (?, ?, 1, 0, 'published', 'codex/split-01-reused', ?, '["src/reused.c"]', NULL, ?, ?, '[]', ?)`,
+  ).run(seriesId, campaignId, prNumber, traceId, `fixture-event-${seriesId}`, "2026-08-13T10:00:00.000Z");
+  return { campaign_id: campaignId };
 }
 
 describe("remote PR observation identity", () => {
@@ -82,9 +83,22 @@ describe("remote PR observation identity", () => {
       .run("2026-08-13T11:00:00.000Z", oldCampaign.campaign_id);
     createPublishedSeries(store, "campaign-open", "series-open", 2850);
 
+    expect(() => observePrSeriesRemote(store, {
+      branch: "codex/split-01-reused",
+      commandId: "observe-missing-approval-evidence",
+      correlationId: "campaign-open",
+      reviewDecision: "APPROVED",
+      state: "OPEN",
+      upstreamPrNumber: 2850,
+    })).toThrow("Approved PR observation requires approvalSourceIdentity");
+
     const result = observePrSeriesRemote(store, {
+      approvalSourceIdentity: "github-review:PRR_open",
+      approvedRevision: "head-open",
+      approvingActor: "octocat",
       branch: "codex/split-01-reused",
       commandId: "observe-open",
+      correlationId: "campaign-open",
       reviewDecision: "APPROVED",
       state: "OPEN",
       upstreamPrNumber: 2850,
@@ -92,5 +106,23 @@ describe("remote PR observation identity", () => {
 
     expect(result).toMatchObject({ ignored: false, series: { series_id: "series-open", status: "approved" } });
     expect(store.db.query("SELECT status FROM pr_series WHERE series_id = 'series-old'").get()).toEqual({ status: "published" });
+    expect(eventsForSubject(store.db, "pr_series", "series-open").at(-1)).toMatchObject({
+      actor: "external_observer",
+      eventType: "pr.series_approved",
+      payload: {
+        approval_source_identity: "github-review:PRR_open",
+        approved_revision: "head-open",
+        approving_actor: "octocat",
+        from_status: "published",
+        to_status: "approved",
+      },
+    });
+    expect(() => observePrSeriesRemote(store, {
+      branch: "codex/split-01-reused",
+      commandId: "observe-wrong-campaign",
+      correlationId: "campaign-old",
+      state: "OPEN",
+      upstreamPrNumber: 2850,
+    })).toThrow("correlation_id must equal campaign id campaign-open");
   });
 });

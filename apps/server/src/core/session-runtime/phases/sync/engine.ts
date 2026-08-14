@@ -8,6 +8,7 @@ import {
   requireLease,
 } from "@server/core/project-state/lease.js";
 import type { JsonObject } from "@server/core/project-state/events.js";
+import type { EventActor } from "@server/core/project-state/events.js";
 import type { Blocker } from "@server/core/project-state/types.js";
 import { readPrRecordsArtifact } from "@server/core/session-runtime/phases/pr/pr-records.js";
 import { fetchUpstreamAndFindMergedPrs, parseBaseRef } from "@server/core/session-runtime/phases/preparing/subphases/git-intake.js";
@@ -65,6 +66,8 @@ export interface SyncEngineContext {
   runGit?: SyncGitRunner;
   appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   now?: () => string;
+  /** One actor owns every event emitted by the current action. */
+  actor?: EventActor;
 }
 
 export interface SyncValidationResult {
@@ -193,7 +196,7 @@ function settleCancelledSyncAuthority(
   if (lease?.kind === "sync" && lease.workflow_id === sync.sync_id) {
     releaseDispatch(context.store, {
       actor: "operator",
-      commandId: `${commandId}:lease-released`,
+      commandId,
       correlationId: sync.sync_id,
       leaseId: lease.lease_id,
       projectId: sync.project_id,
@@ -203,7 +206,7 @@ function settleCancelledSyncAuthority(
   }
   cancelDispatchRequest(context.store, {
     actor: "operator",
-    commandId: `${commandId}:dispatch-request-cancelled`,
+    commandId,
     correlationId: sync.sync_id,
     kind: "sync",
     projectId: sync.project_id,
@@ -305,8 +308,9 @@ async function ensureSessionStaging(
     pr_workspaces: [],
   };
   return transitionSync(context.store, sync.sync_id, {
-    actor: "runner",
-    commandId: `${commandId}:workspace-created`,
+    actor: context.actor ?? "runner",
+    commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "reconciling", staging },
     payload: { workspace_id: staging.workspace_id, session_head_sha: head },
@@ -499,8 +503,9 @@ function blockForConflicts(
   prReconciliation = sync.pr_reconciliation,
 ): SyncState {
   return transitionSync(context.store, sync.sync_id, {
-    actor: "runner",
+    actor: context.actor ?? "runner",
     commandId,
+    correlationId: sync.sync_id,
     eventType: "sync.reconciliation_blocked",
     expectedRevision: sync.revision,
     patch: {
@@ -511,6 +516,14 @@ function blockForConflicts(
     },
     payload: { conflict_identities: conflicts, conflicts_awaiting_operator: conflicts.length },
   });
+}
+
+function resolvedConflictPaths(staging: SyncStagingProgress): string[] {
+  const paths = new Set(staging.auto_resolved_paths ?? []);
+  for (const workspace of staging.pr_workspaces ?? []) {
+    for (const path of workspace.auto_resolved_paths ?? []) paths.add(`${workspace.branch}:${path}`);
+  }
+  return [...paths].sort();
 }
 
 export async function createSyncStagingWorkspace(input: {
@@ -576,8 +589,9 @@ export async function reconcileSync(input: {
     observed_upstream: discovery.afterRef,
   };
   sync = transitionSync(input.context.store, sync.sync_id, {
-    actor: "runner",
-    commandId: `${input.commandId}:upstream-discovered`,
+    actor: input.context.actor ?? "runner",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { staging },
     payload: {
@@ -629,12 +643,13 @@ export async function reconcileSync(input: {
         sync,
         staging,
         sessionRebase.conflictingPaths,
-        `${input.commandId}:session-conflict`,
+        input.commandId,
       );
     }
     sync = transitionSync(input.context.store, sync.sync_id, {
-      actor: "runner",
-      commandId: `${input.commandId}:session-rebased`,
+      actor: input.context.actor ?? "runner",
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
       expectedRevision: sync.revision,
       patch: { staging },
       payload: {
@@ -649,8 +664,9 @@ export async function reconcileSync(input: {
     const reconciled = await reconcilePrSeries(input.context, sync);
     staging = reconciled.staging;
     sync = transitionSync(input.context.store, sync.sync_id, {
-      actor: "runner",
-      commandId: `${input.commandId}:pr-series-reconciled`,
+      actor: input.context.actor ?? "runner",
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
       expectedRevision: sync.revision,
       patch: { staging, prReconciliation: reconciled.results },
       payload: { series_count: reconciled.results.length, conflicts: reconciled.conflicts },
@@ -661,15 +677,16 @@ export async function reconcileSync(input: {
         sync,
         staging,
         reconciled.conflicts,
-        `${input.commandId}:pr-series-conflict`,
+        input.commandId,
         reconciled.results,
       );
     }
   }
 
   return transitionSync(input.context.store, sync.sync_id, {
-    actor: "runner",
-    commandId: `${input.commandId}:validation-started`,
+    actor: input.context.actor ?? "runner",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "validating", staging: { ...staging, conflicts_awaiting_operator: 0, conflicting_paths: [] } },
   });
@@ -731,11 +748,13 @@ export async function resolveSyncConflict(input: {
     throw new Error(`Sync ${sync.sync_id} is not blocked on a reconciliation conflict`);
   }
   if (!sync.staging) throw new Error(`Blocked sync ${sync.sync_id} has no staging workspace`);
+  const conflictIdentities = [...(sync.staging.conflicting_paths ?? [])];
   revalidateSyncLease(input.context, sync);
   await assertOperatorResolutionsHaveNoMarkers(input.context, sync.staging);
   sync = transitionSync(input.context.store, sync.sync_id, {
-    actor: "operator",
-    commandId: `${input.commandId}:accepted`,
+    actor: input.context.actor ?? "operator",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "reconciling", blockers: [] },
     payload: { resolution: "operator_staging_edits_verified" },
@@ -808,10 +827,19 @@ export async function resolveSyncConflict(input: {
       : nextPrWorkspaces.length > 0 ? "pr_series_reconciled" : staging.last_durable_stage,
   };
   sync = transitionSync(input.context.store, sync.sync_id, {
-    actor: "runner",
-    commandId: `${input.commandId}:continued`,
+    actor: input.context.actor ?? "runner",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
-    patch: { staging, prReconciliation: prResults },
+    patch: {
+      staging,
+      prReconciliation: prResults,
+      resolvedConflictPaths: [...new Set([
+        ...sync.resolved_conflict_paths,
+        ...resolvedConflictPaths(staging),
+        ...conflictIdentities.filter((identity) => !remainingIdentities.includes(identity)),
+      ])].sort(),
+    },
     payload: { remaining_conflicts: remainingIdentities },
   });
   if (remainingIdentities.length > 0) {
@@ -820,7 +848,7 @@ export async function resolveSyncConflict(input: {
       sync,
       staging,
       remainingIdentities,
-      `${input.commandId}:blocked-again`,
+      input.commandId,
       prResults,
     );
   }
@@ -829,19 +857,21 @@ export async function resolveSyncConflict(input: {
     const reconciled = await reconcilePrSeries(input.context, sync);
     staging = reconciled.staging;
     sync = transitionSync(input.context.store, sync.sync_id, {
-      actor: "runner",
-      commandId: `${input.commandId}:pr-series-reconciled`,
+      actor: input.context.actor ?? "runner",
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
       expectedRevision: sync.revision,
       patch: { staging, prReconciliation: reconciled.results },
       payload: { series_count: reconciled.results.length, conflicts: reconciled.conflicts },
     });
     if (reconciled.conflicts.length > 0) {
-      return blockForConflicts(input.context, sync, staging, reconciled.conflicts, `${input.commandId}:pr-conflict`, reconciled.results);
+      return blockForConflicts(input.context, sync, staging, reconciled.conflicts, input.commandId, reconciled.results);
     }
   }
   return transitionSync(input.context.store, sync.sync_id, {
-    actor: "runner",
-    commandId: `${input.commandId}:validation-started`,
+    actor: input.context.actor ?? "runner",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "validating", staging: { ...staging, conflicts_awaiting_operator: 0, conflicting_paths: [] } },
   });
@@ -928,8 +958,9 @@ export async function validateSync(context: SyncEngineContext, input: ValidateSy
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     transitionSync(context.store, sync.sync_id, {
-      actor: "runner",
-      commandId: `${input.commandId}:failed`,
+      actor: context.actor ?? "runner",
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
       expectedRevision: sync.revision,
       patch: { status: "blocked", blockers: [validationBlocker(sync, message)] },
       payload: { validation_error: message },
@@ -952,8 +983,9 @@ export async function validateSync(context: SyncEngineContext, input: ValidateSy
   };
   if (result.result === "failed") {
     return transitionSync(context.store, sync.sync_id, {
-      actor: "runner",
-      commandId: `${input.commandId}:failed`,
+      actor: context.actor ?? "runner",
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
       expectedRevision: sync.revision,
       patch: {
         status: "blocked",
@@ -964,8 +996,9 @@ export async function validateSync(context: SyncEngineContext, input: ValidateSy
     });
   }
   sync = transitionSync(context.store, sync.sync_id, {
-    actor: "runner",
-    commandId: `${input.commandId}:validated`,
+    actor: context.actor ?? "runner",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "validated", blockers: [], staging },
     payload: { validation_evidence: evidence },
@@ -987,8 +1020,9 @@ export async function refreshSyncUpstreamObservation(input: {
     return { stale: false, sync, observedUpstream: discovery.afterRef };
   }
   sync = transitionSync(input.context.store, sync.sync_id, {
-    actor: "runner",
+    actor: input.context.actor ?? "runner",
     commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: {
       status: "blocked",
@@ -1039,7 +1073,7 @@ export async function cancelSync(input: {
   }
   cancelSyncKnowledgeJobs(input.context.store, {
     syncId: sync.sync_id,
-    commandId: `${input.commandId}:knowledge-jobs`,
+    commandId: input.commandId,
     reason: "sync cancelled before publication",
     occurredAt: now(input.context),
   });
@@ -1057,6 +1091,7 @@ export async function cancelSync(input: {
     const cancelled = transitionSync(input.context.store, sync.sync_id, {
       actor: "operator",
       commandId: input.commandId,
+      correlationId: sync.sync_id,
       eventType: "sync.cancelled",
       expectedRevision: sync.revision,
       patch: { status: "cancelled", blockers: [], staging: null },
@@ -1082,8 +1117,9 @@ export function markSyncRecoveryRequired(input: {
   ensureStatus(sync, ["ingesting", "reconciling", "validating", "validated"], "markSyncRecoveryRequired");
   revalidateSyncLease(input.context, sync);
   return transitionSync(input.context.store, sync.sync_id, {
-    actor: "runner",
+    actor: input.context.actor ?? "runner",
     commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "blocked", blockers: [recoveryBlocker(sync, input.reason)] },
     payload: { recovery_reason: input.reason, last_durable_stage: sync.staging?.last_durable_stage ?? null },
@@ -1105,7 +1141,7 @@ export async function recoverSync(input: {
     const before = await sessionSnapshot(input.context);
     cancelSyncKnowledgeJobs(input.context.store, {
       syncId: sync.sync_id,
-      commandId: `${input.commandId}:knowledge-jobs`,
+      commandId: input.commandId,
       reason: input.recoveryReason,
       occurredAt: now(input.context),
     });
@@ -1123,6 +1159,7 @@ export async function recoverSync(input: {
       const cancelled = transitionSync(input.context.store, sync.sync_id, {
         actor: "operator",
         commandId: input.commandId,
+        correlationId: sync.sync_id,
         eventType: "sync.recovered",
         expectedRevision: sync.revision,
         patch: { status: "cancelled", blockers: [], staging: null },
@@ -1155,6 +1192,7 @@ export async function recoverSync(input: {
     return transitionSync(input.context.store, sync.sync_id, {
       actor: "operator",
       commandId: input.commandId,
+      correlationId: sync.sync_id,
       eventType: "sync.recovered",
       expectedRevision: sync.revision,
       patch: { status: "publishing", blockers: [] },
@@ -1177,7 +1215,7 @@ export async function recoverSync(input: {
     return immediateTransaction(input.context.store.db, () => {
       waitSyncKnowledgeJobsForRecovery(input.context.store, {
         syncId: sync.sync_id,
-        commandId: `${input.commandId}:knowledge-jobs`,
+        commandId: input.commandId,
         reason: input.recoveryReason,
         occurredAt: now(input.context),
         requeueSucceeded: knowledgeStageFailed,
@@ -1185,6 +1223,7 @@ export async function recoverSync(input: {
       return transitionSync(input.context.store, sync.sync_id, {
         actor: "operator",
         commandId: input.commandId,
+        correlationId: sync.sync_id,
         eventType: "sync.recovered",
         expectedRevision: sync.revision,
         patch: { status: "ingesting", blockers: [] },
@@ -1206,6 +1245,7 @@ export async function recoverSync(input: {
       return transitionSync(input.context.store, sync.sync_id, {
         actor: "operator",
         commandId: input.commandId,
+        correlationId: sync.sync_id,
         eventType: "sync.recovered",
         expectedRevision: sync.revision,
         patch: { status: "publishing", blockers: [], staging: null },
@@ -1227,6 +1267,7 @@ export async function recoverSync(input: {
   return transitionSync(input.context.store, sync.sync_id, {
     actor: "operator",
     commandId: input.commandId,
+    correlationId: sync.sync_id,
     eventType: "sync.recovered",
     expectedRevision: sync.revision,
     patch: { status: resumeStage, blockers: [] },

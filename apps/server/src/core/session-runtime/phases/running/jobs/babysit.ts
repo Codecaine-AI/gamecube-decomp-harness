@@ -482,7 +482,6 @@ export async function runBabysit(globals: GlobalArgs, args: Map<string, string |
           settlePausedRun({
             actor: "guardian",
             commandId: `command-run-supervisor-settled-${randomUUID()}`,
-            correlationId: run.id,
             leaseId,
             reason: `supervisor settled after ${stoppedReason}`,
             runId: run.id,

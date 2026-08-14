@@ -5,11 +5,13 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { immediateTransaction, openState, type StateStore } from "@server/core/orchestrator-state";
 import { createProjectSession } from "@server/core/project-session/store.js";
-import { listProjectEvents } from "@server/core/project-state/events.js";
+import { listProjectEvents, type JsonObject } from "@server/core/project-state/events.js";
+import { validateRegisteredProjectEvent } from "@server/core/project-state/event-registry.js";
 import { initializeProjectState, requestDispatch } from "@server/core/project-state/lease.js";
 import { createRun } from "@server/core/session-runtime/run-state/runs.js";
 import {
   cancelSync,
+  cancelSyncKnowledgeJobs,
   completeSyncKnowledgeIngest,
   enqueueSyncKnowledgeJobs,
   getSyncState,
@@ -25,6 +27,7 @@ import {
   stageSyncKnowledge,
   syncKnowledgeManifestPath,
   syncKnowledgeRoot,
+  syncActionSpanId,
   syncStagingPaths,
   transitionSync,
   waitSyncKnowledgeJobsForRecovery,
@@ -53,6 +56,7 @@ function fixture(intake: SyncIntake, syncId = "sync-knowledge"): SyncFixture {
   stores.push(store);
   initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
   createProjectSession(store.db, {
+    actor: "operator",
     baseSha: "session-head",
     id: "project-session:melee",
     projectId: "melee",
@@ -64,11 +68,14 @@ function fixture(intake: SyncIntake, syncId = "sync-knowledge"): SyncFixture {
     intake,
     syncId,
     commandId: `${syncId}:requested`,
+    actor: "external_observer",
+    correlationId: syncId,
     occurredAt: "2026-08-13T18:00:00.000Z",
   });
   const lease = requestDispatch(store, {
     actor: "operator",
     commandId: `${syncId}:lease-acquired`,
+    correlationId: syncId,
     kind: "sync",
     projectId: sync.project_id,
     workflowId: sync.sync_id,
@@ -78,6 +85,7 @@ function fixture(intake: SyncIntake, syncId = "sync-knowledge"): SyncFixture {
   sync = transitionSync(store, syncId, {
     actor: "operator",
     commandId: `${syncId}:started`,
+    correlationId: syncId,
     expectedRevision: sync.revision,
     occurredAt: "2026-08-13T18:01:00.000Z",
     patch: { status: "ingesting" },
@@ -134,6 +142,7 @@ async function publishKnowledgeOnlyFixture(
   const publishing = transitionSync(current.store, completed.sync.sync_id, {
     actor: "operator",
     commandId: `${command}:publishing`,
+    correlationId: completed.sync.sync_id,
     expectedRevision: completed.sync.revision,
     patch: { status: "publishing" },
   });
@@ -146,7 +155,7 @@ async function publishKnowledgeOnlyFixture(
       commandId: command,
       correlationId: publishing.sync_id,
       traceId: publishing.trace_id,
-      spanId: `${command}:span`,
+      spanId: syncActionSpanId(command),
     }));
 }
 
@@ -191,7 +200,7 @@ describe("sync-owned staged knowledge", () => {
     expect(events.map((event) => event.subjectId)).toEqual(jobs.map((job) => job.jobId));
     expect(events[0]?.payload).toMatchObject({
       source_class: "sync_stage",
-      execution_class: "sync",
+      execution_class: "sync_stage",
       provenance: { corpus_batch_id: "corpus-b", source: "discord" },
     });
 
@@ -203,6 +212,220 @@ describe("sync-owned staged knowledge", () => {
       },
     })).toEqual(jobs);
     expect(listProjectEvents(current.store.db, { projectId: "melee" })).toHaveLength(before + 3);
+  });
+
+  test("emits every sync-stage status with exact durable identity and provenance", async () => {
+    const sourceId = "corpus-contract";
+    const provenance = {
+      corpus_batch_id: sourceId,
+      origin: "discord-export",
+      revision: "2026-08-13",
+    };
+    const current = fixture(knowledgeOnlyIntake([sourceId]), "sync-knowledge-event-contract");
+    const context: SyncEngineContext = {
+      store: current.store,
+      stateDir: current.stateDir,
+      repoRoot: current.root,
+      sessionWorktreePath: current.root,
+      leaseId: current.leaseId,
+    };
+    enqueueSyncKnowledgeJobs(current.store, {
+      syncId: current.sync.sync_id,
+      commandId: "command-enqueue-contract-job",
+      provenance: { corpus: { [sourceId]: provenance } },
+    });
+
+    await expect(stageSyncKnowledge({
+      store: current.store,
+      stateDir: current.stateDir,
+      syncId: current.sync.sync_id,
+      commandId: "command-fail-contract-job",
+      processors: {
+        async processMergedPr() { return {}; },
+        async processCorpus() { throw new Error("contract fixture failure"); },
+      },
+      revalidateOwnership: () => {},
+    })).rejects.toThrow("contract fixture failure");
+
+    let sync = getSyncState(current.store, current.sync.sync_id)!;
+    sync = transitionSync(current.store, sync.sync_id, {
+      actor: "runner",
+      commandId: "command-block-contract-job",
+      correlationId: sync.sync_id,
+      expectedRevision: sync.revision,
+      patch: {
+        status: "blocked",
+        blockers: [{
+          code: "knowledge_stage_failed",
+          message: "contract fixture failure",
+          source_kind: "sync",
+          source_id: sync.sync_id,
+          recoverable: true,
+        }],
+      },
+    });
+    sync = await recoverSync({
+      context,
+      syncId: sync.sync_id,
+      commandId: "command-resume-contract-job",
+      expectedRevision: sync.revision,
+      choice: "resume",
+      recoveryReason: "retry contract fixture",
+    });
+
+    const manifest = await stageSyncKnowledge({
+      store: current.store,
+      stateDir: current.stateDir,
+      syncId: sync.sync_id,
+      commandId: "command-succeed-contract-job",
+      processors: deterministicProcessors(),
+      revalidateOwnership: () => {},
+    });
+    cancelSyncKnowledgeJobs(current.store, {
+      syncId: sync.sync_id,
+      commandId: "command-cancel-contract-job",
+      reason: "close contract fixture",
+      actor: "runner",
+    });
+
+    const statusEventTypes = new Set([
+      "knowledge.job_processing",
+      "knowledge.job_waiting",
+      "knowledge.job_succeeded",
+      "knowledge.job_failed",
+      "knowledge.job_cancelled",
+    ]);
+    const statusEvents = listProjectEvents(current.store.db, { projectId: "melee" })
+      .filter((event) => statusEventTypes.has(event.eventType));
+    const commonFacts = {
+      sync_id: sync.sync_id,
+      execution_class: "sync_stage",
+      source_class: "sync_stage",
+      provenance,
+      source_kind: "corpus",
+      source_id: sourceId,
+    };
+    expect(statusEvents.map((event) => ({ eventType: event.eventType, payload: event.payload }))).toEqual([
+      {
+        eventType: "knowledge.job_processing",
+        payload: { ...commonFacts, from_status: "queued", to_status: "processing" },
+      },
+      {
+        eventType: "knowledge.job_failed",
+        payload: {
+          ...commonFacts,
+          from_status: "processing",
+          to_status: "failed",
+          error: "contract fixture failure",
+        },
+      },
+      {
+        eventType: "knowledge.job_waiting",
+        payload: {
+          ...commonFacts,
+          from_status: "failed",
+          to_status: "waiting",
+          reason: "retry contract fixture",
+        },
+      },
+      {
+        eventType: "knowledge.job_processing",
+        payload: { ...commonFacts, from_status: "waiting", to_status: "processing" },
+      },
+      {
+        eventType: "knowledge.job_succeeded",
+        payload: {
+          ...commonFacts,
+          from_status: "processing",
+          to_status: "succeeded",
+          staged_digest: manifest.artifacts[0]!.digest,
+        },
+      },
+      {
+        eventType: "knowledge.job_cancelled",
+        payload: {
+          ...commonFacts,
+          from_status: "succeeded",
+          to_status: "cancelled",
+          reason: "close contract fixture",
+        },
+      },
+    ]);
+    for (const event of statusEvents) {
+      expect(typeof event.payload.sync_id === "string" && event.payload.sync_id.trim().length > 0).toBe(true);
+      expect(() => validateRegisteredProjectEvent(
+        event.eventType,
+        event.subjectKind,
+        event.actor,
+        event.payload,
+      )).not.toThrow();
+    }
+  });
+
+  test.each([
+    ["knowledge.job_processing", "queued", {}],
+    ["knowledge.job_waiting", "failed", { reason: "retry contract fixture" }],
+    ["knowledge.job_succeeded", "processing", { staged_digest: "sha256:staged" }],
+    ["knowledge.job_failed", "processing", { error: "contract fixture failure" }],
+    ["knowledge.job_cancelled", "succeeded", { reason: "close contract fixture" }],
+  ] as const)("rejects missing and cross-field-invalid generalized facts for %s", (
+    eventType,
+    fromStatus,
+    eventFacts,
+  ) => {
+    const payload = {
+      sync_id: "sync-registry-contract",
+      execution_class: "sync_stage",
+      source_class: "sync_stage",
+      provenance: { corpus_batch_id: "corpus-contract", origin: "discord-export" },
+      source_kind: "corpus",
+      source_id: "corpus-contract",
+      from_status: fromStatus,
+      to_status: eventType.slice("knowledge.job_".length),
+      ...eventFacts,
+    };
+    expect(() => validateRegisteredProjectEvent(eventType, "knowledge_job", "runner", payload)).not.toThrow();
+
+    for (const fact of [
+      "sync_id",
+      "execution_class",
+      "source_class",
+      "provenance",
+      "source_kind",
+      "source_id",
+      "from_status",
+      "to_status",
+    ] as const) {
+      const missing: JsonObject = { ...payload };
+      delete missing[fact];
+      expect(() => validateRegisteredProjectEvent(eventType, "knowledge_job", "runner", missing)).toThrow(
+        `is missing required payload facts: ${fact}`,
+      );
+    }
+    expect(() => validateRegisteredProjectEvent(eventType, "knowledge_job", "runner", {
+      ...payload,
+      sync_id: "   ",
+    })).toThrow("requires a nonblank sync_id when execution_class is sync_stage");
+    expect(() => validateRegisteredProjectEvent(eventType, "knowledge_job", "runner", {
+      ...payload,
+      execution_class: "background_safe",
+    })).toThrow("requires sync_id null when execution_class is background_safe");
+    expect(() => validateRegisteredProjectEvent(eventType, "knowledge_job", "runner", {
+      ...payload,
+      execution_class: "background_safe",
+      sync_id: null,
+    })).not.toThrow();
+    const legacyTransition: JsonObject = { ...payload };
+    delete legacyTransition.from_status;
+    delete legacyTransition.to_status;
+    legacyTransition.previous_status = fromStatus;
+    legacyTransition.status = eventType.slice("knowledge.job_".length);
+    expect(() => validateRegisteredProjectEvent(
+      eventType,
+      "knowledge_job",
+      "runner",
+      legacyTransition,
+    )).toThrow();
   });
 
   test("rolls back the enqueue event when durable job insertion fails", () => {
@@ -244,6 +467,7 @@ describe("sync-owned staged knowledge", () => {
       store: current.store,
       stateDir: current.stateDir,
       syncId: current.sync.sync_id,
+      commandId: "command-stage-cas-rejected",
       processors: deterministicProcessors(),
       revalidateOwnership: () => {},
     })).rejects.toThrow("fixture rejected processing CAS");
@@ -297,6 +521,8 @@ describe("sync-owned staged knowledge", () => {
         "knowledge.job_processing",
         "knowledge.job_succeeded",
       ]);
+      expect(jobEvents[1]!.causationId).toBe(jobEvents[0]!.eventId);
+      expect(jobEvents[2]!.causationId).toBe(jobEvents[1]!.eventId);
       expect(job.causedByEventId).toBe(jobEvents.at(-1)!.eventId);
     }
 
@@ -305,6 +531,7 @@ describe("sync-owned staged knowledge", () => {
       store: current.store,
       stateDir: current.stateDir,
       syncId: current.sync.sync_id,
+      commandId: "command-stage-idempotent",
       processors: deterministicProcessors(secondCalls),
       revalidateOwnership: () => {},
     });
@@ -323,6 +550,7 @@ describe("sync-owned staged knowledge", () => {
       store: current.store,
       stateDir: current.stateDir,
       syncId: current.sync.sync_id,
+      commandId: "command-stage-processor-failure",
       revalidateOwnership: () => {},
       processors: {
         async processMergedPr() { return {}; },
@@ -465,6 +693,7 @@ describe("sync-owned staged knowledge", () => {
       store: current.store,
       stateDir: current.stateDir,
       syncId: current.sync.sync_id,
+      commandId: "command-stage-artifact-recovery",
       processors: deterministicProcessors(),
       revalidateOwnership: () => {},
     });
@@ -519,10 +748,15 @@ describe("sync-owned staged knowledge", () => {
     const manifest = completed.manifest;
     expect(completed.sync).toMatchObject({ status: "validated", staging: null });
     expect(listProjectEvents(current.store.db, { projectId: "melee" }).slice(-2)).toMatchObject([
-      { eventType: "sync.validating", payload: { knowledge_manifest_digest: manifest.digest } },
+      {
+        eventType: "sync.validating",
+        payload: { from_status: "ingesting", to_status: "validating" },
+      },
       {
         eventType: "sync.validated",
         payload: {
+          from_status: "validating",
+          to_status: "validated",
           validation_evidence: {
             result: "passed",
             knowledge_only: true,
@@ -535,6 +769,7 @@ describe("sync-owned staged knowledge", () => {
     let sync = transitionSync(current.store, completed.sync.sync_id, {
       actor: "operator",
       commandId: "command-publishing",
+      correlationId: completed.sync.sync_id,
       expectedRevision: completed.sync.revision,
       patch: { status: "publishing" },
     });
@@ -548,7 +783,7 @@ describe("sync-owned staged knowledge", () => {
         commandId: "command-publish-knowledge-rollback",
         correlationId: sync.sync_id,
         traceId: sync.trace_id,
-        spanId: "span-publish-knowledge",
+        spanId: syncActionSpanId("command-publish-knowledge"),
       });
       throw new Error("fixture rolls back publication");
     })).toThrow("fixture rolls back publication");
@@ -564,7 +799,7 @@ describe("sync-owned staged knowledge", () => {
         commandId: "command-publish-knowledge",
         correlationId: sync.sync_id,
         traceId: sync.trace_id,
-        spanId: "span-publish-knowledge",
+        spanId: syncActionSpanId("command-publish-knowledge"),
         occurredAt: "2026-08-13T18:04:00.000Z",
       }));
     expect(published).toMatchObject({
@@ -597,7 +832,7 @@ describe("sync-owned staged knowledge", () => {
         commandId: "command-publish-knowledge-retry",
         correlationId: sync.sync_id,
         traceId: sync.trace_id,
-        spanId: "span-publish-knowledge-retry",
+        spanId: syncActionSpanId("command-publish-knowledge-retry"),
       }));
     expect(retry).toMatchObject({ revisionId: "knowledge-1", idempotent: true });
     expect(listProjectEvents(current.store.db, { projectId: "melee" })).toHaveLength(events.length);
@@ -618,6 +853,7 @@ describe("sync-owned staged knowledge", () => {
     const publishing = transitionSync(current.store, completed.sync.sync_id, {
       actor: "operator",
       commandId: "command-query-activation-publishing",
+      correlationId: completed.sync.sync_id,
       expectedRevision: completed.sync.revision,
       patch: { status: "publishing" },
     });
@@ -631,7 +867,7 @@ describe("sync-owned staged knowledge", () => {
         commandId: "command-query-activation-rollback",
         correlationId: publishing.sync_id,
         traceId: publishing.trace_id,
-        spanId: "span-query-activation-rollback",
+        spanId: syncActionSpanId("command-query-activation-rollback"),
       });
       expect(queryCanonicalSyncKnowledge(current.store, { projectId: "melee", query: "corpus fact" }))
         .toHaveLength(2);
@@ -648,7 +884,7 @@ describe("sync-owned staged knowledge", () => {
         commandId: "command-query-activation-commit",
         correlationId: publishing.sync_id,
         traceId: publishing.trace_id,
-        spanId: "span-query-activation-commit",
+        spanId: syncActionSpanId("command-query-activation-commit"),
       }));
     const snapshot = readCanonicalSyncKnowledge(current.store, "melee");
     expect(snapshot).toMatchObject({ revision: { revisionId: "knowledge-1", syncId: publishing.sync_id } });
@@ -704,6 +940,7 @@ describe("sync-owned staged knowledge", () => {
       store: current.store,
       stateDir: current.stateDir,
       syncId: current.sync.sync_id,
+      commandId: "command-stage-before-cancel",
       processors: deterministicProcessors(),
       revalidateOwnership: () => {},
     });
@@ -793,6 +1030,17 @@ describe("sync-owned staged knowledge", () => {
       recoveryReason: "operator discarded staged knowledge",
     });
     expect(sync).toMatchObject({ status: "cancelled", staging: null });
+    expect(listProjectEvents(current.store.db, { projectId: "melee" }).filter((event) =>
+      event.subjectKind === "sync_workflow" && event.subjectId === sync.sync_id
+    ).at(-1)).toMatchObject({
+      eventType: "sync.cancelled",
+      payload: {
+        from_status: "blocked",
+        to_status: "cancelled",
+        discarded_staging_workspace_id: null,
+        untouched_submodule_heads: [],
+      },
+    });
     expect(existsSync(syncStagingPaths(current.stateDir, current.sync.sync_id).root)).toBe(false);
     expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id)).toEqual([
       expect.objectContaining({ status: "cancelled", revision: 3, stagedArtifactPath: null, stagedDigest: null }),
@@ -987,7 +1235,13 @@ describe("sync-owned staged knowledge", () => {
     ]);
     expect(listProjectEvents(reopened.db, { projectId: "melee" }).at(-1)).toMatchObject({
       eventType: "sync.recovered",
-      payload: { recovery_path: "confirmed_orphan", process_liveness: "not_live", lease_staleness: "stale" },
+      payload: {
+        from_status: "ingesting",
+        to_status: "ingesting",
+        staging_preserved: true,
+        staging_discarded: false,
+        resume_stage: "ingesting",
+      },
     });
     releaseProcessor();
     await expect(staging).rejects.toThrow();
@@ -1028,12 +1282,14 @@ describe("sync-owned staged knowledge", () => {
     let sync = transitionSync(current.store, completed.sync.sync_id, {
       actor: "operator",
       commandId: "command-enter-publishing",
+      correlationId: completed.sync.sync_id,
       expectedRevision: completed.sync.revision,
       patch: { status: "publishing" },
     });
     sync = transitionSync(current.store, sync.sync_id, {
       actor: "runner",
       commandId: "command-block-publishing",
+      correlationId: sync.sync_id,
       expectedRevision: sync.revision,
       patch: {
         status: "blocked",

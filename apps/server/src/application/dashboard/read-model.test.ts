@@ -61,6 +61,7 @@ describe("dashboard read model", () => {
     const { store } = tempState();
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         projectId: "melee",
         sessionUuid: "session-1",
         id: "project-session:session-1",
@@ -72,6 +73,8 @@ describe("dashboard read model", () => {
         sessionUuid: "session-1",
         syncId: "sync-1",
         commandId: "command-sync-requested",
+        correlationId: "sync-1",
+        actor: "external_observer",
         intake: {
           upstream_from: "base-sha",
           upstream_to: "upstream-next",
@@ -80,13 +83,22 @@ describe("dashboard read model", () => {
           knowledge_only: false,
         },
       });
+      const durableRun = createRun(
+        store,
+        "matched_code_percent",
+        100,
+        1,
+        { projectId: "melee" },
+        { baseRevision: "base-sha", sessionUuid: "session-1" },
+      );
       const run = requestDispatch(store, {
         projectId: "melee",
         kind: "run",
-        workflowId: "run-1",
+        workflowId: durableRun.id,
         reason: "run",
         commandId: "command-run",
         actor: "operator",
+        correlationId: durableRun.id,
       });
       expect(run.queued).toBeFalse();
       requestDispatch(store, {
@@ -96,6 +108,7 @@ describe("dashboard read model", () => {
         reason: "sync",
         commandId: "command-sync",
         actor: "operator",
+        correlationId: "sync-1",
       });
       const campaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
       const savePoint = addSavePoint(store, {
@@ -112,6 +125,7 @@ describe("dashboard read model", () => {
         triggerKind: "manual",
         headlineScore: 98.5,
         commandId: "command-save",
+        correlationId: "session-1",
         actor: "operator",
       });
 
@@ -121,7 +135,7 @@ describe("dashboard read model", () => {
       });
 
       expect(view.revision).toBe(3);
-      expect(view.active_workflow).toMatchObject({ kind: "run", workflow_id: "run-1", status: "active" });
+      expect(view.active_workflow).toMatchObject({ kind: "run", workflow_id: durableRun.id, status: "active" });
       expect(view.queued_dispatch_requests).toEqual([
         expect.objectContaining({ kind: "sync", workflow_id: "sync-1" }),
       ]);
@@ -139,7 +153,18 @@ describe("dashboard read model", () => {
         },
       });
       expect(view.session?.timeline).toHaveLength(1);
-      expect(view.latest_event_sequence).toBe(6);
+      expect(view.latest_event_sequence).toBe(8);
+      expect(view.recent_events.map((event) => event.sequence)).toEqual([8, 7, 6, 5, 4, 3, 2, 1]);
+      expect(view.recent_events[0]).toMatchObject({
+        event_type: "session.save_point_recorded",
+        project_id: "melee",
+        subject_kind: "session",
+        subject_id: "session-1",
+        payload_summary: {
+          anchored_commit: "base-sha",
+          trigger_kind: "manual",
+        },
+      });
       expect(view.sync).toMatchObject({
         workflow_id: "sync-1",
         status: "requested",
@@ -152,6 +177,12 @@ describe("dashboard read model", () => {
         },
       });
       expect(view.available_actions.map((action) => action.action_id)).toEqual([
+        "run.start",
+        "run.pause",
+        "run.resume",
+        "run.hard_stop",
+        "run.cancel",
+        "run.recover",
         "pr.open_campaign",
         "pr.activate",
         "pr.publish_batch",
@@ -197,6 +228,7 @@ describe("dashboard read model", () => {
     const { store } = tempState();
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         projectId: "melee",
         sessionUuid: "session-pr",
         id: "project-session:session-pr",
@@ -213,6 +245,7 @@ describe("dashboard read model", () => {
       recordSavePointAnchor(store, {
         actor: "operator",
         commandId: "command-pr-anchor",
+        correlationId: "session-pr",
         commitSha: "source-head",
         projectId: "melee",
         savePointId: savePoint.id,
@@ -222,6 +255,7 @@ describe("dashboard read model", () => {
         actor: "operator",
         campaignId: "pr-campaign-dashboard",
         commandId: "command-pr-open",
+        correlationId: "pr-campaign-dashboard",
         namedSavePointId: savePoint.id,
         projectId: "melee",
         publicationPolicy: { batch_size: 2 },
@@ -260,6 +294,7 @@ describe("dashboard read model", () => {
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-pr-dispatch",
+        correlationId: campaign.campaign_id,
         kind: "pr",
         projectId: "melee",
         reason: "work the campaign",
@@ -269,6 +304,7 @@ describe("dashboard read model", () => {
       activateAcquiredPrCampaign({
         campaignId: campaign.campaign_id,
         commandId: "command-pr-activate",
+        correlationId: campaign.campaign_id,
         leaseId: dispatch.leaseId,
         projectId: "melee",
         store,
@@ -276,6 +312,7 @@ describe("dashboard read model", () => {
       const published = transitionPrSeries(store, "series-alpha", {
         actor: "operator",
         commandId: "command-publish-alpha",
+        correlationId: campaign.campaign_id,
         eventType: "pr.series_published",
         expectedRevision: 0,
         patch: { status: "published", upstreamPrNumber: 2850 },
@@ -285,8 +322,10 @@ describe("dashboard read model", () => {
           batch_index: 0,
         },
       });
-      ingestPrFeedback(store, {
+      expect(published.status).toBe("published");
+      const feedback = ingestPrFeedback(store, {
         commandId: "observation-alpha-review",
+        correlationId: campaign.campaign_id,
         expectedRevision: published.revision,
         items: [{
           itemId: "work-item-alpha",
@@ -295,6 +334,10 @@ describe("dashboard read model", () => {
           summary: "Use the project typedef.",
         }],
         seriesId: published.series_id,
+      });
+      expect(feedback.series).toMatchObject({
+        revision: published.revision + 2,
+        status: "changes_requested",
       });
 
       const view = buildProjectStateReadModel(store, "melee", {
@@ -391,6 +434,7 @@ describe("dashboard read model", () => {
     const { dir, store } = tempState();
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         projectId: "melee",
         sessionUuid: "session-pr-actions",
         id: "project-session:session-pr-actions",
@@ -407,6 +451,7 @@ describe("dashboard read model", () => {
       recordSavePointAnchor(store, {
         actor: "operator",
         commandId: "command-actions-anchor",
+        correlationId: "session-pr-actions",
         commitSha: "source-head",
         projectId: "melee",
         savePointId: savePoint.id,
@@ -432,6 +477,7 @@ describe("dashboard read model", () => {
         actor: "operator",
         campaignId: "pr-campaign-actions",
         commandId: "command-actions-open",
+        correlationId: "pr-campaign-actions",
         namedSavePointId: savePoint.id,
         projectId: "melee",
         series: [{
@@ -442,13 +488,22 @@ describe("dashboard read model", () => {
         }],
         sessionUuid: "session-pr-actions",
       });
+      const durableRun = createRun(
+        store,
+        "matched_code_percent",
+        100,
+        1,
+        { projectId: "melee" },
+        { baseRevision: "source-head", sessionUuid: "session-pr-actions" },
+      );
       const runDispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-actions-run",
+        correlationId: durableRun.id,
         kind: "run",
         projectId: "melee",
         reason: "test drain projection",
-        workflowId: "run-actions",
+        workflowId: durableRun.id,
       });
       if (runDispatch.queued) throw new Error("test run lease was unexpectedly queued");
       view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
@@ -461,12 +516,14 @@ describe("dashboard read model", () => {
       releaseDispatch(store, {
         actor: "operator",
         commandId: "command-actions-run-release",
+        correlationId: durableRun.id,
         leaseId: runDispatch.leaseId,
         projectId: "melee",
       });
       const prDispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-actions-pr",
+        correlationId: campaign.campaign_id,
         kind: "pr",
         projectId: "melee",
         reason: "test recovery projection",
@@ -476,6 +533,7 @@ describe("dashboard read model", () => {
       activateAcquiredPrCampaign({
         campaignId: campaign.campaign_id,
         commandId: "command-actions-activate",
+        correlationId: campaign.campaign_id,
         leaseId: prDispatch.leaseId,
         projectId: "melee",
         store,
@@ -511,6 +569,7 @@ describe("dashboard read model", () => {
     const { store } = tempState();
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         projectId: "melee",
         sessionUuid: "session-run",
         id: "project-session:session-run",
@@ -555,6 +614,7 @@ describe("dashboard read model", () => {
         workflowId: ready.id,
         reason: "start run",
         commandId: "command-run-start",
+        correlationId: ready.id,
         actor: "operator",
       });
       expect(dispatch.queued).toBeFalse();
@@ -648,6 +708,7 @@ describe("dashboard read model", () => {
       transitionRun(store, failed.id, {
         actor: "operator",
         commandId: "command-run-recover",
+        correlationId: failed.id,
         eventType: "run.recovered",
         expectedRevision: failed.revision,
         patch: { status: "paused" },
@@ -706,6 +767,7 @@ describe("dashboard read model", () => {
     const { store } = tempState();
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         projectId: "melee",
         sessionUuid: "session-sync",
         id: "project-session:session-sync",
@@ -717,6 +779,8 @@ describe("dashboard read model", () => {
         sessionUuid: "session-sync",
         syncId: "sync-staged",
         commandId: "command-sync-requested",
+        correlationId: "sync-staged",
+        actor: "external_observer",
         intake: {
           upstream_from: "upstream-old",
           upstream_to: "upstream-new",
@@ -728,6 +792,7 @@ describe("dashboard read model", () => {
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-sync-dispatch",
+        correlationId: sync.sync_id,
         kind: "sync",
         projectId: "melee",
         reason: "test sync projection",
@@ -737,6 +802,7 @@ describe("dashboard read model", () => {
       sync = transitionSync(store, sync.sync_id, {
         actor: "operator",
         commandId: "command-sync-ingesting",
+        correlationId: sync.sync_id,
         expectedRevision: sync.revision,
         patch: { status: "ingesting" },
       });
@@ -753,6 +819,7 @@ describe("dashboard read model", () => {
       sync = transitionSync(store, sync.sync_id, {
         actor: "runner",
         commandId: "command-sync-reconciling",
+        correlationId: sync.sync_id,
         expectedRevision: sync.revision,
         patch: {
           status: "reconciling",
@@ -766,6 +833,7 @@ describe("dashboard read model", () => {
       sync = transitionSync(store, sync.sync_id, {
         actor: "runner",
         commandId: "command-sync-conflict",
+        correlationId: sync.sync_id,
         eventType: "sync.reconciliation_blocked",
         expectedRevision: sync.revision,
         patch: {
@@ -827,6 +895,7 @@ describe("dashboard read model", () => {
       sync = transitionSync(store, sync.sync_id, {
         actor: "operator",
         commandId: "command-sync-resolved",
+        correlationId: sync.sync_id,
         expectedRevision: sync.revision,
         patch: {
           status: "reconciling",
@@ -841,24 +910,19 @@ describe("dashboard read model", () => {
       sync = transitionSync(store, sync.sync_id, {
         actor: "runner",
         commandId: "command-sync-validating",
+        correlationId: sync.sync_id,
         expectedRevision: sync.revision,
         patch: { status: "validating" },
       });
       sync = transitionSync(store, sync.sync_id, {
         actor: "runner",
         commandId: "command-sync-validated",
+        correlationId: sync.sync_id,
+        payload: { validation_evidence: { result: "passed" } },
         expectedRevision: sync.revision,
         patch: { status: "validated" },
       });
 
-      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
-      expect(view.available_actions.find((action) => action.action_id === "sync.publish")?.blocked_by).toContainEqual(
-        expect.objectContaining({ code: "missing_validation_evidence" }),
-      );
-      store.db
-        .query("UPDATE sync_state SET staging_json = ? WHERE sync_id = ?")
-        .run(JSON.stringify({ ...sync.staging, validation_evidence: { result: "passed" } }), sync.sync_id);
-      sync = getSyncState(store, sync.sync_id)!;
       view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.available_actions.find((action) => action.action_id === "sync.publish")).toMatchObject({
         enabled: true,
@@ -884,6 +948,7 @@ describe("dashboard read model", () => {
       sync = transitionSync(store, sync.sync_id, {
         actor: "runner",
         commandId: "command-sync-stale",
+        correlationId: sync.sync_id,
         expectedRevision: sync.revision,
         patch: {
           status: "blocked",
@@ -936,6 +1001,7 @@ describe("dashboard read model", () => {
       releaseDispatch(store, {
         actor: "runner",
         commandId: "command-sync-release",
+        correlationId: sync.sync_id,
         leaseId: dispatch.leaseId,
         projectId: "melee",
       });
@@ -976,6 +1042,7 @@ describe("dashboard read model", () => {
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-stale-run",
+        correlationId: run.id,
         kind: "run",
         projectId: "melee",
         reason: "test stale run projection",
@@ -1020,6 +1087,7 @@ describe("dashboard read model", () => {
     const { store } = tempState();
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         projectId: "melee",
         sessionUuid: "session-1",
         id: "project-session:session-1",
@@ -1039,6 +1107,7 @@ describe("dashboard read model", () => {
           commitSha: `commit-${index}`,
           triggerKind: "manual",
           commandId: `command-save-${index}`,
+          correlationId: "session-1",
           actor: "operator",
         });
       }
@@ -1062,6 +1131,7 @@ describe("dashboard read model", () => {
     const { store } = tempState();
     try {
       createProjectSession(store.db, {
+        actor: "operator",
         projectId: "melee",
         sessionUuid: "session-1",
         id: "project-session:session-1",
@@ -1080,6 +1150,7 @@ describe("dashboard read model", () => {
         commitSha: "head-1",
         triggerKind: "manual",
         commandId: "command-save-fresh",
+        correlationId: "session-1",
         actor: "operator",
       });
 
@@ -1114,7 +1185,8 @@ describe("dashboard read model", () => {
         sourceId: "checkpoint",
         message: "capture unavailable",
         commandId: "command-spooled-failure",
-        actor: "runner",
+        correlationId: "command-spooled-failure",
+        actor: "operator",
       }, store);
       expect(failure.storage).toBe("spool");
 

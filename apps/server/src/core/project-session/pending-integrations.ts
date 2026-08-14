@@ -312,7 +312,7 @@ function reconcilePreparedIntegration(
       integrationCommit: commitSha,
       commandId: `command-reconcile-epoch-integration-${randomUUID()}`,
       correlationId: pending.runId,
-      spanId: `span-reconcile-epoch-integration-${randomUUID()}`,
+      spanId: `span-${randomUUID()}`,
       actor: "runner",
       occurredAt,
     });

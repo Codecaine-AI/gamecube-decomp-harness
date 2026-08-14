@@ -7,8 +7,13 @@ import {
   updatePreparingSubphase,
 } from "@server/core/session-runtime";
 import { getActiveProjectSession } from "@server/core/project-session/store";
+import { listProjectEvents } from "@server/core/project-state/events.js";
 import { openState } from "@server/core/session-runtime/run-state";
-import type { PreparingRuntimeDeps, PreparingRuntimeProjectContext } from "./runtime-shared.js";
+import type {
+  PreparingRuntimeDeps,
+  PreparingRuntimeProjectContext,
+  PreparingRuntimeWorkflowEventInput,
+} from "./runtime-shared.js";
 import { createPreparingRuntime } from "./runtime.js";
 
 let tempDirs: string[] = [];
@@ -102,11 +107,13 @@ describe("preparing runtime baseline", () => {
     const store = openState(stateDir);
     try {
       const created = createNewProjectSession(store.db, {
+        actor: "operator",
         id: "project-session:session-uuid",
         projectId: "melee",
         sessionUuid: "session-uuid",
       });
       updatePreparingSubphase(store.db, { id: created.record.id }, "baseline", {
+        correlationId: created.record.session_uuid,
         data: {
           sync: {
             status: "complete",
@@ -133,6 +140,7 @@ describe("preparing runtime baseline", () => {
       repoRoot,
       stateDir,
     };
+    const traceInputs: PreparingRuntimeWorkflowEventInput[] = [];
     const runtime = createPreparingRuntime({
       activeSessionPrBlockers: () => [],
       appendLog: () => undefined,
@@ -154,7 +162,13 @@ describe("preparing runtime baseline", () => {
       },
       serverJobPath: resolve(root, "job-runner.ts"),
       sourceRoot: () => root,
-      submitWorkflowEvent: async () => null,
+      submitWorkflowEvent: async (
+        _paths: PreparingRuntimeProjectContext,
+        input: PreparingRuntimeWorkflowEventInput,
+      ) => {
+        traceInputs.push(input);
+        return null;
+      },
     } as unknown as PreparingRuntimeDeps);
 
     await expect(runtime.calculateBaselineForPrepare({ projectId: "melee", sessionUuid: "session-uuid" })).rejects.toThrow("missing build.ninja");
@@ -166,6 +180,20 @@ describe("preparing runtime baseline", () => {
       expect(record?.preparing_state_json.baseline?.status).toBe("failed");
       expect(record?.preparing_state_json.baseline?.error).toContain("missing build.ninja");
       expect(record?.preparing_state_json.baseline?.repoRoot).toBe(upstreamWorktreePath);
+      const linkedEvents = listProjectEvents(nextStore.db, { projectId: "melee" })
+        .filter((event) => event.eventType === "session.preparing_subphase_updated")
+        .slice(-2);
+      expect(traceInputs.map((input) => input.projectEventId)).toEqual(
+        linkedEvents.map((event) => event.eventId),
+      );
+      expect(traceInputs.map((input) => input.correlationId)).toEqual([
+        "session-uuid",
+        "session-uuid",
+      ]);
+      expect(traceInputs.map((input) => input.causedByEventId)).toEqual([
+        null,
+        null,
+      ]);
     } finally {
       nextStore.db.close();
     }

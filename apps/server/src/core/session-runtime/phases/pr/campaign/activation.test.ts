@@ -22,6 +22,12 @@ interface FixtureOptions {
   discoveredBranches?: string[];
   legacyRecords?: Record<string, unknown>;
   openCampaign?: boolean;
+  series?: Array<{
+    batchIndex: number;
+    branch: string;
+    seriesId: string;
+    targetUnits: string[];
+  }>;
 }
 
 function fixture(options: FixtureOptions = {}) {
@@ -30,6 +36,7 @@ function fixture(options: FixtureOptions = {}) {
   const store = openState(stateDir);
   stores.push(store);
   createProjectSession(store.db, {
+    actor: "operator",
     baseSha: "session-head",
     id: "project-session:session-1",
     projectId: "melee",
@@ -50,6 +57,7 @@ function fixture(options: FixtureOptions = {}) {
   recordSavePointAnchor(store, {
     actor: "operator",
     commandId: "command-anchor",
+    correlationId: "session-1",
     commitSha: "session-head",
     occurredAt: "2026-08-13T10:01:00.000Z",
     projectId: "melee",
@@ -61,9 +69,10 @@ function fixture(options: FixtureOptions = {}) {
       actor: "operator",
       campaignId: "campaign-1",
       commandId: "command-open",
+      correlationId: "campaign-1",
       namedSavePointId: "save-point-1",
       projectId: "melee",
-      series: [{
+      series: options.series ?? [{
         batchIndex: 0,
         branch: "codex/split-01-alpha",
         seriesId: "series-1",
@@ -134,6 +143,7 @@ describe("PR campaign activation lease", () => {
     transitionPrSeries(store, "series-runtime", {
       actor: "operator",
       commandId: "command-close-runtime-series",
+      correlationId: opened.campaign_id,
       eventType: "pr.series_closed",
       expectedRevision: getPrSeries(store, "series-runtime")!.revision,
       patch: { status: "closed" },
@@ -153,11 +163,77 @@ describe("PR campaign activation lease", () => {
     expect(getPrCampaign(store, opened.campaign_id)?.status).toBe("completed");
   });
 
+  test("rejects an explicit cross-project campaign close without mutating durable state", async () => {
+    const { runtime, store } = fixture();
+    transitionPrSeries(store, "series-1", {
+      actor: "operator",
+      commandId: "command-close-foreign-series",
+      correlationId: "campaign-1",
+      eventType: "pr.series_closed",
+      expectedRevision: getPrSeries(store, "series-1")!.revision,
+      patch: { status: "closed" },
+      payload: { close_reason: "foreign fixture", closing_actor: "operator" },
+    });
+    store.db.query("UPDATE pr_campaigns SET project_id = 'other' WHERE campaign_id = 'campaign-1'").run();
+
+    const actionInput = { campaignId: "campaign-1", projectId: "melee" };
+    const projectionBefore = runtime.action(actionInput, "pr.close_campaign");
+    const campaignBefore = getPrCampaign(store, "campaign-1");
+    const eventsBefore = store.db.query("SELECT * FROM project_events ORDER BY sequence").all();
+    const leasesBefore = store.db.query("SELECT * FROM project_state ORDER BY project_id").all();
+    expect(projectionBefore).toMatchObject({
+      blocked_by: [{ code: "pr_campaign_not_found", source_id: "melee" }],
+      enabled: false,
+      subject_id: "campaign-1",
+    });
+
+    await expect(runtime.closeCampaign({
+      ...actionInput,
+      confirmed: true,
+    })).rejects.toThrow("pr.close_campaign is blocked");
+
+    expect(getPrCampaign(store, "campaign-1")).toEqual(campaignBefore);
+    expect(store.db.query("SELECT * FROM project_events ORDER BY sequence").all()).toEqual(eventsBefore);
+    expect(store.db.query("SELECT * FROM project_state ORDER BY project_id").all()).toEqual(leasesBefore);
+    expect(runtime.action(actionInput, "pr.close_campaign")).toEqual(projectionBefore);
+  });
+
+  test("rejects an explicit cross-project campaign abandon without mutating durable state", async () => {
+    const { runtime, store } = fixture();
+    store.db.query("UPDATE pr_campaigns SET project_id = 'other' WHERE campaign_id = 'campaign-1'").run();
+
+    const actionInput = { campaignId: "campaign-1", projectId: "melee" };
+    const projectionBefore = runtime.action(actionInput, "pr.abandon_campaign");
+    const campaignBefore = getPrCampaign(store, "campaign-1");
+    const eventsBefore = store.db.query("SELECT * FROM project_events ORDER BY sequence").all();
+    const leasesBefore = store.db.query("SELECT * FROM project_state ORDER BY project_id").all();
+    expect(projectionBefore).toMatchObject({
+      blocked_by: [{ code: "pr_campaign_not_found", source_id: "melee" }],
+      enabled: false,
+      subject_id: "campaign-1",
+    });
+
+    await expect(runtime.abandonCampaign({
+      ...actionInput,
+      confirmed: true,
+    })).rejects.toThrow("pr.abandon_campaign is blocked");
+
+    expect(getPrCampaign(store, "campaign-1")).toEqual(campaignBefore);
+    expect(store.db.query("SELECT * FROM project_events ORDER BY sequence").all()).toEqual(eventsBefore);
+    expect(store.db.query("SELECT * FROM project_state ORDER BY project_id").all()).toEqual(leasesBefore);
+    expect(runtime.action(actionInput, "pr.abandon_campaign")).toEqual(projectionBefore);
+  });
+
   test("acquires and releases a free lease with a durable pr_phase entry pair", async () => {
     const { runtime, store } = fixture();
     const beforeRevision = getProjectSessionByUuid(store.db, "session-1")!.revision;
 
-    const activated = await runtime.activate({ projectId: "melee", campaignId: "campaign-1" });
+    const activateCommandId = "command-activate-free-campaign";
+    const activated = await runtime.activate({
+      campaignId: "campaign-1",
+      commandId: activateCommandId,
+      projectId: "melee",
+    });
     expect(activated).toMatchObject({ queued: false, run_draining: false, campaign: { status: "working" } });
     expect(getProjectState(store, "melee")?.active_workflow).toMatchObject({
       kind: "pr",
@@ -165,7 +241,12 @@ describe("PR campaign activation lease", () => {
       status: "active",
     });
 
-    const released = await runtime.release({ projectId: "melee", campaignId: "campaign-1" });
+    const releaseCommandId = "command-release-free-campaign";
+    const released = await runtime.release({
+      campaignId: "campaign-1",
+      commandId: releaseCommandId,
+      projectId: "melee",
+    });
     expect(released.campaign.status).toBe("in_review");
     expect(getProjectState(store, "melee")?.active_workflow ?? null).toBeNull();
     const entries = store.db
@@ -186,6 +267,40 @@ describe("PR campaign activation lease", () => {
       "pr.campaign_working",
       "pr.campaign_in_review",
     ]);
+    expect(campaignEvents[1]!.payload).toEqual({
+      from_status: "preparing",
+      to_status: "working",
+    });
+    expect(campaignEvents[2]!.payload).toEqual({
+      from_status: "working",
+      to_status: "in_review",
+    });
+    const projectEvents = eventsForSubject(store.db, "project", "melee");
+    expect(projectEvents.map((event) => event.eventType)).toEqual([
+      "project.dispatch_requested",
+      "project.dispatch_acquired",
+      "project.dispatch_released",
+    ]);
+    expect([
+      projectEvents[0]!.causationId,
+      projectEvents[1]!.causationId,
+      campaignEvents[1]!.causationId,
+      campaignEvents[2]!.causationId,
+      projectEvents[2]!.causationId,
+    ]).toEqual([
+      activateCommandId,
+      projectEvents[0]!.eventId,
+      projectEvents[1]!.eventId,
+      releaseCommandId,
+      campaignEvents[2]!.eventId,
+    ]);
+    expect(new Set([
+      projectEvents[0]!.traceId,
+      projectEvents[1]!.traceId,
+      campaignEvents[1]!.traceId,
+      campaignEvents[2]!.traceId,
+      projectEvents[2]!.traceId,
+    ])).toEqual(new Set([activated.campaign.trace_id]));
     expect(entries.map((entry) => entry.caused_by_event_id)).toEqual([
       campaignEvents[1]!.eventId,
       campaignEvents[2]!.eventId,
@@ -300,6 +415,15 @@ describe("PR campaign activation lease", () => {
         "pr.campaign_working",
         "pr.campaign_closed",
       ]);
+    const campaignClosed = eventsForSubject(store.db, "pr_campaign", "campaign-1").at(-1)!;
+    expect(campaignClosed.payload).toEqual({
+      outcome: "abandoned",
+      per_series_terminal_summary: { "series-1": "prepared" },
+      from_status: "working",
+      to_status: "abandoned",
+    });
+    expect(eventsForSubject(store.db, "project", "melee").at(-1)!.causationId)
+      .toBe(campaignClosed.eventId);
   });
 
   test("adopts legacy records by opening and activating a campaign in one command", async () => {
@@ -317,7 +441,8 @@ describe("PR campaign activation lease", () => {
       openCampaign: false,
     });
 
-    const result = await runtime.adoptLegacy({ projectId: "melee" });
+    const commandId = "command-adopt-with-lineage";
+    const result = await runtime.adoptLegacy({ commandId, projectId: "melee" });
     expect(result.adopted).toEqual([
       expect.objectContaining({
         branch: "codex/split-01-alpha",
@@ -331,6 +456,32 @@ describe("PR campaign activation lease", () => {
       kind: "pr",
       workflow_id: campaign?.campaign_id,
     });
+    const actionEvents = [
+      eventsForSubject(store.db, "pr_campaign", campaign!.campaign_id)[0]!,
+      ...eventsForSubject(store.db, "project", "melee").filter((event) =>
+        event.correlationId === campaign!.campaign_id
+      ),
+      eventsForSubject(store.db, "pr_campaign", campaign!.campaign_id).at(-1)!,
+      eventsForSubject(store.db, "pr_series", result.adopted[0]!.series_id)[0]!,
+    ];
+    expect(actionEvents.map((event) => event.eventType)).toEqual([
+      "pr.campaign_opened",
+      "project.dispatch_requested",
+      "project.dispatch_acquired",
+      "pr.campaign_working",
+      "pr.series_published",
+    ]);
+    expect(actionEvents.map((event) => event.causationId)).toEqual([
+      commandId,
+      actionEvents[0]!.eventId,
+      actionEvents[1]!.eventId,
+      actionEvents[2]!.eventId,
+      actionEvents[3]!.eventId,
+    ]);
+    expect(actionEvents.filter((event) => event.causationId === commandId)).toHaveLength(1);
+    expect(new Set(actionEvents.map((event) => event.traceId))).toEqual(new Set([campaign!.trace_id]));
+    expect(new Set(actionEvents.map((event) => event.parentSpanId)).size).toBe(1);
+    expect(new Set(actionEvents.map((event) => event.spanId)).size).toBe(actionEvents.length);
   });
 
   test("fences claim, resolve, revise, and decline commands with the current PR lease", async () => {
@@ -339,12 +490,14 @@ describe("PR campaign activation lease", () => {
     const published = transitionPrSeries(store, "series-1", {
       actor: "operator",
       commandId: "command-publish-for-fixer",
+      correlationId: "campaign-1",
       expectedRevision: 0,
       patch: { status: "published", upstreamPrNumber: 2850 },
       payload: { batch_index: 0, branch: "codex/split-01-alpha", upstream_pr_number: 2850 },
     });
     const feedback = ingestPrFeedback(store, {
       commandId: "observe-fixer-feedback",
+      correlationId: "campaign-1",
       expectedRevision: published.revision,
       items: [{ itemId: "item-fix", sourceKind: "review", sourceId: "comment-fix", summary: "Fix this" }],
       seriesId: "series-1",
@@ -391,10 +544,11 @@ describe("PR campaign activation lease", () => {
     });
     expect(revised.status).toBe("published");
     expect(eventsForSubject(store.db, "pr_series", "series-1").slice(-3).map((event) => event.eventType))
-      .toEqual(["pr.series_revising", "pr.series_revising", "pr.series_revised"]);
+      .toEqual(["pr.series_revising", "pr.work_items_resolved", "pr.series_revised"]);
 
     const declinedFeedback = ingestPrFeedback(store, {
       commandId: "observe-declined-feedback",
+      correlationId: "campaign-1",
       expectedRevision: revised.revision,
       items: [{ itemId: "item-decline", sourceKind: "review", sourceId: "comment-decline", summary: "Do not do this" }],
       seriesId: "series-1",
@@ -416,10 +570,23 @@ describe("PR campaign activation lease", () => {
     expect(declined.status).toBe("revising");
     expect(declined.work_items.find((item) => item.item_id === "item-decline"))
       .toMatchObject({ item_id: "item-decline", status: "declined" });
-    expect(eventsForSubject(store.db, "pr_series", "series-1").at(-1)?.payload).toMatchObject({
+    const declineEvents = eventsForSubject(store.db, "pr_series", "series-1").slice(-2);
+    expect(declineEvents.map((event) => event.eventType)).toEqual([
+      "pr.work_items_declined",
+      "pr.series_revising",
+    ]);
+    expect(declineEvents[0]!.payload).toEqual({
       decline_reason: "conflicts with the upstream ABI",
       declined_work_item_ids: ["item-decline"],
+      lease_id: activated.lease_id,
+      from_status: "changes_requested",
+      to_status: "changes_requested",
     });
+    expect(declineEvents[1]!.payload).toEqual({
+      from_status: "changes_requested",
+      to_status: "revising",
+    });
+    expect(declineEvents[1]!.causationId).toBe(declineEvents[0]!.eventId);
   });
 
   test("routes QA repair through the campaign fence and threads both lease field spellings", async () => {
@@ -448,12 +615,14 @@ describe("PR campaign activation lease", () => {
     const published = transitionPrSeries(store, "series-1", {
       actor: "operator",
       commandId: "publish-recovery-series",
+      correlationId: "campaign-1",
       expectedRevision: 0,
       patch: { status: "published", upstreamPrNumber: 2850 },
       payload: { batch_index: 0, branch: "codex/split-01-alpha", upstream_pr_number: 2850 },
     });
     const feedback = ingestPrFeedback(store, {
       commandId: "observe-recovery-feedback",
+      correlationId: "campaign-1",
       expectedRevision: published.revision,
       items: [{ itemId: "item-recover", sourceKind: "review", sourceId: "comment-recover", summary: "Recover me" }],
       seriesId: "series-1",
@@ -471,6 +640,7 @@ describe("PR campaign activation lease", () => {
 
     const recovered = await runtime.recoverCampaign({
       campaignId: "campaign-1",
+      commandId: "recover-interrupted-fixer",
       confirmed: true,
       now: "1900-01-01T00:00:00.000Z",
       projectId: "melee",
@@ -481,10 +651,197 @@ describe("PR campaign activation lease", () => {
       status: "changes_requested",
       work_items: [{ item_id: "item-recover", status: "pending", resolved_at: null }],
     });
-    expect(eventsForSubject(store.db, "pr_campaign", "campaign-1").at(-1)?.payload).toMatchObject({
-      cancelled_subject_ids: ["series-1", "item-recover"],
-      recovery_reason: "interrupted fixer",
+    const seriesEvent = eventsForSubject(store.db, "pr_series", "series-1").at(-1)!;
+    expect(seriesEvent.payload).toEqual({
+      from_status: "revising",
+      to_status: "changes_requested",
     });
+    const campaignEvent = eventsForSubject(store.db, "pr_campaign", "campaign-1").at(-1)!;
+    expect(campaignEvent.payload).toEqual({
+      cancelled_subject_ids: ["series-1", "item-recover"],
+      from_status: "working",
+      recovery_reason: "interrupted fixer",
+      resulting_status: "in_review",
+      to_status: "in_review",
+    });
+    const projectState = getProjectState(store, "melee")!;
+    const dispatchEvent = eventsForSubject(store.db, "project", "melee").at(-1)!;
+    expect(dispatchEvent.payload).toEqual({
+      cancelled_subject_ids: ["series-1", "item-recover"],
+      handoff_snapshot_content_hash: null,
+      handoff_snapshot_id: null,
+      old_lease_holder: {
+        kind: "pr",
+        lease_id: activated.lease_id,
+        workflow_id: "campaign-1",
+      },
+      recovery: true,
+      recovery_reason: "interrupted fixer",
+      terminal_revision: projectState.revision,
+    });
+    expect(getPrCampaign(store, "campaign-1")).toMatchObject({
+      caused_by_event_id: campaignEvent.eventId,
+      status: "in_review",
+    });
+    expect(projectState).toMatchObject({
+      active_workflow: null,
+      caused_by_event_id: dispatchEvent.eventId,
+    });
+    const recoveryEvents = [seriesEvent, campaignEvent, dispatchEvent];
+    expect(recoveryEvents.map((event) => event.causationId)).toEqual([
+      "recover-interrupted-fixer",
+      seriesEvent.eventId,
+      campaignEvent.eventId,
+    ]);
+    expect(recoveryEvents.filter((event) => event.causationId === "recover-interrupted-fixer")).toHaveLength(1);
+    for (const event of recoveryEvents) {
+      expect(event).toMatchObject({
+        actor: "operator",
+        correlationId: "campaign-1",
+        traceId: recovered.trace_id,
+      });
+    }
+    expect(new Set(recoveryEvents.map((event) => event.parentSpanId)).size).toBe(1);
+    expect(new Set(recoveryEvents.map((event) => event.spanId)).size).toBe(recoveryEvents.length);
+    expect(seriesEvent.parentSpanId).not.toBeNull();
+  });
+
+  test("chains multi-series recovery in deterministic series order", async () => {
+    const { runtime, store } = fixture({
+      series: [
+        { batchIndex: 0, branch: "codex/split-02-beta", seriesId: "series-b", targetUnits: ["src/beta.c"] },
+        { batchIndex: 0, branch: "codex/split-01-alpha", seriesId: "series-a", targetUnits: ["src/alpha.c"] },
+      ],
+    });
+    const activated = await runtime.activate({ campaignId: "campaign-1", projectId: "melee" });
+    for (const [seriesId, itemId, branch, upstreamPrNumber] of [
+      ["series-b", "item-b", "codex/split-02-beta", 2851],
+      ["series-a", "item-a", "codex/split-01-alpha", 2850],
+    ] as const) {
+      const published = transitionPrSeries(store, seriesId, {
+        actor: "operator",
+        commandId: `publish-${seriesId}`,
+        correlationId: "campaign-1",
+        expectedRevision: 0,
+        patch: { status: "published", upstreamPrNumber },
+        payload: { batch_index: 0, branch, upstream_pr_number: upstreamPrNumber },
+      });
+      const feedback = ingestPrFeedback(store, {
+        commandId: `observe-${seriesId}`,
+        correlationId: "campaign-1",
+        expectedRevision: published.revision,
+        items: [{ itemId, sourceKind: "review", sourceId: `comment-${itemId}`, summary: `Recover ${seriesId}` }],
+        seriesId,
+      });
+      await runtime.claimWorkItems({
+        itemIds: [itemId],
+        leaseId: activated.lease_id,
+        projectId: "melee",
+        seriesId: feedback.series.series_id,
+      });
+    }
+    const row = store.db.query("SELECT active_workflow_json FROM project_state WHERE project_id = 'melee'").get() as { active_workflow_json: string };
+    const lease = JSON.parse(row.active_workflow_json);
+    store.db.query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = 'melee'")
+      .run(JSON.stringify({ ...lease, heartbeat_at: "2000-01-01T00:00:00.000Z" }));
+
+    const recovered = await runtime.recoverCampaign({
+      campaignId: "campaign-1",
+      commandId: "recover-two-series",
+      confirmed: true,
+      projectId: "melee",
+      reason: "interrupted multi-series fixer",
+    });
+    const seriesEvents = ["series-a", "series-b"].map((seriesId) =>
+      eventsForSubject(store.db, "pr_series", seriesId).at(-1)!
+    );
+    const campaignEvent = eventsForSubject(store.db, "pr_campaign", "campaign-1").at(-1)!;
+    const dispatchEvent = eventsForSubject(store.db, "project", "melee").at(-1)!;
+    const recoveryEvents = [...seriesEvents, campaignEvent, dispatchEvent];
+
+    expect(recoveryEvents.map((event) => event.eventType)).toEqual([
+      "pr.series_changes_requested",
+      "pr.series_changes_requested",
+      "pr.campaign_recovered",
+      "project.dispatch_released",
+    ]);
+    expect(recoveryEvents.map((event) => event.causationId)).toEqual([
+      "recover-two-series",
+      seriesEvents[0]!.eventId,
+      seriesEvents[1]!.eventId,
+      campaignEvent.eventId,
+    ]);
+    expect(recoveryEvents.filter((event) => event.causationId === "recover-two-series")).toHaveLength(1);
+    expect(seriesEvents.map((event) => event.payload)).toEqual([
+      { from_status: "revising", to_status: "changes_requested" },
+      { from_status: "revising", to_status: "changes_requested" },
+    ]);
+    expect(campaignEvent.payload).toEqual({
+      cancelled_subject_ids: ["series-a", "item-a", "series-b", "item-b"],
+      from_status: "working",
+      recovery_reason: "interrupted multi-series fixer",
+      resulting_status: "in_review",
+      to_status: "in_review",
+    });
+    expect(dispatchEvent.payload).toMatchObject({
+      cancelled_subject_ids: ["series-a", "item-a", "series-b", "item-b"],
+      recovery: true,
+      recovery_reason: "interrupted multi-series fixer",
+    });
+    expect(getPrSeries(store, "series-a")?.caused_by_event_id).toBe(seriesEvents[0]!.eventId);
+    expect(getPrSeries(store, "series-b")?.caused_by_event_id).toBe(seriesEvents[1]!.eventId);
+    expect(getPrCampaign(store, "campaign-1")?.caused_by_event_id).toBe(campaignEvent.eventId);
+    expect(getProjectState(store, "melee")?.caused_by_event_id).toBe(dispatchEvent.eventId);
+    expect(new Set(recoveryEvents.map((event) => event.correlationId))).toEqual(new Set(["campaign-1"]));
+    expect(new Set(recoveryEvents.map((event) => event.traceId))).toEqual(new Set([recovered.trace_id]));
+    expect(new Set(recoveryEvents.map((event) => event.parentSpanId)).size).toBe(1);
+    expect(recoveryEvents[0]!.parentSpanId).not.toBeNull();
+    expect(new Set(recoveryEvents.map((event) => event.spanId)).size).toBe(recoveryEvents.length);
+  });
+
+  test("chains zero-interrupted-series recovery directly through campaign recovery", async () => {
+    const { runtime, store } = fixture();
+    await runtime.activate({ campaignId: "campaign-1", projectId: "melee" });
+    const row = store.db.query("SELECT active_workflow_json FROM project_state WHERE project_id = 'melee'").get() as { active_workflow_json: string };
+    const lease = JSON.parse(row.active_workflow_json);
+    store.db.query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = 'melee'")
+      .run(JSON.stringify({ ...lease, heartbeat_at: "2000-01-01T00:00:00.000Z" }));
+
+    const recovered = await runtime.recoverCampaign({
+      campaignId: "campaign-1",
+      commandId: "recover-no-series",
+      confirmed: true,
+      projectId: "melee",
+      reason: "stale idle activation",
+    });
+    const campaignEvent = eventsForSubject(store.db, "pr_campaign", "campaign-1").at(-1)!;
+    const dispatchEvent = eventsForSubject(store.db, "project", "melee").at(-1)!;
+    const recoveryEvents = [campaignEvent, dispatchEvent];
+
+    expect(recoveryEvents.map((event) => event.causationId)).toEqual([
+      "recover-no-series",
+      campaignEvent.eventId,
+    ]);
+    expect(recoveryEvents.filter((event) => event.causationId === "recover-no-series")).toHaveLength(1);
+    expect(campaignEvent.payload).toEqual({
+      cancelled_subject_ids: [],
+      from_status: "working",
+      recovery_reason: "stale idle activation",
+      resulting_status: "in_review",
+      to_status: "in_review",
+    });
+    expect(dispatchEvent.payload).toMatchObject({
+      cancelled_subject_ids: [],
+      recovery: true,
+      recovery_reason: "stale idle activation",
+    });
+    expect(getPrCampaign(store, "campaign-1")?.caused_by_event_id).toBe(campaignEvent.eventId);
+    expect(getProjectState(store, "melee")?.caused_by_event_id).toBe(dispatchEvent.eventId);
+    expect(new Set(recoveryEvents.map((event) => event.correlationId))).toEqual(new Set(["campaign-1"]));
+    expect(new Set(recoveryEvents.map((event) => event.traceId))).toEqual(new Set([recovered.trace_id]));
+    expect(new Set(recoveryEvents.map((event) => event.parentSpanId)).size).toBe(1);
+    expect(campaignEvent.parentSpanId).not.toBeNull();
+    expect(new Set(recoveryEvents.map((event) => event.spanId)).size).toBe(recoveryEvents.length);
   });
 
   test("ignores caller-provided time when projecting stale recovery", async () => {
@@ -510,6 +867,7 @@ describe("PR campaign activation lease", () => {
       transitionPrSeries(store, "series-1", {
         actor: "operator",
         commandId: "close-series-before-campaign",
+        correlationId: "campaign-1",
         eventType: "pr.series_closed",
         expectedRevision: 0,
         patch: { status: "closed" },
@@ -557,6 +915,7 @@ describe("PR campaign activation lease", () => {
     transitionPrCampaign(store, campaign.campaign_id, {
       actor: "operator",
       commandId: "simulate-terminal-race",
+      correlationId: "campaign-1",
       eventType: "pr.campaign_closed",
       expectedRevision: campaign.revision,
       patch: { status: "abandoned" },
@@ -574,6 +933,7 @@ describe("PR campaign activation lease", () => {
     transitionPrCampaign(store, campaign.campaign_id, {
       actor: "operator",
       commandId: "terminal-before-lease",
+      correlationId: "campaign-1",
       eventType: "pr.campaign_closed",
       expectedRevision: campaign.revision,
       patch: { status: "abandoned" },
@@ -583,6 +943,7 @@ describe("PR campaign activation lease", () => {
     const dispatch = requestDispatch(store, {
       actor: "operator",
       commandId: "mint-terminal-pr-lease",
+      correlationId: "campaign-1",
       kind: "pr",
       projectId: "melee",
       reason: "test guard",
@@ -592,6 +953,7 @@ describe("PR campaign activation lease", () => {
     expect(() => activateAcquiredPrCampaign({
       campaignId: "campaign-1",
       commandId: "activate-terminal",
+      correlationId: "campaign-1",
       leaseId: dispatch.leaseId,
       projectId: "melee",
       store,

@@ -4,6 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { initializeProjectState, releaseDispatch, requestDispatch, StaleLeaseError } from "@server/core/project-state";
+import { createProjectSession } from "@server/core/project-session";
+import { recordSavePointAnchor } from "@server/core/project-session/timeline.js";
+import { openPrCampaign } from "@server/core/session-runtime/phases/pr/campaign";
+import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
+import { createRun } from "@server/core/session-runtime/run-state";
 import { processWorkerOutputIntegrationQueue, processWorkerOutputOnFinish } from "./worker-output-queue.js";
 
 const tempDirs: string[] = [];
@@ -53,7 +58,7 @@ function patchFile(dir: string): string {
   return path;
 }
 
-function insertQueued(store: StateStore, patchPath: string, id = "integration-1"): void {
+function insertQueued(store: StateStore, patchPath: string, runId: string, id = "integration-1"): void {
   const checkpointId = `checkpoint-${id}`;
   store.db
     .query(
@@ -62,11 +67,11 @@ function insertQueued(store: StateStore, patchPath: string, id = "integration-1"
           id, worker_state_id, run_id, epoch_id, epoch_target_id,
           target_claim_id, attempt_index, validation_time, hard_gates_passed,
           validation_status, validation_state, patch_path, diff_path, write_set_json
-        ) VALUES (?, 'worker-1', 'run-1', 'epoch-1', 'target-1', 'claim-1', 0,
+        ) VALUES (?, 'worker-1', ?, 'epoch-1', 'target-1', 'claim-1', 0,
                   '2026-08-11T00:00:00.000Z', 1, 'passed', 'tentative', ?, ?, '["src/a.c"]')
       `,
     )
-    .run(checkpointId, patchPath, patchPath);
+    .run(checkpointId, runId, patchPath, patchPath);
   store.db
     .query(
       `
@@ -75,19 +80,19 @@ function insertQueued(store: StateStore, patchPath: string, id = "integration-1"
           worker_state_id, worker_checkpoint_id, status, target_key,
           patch_path, diff_path, write_set_json, validation_state, metadata_json,
           created_at, updated_at
-        ) VALUES (?, 'run-1', 'epoch-1', 'target-1', 'claim-1', 'worker-1', ?,
+        ) VALUES (?, ?, 'epoch-1', 'target-1', 'claim-1', 'worker-1', ?,
                   'queued', 'unit::symbol', ?, ?, '["src/a.c"]', 'tentative',
                   '{"scoped_checks_passed":true}', '2026-08-11T00:00:00.000Z', '2026-08-11T00:00:00.000Z')
       `,
     )
-    .run(id, checkpointId, patchPath, patchPath);
+    .run(id, runId, checkpointId, patchPath, patchPath);
 }
 
 function integration(store: StateStore, id = "integration-1"): Record<string, unknown> {
   return store.db.query("SELECT * FROM worker_output_integrations WHERE id = ?").get(id) as Record<string, unknown>;
 }
 
-function acquireLease(store: StateStore, kind: "pr" | "run" = "run", workflowId = "run-1"): string {
+function acquireLease(store: StateStore, kind: "pr" | "run", workflowId: string): string {
   initializeProjectState(store, { projectId: "test", traceId: "trace-test" });
   const decision = requestDispatch(store, {
     actor: "operator",
@@ -102,6 +107,43 @@ function acquireLease(store: StateStore, kind: "pr" | "run" = "run", workflowId 
   return decision.leaseId;
 }
 
+function createCampaign(store: StateStore): ReturnType<typeof openPrCampaign> {
+  createProjectSession(store.db, {
+    actor: "operator",
+    baseSha: "base-test",
+    id: "project-session:session-pr",
+    projectId: "test",
+    sessionUuid: "session-pr",
+  });
+  const legacyCampaign = ensureCampaign(store, { projectId: "test" });
+  const savePoint = addSavePoint(store, {
+    campaignId: legacyCampaign.id,
+    triggerKind: "manual",
+    label: "stable PR handoff",
+    commitSha: "base-test",
+    committed: true,
+  });
+  recordSavePointAnchor(store, {
+    actor: "operator",
+    commandId: "command-anchor-pr",
+    correlationId: "session-pr",
+    commitSha: "base-test",
+    projectId: "test",
+    savePointId: savePoint.id,
+    triggerKind: "manual",
+  });
+  return openPrCampaign(store, {
+    actor: "operator",
+    campaignId: "campaign-worker-output",
+    commandId: "command-open-pr",
+    correlationId: "campaign-worker-output",
+    namedSavePointId: savePoint.id,
+    projectId: "test",
+    series: [{ batchIndex: 0, branch: "codex/test-pr", seriesId: "series-worker-output", targetUnits: ["src/a.c"] }],
+    sessionUuid: "session-pr",
+  });
+}
+
 describe("merge-on-finish worker output integration", () => {
   test("flag on applies, commits into session ancestry, and records tentative validation", async () => {
     const stateDir = tempDir("merge-on-finish-state-");
@@ -109,14 +151,15 @@ describe("merge-on-finish worker output integration", () => {
     try {
       const repo = setupRepo();
       const patchPath = patchFile(stateDir);
-      insertQueued(store, patchPath);
-      const leaseId = acquireLease(store);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
+      insertQueued(store, patchPath, run.id);
+      const leaseId = acquireLease(store, "run", run.id);
 
       const result = await processWorkerOutputOnFinish({
         dryRun: false,
         leaseId,
         repoRoot: repo,
-        runId: "run-1",
+        runId: run.id,
         stateDir,
         store,
       });
@@ -146,8 +189,9 @@ describe("merge-on-finish worker output integration", () => {
       writeFileSync(join(repo, "src/a.c"), "int value = 2;\n");
       git(repo, ["add", "src/a.c"]);
       git(repo, ["commit", "-m", "current side"]);
-      insertQueued(store, patchPath);
-      const leaseId = acquireLease(store);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
+      insertQueued(store, patchPath, run.id);
+      const leaseId = acquireLease(store, "run", run.id);
       let resolverCalls = 0;
 
       const result = await processWorkerOutputIntegrationQueue({
@@ -155,7 +199,7 @@ describe("merge-on-finish worker output integration", () => {
         leaseId,
         mergeOnFinish: true,
         repoRoot: repo,
-        runId: "run-1",
+        runId: run.id,
         stateDir,
         store,
         conflictResolver: {
@@ -189,8 +233,9 @@ describe("merge-on-finish worker output integration", () => {
       writeFileSync(join(repo, "src/a.c"), "int value = 2;\n");
       git(repo, ["add", "src/a.c"]);
       git(repo, ["commit", "-m", "current side"]);
-      insertQueued(store, patchPath);
-      const leaseId = acquireLease(store);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
+      insertQueued(store, patchPath, run.id);
+      const leaseId = acquireLease(store, "run", run.id);
       const resolvedPatch = [
         "diff --git a/src/a.c b/src/a.c",
         "--- a/src/a.c",
@@ -206,7 +251,7 @@ describe("merge-on-finish worker output integration", () => {
         leaseId,
         mergeOnFinish: true,
         repoRoot: repo,
-        runId: "run-1",
+        runId: run.id,
         stateDir,
         store,
         conflictResolver: {
@@ -243,15 +288,16 @@ describe("merge-on-finish worker output integration", () => {
     try {
       const repo = setupRepo();
       const patchPath = patchFile(stateDir);
-      insertQueued(store, patchPath);
-      const leaseId = acquireLease(store);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
+      insertQueued(store, patchPath, run.id);
+      const leaseId = acquireLease(store, "run", run.id);
 
       const result = await processWorkerOutputIntegrationQueue({
         dryRun: false,
         leaseId,
         mergeOnFinish: false,
         repoRoot: repo,
-        runId: "run-1",
+        runId: run.id,
         stateDir,
         store,
       });
@@ -271,16 +317,18 @@ describe("merge-on-finish worker output integration", () => {
     try {
       const repo = setupRepo();
       const patchPath = patchFile(stateDir);
-      insertQueued(store, patchPath);
-      const staleLeaseId = acquireLease(store);
+      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
+      insertQueued(store, patchPath, run.id);
+      const staleLeaseId = acquireLease(store, "run", run.id);
       releaseDispatch(store, {
         actor: "operator",
         commandId: "command-release-run-1",
-        correlationId: "run-1",
+        correlationId: run.id,
         leaseId: staleLeaseId,
         projectId: "test",
       });
-      const prLeaseId = acquireLease(store, "pr", "pr-1");
+      const campaign = createCampaign(store);
+      const prLeaseId = acquireLease(store, "pr", campaign.campaign_id);
 
       await expect(
         processWorkerOutputIntegrationQueue({
@@ -288,7 +336,7 @@ describe("merge-on-finish worker output integration", () => {
           leaseId: staleLeaseId,
           mergeOnFinish: true,
           repoRoot: repo,
-          runId: "run-1",
+          runId: run.id,
           stateDir,
           store,
         }),

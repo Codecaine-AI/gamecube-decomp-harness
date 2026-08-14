@@ -6,7 +6,7 @@ import {
   recordDeferredSavePointEvidenceDurably,
   type DeferredSavePointEvidence,
 } from "@server/core/project-session";
-import type { JsonObject } from "@server/core/project-state";
+import { newSpanId, type JsonObject } from "@server/core/project-state";
 
 export type EpochSizeMode = "fixed" | "full";
 export type EpochStatus = "active" | "completed" | "error" | "exhausted" | "paused";
@@ -45,11 +45,12 @@ export interface SchedulerEpochCloseResult {
   status: string;
   finishedCount: number;
   closedAt: string;
+  integrationEventId: string | null;
 }
 
 export interface SchedulerEpochIntegrationResult {
   commandId: string;
-  correlationId?: string;
+  correlationId: string;
   integrationCommit: string;
   occurredAt?: string;
   payload?: JsonObject;
@@ -334,13 +335,15 @@ export function closeSchedulerEpoch(
         `,
       )
       .run(params.status, params.boundaryStatus ?? params.status, JSON.stringify(params.routingSummary ?? {}), closedAt, epochId);
+    let integrationEventId: string | null = null;
     if (params.integration) {
-      recordEpochCompletedInTransaction(store.db, {
+      const integrationEntry = recordEpochCompletedInTransaction(store.db, {
         ...params.integration,
         actor: "runner",
         epochId,
         occurredAt: params.integration.occurredAt ?? closedAt,
       });
+      integrationEventId = integrationEntry.caused_by_event_id;
     }
     const updated = store.db.query("SELECT finished_count, status FROM epochs WHERE id = ?").get(epochId) as Record<string, unknown>;
     return {
@@ -348,14 +351,15 @@ export function closeSchedulerEpoch(
       status: String(updated.status),
       finishedCount: Number(updated.finished_count ?? 0),
       closedAt,
+      integrationEventId,
     };
   });
 }
 
 /**
  * Accepts the head-advancing epoch boundary before appending its save-point
- * evidence. Both events share the run workflow correlation while their spans
- * remain operation-specific.
+ * evidence. Each event keeps its owning workflow correlation while sharing
+ * one command/root span and linking the session evidence to the run event.
  */
 export function closeSchedulerEpochWithEvidence(
   store: StateStore,
@@ -366,29 +370,34 @@ export function closeSchedulerEpochWithEvidence(
     routingSummary?: Record<string, unknown>;
     integration: SchedulerEpochIntegrationResult;
     savePointEvidence: DeferredSavePointEvidence;
-    workflowCorrelationId: string;
   },
 ): SchedulerEpochCloseResult {
+  const actionSpanId = params.integration.spanId ?? newSpanId();
   const closed = closeSchedulerEpoch(store, epochId, {
     status: params.status,
     boundaryStatus: params.boundaryStatus,
     routingSummary: params.routingSummary,
     integration: {
       ...params.integration,
-      correlationId: params.workflowCorrelationId,
-      spanId: params.integration.spanId ?? `span-epoch-integrated-${randomUUID()}`,
+      spanId: actionSpanId,
     },
   });
+  if (!closed.integrationEventId) throw new Error(`Epoch ${epochId} did not produce an integration event`);
+  const timeline = store.db
+    .query("SELECT session_uuid FROM session_timeline_entries WHERE caused_by_event_id = ?")
+    .get(closed.integrationEventId) as { session_uuid: string } | null;
+  if (!timeline) throw new Error(`Epoch ${epochId} integration event has no session timeline entry`);
   const common = {
     actor: "runner" as const,
-    correlationId: params.workflowCorrelationId,
+    causationId: closed.integrationEventId ?? params.integration.commandId,
+    correlationId: timeline.session_uuid,
     projectId: params.integration.projectId,
-    sessionUuid: params.integration.sessionUuid,
+    sessionUuid: timeline.session_uuid,
   };
   recordDeferredSavePointEvidenceDurably(store, params.savePointEvidence, {
     ...common,
-    commandId: `command-epoch-save-point-${randomUUID()}`,
-    spanId: `span-save-point-${randomUUID()}`,
+    commandId: params.integration.commandId,
+    spanId: actionSpanId,
   });
   return closed;
 }

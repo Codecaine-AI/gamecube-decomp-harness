@@ -10,6 +10,10 @@ import { canonicalProcessName } from "@server/core/project-session/process-ident
 import type { ResolvedProject } from "@server/core/project-registry";
 import { now as currentTime } from "@server/core/orchestrator-state";
 import { withDispatchLease } from "@server/core/session-runtime/dispatch-guard";
+import {
+  resolveProjectEventTraceLinkage,
+  type ProjectEventTraceLinkage,
+} from "@server/core/project-state/kernel-links.js";
 import { commitBoundaryWorktree } from "@server/core/session-runtime/phases/pr/boundary-commit.js";
 import { setPreparingSubphase } from "./index.js";
 import {
@@ -43,6 +47,34 @@ function projectIdFromContext(paths: PreparingRuntimeProjectContext, body: JsonO
   return paths.project?.projectId ?? stringValue(body.projectId);
 }
 
+function traceLinkageForEvent(
+  stateDir: string,
+  projectEventId: string | null,
+): ProjectEventTraceLinkage {
+  if (!projectEventId) throw new Error("Workflow trace requires a persisted project event");
+  const store = openState(stateDir);
+  try {
+    return resolveProjectEventTraceLinkage(store.db, projectEventId);
+  } finally {
+    store.db.close();
+  }
+}
+
+function runTraceLinkage(
+  stateDir: string,
+  runId: string,
+): ProjectEventTraceLinkage | null {
+  const store = openState(stateDir);
+  try {
+    const run = getRun(store, runId);
+    return run?.causedByEventId
+      ? resolveProjectEventTraceLinkage(store.db, run.causedByEventId)
+      : null;
+  } finally {
+    store.db.close();
+  }
+}
+
 function projectSessionSelector(body: JsonObject, projectId: string): { id?: string | null; sessionUuid?: string | null; projectId?: string | null } {
   const explicitId = stringValue(body.id);
   const sessionId = stringValue(body.sessionId);
@@ -58,23 +90,28 @@ function acceptPreparingTransition(
   db: Database,
   record: ProjectSessionRecord,
   patch: ProjectSessionPatch,
-  eventType: string,
   at: string,
 ): ProjectSessionView {
+  const eventType = "session.preparing_subphase_updated" as const;
+  if (patch.status !== undefined) {
+    throw new Error(`${eventType} must preserve project session status`);
+  }
+  const { status: _status, ...progressPatch } = patch;
   return projectSessionView(
     transitionProjectSession(db, record.id, {
       actor: "runner",
       commandId: `command-${eventType.replaceAll(".", "-")}-${randomUUID()}`,
-      correlationId: patch.active_run_id ?? record.active_run_id ?? record.session_uuid,
+      correlationId: record.session_uuid,
       eventType,
       expectedRevision: record.revision,
       occurredAt: at,
-      patch,
+      patch: progressPatch,
       payload: {
         previous_phase: record.phase,
         previous_status: record.status,
         phase: patch.phase ?? record.phase,
         status: patch.status ?? record.status,
+        subphase: patch.preparing_state_json?.subphase ?? record.preparing_state_json.subphase,
       },
       projectId: record.project_id,
       sessionUuid: record.session_uuid,
@@ -123,7 +160,6 @@ function updateFreshProjectSessionSubphase(
         ...setPreparingSubphase(record, at, subphase, { detail, data }),
         ...patch,
       },
-      "session.preparing_subphase_updated",
       at,
     );
   } finally {
@@ -319,12 +355,17 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             },
           },
         );
+        const baselineStartedLinkage = traceLinkageForEvent(
+          paths.stateDir,
+          session?.causedByEventId ?? null,
+        );
         await deps.submitWorkflowEvent(paths, {
           kind: "baseline",
           operation: "prepare.calculateBaseline",
           status: "started",
           sessionId: projectSession.sessionUuid,
           detail: `calculate baseline at ${baselineRepoRoot}`,
+          ...baselineStartedLinkage,
         });
         try {
           const resetReport = await resetReportBaselineForPrepare(deps, runReport, baselineRepoRoot, {
@@ -342,6 +383,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             sessionId: projectSession.sessionUuid,
             detail: "report baseline reset",
             metadata: { ...resetReport, repoRoot: baselineRepoRoot },
+            ...baselineStartedLinkage,
           });
           const reportRun = await reportAgainstNewBaselineForPrepare(deps, runReport, baselineRepoRoot, {
             stateDir: paths.stateDir,
@@ -358,6 +400,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             sessionId: projectSession.sessionUuid,
             detail: "baseline report refreshed",
             metadata: { ...reportRun, repoRoot: baselineRepoRoot },
+            ...baselineStartedLinkage,
           });
           deps.operationStep("save point");
           const boundaryCommit = await withDispatchLease(
@@ -376,7 +419,12 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
               stateDir: paths.stateDir,
             }),
           );
-          const savePoint = await deps.boundarySavePoint(baselinePaths, "init", "prepare baseline");
+          const savePoint = await deps.boundarySavePoint(
+            baselinePaths,
+            "init",
+            projectSession.sessionUuid,
+            "prepare baseline",
+          );
           session = updateFreshProjectSessionSubphase(
             paths,
             body,
@@ -395,6 +443,10 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
               },
             },
           );
+          const baselineCompletedLinkage = traceLinkageForEvent(
+            paths.stateDir,
+            session?.causedByEventId ?? null,
+          );
           await deps.submitWorkflowEvent(paths, {
             kind: "baseline",
             operation: "prepare.calculateBaseline",
@@ -408,6 +460,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
               boundaryCommit,
               savePoint,
             },
+            ...baselineCompletedLinkage,
           });
           deps.endOperation();
           return {
@@ -440,6 +493,10 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
               },
             },
           );
+          const baselineFailedLinkage = traceLinkageForEvent(
+            paths.stateDir,
+            session?.causedByEventId ?? null,
+          );
           await deps.submitWorkflowEvent(paths, {
             kind: "baseline",
             operation: "prepare.calculateBaseline",
@@ -449,6 +506,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
               error: message,
               repoRoot: baselineRepoRoot,
             },
+            ...baselineFailedLinkage,
           }).catch(() => null);
           throw error;
         }
@@ -478,6 +536,19 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
         throw new Error(`Resolve this session's PR work before closing the run: ${prBlockers.slice(0, 6).join("; ")}${prBlockers.length > 6 ? `; +${prBlockers.length - 6} more` : ""}`);
       }
 
+      const initialStore = openState(stateDir);
+      let run;
+      try {
+        run = getRun(initialStore, runId);
+      } finally {
+        initialStore.db.close();
+      }
+      if (!run) throw new Error(`Run not found: ${runId}`);
+      let completeRunLinkage = traceLinkageForEvent(
+        stateDir,
+        run.causedByEventId,
+      );
+
       deps.beginOperation("complete-run", "Close Session", ["record closeout", "save point"]);
       try {
         await deps.submitWorkflowEvent(paths, {
@@ -485,33 +556,39 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           operation: "completeLegacyRun",
           status: "started",
           runId,
+          sessionId: run.sessionUuid,
           detail: "close legacy run",
           metadata: {
             force: forceClose,
             blockers: prBlockers,
           },
+          ...completeRunLinkage,
         });
 
         deps.operationStep("record closeout", `run ${runId}`);
         const store = openState(stateDir);
-        let run = getRun(store, runId);
         try {
-          if (!run) throw new Error(`Run not found: ${runId}`);
           if (run.status !== "completed") {
             run = updateRunStatus(store, runId, "completed", "ui");
             deps.appendLog("ui", `run ${runId} marked complete`);
           }
+          completeRunLinkage = traceLinkageForEvent(
+            stateDir,
+            run.causedByEventId,
+          );
         } finally {
           store.db.close();
         }
 
         deps.operationStep("save point");
-        const savePoint = await deps.boundarySavePoint(paths, "manual", "legacy run closeout");
+        if (!run?.sessionUuid) throw new Error(`Run ${runId} has no project session for closeout save-point evidence`);
+        const savePoint = await deps.boundarySavePoint(paths, "manual", run.sessionUuid, "legacy run closeout");
         await deps.submitWorkflowEvent(paths, {
           kind: "session",
           operation: "completeLegacyRun",
           status: "completed",
           runId,
+          sessionId: run.sessionUuid,
           detail: "legacy run closed",
           metadata: {
             force: forceClose,
@@ -519,6 +596,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             savePoint,
             run,
           },
+          ...completeRunLinkage,
         });
         deps.endOperation();
         return {
@@ -535,11 +613,13 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           operation: "completeLegacyRun",
           status: "failed",
           runId,
+          sessionId: run.sessionUuid,
           metadata: {
             force: forceClose,
             blockers: prBlockers,
             error: error instanceof Error ? error.message : String(error),
           },
+          ...completeRunLinkage,
         }).catch(() => null);
         deps.endOperation(error);
         throw error;
@@ -549,21 +629,27 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
     async initRun(body): Promise<JsonObject> {
       const projectPaths = deps.resolveDashboardProject(body, { useDefaultProject: true });
       const projectSession = activeProjectSessionOrNull(projectPaths, body);
+      if (!projectSession) throw new Error("Create a project session before initializing a run.");
       const sessionRepoRoot = prepareSessionWorktreeRoot(projectPaths, projectSession);
       const init = initRunCommand(deps, { ...body, sessionRepoRoot });
       const { command } = init;
-      const sessionUuid = stringValue(body.sessionUuid, stringValue(body.sessionId));
+      const sessionUuid = projectSession.sessionUuid;
+      const sessionTraceLinkage = traceLinkageForEvent(
+        init.stateDir,
+        projectSession.causedByEventId,
+      );
       await deps.submitWorkflowEvent(init, {
         kind: "run",
         operation: "prepare.startRun",
         status: "started",
-        sessionId: sessionUuid || null,
+        sessionId: sessionUuid,
         detail: "initialize run",
         metadata: {
           repoRoot: init.repoRoot,
           sessionRepoRoot,
           workerConfig: workerConfigFromBody(body, init.project?.dashboard),
         },
+        ...sessionTraceLinkage,
       });
       deps.appendLog("ui", `init-run started: ${command.join(" ")}`);
       try {
@@ -588,7 +674,11 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             stateDir: init.stateDir,
           }),
         );
-        const savePoint = await deps.boundarySavePoint({ ...projectPaths, repoRoot: init.repoRoot }, "init");
+        const savePoint = await deps.boundarySavePoint(
+          { ...projectPaths, repoRoot: init.repoRoot },
+          "init",
+          projectSession.sessionUuid,
+        );
         const activeRunId = latestRunId(init.stateDir);
         const payload = {
           project: init.project ? deps.projectToSummary(init.project) : null,
@@ -604,7 +694,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           kind: "run",
           operation: "prepare.startRun",
           status: "completed",
-          sessionId: sessionUuid || null,
+          sessionId: sessionUuid,
           runId: activeRunId,
           detail: activeRunId ? `run ${activeRunId} initialized` : "run initialized",
           metadata: {
@@ -613,6 +703,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
             savePoint,
             boundaryCommit,
           },
+          ...(runTraceLinkage(init.stateDir, activeRunId) ?? sessionTraceLinkage),
         });
         return payload;
       } catch (error) {
@@ -620,12 +711,13 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           kind: "run",
           operation: "prepare.startRun",
           status: "failed",
-          sessionId: sessionUuid || null,
+          sessionId: sessionUuid,
           metadata: {
             error: error instanceof Error ? error.message : String(error),
             repoRoot: init.repoRoot,
             workerConfig: workerConfigFromBody(body, init.project?.dashboard),
           },
+          ...(runTraceLinkage(init.stateDir, latestRunId(init.stateDir)) ?? sessionTraceLinkage),
         }).catch(() => null);
         throw error;
       }

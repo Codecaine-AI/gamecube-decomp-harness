@@ -1,6 +1,6 @@
 import type { EventActor, JsonObject } from "@server/core/project-state/events.js";
 
-export type ProjectSessionStatus = "idle" | "active" | "blocked" | "complete" | "closing" | "closed";
+export type ProjectSessionStatus = "active" | "blocked" | "complete" | "closing" | "closed";
 export type ProjectSessionPhase = "preparing" | "running" | "pr" | "complete";
 export type PhaseLifecycleStatus = "pending" | "active" | "complete" | "blocked";
 
@@ -19,8 +19,16 @@ export interface ProjectSessionBlocker {
   source?: string;
   source_kind?: string;
   source_id?: string;
+  recovery_choices?: string[];
   recoverable?: boolean;
   severity?: "info" | "warning" | "error";
+}
+
+/** Blockers authored at the runtime boundary cannot rely on legacy defaults. */
+export interface ProjectSessionRuntimeBlocker extends ProjectSessionBlocker {
+  source_kind: string;
+  source_id: string;
+  recovery_choices: string[];
 }
 
 export type SessionTimelineEntryKind = "epoch_completed" | "remote_application" | "pr_phase" | "save_point";
@@ -39,18 +47,154 @@ export interface SessionTransitionContext {
   projectId?: string;
   sessionUuid?: string;
   commandId: string;
+  causationId?: string;
   actor: EventActor;
-  correlationId?: string;
+  correlationId: string;
   spanId?: string;
   occurredAt?: string;
 }
 
-export interface ProjectSessionTransitionInput extends SessionTransitionContext {
-  eventType: string;
-  expectedRevision: number;
-  patch: ProjectSessionPatch;
-  payload?: JsonObject;
+/** Accepted session progress revisions that do not change session status. */
+export type ProjectSessionProgressEventType =
+  | "session.preparing_subphase_updated"
+  | "session.preparing_completed"
+  | "session.running_started"
+  | "session.running_subphase_updated"
+  | "session.running_stopped"
+  | "session.blockers_updated"
+  | "session.pr_entered"
+  | "session.pr_final_build_completed"
+  | "session.pr_subphase_updated"
+  | "session.pr_completed";
+
+export type ProjectSessionStatusPreservingEventType =
+  ProjectSessionProgressEventType;
+
+export interface ProjectSessionDestinationStatusByEvent {
+  "session.running_unblocked": "active";
+  "session.blocked": "blocked";
+  "session.complete": "complete";
+  "session.closing": "closing";
+  "session.closed": "closed";
 }
+
+export interface ProjectSessionPayloadByEvent {
+  "session.running_unblocked": {
+    from_status: ProjectSessionStatus;
+    to_status: "active";
+  };
+  "session.blocked": {
+    from_status: ProjectSessionStatus;
+    to_status: "blocked";
+    prior_status: ProjectSessionStatus;
+    blocker_codes: string[];
+    source_identities: Array<{
+      source_kind: string;
+      source_id: string;
+    }>;
+    recovery_choices: string[];
+    state_revision: number;
+  };
+  "session.blockers_updated": {
+    added_blocker_codes: string[];
+    removed_blocker_codes: string[];
+    blocker_codes: string[];
+    source_identities: Array<{
+      source_kind: string;
+      source_id: string;
+    }>;
+    recovery_choices: string[];
+    state_revision: number;
+  };
+  "session.complete": {
+    from_status: ProjectSessionStatus;
+    to_status: "complete";
+  };
+  "session.closing": {
+    from_status: ProjectSessionStatus;
+    to_status: "closing";
+  };
+  "session.closed": {
+    final_head: string | null;
+    shipped_and_unshipped_work_summary: {
+      ahead_of_base: number;
+      worktree_dirty_beyond_head: boolean;
+    };
+    final_save_point_id: string | null;
+    closing_operator: string;
+    state_revision: number;
+  };
+}
+
+interface ProjectSessionPayloadInputByEvent {
+  "session.closed": Pick<
+    ProjectSessionPayloadByEvent["session.closed"],
+    "final_save_point_id" | "shipped_and_unshipped_work_summary"
+  >;
+}
+
+export type ProjectSessionStatusTransitionEventType = keyof ProjectSessionDestinationStatusByEvent;
+export type ProjectSessionTransitionEventType =
+  | ProjectSessionStatusPreservingEventType
+  | ProjectSessionStatusTransitionEventType;
+
+type ProjectSessionPatchForEvent<TEvent extends string> =
+  string extends TEvent
+    ? ProjectSessionPatch
+    : TEvent extends ProjectSessionStatusPreservingEventType
+      ? Omit<ProjectSessionPatch, "status"> & { status?: never }
+      : TEvent extends ProjectSessionStatusTransitionEventType
+        ? Omit<ProjectSessionPatch, "status"> & {
+            status: ProjectSessionDestinationStatusByEvent[TEvent];
+          }
+        : never;
+
+export type ProjectSessionStatusPreservingTransitionInput<
+  TEvent extends ProjectSessionStatusPreservingEventType,
+> = SessionTransitionContext & {
+  eventType: TEvent;
+  expectedRevision: number;
+  patch: Omit<ProjectSessionPatch, "status"> & { status?: never };
+  payload?: JsonObject;
+};
+
+export type ProjectSessionDerivedStatusTransitionEventType = Exclude<
+  ProjectSessionStatusTransitionEventType,
+  keyof ProjectSessionPayloadInputByEvent
+>;
+
+export type ProjectSessionDerivedStatusTransitionInput<
+  TEvent extends ProjectSessionDerivedStatusTransitionEventType,
+> = SessionTransitionContext & {
+  eventType: TEvent;
+  expectedRevision: number;
+  patch: Omit<ProjectSessionPatch, "status"> & {
+    status: ProjectSessionDestinationStatusByEvent[TEvent];
+  };
+  payload?: never;
+};
+
+export type ProjectSessionTransitionInput<
+  TEvent extends string = ProjectSessionTransitionEventType,
+> = string extends TEvent
+  ? SessionTransitionContext & {
+      eventType: string;
+      expectedRevision: number;
+      patch: ProjectSessionPatch;
+      payload?: JsonObject;
+    }
+  : TEvent extends ProjectSessionStatusPreservingEventType
+    ? ProjectSessionStatusPreservingTransitionInput<TEvent>
+    : TEvent extends ProjectSessionDerivedStatusTransitionEventType
+      ? ProjectSessionDerivedStatusTransitionInput<TEvent>
+      : TEvent extends keyof ProjectSessionPayloadInputByEvent
+        ? SessionTransitionContext & {
+            eventType: TEvent;
+            expectedRevision: number;
+            patch: ProjectSessionPatchForEvent<TEvent>;
+            payload: ProjectSessionPayloadInputByEvent[TEvent];
+          }
+        : never;
 
 export interface RecordEpochCompletedInput extends SessionTransitionContext {
   epochId: string;
@@ -60,7 +204,7 @@ export interface RecordEpochCompletedInput extends SessionTransitionContext {
   payload?: JsonObject;
 }
 
-export interface RecordRemoteApplicationInput extends SessionTransitionContext {
+export interface RecordRemoteApplicationInput extends Omit<SessionTransitionContext, "correlationId"> {
   remoteApplicationId: string;
   boundaryEventId: string;
   syncId: string;
@@ -212,6 +356,24 @@ export interface ProjectSessionKernelTraceState {
   root_container_id?: string | null;
   active_container_id?: string | null;
   trace_url?: string | null;
+  last_linkage_cursor?: ProjectSessionKernelTraceLinkageCursor | null;
+  [key: string]: unknown;
+}
+
+export interface ProjectSessionKernelTraceLinkageCursor {
+  project_event_id: string;
+  kernel_event_id: string;
+  correlation_id: string;
+  caused_by_event_id: string | null;
+  linked_at: string;
+}
+
+export interface ProjectSessionKernelTracePatch {
+  app_session_id?: string;
+  root_container_id?: string | null;
+  active_container_id?: string | null;
+  trace_url?: string | null;
+  last_linkage_cursor?: ProjectSessionKernelTraceLinkageCursor | null;
   [key: string]: unknown;
 }
 
@@ -292,9 +454,8 @@ export interface CreateProjectSessionInput {
   sessionUuid?: string;
   id?: string;
   traceId?: string;
-  actor?: EventActor;
+  actor: EventActor;
   commandId?: string;
-  correlationId?: string;
   spanId?: string;
   worktreeIdentity?: string;
   openingSyncId?: string | null;

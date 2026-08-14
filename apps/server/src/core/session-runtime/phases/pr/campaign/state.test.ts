@@ -12,13 +12,16 @@ import {
   PR_DERIVED_STATUS_EVENT_TYPES,
   PR_EVENT_TYPES,
   PR_LIFECYCLE_EVENT_TYPES,
+  PR_PROGRESS_EVENT_TYPES,
   PR_SERIES_STATUSES,
   PR_WORK_ITEM_STATUSES,
   StalePrSeriesRevisionError,
   getPrCampaign,
+  getPrSeries,
   isPrCampaignStatusTransitionAllowed,
   isPrSeriesStatusTransitionAllowed,
   openPrCampaign,
+  recordPreparedPrSeries,
   transitionPrCampaign,
   transitionPrSeries,
   type PrCampaignStatus,
@@ -41,6 +44,7 @@ function fixture(options: FixtureOptions = {}): StateStore {
   stores.push(store);
   prCampaignMigration.up(store.db);
   createProjectSession(store.db, {
+    actor: "operator",
     baseSha: "session-head",
     id: "project-session:session-1",
     projectId: "melee",
@@ -66,6 +70,7 @@ function fixture(options: FixtureOptions = {}): StateStore {
   recordSavePointAnchor(store, {
     actor: "operator",
     commandId: "command-record-anchor",
+    correlationId: "session-1",
     commitSha: savePointCommit,
     occurredAt: "2026-08-13T10:01:00.000Z",
     projectId: "melee",
@@ -80,6 +85,7 @@ function openCampaign(store: StateStore, campaignId = "pr-campaign-1") {
     actor: "operator",
     campaignId,
     commandId: `command-open-${campaignId}`,
+    correlationId: campaignId,
     namedSavePointId: "save-point-1",
     occurredAt: "2026-08-13T10:02:00.000Z",
     projectId: "melee",
@@ -139,7 +145,16 @@ describe("PR campaign and series state", () => {
       "pr.series_revising",
       "pr.series_approved",
     ]);
-    expect(PR_EVENT_TYPES).toEqual([...PR_LIFECYCLE_EVENT_TYPES, ...PR_DERIVED_STATUS_EVENT_TYPES]);
+    expect(PR_PROGRESS_EVENT_TYPES).toEqual([
+      "pr.work_items_claimed",
+      "pr.work_items_resolved",
+      "pr.work_items_declined",
+    ]);
+    expect(PR_EVENT_TYPES).toEqual([
+      ...PR_LIFECYCLE_EVENT_TYPES,
+      ...PR_DERIVED_STATUS_EVENT_TYPES,
+      ...PR_PROGRESS_EVENT_TYPES,
+    ]);
   });
 
   test("enforces the documented campaign and series status graphs", () => {
@@ -199,6 +214,9 @@ describe("PR campaign and series state", () => {
     });
     expect(campaign.caused_by_event_id).toBe(campaignEvents[0]!.eventId);
     expect(campaign.latest_event_sequence).toBe(campaignEvents[0]!.sequence);
+    expect(campaignEvents[0]!.causationId).toBe(`command-open-${campaign.campaign_id}`);
+    const creationEvents = [campaignEvents[0]!];
+    const preparedEvents = [];
     for (const seriesId of campaign.series_ids) {
       const events = eventsForSubject(store.db, "pr_series", seriesId);
       expect(events).toHaveLength(1);
@@ -207,7 +225,16 @@ describe("PR campaign and series state", () => {
         subjectId: seriesId,
         correlationId: campaign.campaign_id,
       });
+      creationEvents.push(events[0]!);
+      preparedEvents.push(events[0]!);
     }
+    expect(new Set(creationEvents.map((event) => event.actor))).toEqual(new Set(["operator"]));
+    expect(new Set(creationEvents.map((event) => event.correlationId))).toEqual(new Set([campaign.campaign_id]));
+    expect(new Set(creationEvents.map((event) => event.traceId))).toEqual(new Set([campaign.trace_id]));
+    expect(preparedEvents.every((event) => event.causationId === campaignEvents[0]!.eventId)).toBe(true);
+    expect(new Set(creationEvents.map((event) => event.parentSpanId)).size).toBe(1);
+    expect(new Set(creationEvents.map((event) => event.spanId)).size).toBe(3);
+    expect(creationEvents.map((event) => event.spanId)).not.toContain(creationEvents[0]!.parentSpanId);
     expect(() => openCampaign(store, "pr-campaign-2")).toThrow("already has an open PR campaign");
   });
 
@@ -217,6 +244,7 @@ describe("PR campaign and series state", () => {
       actor: "operator" as const,
       campaignId: "pr-campaign-empty",
       commandId: "command-open-empty",
+      correlationId: "pr-campaign-empty",
       namedSavePointId: "save-point-1",
       projectId: "melee",
       sessionUuid: "session-1",
@@ -228,12 +256,228 @@ describe("PR campaign and series state", () => {
     expect(() => transitionPrCampaign(store, placeholder.campaign_id, {
       actor: "operator",
       commandId: "command-close-empty",
+      correlationId: "pr-campaign-empty",
       eventType: "pr.campaign_closed",
       expectedRevision: placeholder.revision,
       patch: { status: "completed" },
       payload: { outcome: "completed", per_series_terminal_summary: {} },
     })).toThrow("cannot complete without series");
     expect(getPrCampaign(store, placeholder.campaign_id)?.status).toBe("preparing");
+  });
+
+  test("keeps standalone prepared and later series events on the campaign workflow trace", () => {
+    const store = fixture();
+    let campaign = openCampaign(store);
+    const prepareRootSpan = "span-11111111-1111-4111-8111-111111111111";
+    const prepared = recordPreparedPrSeries(store, {
+      actor: "operator",
+      batchIndex: 0,
+      branch: "codex/split-03-gamma",
+      campaignId: campaign.campaign_id,
+      commandId: "command-prepare-series-3",
+      correlationId: campaign.campaign_id,
+      seriesId: "series-3",
+      spanId: prepareRootSpan,
+      targetUnits: ["src/gamma.c"],
+    });
+    expect(prepared.trace_id).toBe(campaign.trace_id);
+    expect(prepared.target_units).toEqual(["src/gamma.c"]);
+    const preparedEvent = eventsForSubject(store.db, "pr_series", prepared.series_id)[0]!;
+    expect(preparedEvent).toMatchObject({
+      actor: "operator",
+      causationId: "command-prepare-series-3",
+      correlationId: campaign.campaign_id,
+      eventType: "pr.series_prepared",
+      parentSpanId: prepareRootSpan,
+      traceId: campaign.trace_id,
+    });
+    expect(preparedEvent.payload).toEqual({
+      batch_index: 0,
+      branch: "codex/split-03-gamma",
+      from_status: null,
+      to_status: "prepared",
+    });
+    expect(preparedEvent.payload).not.toHaveProperty("target_units");
+    expect(preparedEvent.spanId).not.toBe(prepareRootSpan);
+
+    expect(() => recordPreparedPrSeries(store, {
+      actor: "operator",
+      batchIndex: 0,
+      branch: "codex/split-04-conflicting-trace",
+      campaignId: campaign.campaign_id,
+      commandId: "command-prepare-conflicting-trace",
+      correlationId: campaign.campaign_id,
+      seriesId: "series-conflicting-trace",
+      targetUnits: ["src/conflicting.c"],
+      traceId: "trace-conflicting-series",
+    })).toThrow(`PR series trace_id must equal campaign trace_id ${campaign.trace_id}`);
+    expect(eventsForSubject(store.db, "pr_series", "series-conflicting-trace")).toEqual([]);
+
+    expect(() => recordPreparedPrSeries(store, {
+      actor: "operator",
+      batchIndex: 0,
+      branch: "codex/split-04-conflicting-correlation",
+      campaignId: campaign.campaign_id,
+      commandId: "command-prepare-conflicting-correlation",
+      correlationId: "different-campaign",
+      seriesId: "series-conflicting-correlation",
+      targetUnits: ["src/conflicting-correlation.c"],
+    })).toThrow(`PR event correlation_id must equal campaign id ${campaign.campaign_id}`);
+    expect(eventsForSubject(store.db, "pr_series", "series-conflicting-correlation")).toEqual([]);
+
+    expect(() => recordPreparedPrSeries(store, {
+      actor: "agent",
+      batchIndex: 0,
+      branch: "codex/split-04-agent",
+      campaignId: campaign.campaign_id,
+      commandId: "command-prepare-as-agent",
+      correlationId: campaign.campaign_id,
+      seriesId: "series-agent",
+      targetUnits: ["src/agent.c"],
+    })).toThrow("pr.series_prepared is operator-only");
+    expect(eventsForSubject(store.db, "pr_series", "series-agent")).toEqual([]);
+
+    campaign = transitionPrCampaign(store, campaign.campaign_id, {
+      actor: "operator",
+      commandId: "command-activate-campaign-for-series-3",
+      correlationId: campaign.campaign_id,
+      expectedRevision: campaign.revision,
+      patch: { status: "working" },
+    });
+    const publishRootSpan = "span-22222222-2222-4222-8222-222222222222";
+    const published = transitionPrSeries(store, prepared.series_id, {
+      actor: "operator",
+      commandId: "command-publish-series-3",
+      correlationId: campaign.campaign_id,
+      expectedRevision: prepared.revision,
+      patch: { status: "published", upstreamPrNumber: 2851 },
+      payload: { upstream_pr_number: 2851, branch: prepared.branch, batch_index: prepared.batch_index },
+      spanId: publishRootSpan,
+    });
+    const publishedEvent = eventsForSubject(store.db, "pr_series", published.series_id).at(-1)!;
+    expect(publishedEvent).toMatchObject({
+      actor: "operator",
+      causationId: "command-publish-series-3",
+      correlationId: campaign.campaign_id,
+      eventType: "pr.series_published",
+      parentSpanId: publishRootSpan,
+      traceId: campaign.trace_id,
+    });
+    expect(published.trace_id).toBe(campaign.trace_id);
+    expect(publishedEvent.spanId).not.toBe(publishRootSpan);
+  });
+
+  test("requires exact approval evidence and contract-exact terminal payloads", () => {
+    const store = fixture();
+    let campaign = openCampaign(store);
+    campaign = transitionPrCampaign(store, campaign.campaign_id, {
+      actor: "operator",
+      commandId: "command-activate-terminal-evidence",
+      correlationId: campaign.campaign_id,
+      expectedRevision: campaign.revision,
+      patch: { status: "working" },
+    });
+    const published = transitionPrSeries(store, "series-1", {
+      actor: "operator",
+      commandId: "command-publish-terminal-evidence",
+      correlationId: campaign.campaign_id,
+      expectedRevision: 0,
+      patch: { status: "published", upstreamPrNumber: 2850 },
+      payload: { upstream_pr_number: 2850, branch: "codex/split-01-alpha", batch_index: 0 },
+    });
+
+    for (const field of ["approval_source_identity", "approved_revision", "approving_actor"] as const) {
+      expect(() => transitionPrSeries(store, published.series_id, {
+        actor: "external_observer",
+        commandId: `command-invalid-approval-${field}`,
+        correlationId: campaign.campaign_id,
+        expectedRevision: published.revision,
+        patch: { status: "approved" },
+        payload: {
+          approval_source_identity: "github-review:PRR_42",
+          approved_revision: "approved-head-sha",
+          approving_actor: "octocat",
+          [field]: " ",
+        },
+      })).toThrow(`${field} is required`);
+      expect(getPrSeries(store, published.series_id)?.revision).toBe(published.revision);
+    }
+
+    const approved = transitionPrSeries(store, published.series_id, {
+      actor: "external_observer",
+      commandId: "command-record-approval",
+      correlationId: campaign.campaign_id,
+      expectedRevision: published.revision,
+      patch: { status: "approved" },
+      payload: {
+        approval_source_identity: "github-review:PRR_42",
+        approved_revision: "approved-head-sha",
+        approving_actor: "octocat",
+      },
+    });
+    const approvalEvent = eventsForSubject(store.db, "pr_series", approved.series_id).at(-1)!;
+    expect(approvalEvent.actor).toBe("external_observer");
+    expect(approvalEvent.payload).toEqual({
+      approval_source_identity: "github-review:PRR_42",
+      approved_revision: "approved-head-sha",
+      approving_actor: "octocat",
+      from_status: "published",
+      to_status: "approved",
+    });
+
+    expect(() => transitionPrSeries(store, approved.series_id, {
+      actor: "external_observer",
+      commandId: "command-close-with-wrong-actor-evidence",
+      correlationId: campaign.campaign_id,
+      eventType: "pr.series_closed",
+      expectedRevision: approved.revision,
+      patch: { status: "closed" },
+      payload: { close_reason: "withdrawn upstream", closing_actor: "operator" },
+    })).toThrow("pr.series_closed closing_actor must match the event actor");
+    const closedFirst = transitionPrSeries(store, approved.series_id, {
+      actor: "external_observer",
+      commandId: "command-close-first-series",
+      correlationId: campaign.campaign_id,
+      eventType: "pr.series_closed",
+      expectedRevision: approved.revision,
+      patch: { status: "closed" },
+      payload: { close_reason: "withdrawn upstream", closing_actor: "external_observer" },
+    });
+    const closedFirstEvent = eventsForSubject(store.db, "pr_series", closedFirst.series_id).at(-1)!;
+    expect(closedFirstEvent.payload).toEqual({
+      close_reason: "withdrawn upstream",
+      closing_actor: "external_observer",
+      from_status: "approved",
+      to_status: "closed",
+    });
+
+    transitionPrSeries(store, "series-2", {
+      actor: "operator",
+      commandId: "command-close-second-series",
+      correlationId: campaign.campaign_id,
+      eventType: "pr.series_closed",
+      expectedRevision: 0,
+      patch: { status: "closed" },
+      payload: { close_reason: "campaign complete", closing_actor: "operator" },
+    });
+    const completed = transitionPrCampaign(store, campaign.campaign_id, {
+      actor: "operator",
+      commandId: "command-close-campaign-exact",
+      correlationId: campaign.campaign_id,
+      eventType: "pr.campaign_closed",
+      expectedRevision: campaign.revision,
+      patch: { status: "completed" },
+      payload: {
+        outcome: "completed",
+        per_series_terminal_summary: { "series-1": "closed", "series-2": "closed" },
+      },
+    });
+    expect(eventsForSubject(store.db, "pr_campaign", completed.campaign_id).at(-1)!.payload).toEqual({
+      outcome: "completed",
+      per_series_terminal_summary: { "series-1": "closed", "series-2": "closed" },
+      from_status: "working",
+      to_status: "completed",
+    });
   });
 
   test("rejects drifted, unnamed, dirty, and capture-failed save-point evidence without a campaign event", () => {
@@ -262,6 +506,7 @@ describe("PR campaign and series state", () => {
     recordSavePointAnchor(dirtyAfterClean, {
       actor: "operator",
       commandId: "command-record-dirty-latest",
+      correlationId: "session-1",
       commitSha: "session-head",
       occurredAt: "2026-08-13T10:01:30.000Z",
       projectId: "melee",
@@ -275,6 +520,7 @@ describe("PR campaign and series state", () => {
     recordSavePointFailure(failed, {
       actor: "operator",
       commandId: "command-save-point-failed",
+      correlationId: "session-1",
       message: "capture failed",
       occurredAt: "2026-08-13T10:01:30.000Z",
       projectId: "melee",
@@ -293,6 +539,7 @@ describe("PR campaign and series state", () => {
     campaign = transitionPrCampaign(store, campaign.campaign_id, {
       actor: "operator",
       commandId: "command-activate-campaign",
+      correlationId: "pr-campaign-1",
       expectedRevision: campaign.revision,
       patch: { status: "working" },
     });
@@ -301,7 +548,7 @@ describe("PR campaign and series state", () => {
     expect(campaignEvents.at(-1)).toMatchObject({
       eventType: "pr.campaign_working",
       correlationId: campaign.campaign_id,
-      payload: { previous_status: "preparing", status: "working" },
+      payload: { from_status: "preparing", to_status: "working" },
     });
     expect(campaign).toMatchObject({ revision: 1, status: "working" });
     expect(campaign.caused_by_event_id).toBe(campaignEvents.at(-1)!.eventId);
@@ -310,6 +557,7 @@ describe("PR campaign and series state", () => {
     const series = transitionPrSeries(store, "series-1", {
       actor: "operator",
       commandId: "command-publish-series-1",
+      correlationId: "pr-campaign-1",
       expectedRevision: initialSeries.revision,
       patch: { status: "published", upstreamPrNumber: 2850 },
       payload: { upstream_pr_number: 2850, branch: "codex/split-01-alpha", batch_index: 0 },
@@ -331,12 +579,14 @@ describe("PR campaign and series state", () => {
     transitionPrCampaign(store, campaign.campaign_id, {
       actor: "operator",
       commandId: "command-activate-campaign",
+      correlationId: "pr-campaign-1",
       expectedRevision: campaign.revision,
       patch: { status: "working" },
     });
     const published = transitionPrSeries(store, "series-1", {
       actor: "operator",
       commandId: "command-publish-series-1",
+      correlationId: "pr-campaign-1",
       expectedRevision: 0,
       patch: { status: "published", upstreamPrNumber: 2850 },
       payload: { upstream_pr_number: 2850, branch: "codex/split-01-alpha", batch_index: 0 },
@@ -346,6 +596,7 @@ describe("PR campaign and series state", () => {
       transitionPrSeries(store, "series-1", {
         actor: "external_observer",
         commandId: "command-stale-approval",
+        correlationId: "pr-campaign-1",
         expectedRevision: 0,
         patch: { status: "approved" },
       }),
@@ -359,8 +610,14 @@ describe("PR campaign and series state", () => {
       transitionPrSeries(store, "series-1", {
         actor: "external_observer",
         commandId: "command-approve-series",
+        correlationId: "pr-campaign-1",
         expectedRevision: published.revision,
         patch: { status: "approved" },
+        payload: {
+          approval_source_identity: "github-review:PRR_rollback",
+          approved_revision: "head-sha-approved",
+          approving_actor: "octocat",
+        },
       }),
     ).toThrow("reject PR series transition");
     expect(eventsForSubject(store.db, "pr_series", "series-1")).toHaveLength(beforeStale);

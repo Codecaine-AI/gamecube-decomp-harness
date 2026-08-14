@@ -1,15 +1,19 @@
 import type { StateStore } from "@server/core/orchestrator-state";
+import type { EventActor } from "@server/core/project-state/events.js";
 import { requireActiveLease } from "@server/core/project-state/lease.js";
 import { getSyncState, transitionSync } from "./state.js";
 import type { SyncState } from "./types.js";
 
 export interface ActivateAcquiredSyncInput {
+  actor: EventActor;
   store: StateStore;
   projectId: string;
   syncId: string;
   leaseId: string;
   commandId: string;
-  correlationId?: string;
+  correlationId: string;
+  causationId: string;
+  spanId?: string;
   occurredAt?: string;
 }
 
@@ -35,12 +39,14 @@ export function activateAcquiredSync(input: ActivateAcquiredSyncInput): SyncStat
     throw new Error(`sync.start requires requested status; ${sync.sync_id} is ${sync.status}`);
   }
   return transitionSync(input.store, sync.sync_id, {
-    actor: "operator",
+    actor: input.actor,
     commandId: input.commandId,
-    correlationId: input.correlationId ?? sync.sync_id,
+    correlationId: input.correlationId,
+    causationId: input.causationId,
     expectedRevision: sync.revision,
     occurredAt: input.occurredAt,
     patch: { status: "ingesting" },
     payload: { lease_id: lease.lease_id, activation: "operator_sync_start" },
+    spanId: input.spanId,
   });
 }

@@ -66,6 +66,7 @@ export function stopRunning(
   } satisfies RunningPhaseState;
   return {
     status: blocked ? "blocked" : record.status,
+    ...(blocked ? { blockers_json: options.blockers ?? [] } : {}),
     running_state_json: runningState,
   };
 }
@@ -74,6 +75,7 @@ export function unblockStoppedRunning(record: ProjectSessionRecord, now: string)
   if (record.phase !== "running") throw new Error(`Cannot unblock running while session is ${record.phase}`);
   return {
     status: "active",
+    blockers_json: [],
     running_state_json: {
       ...completePhase(record.running_state_json, now),
       subphase: "draining",
@@ -85,6 +87,7 @@ export function blockRunning(record: ProjectSessionRecord, blockers: ProjectSess
   if (record.phase !== "running") throw new Error(`Cannot block running while session is ${record.phase}`);
   return {
     status: "blocked",
+    blockers_json: blockers,
     running_state_json: setPhaseBlocked(record.running_state_json, blockers),
   };
 }

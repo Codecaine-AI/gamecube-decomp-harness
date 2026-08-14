@@ -4,7 +4,17 @@ import {
   type KernelTraceSessionListResponse,
 } from "@agent-kernel/viewer-core";
 import type { PromptDocument } from "@prompt-kit-next";
-import type { Dashboard, FormState, JsonObject, RunDetails, StandardsPayload, UiConfig, WorkerStateTrace } from "./api-types";
+import type {
+  Dashboard,
+  FormState,
+  JsonObject,
+  ProjectEventQueryPage,
+  ProjectEventReconstructionPage,
+  RunDetails,
+  StandardsPayload,
+  UiConfig,
+  WorkerStateTrace,
+} from "./api-types";
 
 export type KernelAgentGroup = "running" | "knowledge" | "pr";
 
@@ -110,6 +120,109 @@ export function fetchProjectSessionState(
   form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
 ): Promise<{ projectSession: JsonObject | null; history: JsonObject[] }> {
   return fetchJson<{ projectSession: JsonObject | null; history: JsonObject[] }>(`/api/project-session?${dashboardParams(form)}`);
+}
+
+export const PROJECT_EVENT_PAGE_SIZE = 50;
+export const PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE = 50;
+const MAX_PROJECT_EVENT_PAGE_SIZE = 200;
+
+export interface ProjectEventPageRequest {
+  afterSequence?: number | null;
+  limit?: number;
+}
+
+type ProjectEventProjectContext = Pick<FormState, "projectId">;
+
+function projectEventParams(form: ProjectEventProjectContext): URLSearchParams {
+  const projectId = form.projectId.trim();
+  if (!projectId) throw new Error("Project event requests require a projectId");
+  return new URLSearchParams({ projectId });
+}
+
+function validatedProjectEventPageRequest(
+  request: ProjectEventPageRequest,
+  defaultLimit: number,
+): { afterSequence: number | null; limit: number } {
+  const afterSequence = request.afterSequence ?? null;
+  const limit = request.limit ?? defaultLimit;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PROJECT_EVENT_PAGE_SIZE) {
+    throw new Error(
+      `Project event page limit must be an integer between 1 and ${MAX_PROJECT_EVENT_PAGE_SIZE}`,
+    );
+  }
+  if (afterSequence !== null && (!Number.isSafeInteger(afterSequence) || afterSequence < 0)) {
+    throw new Error("Project event afterSequence must be a non-negative safe integer");
+  }
+  return { afterSequence, limit };
+}
+
+function validateProjectEventPageCursor(
+  page: Pick<ProjectEventQueryPage, "events" | "has_more" | "next_after_sequence">,
+  afterSequence: number | null,
+): void {
+  const cursor = page.next_after_sequence;
+  if (!page.has_more) {
+    if (cursor !== null) {
+      throw new Error("Project event pagination returned a cursor without more events");
+    }
+    return;
+  }
+  const lastSequence = page.events.at(-1)?.sequence;
+  if (
+    cursor === null ||
+    !Number.isSafeInteger(cursor) ||
+    cursor < 0 ||
+    lastSequence !== cursor ||
+    (afterSequence !== null && cursor <= afterSequence)
+  ) {
+    throw new Error("Project event pagination did not provide an advancing next_after_sequence");
+  }
+}
+
+export async function fetchProjectEvents(
+  form: ProjectEventProjectContext,
+  request: ProjectEventPageRequest = {},
+): Promise<ProjectEventQueryPage> {
+  const { afterSequence, limit } = validatedProjectEventPageRequest(
+    request,
+    PROJECT_EVENT_PAGE_SIZE,
+  );
+  const params = projectEventParams(form);
+  params.set("limit", String(limit));
+  if (afterSequence !== null) params.set("after_sequence", String(afterSequence));
+  const page = await fetchJson<ProjectEventQueryPage>(`/api/events?${params}`);
+  validateProjectEventPageCursor(page, afterSequence);
+  return page;
+}
+
+export async function fetchProjectEventReconstruction(
+  form: ProjectEventProjectContext,
+  correlationId: string,
+  request: ProjectEventPageRequest = {},
+): Promise<ProjectEventReconstructionPage> {
+  const requestedCorrelationId = correlationId.trim();
+  if (!requestedCorrelationId) {
+    throw new Error("Project event reconstruction requires a correlationId");
+  }
+  const { afterSequence, limit } = validatedProjectEventPageRequest(
+    request,
+    PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE,
+  );
+  const params = projectEventParams(form);
+  params.set("correlation_id", requestedCorrelationId);
+  params.set("limit", String(limit));
+  if (afterSequence !== null) params.set("after_sequence", String(afterSequence));
+  const page = await fetchJson<ProjectEventReconstructionPage>(
+    `/api/events/reconstruct?${params}`,
+  );
+  validateProjectEventPageCursor(page, afterSequence);
+  if (
+    page.project_id !== form.projectId.trim() ||
+    page.correlation_id !== requestedCorrelationId
+  ) {
+    throw new Error("Project event reconstruction returned mismatched project or correlation identity");
+  }
+  return page;
 }
 
 export function fetchRunDetails(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, runId: string): Promise<RunDetails> {

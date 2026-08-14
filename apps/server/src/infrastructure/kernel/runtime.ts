@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import type { Database } from "bun:sqlite";
 import {
   DEFAULT_AGENT_KERNEL_DATABASE_URL,
   meleeKernelDatabaseUrlFromEnv,
@@ -12,6 +13,12 @@ import {
   type SubmitMeleeWorkflowTraceEventInput,
 } from "@server/infrastructure/kernel/bridge/workflow-trace";
 import type { ProjectRuntimeContext } from "@server/core/project-registry";
+import { openState } from "@server/core/orchestrator-state";
+import {
+  getProjectSessionByUuid,
+  mergeProjectSessionKernelTrace,
+} from "@server/core/project-session/store.js";
+import type { ProjectEventTraceLinkage } from "@server/core/project-state/kernel-links.js";
 
 type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
@@ -25,6 +32,9 @@ export interface DashboardKernelWorkflowEventInput {
   prId?: string | null;
   detail?: string | null;
   metadata?: Record<string, unknown>;
+  correlationId?: string;
+  projectEventId?: string;
+  causedByEventId?: string | null;
 }
 
 export interface DashboardKernelRuntimeService {
@@ -50,6 +60,13 @@ export interface DashboardKernelRuntimeServiceDeps {
   latestRunId: (stateDir: string) => string;
   packageRoot: string;
   port: number;
+  createKernelRuntime?: typeof createMeleeKernelRuntime;
+  persistProjectSessionKernelTraceLinkage?: (
+    stateDir: string,
+    projectId: string,
+    sessionUuid: string,
+    trace: ProjectSessionKernelTraceLinkageAttachment,
+  ) => Promise<void> | void;
   recordProjectSessionKernelTrace?: (
     stateDir: string,
     projectId: string,
@@ -63,8 +80,39 @@ export interface DashboardKernelRuntimeServiceDeps {
   ) => Promise<void> | void;
 }
 
+export interface ProjectSessionKernelTraceLinkageAttachment {
+  activeContainerId: string;
+  appSessionId: string;
+  rootContainerId: string;
+  traceUrl: string;
+  projectEventId: string;
+  kernelEventId: string;
+  correlationId: string;
+  causedByEventId: string | null;
+  linkedAt: string;
+}
+
+export class KernelTraceCursorPersistenceError extends Error {
+  readonly cause: unknown;
+
+  constructor(projectEventId: string, cause: unknown) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    super(
+      `Kernel trace event for project event ${projectEventId} was emitted but cursor persistence failed: ${detail}`,
+    );
+    this.name = "KernelTraceCursorPersistenceError";
+    this.cause = cause;
+  }
+}
+
 function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function requiredText(value: unknown, label: string): string {
+  const normalized = stringValue(value).trim();
+  if (!normalized) throw new Error(`${label} must be a nonblank string`);
+  return normalized;
 }
 
 function redactedUrl(value: string | null): string | null {
@@ -79,6 +127,115 @@ function redactedUrl(value: string | null): string | null {
   }
 }
 
+function projectScopedWorkflowTraceLinkage(
+  db: Database,
+  projectId: string,
+  input: DashboardKernelWorkflowEventInput,
+): ProjectEventTraceLinkage {
+  const normalizedProjectId = requiredText(projectId, "projectId");
+  const projectEventId = requiredText(input.projectEventId, "projectEventId");
+  const correlationId = requiredText(input.correlationId, "correlationId");
+  if (input.causedByEventId === undefined) {
+    throw new Error("causedByEventId must be explicit (use null for command causation)");
+  }
+  const projectEvent = db
+    .query(
+      `SELECT event_id, correlation_id, causation_id
+       FROM project_events
+       WHERE project_id = ? AND event_id = ?`,
+    )
+    .get(normalizedProjectId, projectEventId) as {
+      event_id: string;
+      correlation_id: string;
+      causation_id: string;
+    } | null;
+  if (!projectEvent) {
+    throw new Error(
+      `Project event ${projectEventId} was not found in project ${normalizedProjectId}`,
+    );
+  }
+  const persistedCause = db
+    .query("SELECT event_id, project_id FROM project_events WHERE event_id = ?")
+    .get(projectEvent.causation_id) as {
+      event_id: string;
+      project_id: string;
+    } | null;
+  if (persistedCause && persistedCause.project_id !== normalizedProjectId) {
+    throw new Error(
+      `Project event ${projectEventId} has cross-project causation ${persistedCause.event_id}`,
+    );
+  }
+  const resolved: ProjectEventTraceLinkage = {
+    correlationId: requiredText(projectEvent.correlation_id, "persisted correlation_id"),
+    projectEventId: projectEvent.event_id,
+    causedByEventId: persistedCause?.event_id ?? null,
+  };
+  if (correlationId !== resolved.correlationId) {
+    throw new Error(
+      `Workflow trace correlation ${correlationId} does not match project event ${projectEventId}`,
+    );
+  }
+  if (input.causedByEventId !== resolved.causedByEventId) {
+    throw new Error(
+      `Workflow trace causedByEventId does not match persisted causation for ${projectEventId}`,
+    );
+  }
+  return resolved;
+}
+
+export function resolveWorkflowTraceLinkage(
+  stateDir: string,
+  projectId: string,
+  input: DashboardKernelWorkflowEventInput,
+): ProjectEventTraceLinkage {
+  const store = openState(stateDir);
+  try {
+    return projectScopedWorkflowTraceLinkage(store.db, projectId, input);
+  } finally {
+    store.db.close();
+  }
+}
+
+export function persistProjectSessionKernelTraceLinkage(
+  stateDir: string,
+  projectId: string,
+  sessionUuid: string,
+  trace: ProjectSessionKernelTraceLinkageAttachment,
+): void {
+  const store = openState(stateDir);
+  try {
+    const session = getProjectSessionByUuid(store.db, sessionUuid);
+    if (!session) {
+      throw new Error(`Project session ${sessionUuid} was not found`);
+    }
+    if (session.project_id !== projectId) {
+      throw new Error(`Project session ${sessionUuid} does not belong to ${projectId}`);
+    }
+    const linkage = projectScopedWorkflowTraceLinkage(store.db, projectId, {
+      kind: "session",
+      operation: "persist-kernel-trace-linkage",
+      projectEventId: trace.projectEventId,
+      correlationId: trace.correlationId,
+      causedByEventId: trace.causedByEventId,
+    });
+    mergeProjectSessionKernelTrace(store.db, session.id, {
+      app_session_id: requiredText(trace.appSessionId, "appSessionId"),
+      root_container_id: requiredText(trace.rootContainerId, "rootContainerId"),
+      active_container_id: requiredText(trace.activeContainerId, "activeContainerId"),
+      trace_url: requiredText(trace.traceUrl, "traceUrl"),
+      last_linkage_cursor: {
+        project_event_id: linkage.projectEventId,
+        kernel_event_id: requiredText(trace.kernelEventId, "kernelEventId"),
+        correlation_id: linkage.correlationId,
+        caused_by_event_id: linkage.causedByEventId,
+        linked_at: requiredText(trace.linkedAt, "linkedAt"),
+      },
+    });
+  } finally {
+    store.db.close();
+  }
+}
+
 export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntimeServiceDeps): DashboardKernelRuntimeService {
   const explicitKernelDatabaseUrl = meleeKernelDatabaseUrlFromEnv(deps.env);
   const kernelRuntimeDisabled = /^(1|true|yes)$/i.test(deps.env.ORCH_AGENT_KERNEL_DISABLED ?? deps.env.ORCH_AGENT_KERNEL_DISABLE ?? "");
@@ -87,12 +244,15 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
   const kernelRuntimeRequired = meleeKernelRuntimeRequiredFromEnv(deps.env);
   const kernelAppBaseUrl = deps.env.ORCH_AGENT_KERNEL_APP_BASE_URL ?? `http://localhost:${deps.port}`;
   const kernelObserverUrl = deps.env.AGENT_KERNEL_OBSERVER_URL ?? null;
+  const createKernelRuntime = deps.createKernelRuntime ?? createMeleeKernelRuntime;
+  const persistKernelTraceLinkage =
+    deps.persistProjectSessionKernelTraceLinkage ?? persistProjectSessionKernelTraceLinkage;
   let kernelRuntimePromise: Promise<MeleeKernelRuntime | null> | null = null;
 
   function runtime(): Promise<MeleeKernelRuntime | null> {
     if (!kernelDatabaseUrl) return Promise.resolve(null);
     if (!kernelRuntimePromise) {
-      kernelRuntimePromise = createMeleeKernelRuntime({
+      kernelRuntimePromise = createKernelRuntime({
         config: {
           workingDir: deps.packageRoot,
           piSessionsDir: resolve(deps.packageRoot, ".pi-sessions"),
@@ -232,48 +392,69 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
       }
       const resolvedProjectId = projectId(paths);
       const resolvedSessionId = sessionId(paths, input);
+      const linkage = resolveWorkflowTraceLinkage(
+        paths.stateDir,
+        resolvedProjectId,
+        input,
+      );
       const result = await submitMeleeWorkflowTraceEvent({
         runtime: current,
         kind: input.kind,
         projectId: resolvedProjectId,
         sessionId: resolvedSessionId,
+        correlationId: linkage.correlationId,
+        projectEventId: linkage.projectEventId,
+        causedByEventId: linkage.causedByEventId,
         operation: input.operation,
         status: input.status,
         prId: input.prId,
         workingDir: paths.repoRoot,
         detail: input.detail,
         metadata: {
+          ...(input.metadata ?? {}),
           stateDir: paths.stateDir,
           graphDbPath: paths.graphDbPath,
           ...(input.runId ? { runId: input.runId } : {}),
-          ...(input.metadata ?? {}),
         },
       });
       const rootContainerId = meleeRootContainerId({
         projectId: resolvedProjectId,
         sessionId: resolvedSessionId,
       });
-      await Promise.resolve(
-        deps.recordProjectSessionKernelTrace?.(paths.stateDir, resolvedProjectId, resolvedSessionId, {
-          activeContainerId: result.containerId,
-          appSessionId: result.appSessionId,
-          rootContainerId,
-          traceUrl: `${kernelAppBaseUrl}/trace?projectId=${encodeURIComponent(resolvedProjectId)}&traceId=${encodeURIComponent(rootContainerId)}`,
-        }),
-      ).catch((error) => {
-        deps.appendLog("stderr", `agent-kernel project-session trace attach failed: ${error instanceof Error ? error.message : String(error)}`);
-      });
+      try {
+        await persistKernelTraceLinkage(
+          paths.stateDir,
+          resolvedProjectId,
+          resolvedSessionId,
+          {
+            activeContainerId: result.containerId,
+            appSessionId: result.appSessionId,
+            rootContainerId,
+            traceUrl: `${kernelAppBaseUrl}/trace?projectId=${encodeURIComponent(resolvedProjectId)}&traceId=${encodeURIComponent(rootContainerId)}`,
+            projectEventId: linkage.projectEventId,
+            kernelEventId: result.event.eventId,
+            correlationId: linkage.correlationId,
+            causedByEventId: linkage.causedByEventId,
+            linkedAt: result.event.timestamp,
+          },
+        );
+      } catch (error) {
+        throw new KernelTraceCursorPersistenceError(linkage.projectEventId, error);
+      }
       return {
         appSessionId: result.appSessionId,
         containerId: result.containerId,
         eventId: result.event.eventId,
+        projectEventId: linkage.projectEventId,
       };
     } catch (error) {
       deps.appendLog(
         "stderr",
         `agent-kernel workflow trace failed (${input.kind}/${input.operation}): ${error instanceof Error ? error.message : String(error)}`,
       );
-      if (kernelRuntimeRequired) throw error;
+      if (error instanceof KernelTraceCursorPersistenceError || kernelRuntimeRequired) {
+        throw error;
+      }
       return null;
     }
   }

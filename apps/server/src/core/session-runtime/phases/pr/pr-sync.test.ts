@@ -10,11 +10,18 @@ function createFixture() {
   let written: JsonObject = {};
   let cliResult = { exitCode: 1, stdout: "", stderr: "offline" };
   let cliHandler: ((command: string[]) => typeof cliResult) | null = null;
+  let originUrl = "";
+  const cliCommands: string[][] = [];
   const campaignObservations: JsonObject[] = [];
+  const campaignStateOpenAttempts: string[] = [];
   const deps: PrSyncServiceDeps<PrSyncProjectContext> = {
     appendLog: () => {},
     latestPrSplitPlanSummary: () => plan,
     latestRunId: () => "run-1",
+    openCampaignState: (stateDir) => {
+      campaignStateOpenAttempts.push(stateDir);
+      throw new Error(`Unexpected campaign state open: ${stateDir}`);
+    },
     outputTail: (value) => value,
     observeCampaignPr: (_stateDir, input) => {
       campaignObservations.push(input as unknown as JsonObject);
@@ -32,9 +39,16 @@ function createFixture() {
       },
     },
     resolveDashboardProject: () => ({ repoRoot: "/repo", stateDir: "/state", project: { baseRef: "origin/master" } }),
-    runCli: async (command) => cliHandler ? cliHandler(command) : cliResult,
+    runCli: async (command) => {
+      cliCommands.push(command);
+      return cliHandler ? cliHandler(command) : cliResult;
+    },
     runGitQuiet: (_repoRoot, args) => {
-      if (args[0] === "remote") return { exitCode: 1, stdout: "", stderr: "no remote" };
+      if (args[0] === "remote") {
+        return originUrl
+          ? { exitCode: 0, stdout: `${originUrl}\n`, stderr: "" }
+          : { exitCode: 1, stdout: "", stderr: "no remote" };
+      }
       if (args[0] === "for-each-ref") return { exitCode: 1, stdout: "", stderr: "no branches" };
       return { exitCode: 0, stdout: "base-sha\n", stderr: "" };
     },
@@ -44,10 +58,13 @@ function createFixture() {
     service,
     setCliResult(value: typeof cliResult) { cliResult = value; },
     setCliHandler(value: (command: string[]) => typeof cliResult) { cliHandler = value; },
+    setOriginUrl(value: string) { originUrl = value; },
     setPlan(value: JsonObject) { plan = value; },
     setPrevious(value: JsonObject) { previous = value; },
     written: () => written,
     campaignObservations,
+    campaignStateOpenAttempts,
+    cliCommands,
   };
 }
 
@@ -67,7 +84,7 @@ function matchPlan(supportPathspecs?: string[]): JsonObject {
 }
 
 describe("PR sync support manifests", () => {
-  test("forwards GitHub state and feedback to additive campaign observation", async () => {
+  test("forwards GitHub state and feedback through an injected campaign observer without opening state", async () => {
     const fixture = createFixture();
     fixture.setCliResult({
       exitCode: 0,
@@ -94,6 +111,7 @@ describe("PR sync support manifests", () => {
     );
 
     expect(record).toMatchObject({ status: "changes_requested", comments: 1 });
+    expect(fixture.campaignStateOpenAttempts).toEqual([]);
     expect(fixture.campaignObservations).toEqual([{
       branch: "codex/split-01-alpha",
       commandId: "pr-sync:2850:2026-08-13T12:00:00.000Z",
@@ -137,6 +155,91 @@ describe("PR sync support manifests", () => {
       { sourceKind: "pull_request_review", sourceId: "PRR_88", summary: "The overall direction needs revision." },
       { sourceKind: "pull_request_review_comment", sourceId: "991", summary: "Please preserve the signed comparison." },
     ]);
+  });
+
+  test("forwards durable approval evidence from the latest approved GitHub review", async () => {
+    const fixture = createFixture();
+    fixture.setCliHandler((command) => command[1] === "api"
+      ? { exitCode: 0, stdout: "[]", stderr: "" }
+      : {
+          exitCode: 0,
+          stdout: JSON.stringify({
+            comments: [],
+            reviews: [
+              {
+                id: "PRR_41",
+                author: { login: "earlier-reviewer" },
+                body: "",
+                state: "APPROVED",
+                submittedAt: "2026-08-13T11:00:00.000Z",
+              },
+              {
+                id: "PRR_42",
+                author: { login: "octocat" },
+                body: "",
+                state: "APPROVED",
+                submittedAt: "2026-08-13T12:00:00.000Z",
+              },
+              {
+                id: "PRR_43",
+                author: { login: "commenter" },
+                body: "",
+                state: "COMMENTED",
+                submittedAt: "2026-08-13T13:00:00.000Z",
+              },
+            ],
+            files: [],
+            statusCheckRollup: [],
+          }),
+          stderr: "",
+        });
+
+    await fixture.service.hydratePrRecordFromGithub(
+      { branch: "codex/split-01-alpha" },
+      {
+        author: { login: "pr-author" },
+        headRefName: "codex/split-01-alpha",
+        headRefOid: "head-sha-approved",
+        number: 2850,
+        reviewDecision: "APPROVED",
+        state: "OPEN",
+        updatedAt: "2026-08-13T13:30:00.000Z",
+      },
+      "doldecomp/melee",
+      "/repo",
+      "/state",
+    );
+
+    expect(fixture.campaignStateOpenAttempts).toEqual([]);
+    expect(fixture.campaignObservations).toEqual([{
+      approvalSourceIdentity: "github-review:PRR_42",
+      approvedRevision: "head-sha-approved",
+      approvingActor: "octocat",
+      branch: "codex/split-01-alpha",
+      commandId: "pr-sync:2850:2026-08-13T13:30:00.000Z",
+      feedback: [],
+      mergedUpstreamRevision: "",
+      occurredAt: "2026-08-13T13:30:00.000Z",
+      reviewDecision: "APPROVED",
+      state: "OPEN",
+      upstreamPrNumber: 2850,
+    }]);
+  });
+
+  test("requests the observed head revision in the GitHub PR list query", async () => {
+    const fixture = createFixture();
+    fixture.setOriginUrl("git@github.com:doldecomp/melee.git");
+    fixture.setCliResult({ exitCode: 0, stdout: "[]", stderr: "" });
+
+    await fixture.service.syncPrRecords({ runId: "run-1" });
+
+    expect(fixture.cliCommands).toEqual([[
+      "gh", "pr", "list",
+      "--repo", "doldecomp/melee",
+      "--state", "all",
+      "--limit", "100",
+      "--json", "number,title,state,isDraft,url,headRefName,headRefOid,author,reviewDecision,updatedAt,mergeCommit",
+    ]]);
   });
 
   test("persists declared support files, then removes and invalidates them on re-plan", async () => {

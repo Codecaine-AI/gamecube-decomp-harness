@@ -24,6 +24,7 @@ function activeRunFixture() {
   const decision = requestDispatch(store, {
     actor: "operator",
     commandId: "command-runtime-activate",
+    correlationId: run.id,
     kind: "run",
     projectId: "melee",
     reason: "runtime test",
@@ -40,6 +41,37 @@ afterEach(() => {
 });
 
 describe("run control runtime", () => {
+  test("rejects caller-supplied correlation that does not name the run", async () => {
+    const fixture = activeRunFixture();
+    const runtime = createRunControlRuntime({
+      drainManaged: async () => ({ draining: true, signaled: [] }),
+      hasActiveProcess: () => ({ active: true }),
+      resolveDashboardProject: () => ({
+        graphDbPath: join(fixture.stateDir, "graph.sqlite"),
+        project: null,
+        repoRoot: fixture.stateDir,
+        stateDir: fixture.stateDir,
+      }),
+      stopManaged: async () => ({ stopped: true }),
+    });
+
+    await expect(runtime.pause({
+      correlationId: "sync-wrong-workflow",
+      runId: fixture.runId,
+    })).rejects.toThrow(`correlation_id must equal run id ${fixture.runId}`);
+
+    const store = openState(fixture.stateDir);
+    try {
+      expect(getRun(store, fixture.runId)?.status).toBe("active");
+      expect(getProjectState(store, "melee")?.active_workflow).toMatchObject({
+        status: "active",
+        workflow_id: fixture.runId,
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("pause returns draining only after durable run and lease admission gates are closed", async () => {
     const fixture = activeRunFixture();
     let observedDuringSignal: Record<string, unknown> | null = null;

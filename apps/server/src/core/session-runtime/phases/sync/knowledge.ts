@@ -17,6 +17,7 @@ import { syncStagingPaths } from "./git.js";
 import {
   appendSyncKnowledgeEventInTransaction,
   getSyncState,
+  syncActionSpanId,
   transitionSync,
 } from "./state.js";
 import type { SyncState } from "./types.js";
@@ -53,7 +54,6 @@ export interface EnqueueSyncKnowledgeJobsInput {
   syncId: string;
   commandId: string;
   actor?: EventActor;
-  correlationId?: string;
   spanId?: string;
   occurredAt?: string;
   provenance?: Partial<Record<SyncKnowledgeSourceKind, Record<string, JsonObject>>>;
@@ -102,8 +102,7 @@ export interface StageSyncKnowledgeInput {
   processors: SyncKnowledgeProcessors;
   revalidateOwnership: () => void;
   actor?: EventActor;
-  commandId?: string;
-  correlationId?: string;
+  commandId: string;
   spanId?: string;
   now?: () => string;
 }
@@ -112,7 +111,6 @@ export interface CompleteSyncKnowledgeIngestInput extends StageSyncKnowledgeInpu
   expectedRevision: number;
   commandId: string;
   actor?: EventActor;
-  correlationId?: string;
   spanId?: string;
   provenance?: EnqueueSyncKnowledgeJobsInput["provenance"];
 }
@@ -122,7 +120,6 @@ export interface CancelSyncKnowledgeJobsInput {
   commandId: string;
   reason: string;
   actor?: EventActor;
-  correlationId?: string;
   spanId?: string;
   occurredAt?: string;
 }
@@ -132,7 +129,6 @@ export interface WaitSyncKnowledgeJobsForRecoveryInput {
   commandId: string;
   reason: string;
   actor?: EventActor;
-  correlationId?: string;
   spanId?: string;
   occurredAt?: string;
   requeueSucceeded?: boolean;
@@ -413,9 +409,9 @@ export function enqueueSyncKnowledgeJobs(
         subjectId: jobId,
         traceId: sync.trace_id,
         actor: input.actor ?? "runner",
-        causationId: `${commandId}:${jobId}`,
-        correlationId: input.correlationId ?? sync.sync_id,
-        spanId: input.spanId ?? `${sync.sync_id}:knowledge-enqueue`,
+        causationId: commandId,
+        correlationId: sync.sync_id,
+        spanId: input.spanId ?? syncActionSpanId(commandId),
         occurredAt: now,
         payload: {
           source_class: "sync_stage",
@@ -425,7 +421,7 @@ export function enqueueSyncKnowledgeJobs(
             source_kind: source.sourceKind,
             source_id: sourceId,
           },
-          execution_class: "sync",
+          execution_class: "sync_stage",
         },
       });
       store.db.query(
@@ -508,13 +504,16 @@ function transitionJob(input: {
     subjectId: input.job.jobId,
     traceId: input.sync.trace_id,
     actor: input.actor,
-    causationId: input.commandId,
+    causationId: input.job.causedByEventId,
     correlationId: input.correlationId,
     spanId: input.spanId,
     occurredAt: input.occurredAt,
   };
   const source = {
-    sync_id: input.sync.sync_id,
+    sync_id: input.job.syncId,
+    execution_class: "sync_stage" as const,
+    source_class: "sync_stage" as const,
+    provenance: input.job.provenance,
     source_kind: input.job.sourceKind,
     source_id: input.job.sourceId,
   };
@@ -524,8 +523,8 @@ function transitionJob(input: {
         eventType: input.eventType,
         payload: {
           ...source,
-          previous_status: input.job.status as "queued" | "waiting",
-          status: "processing",
+          from_status: input.job.status as "queued" | "waiting",
+          to_status: "processing",
         },
       })
     : input.eventType === "knowledge.job_waiting"
@@ -534,8 +533,8 @@ function transitionJob(input: {
           eventType: input.eventType,
           payload: {
             ...source,
-            previous_status: input.job.status as "processing" | "succeeded" | "failed",
-            status: "waiting",
+            from_status: input.job.status as "processing" | "succeeded" | "failed",
+            to_status: "waiting",
             reason: requiredText(input.reason ?? "", "reason"),
           },
         })
@@ -544,9 +543,9 @@ function transitionJob(input: {
           ...context,
           eventType: input.eventType,
           payload: {
-            ...source,
-            previous_status: "processing",
-            status: "succeeded",
+              ...source,
+              from_status: "processing",
+              to_status: "succeeded",
             staged_digest: requiredText(input.digest ?? "", "staged_digest"),
           },
         })
@@ -556,8 +555,8 @@ function transitionJob(input: {
             eventType: input.eventType,
             payload: {
               ...source,
-              previous_status: "processing",
-              status: "failed",
+              from_status: "processing",
+              to_status: "failed",
               error: requiredText(input.error ?? "", "error"),
             },
           })
@@ -566,8 +565,8 @@ function transitionJob(input: {
           eventType: input.eventType,
           payload: {
             ...source,
-            previous_status: input.job.status as Exclude<SyncKnowledgeJobStatus, "cancelled">,
-            status: "cancelled",
+            from_status: input.job.status as Exclude<SyncKnowledgeJobStatus, "cancelled">,
+            to_status: "cancelled",
             reason: requiredText(input.reason ?? "", "reason"),
           },
         });
@@ -617,9 +616,9 @@ export function cancelSyncKnowledgeJobs(
         job,
         nextStatus: "cancelled",
         eventType: "knowledge.job_cancelled",
-        commandId: `${requiredText(input.commandId, "commandId")}:${job.jobId}:cancelled`,
-        correlationId: input.correlationId ?? sync.sync_id,
-        spanId: input.spanId ?? `${sync.sync_id}:knowledge-cancel`,
+        commandId: requiredText(input.commandId, "commandId"),
+        correlationId: sync.sync_id,
+        spanId: input.spanId ?? syncActionSpanId(input.commandId),
         actor: input.actor ?? "operator",
         occurredAt,
         reason: input.reason,
@@ -654,9 +653,9 @@ function waitSyncKnowledgeJobsForRecoveryInternal(
         job,
         nextStatus: "waiting",
         eventType: "knowledge.job_waiting",
-        commandId: `${requiredText(input.commandId, "commandId")}:${job.jobId}:waiting`,
-        correlationId: input.correlationId ?? sync.sync_id,
-        spanId: input.spanId ?? `${sync.sync_id}:knowledge-recovery`,
+        commandId: requiredText(input.commandId, "commandId"),
+        correlationId: sync.sync_id,
+        spanId: input.spanId ?? syncActionSpanId(input.commandId),
         actor: input.actor ?? "operator",
         occurredAt,
         reason: input.reason,
@@ -718,13 +717,14 @@ export function recoverConfirmedOrphanKnowledgeIngest(
     }
     waitSyncKnowledgeJobsForRecoveryInternal(store, {
       syncId: sync.sync_id,
-      commandId: `${requiredText(input.commandId, "commandId")}:knowledge-jobs`,
+      commandId: requiredText(input.commandId, "commandId"),
       reason: requiredText(input.reason, "reason"),
       occurredAt: input.occurredAt,
     }, true);
     return transitionSync(store, sync.sync_id, {
       actor: "operator",
       commandId: input.commandId,
+      correlationId: sync.sync_id,
       eventType: "sync.recovered",
       expectedRevision: sync.revision,
       occurredAt: input.occurredAt,
@@ -961,10 +961,10 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
       throw new Error(`Knowledge job ${initial.jobId} cannot be staged from ${initial.status}`);
     }
     const updatedAt = input.now?.() ?? new Date().toISOString();
-    const commandId = input.commandId ?? `${sync.sync_id}:knowledge-stage`;
+    const commandId = requiredText(input.commandId, "commandId");
     const actor = input.actor ?? "runner";
-    const correlationId = input.correlationId ?? sync.sync_id;
-    const spanId = input.spanId ?? `${sync.sync_id}:knowledge-stage`;
+    const correlationId = sync.sync_id;
+    const spanId = input.spanId ?? syncActionSpanId(commandId);
     input.revalidateOwnership();
     const job = immediateTransaction(input.store.db, () =>
       transitionJob({
@@ -973,7 +973,7 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
         job: initial,
         nextStatus: "processing",
         eventType: "knowledge.job_processing",
-        commandId: `${commandId}:${initial.jobId}:processing`,
+        commandId,
         correlationId,
         spanId,
         actor,
@@ -996,7 +996,7 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
       const artifact: JsonObject = {
         schema_version: 1,
         source_class: "sync_stage",
-        execution_class: "sync",
+        execution_class: "sync_stage",
         source_kind: job.sourceKind,
         source_id: job.sourceId,
         provenance: job.provenance,
@@ -1012,7 +1012,7 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
           job,
           nextStatus: "succeeded",
           eventType: "knowledge.job_succeeded",
-          commandId: `${commandId}:${job.jobId}:succeeded`,
+          commandId,
           correlationId,
           spanId,
           actor,
@@ -1030,7 +1030,7 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
           job,
           nextStatus: "failed",
           eventType: "knowledge.job_failed",
-          commandId: `${commandId}:${job.jobId}:failed`,
+          commandId,
           correlationId,
           spanId,
           actor,
@@ -1086,10 +1086,9 @@ export async function completeSyncKnowledgeIngest(
   input.revalidateOwnership();
   enqueueSyncKnowledgeJobs(input.store, {
     syncId: initial.sync_id,
-    commandId: `${requiredText(input.commandId, "commandId")}:enqueue`,
+    commandId: requiredText(input.commandId, "commandId"),
     actor: input.actor ?? "runner",
-    correlationId: input.correlationId ?? initial.sync_id,
-    spanId: input.spanId ?? `${initial.sync_id}:knowledge-ingest`,
+    spanId: input.spanId ?? syncActionSpanId(input.commandId),
     occurredAt: input.now?.(),
     provenance: input.provenance,
   });
@@ -1104,8 +1103,8 @@ export async function completeSyncKnowledgeIngest(
       if (current?.status === "ingesting") {
         transitionSync(input.store, current.sync_id, {
           actor: input.actor ?? "runner",
-          commandId: `${input.commandId}:blocked`,
-          correlationId: input.correlationId,
+          commandId: input.commandId,
+          correlationId: current.sync_id,
           expectedRevision: current.revision,
           patch: {
             status: "blocked",
@@ -1149,8 +1148,8 @@ export async function completeSyncKnowledgeIngest(
   input.revalidateOwnership();
   sync = transitionSync(input.store, sync.sync_id, {
     actor: input.actor ?? "runner",
-    commandId: `${input.commandId}:validating`,
-    correlationId: input.correlationId,
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "validating", staging: null },
     payload: { knowledge_manifest_digest: manifest.digest, accepted_job_ids: manifest.accepted_job_ids },
@@ -1159,8 +1158,8 @@ export async function completeSyncKnowledgeIngest(
   input.revalidateOwnership();
   sync = transitionSync(input.store, sync.sync_id, {
     actor: input.actor ?? "runner",
-    commandId: `${input.commandId}:validated`,
-    correlationId: input.correlationId,
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
     expectedRevision: sync.revision,
     patch: { status: "validated", blockers: [], staging: null },
     payload: { validation_evidence: evidence },

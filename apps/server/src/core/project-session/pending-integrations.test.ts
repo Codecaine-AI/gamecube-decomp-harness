@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
+import { createRun, startSchedulerEpoch } from "@server/core/session-runtime/run-state";
 import { eventsForSubject } from "@server/core/project-state/events.js";
 import { createProjectSession } from "./store.js";
 import { listSessionTimeline, recordEpochCompleted } from "./timeline.js";
@@ -38,6 +39,8 @@ function fixture(): {
   repoRoot: string;
   branch: string;
   parentSha: string;
+  runId: string;
+  epochId: string;
 } {
   const stateDir = tempDir("pending-integrations-state-");
   const repoRoot = tempDir("pending-integrations-repo-");
@@ -56,39 +59,29 @@ function fixture(): {
   const branch = git(repoRoot, ["branch", "--show-current"]);
   const store = openState(stateDir);
   stores.push(store);
-  store.db
-    .query(
-      `INSERT INTO runs (
-         id, goal_kind, goal_value, desired_workers, status, created_at,
-         project_id, project_repo_root, session_uuid, head_revision
-       ) VALUES (
-         'run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z',
-         'melee', ?, 'session-1', ?
-       )`,
-    )
-    .run(repoRoot, parentSha);
+  const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "melee", repoRoot }, {
+    baseRevision: parentSha,
+    sessionUuid: "session-1",
+  });
   createProjectSession(store.db, {
+    actor: "operator",
     projectId: "melee",
     sessionUuid: "session-1",
     id: "project-session:session-1",
     baseSha: parentSha,
-    activeRunId: "run-1",
-    correlationId: "run-1",
+    activeRunId: run.id,
     commandId: "command-session-open",
     openingSyncId: "sync-open-1",
     traceId: "trace-session-1",
     worktreeIdentity: repoRoot,
     now: "2026-08-12T12:00:00.000Z",
   });
-  store.db
-    .query(
-      `INSERT INTO epochs (
-         id, run_id, ordinal, size_mode, worker_pool_size, candidate_window,
-         status, routing_summary_json, created_at
-       ) VALUES ('epoch-1', 'run-1', 1, 'fixed', 1, 1, 'active', '{}', ?)`,
-    )
-    .run("2026-08-12T12:01:00.000Z");
-  return { store, repoRoot, branch, parentSha };
+  const epoch = startSchedulerEpoch(store, run.id, {
+    size: { mode: "fixed", value: 1 },
+    workerPoolSize: 1,
+    candidateWindow: 1,
+  });
+  return { store, repoRoot, branch, parentSha, runId: run.id, epochId: epoch.id };
 }
 
 afterEach(() => {
@@ -98,26 +91,26 @@ afterEach(() => {
 
 describe("pending epoch integrations", () => {
   test("uses one exact stable trailer and persists pre-commit identity", () => {
-    const { store, branch, parentSha } = fixture();
-    expect(epochIntegrationMarker("epoch-1")).toBe("Epoch-Integration: epoch-1");
-    expect(epochIntegrationCommitMessage("epoch(run-1): checkpoint", "epoch-1")).toBe(
-      "epoch(run-1): checkpoint\n\nEpoch-Integration: epoch-1",
+    const { store, branch, parentSha, runId, epochId } = fixture();
+    expect(epochIntegrationMarker(epochId)).toBe(`Epoch-Integration: ${epochId}`);
+    expect(epochIntegrationCommitMessage(`epoch(${runId}): checkpoint`, epochId)).toBe(
+      `epoch(${runId}): checkpoint\n\nEpoch-Integration: ${epochId}`,
     );
 
     preparePendingIntegration(store, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       branch,
       parentSha,
       createdAt: "2026-08-12T12:02:00.000Z",
     });
     expect(listPendingIntegrations(store)).toEqual([
       {
-        runId: "run-1",
-        epochId: "epoch-1",
+        runId,
+        epochId,
         branch,
         parentSha,
-        messageMarker: "Epoch-Integration: epoch-1",
+        messageMarker: `Epoch-Integration: ${epochId}`,
         createdAt: "2026-08-12T12:02:00.000Z",
         attempt: 1,
         status: "prepared",
@@ -128,36 +121,36 @@ describe("pending epoch integrations", () => {
   });
 
   test("preparation is idempotent and advances only a retained failed attempt", () => {
-    const { store, branch, parentSha } = fixture();
+    const { store, branch, parentSha, runId, epochId } = fixture();
     const first = preparePendingIntegration(store, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       branch,
       parentSha,
     });
     expect(preparePendingIntegration(store, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       branch,
       parentSha,
     })).toEqual(first);
     expect(() => preparePendingIntegration(store, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       branch,
       parentSha: "f".repeat(40),
     })).toThrow("different git identity");
 
     recordPendingIntegrationFailure(store, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       attempt: 1,
       reason: "known git commit failure",
       occurredAt: "2026-08-12T12:02:30.000Z",
     });
     const retry = preparePendingIntegration(store, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       branch,
       parentSha,
       createdAt: "2026-08-12T12:03:00.000Z",
@@ -166,8 +159,8 @@ describe("pending epoch integrations", () => {
   });
 
   test("live epoch finalization deletes its prepare row in the lineage transaction", () => {
-    const { store, repoRoot, branch, parentSha } = fixture();
-    preparePendingIntegration(store, { runId: "run-1", epochId: "epoch-1", branch, parentSha });
+    const { store, repoRoot, branch, parentSha, runId, epochId } = fixture();
+    preparePendingIntegration(store, { runId, epochId, branch, parentSha });
     git(repoRoot, [
       "-c",
       "user.name=Pending Integration Test",
@@ -176,16 +169,17 @@ describe("pending epoch integrations", () => {
       "commit",
       "--allow-empty",
       "-qm",
-      epochIntegrationCommitMessage("epoch boundary", "epoch-1"),
+      epochIntegrationCommitMessage("epoch boundary", epochId),
     ]);
     const integrationCommit = git(repoRoot, ["rev-parse", "HEAD"]);
 
     recordEpochCompleted(store, {
       projectId: "melee",
-      epochId: "epoch-1",
-      runId: "run-1",
+      epochId,
+      runId,
       integrationCommit,
       commandId: "command-epoch-live",
+      correlationId: runId,
       actor: "runner",
     });
 
@@ -196,8 +190,8 @@ describe("pending epoch integrations", () => {
   });
 
   test("reconciliation finds the marker and advances lineage to the later branch tip", () => {
-    const { store, repoRoot, branch, parentSha } = fixture();
-    preparePendingIntegration(store, { runId: "run-1", epochId: "epoch-1", branch, parentSha });
+    const { store, repoRoot, branch, parentSha, runId, epochId } = fixture();
+    preparePendingIntegration(store, { runId, epochId, branch, parentSha });
     git(repoRoot, [
       "-c",
       "user.name=Pending Integration Test",
@@ -206,7 +200,7 @@ describe("pending epoch integrations", () => {
       "commit",
       "--allow-empty",
       "-qm",
-      epochIntegrationCommitMessage("epoch boundary", "epoch-1"),
+      epochIntegrationCommitMessage("epoch boundary", epochId),
     ]);
     const markedCommit = git(repoRoot, ["rev-parse", "HEAD"]);
     git(repoRoot, [
@@ -222,33 +216,33 @@ describe("pending epoch integrations", () => {
     const branchTip = git(repoRoot, ["rev-parse", "HEAD"]);
     expect(branchTip).not.toBe(markedCommit);
     store.db
-      .query("UPDATE epochs SET status = 'error', boundary_status = 'error', closed_at = ? WHERE id = 'epoch-1'")
-      .run("2026-08-12T12:02:30.000Z");
+      .query("UPDATE epochs SET status = 'error', boundary_status = 'error', closed_at = ? WHERE id = ?")
+      .run("2026-08-12T12:02:30.000Z", epochId);
 
     expect(reconcilePendingIntegrations(store, { now: "2026-08-12T12:03:00.000Z" })).toEqual({
-      completed: [{ runId: "run-1", epochId: "epoch-1", commitSha: branchTip }],
+      completed: [{ runId, epochId, commitSha: branchTip }],
     });
 
     expect(listPendingIntegrations(store)).toEqual([]);
-    expect(store.db.query("SELECT status, boundary_status, closed_at FROM epochs WHERE id = 'epoch-1'").get()).toEqual({
+    expect(store.db.query("SELECT status, boundary_status, closed_at FROM epochs WHERE id = ?").get(epochId)).toEqual({
       status: "completed",
       boundary_status: "success",
       closed_at: "2026-08-12T12:02:30.000Z",
     });
     expect(listSessionTimeline(store.db, "session-1")[0]?.payload).toMatchObject({
-      epoch_id: "epoch-1",
+      epoch_id: epochId,
       integration_commit: branchTip,
       new_head: branchTip,
     });
-    expect(eventsForSubject(store.db, "run", "run-1").at(-1)?.eventType).toBe("run.epoch_integrated");
-    expect(store.db.query("SELECT head_revision FROM runs WHERE id = 'run-1'").get()).toEqual({
+    expect(eventsForSubject(store.db, "run", runId).at(-1)?.eventType).toBe("run.epoch_integrated");
+    expect(store.db.query("SELECT head_revision FROM runs WHERE id = ?").get(runId)).toEqual({
       head_revision: branchTip,
     });
   });
 
   test("epoch retry reconciles a retained late commit instead of creating a colliding attempt", () => {
-    const { store, repoRoot, branch, parentSha } = fixture();
-    preparePendingIntegration(store, { runId: "run-1", epochId: "epoch-1", branch, parentSha });
+    const { store, repoRoot, branch, parentSha, runId, epochId } = fixture();
+    preparePendingIntegration(store, { runId, epochId, branch, parentSha });
     git(repoRoot, [
       "-c",
       "user.name=Pending Integration Test",
@@ -257,37 +251,37 @@ describe("pending epoch integrations", () => {
       "commit",
       "--allow-empty",
       "-qm",
-      epochIntegrationCommitMessage("epoch boundary before late failure", "epoch-1"),
+      epochIntegrationCommitMessage("epoch boundary before late failure", epochId),
     ]);
     const commitSha = git(repoRoot, ["rev-parse", "HEAD"]);
     store.db
-      .query("UPDATE epochs SET status = 'error', boundary_status = 'error', closed_at = ? WHERE id = 'epoch-1'")
-      .run("2026-08-12T12:03:00.000Z");
+      .query("UPDATE epochs SET status = 'error', boundary_status = 'error', closed_at = ? WHERE id = ?")
+      .run("2026-08-12T12:03:00.000Z", epochId);
 
     expect(reconcilePendingIntegrationAttempt(store, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       now: "2026-08-12T12:04:00.000Z",
     })).toEqual({
       status: "completed",
-      completed: { runId: "run-1", epochId: "epoch-1", commitSha },
+      completed: { runId, epochId, commitSha },
     });
     expect(listPendingIntegrations(store)).toEqual([]);
-    expect(store.db.query("SELECT status, boundary_status FROM epochs WHERE id = 'epoch-1'").get()).toEqual({
+    expect(store.db.query("SELECT status, boundary_status FROM epochs WHERE id = ?").get(epochId)).toEqual({
       status: "completed",
       boundary_status: "success",
     });
     expect(listSessionTimeline(store.db, "session-1")).toHaveLength(1);
-    expect(eventsForSubject(store.db, "run", "run-1").filter((event) => event.eventType === "run.epoch_integrated")).toHaveLength(1);
+    expect(eventsForSubject(store.db, "run", runId).filter((event) => event.eventType === "run.epoch_integrated")).toHaveLength(1);
   });
 
   test("git failure evidence and its failed boundary survive a process crash", () => {
-    const { store, branch, parentSha } = fixture();
-    preparePendingIntegration(store, { runId: "run-1", epochId: "epoch-1", branch, parentSha });
+    const { store, branch, parentSha, runId, epochId } = fixture();
+    preparePendingIntegration(store, { runId, epochId, branch, parentSha });
 
     recordPendingIntegrationFailure(store, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       attempt: 1,
       reason: "epoch integration git commit failed: simulated crash",
       occurredAt: "2026-08-12T12:04:00.000Z",
@@ -300,38 +294,38 @@ describe("pending epoch integrations", () => {
 
     expect(listPendingIntegrations(reopened)).toEqual([
       expect.objectContaining({
-        epochId: "epoch-1",
-        runId: "run-1",
+        epochId,
+        runId,
         attempt: 1,
         status: "failed",
         failureReason: "epoch integration git commit failed: simulated crash",
         failedAt: "2026-08-12T12:04:00.000Z",
       }),
     ]);
-    expect(reopened.db.query("SELECT status, boundary_status, closed_at FROM epochs WHERE id = 'epoch-1'").get()).toEqual({
+    expect(reopened.db.query("SELECT status, boundary_status, closed_at FROM epochs WHERE id = ?").get(epochId)).toEqual({
       status: "error",
       boundary_status: "integration_commit_failed",
       closed_at: "2026-08-12T12:04:00.000Z",
     });
     expect(listSessionTimeline(reopened.db, "session-1")).toEqual([]);
-    expect(eventsForSubject(reopened.db, "run", "run-1")).toEqual([]);
+    expect(eventsForSubject(reopened.db, "run", runId).filter((event) => event.eventType === "run.epoch_integrated")).toEqual([]);
     expect(preparePendingIntegration(reopened, {
-      runId: "run-1",
-      epochId: "epoch-1",
+      runId,
+      epochId,
       branch,
       parentSha,
     })).toMatchObject({ attempt: 2, status: "prepared" });
   });
 
   test("missing commit reconciliation retains failed attempt evidence", () => {
-    const { store, branch, parentSha } = fixture();
-    preparePendingIntegration(store, { runId: "run-1", epochId: "epoch-1", branch, parentSha });
+    const { store, branch, parentSha, runId, epochId } = fixture();
+    preparePendingIntegration(store, { runId, epochId, branch, parentSha });
 
     expect(() =>
-      reconcilePendingIntegrations(store, { runId: "run-1", now: "2026-08-12T12:04:00.000Z" }),
-    ).toThrow("Pending integration commit not found for run run-1, epoch epoch-1");
+      reconcilePendingIntegrations(store, { runId, now: "2026-08-12T12:04:00.000Z" }),
+    ).toThrow(`Pending integration commit not found for run ${runId}, epoch ${epochId}`);
     expect(listPendingIntegrations(store)).toEqual([
-      expect.objectContaining({ epochId: "epoch-1", attempt: 1, status: "failed" }),
+      expect.objectContaining({ epochId, attempt: 1, status: "failed" }),
     ]);
   });
 });

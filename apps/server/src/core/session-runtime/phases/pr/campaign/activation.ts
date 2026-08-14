@@ -8,14 +8,17 @@ import {
   requireActiveLease,
   type ProjectState,
 } from "@server/core/project-state";
+import { newSpanId, type EventActor } from "@server/core/project-state/events.js";
 import { recordPrPhaseBoundaryInTransaction } from "./timeline-writer.js";
 import { getPrCampaign, transitionPrCampaign } from "./state.js";
 import type { PrCampaignState } from "./types.js";
 
 export interface ActivateAcquiredPrCampaignInput {
+  actor?: EventActor;
   campaignId: string;
+  causationId?: string;
   commandId: string;
-  correlationId?: string;
+  correlationId: string;
   leaseId: string;
   occurredAt?: string;
   projectId: string;
@@ -72,15 +75,16 @@ export function activateAcquiredPrCampaign(input: ActivateAcquiredPrCampaignInpu
       throw new Error(`pr.activate requires preparing or in_review status; ${campaign.campaign_id} is ${campaign.status}`);
     }
     const occurredAt = input.occurredAt ?? currentTime();
+    const actionSpanId = input.spanId ?? newSpanId();
     const activated = transitionPrCampaign(input.store, campaign.campaign_id, {
       actor: "operator",
+      causationId: input.causationId,
       commandId: input.commandId,
-      correlationId: input.correlationId ?? campaign.campaign_id,
+      correlationId: input.correlationId,
       expectedRevision: campaign.revision,
       occurredAt,
       patch: { status: "working" },
-      payload: { activation: "operator_pr_activate", lease_id: input.leaseId },
-      spanId: input.spanId,
+      spanId: actionSpanId,
     });
     recordPrPhaseBoundaryInTransaction(input.store.db, {
       boundary: "acquired",
@@ -125,15 +129,16 @@ export function releasePrCampaign(input: ReleasePrCampaignInput): ReleasePrCampa
     }
 
     const occurredAt = input.occurredAt ?? currentTime();
+    const actionSpanId = input.spanId ?? newSpanId();
     const releasedCampaign = transitionPrCampaign(input.store, campaign.campaign_id, {
       actor: "operator",
+      causationId: input.causationId,
       commandId: input.commandId,
-      correlationId: input.correlationId ?? campaign.campaign_id,
+      correlationId: input.correlationId,
       expectedRevision: campaign.revision,
       occurredAt,
       patch: { status: "in_review" },
-      payload: { activation: "operator_pr_release", lease_id: input.leaseId },
-      spanId: input.spanId,
+      spanId: actionSpanId,
     });
     recordPrPhaseBoundaryInTransaction(input.store.db, {
       boundary: "released",
@@ -142,12 +147,14 @@ export function releasePrCampaign(input: ReleasePrCampaignInput): ReleasePrCampa
       occurredAt,
     });
     const projectState = releaseDispatch(input.store, {
-      actor: "operator",
-      commandId: `${input.commandId}:dispatch`,
-      correlationId: input.correlationId ?? campaign.campaign_id,
+      actor: input.actor ?? "operator",
+      causationId: releasedCampaign.caused_by_event_id,
+      commandId: input.commandId,
+      correlationId: input.correlationId,
       leaseId: input.leaseId,
       now: occurredAt,
       projectId: input.projectId,
+      spanId: actionSpanId,
     });
     if (projectState.active_workflow?.lease_id === input.leaseId) {
       throw new Error(`Dispatch lease ${input.leaseId} was not released`);

@@ -125,6 +125,7 @@ export async function handleProjectSessionApiRoute(req: Request, url: URL, deps:
           label,
           projectId,
           repoRoot,
+          sessionUuid: action.subject_id,
           stateDir: paths.stateDir,
           trigger: "manual",
           usePathOverrides: true,
@@ -132,11 +133,15 @@ export async function handleProjectSessionApiRoute(req: Request, url: URL, deps:
         return deps.json(commandResponse(action, result));
       }
 
+      const suppliedCorrelationId = text(body.correlationId, text(body.correlation_id)).trim();
+      if (suppliedCorrelationId && suppliedCorrelationId !== action.subject_id) {
+        throw new Error(`Session close correlation_id must equal session UUID ${action.subject_id}`);
+      }
       const decision = closeProjectSession(store, {
         projectId,
         sessionUuid: action.subject_id,
         commandId: text(body.commandId, text(body.command_id)) || `command-session-close-${randomUUID()}`,
-        correlationId: text(body.correlationId, text(body.correlation_id)) || undefined,
+        correlationId: action.subject_id,
         actor: "operator",
         ...actionState.closeInput,
       });

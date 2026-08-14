@@ -1,7 +1,7 @@
-import { randomUUID } from "node:crypto";
 import type { Database } from "bun:sqlite";
+import { createHash } from "node:crypto";
 import { casRunEnvelope, immediateTransaction, now as currentTime, openState, type StateStore } from "@server/core/orchestrator-state";
-import { appendProjectEvent, type JsonObject } from "@server/core/project-state/events.js";
+import { appendProjectEvent, eventSpan, newSpanId, type JsonObject } from "@server/core/project-state/events.js";
 import { quietGit } from "@server/core/session-runtime/phases/pr/pr-sync.js";
 import { getProjectSessionByUuid } from "./store.js";
 import { listSavePointFailureSpool, spoolSavePointFailure, type SavePointFailureSpoolRecord } from "./save-point-failure-spool.js";
@@ -37,6 +37,7 @@ type EpochBoundaryRunRow = {
   project_repo_root: string | null;
   session_uuid: string | null;
   revision: number;
+  trace_id: string | null;
 };
 
 type RemoteApplicationRunRow = EpochBoundaryRunRow & {
@@ -100,6 +101,7 @@ function resolveEpochBoundary(
   const run = db
     .query(
       `SELECT id, project_id, project_repo_root, session_uuid, revision
+              , trace_id
        FROM runs
        WHERE id = ?`,
     )
@@ -158,6 +160,51 @@ function parseBlockers(value: string): ProjectSessionBlocker[] {
   }
 }
 
+const CLOSE_SESSION_RECOVERY_CHOICE_BY_BLOCKER = {
+  dispatch_lease_held: "release_dispatch",
+  unshipped_work: "record_save_point",
+} as const satisfies Record<CloseProjectSessionBlocked["blockers"][number]["code"], string>;
+
+function closeSessionSourceIdentities(
+  blockers: CloseProjectSessionBlocked["blockers"],
+): Array<{ source_kind: string; source_id: string }> {
+  return blockers.map((blocker) => ({
+    source_kind: blocker.source_kind,
+    source_id: blocker.source_id,
+  }));
+}
+
+function closeSessionRecoveryChoices(blockers: CloseProjectSessionBlocked["blockers"]): string[] {
+  return [...new Set(
+    blockers
+      .filter((blocker) => blocker.recoverable)
+      .map((blocker) => CLOSE_SESSION_RECOVERY_CHOICE_BY_BLOCKER[blocker.code]),
+  )];
+}
+
+function savePointReplayKey(sessionUuid: string, anchoredCommit: string, triggerKind: string): string {
+  const digest = createHash("sha256")
+    .update(`${sessionUuid}\0${anchoredCommit}\0${triggerKind}`)
+    .digest("hex")
+    .slice(0, 24);
+  return `save-point-${digest}`;
+}
+
+function latestSavePointFailureEventId(db: Database, sessionUuid: string): string | null {
+  const row = db
+    .query(
+      `SELECT event_id
+       FROM project_events
+       WHERE event_type = 'session.save_point_failed'
+         AND subject_kind = 'session'
+         AND subject_id = ?
+       ORDER BY sequence DESC
+       LIMIT 1`,
+    )
+    .get(sessionUuid) as { event_id: string } | null;
+  return row?.event_id ?? null;
+}
+
 function selectSession(
   db: Database,
   selector: { projectId?: string; sessionUuid?: string },
@@ -192,19 +239,26 @@ function eventContext(
   session: SessionEnvelopeRow,
   input: {
     commandId: string;
+    causationId?: string;
     actor: RecordEpochCompletedInput["actor"];
-    correlationId?: string;
+    correlationId: string;
     spanId?: string;
     occurredAt?: string;
   },
+  correlationId: string,
 ) {
+  if (input.correlationId !== correlationId) {
+    throw new Error(`Event correlation_id must equal workflow identity ${correlationId}`);
+  }
   return {
     actor: input.actor,
-    causationId: requiredText(input.commandId, "commandId"),
-    correlationId: input.correlationId ?? input.commandId,
+    causationId: input.causationId
+      ? requiredText(input.causationId, "causationId")
+      : requiredText(input.commandId, "commandId"),
+    correlationId,
     occurredAt: input.occurredAt ?? currentTime(),
     projectId: session.project_id,
-    spanId: input.spanId ?? `span-${randomUUID()}`,
+    ...eventSpan(input.spanId ?? newSpanId()),
     traceId: session.trace_id ?? `trace-session-${session.session_uuid}`,
   } as const;
 }
@@ -279,7 +333,10 @@ export function recordEpochCompletedInTransaction(
   const runId = requiredText(input.runId, "runId");
   const { run, session } = resolveEpochBoundary(db, { ...input, runId });
   verifyRunCommitExists(run, integrationCommit);
-  const context = eventContext(session, input);
+  const context = {
+    ...eventContext(session, input, runId),
+    traceId: requiredText(run.trace_id ?? "", `Run ${runId} trace_id`),
+  };
   const payload: JsonObject = {
     ...(input.payload ?? {}),
     epoch_id: epochId,
@@ -358,7 +415,7 @@ export function recordRemoteApplicationInTransaction(
   if (
     boundary.event_type !== "sync.boundary_published" ||
     boundary.project_id !== session.project_id ||
-    boundary.subject_kind !== "sync" ||
+    boundary.subject_kind !== "sync_workflow" ||
     boundary.subject_id !== syncId
   ) {
     throw new Error(`Boundary event ${boundaryEventId} does not match sync ${syncId} for ${session.project_id}`);
@@ -387,21 +444,24 @@ export function recordRemoteApplicationInTransaction(
 
   const resolvedConflicts = input.resolvedConflicts.map((path) => requiredText(path, "resolved conflict path"));
   const occurredAt = input.occurredAt ?? currentTime();
-  const payload: JsonObject = {
-    ...(input.payload ?? {}),
+  const eventPayload: JsonObject = {
     remote_application_id: remoteApplicationId,
-    sync_id: syncId,
     prior_head: priorHead,
     new_head: newHead,
     resolved_conflicts: resolvedConflicts,
     score_delta: input.scoreDelta ?? null,
+  };
+  const timelinePayload: JsonObject = {
+    ...(input.payload ?? {}),
+    ...eventPayload,
+    sync_id: syncId,
   };
   const entry = insertTimelineEntry(db, {
     sessionUuid: session.session_uuid,
     entryKind: "remote_application",
     entryId: remoteApplicationId,
     occurredAt,
-    payload,
+    payload: timelinePayload,
     eventId: boundaryEventId,
   });
   updateEnvelope(db, session, boundaryEventId, occurredAt, "head_revision = ?, save_point_stale = 1", [newHead]);
@@ -417,12 +477,12 @@ export function recordRemoteApplicationInTransaction(
     const runEvent = appendProjectEvent(db, {
       actor: input.actor,
       causationId: boundaryEventId,
-      correlationId: input.correlationId ?? boundary.correlation_id,
+      correlationId: run.id,
       eventType: "run.remote_applied",
       occurredAt,
-      payload,
+      payload: eventPayload,
       projectId: session.project_id,
-      spanId: input.spanId ?? `span-${randomUUID()}`,
+      ...eventSpan(input.spanId ?? newSpanId()),
       subjectId: run.id,
       subjectKind: "run",
       traceId: run.trace_id?.trim() || session.trace_id || boundary.trace_id,
@@ -457,37 +517,44 @@ export function recordSavePointAnchor(
     if (session.status !== "active" && session.status !== "blocked") {
       throw new Error(`Project session ${session.session_uuid} cannot accept a save point while ${session.status}`);
     }
-    const context = eventContext(session, input);
-    const payload: JsonObject = {
-      ...(input.payload ?? {}),
+    const context = eventContext(session, input, session.session_uuid);
+    const triggerKind = requiredText(input.triggerKind, "triggerKind");
+    const blockers = parseBlockers(session.blockers_json);
+    const replayedFailureEventId = session.save_point_stale || blockers.some((blocker) => blocker.code === "save_point_failed")
+      ? latestSavePointFailureEventId(store.db, session.session_uuid)
+      : null;
+    const eventPayload: JsonObject = {
       anchored_commit: commitSha,
-      trigger_kind: requiredText(input.triggerKind, "triggerKind"),
+      trigger_kind: triggerKind,
       headline_score: input.headlineScore ?? null,
       artifact_paths: input.artifactPaths ?? [],
+      replay_key: savePointReplayKey(session.session_uuid, commitSha, triggerKind),
+      replayed_failure_event_id: replayedFailureEventId,
     };
     const event = appendProjectEvent(store.db, {
       ...context,
       eventType: "session.save_point_recorded",
       subjectKind: "session",
       subjectId: session.session_uuid,
-      payload,
+      payload: eventPayload,
     });
+    const timelinePayload = { ...(input.payload ?? {}), ...eventPayload };
     const entry = insertTimelineEntry(store.db, {
       sessionUuid: session.session_uuid,
       entryKind: "save_point",
       entryId: savePointId,
       occurredAt: context.occurredAt,
-      payload,
+      payload: timelinePayload,
       eventId: event.eventId,
     });
-    const blockers = parseBlockers(session.blockers_json).filter((blocker) => blocker.code !== "save_point_failed");
+    const remainingBlockers = blockers.filter((blocker) => blocker.code !== "save_point_failed");
     updateEnvelope(
       store.db,
       session,
       event.eventId,
       context.occurredAt,
       "blockers_json = ?, save_point_stale = 0",
-      [JSON.stringify(blockers)],
+      [JSON.stringify(remainingBlockers)],
     );
     return entry;
   });
@@ -502,7 +569,9 @@ export function recordSavePointFailure(
     if (session.status !== "active" && session.status !== "blocked") {
       throw new Error(`Project session ${session.session_uuid} cannot record save-point failure while ${session.status}`);
     }
-    const context = eventContext(session, input);
+    const context = eventContext(session, input, session.session_uuid);
+    const anchoredCommit = requiredText(session.head_revision ?? "", "session head revision");
+    const triggerKind = requiredText(input.triggerKind, "triggerKind");
     const blocker: ProjectSessionBlocker = {
       code: "save_point_failed",
       message: requiredText(input.message, "message"),
@@ -526,9 +595,12 @@ export function recordSavePointFailure(
       subjectKind: "session",
       subjectId: session.session_uuid,
       payload: {
-        trigger_kind: requiredText(input.triggerKind, "triggerKind"),
+        anchored_commit: anchoredCommit,
+        trigger_kind: triggerKind,
+        failed_or_missing_artifact_classes: [blocker.source_kind!],
         blocker_code: blocker.code,
         staleness_flag_raised: true,
+        replay_key: savePointReplayKey(session.session_uuid, anchoredCommit, triggerKind),
       },
     });
     updateEnvelope(
@@ -581,7 +653,8 @@ export function recordSavePointFailureDurably(
       source_id: requiredText(input.sourceId, "sourceId"),
       message: requiredText(input.message, "message"),
       command_id: requiredText(input.commandId, "commandId"),
-      correlation_id: input.correlationId?.trim() || null,
+      causation_id: input.causationId?.trim() || null,
+      correlation_id: requiredText(input.correlationId, "correlationId"),
       span_id: input.spanId?.trim() || null,
       actor: input.actor,
     });
@@ -609,6 +682,7 @@ export function unresolvedSavePointFailures(
         .get(input.sessionUuid) as { occurred_at: string } | undefined)
     : undefined;
   return listSavePointFailureSpool(store.stateDir).filter((record) => {
+    if (record.replayed_at) return false;
     if (record.project_id && record.project_id !== input.projectId) return false;
     if (record.session_uuid && record.session_uuid !== input.sessionUuid) return false;
     return !latestAnchor || record.occurred_at >= latestAnchor.occurred_at;
@@ -618,7 +692,7 @@ export function unresolvedSavePointFailures(
 export function recordDeferredSavePointEvidenceDurably(
   store: StateStore,
   evidence: import("./types.js").DeferredSavePointEvidence,
-  context: Pick<RecordSavePointFailureInput, "actor" | "commandId" | "correlationId" | "projectId" | "sessionUuid" | "spanId">,
+  context: Pick<RecordSavePointFailureInput, "actor" | "causationId" | "commandId" | "correlationId" | "projectId" | "sessionUuid" | "spanId">,
 ): DurableSavePointFailureResult {
   if (evidence.status === "recorded") {
     try {
@@ -723,34 +797,123 @@ export function closeProjectSession(
         recoverable: true,
       });
     }
-    if (blockers.length > 0) return { closed: false, blockers };
+    const actionSpanId = input.spanId ?? newSpanId();
+    if (input.correlationId !== session.session_uuid) {
+      throw new Error(`Session event correlation_id must equal session UUID ${session.session_uuid}`);
+    }
+    if (blockers.length > 0) {
+      const currentBlockers = parseBlockers(session.blockers_json);
+      if (session.status !== "blocked" || JSON.stringify(currentBlockers) !== JSON.stringify(blockers)) {
+        const blockedAt = input.occurredAt ?? currentTime();
+        const enteringBlocked = session.status !== "blocked";
+        const currentBlockerCodes = currentBlockers.map((blocker) => blocker.code);
+        const blockerCodes = blockers.map((blocker) => blocker.code);
+        const currentBlockerCodeSet = new Set(currentBlockerCodes);
+        const stateRevision = session.revision + 1;
+        const blocked = appendProjectEvent(store.db, {
+          actor: input.actor,
+          causationId: requiredText(input.commandId, "commandId"),
+          correlationId: session.session_uuid,
+          eventType: enteringBlocked ? "session.blocked" : "session.blockers_updated",
+          occurredAt: blockedAt,
+          payload: enteringBlocked
+            ? {
+                from_status: session.status,
+                to_status: "blocked",
+                prior_status: session.status,
+                blocker_codes: blockerCodes,
+                source_identities: closeSessionSourceIdentities(blockers),
+                recovery_choices: closeSessionRecoveryChoices(blockers),
+                state_revision: stateRevision,
+              }
+            : {
+                added_blocker_codes: blockerCodes.filter((code) => !currentBlockerCodeSet.has(code)),
+                removed_blocker_codes: currentBlockerCodes.filter(
+                  (code) => !blockers.some((blocker) => blocker.code === code),
+                ),
+                blocker_codes: blockerCodes,
+                source_identities: closeSessionSourceIdentities(blockers),
+                recovery_choices: closeSessionRecoveryChoices(blockers),
+                state_revision: stateRevision,
+              },
+          projectId: session.project_id,
+          ...eventSpan(actionSpanId),
+          subjectKind: "session",
+          subjectId: session.session_uuid,
+          traceId: session.trace_id ?? `trace-session-${session.session_uuid}`,
+        });
+        updateEnvelope(
+          store.db,
+          session,
+          blocked.eventId,
+          blockedAt,
+          "status = 'blocked', blockers_json = ?",
+          [JSON.stringify(blockers)],
+        );
+      }
+      return { closed: false, blockers };
+    }
 
-    const context = eventContext(session, input);
+    let current = session;
+    let closingCause = requiredText(input.commandId, "commandId");
+    const occurredAt = input.occurredAt ?? currentTime();
+    if (current.status !== "closing") {
+      const closing = appendProjectEvent(store.db, {
+        actor: input.actor,
+        causationId: closingCause,
+        correlationId: current.session_uuid,
+        eventType: "session.closing",
+        occurredAt,
+        payload: { from_status: current.status, to_status: "closing" },
+        projectId: current.project_id,
+        ...eventSpan(actionSpanId),
+        subjectKind: "session",
+        subjectId: current.session_uuid,
+        traceId: current.trace_id ?? `trace-session-${current.session_uuid}`,
+      });
+      updateEnvelope(
+        store.db,
+        current,
+        closing.eventId,
+        occurredAt,
+        "status = 'closing', blockers_json = '[]'",
+        [],
+      );
+      closingCause = closing.eventId;
+      current = selectSession(store.db, { sessionUuid: current.session_uuid });
+    }
     const event = appendProjectEvent(store.db, {
-      ...context,
+      actor: input.actor,
+      causationId: closingCause,
+      correlationId: current.session_uuid,
       eventType: "session.closed",
+      occurredAt,
+      projectId: current.project_id,
+      ...eventSpan(actionSpanId),
       subjectKind: "session",
-      subjectId: session.session_uuid,
+      subjectId: current.session_uuid,
+      traceId: current.trace_id ?? `trace-session-${current.session_uuid}`,
       payload: {
-        final_head: session.head_revision,
+        final_head: current.head_revision,
         shipped_and_unshipped_work_summary: {
           ahead_of_base: input.aheadOfBase,
           worktree_dirty_beyond_head: input.worktreeDirtyBeyondHead,
         },
-        save_point_id: namedSavePoint ? (input.namedSavePointId ?? null) : null,
-        operator: input.actor,
+        final_save_point_id: namedSavePoint ? (input.namedSavePointId ?? null) : null,
+        closing_operator: input.actor,
+        state_revision: current.revision + 1,
       },
     });
     updateEnvelope(
       store.db,
-      session,
+      current,
       event.eventId,
-      context.occurredAt,
+      occurredAt,
       "status = 'closed', closed_at = ?",
-      [context.occurredAt],
+      [occurredAt],
     );
-    const saved = getProjectSessionByUuid(store.db, session.session_uuid);
-    if (!saved) throw new Error(`Project session disappeared after close: ${session.session_uuid}`);
+    const saved = getProjectSessionByUuid(store.db, current.session_uuid);
+    if (!saved) throw new Error(`Project session disappeared after close: ${current.session_uuid}`);
     return { closed: true, session: saved };
   });
 }

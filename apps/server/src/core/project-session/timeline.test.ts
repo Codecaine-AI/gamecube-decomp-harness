@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   immediateTransaction,
   openState,
@@ -12,10 +13,11 @@ import {
   releaseDispatch,
   requestDispatch,
 } from "@server/core/project-state";
-import { appendProjectEvent, eventsForSubject, listProjectEvents } from "@server/core/project-state/events.js";
+import { appendProjectEvent, eventSpan, eventsForSubject, listProjectEvents, newSpanId } from "@server/core/project-state/events.js";
 import { closeSchedulerEpochWithEvidence, startSchedulerEpoch } from "@server/core/session-runtime/run-state";
 import { createProjectSession, getProjectSessionByUuid } from "./store.js";
 import { listPendingIntegrations, preparePendingIntegration } from "./pending-integrations.js";
+import { listSavePointFailureSpool, spoolSavePointFailure } from "./save-point-failure-spool.js";
 import {
   closeProjectSession,
   listSessionTimeline,
@@ -53,20 +55,20 @@ function createSession(store: StateStore): string {
     .query(
       `INSERT INTO runs (
          id, goal_kind, goal_value, desired_workers, status, created_at,
-         project_id, project_repo_root, session_uuid, head_revision
+         project_id, project_repo_root, session_uuid, head_revision, trace_id
        ) VALUES (
          'run-1', 'matched_code_percent', 100, 1, 'active', '2026-08-12T12:00:00.000Z',
-         'melee', ?, 'session-1', 'base-sha'
+         'melee', ?, 'session-1', 'base-sha', 'trace-run-1'
        )`,
     )
     .run(repoRoot);
   createProjectSession(store.db, {
+    actor: "operator",
     projectId: "melee",
     sessionUuid: "session-1",
     id: "project-session:session-1",
     baseSha: "base-sha",
     activeRunId: "run-1",
-    correlationId: "run-1",
     commandId: "command-session-open",
     openingSyncId: "sync-open-1",
     traceId: "trace-session-1",
@@ -121,6 +123,70 @@ afterEach(() => {
 });
 
 describe("project session timeline", () => {
+  test("replays a spooled save-point failure exactly once across concurrent and repeated opens", async () => {
+    const store = openTestStore();
+    createSession(store);
+    spoolSavePointFailure(store.stateDir, {
+      occurred_at: "2026-08-13T12:00:00.000Z",
+      project_id: "melee",
+      session_uuid: "session-1",
+      trigger_kind: "epoch",
+      source_kind: "run",
+      source_id: "run-1",
+      message: "save-point write failed",
+      command_id: "command-save-point-failed",
+      causation_id: null,
+      correlation_id: "session-1",
+      span_id: null,
+      actor: "runner",
+    });
+    store.db.close();
+    stores.splice(stores.indexOf(store), 1);
+
+    const openStateModule = pathToFileURL(join(import.meta.dir, "../orchestrator-state/index.ts")).href;
+    const openInChild = () => Bun.spawn({
+      cmd: [
+        process.execPath,
+        "-e",
+        'const { openState } = await import(process.env.SLICE5_OPEN_STATE_MODULE); const store = openState(process.env.SLICE5_STATE_DIR); store.db.close();',
+      ],
+      cwd: process.cwd(),
+      env: { ...process.env, SLICE5_OPEN_STATE_MODULE: openStateModule, SLICE5_STATE_DIR: store.stateDir },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const children = [openInChild(), openInChild()];
+    expect(await Promise.all(children.map((child) => child.exited))).toEqual([0, 0]);
+
+    const replayed = openState(store.stateDir);
+    stores.push(replayed);
+    const firstEvents = eventsForSubject(replayed.db, "session", "session-1");
+    expect(firstEvents.map((event) => event.eventType)).toEqual([
+      "session.opened",
+      "session.save_point_failed",
+    ]);
+    expect(firstEvents[1]).toMatchObject({
+      actor: "runner",
+      causationId: "command-save-point-failed",
+      correlationId: "session-1",
+      payload: { replayed_from_spool: true, staleness_flag_raised: true },
+    });
+    expect(listSavePointFailureSpool(store.stateDir)[0]).toMatchObject({
+      replay_event_id: firstEvents[1]!.eventId,
+      replayed_at: expect.any(String),
+    });
+    expect(getProjectSessionByUuid(replayed.db, "session-1")).toMatchObject({
+      revision: 1,
+      save_point_stale: true,
+    });
+
+    replayed.db.close();
+    stores.splice(stores.indexOf(replayed), 1);
+    const reopened = openState(store.stateDir);
+    stores.push(reopened);
+    expect(eventsForSubject(reopened.db, "session", "session-1")).toHaveLength(2);
+  });
+
   test("records a remote application, session head, and active-run reference atomically", () => {
     const store = openTestStore();
     createSession(store);
@@ -130,6 +196,7 @@ describe("project session timeline", () => {
     recordSavePointAnchor(store, {
       actor: "runner",
       commandId: "command-prior-save-point",
+      correlationId: "session-1",
       commitSha: commits.priorHead,
       projectId: "melee",
       savePointId: "save-point-before-sync",
@@ -148,18 +215,18 @@ describe("project session timeline", () => {
           upstream_revision: commits.newHead,
           knowledge_revision: "knowledge-1",
           invalidations: ["target-1"],
+          validation_evidence: { result: "passed" },
         },
         projectId: "melee",
-        spanId: "span-sync-boundary-1",
+        ...eventSpan(newSpanId()),
         subjectId: "sync-1",
-        subjectKind: "sync",
+        subjectKind: "sync_workflow",
         traceId: "trace-sync-1",
       });
       return recordRemoteApplicationInTransaction(store.db, {
         actor: "operator",
         boundaryEventId: boundary.eventId,
         commandId: "command-publish-1",
-        correlationId: "sync-1",
         newHead: commits.newHead,
         occurredAt: "2026-08-13T12:00:00.000Z",
         priorHead: commits.priorHead,
@@ -216,9 +283,10 @@ describe("project session timeline", () => {
         correlationId: "sync-outside",
         eventType: "sync.boundary_published",
         projectId: "melee",
-        spanId: "span-sync-outside",
+        ...eventSpan(newSpanId()),
+        payload: { upstream_revision: commits.newHead, knowledge_revision: "knowledge-1", invalidations: [], validation_evidence: { result: "passed" } },
         subjectId: "sync-outside",
-        subjectKind: "sync",
+        subjectKind: "sync_workflow",
         traceId: "trace-sync-outside",
       }),
     );
@@ -244,9 +312,10 @@ describe("project session timeline", () => {
           correlationId: "sync-rollback",
           eventType: "sync.boundary_published",
           projectId: "melee",
-          spanId: "span-sync-rollback",
+          ...eventSpan(newSpanId()),
+          payload: { upstream_revision: commits.newHead, knowledge_revision: "knowledge-1", invalidations: [], validation_evidence: { result: "passed" } },
           subjectId: "sync-rollback",
-          subjectKind: "sync",
+          subjectKind: "sync_workflow",
           traceId: "trace-sync-rollback",
         });
         recordRemoteApplicationInTransaction(store.db, {
@@ -275,7 +344,7 @@ describe("project session timeline", () => {
       remote_application_ids_json: "[]",
     });
     expect(eventsForSubject(store.db, "run", "run-1")).toEqual([]);
-    expect(eventsForSubject(store.db, "sync", "sync-rollback")).toEqual([]);
+    expect(eventsForSubject(store.db, "sync_workflow", "sync-rollback")).toEqual([]);
   });
 
   test("records the session boundary without a run when no run is active", () => {
@@ -293,9 +362,10 @@ describe("project session timeline", () => {
         correlationId: "sync-session-only",
         eventType: "sync.boundary_published",
         projectId: "melee",
-        spanId: "span-session-only",
+        ...eventSpan(newSpanId()),
+        payload: { upstream_revision: commits.newHead, knowledge_revision: "knowledge-1", invalidations: [], validation_evidence: { result: "passed" } },
         subjectId: "sync-session-only",
-        subjectKind: "sync",
+        subjectKind: "sync_workflow",
         traceId: "trace-sync-session-only",
       });
       recordRemoteApplicationInTransaction(store.db, {
@@ -336,6 +406,7 @@ describe("project session timeline", () => {
         integrationCommit: commitSha,
         scoreDelta: 0.25,
         commandId: "command-epoch-1",
+        correlationId: "run-1",
         actor: "runner",
         occurredAt: "2026-08-12T12:01:00.000Z",
       });
@@ -359,7 +430,12 @@ describe("project session timeline", () => {
       revision: 1,
       caused_by_event_id: first[0]?.caused_by_event_id,
     });
-    expect(eventsForSubject(store.db, "run", "run-1")).toHaveLength(1);
+    expect(eventsForSubject(store.db, "run", "run-1")).toEqual([
+      expect.objectContaining({
+        correlationId: "run-1",
+        traceId: "trace-run-1",
+      }),
+    ]);
 
     expect(() =>
       immediateTransaction(store.db, () => {
@@ -372,6 +448,7 @@ describe("project session timeline", () => {
           runId: "run-1",
           integrationCommit: commitSha,
           commandId: "command-epoch-rollback",
+          correlationId: "run-1",
           actor: "runner",
         });
         throw new Error("fail the boundary");
@@ -411,13 +488,12 @@ describe("project session timeline", () => {
     closeSchedulerEpochWithEvidence(store, epoch.id, {
       status: "completed",
       boundaryStatus: "success",
-      workflowCorrelationId: "run-1",
       integration: {
         projectId: "melee",
         runId: "run-1",
         integrationCommit: commitSha,
         commandId: "command-epoch-integrated",
-        correlationId: "epoch-wrong-correlation-is-overridden",
+        correlationId: "run-1",
         occurredAt: "2026-08-12T12:01:00.000Z",
       },
       savePointEvidence: {
@@ -438,25 +514,34 @@ describe("project session timeline", () => {
     });
 
     const lifecycleTypes = new Set([
-      "session.opened",
       "project.dispatch_acquired",
       "run.epoch_integrated",
-      "session.save_point_recorded",
       "project.dispatch_released",
     ]);
     const lifecycle = listProjectEvents(store.db, { projectId: "melee" }).filter(
       (event) => event.correlationId === "run-1" && lifecycleTypes.has(event.eventType),
     );
     expect(lifecycle.map((event) => event.eventType)).toEqual([
-      "session.opened",
       "project.dispatch_acquired",
       "run.epoch_integrated",
-      "session.save_point_recorded",
       "project.dispatch_released",
     ]);
     expect(lifecycle.every((event) => event.spanId.trim().length > 0)).toBe(true);
-    expect(lifecycle[2]?.spanId).not.toBe(lifecycle[3]?.spanId);
-    expect(lifecycle[0]?.payload).toMatchObject({
+    expect(lifecycle[1]?.spanId).not.toBe(lifecycle[2]?.spanId);
+    const sessionLifecycle = listProjectEvents(store.db, { projectId: "melee" }).filter(
+      (event) => event.correlationId === "session-1",
+    );
+    expect(sessionLifecycle.map((event) => event.eventType)).toEqual([
+      "session.opened",
+      "session.save_point_recorded",
+    ]);
+    expect(sessionLifecycle[1]).toMatchObject({
+      actor: "runner",
+      causationId: lifecycle[1]!.eventId,
+      parentSpanId: lifecycle[1]!.parentSpanId,
+    });
+    expect(sessionLifecycle[1]!.spanId).not.toBe(lifecycle[1]!.spanId);
+    expect(sessionLifecycle[0]?.payload).toMatchObject({
       baseline_revision: "base-sha",
       opening_sync_id: "sync-open-1",
     });
@@ -477,6 +562,7 @@ describe("project session timeline", () => {
           runId: "run-1",
           integrationCommit: "missing-commit",
           commandId: "command-epoch-missing",
+          correlationId: "run-1",
           actor: "runner",
         });
       }),
@@ -516,12 +602,12 @@ describe("project session timeline", () => {
       )
       .run(repoRoot);
     createProjectSession(store.db, {
+      actor: "operator",
       projectId: "melee",
       sessionUuid: "session-2",
       id: "project-session:session-2",
       baseSha: "newer-base",
       activeRunId: "run-2",
-      correlationId: "run-2",
       commandId: "command-session-2-open",
       openingSyncId: "sync-open-2",
       traceId: "trace-session-2",
@@ -550,6 +636,7 @@ describe("project session timeline", () => {
           runId: "run-1",
           integrationCommit: commitSha,
           commandId: "command-epoch-old",
+          correlationId: "run-1",
           actor: "runner",
         });
       }),
@@ -579,6 +666,7 @@ describe("project session timeline", () => {
         runId: "run-1",
         integrationCommit: commitSha,
         commandId: "command-epoch-null-session",
+        correlationId: "run-1",
         actor: "runner",
       });
     });
@@ -603,6 +691,7 @@ describe("project session timeline", () => {
       sourceId: "epoch-1",
       message: "artifact copy failed",
       commandId: "command-save-failed",
+      correlationId: "session-1",
       actor: "runner",
       occurredAt: "2026-08-12T12:02:00.000Z",
     });
@@ -622,6 +711,7 @@ describe("project session timeline", () => {
       triggerKind: "epoch",
       headlineScore: 98.5,
       commandId: "command-save-recorded",
+      correlationId: "session-1",
       actor: "runner",
       occurredAt: "2026-08-12T12:03:00.000Z",
     });
@@ -652,6 +742,7 @@ describe("session close", () => {
       workflowId: "run-1",
       reason: "test",
       commandId: "command-dispatch",
+      correlationId: "run-1",
       actor: "operator",
     });
     if (dispatch.queued) throw new Error("expected a free dispatch lease");
@@ -659,6 +750,7 @@ describe("session close", () => {
     const blockedByLease = closeProjectSession(store, {
       projectId: "melee",
       commandId: "command-close-lease",
+      correlationId: "session-1",
       actor: "operator",
       worktreeDirtyBeyondHead: false,
       aheadOfBase: 0,
@@ -669,17 +761,20 @@ describe("session close", () => {
     });
     expect(eventsForSubject(store.db, "session", "session-1").map((event) => event.eventType)).toEqual([
       "session.opened",
+      "session.blocked",
     ]);
 
     releaseDispatch(store, {
       projectId: "melee",
       leaseId: dispatch.leaseId,
       commandId: "command-release",
+      correlationId: "run-1",
       actor: "operator",
     });
     const blockedByDirty = closeProjectSession(store, {
       projectId: "melee",
       commandId: "command-close-dirty",
+      correlationId: "session-1",
       actor: "operator",
       worktreeDirtyBeyondHead: true,
       aheadOfBase: 0,
@@ -689,12 +784,63 @@ describe("session close", () => {
     const blockedByAhead = closeProjectSession(store, {
       projectId: "melee",
       commandId: "command-close-ahead",
+      correlationId: "session-1",
       actor: "operator",
       worktreeDirtyBeyondHead: false,
       aheadOfBase: 1,
     });
     expect(blockedByAhead).toMatchObject({ closed: false, blockers: [{ code: "unshipped_work" }] });
-    expect(getProjectSessionByUuid(store.db, "session-1")?.revision).toBe(0);
+    expect(getProjectSessionByUuid(store.db, "session-1")?.revision).toBe(3);
+    const sessionEvents = eventsForSubject(store.db, "session", "session-1");
+    expect(sessionEvents.map((event) => event.eventType)).toEqual([
+      "session.opened",
+      "session.blocked",
+      "session.blockers_updated",
+      "session.blockers_updated",
+    ]);
+    expect(sessionEvents.slice(1).map((event) => event.payload)).toEqual([
+      {
+        from_status: "active",
+        to_status: "blocked",
+        prior_status: "active",
+        blocker_codes: ["dispatch_lease_held", "unshipped_work"],
+        source_identities: [
+          { source_kind: "project", source_id: "melee" },
+          { source_kind: "session", source_id: "session-1" },
+        ],
+        recovery_choices: ["release_dispatch", "record_save_point"],
+        state_revision: 1,
+      },
+      {
+        added_blocker_codes: [],
+        removed_blocker_codes: ["dispatch_lease_held"],
+        blocker_codes: ["unshipped_work"],
+        source_identities: [{ source_kind: "session", source_id: "session-1" }],
+        recovery_choices: ["record_save_point"],
+        state_revision: 2,
+      },
+      {
+        added_blocker_codes: [],
+        removed_blocker_codes: [],
+        blocker_codes: ["unshipped_work"],
+        source_identities: [{ source_kind: "session", source_id: "session-1" }],
+        recovery_choices: ["record_save_point"],
+        state_revision: 3,
+      },
+    ]);
+  });
+
+  test("rejects non-operator session close without accepting an event", () => {
+    const store = openTestStore();
+    createSession(store);
+    expect(() => closeProjectSession(store, {
+      actor: "runner",
+      aheadOfBase: 0,
+      commandId: "command-runner-close",
+      correlationId: "session-1",
+      projectId: "melee",
+      worktreeDirtyBeyondHead: false,
+    })).toThrow("Session close is operator-only");
     expect(eventsForSubject(store.db, "session", "session-1").map((event) => event.eventType)).toEqual([
       "session.opened",
     ]);
@@ -731,6 +877,7 @@ describe("session close", () => {
       commitSha: "base-sha",
       triggerKind: "manual",
       commandId: "command-save-before-close",
+      correlationId: "session-1",
       actor: "operator",
       occurredAt: "2026-08-12T12:01:00.000Z",
     });
@@ -738,6 +885,7 @@ describe("session close", () => {
     const decision = closeProjectSession(store, {
       projectId: "melee",
       commandId: "command-close",
+      correlationId: "session-1",
       actor: "operator",
       worktreeDirtyBeyondHead: false,
       aheadOfBase: 3,
@@ -746,16 +894,18 @@ describe("session close", () => {
     });
     expect(decision).toMatchObject({
       closed: true,
-      session: { status: "closed", revision: 2, closed_at: "2026-08-12T12:02:00.000Z" },
+      session: { status: "closed", revision: 3, closed_at: "2026-08-12T12:02:00.000Z" },
     });
     const events = eventsForSubject(store.db, "session", "session-1");
     expect(events.map((event) => event.eventType)).toEqual([
       "session.opened",
       "session.save_point_recorded",
+      "session.closing",
       "session.closed",
     ]);
     if (!decision.closed) throw new Error("session close unexpectedly blocked");
-    expect(decision.session.caused_by_event_id).toBe(events[2]?.eventId);
+    expect(events[2]?.payload).toEqual({ from_status: "active", to_status: "closing" });
+    expect(decision.session.caused_by_event_id).toBe(events[3]?.eventId);
   });
 
   test("refuses stale, dirty, unnamed, and capture-failed close evidence without a close event", () => {
@@ -780,6 +930,7 @@ describe("session close", () => {
         commitSha,
         triggerKind: "manual",
         commandId: `command-${id}`,
+        correlationId: "session-1",
         actor: "operator",
         occurredAt: at,
       });
@@ -789,6 +940,7 @@ describe("session close", () => {
     expect(closeProjectSession(store, {
       projectId: "melee",
       commandId: "command-close-drift",
+      correlationId: "session-1",
       actor: "operator",
       worktreeDirtyBeyondHead: false,
       aheadOfBase: 0,
@@ -799,6 +951,7 @@ describe("session close", () => {
     expect(closeProjectSession(store, {
       projectId: "melee",
       commandId: "command-close-unnamed",
+      correlationId: "session-1",
       actor: "operator",
       worktreeDirtyBeyondHead: false,
       aheadOfBase: 0,
@@ -809,6 +962,7 @@ describe("session close", () => {
     expect(closeProjectSession(store, {
       projectId: "melee",
       commandId: "command-close-dirty",
+      correlationId: "session-1",
       actor: "operator",
       worktreeDirtyBeyondHead: true,
       aheadOfBase: 0,
@@ -822,12 +976,14 @@ describe("session close", () => {
       sourceId: "manual",
       message: "capture failed",
       commandId: "command-capture-failed",
+      correlationId: "session-1",
       actor: "operator",
       occurredAt: "2026-08-12T12:04:00.000Z",
     });
     expect(closeProjectSession(store, {
       projectId: "melee",
       commandId: "command-close-capture-failed",
+      correlationId: "session-1",
       actor: "operator",
       worktreeDirtyBeyondHead: false,
       aheadOfBase: 0,
@@ -835,6 +991,6 @@ describe("session close", () => {
     })).toMatchObject({ closed: false, blockers: [{ code: "unshipped_work" }] });
 
     expect(eventsForSubject(store.db, "session", "session-1").some((event) => event.eventType === "session.closed")).toBe(false);
-    expect(getProjectSessionByUuid(store.db, "session-1")?.status).toBe("active");
+    expect(getProjectSessionByUuid(store.db, "session-1")?.status).toBe("blocked");
   });
 });

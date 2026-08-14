@@ -11,7 +11,6 @@ import {
   requireLease,
   type Blocker,
 } from "@server/core/project-state";
-import { eventsForSubject } from "@server/core/project-state/events.js";
 import type { JsonValue } from "@server/core/project-state/events.js";
 import { getRun } from "@server/core/session-runtime/run-state";
 import { pauseRun, runDispatchLeaseStaleness } from "@server/core/session-runtime/phases/running/run-control.js";
@@ -35,6 +34,7 @@ import {
   recoverSync,
   resolveSyncConflict,
   refreshSyncUpstreamObservation,
+  syncActionSpanId,
   validateSync,
   completeSyncKnowledgeIngest,
   continueSyncPublication,
@@ -178,10 +178,8 @@ function ownsSyncLease(store: StateStore, projectId: string, sync: SyncState | n
 }
 
 function hasValidationEvidence(store: StateStore, sync: SyncState): boolean {
-  if (sync.staging?.validation_evidence) return true;
-  return eventsForSubject(store.db, "sync", sync.sync_id).some(
-    (event) => event.eventType === "sync.validated" && event.payload.validation_evidence !== undefined,
-  );
+  void store;
+  return sync.validation_evidence !== null;
 }
 
 export function projectSyncAction(
@@ -587,12 +585,14 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       const session = getActiveProjectSession(store.db, projectId);
       if (!session) throw new Error(`No active project session exists for ${projectId}`);
       const existing = getNonTerminalSyncForProject(store, projectId);
+      const commandId = text(body.commandId, text(body.command_id)) || `command-sync-observe-${randomUUID()}`;
+      const actionSpanId = syncActionSpanId(commandId);
       if (existing?.status === "validated") {
         return (await refreshSyncUpstreamObservation({
           context: syncLeaseContext(paths, store, existing, deps),
           syncId: existing.sync_id,
           expectedRevision: existing.revision,
-          commandId: text(body.commandId, text(body.command_id)) || `command-sync-refresh-observation-${randomUUID()}`,
+          commandId,
         })).sync;
       }
       if (existing && existing.status !== "requested") return existing;
@@ -607,13 +607,18 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
         undefined,
         { upstreamFrom },
       );
+      const syncId = text(body.syncId, text(body.sync_id)) || existing?.sync_id || `sync-${randomUUID()}`;
+      const observationSourceIdentity = discovery.baseRef;
+      if (!observationSourceIdentity?.trim()) throw new Error("Upstream discovery returned no baseRef identity");
       return recordSyncRequested(store, {
         projectId,
         sessionUuid: session.session_uuid,
-        syncId: text(body.syncId, text(body.sync_id)) || undefined,
+        syncId,
         actor: body.actor === "external_observer" ? "external_observer" : "operator",
-        commandId: text(body.commandId, text(body.command_id)) || `command-sync-observe-${randomUUID()}`,
-        correlationId: text(body.correlationId, text(body.correlation_id)) || undefined,
+        commandId,
+        correlationId: syncId,
+        spanId: actionSpanId,
+        observationSourceIdentity,
         intake: {
           upstream_from: upstreamFrom,
           upstream_to: discovery.afterRef,
@@ -659,11 +664,13 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     syncId: string,
   ): Promise<SyncState> {
     const store = openState(paths.stateDir);
+    const commandId = text(body.commandId, text(body.command_id)) || `command-sync-advance-${randomUUID()}`;
     try {
       let sync = getSyncState(store, syncId);
       if (!sync) throw new Error(`Sync not found: ${syncId}`);
       if (sync.status !== "ingesting") return sync;
       const context = syncLeaseContext(paths, store, sync, deps);
+      context.actor = body.actor === "operator" ? "operator" : "runner";
       const revalidateOwnership = (): void => {
         const lease = requireLease(store, context.leaseId, sync!.project_id);
         if (lease.kind !== "sync" || lease.workflow_id !== sync!.sync_id) {
@@ -676,7 +683,8 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           stateDir: paths.stateDir,
           syncId: sync.sync_id,
           expectedRevision: sync.revision,
-          commandId: text(body.commandId, text(body.command_id)) || `command-sync-ingest-${randomUUID()}`,
+          commandId,
+          actor: context.actor,
           processors: deps.processors?.({ body, paths, sync }) ?? defaultProcessors(deps, paths, body, sync),
           revalidateOwnership,
         });
@@ -686,24 +694,26 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           context,
           syncId: sync.sync_id,
           expectedRevision: sync.revision,
-          commandId: `command-sync-reconcile-${randomUUID()}`,
+          commandId,
         });
         if (sync.status !== "validating") return sync;
         return await validateSync(context, {
           syncId: sync.sync_id,
           expectedRevision: sync.revision,
-          commandId: `command-sync-validate-${randomUUID()}`,
+          commandId,
           validate: deps.validate,
         });
       } catch (error) {
         let current = getSyncState(store, sync.sync_id) ?? sync;
         if (["ingesting", "reconciling", "validating", "validated"].includes(current.status)) {
           try {
+            const recoveryContext = syncLeaseContext(paths, store, current, deps);
+            recoveryContext.actor = context.actor;
             current = markSyncRecoveryRequired({
-              context: syncLeaseContext(paths, store, current, deps),
+              context: recoveryContext,
               syncId: current.sync_id,
               expectedRevision: current.revision,
-              commandId: `command-sync-recovery-required-${randomUUID()}`,
+              commandId,
               reason: error instanceof Error ? error.message : String(error),
             });
           } catch (markError) {
@@ -723,12 +733,15 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
   async function start(body: Record<string, unknown>): Promise<SyncStartDecision> {
     const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
     const projectId = requiredProjectId(paths, body);
+    const commandId = text(body.commandId, text(body.command_id)) || `command-sync-start-${randomUUID()}`;
+    const actionSpanId = syncActionSpanId(commandId);
+    const actionBody = { ...body, actor: "operator", commandId };
     let store = openState(paths.stateDir);
     let sync = currentSync(store, projectId, text(body.syncId, text(body.sync_id)) || undefined);
     let action = projectSyncAction(store, projectId, "sync.start", sync?.sync_id, syncActionOptions(paths, deps));
     store.db.close();
     if (!action.enabled) throw new SyncActionBlockedError(action);
-    if (!sync) sync = await observe(body);
+    if (!sync) sync = await observe(actionBody);
 
     store = openState(paths.stateDir);
     let decision: SyncStartDecision;
@@ -737,33 +750,43 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       if (!action.enabled) throw new SyncActionBlockedError(action);
       decision = immediateTransaction(store.db, () => {
         initializeProjectState(store, { projectId, traceId: `trace-project-${projectId}` });
-        const existingLease = getProjectState(store, projectId)?.active_workflow;
+        const projectState = getProjectState(store, projectId);
+        const existingLease = projectState?.active_workflow;
         if (existingLease?.kind === "sync" && existingLease.workflow_id === sync!.sync_id) {
           const activated = activateAcquiredSync({
+            actor: "operator",
             store,
             projectId,
             syncId: sync!.sync_id,
             leaseId: existingLease.lease_id,
-            commandId: text(body.commandId, text(body.command_id)) || `command-sync-start-${randomUUID()}`,
+            commandId,
+            correlationId: sync!.sync_id,
+            causationId: projectState?.caused_by_event_id ?? commandId,
+            spanId: actionSpanId,
           });
           return { queued: false, run_draining: false, lease_id: existingLease.lease_id, sync: activated };
         }
         const dispatch = requestDispatch(store, {
           actor: "operator",
-          commandId: text(body.commandId, text(body.command_id)) || `command-sync-start-${randomUUID()}`,
+          commandId,
           correlationId: sync!.sync_id,
           kind: "sync",
           projectId,
           reason: text(body.reason, "operator started sync"),
           workflowId: sync!.sync_id,
+          spanId: actionSpanId,
         });
         if (!dispatch.queued) {
           const activated = activateAcquiredSync({
+            actor: "operator",
             store,
             projectId,
             syncId: sync!.sync_id,
             leaseId: dispatch.leaseId,
-            commandId: `command-sync-activated-${randomUUID()}`,
+            commandId,
+            correlationId: sync!.sync_id,
+            causationId: dispatch.acquiredEventId,
+            spanId: actionSpanId,
           });
           return { queued: false, run_draining: false, lease_id: dispatch.leaseId, sync: activated };
         }
@@ -776,10 +799,10 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           if (!run) throw new Error(`Run not found: ${holder.workflow_id}`);
           pauseRun({
             actor: "operator",
-            commandId: `command-sync-handoff-${randomUUID()}`,
-            correlationId: sync!.sync_id,
+            commandId,
             reason: text(body.reason, "operator started sync"),
             runId: run.id,
+            spanId: actionSpanId,
             store,
             targetKind: "sync",
             targetWorkflowId: sync!.sync_id,
@@ -787,13 +810,14 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
         } else if (holder.status === "draining" && !holder.requested_handoff) {
           beginDrain(store, {
             actor: "operator",
-            commandId: `command-sync-handoff-${randomUUID()}`,
-            correlationId: sync!.sync_id,
+            commandId,
+            correlationId: holder.workflow_id,
             leaseId: holder.lease_id,
             projectId,
             reason: text(body.reason, "operator started sync"),
             targetKind: "sync",
             targetWorkflowId: sync!.sync_id,
+            spanId: actionSpanId,
           });
         } else if (
           holder.status !== "draining" ||
@@ -807,7 +831,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     } finally {
       store.db.close();
     }
-    if (!decision.queued) decision.sync = await advance(paths, body, decision.sync.sync_id);
+    if (!decision.queued) decision.sync = await advance(paths, actionBody, decision.sync.sync_id);
     return decision;
   }
 
@@ -819,17 +843,21 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       const sync = currentSync(store, projectId, text(body.syncId, text(body.sync_id)) || undefined);
       const action = projectSyncAction(store, projectId, "sync.resolve_conflict", sync?.sync_id, syncActionOptions(paths, deps));
       if (!action.enabled) throw new SyncActionBlockedError(action);
+      const commandId = text(body.commandId, text(body.command_id)) || `command-sync-resolve-${randomUUID()}`;
+      const context = syncLeaseContext(paths, store, sync!, deps);
+      context.actor = "operator";
       let next = await resolveSyncConflict({
-        context: syncLeaseContext(paths, store, sync!, deps),
+        context,
         syncId: sync!.sync_id,
         expectedRevision: sync!.revision,
-        commandId: text(body.commandId, text(body.command_id)) || `command-sync-resolve-${randomUUID()}`,
+        commandId,
       });
       if (next.status === "validating") {
-        next = await validateSync(syncLeaseContext(paths, store, next, deps), {
+        context.actor = "operator";
+        next = await validateSync(context, {
           syncId: next.sync_id,
           expectedRevision: next.revision,
-          commandId: `command-sync-validate-${randomUUID()}`,
+          commandId,
           validate: deps.validate,
         });
       }
@@ -897,6 +925,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     const projectId = requiredProjectId(paths, body);
     const store = openState(paths.stateDir);
     let recovered: SyncState;
+    const commandId = text(body.commandId, text(body.command_id)) || `command-sync-recover-${randomUUID()}`;
     try {
       let sync = currentSync(store, projectId, text(body.syncId, text(body.sync_id)) || undefined);
       let action = projectSyncAction(store, projectId, "sync.recover", sync?.sync_id, syncActionOptions(paths, deps));
@@ -912,13 +941,13 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
         sync = await reconcileInterruptedSyncPublication({
           context: syncLeaseContext(paths, store, sync, deps),
           syncId: sync.sync_id,
-          commandId: `command-sync-publishing-reconcile-${randomUUID()}`,
+          commandId,
+          actor: "operator",
         });
         if (sync.status === "published") return sync;
         action = projectSyncAction(store, projectId, "sync.recover", sync.sync_id, syncActionOptions(paths, deps));
         if (!action.enabled) throw new SyncActionBlockedError(action);
       }
-      const commandId = text(body.commandId, text(body.command_id)) || `command-sync-recover-${randomUUID()}`;
       const recoveryReason = text(body.recoveryReason, text(body.recovery_reason, "operator recovered sync"));
       if (sync!.status === "ingesting") {
         if (choice !== "resume") throw new Error("Confirmed orphan ingest recovery requires choice 'resume'");
@@ -947,15 +976,17 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     } finally {
       store.db.close();
     }
-    if (recovered!.status === "ingesting") return advance(paths, body, recovered!.sync_id);
+    if (recovered!.status === "ingesting") return advance(paths, { ...body, actor: "operator", commandId }, recovered!.sync_id);
     if (recovered!.status === "reconciling") {
       const resumedStore = openState(paths.stateDir);
       try {
+        const context = syncLeaseContext(paths, resumedStore, recovered!, deps);
+        context.actor = "operator";
         recovered = await reconcileSync({
-          context: syncLeaseContext(paths, resumedStore, recovered!, deps),
+          context,
           syncId: recovered!.sync_id,
           expectedRevision: recovered!.revision,
-          commandId: `command-sync-reconcile-${randomUUID()}`,
+          commandId,
         });
       } finally {
         resumedStore.db.close();
@@ -964,10 +995,12 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     if (recovered!.status === "validating") {
       const resumedStore = openState(paths.stateDir);
       try {
-        recovered = await validateSync(syncLeaseContext(paths, resumedStore, recovered!, deps), {
+        const context = syncLeaseContext(paths, resumedStore, recovered!, deps);
+        context.actor = "operator";
+        recovered = await validateSync(context, {
           syncId: recovered!.sync_id,
           expectedRevision: recovered!.revision,
-          commandId: `command-sync-validate-${randomUUID()}`,
+          commandId,
           validate: deps.validate,
         });
       } finally {
@@ -981,7 +1014,8 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           context: syncLeaseContext(paths, resumedStore, recovered!, deps),
           syncId: recovered!.sync_id,
           expectedRevision: recovered!.revision,
-          commandId: `command-sync-publish-retry-${randomUUID()}`,
+          commandId,
+          actor: "operator",
         });
       } finally {
         resumedStore.db.close();

@@ -3,6 +3,7 @@ import type { Database } from "bun:sqlite";
 type SyncEnvelopeValue = bigint | boolean | null | number | string | Uint8Array;
 
 export interface SyncEnvelopeCasInput {
+  blockedOriginStatus?: string | null;
   blockersJson?: string;
   eventId: string;
   eventSequence: number;
@@ -14,6 +15,8 @@ export interface SyncEnvelopeCasInput {
   status?: string;
   syncId: string;
   updatedAt: string;
+  validationEvidenceJson?: string | null;
+  resolvedConflictPathsJson?: string;
 }
 
 /** Applies one already-appended event to the sync envelope under revision CAS. */
@@ -36,11 +39,14 @@ export function casSyncEnvelope(db: Database, input: SyncEnvelopeCasInput): bool
     values.push(value);
   };
   add("status", input.status);
+  add("blocked_origin_status", input.blockedOriginStatus);
   add("blockers_json", input.blockersJson);
   add("intake_json", input.intakeJson);
   add("staging_json", input.stagingJson);
   add("pr_reconciliation_json", input.prReconciliationJson);
   add("publication_json", input.publicationJson);
+  add("validation_evidence_json", input.validationEvidenceJson);
+  add("resolved_conflict_paths_json", input.resolvedConflictPathsJson);
   const result = db
     .query(`UPDATE sync_state SET ${assignments.join(", ")} WHERE sync_id = ? AND revision = ?`)
     .run(...values, input.syncId, input.expectedRevision);
