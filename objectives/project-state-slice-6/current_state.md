@@ -6,10 +6,12 @@
 - Migration 017 APPLIED LIVE with user approval at 2026-08-14T18:26:44Z: schema 16 -> 17
   exactly once, integrity ok, FK clean, all 47 pre-existing tables unchanged
   (evidence: context/live_migrate_017.ts; rollback backup in ~/backups/).
-- Absorption audit of the four pre-Slice-6 children (20-project-session, 30-run,
-  40-pr-campaign, 50-sync): VERDICT GAPS - 346 facts: 229 COVERED / 82 PARTIAL /
-  35 MISSING (context/absorption_audit_remaining.md). Bundle retirement remains blocked;
-  docs/40-new-features/20-project-state-and-events/ is retained.
+- Gap absorption COMPLETE and CERTIFIED: 83 verified gap facts absorbed into 12 canonical
+  docs by four codex lanes (ledgers context/absorb_gaps_lane{A-D}.md); independent
+  render-based certification passed 83/83 (context/absorption_certification.md).
+- docs/40-new-features/20-project-state-and-events/ RETIRED (deleted) with user approval;
+  40-new-features parent index updated; 4 stale inbound links retargeted to canonical
+  docs; links check 0 stale, docs audit 0 errors.
 </status>
 
 <completed>
@@ -44,14 +46,11 @@
 </completed>
 
 <in_progress>
-- Nothing. Slice 6 implementation is frozen pending the live-migration decision.
+- Nothing. Slice 6 and the docs absorption/retirement are complete.
 </in_progress>
 
 <next_actions>
-1. USER DECISION: absorb the 117 PARTIAL/MISSING facts from the four pre-Slice-6
-   children into canonical docs (a Slice 6.5-scale docs pass), then retire the bundle -
-   or accept the bundle staying as the interim home for those facts.
-2. Commit the deferred index update inside docs/20-implementation/30-knowledge/doc.json
+1. Commit the deferred index update inside docs/20-implementation/30-knowledge/doc.json
    together with the unrelated knowledge-docs rework it is entangled with.
 </next_actions>
 

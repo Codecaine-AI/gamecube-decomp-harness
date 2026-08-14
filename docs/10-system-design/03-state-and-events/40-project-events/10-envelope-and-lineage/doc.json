@@ -15,6 +15,9 @@
         "b-index-text-4",
         "b-index-sequence-is-monotonica-5",
         "e5-decision-one-event-per-transition",
+        "lane-c-series-lineage-heading",
+        "lane-c-series-lineage-narrative",
+        "lane-c-series-lineage-shape",
         "b-index-correlation-and-causatio-6",
         "b-index-correlation-id-is-requ-7",
         "b-index-causation-id-is-requir-8",
@@ -115,6 +118,78 @@
           "insert": "Every accepted revision of a durable state object is produced by exactly one event: event_type names the transition semantically, and StateEnvelope.caused_by_event_id is therefore never null after creation. The status tables in this feature double as the transition catalog — each table row's entry and exit transitions define events mechanically, so per-status events are not separately enumerated in the event table; the table below lists the coordination, lifecycle, and recovery events whose payloads need explicit facts. Every workflow has an explicit recovery event: run.recovered, sync.recovered, and pr.campaign_recovered. Event topology follows state topology: the campaign is the containing PR workflow, but each PR series is its own event subject — feedback, revision, approval, merge, and close events carry subject_id of the individual series, with correlation_id grouping them under the campaign — so a consumer can process one PR's stream in isolation. Explicitly desired future relaxation: per-series triggers that react to these streams and handle routine review changes more out-of-loop; v1 keeps fixer execution operator-gated per the PR-phase decision."
         }
       ],
+      "children": []
+    },
+    "lane-c-series-lineage-heading": {
+      "id": "lane-c-series-lineage-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Per-Series State Lineage"
+        }
+      ],
+      "children": []
+    },
+    "lane-c-series-lineage-narrative": {
+      "id": "lane-c-series-lineage-narrative",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each PR series owns the durable cursor and trace root for its event subject, so consumers can distinguish accepted state versions from individual event spans and order the latest series state by acceptance time. These are the lineage fields of "
+        },
+        {
+          "insert": "PrSeriesState",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; "
+        },
+        {
+          "insert": "PR tracking",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/50-ship-and-pr/20-operator-flow-and-pr-tracking",
+              "label": "PR tracking"
+            }
+          }
+        },
+        {
+          "insert": " owns the lifecycle contract and the rest of the series shape."
+        }
+      ],
+      "children": []
+    },
+    "lane-c-series-lineage-shape": {
+      "id": "lane-c-series-lineage-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Series-owned durable lineage fields for the per-series event subject.",
+        "fields": [
+          {
+            "name": "revision",
+            "type": "integer",
+            "description": "Stored series-state version; advances once for each accepted series transition."
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp",
+            "description": "Timestamp of the latest accepted series update."
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId",
+            "description": "Stable root trace identity for the series event stream."
+          }
+        ],
+        "name": "PrSeriesState lineage projection"
+      },
       "children": []
     },
     "b-index-correlation-and-causatio-6": {

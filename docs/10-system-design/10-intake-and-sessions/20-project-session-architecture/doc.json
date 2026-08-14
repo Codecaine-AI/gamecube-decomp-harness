@@ -26,6 +26,11 @@
         "psa-session-shape-heading",
         "psa-session-shape-outline",
         "psa-session-shape-body",
+        "psa-durable-contracts-heading",
+        "psa-session-state-shape",
+        "psa-run-state-shape",
+        "psa-campaign-state-shape",
+        "psa-sync-state-shape",
         "psa-lineage-decision",
         "psa-lineage-why-heading",
         "psa-lineage-why-lead",
@@ -339,6 +344,167 @@
           "insert": "ProjectSession owns the state shared across runs, PR campaigns, and syncs: the canonical worktree, the immutable opening baseline, the current head_revision, and the ordered explanation of how work reached that head. Sync references this lineage but prepares source reconciliation in an isolated staging worktree, so the session worktree, head, and timeline remain untouched before publish. Each child workflow owns its detailed status and records its identity on the session. This split keeps between-run sync lineage durable without turning a run, PR campaign, or staging workspace into the container for the project timeline."
         }
       ],
+      "children": []
+    },
+    "psa-durable-contracts-heading": {
+      "id": "psa-durable-contracts-heading",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Durable State Contracts"
+        }
+      ],
+      "children": []
+    },
+    "psa-session-state-shape": {
+      "id": "psa-session-state-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Session lifecycle, ordered child-workflow identity, and timestamped lineage entries.",
+        "example": "{\n  \"status\": \"active\",\n  \"timeline\": [\n    {\n      \"occurred_at\": \"2026-08-11T19:10:00Z\"\n    }\n  ],\n  \"workflow_ids\": [\n    \"run-1\",\n    \"sync-1\"\n  ]\n}",
+        "fields": [
+          {
+            "name": "status",
+            "type": "\"active\" | \"closing\" | \"closed\"",
+            "description": "The canonical session lifecycle vocabulary; workflow and implementation projection conditions do not add lifecycle values."
+          },
+          {
+            "name": "timeline",
+            "type": "TimelineEntry[]",
+            "fields": [
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "description": "Time at which the timeline boundary or evidence entry became durable."
+              }
+            ]
+          },
+          {
+            "name": "workflow_ids",
+            "type": "WorkflowId[]",
+            "description": "Child Run, PR campaign, and sync identities in creation order."
+          }
+        ],
+        "name": "SessionState"
+      },
+      "children": []
+    },
+    "psa-run-state-shape": {
+      "id": "psa-run-state-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Run control, active scheduling position, and ordered session-boundary references.",
+        "example": "{\n  \"control\": {\n    \"stop_request\": {\n      \"target\": \"sync\",\n      \"mode\": \"finish_epoch\"\n    }\n  },\n  \"scheduling\": {\n    \"active_epoch_id\": \"epoch-19\"\n  },\n  \"epoch_ids\": [\n    \"epoch-18\",\n    \"epoch-19\"\n  ],\n  \"remote_application_ids\": [\n    \"remote-application-3\"\n  ]\n}",
+        "fields": [
+          {
+            "name": "control",
+            "type": "RunControl",
+            "fields": [
+              {
+                "name": "stop_request",
+                "type": "StopRequest",
+                "required": false,
+                "fields": [
+                  {
+                    "name": "target",
+                    "type": "\"sync\""
+                  },
+                  {
+                    "name": "mode",
+                    "type": "\"finish_epoch\""
+                  }
+                ],
+                "description": "A sync handoff is stored exactly as StopRequest { target: sync, mode: finish_epoch }."
+              }
+            ]
+          },
+          {
+            "name": "scheduling",
+            "type": "RunScheduling",
+            "fields": [
+              {
+                "name": "active_epoch_id",
+                "type": "EpochId | null",
+                "description": "The active epoch, or null between epochs."
+              }
+            ]
+          },
+          {
+            "name": "epoch_ids",
+            "type": "EpochId[]",
+            "description": "Epoch identities in creation order."
+          },
+          {
+            "name": "remote_application_ids",
+            "type": "RemoteApplicationId[]",
+            "description": "Remote-application boundaries affecting the Run in session timeline order."
+          }
+        ],
+        "name": "RunState"
+      },
+      "children": []
+    },
+    "psa-campaign-state-shape": {
+      "id": "psa-campaign-state-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Campaign ownership and immutable source anchor.",
+        "example": "{\n  \"session_id\": \"session-7\",\n  \"source_anchor\": {\n    \"source_revision\": \"upstream-9ba1\"\n  }\n}",
+        "fields": [
+          {
+            "name": "session_id",
+            "type": "SessionId",
+            "description": "Owning ProjectSession."
+          },
+          {
+            "name": "source_anchor",
+            "type": "SourceAnchor",
+            "fields": [
+              {
+                "name": "source_revision",
+                "type": "SourceRevision",
+                "description": "Session head captured when the campaign split is created."
+              }
+            ]
+          }
+        ],
+        "name": "PrCampaignState"
+      },
+      "children": []
+    },
+    "psa-sync-state-shape": {
+      "id": "psa-sync-state-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Durable sync ownership, observed intake, isolated staging, and publication result.",
+        "example": "{\n  \"session_id\": \"session-7\",\n  \"intake\": {\n    \"upstream_from\": \"upstream-9ac4\",\n    \"upstream_to\": \"upstream-9ba1\"\n  },\n  \"staging\": null,\n  \"publication\": null\n}",
+        "fields": [
+          {
+            "name": "session_id",
+            "type": "SessionId",
+            "description": "Owning ProjectSession."
+          },
+          {
+            "name": "intake",
+            "type": "SyncIntake",
+            "description": "Durable requested intake captured when observation records the sync request, before operator start."
+          },
+          {
+            "name": "staging",
+            "type": "StagingProgress | null",
+            "description": "Isolated reconciliation state; null before staging exists and throughout a knowledge-only pass."
+          },
+          {
+            "name": "publication",
+            "type": "PublicationRecord | null",
+            "description": "Null before publication and for a knowledge-only pass; a source-changing atomic publish sets the durable record."
+          }
+        ],
+        "name": "SyncState"
+      },
       "children": []
     },
     "psa-lineage-decision": {
@@ -1147,7 +1313,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Workflow handoffs do not impose a one-way run-to-PR sequence. A PR campaign can remain durable in review while Run or sync later holds the dispatch lease. Sync can also run as a knowledge-only pass: it skips source reconciliation and advances only the monotonic knowledge revision. Source-changing syncs leave the session untouched until confirmed publication, so a pre-publish cancel is a discard of staging rather than a rollback of session work."
+          "insert": "Workflow handoffs do not impose a one-way run-to-PR sequence. A PR campaign can remain durable in review while Run or sync later holds the dispatch lease. Dormant review while Run holds dispatch is supported but is not the expected operating norm; a campaign normally concludes before the next Run batch so review learning enters the next batch cleanly. Sync can also run as a knowledge-only pass: it skips source reconciliation and advances only the monotonic knowledge revision. Source-changing syncs leave the session untouched until confirmed publication, so a pre-publish cancel is a discard of staging rather than a rollback of session work."
         }
       ],
       "children": []

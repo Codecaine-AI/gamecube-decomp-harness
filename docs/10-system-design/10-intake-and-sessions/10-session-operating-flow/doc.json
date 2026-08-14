@@ -372,7 +372,7 @@
       },
       "text": [
         {
-          "insert": "The ProjectSession timeline defines head lineage and evidence through epoch_completed, remote_application, pr_phase, and save_point entries. The session container records epoch_completed and save_point entries, the PR-campaign and sync contracts own pr_phase and remote_application recording, and save points remain evidence anchors pinned to existing commits."
+          "insert": "The ProjectSession timeline defines head lineage and evidence through epoch_completed, remote_application, pr_phase, and save_point entries. The session container records epoch_completed and save_point entries, the PR-campaign and sync contracts own pr_phase and remote_application recording, and save points remain evidence anchors pinned to existing commits. ProjectSession supersedes the prior system-design meaning of a long-lived canonical campaign; campaign denotes only the PR review-cycle workflow."
         }
       ],
       "children": []
@@ -1279,7 +1279,7 @@
       },
       "text": [
         {
-          "insert": "Observe upstream movement or staged corpora\n     -> Record a requested sync\n     > No lease is held and nothing starts automatically\nOperator starts sync\n     -> If the dispatch lease is free, sync acquires it and begins ingesting\n     -> If a run is active, queue the sync dispatch request and begin the run's explicit drain handoff\n          -> Stop new worker admission\n          -> Settle or recover active workers and operations\n          -> Write the handoff snapshot and release run authority\nSync owns the dispatch lease\n     -> Stage merged-PR and corpus knowledge\n     -> Reconcile the session history and open PR series in an isolated staging worktree\n     -> Auto-resolve minor mechanical conflicts\n     -> Block for the operator when a conflict exceeds confident mechanical resolution\n     -> Validate staging and rest at validated"
+          "insert": "Observe upstream movement or staged corpora\n     -> Record a requested sync\n     > No lease is held and nothing starts automatically\nOperator starts sync\n     -> If the dispatch lease is free, sync acquires it and begins ingesting\n     -> If a run is active, queue the sync dispatch request and begin the run's explicit drain handoff\n          -> Stop new worker admission\n          -> Settle or recover active workers and operations\n          -> Write the handoff snapshot and release run authority\nSync owns the dispatch lease\n     -> Stage merged-PR and corpus knowledge\n     -> Reconcile the session history and open PR series in an isolated staging worktree\n          > Most open PR series rebase cleanly\n          -> Route non-clean conflicts by kind: agents resolve minor semantic conflicts, while only mechanical conflicts auto-resolve\n     -> Block for the operator when an agent cannot resolve a conflict confidently\n     -> Validate staging and rest at validated"
         }
       ],
       "children": []
@@ -1333,7 +1333,7 @@
       },
       "text": [
         {
-          "insert": "Rebase, duplicate-match repair, conflict resolution, open-PR reconciliation, and validation operate only on staged state, so the session worktree and head stay byte-identical before publish."
+          "insert": "Rebase, duplicate-match repair, build-failure repair, conflict resolution, open-PR reconciliation, and validation operate only on staged state, so the session worktree and head stay byte-identical before publish."
         }
       ],
       "children": []
@@ -1409,7 +1409,7 @@
       },
       "text": [
         {
-          "insert": "The session worktree is repointed to the validated staging head even when that move is non-fast-forward. One state transaction records the publication, remote_application entry, invalidations, upstream anchor, PR-push intents, and monotonic knowledge-revision advance."
+          "insert": "The session worktree is repointed to the validated staging head even when that move is non-fast-forward. One state transaction records the publication, remote_application entry, invalidations, upstream anchor, PR-push intents, and monotonic knowledge-revision advance. If this boundary transaction or its commit fails, sync durably enters blocked with a visible blocker and cannot become published; the failure is never reduced to a log-only warning."
         }
       ],
       "children": []
@@ -1763,7 +1763,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Scoped worker checks bank tentative evidence, and the epoch-boundary global comparison classifies it as confirmed or regressed. A successful boundary publishes the confirmed integration commit and epoch_completed entry together, then advances ProjectSession.head_revision. Save-point evidence may describe that existing commit, but it never creates or advances it."
+          "insert": "Scoped worker checks bank tentative evidence, and the epoch-boundary global comparison classifies it as confirmed or regressed. RunProgress.tentative_changes counts banked changes that have not crossed confirmation; RunProgress.confirmed_changes counts changes accepted by that boundary. A successful boundary publishes the confirmed integration commit and epoch_completed entry together, then advances ProjectSession.head_revision. Recovery retains partial-epoch history, including settled or cancelled claims and integrations that had not reached confirmation. Save-point evidence may describe the existing boundary commit, but it never creates or advances it."
         }
       ],
       "children": []

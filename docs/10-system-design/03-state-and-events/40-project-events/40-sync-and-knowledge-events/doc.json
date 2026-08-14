@@ -18,6 +18,9 @@
         "b-index-text-7",
         "b-index-the-complete-pr-and-corp-8",
         "b-index-sync-staging-progressed-9",
+        "b-gap-sync-state-projections-heading",
+        "b-gap-sync-state-projections-lead",
+        "b-gap-sync-state-projections-shape",
         "b-index-blocking-recovery-and-10",
         "b-index-sync-reconciliation-blo-11",
         "b-index-sync-recovered-is-oper-12",
@@ -390,6 +393,100 @@
       ],
       "children": []
     },
+    "b-gap-sync-state-projections-heading": {
+      "id": "b-gap-sync-state-projections-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Durable Sync Projections"
+        }
+      ],
+      "children": []
+    },
+    "b-gap-sync-state-projections-lead": {
+      "id": "b-gap-sync-state-projections-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Staging progress and publication events project their resumable detail into SyncState. Staging progress stays separate from per-series reconciliation outcomes, while publication identifies the session-timeline boundary created from the validated staging result."
+        }
+      ],
+      "children": []
+    },
+    "b-gap-sync-state-projections-shape": {
+      "id": "b-gap-sync-state-projections-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Durable staging, per-series reconciliation, and publication fields projected by sync events.",
+        "fields": [
+          {
+            "name": "staging",
+            "type": "StagingProgress",
+            "fields": [
+              {
+                "name": "workspace_id",
+                "type": "WorkspaceId"
+              },
+              {
+                "name": "epochs_total",
+                "type": "integer"
+              },
+              {
+                "name": "epochs_applied",
+                "type": "integer"
+              },
+              {
+                "name": "minor_conflicts_resolved",
+                "type": "integer"
+              },
+              {
+                "name": "conflicts_awaiting_operator",
+                "type": "integer"
+              }
+            ]
+          },
+          {
+            "name": "pr_reconciliation",
+            "type": "PrBranchReconciliation[]",
+            "description": "Contains exactly one entry for every open PR series reconciled by the sync.",
+            "fields": [
+              {
+                "name": "series_id",
+                "type": "PrSeriesId"
+              },
+              {
+                "name": "result",
+                "type": "clean | auto_resolved | needs_operator",
+                "description": "Closed per-series reconciliation outcome."
+              },
+              {
+                "name": "pushed",
+                "type": "boolean",
+                "description": "Starts false and becomes true only when atomic publication pushes the reconciled branch to its upstream PR."
+              }
+            ]
+          },
+          {
+            "name": "publication",
+            "type": "PublicationRecord",
+            "fields": [
+              {
+                "name": "remote_application_id",
+                "type": "RemoteApplicationId",
+                "required": false,
+                "description": "Names the source-changing boundary recorded in the session timeline; omitted for a knowledge-only pass."
+              }
+            ]
+          }
+        ],
+        "name": "SyncState reconciliation projections"
+      },
+      "children": []
+    },
     "b-index-blocking-recovery-and-10": {
       "id": "b-index-blocking-recovery-and-10",
       "type": "heading",
@@ -646,7 +743,7 @@
           }
         },
         {
-          "insert": " with upstream and knowledge revisions, explicit invalidation identities, and structured validation evidence. Cancellation is unavailable after publication begins."
+          "insert": " with upstream and knowledge revisions, structured validation evidence, and explicit identities for every invalidated target, checkpoint, and PR snapshot. Cancellation is unavailable after publication begins."
         }
       ],
       "children": []
