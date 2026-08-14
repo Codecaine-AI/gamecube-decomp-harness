@@ -2,10 +2,14 @@
 <last_updated>2026-08-14</last_updated>
 
 <status>
-- All four Slice 6 lanes complete and integrated; focused matrices green.
-- Migration 017 copy-validated twice (PASS). Live application is HELD for explicit user
-  approval; the live DB remains at schema 16.
-- Single scoped commit prepared/made from the Slice 6 file set only.
+- All four Slice 6 lanes complete, integrated, and committed (2b6cedb4); matrices green.
+- Migration 017 APPLIED LIVE with user approval at 2026-08-14T18:26:44Z: schema 16 -> 17
+  exactly once, integrity ok, FK clean, all 47 pre-existing tables unchanged
+  (evidence: context/live_migrate_017.ts; rollback backup in ~/backups/).
+- Absorption audit of the four pre-Slice-6 children (20-project-session, 30-run,
+  40-pr-campaign, 50-sync): VERDICT GAPS - 346 facts: 229 COVERED / 82 PARTIAL /
+  35 MISSING (context/absorption_audit_remaining.md). Bundle retirement remains blocked;
+  docs/40-new-features/20-project-state-and-events/ is retained.
 </status>
 
 <completed>
@@ -44,12 +48,10 @@
 </in_progress>
 
 <next_actions>
-1. USER DECISION: apply migration 017 to the live Melee DB (stop any live process first,
-   then open the store once) — or defer; the server must not run against schema 16 with
-   Slice 6 code if opening the store auto-migrates (it does via openState).
-2. USER DECISION: retire docs/40-new-features/20-project-state-and-events/ (absorption is
-   verified; deletion was explicitly deferred).
-3. Commit the deferred index update inside docs/20-implementation/30-knowledge/doc.json
+1. USER DECISION: absorb the 117 PARTIAL/MISSING facts from the four pre-Slice-6
+   children into canonical docs (a Slice 6.5-scale docs pass), then retire the bundle -
+   or accept the bundle staying as the interim home for those facts.
+2. Commit the deferred index update inside docs/20-implementation/30-knowledge/doc.json
    together with the unrelated knowledge-docs rework it is entangled with.
 </next_actions>
 
