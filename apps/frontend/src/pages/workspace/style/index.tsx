@@ -1,7 +1,7 @@
 import { RotateCcw } from "@/icons";
 import { DEFAULT_GRAIN_SETTINGS, GRAIN_BLEND_OPTIONS, SOFTENING_CHANNEL_OPTIONS, type GrainBlendMode, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
 import { Button, CheckboxField, InfoRows, PageHeader, PanelSection, PanelTitle } from "@/components/primitives";
-import type { SessionView } from "@/pages/workspace/_lib/types";
+import type { CycleView } from "@/pages/workspace/_lib/types";
 import { StyleSlider } from "./_components/StyleSlider";
 
 function percentLabel(value: number): string {
@@ -23,11 +23,11 @@ export function StylePage({
 }: {
   grainSettings: GrainSettings;
   onGrainSettingsChange: (updates: GrainSettingsPatch) => void;
-  view: SessionView;
+  view: CycleView;
 }) {
   return (
     <>
-      <PageHeader kicker={view.project?.displayName ?? "No project selected"} title="Style" />
+      <PageHeader kicker={view.game?.displayName ?? "No game selected"} title="Style" />
       <div className="@container grid min-h-0 flex-1 content-start gap-4 overflow-auto p-4">
         <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-[minmax(320px,0.75fr)_minmax(0,1fr)]">
           <div className="grid content-start gap-4">

@@ -2,11 +2,11 @@
 
 import { describe, expect, test } from "bun:test";
 import type { Dashboard, FormState } from "@/lib/format";
-import { activeSessionFocus } from "@/pages/workspace/sessions/_lib/sessionRoute";
-import { deriveSessionView, projectStateAction, projectStateCompatibilityAction, projectStateReadModel } from "./model";
+import { activeCycleFocus } from "@/pages/workspace/cycles/_lib/cycleRoute";
+import { deriveCycleView, harnessStateAction, harnessStateCompatibilityAction, harnessStateReadModel } from "./model";
 
 const form = {
-  projectId: "melee",
+  gameId: "melee",
   processName: "melee-live",
   usePathOverrides: false,
 } as unknown as FormState;
@@ -15,11 +15,11 @@ const canonicalActionIds = [
   "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
   "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign",
   "pr.abandon_campaign", "pr.campaign_recover", "sync.start", "sync.resolve_conflict",
-  "sync.publish", "sync.cancel", "sync.recover", "session.save_point", "session.close",
+  "sync.publish", "sync.cancel", "sync.recover", "cycle.save_point", "cycle.close",
   "knowledge.process",
 ] as const;
 
-describe("canonical ProjectState DTO", () => {
+describe("canonical HarnessState DTO", () => {
   test("preserves canonical summaries, all 21 actions, and compatibility separation", () => {
     const action = (action_id: string) => ({
       action_id,
@@ -27,17 +27,17 @@ describe("canonical ProjectState DTO", () => {
       subject_id: `${action_id}-subject`,
       enabled: action_id === "knowledge.process",
       blocked_by: action_id === "knowledge.process" ? [] : [{
-        code: "fixture_blocker", message: "Fixture blocker", source_kind: "project",
+        code: "fixture_blocker", message: "Fixture blocker", source_kind: "game",
         source_id: "melee", recoverable: true,
       }],
       expected_transition: `${action_id} transition`,
-      confirmation_required: action_id === "session.close",
+      confirmation_required: action_id === "cycle.close",
     });
     const dashboard = {
-      projectState: {
-        project_id: "melee",
-        project_revision: 1842,
-        session: null,
+      harnessState: {
+        game_id: "melee",
+        harness_revision: 1842,
+        cycle: null,
         active_workflow: {
           kind: "run", workflow_id: "run-1", lease_id: "lease-1", status: "blocked",
           acquired_at: "2026-08-14T10:00:00Z", heartbeat_at: "2026-08-14T10:01:00Z",
@@ -58,15 +58,15 @@ describe("canonical ProjectState DTO", () => {
         },
         sync: null,
         active_operations: [{ operation_id: "operation-1", status: "running", trace_id: "trace-1" }],
-        recent_events: [{ event_type: "project.dispatch_requested", sequence: 92811, event_id: "event-1" }],
+        recent_events: [{ event_type: "game.dispatch_requested", sequence: 92811, event_id: "event-1" }],
         available_actions: canonicalActionIds.map(action),
         compatibility_actions: [action("pr.adopt_legacy")],
       },
     } as unknown as Dashboard;
 
-    const state = projectStateReadModel(dashboard);
-    expect(state?.project_id).toBe("melee");
-    expect(state?.project_revision).toBe(1842);
+    const state = harnessStateReadModel(dashboard);
+    expect(state?.game_id).toBe("melee");
+    expect(state?.harness_revision).toBe(1842);
     expect(state?.active_workflow?.headline).toBe("Run waits for claims");
     expect(state?.queued_dispatch_requests[0]?.requested_by).toBe("operator");
     expect(state?.pr_work.map((campaign) => campaign.workflow_id)).toEqual(["pr-1", "pr-2"]);
@@ -76,15 +76,15 @@ describe("canonical ProjectState DTO", () => {
     expect(state?.active_operations[0]?.trace_id).toBe("trace-1");
     expect(state?.recent_events[0]?.event_id).toBe("event-1");
     expect(state?.available_actions.map(({ action_id }) => action_id)).toEqual([...canonicalActionIds]);
-    expect(projectStateAction(state, "pr.adopt_legacy")).toBeNull();
-    expect(projectStateCompatibilityAction(state, "pr.adopt_legacy")?.subject_kind).toBe("pr");
+    expect(harnessStateAction(state, "pr.adopt_legacy")).toBeNull();
+    expect(harnessStateCompatibilityAction(state, "pr.adopt_legacy")?.subject_kind).toBe("pr");
   });
 });
 
-describe("workspace session view", () => {
-  test("projects canonical authority, session timeline, and action decisions without deriving client gates", () => {
+describe("workspace cycle view", () => {
+  test("projects canonical authority, cycle timeline, and action decisions without deriving client gates", () => {
     const dashboard = {
-      projectState: {
+      harnessState: {
         revision: 14,
         active_workflow: {
           kind: "run",
@@ -102,8 +102,8 @@ describe("workspace session view", () => {
           blockers: [],
         },
         queued_dispatch_requests: [],
-        session: {
-          session_uuid: "session-14",
+        cycle: {
+          cycle_uuid: "cycle-14",
           head_revision: "abc123",
           status: "active",
           latest_save_point: {
@@ -118,7 +118,7 @@ describe("workspace session view", () => {
           timeline: [
             {
               id: 2,
-              session_uuid: "session-14",
+              cycle_uuid: "cycle-14",
               entry_kind: "save_point",
               entry_id: "save-14",
               occurred_at: "2026-08-12T12:01:00.000Z",
@@ -127,7 +127,7 @@ describe("workspace session view", () => {
             },
             {
               id: 1,
-              session_uuid: "session-14",
+              cycle_uuid: "cycle-14",
               entry_kind: "epoch_completed",
               entry_id: "epoch-1",
               occurred_at: "2026-08-12T12:00:00.000Z",
@@ -191,29 +191,29 @@ describe("workspace session view", () => {
         latest_event_sequence: 2,
         available_actions: [
           {
-            action_id: "session.save_point",
-            subject_kind: "session",
-            subject_id: "session-14",
+            action_id: "cycle.save_point",
+            subject_kind: "cycle",
+            subject_id: "cycle-14",
             enabled: true,
             blocked_by: [],
             expected_transition: "evidence anchor recorded at the current commit",
             confirmation_required: false,
           },
           {
-            action_id: "session.close",
-            subject_kind: "session",
-            subject_id: "session-14",
+            action_id: "cycle.close",
+            subject_kind: "cycle",
+            subject_id: "cycle-14",
             enabled: false,
             blocked_by: [
               {
                 code: "dispatch_lease_held",
                 message: "A workflow still holds the dispatch lease.",
-                source_kind: "project",
+                source_kind: "game",
                 source_id: "melee",
                 recoverable: true,
               },
             ],
-            expected_transition: "session becomes closed",
+            expected_transition: "cycle becomes closed",
             confirmation_required: true,
           },
           {
@@ -283,11 +283,11 @@ describe("workspace session view", () => {
       },
     } as unknown as Dashboard;
 
-    const state = projectStateReadModel(dashboard);
+    const state = harnessStateReadModel(dashboard);
 
     expect(state?.active_workflow?.requested_handoff?.target_kind).toBe("sync");
-    expect(state?.session?.timeline.map((entry) => entry.entry_id)).toEqual(["save-14", "epoch-1"]);
-    expect(state?.session?.save_point_stale).toBe(true);
+    expect(state?.cycle?.timeline.map((entry) => entry.entry_id)).toEqual(["save-14", "epoch-1"]);
+    expect(state?.cycle?.save_point_stale).toBe(true);
     expect(state?.sync).toEqual({
       workflow_id: "sync-15",
       status: "blocked",
@@ -340,8 +340,8 @@ describe("workspace session view", () => {
         revalidate_action_id: "sync.cancel",
       },
     });
-    expect(projectStateAction(state, "session.save_point")?.confirmation_required).toBe(false);
-    expect(projectStateAction(state, "session.close")).toMatchObject({
+    expect(harnessStateAction(state, "cycle.save_point")?.confirmation_required).toBe(false);
+    expect(harnessStateAction(state, "cycle.close")).toMatchObject({
       enabled: false,
       confirmation_required: true,
       blocked_by: [{ code: "dispatch_lease_held" }],
@@ -352,14 +352,14 @@ describe("workspace session view", () => {
       "sync.publish",
       "sync.cancel",
       "sync.recover",
-    ].map((actionId) => projectStateAction(state, actionId)?.action_id)).toEqual([
+    ].map((actionId) => harnessStateAction(state, actionId)?.action_id)).toEqual([
       "sync.start",
       "sync.resolve_conflict",
       "sync.publish",
       "sync.cancel",
       "sync.recover",
     ]);
-    expect(projectStateAction(state, "sync.recover")).toMatchObject({
+    expect(harnessStateAction(state, "sync.recover")).toMatchObject({
       enabled: true,
       confirmation_required: true,
       expected_transition: "blocked → last durable stage or cancelled",
@@ -368,11 +368,11 @@ describe("workspace session view", () => {
 
   test("preserves the server publication record after sync publish", () => {
     const dashboard = {
-      projectState: {
+      harnessState: {
         revision: 30,
         active_workflow: null,
         queued_dispatch_requests: [],
-        session: null,
+        cycle: null,
         run: null,
         sync: {
           workflow_id: "sync-30",
@@ -419,7 +419,7 @@ describe("workspace session view", () => {
       },
     } as unknown as Dashboard;
 
-    expect(projectStateReadModel(dashboard)?.sync?.publication).toEqual({
+    expect(harnessStateReadModel(dashboard)?.sync?.publication).toEqual({
       remote_application_id: "remote-30",
       prior_head: "old-head",
       new_head: "new-head",
@@ -450,11 +450,11 @@ describe("workspace session view", () => {
       }],
     };
     const dashboard = {
-      projectState: {
+      harnessState: {
         revision: 31,
         active_workflow: null,
         queued_dispatch_requests: [],
-        session: null,
+        cycle: null,
         run: null,
         pr_work: [{
           workflow_id: "campaign-31",
@@ -503,7 +503,7 @@ describe("workspace session view", () => {
       },
     } as unknown as Dashboard;
 
-    const state = projectStateReadModel(dashboard);
+    const state = harnessStateReadModel(dashboard);
 
     expect(state?.pr_work[0]).toMatchObject({
       workflow_id: "campaign-31",
@@ -529,7 +529,7 @@ describe("workspace session view", () => {
     });
     expect(state?.pr_work[0]?.series_by_status.changes_requested).toHaveLength(1);
     expect(state?.pr_work[0]?.series_by_status.prepared).toEqual([]);
-    expect(projectStateAction(state, "pr.activate")).toMatchObject({
+    expect(harnessStateAction(state, "pr.activate")).toMatchObject({
       subject_kind: "pr_campaign",
       enabled: true,
       confirmation_required: false,
@@ -553,11 +553,11 @@ describe("workspace session view", () => {
       confirmation_required: confirmationRequired,
     });
     const dashboard = {
-      projectState: {
+      harnessState: {
         revision: 21,
         active_workflow: null,
         queued_dispatch_requests: [],
-        session: null,
+        cycle: null,
         run: {
           workflow_id: "run-21",
           status: "paused",
@@ -595,7 +595,7 @@ describe("workspace session view", () => {
       },
     } as unknown as Dashboard;
 
-    const state = projectStateReadModel(dashboard);
+    const state = harnessStateReadModel(dashboard);
 
     expect(state?.run).toMatchObject({
       workflow_id: "run-21",
@@ -627,20 +627,20 @@ describe("workspace session view", () => {
       "run.cancel",
       "run.recover",
     ]);
-    expect(projectStateAction(state, "run.start")?.enabled).toBe(true);
-    expect(projectStateAction(state, "run.resume")).toMatchObject({
+    expect(harnessStateAction(state, "run.start")?.enabled).toBe(true);
+    expect(harnessStateAction(state, "run.resume")).toMatchObject({
       enabled: false,
       blocked_by: [{ code: "dispatch_lease_held" }],
       confirmation_required: false,
     });
-    expect(projectStateAction(state, "run.recover")?.confirmation_required).toBe(true);
+    expect(harnessStateAction(state, "run.recover")?.confirmation_required).toBe(true);
   });
 
-  test("keeps canonical preparing sessions as concrete active session targets", () => {
+  test("keeps canonical preparing cycles as concrete active cycle targets", () => {
     const dashboard = {
-      projectSession: {
-        id: "project-session:c850",
-        sessionUuid: "c850",
+      cycle: {
+        id: "cycle:c850",
+        cycleUuid: "c850",
         status: "active",
         phase: "preparing",
         activeSubphase: "baseline",
@@ -660,19 +660,19 @@ describe("workspace session view", () => {
       prs: {},
     } as unknown as Dashboard;
 
-    const view = deriveSessionView(dashboard, null, form);
+    const view = deriveCycleView(dashboard, null, form);
 
     expect(view.mode).toBe("none");
-    expect(view.activeSessionId).toBe("c850");
-    expect(view.activeSessionLabel).toBe("Session c850");
+    expect(view.activeCycleId).toBe("c850");
+    expect(view.activeCycleLabel).toBe("Cycle c850");
     expect(view.recommendedSub).toBe("prepare");
-    expect(view.newSessionBlocked).toBe(true);
-    expect(view.newSessionReasons).toContain("canonical session is preparing / baseline");
-    expect(activeSessionFocus(view)).toBe("c850");
+    expect(view.newCycleBlocked).toBe(true);
+    expect(view.newCycleReasons).toContain("canonical cycle is preparing / baseline");
+    expect(activeCycleFocus(view)).toBe("c850");
   });
 
-  test("uses the active route only when no concrete active session exists", () => {
-    expect(activeSessionFocus({ activeSessionId: "", mode: "none" })).toBe("active");
+  test("uses the active route only when no concrete active cycle exists", () => {
+    expect(activeCycleFocus({ activeCycleId: "", mode: "none" })).toBe("active");
   });
 
   test("treats migrated completed runs as terminal without accepting the retired complete status", () => {
@@ -684,20 +684,20 @@ describe("workspace session view", () => {
       prs: {},
     }) as unknown as Dashboard;
 
-    const completed = deriveSessionView(dashboardFor("completed"), null, form);
+    const completed = deriveCycleView(dashboardFor("completed"), null, form);
     expect(completed.mode).toBe("none");
-    expect(completed.activeSessionId).toBe("");
+    expect(completed.activeCycleId).toBe("");
 
-    const retired = deriveSessionView(dashboardFor("complete"), null, form);
+    const retired = deriveCycleView(dashboardFor("complete"), null, form);
     expect(retired.mode).toBe("run");
-    expect(retired.activeSessionId).toBe("run-legacy");
+    expect(retired.activeCycleId).toBe("run-legacy");
   });
 
-  test("derives prepare sync summaries from canonical and legacy worktree fields", () => {
+  test("derives prepare sync summaries from canonical worktree fields", () => {
     const dashboard = {
-      projectSession: {
-        id: "project-session:c850",
-        sessionUuid: "c850",
+      cycle: {
+        id: "cycle:c850",
+        cycleUuid: "c850",
         status: "active",
         phase: "preparing",
         activeSubphase: "sync_intake",
@@ -712,8 +712,8 @@ describe("workspace session view", () => {
               beforeRef: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               afterRef: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               mergedPrs: [2731, "2732"],
-              mainWorktreePath: "/repo/projects/melee/worktrees/upstream-current",
-              sessionWorktreePath: "/repo/projects/melee/worktrees/sessions/c850/current",
+              upstreamWorktreePath: "/repo/games/melee/worktrees/upstream-current",
+              cycleCurrentWorktreePath: "/repo/games/melee/worktrees/cycles/c850/current",
             },
           },
           running: {},
@@ -728,22 +728,22 @@ describe("workspace session view", () => {
       prs: {},
     } as unknown as Dashboard;
 
-    const view = deriveSessionView(dashboard, null, form);
+    const view = deriveCycleView(dashboard, null, form);
 
     expect(view.prepareState.syncDone).toBe(true);
     expect(view.prepareState.headShortSha).toBe("bbbbbbbbbb");
     expect(view.prepareState.upstreamChanged).toBe(true);
     expect(view.prepareState.mergedPrs).toEqual([2731, 2732]);
     expect(view.prepareState.pendingIntakePrCount).toBe(2);
-    expect(view.prepareState.upstreamWorktreePath).toBe("/repo/projects/melee/worktrees/upstream-current");
-    expect(view.prepareState.sessionCurrentWorktreePath).toBe("/repo/projects/melee/worktrees/sessions/c850/current");
+    expect(view.prepareState.upstreamWorktreePath).toBe("/repo/games/melee/worktrees/upstream-current");
+    expect(view.prepareState.cycleCurrentWorktreePath).toBe("/repo/games/melee/worktrees/cycles/c850/current");
   });
 
   test("keeps PR index debt separate from git movement after resync", () => {
     const dashboard = {
-      projectSession: {
-        id: "project-session:c850",
-        sessionUuid: "c850",
+      cycle: {
+        id: "cycle:c850",
+        cycleUuid: "c850",
         status: "active",
         phase: "preparing",
         activeSubphase: "sync_intake",
@@ -779,7 +779,7 @@ describe("workspace session view", () => {
       prs: {},
     } as unknown as Dashboard;
 
-    const view = deriveSessionView(dashboard, null, form);
+    const view = deriveCycleView(dashboard, null, form);
 
     expect(view.prepareState.syncDone).toBe(true);
     expect(view.prepareState.upstreamChanged).toBe(false);
@@ -792,9 +792,9 @@ describe("workspace session view", () => {
 
   test("derives prepare intake item counts for retryable PR intake", () => {
     const dashboard = {
-      projectSession: {
-        id: "project-session:c850",
-        sessionUuid: "c850",
+      cycle: {
+        id: "cycle:c850",
+        cycleUuid: "c850",
         status: "active",
         phase: "preparing",
         activeSubphase: "processing_prs",
@@ -829,7 +829,7 @@ describe("workspace session view", () => {
       prs: {},
     } as unknown as Dashboard;
 
-    const view = deriveSessionView(dashboard, null, form);
+    const view = deriveCycleView(dashboard, null, form);
 
     expect(view.prepareState.pendingIntakePrCount).toBe(2);
     expect(view.prepareState.runningIntakeItemCount).toBe(1);

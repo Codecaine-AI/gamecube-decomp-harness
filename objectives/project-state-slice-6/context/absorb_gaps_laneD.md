@@ -22,7 +22,7 @@
 | P108 | `docs/10-system-design/50-ship-and-pr/20-operator-flow-and-pr-tracking` | Extended `b-60-operator-flow-and-pr-tracking-resolving-work-records-t-48` and added `b-gap-pr-workitem-statuses`: a review-thread answer can resolve an item without a push. |
 | P109 | `docs/10-system-design/50-ship-and-pr/20-operator-flow-and-pr-tracking` | Added `b-gap-pr-workitem-statuses`: `resolved` is terminal and cannot be reclaimed. |
 | S017 | `docs/20-implementation/40-state` | Extended `b-00-overview-table-purpose-8`, `campaigns` row: `ProjectSession` owns long-lived project timeline/head lineage; campaign means PR review workflow only. |
-| R075 | `docs/20-implementation/60-ui/20-project-state-workspace/20-state-summary-and-freshness` | Added `b-ui-recovery-point-marker`: trace/history surfaces render `run.recovered` as a visually distinct recovery-point marker while preserving event order. |
+| R075 | `docs/20-implementation/60-ui/20-harness-state-workspace/20-state-summary-and-freshness` | Added `b-ui-recovery-point-marker`: trace/history surfaces render `run.recovered` as a visually distinct recovery-point marker while preserving event order. |
 
 ## Verification
 

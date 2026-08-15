@@ -1,7 +1,7 @@
 /**
  * Knowledge-ledger graph builder: indexes learnings onto targets.
  *
- * Reads projects/melee/knowledge/ledger/learnings.jsonl (append-only;
+ * Reads games/melee/knowledge/ledger/learnings.jsonl (append-only;
  * latest record per id wins), anchors each learning against the current
  * function index / checkout (present-anchoring: a missing anchor marks the
  * learning stale rather than dropping it), and emits:
@@ -30,7 +30,7 @@ function buildAnchorIndex(repoRoot: string): AnchorIndex {
   const symbolToUnit = new Map<string, string>();
   const functionsIndex = resolve(
     repoRoot,
-    "projects/melee/knowledge/sources/code_context/code_graph/indexes/functions.jsonl",
+    "games/melee/knowledge/sources/code_context/code_graph/indexes/functions.jsonl",
   );
   if (existsSync(functionsIndex)) {
     for (const line of readFileSync(functionsIndex, "utf8").split("\n")) {
@@ -44,7 +44,7 @@ function buildAnchorIndex(repoRoot: string): AnchorIndex {
       }
     }
   }
-  return { symbolToUnit, checkoutRoot: resolve(repoRoot, "projects/melee/checkout"), repoRoot };
+  return { symbolToUnit, checkoutRoot: resolve(repoRoot, "games/melee/checkout"), repoRoot };
 }
 
 function latestLearnings(ledgerPath: string): LearningRecord[] {

@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { latestSavePoint } from "@server/core/session-runtime/phases/pr/state";
-import { openState } from "@server/core/session-runtime/run-state";
-import { parseBaseRef } from "@server/core/session-runtime/phases/preparing/runtime";
+import { latestSavePoint } from "@server/core/cycle-runtime/phases/pr/state";
+import { openState } from "@server/core/cycle-runtime/run-state";
+import { parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/runtime";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 
 type JsonObject = Record<string, unknown>;

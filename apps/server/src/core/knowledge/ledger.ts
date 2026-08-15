@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
 import { ensureParentDir } from "./graph/util.js";
-import { projectKnowledgeRoot } from "./paths.js";
+import { gameKnowledgeRoot } from "./paths.js";
 
 export type LearningOrigin = "human_extracted" | "ai_inferred";
 export type LearningScope = "symbol" | "file" | "area" | "general";
@@ -65,12 +65,12 @@ export interface LedgerLearningSearchResult {
   results: LedgerLearningHit[];
 }
 
-export function defaultLedgerPath(projectId = "melee"): string {
-  return resolve(projectKnowledgeRoot(projectId), "ledger", "learnings.jsonl");
+export function defaultLedgerPath(gameId = "melee"): string {
+  return resolve(gameKnowledgeRoot(gameId), "ledger", "learnings.jsonl");
 }
 
-export function defaultLedgerSearchDbPath(projectId = "melee"): string {
-  return resolve(projectKnowledgeRoot(projectId), "ledger", "learnings-fts.sqlite");
+export function defaultLedgerSearchDbPath(gameId = "melee"): string {
+  return resolve(gameKnowledgeRoot(gameId), "ledger", "learnings-fts.sqlite");
 }
 
 export function appendLearnings(outputPath: string, records: LearningRecord[]): AppendLearningsResult {
@@ -154,13 +154,13 @@ export function searchLedgerLearnings(options: {
   query: string;
   scope?: LearningScope;
   limit?: number;
-  projectId?: string;
+  gameId?: string;
   dbPath?: string;
   ledgerPath?: string;
 }): LedgerLearningSearchResult {
-  const projectId = options.projectId ?? "melee";
-  const dbPath = resolve(options.dbPath ?? defaultLedgerSearchDbPath(projectId));
-  const ledgerPath = resolve(options.ledgerPath ?? defaultLedgerPath(projectId));
+  const gameId = options.gameId ?? "melee";
+  const dbPath = resolve(options.dbPath ?? defaultLedgerSearchDbPath(gameId));
+  const ledgerPath = resolve(options.ledgerPath ?? defaultLedgerPath(gameId));
   if (!existsSync(dbPath)) {
     return {
       status: "index_missing",

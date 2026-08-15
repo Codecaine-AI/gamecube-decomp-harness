@@ -17,11 +17,11 @@ import {
   type KernelAgentId,
   type KernelAgentViewerDefinition,
 } from "@server/core/agent-catalog/kernel-catalog";
-import type { ResolvedProject } from "@server/core/project-registry";
-import type { PiPromptBundle, RunProjectMetadata } from "@server/core/shared/types";
+import type { ResolvedGame } from "@server/core/game-registry";
+import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
 
 export interface KernelAgentCatalogContext {
-  project: ResolvedProject | null;
+  game: ResolvedGame | null;
   repoRoot: string;
   stateDir: string;
   graphDbPath: string;
@@ -34,21 +34,21 @@ export interface KernelAgentsPayload {
   warnings: string[];
 }
 
-function projectMetadata(paths: KernelAgentCatalogContext): RunProjectMetadata | undefined {
-  if (!paths.project) return undefined;
+function gameMetadata(paths: KernelAgentCatalogContext): RunGameMetadata | undefined {
+  if (!paths.game) return undefined;
   return {
-    projectId: paths.project.projectId,
-    projectKind: paths.project.kind,
+    gameId: paths.game.gameId,
+    gameKind: paths.game.kind,
     repoRoot: paths.repoRoot,
     stateDir: paths.stateDir,
     graphDbPath: paths.graphDbPath,
-    descriptorPath: paths.project.descriptorPath,
-    localOverridePath: paths.project.localOverridePath,
+    descriptorPath: paths.game.descriptorPath,
+    localOverridePath: paths.game.localOverridePath,
   };
 }
 
 function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext): PiPromptBundle {
-  const project = projectMetadata(paths);
+  const game = gameMetadata(paths);
   switch (agentId) {
     case "worker":
       return workerPrompt({
@@ -118,7 +118,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
-        project,
+        game,
         initialBoardPath: resolve(paths.stateDir, "runs/kernel-viewer/snapshots/initial_board.json"),
         workerLogDir: resolve(paths.stateDir, "runs/kernel-viewer/worker_logs/sample"),
       });
@@ -143,9 +143,9 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           isolated_worktree: {
             path: resolve(paths.stateDir, "kernel-viewer/conflict-worktree"),
             base_revision: "aaaaaaaa",
-            session_revision: "bbbbbbbb",
+            cycle_revision: "bbbbbbbb",
           },
-          session_worktree_path: paths.repoRoot,
+          cycle_worktree_path: paths.repoRoot,
           incoming: {
             claim,
             scoped_checks: scopedChecks,
@@ -161,7 +161,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
-        project,
+        game,
       });
     }
     case "integration-resolver":
@@ -191,7 +191,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         queueSummary: { queued_items: 1, conflict_groups: 1 },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
-        project,
+        game,
       });
     case "pr-reviewer":
       return prPreshipReviewPrompt({
@@ -213,7 +213,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
               id: "kernel-viewer-review-comment",
               file: "src/melee/ft/chara/ftDemo.c",
               line: 12,
-              body: "Please restore the project assert helper here instead of open-coding this.",
+              body: "Please restore the game assert helper here instead of open-coding this.",
               standard_id: "global_standard:canonical-asserts",
               rule_id: "raw_assert_idiom",
             },
@@ -231,7 +231,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
-        project,
+        game,
       });
     case "pr-splitter":
       return prSplitterPrompt({
@@ -242,7 +242,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
-        project,
+        game,
       });
     case "librarian":
       return librarianPrompt({
@@ -272,7 +272,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
-        project,
+        game,
       });
     case "reconcile":
       return reconcilePrompt({
@@ -284,7 +284,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
-        project,
+        game,
       });
     case "qa-repair":
       return qaRepairPrompt({
@@ -307,7 +307,7 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         queueSummary: { total: 1 },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
-        project,
+        game,
       });
   }
 }

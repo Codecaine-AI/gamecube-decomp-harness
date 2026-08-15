@@ -6,7 +6,7 @@ import {
   renderXmlMarkdown,
   section,
   usesContext,
-} from "@codecaine-ai/prompt-kit";
+} from "@server/core/agent-catalog/prompt-kit-compat";
 import type { PiPromptBundle } from "@server/core/shared/types";
 import {
   buildReconcileKernelContext,
@@ -29,7 +29,7 @@ export const prompt = definePrompt({
       bulletList([
         "Make the current bundle safe at a hard boundary of the run cycle.",
         "In `ship-validate` mode: clear the saved-baseline regression gate so the handoff bundle ships zero regressions upstream.",
-        "In `sync-merge` mode: reconcile local carry-forward work with freshly pulled upstream master so the next session starts from a clean build.",
+        "In `sync-merge` mode: reconcile local carry-forward work with freshly pulled upstream master so the next cycle starts from a clean build.",
         "Preserve new exact matches when you can do so with reviewable, standards-compliant code. Fuzzy-only improvements are expendable and may be peeled back.",
         "No new regressions in existing report items are acceptable. An existing exact match, existing improvement, unit metric, section metric, or function metric regression is a hard gate failure until fixed or explicitly escalated.",
         "Work only while scheduler/worker intake is locked. You are not a worker: you have whole-checkout scope, but every change must be justified by the gate you are clearing.",

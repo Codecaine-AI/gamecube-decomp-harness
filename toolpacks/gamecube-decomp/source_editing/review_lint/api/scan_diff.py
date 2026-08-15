@@ -51,6 +51,8 @@ MOVED_LINE_DOWNGRADE_RULES = {
     "m2c_goto_label",
     "m2c_field_use",
     "define_alias",
+    "shadowed_declaration",
+    "extern_own_tu_data",
     "novel_pragma",
     "codegen_pragma",
     "volatile_local_tactic",

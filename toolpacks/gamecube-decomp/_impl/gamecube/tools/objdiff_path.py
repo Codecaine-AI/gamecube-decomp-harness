@@ -18,7 +18,7 @@ _IMPL_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _repo_root() -> Path:
-    env = os.environ.get("ORCH_PROJECT_REPO_ROOT")
+    env = os.environ.get("ORCH_GAME_REPO_ROOT")
     return Path(env).resolve() if env else Path.cwd().resolve()
 
 
@@ -28,7 +28,7 @@ def objdiff_cli() -> str:
         return override
 
     candidates = []
-    state_dir = os.environ.get("ORCH_PROJECT_STATE_DIR")
+    state_dir = os.environ.get("ORCH_GAME_STATE_DIR")
     if state_dir:
         candidates.append(
             Path(state_dir).resolve()

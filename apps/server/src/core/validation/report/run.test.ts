@@ -125,10 +125,10 @@ printf '{"ok":true}\\n' > build/GALE01/report_changes.json
 
     const originalPath = Bun.env.PATH;
     const originalLog = Bun.env.REPORT_RUN_TEST_LOG;
-    const originalStateDir = Bun.env.ORCH_PROJECT_STATE_DIR;
+    const originalStateDir = Bun.env.ORCH_GAME_STATE_DIR;
     Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
     Bun.env.REPORT_RUN_TEST_LOG = logPath;
-    Bun.env.ORCH_PROJECT_STATE_DIR = stateDir;
+    Bun.env.ORCH_GAME_STATE_DIR = stateDir;
     try {
       await forceReportRun(repoRoot);
 
@@ -139,8 +139,8 @@ printf '{"ok":true}\\n' > build/GALE01/report_changes.json
       else Bun.env.PATH = originalPath;
       if (originalLog === undefined) delete Bun.env.REPORT_RUN_TEST_LOG;
       else Bun.env.REPORT_RUN_TEST_LOG = originalLog;
-      if (originalStateDir === undefined) delete Bun.env.ORCH_PROJECT_STATE_DIR;
-      else Bun.env.ORCH_PROJECT_STATE_DIR = originalStateDir;
+      if (originalStateDir === undefined) delete Bun.env.ORCH_GAME_STATE_DIR;
+      else Bun.env.ORCH_GAME_STATE_DIR = originalStateDir;
     }
   });
 
@@ -175,11 +175,11 @@ printf '{"ok":true}\\n' > build/GALE01/report_changes.json
 
     const originalPath = Bun.env.PATH;
     const originalLog = Bun.env.REPORT_RUN_TEST_LOG;
-    const originalStateDir = Bun.env.ORCH_PROJECT_STATE_DIR;
+    const originalStateDir = Bun.env.ORCH_GAME_STATE_DIR;
     const originalToolPlatform = Bun.env.ORCH_TOOL_PLATFORM;
     Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
     Bun.env.REPORT_RUN_TEST_LOG = logPath;
-    Bun.env.ORCH_PROJECT_STATE_DIR = stateDir;
+    Bun.env.ORCH_GAME_STATE_DIR = stateDir;
     Bun.env.ORCH_TOOL_PLATFORM = "linux-x86_64";
     try {
       await forceReportRun(repoRoot);
@@ -191,8 +191,8 @@ printf '{"ok":true}\\n' > build/GALE01/report_changes.json
       else Bun.env.PATH = originalPath;
       if (originalLog === undefined) delete Bun.env.REPORT_RUN_TEST_LOG;
       else Bun.env.REPORT_RUN_TEST_LOG = originalLog;
-      if (originalStateDir === undefined) delete Bun.env.ORCH_PROJECT_STATE_DIR;
-      else Bun.env.ORCH_PROJECT_STATE_DIR = originalStateDir;
+      if (originalStateDir === undefined) delete Bun.env.ORCH_GAME_STATE_DIR;
+      else Bun.env.ORCH_GAME_STATE_DIR = originalStateDir;
       if (originalToolPlatform === undefined) delete Bun.env.ORCH_TOOL_PLATFORM;
       else Bun.env.ORCH_TOOL_PLATFORM = originalToolPlatform;
     }

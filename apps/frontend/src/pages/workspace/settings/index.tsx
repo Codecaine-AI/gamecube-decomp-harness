@@ -3,11 +3,11 @@ import { RefreshCw, RotateCcw } from "@/icons";
 import { Button, CheckboxField, Field, InfoRows, List, PageHeader, PanelHeader, PanelSection, PanelTitle, SelectField } from "@/components/primitives";
 import { DEFAULT_TOOL_CONCURRENCY, normalizeToolConcurrency, suggestedToolConcurrency, toolConcurrencyRows } from "@/lib/workerConfig";
 import { processName } from "@/pages/workspace/_lib/model";
-import type { SessionView, WorkspaceNav } from "@/pages/workspace/_lib/types";
+import type { CycleView, WorkspaceNav } from "@/pages/workspace/_lib/types";
 
-export function SettingsPage({ config, form, nav, setForm, view }: { config: UiConfig | null; form: FormState; nav: WorkspaceNav; setForm: (updates: Partial<FormState>) => void; view: SessionView }) {
-  const projects = config?.availableProjects ?? [];
-  const defaults = asObject(config?.projectDefaults);
+export function SettingsPage({ config, form, nav, setForm, view }: { config: UiConfig | null; form: FormState; nav: WorkspaceNav; setForm: (updates: Partial<FormState>) => void; view: CycleView }) {
+  const games = config?.availableGames ?? [];
+  const defaults = asObject(config?.gameDefaults);
   const validation = asObject(defaults.validation);
   const pr = asObject(defaults.pr);
   const toolDefaults = asObject(defaults.toolConcurrency);
@@ -26,44 +26,44 @@ export function SettingsPage({ config, form, nav, setForm, view }: { config: UiC
   };
   return (
     <>
-      <PageHeader kicker={view.project?.displayName ?? "No project selected"} title="Settings" />
+      <PageHeader kicker={view.game?.displayName ?? "No game selected"} title="Settings" />
       <div className="@container grid min-h-0 flex-1 content-start gap-4 overflow-auto p-4">
         <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-[minmax(320px,0.75fr)_minmax(0,1fr)]">
           <PanelSection>
-            <PanelTitle>Project Selection</PanelTitle>
+            <PanelTitle>Game Selection</PanelTitle>
             <SelectField
-              label="Project"
+              label="Game"
               onChange={(event) => {
-                const project = projects.find((item) => item.id === event.currentTarget.value);
+                const game = games.find((item) => item.id === event.currentTarget.value);
                 setForm({
-                  projectId: event.currentTarget.value,
+                  gameId: event.currentTarget.value,
                   usePathOverrides: false,
-                  repoRoot: project?.repoRoot ?? form.repoRoot,
-                  stateDir: project?.stateDir ?? form.stateDir,
-                  graphDbPath: project?.graphDbPath ?? form.graphDbPath,
-                  processName: project?.processName ?? form.processName,
+                  repoRoot: game?.repoRoot ?? form.repoRoot,
+                  stateDir: game?.stateDir ?? form.stateDir,
+                  graphDbPath: game?.graphDbPath ?? form.graphDbPath,
+                  processName: game?.processName ?? form.processName,
                 });
               }}
-              options={projects.length ? projects.map((project) => project.id) : [form.projectId || ""]}
-              value={form.projectId}
+              options={games.length ? games.map((game) => game.id) : [form.gameId || ""]}
+              value={form.gameId}
             />
             <CheckboxField checked={form.usePathOverrides} label="Use custom paths" onChange={(event) => setForm({ usePathOverrides: event.currentTarget.checked })} />
             <Field disabled={!form.usePathOverrides} label="Repo root" onChange={(event) => setForm({ repoRoot: event.currentTarget.value })} spellCheck={false} value={form.repoRoot} />
             <Field disabled={!form.usePathOverrides} label="State dir" onChange={(event) => setForm({ stateDir: event.currentTarget.value })} spellCheck={false} value={form.stateDir} />
             <Field disabled={!form.usePathOverrides} label="Graph DB" onChange={(event) => setForm({ graphDbPath: event.currentTarget.value })} spellCheck={false} value={form.graphDbPath} />
             <p className="mb-0 mt-2 text-xs text-dim">
-              Standards and durable project knowledge live in the <button className="text-accent underline-offset-2 hover:underline" onClick={() => nav.goToSection("standards")} type="button">Standards</button> page, not here.
+              Standards and durable game knowledge live in the <button className="text-accent underline-offset-2 hover:underline" onClick={() => nav.goToSection("standards")} type="button">Standards</button> page, not here.
             </p>
           </PanelSection>
           <PanelSection>
             <PanelTitle>Path Health</PanelTitle>
             <InfoRows
               rows={[
-                ["Repo", form.repoRoot || view.project?.repoRoot || "-", view.project?.repoRootExists === false ? "text-down" : "text-soft"],
-                ["State", form.stateDir || view.project?.stateDir || "-", view.project?.stateDirExists === false ? "text-down" : "text-soft"],
-                ["Graph", form.graphDbPath || view.project?.graphDbPath || "-", view.project?.graphDbExists === false ? "text-down" : "text-soft"],
-                ["Process", processName(form.processName || view.project?.processName)],
-                ["Base ref", view.project?.baseRef ?? "-"],
+                ["Repo", form.repoRoot || view.game?.repoRoot || "-", view.game?.repoRootExists === false ? "text-down" : "text-soft"],
+                ["State", form.stateDir || view.game?.stateDir || "-", view.game?.stateDirExists === false ? "text-down" : "text-soft"],
+                ["Graph", form.graphDbPath || view.game?.graphDbPath || "-", view.game?.graphDbExists === false ? "text-down" : "text-soft"],
+                ["Process", processName(form.processName || view.game?.processName)],
+                ["Base ref", view.game?.baseRef ?? "-"],
               ]}
             />
           </PanelSection>
@@ -86,7 +86,7 @@ export function SettingsPage({ config, form, nav, setForm, view }: { config: UiC
                 <Button icon={<RefreshCw size={13} />} onClick={() => setForm({ toolConcurrency: suggestedToolConcurrency(form.maxWorkers) })} title="Fit tool slots to the selected worker count." type="button">
                   Fit Workers
                 </Button>
-                <Button icon={<RotateCcw size={13} />} onClick={() => setForm({ toolConcurrency: configuredToolConcurrency })} title="Reset to the effective project defaults." type="button">
+                <Button icon={<RotateCcw size={13} />} onClick={() => setForm({ toolConcurrency: configuredToolConcurrency })} title="Reset to the effective game defaults." type="button">
                   Defaults
                 </Button>
               </div>

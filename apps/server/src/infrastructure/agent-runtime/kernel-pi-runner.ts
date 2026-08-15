@@ -272,12 +272,12 @@ function defaultParsedAgentFromBundle(
 ): KernelPromptBundleConversion {
   return {
     parsed: {
-      frontmatter: {
+      config: {
         name: entry.name,
         description: "",
         model: entry.model ?? "unspecified",
         tools: entry.tools ?? [],
-        disallowed_tools: entry.disallowedTools ?? [],
+        disallowedTools: entry.disallowedTools ?? [],
         variables: {},
         thinking: entry.thinking ?? undefined,
       },
@@ -487,12 +487,7 @@ export function createMeleeKernelPiAgentRunner(
     const useKernelCreateSpawnAgent =
       strategy === "kernel" ||
       (strategy === "auto" && Boolean(runtime?.db && context.appSessionId && !piOptions.dryRun));
-    // Temporary workaround for the kernel accumulation-guard live-state injection bug.
-    // Remove once resolved context is appended to the spawned agent's in-memory messages.
-    const kernelUserPrompt =
-      useKernelCreateSpawnAgent && converted.contextResolver
-        ? directUserPromptForContextSpawn(piOptions, converted.userPrompt)
-        : converted.userPrompt;
+    const kernelUserPrompt = converted.userPrompt;
 
     if (strategy === "kernel" && piOptions.dryRun) {
       throw new Error("Kernel createSpawnAgent strategy does not support Pi dryRun");

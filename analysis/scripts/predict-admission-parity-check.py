@@ -105,11 +105,11 @@ def snapshot_database(source_path: Path, snapshot_path: Path) -> None:
 
 
 def load_snapshot_inputs(
-    snapshot_path: Path, session_id: str
+    snapshot_path: Path, run_id: str
 ) -> tuple[dict[str, list[dict[str, object]]], pd.DataFrame, int]:
     conn = pao.open_db_readonly(snapshot_path)
     try:
-        epoch_ids = pao.load_epoch_ids(conn, session_id)
+        epoch_ids = pao.load_epoch_ids(conn, run_id)
         score_epoch_id = epoch_ids[pao.SCORE_EPOCH]
         targets = pao.load_epoch_targets(conn, score_epoch_id)
         outcomes = {
@@ -125,8 +125,8 @@ def load_snapshot_inputs(
         )
         epoch = conn.execute(
             "SELECT fast_refresh_count FROM epochs "
-            "WHERE session_id = ? AND ordinal = ?",
-            (session_id, pao.SCORE_EPOCH),
+            "WHERE run_id = ? AND ordinal = ?",
+            (run_id, pao.SCORE_EPOCH),
         ).fetchone()
         if epoch is None:
             raise ValueError(f"epoch {pao.SCORE_EPOCH} metadata is missing")
@@ -158,7 +158,7 @@ def comparison_metrics(
 
 def run_check(args: argparse.Namespace, snapshot_path: Path) -> int:
     payload, feature_frame, fast_refresh_count = load_snapshot_inputs(
-        snapshot_path, args.session
+        snapshot_path, args.run
     )
 
     command = [
@@ -166,8 +166,8 @@ def run_check(args: argparse.Namespace, snapshot_path: Path) -> int:
         str(SCORER),
         "--db",
         str(snapshot_path),
-        "--session",
-        args.session,
+        "--run",
+        args.run,
         "--models",
         str(args.models),
     ]
@@ -395,7 +395,7 @@ def run_check(args: argparse.Namespace, snapshot_path: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=pao.DEFAULT_DB)
-    parser.add_argument("--session", default=pao.DEFAULT_SESSION)
+    parser.add_argument("--run", default=pao.DEFAULT_RUN)
     parser.add_argument("--models", type=Path, default=DEFAULT_MODELS)
     parser.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
     args = parser.parse_args()

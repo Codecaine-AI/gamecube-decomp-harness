@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DB = ROOT / "projects/melee/state/orchestrator.sqlite"
+DB = ROOT / "games/melee/state/orchestrator.sqlite"
 WORKER_TRANSCRIPTS = ROOT / ".pi-sessions/worker"
 
 RUNS = {

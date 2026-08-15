@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
 const selfPath = fileURLToPath(import.meta.url);
 
+const retiredVendoredPaths = ["packages/agent-kernel", "packages/docs-framework"];
+
 const retiredPaths = [
   "apps/server/resources",
   "apps/server/src/core/tools/agent-tools",
-  "projects/melee/knowledge/tools",
+  "games/melee/knowledge/tools",
   "toolpacks/gamecube-decomp/_impl/melee",
 ];
 
@@ -26,7 +28,7 @@ const retiredStrings = [
   "melee_tooling",
 ];
 
-const scanRoots = ["package.json", "apps", "docs", "projects/README.md", "projects/melee/project.json", "toolpacks"];
+const scanRoots = ["package.json", "apps", "docs", "games/README.md", "games/melee/game.json", "toolpacks"];
 const textExtensions = new Set([
   ".cjs",
   ".cts",
@@ -52,6 +54,15 @@ function repoRelative(path: string): string {
   return rel.split(sep).join("/") || ".";
 }
 
+function entryExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function extension(path: string): string {
   const slash = path.lastIndexOf("/");
   const dot = path.lastIndexOf(".");
@@ -64,8 +75,8 @@ function shouldSkipDirectory(path: string): boolean {
   const parts = rel.split("/");
   if (parts.includes(".git") || parts.includes("node_modules") || parts.includes("dist") || parts.includes("__pycache__")) return true;
   if (parts[0] === "objectives") return true;
-  if (parts[0] === "projects" && (parts.includes("checkout") || parts.includes("worktrees") || parts.includes("state"))) return true;
-  if (parts[0] === "projects" && (parts.includes("graph") || parts.includes("knowledge") || parts.includes("shared"))) return true;
+  if (parts[0] === "games" && (parts.includes("checkout") || parts.includes("worktrees") || parts.includes("state"))) return true;
+  if (parts[0] === "games" && (parts.includes("graph") || parts.includes("knowledge") || parts.includes("shared"))) return true;
   return false;
 }
 
@@ -108,7 +119,7 @@ function collectRetiredToolingReferences(): string[] {
   for (const retiredPath of retiredPaths) {
     const retiredRoot = join(repoRoot, ...retiredPath.split("/"));
     if (existsSync(retiredRoot)) {
-      failures.push(`${retiredPath} must not exist; resources live in projects, toolpacks, or server source modules.`);
+      failures.push(`${retiredPath} must not exist; resources live in games, toolpacks, or server source modules.`);
     }
   }
 
@@ -117,11 +128,17 @@ function collectRetiredToolingReferences(): string[] {
 }
 
 describe("tooling layout", () => {
+  test("does not restore retired vendored package roots", () => {
+    for (const retiredPath of retiredVendoredPaths) {
+      expect(entryExists(join(repoRoot, ...retiredPath.split("/")))).toBe(false);
+    }
+  });
+
   test("keeps retired root scripts out of the repo contract", () => {
     expect(existsSync(join(repoRoot, "scripts"))).toBe(false);
   });
 
-  test("does not reference retired project tooling paths", () => {
+  test("does not reference retired game tooling paths", () => {
     expect(collectRetiredToolingReferences()).toEqual([]);
   });
 });

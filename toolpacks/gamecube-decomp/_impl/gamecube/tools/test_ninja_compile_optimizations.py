@@ -65,7 +65,7 @@ def load_ninja_compile(root: Path, suffix: str) -> ModuleType:
         fail(f"cannot import {SCRIPT}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    with environment(ORCH_PROJECT_REPO_ROOT=str(root)):
+    with environment(ORCH_GAME_REPO_ROOT=str(root)):
         spec.loader.exec_module(module)
     return module
 

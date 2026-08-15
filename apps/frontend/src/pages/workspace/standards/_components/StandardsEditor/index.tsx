@@ -33,7 +33,7 @@ function KnowledgeRootsStrip({
     {
       icon: <FolderTree size={13} />,
       label: "Knowledge",
-      value: roots.projectKnowledgeRoot,
+      value: roots.gameKnowledgeRoot,
     },
     {
       icon: <FolderTree size={13} />,

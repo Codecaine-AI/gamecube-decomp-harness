@@ -1,7 +1,7 @@
 # Mismatch DB Tool
 
-Search surface for known assembly mismatch patterns, source-shape fixes, and
-last-mile matching tactics.
+Objdiff evidence generator for graph-owned mismatch patterns, source-shape
+fixes, and last-mile matching tactics.
 
 Current state: live runner v1.
 `python3 toolpacks/gamecube-decomp/research/mismatch_db/runners/analyze_objdiff_mismatches.py --repo-root <repo_root>`
@@ -12,6 +12,7 @@ chooses an imperfect function from `build/GALE01/report.json`, runs
 - `cache/objdiff_<symbol>.json`
 - `indexes/objdiff_mismatches.jsonl`
 
-`build_tool_indexes.py` keeps `indexes/patterns.jsonl` present so
-`api/search.py` can return live objdiff evidence alongside any supplemental
-local pattern notes.
+Rebuild the graph after refresh. Workers retrieve patterns with
+`knowledge_graph_search` and linked file evidence with
+`code_graph_file_card`. `api/search.py` remains an operator diagnostic for raw
+indexes, not a worker-facing search API.

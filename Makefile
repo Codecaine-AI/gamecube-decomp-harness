@@ -10,6 +10,7 @@ PR_QA_COMMENT ?= 1
 PR_QA_WAIT_CI ?= 0
 DOCS_PORT ?= 4800
 DOCS_API_PORT ?= 4801
+DOCS_KERNEL_PORT ?= 4840
 
 PROVIDER ?= codex-lb
 MODEL ?= gpt-5.6-sol
@@ -32,7 +33,7 @@ PR_QA_COMMENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_COMMENT)),--comment-unres
 PR_QA_CI_FLAG := $(if $(filter 1 true yes,$(PR_QA_WAIT_CI)),--wait-ci,)
 ORCH_GLOBAL_FLAGS := --repo-root "$(REPO_ROOT)" --state-dir "$(STATE_DIR)" $(DRY_FLAG) --provider "$(PROVIDER)" --model "$(MODEL)" --thinking-level "$(THINKING)" --agent-timeout-seconds "$(AGENT_TIMEOUT_SECONDS)"
 
-.PHONY: help install check smoke ui docs status init-run start dry-start recover-leases regression-check verify-ship-set pr-split-plan pr-draft-qa pr-session-review kg-status kg-maintain
+.PHONY: help install check smoke ui docs status init-run start dry-start recover-leases regression-check verify-ship-set pr-split-plan pr-draft-qa pr-cycle-review kg-status kg-maintain
 
 help:
 	@printf '%s\n' \
@@ -48,7 +49,7 @@ help:
 	  '  make verify-ship-set    Refresh baseline and verify the planned match-lane ship set' \
 	  '  make pr-split-plan      Render PR split/handoff plan' \
 	  '  make pr-draft-qa PR=N   Run draft PR QA lifecycle for PR N' \
-	  '  make pr-session-review  Run session review/repair ledger before PR splitting' \
+	  '  make pr-cycle-review    Run cycle review/repair ledger before PR splitting' \
 	  '  make kg-status          Print knowledge graph status' \
 	  '  make kg-maintain        Run knowledge maintenance' \
 	  '  make check              Typecheck + review-lint tests' \
@@ -61,6 +62,8 @@ help:
 	  '  WORKERS=$(WORKERS) AGENT_TIMEOUT_SECONDS=$(AGENT_TIMEOUT_SECONDS) GOAL=$(GOAL) DRY_RUN=$(DRY_RUN)'
 
 install:
+	@for p in db kernel protocol viewer-core viewer-shell viewer-ui; do (cd ../Core/agent-kernel/packages/$$p && bun link >/dev/null); done
+	@(cd ../Core/prompt-kit/packages/prompt-kit && bun link >/dev/null)
 	bun install
 
 check:
@@ -73,12 +76,43 @@ ui:
 	bun run ui:dev
 
 docs:
-	bun packages/docs-framework/packages/docs-cli/src/index.ts serve \
-	  --root docs \
-	  --dev \
-	  --port "$(DOCS_API_PORT)" \
-	  --ui-port "$(DOCS_PORT)" \
-	  --theme-locked
+	@set -eu; \
+	  (cd ../Core/docs-system/packages/docs-kernel && \
+	    exec env DOCS_KERNEL_PORT="$(DOCS_KERNEL_PORT)" \
+	      DOCS_KERNEL_DOCS_ROOT="$(CURDIR)/docs" \
+	      bun src/server.ts) & \
+	  KERNEL_PID=$$!; \
+	  OPEN_PID=; \
+	  cleanup() { \
+	    if [ -n "$$OPEN_PID" ]; then \
+	      kill "$$OPEN_PID" 2>/dev/null || true; \
+	      wait "$$OPEN_PID" 2>/dev/null || true; \
+	    fi; \
+	    kill -TERM "$$KERNEL_PID" 2>/dev/null || true; \
+	    i=0; \
+	    while kill -0 "$$KERNEL_PID" 2>/dev/null && [ "$$i" -lt 5 ]; do \
+	      sleep 1; \
+	      i=$$((i + 1)); \
+	    done; \
+	    if kill -0 "$$KERNEL_PID" 2>/dev/null; then \
+	      kill -9 "$$KERNEL_PID" 2>/dev/null || true; \
+	    fi; \
+	    wait "$$KERNEL_PID" 2>/dev/null || true; \
+	  }; \
+	  trap cleanup EXIT; \
+	  trap 'exit 130' INT; \
+	  trap 'exit 143' TERM; \
+	  if [ "$$(uname)" = Darwin ]; then \
+	    (until curl -fsS "http://localhost:$(DOCS_PORT)" >/dev/null 2>&1; do sleep 1; done; \
+	      open "http://localhost:$(DOCS_PORT)") & \
+	    OPEN_PID=$$!; \
+	  fi; \
+	  bun ../Core/docs-system/packages/docs-cli/src/index.ts serve \
+	    --root docs \
+	    --dev \
+	    --port "$(DOCS_API_PORT)" \
+	    --ui-port "$(DOCS_PORT)" \
+	    --theme-locked
 
 status:
 	bun run server:job -- $(ORCH_GLOBAL_FLAGS) status
@@ -129,8 +163,8 @@ pr-draft-qa:
 	  $(PR_QA_CI_FLAG) \
 	  $(PR_QA_FLAGS)
 
-pr-session-review:
-	bun run server:job -- $(ORCH_GLOBAL_FLAGS) pr-session-review \
+pr-cycle-review:
+	bun run server:job -- $(ORCH_GLOBAL_FLAGS) pr-cycle-review \
 	  $(RUN_ID_FLAG) \
 	  $(RUN_ARGS)
 

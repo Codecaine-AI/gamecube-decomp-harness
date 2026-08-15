@@ -4,7 +4,7 @@ import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
 import type {
   PiPromptBundle,
-  RunProjectMetadata,
+  RunGameMetadata,
 } from "@server/core/shared/types";
 import {
   fileGraphCard,
@@ -79,7 +79,7 @@ export interface WorkerPromptOptions {
   packet: Record<string, unknown>;
   repoRoot: string;
   stateDir: string;
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
   initialBoardPath: string;
   workerLogDir: string;
   contextBudget?: WorkerPromptContextBudget;
@@ -88,7 +88,7 @@ export interface WorkerPromptOptions {
 export interface WorkerPromptInputXmlOptions {
   packet: Record<string, unknown>;
   repoRoot: string;
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
   contextBudget?: WorkerPromptContextBudget;
 }
 
@@ -376,7 +376,7 @@ function fileCardFromPacket(packet: Record<string, unknown>): {
 
 function fileCardFromGraph(
   sourcePath: string,
-  project?: RunProjectMetadata,
+  game?: RunGameMetadata,
   graphDbOverride?: string | null,
 ): {
   card: Record<string, unknown>;
@@ -385,7 +385,7 @@ function fileCardFromGraph(
   reason: string | null;
 } {
   const graphDb =
-    graphDbOverride || project?.graphDbPath || resourceGraphDbPath();
+    graphDbOverride || game?.graphDbPath || resourceGraphDbPath();
   if (!sourcePath)
     return {
       card: {},
@@ -425,7 +425,7 @@ function fileCardFromGraph(
 
 function compactTargetGraphFileCard(
   packet: Record<string, unknown>,
-  project?: RunProjectMetadata,
+  game?: RunGameMetadata,
   contextBudget: WorkerPromptContextBudget = "full",
 ): Record<string, unknown> {
   const target = asRecord(packet.target);
@@ -433,7 +433,7 @@ function compactTargetGraphFileCard(
   const fromPacket = fileCardFromPacket(packet);
   const loaded = Object.keys(fromPacket.card).length
     ? { ...fromPacket, status: fromPacket.status ?? "ready" }
-    : fileCardFromGraph(sourcePath, project, fromPacket.graphDb);
+    : fileCardFromGraph(sourcePath, game, fromPacket.graphDb);
   const card = loaded.card;
   if (!Object.keys(card).length) {
     return compactObject({
@@ -595,10 +595,10 @@ function compactTargetGraphFileCard(
 
 function targetGraphFileCardXml(
   packet: Record<string, unknown>,
-  project?: RunProjectMetadata,
+  game?: RunGameMetadata,
   contextBudget: WorkerPromptContextBudget = "full",
 ): string {
-  const compactCard = compactTargetGraphFileCard(packet, project, contextBudget);
+  const compactCard = compactTargetGraphFileCard(packet, game, contextBudget);
   const status = optionalString(compactCard.status);
   const unavailable = status && status !== "ready" ? ' unavailable="true"' : "";
   return [
@@ -673,7 +673,7 @@ export function workerPromptInputXml(
     baselineXml: baselineXml(baseline),
     targetGraphFileCardXml: targetGraphFileCardXml(
       options.packet,
-      options.project,
+      options.game,
       contextBudget,
     ),
   };
@@ -686,7 +686,7 @@ export function buildWorkerKernelContext(
   const inputXml = workerPromptInputXml({
     packet: options.packet,
     repoRoot: options.repoRoot,
-    project: options.project,
+    game: options.game,
     contextBudget,
   });
   const toolContext = {
@@ -694,7 +694,7 @@ export function buildWorkerKernelContext(
     cwd: options.repoRoot,
     repoRoot: options.repoRoot,
     stateDir: options.stateDir,
-    project: options.project,
+    game: options.game,
     packet: options.packet,
     initialBoardPath: options.initialBoardPath,
     workerLogDir: options.workerLogDir,

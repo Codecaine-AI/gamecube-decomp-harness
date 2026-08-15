@@ -15,23 +15,23 @@ import {
   transitionRun,
   updateRunStatus,
   type StateStore,
-} from "@server/core/session-runtime/run-state";
+} from "@server/core/cycle-runtime/run-state";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
-import { createProjectSession, recordSavePointAnchor, recordSavePointFailureDurably } from "@server/core/project-session";
-import { initializeProjectState, releaseDispatch, requestDispatch } from "@server/core/project-state";
-import { addSavePoint, ensureCampaign } from "@server/core/session-runtime/phases/pr/state";
+import { createCycle, recordSavePointAnchor, recordSavePointFailureDurably } from "@server/core/cycle";
+import { initializeHarnessState, releaseDispatch, requestDispatch } from "@server/core/harness-state";
+import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import {
   activateAcquiredPrCampaign,
   ingestPrFeedback,
   openPrCampaign,
   transitionPrSeries,
-} from "@server/core/session-runtime/phases/pr/campaign";
-import { getSyncState, recordSyncRequested, transitionSync } from "@server/core/session-runtime/phases/sync";
+} from "@server/core/cycle-runtime/phases/pr/campaign";
+import { getSyncState, recordSyncRequested, transitionSync } from "@server/core/cycle-runtime/phases/sync";
 import {
-  buildProjectStateReadModel,
+  buildHarnessStateReadModel,
   createDashboardReadModel,
-  getProjectStateView,
-  projectRunActionState,
+  getHarnessStateView,
+  gameRunActionState,
   type JsonObject,
 } from "./read-model.js";
 
@@ -58,13 +58,13 @@ afterAll(() => {
 });
 
 describe("dashboard read model", () => {
-  test("canonical ProjectStateView always projects the 21 actions and isolates compatibility actions", () => {
+  test("canonical HarnessStateView always projects the 21 actions and isolates compatibility actions", () => {
     const { store } = tempState();
     try {
-      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
-      const view = getProjectStateView(store, "melee");
-      expect(view.project_id).toBe("melee");
-      expect(view.project_revision).toBe(0);
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
+      const view = getHarnessStateView(store, "melee");
+      expect(view.game_id).toBe("melee");
+      expect(view.harness_revision).toBe(0);
       expect(view.run).toBeNull();
       expect(view.pr_work).toEqual([]);
       expect(view.knowledge).toMatchObject({ queued: 0, processing: 0, waiting: 0, failed: 0, active_lease: null });
@@ -73,11 +73,11 @@ describe("dashboard read model", () => {
         "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
         "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
         "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
-        "session.save_point", "session.close", "knowledge.process",
+        "cycle.save_point", "cycle.close", "knowledge.process",
       ]);
       expect(view.available_actions.every((action) => action.confirmation_required === [
         "run.hard_stop", "run.cancel", "run.recover", "pr.publish_batch", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
-        "sync.publish", "sync.cancel", "sync.recover", "session.close",
+        "sync.publish", "sync.cancel", "sync.recover", "cycle.close",
       ].includes(action.action_id))).toBeTrue();
       expect(view.available_actions.find((action) => action.action_id === "run.start")?.blocked_by).toEqual([
         expect.objectContaining({ code: "run_not_found" }),
@@ -93,20 +93,20 @@ describe("dashboard read model", () => {
     }
   });
 
-  test("projects canonical authority, session evidence, queued dispatch, and server-owned actions", () => {
+  test("projects canonical authority, cycle evidence, queued dispatch, and server-owned actions", () => {
     const { store } = tempState();
     try {
-      createProjectSession(store.db, {
+      createCycle(store.db, {
         actor: "operator",
-        projectId: "melee",
-        sessionUuid: "session-1",
-        id: "project-session:session-1",
+        gameId: "melee",
+        cycleUuid: "session-1",
+        id: "cycle:session-1",
         baseSha: "base-sha",
       });
-      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
       recordSyncRequested(store, {
-        projectId: "melee",
-        sessionUuid: "session-1",
+        gameId: "melee",
+        cycleUuid: "session-1",
         syncId: "sync-1",
         commandId: "command-sync-requested",
         correlationId: "sync-1",
@@ -124,11 +124,11 @@ describe("dashboard read model", () => {
         "matched_code_percent",
         100,
         1,
-        { projectId: "melee" },
-        { baseRevision: "base-sha", sessionUuid: "session-1" },
+        { gameId: "melee" },
+        { baseRevision: "base-sha", cycleUuid: "session-1" },
       );
       const run = requestDispatch(store, {
-        projectId: "melee",
+        gameId: "melee",
         kind: "run",
         workflowId: durableRun.id,
         reason: "run",
@@ -138,7 +138,7 @@ describe("dashboard read model", () => {
       });
       expect(run.queued).toBeFalse();
       requestDispatch(store, {
-        projectId: "melee",
+        gameId: "melee",
         kind: "sync",
         workflowId: "sync-1",
         reason: "sync",
@@ -146,7 +146,7 @@ describe("dashboard read model", () => {
         actor: "operator",
         correlationId: "sync-1",
       });
-      const campaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
       const savePoint = addSavePoint(store, {
         campaignId: campaign.id,
         triggerKind: "manual",
@@ -155,7 +155,7 @@ describe("dashboard read model", () => {
         matchedCodePercent: 98.5,
       });
       recordSavePointAnchor(store, {
-        projectId: "melee",
+        gameId: "melee",
         savePointId: savePoint.id,
         commitSha: "base-sha",
         triggerKind: "manual",
@@ -165,7 +165,7 @@ describe("dashboard read model", () => {
         actor: "operator",
       });
 
-      const view = buildProjectStateReadModel(store, "melee", {
+      const view = buildHarnessStateReadModel(store, "melee", {
         aheadOfBase: 0,
         head: { dirty: false },
       });
@@ -175,8 +175,8 @@ describe("dashboard read model", () => {
       expect(view.queued_dispatch_requests).toEqual([
         expect.objectContaining({ kind: "sync", workflow_id: "sync-1" }),
       ]);
-      expect(view.session).toMatchObject({
-        session_uuid: "session-1",
+      expect(view.cycle).toMatchObject({
+        cycle_uuid: "session-1",
         head_revision: "base-sha",
         status: "active",
         save_point_stale: false,
@@ -188,13 +188,13 @@ describe("dashboard read model", () => {
           matchedCodePercent: 98.5,
         },
       });
-      expect(view.session?.timeline).toHaveLength(1);
+      expect(view.cycle?.timeline).toHaveLength(1);
       expect(view.latest_event_sequence).toBe(8);
       expect(view.recent_events.map((event) => event.sequence)).toEqual([8, 7, 6, 5, 4, 3, 2, 1]);
       expect(view.recent_events[0]).toMatchObject({
-        event_type: "session.save_point_recorded",
-        project_id: "melee",
-        subject_kind: "session",
+        event_type: "cycle.save_point_recorded",
+        game_id: "melee",
+        subject_kind: "cycle",
         subject_id: "session-1",
         payload_summary: {
           anchored_commit: "base-sha",
@@ -232,8 +232,8 @@ describe("dashboard read model", () => {
         "sync.publish",
         "sync.cancel",
         "sync.recover",
-        "session.save_point",
-        "session.close",
+        "cycle.save_point",
+        "cycle.close",
       ]);
       expect(view.available_actions.find((action) => action.action_id === "sync.start")).toMatchObject({
         enabled: true,
@@ -245,12 +245,12 @@ describe("dashboard read model", () => {
       expect(view.available_actions.find((action) => action.action_id === "sync.publish")?.confirmation_required).toBe(true);
       expect(view.available_actions.find((action) => action.action_id === "sync.cancel")?.confirmation_required).toBe(true);
       expect(view.available_actions.find((action) => action.action_id === "sync.recover")?.confirmation_required).toBe(true);
-      expect(view.available_actions.find((action) => action.action_id === "session.save_point")).toMatchObject({
+      expect(view.available_actions.find((action) => action.action_id === "cycle.save_point")).toMatchObject({
         enabled: true,
         blocked_by: [],
         confirmation_required: false,
       });
-      expect(view.available_actions.find((action) => action.action_id === "session.close")).toMatchObject({
+      expect(view.available_actions.find((action) => action.action_id === "cycle.close")).toMatchObject({
         enabled: false,
         blocked_by: [expect.objectContaining({ code: "dispatch_lease_held" })],
         confirmation_required: true,
@@ -263,15 +263,15 @@ describe("dashboard read model", () => {
   test("projects the durable PR campaign, next batch, feedback queue, activation, and canonical actions", () => {
     const { store } = tempState();
     try {
-      createProjectSession(store.db, {
+      createCycle(store.db, {
         actor: "operator",
-        projectId: "melee",
-        sessionUuid: "session-pr",
-        id: "project-session:session-pr",
+        gameId: "melee",
+        cycleUuid: "session-pr",
+        id: "cycle:session-pr",
         baseSha: "source-head",
       });
-      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
-      const legacyCampaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
+      const legacyCampaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
       const savePoint = addSavePoint(store, {
         campaignId: legacyCampaign.id,
         triggerKind: "manual",
@@ -283,7 +283,7 @@ describe("dashboard read model", () => {
         commandId: "command-pr-anchor",
         correlationId: "session-pr",
         commitSha: "source-head",
-        projectId: "melee",
+        gameId: "melee",
         savePointId: savePoint.id,
         triggerKind: "manual",
       });
@@ -293,7 +293,7 @@ describe("dashboard read model", () => {
         commandId: "command-pr-open",
         correlationId: "pr-campaign-dashboard",
         namedSavePointId: savePoint.id,
-        projectId: "melee",
+        gameId: "melee",
         publicationPolicy: { batch_size: 2 },
         series: [
           {
@@ -325,14 +325,14 @@ describe("dashboard read model", () => {
             targetUnits: ["src/gamma.c"],
           },
         ],
-        sessionUuid: "session-pr",
+        cycleUuid: "session-pr",
       });
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-pr-dispatch",
         correlationId: campaign.campaign_id,
         kind: "pr",
-        projectId: "melee",
+        gameId: "melee",
         reason: "work the campaign",
         workflowId: campaign.campaign_id,
       });
@@ -342,7 +342,7 @@ describe("dashboard read model", () => {
         commandId: "command-pr-activate",
         correlationId: campaign.campaign_id,
         leaseId: dispatch.leaseId,
-        projectId: "melee",
+        gameId: "melee",
         store,
       });
       const published = transitionPrSeries(store, "series-alpha", {
@@ -367,7 +367,7 @@ describe("dashboard read model", () => {
           itemId: "work-item-alpha",
           sourceKind: "review_comment",
           sourceId: "review-comment-1",
-          summary: "Use the project typedef.",
+          summary: "Use the game typedef.",
         }],
         seriesId: published.series_id,
       });
@@ -376,7 +376,7 @@ describe("dashboard read model", () => {
         status: "changes_requested",
       });
 
-      const view = buildProjectStateReadModel(store, "melee", {
+      const view = buildHarnessStateReadModel(store, "melee", {
         aheadOfBase: 0,
         head: { dirty: false },
       });
@@ -408,7 +408,7 @@ describe("dashboard read model", () => {
             series_id: "series-alpha",
             series_branch: "codex/split-01-alpha",
             status: "pending",
-            summary: "Use the project typedef.",
+            summary: "Use the game typedef.",
             source_kind: "review_comment",
             source_id: "review-comment-1",
             resolved_at: null,
@@ -469,15 +469,15 @@ describe("dashboard read model", () => {
   test("projects campaign opening, legacy adoption, run-drain activation, and stale activation recovery", () => {
     const { dir, store } = tempState();
     try {
-      createProjectSession(store.db, {
+      createCycle(store.db, {
         actor: "operator",
-        projectId: "melee",
-        sessionUuid: "session-pr-actions",
-        id: "project-session:session-pr-actions",
+        gameId: "melee",
+        cycleUuid: "session-pr-actions",
+        id: "cycle:session-pr-actions",
         baseSha: "source-head",
       });
-      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
-      const legacyCampaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
+      const legacyCampaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
       const savePoint = addSavePoint(store, {
         campaignId: legacyCampaign.id,
         triggerKind: "manual",
@@ -489,7 +489,7 @@ describe("dashboard read model", () => {
         commandId: "command-actions-anchor",
         correlationId: "session-pr-actions",
         commitSha: "source-head",
-        projectId: "melee",
+        gameId: "melee",
         savePointId: savePoint.id,
         triggerKind: "manual",
       });
@@ -498,7 +498,7 @@ describe("dashboard read model", () => {
         records: [{ branch: "codex/split-01-alpha", prNumber: 2850 }],
       }]);
 
-      let view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      let view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.pr).toBeNull();
       expect(view.available_actions.find((action) => action.action_id === "pr.open_campaign")).toMatchObject({
         enabled: true,
@@ -515,34 +515,34 @@ describe("dashboard read model", () => {
         commandId: "command-actions-open",
         correlationId: "pr-campaign-actions",
         namedSavePointId: savePoint.id,
-        projectId: "melee",
+        gameId: "melee",
         series: [{
           batchIndex: 0,
           branch: "codex/split-01-actions",
           seriesId: "series-actions",
           targetUnits: ["src/actions.c"],
         }],
-        sessionUuid: "session-pr-actions",
+        cycleUuid: "session-pr-actions",
       });
       const durableRun = createRun(
         store,
         "matched_code_percent",
         100,
         1,
-        { projectId: "melee" },
-        { baseRevision: "source-head", sessionUuid: "session-pr-actions" },
+        { gameId: "melee" },
+        { baseRevision: "source-head", cycleUuid: "session-pr-actions" },
       );
       const runDispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-actions-run",
         correlationId: durableRun.id,
         kind: "run",
-        projectId: "melee",
+        gameId: "melee",
         reason: "test drain projection",
         workflowId: durableRun.id,
       });
       if (runDispatch.queued) throw new Error("test run lease was unexpectedly queued");
-      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.available_actions.find((action) => action.action_id === "pr.activate")).toMatchObject({
         enabled: true,
         expected_transition: "preparing/in_review → working after run drains",
@@ -554,14 +554,14 @@ describe("dashboard read model", () => {
         commandId: "command-actions-run-release",
         correlationId: durableRun.id,
         leaseId: runDispatch.leaseId,
-        projectId: "melee",
+        gameId: "melee",
       });
       const prDispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-actions-pr",
         correlationId: campaign.campaign_id,
         kind: "pr",
-        projectId: "melee",
+        gameId: "melee",
         reason: "test recovery projection",
         workflowId: campaign.campaign_id,
       });
@@ -571,14 +571,14 @@ describe("dashboard read model", () => {
         commandId: "command-actions-activate",
         correlationId: campaign.campaign_id,
         leaseId: prDispatch.leaseId,
-        projectId: "melee",
+        gameId: "melee",
         store,
       });
       const row = store.db
-        .query("SELECT active_workflow_json FROM project_state WHERE project_id = ?")
+        .query("SELECT active_workflow_json FROM harness_state WHERE game_id = ?")
         .get("melee") as { active_workflow_json: string };
       store.db
-        .query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = ?")
+        .query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?")
         .run(
           JSON.stringify({
             ...JSON.parse(row.active_workflow_json),
@@ -586,7 +586,7 @@ describe("dashboard read model", () => {
           }),
           "melee",
         );
-      view = buildProjectStateReadModel(
+      view = buildHarnessStateReadModel(
         store,
         "melee",
         { aheadOfBase: 0, head: { dirty: false } },
@@ -604,24 +604,24 @@ describe("dashboard read model", () => {
   test("projects the canonical run summary, action inventory, blockers, and recovery points", () => {
     const { store } = tempState();
     try {
-      createProjectSession(store.db, {
+      createCycle(store.db, {
         actor: "operator",
-        projectId: "melee",
-        sessionUuid: "session-run",
-        id: "project-session:session-run",
+        gameId: "melee",
+        cycleUuid: "session-run",
+        id: "cycle:session-run",
         baseSha: "base-sha",
       });
-      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
       const ready = createRun(
         store,
         "matched_code_percent",
         100,
         3,
-        { projectId: "melee" },
-        { baseRevision: "base-sha", sessionUuid: "session-run" },
+        { gameId: "melee" },
+        { baseRevision: "base-sha", cycleUuid: "session-run" },
       );
 
-      const readyState = projectRunActionState(store, "melee", { runId: ready.id });
+      const readyState = gameRunActionState(store, "melee", { runId: ready.id });
       expect(readyState.availableActions.map((action) => action.action_id)).toEqual([
         "run.start",
         "run.pause",
@@ -645,7 +645,7 @@ describe("dashboard read model", () => {
       });
 
       const dispatch = requestDispatch(store, {
-        projectId: "melee",
+        gameId: "melee",
         kind: "run",
         workflowId: ready.id,
         reason: "start run",
@@ -706,7 +706,7 @@ describe("dashboard read model", () => {
           .run(validationState === "regressed" ? "needs_rework" : "applied", validationState, integration.id);
       }
 
-      const activeView = buildProjectStateReadModel(store, "melee", {
+      const activeView = buildHarnessStateReadModel(store, "melee", {
         aheadOfBase: 0,
         head: { dirty: false },
       });
@@ -731,7 +731,7 @@ describe("dashboard read model", () => {
       expect(activeView.available_actions.find((action) => action.action_id === "run.hard_stop")?.enabled).toBe(true);
 
       const failed = updateRunStatus(store, active.id, "failed", "runner");
-      const failedState = projectRunActionState(store, "melee", { runId: active.id });
+      const failedState = gameRunActionState(store, "melee", { runId: active.id });
       expect(failedState.availableActions.find((action) => action.action_id === "run.recover")?.enabled).toBe(true);
       expect(failedState.availableActions.find((action) => action.action_id === "run.pause")).toMatchObject({
         enabled: false,
@@ -755,7 +755,7 @@ describe("dashboard read model", () => {
           resulting_status: "paused",
         },
       });
-      const recoveredView = buildProjectStateReadModel(store, "melee", {
+      const recoveredView = buildHarnessStateReadModel(store, "melee", {
         aheadOfBase: 0,
         head: { dirty: false },
       });
@@ -775,10 +775,10 @@ describe("dashboard read model", () => {
       const cancelled = updateRunStatus(store, active.id, "cancelled", "operator");
       const staleHeartbeat = new Date(Date.now() - 16 * 60 * 1000).toISOString();
       const currentLease = (store.db
-        .query("SELECT active_workflow_json FROM project_state WHERE project_id = ?")
+        .query("SELECT active_workflow_json FROM harness_state WHERE game_id = ?")
         .get("melee") as { active_workflow_json: string }).active_workflow_json;
       store.db
-        .query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = ?")
+        .query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?")
         .run(
           JSON.stringify({
             ...JSON.parse(currentLease),
@@ -786,7 +786,7 @@ describe("dashboard read model", () => {
           }),
           "melee",
         );
-      const terminalState = projectRunActionState(store, "melee", {
+      const terminalState = gameRunActionState(store, "melee", {
         runId: cancelled.id,
         hasActiveProcess: () => ({ active: false }),
       });
@@ -802,17 +802,17 @@ describe("dashboard read model", () => {
   test("projects sync staging, conflict, validation, staleness, publication, and shared action decisions", () => {
     const { store } = tempState();
     try {
-      createProjectSession(store.db, {
+      createCycle(store.db, {
         actor: "operator",
-        projectId: "melee",
-        sessionUuid: "session-sync",
-        id: "project-session:session-sync",
+        gameId: "melee",
+        cycleUuid: "session-sync",
+        id: "cycle:session-sync",
         baseSha: "session-head",
       });
-      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
       let sync = recordSyncRequested(store, {
-        projectId: "melee",
-        sessionUuid: "session-sync",
+        gameId: "melee",
+        cycleUuid: "session-sync",
         syncId: "sync-staged",
         commandId: "command-sync-requested",
         correlationId: "sync-staged",
@@ -830,7 +830,7 @@ describe("dashboard read model", () => {
         commandId: "command-sync-dispatch",
         correlationId: sync.sync_id,
         kind: "sync",
-        projectId: "melee",
+        gameId: "melee",
         reason: "test sync projection",
         workflowId: sync.sync_id,
       });
@@ -893,7 +893,7 @@ describe("dashboard read model", () => {
         },
       });
 
-      let view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      let view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.sync).toMatchObject({
         status: "blocked",
         staging: {
@@ -959,7 +959,7 @@ describe("dashboard read model", () => {
         patch: { status: "validated" },
       });
 
-      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.available_actions.find((action) => action.action_id === "sync.publish")).toMatchObject({
         enabled: true,
         confirmation_required: true,
@@ -973,7 +973,7 @@ describe("dashboard read model", () => {
         .query("UPDATE sync_state SET staging_json = ? WHERE sync_id = ?")
         .run(JSON.stringify({ ...sync.staging, observed_upstream: "upstream-later" }), sync.sync_id);
       sync = getSyncState(store, sync.sync_id)!;
-      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.sync?.staleness).toMatchObject({
         stale: true,
         validated_upstream: "upstream-new",
@@ -998,7 +998,7 @@ describe("dashboard read model", () => {
           staging: { ...sync.staging!, observed_upstream: "upstream-later" },
         },
       });
-      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.sync?.staleness).toMatchObject({
         stale: true,
         validated_upstream: "upstream-new",
@@ -1013,7 +1013,7 @@ describe("dashboard read model", () => {
       expect(view.available_actions.find((action) => action.action_id === "sync.cancel")?.enabled).toBe(true);
 
       store.db.query("UPDATE sync_state SET status = 'publishing' WHERE sync_id = ?").run(sync.sync_id);
-      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.available_actions.find((action) => action.action_id === "sync.cancel")?.blocked_by).toContainEqual(
         expect.objectContaining({ code: "sync_publish_committing", recoverable: false }),
       );
@@ -1039,9 +1039,9 @@ describe("dashboard read model", () => {
         commandId: "command-sync-release",
         correlationId: sync.sync_id,
         leaseId: dispatch.leaseId,
-        projectId: "melee",
+        gameId: "melee",
       });
-      view = buildProjectStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.sync).toMatchObject({
         workflow_id: "sync-staged",
         status: "published",
@@ -1071,26 +1071,26 @@ describe("dashboard read model", () => {
         "matched_code_percent",
         100,
         1,
-        { projectId: "melee", repoRoot: dir, stateDir: dir },
+        { gameId: "melee", repoRoot: dir, stateDir: dir },
         { baseRevision: "base-sha" },
       );
-      initializeProjectState(store, { projectId: "melee", traceId: "trace-project-melee" });
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
       const dispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-stale-run",
         correlationId: run.id,
         kind: "run",
-        projectId: "melee",
+        gameId: "melee",
         reason: "test stale run projection",
         workflowId: run.id,
       });
       if (dispatch.queued) throw new Error("test run lease was unexpectedly queued");
       updateRunStatus(store, run.id, "active", "operator");
       const state = store.db
-        .query("SELECT active_workflow_json FROM project_state WHERE project_id = ?")
+        .query("SELECT active_workflow_json FROM harness_state WHERE game_id = ?")
         .get("melee") as { active_workflow_json: string };
       store.db
-        .query("UPDATE project_state SET active_workflow_json = ? WHERE project_id = ?")
+        .query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?")
         .run(
           JSON.stringify({
             ...JSON.parse(state.active_workflow_json),
@@ -1100,13 +1100,13 @@ describe("dashboard read model", () => {
         );
       const now = Date.parse("2026-08-12T12:30:00.000Z");
 
-      const unknown = buildProjectStateReadModel(store, "melee", {}, { now });
+      const unknown = buildHarnessStateReadModel(store, "melee", {}, { now });
       expect(unknown.available_actions.find((action) => action.action_id === "run.recover")).toMatchObject({
         enabled: false,
         blocked_by: [expect.objectContaining({ code: "process_liveness_unknown" })],
       });
 
-      const notLive = buildProjectStateReadModel(store, "melee", {}, {
+      const notLive = buildHarnessStateReadModel(store, "melee", {}, {
         hasActiveProcess: () => ({ active: false }),
         now,
       });
@@ -1122,14 +1122,14 @@ describe("dashboard read model", () => {
   test("marks a named anchor stale after session head drift while limiting the displayed timeline", () => {
     const { store } = tempState();
     try {
-      createProjectSession(store.db, {
+      createCycle(store.db, {
         actor: "operator",
-        projectId: "melee",
-        sessionUuid: "session-1",
-        id: "project-session:session-1",
+        gameId: "melee",
+        cycleUuid: "session-1",
+        id: "cycle:session-1",
         baseSha: "base-sha",
       });
-      const campaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
       for (let index = 0; index < 25; index += 1) {
         const savePoint = addSavePoint(store, {
           campaignId: campaign.id,
@@ -1138,7 +1138,7 @@ describe("dashboard read model", () => {
           commitSha: `commit-${index}`,
         });
         recordSavePointAnchor(store, {
-          projectId: "melee",
+          gameId: "melee",
           savePointId: savePoint.id,
           commitSha: `commit-${index}`,
           triggerKind: "manual",
@@ -1148,13 +1148,13 @@ describe("dashboard read model", () => {
         });
       }
 
-      const view = buildProjectStateReadModel(store, "melee", {
+      const view = buildHarnessStateReadModel(store, "melee", {
         aheadOfBase: 4,
         head: { dirty: false },
       });
-      expect(view.session?.timeline).toHaveLength(20);
-      expect(view.session?.save_point_stale).toBe(true);
-      expect(view.available_actions.find((action) => action.action_id === "session.close")).toMatchObject({
+      expect(view.cycle?.timeline).toHaveLength(20);
+      expect(view.cycle?.save_point_stale).toBe(true);
+      expect(view.available_actions.find((action) => action.action_id === "cycle.close")).toMatchObject({
         enabled: false,
         blocked_by: [expect.objectContaining({ code: "unshipped_work" })],
       });
@@ -1166,14 +1166,14 @@ describe("dashboard read model", () => {
   test("refuses dirty work and accepts a fresh named anchor at the current head", () => {
     const { store } = tempState();
     try {
-      createProjectSession(store.db, {
+      createCycle(store.db, {
         actor: "operator",
-        projectId: "melee",
-        sessionUuid: "session-1",
-        id: "project-session:session-1",
+        gameId: "melee",
+        cycleUuid: "session-1",
+        id: "cycle:session-1",
         baseSha: "head-1",
       });
-      const campaign = ensureCampaign(store, { projectId: "melee", baseRef: "origin/master" });
+      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
       const savePoint = addSavePoint(store, {
         campaignId: campaign.id,
         triggerKind: "manual",
@@ -1181,7 +1181,7 @@ describe("dashboard read model", () => {
         commitSha: "head-1",
       });
       recordSavePointAnchor(store, {
-        projectId: "melee",
+        gameId: "melee",
         savePointId: savePoint.id,
         commitSha: "head-1",
         triggerKind: "manual",
@@ -1190,19 +1190,19 @@ describe("dashboard read model", () => {
         actor: "operator",
       });
 
-      const dirty = buildProjectStateReadModel(store, "melee", {
+      const dirty = buildHarnessStateReadModel(store, "melee", {
         aheadOfBase: 0,
         head: { dirty: true },
       });
-      expect(dirty.session?.save_point_stale).toBe(true);
-      expect(dirty.available_actions.find((action) => action.action_id === "session.close")?.enabled).toBe(false);
+      expect(dirty.cycle?.save_point_stale).toBe(true);
+      expect(dirty.available_actions.find((action) => action.action_id === "cycle.close")?.enabled).toBe(false);
 
-      const clean = buildProjectStateReadModel(store, "melee", {
+      const clean = buildHarnessStateReadModel(store, "melee", {
         aheadOfBase: 4,
         head: { dirty: false },
       });
-      expect(clean.session?.save_point_stale).toBe(false);
-      expect(clean.available_actions.find((action) => action.action_id === "session.close")).toMatchObject({
+      expect(clean.cycle?.save_point_stale).toBe(false);
+      expect(clean.available_actions.find((action) => action.action_id === "cycle.close")).toMatchObject({
         enabled: true,
         blocked_by: [],
       });
@@ -1215,7 +1215,7 @@ describe("dashboard read model", () => {
     const { store } = tempState();
     try {
       const failure = recordSavePointFailureDurably(store.stateDir, {
-        projectId: "melee",
+        gameId: "melee",
         triggerKind: "checkpoint",
         sourceKind: "save_point_boundary",
         sourceId: "checkpoint",
@@ -1226,13 +1226,13 @@ describe("dashboard read model", () => {
       }, store);
       expect(failure.storage).toBe("spool");
 
-      const view = buildProjectStateReadModel(store, "melee", {
+      const view = buildHarnessStateReadModel(store, "melee", {
         aheadOfBase: 0,
         head: { dirty: false },
       });
       expect(view.save_point_stale).toBe(true);
-      expect(view.session_blockers).toContainEqual(expect.objectContaining({ code: "save_point_failed" }));
-      expect(view.available_actions.find((action) => action.action_id === "session.close")?.blocked_by).toContainEqual(
+      expect(view.cycle_blockers).toContainEqual(expect.objectContaining({ code: "save_point_failed" }));
+      expect(view.available_actions.find((action) => action.action_id === "cycle.close")?.blocked_by).toContainEqual(
         expect.objectContaining({ code: "save_point_failed" }),
       );
     } finally {
@@ -1244,7 +1244,7 @@ describe("dashboard read model", () => {
     const { dir, store } = tempState();
     let runId = "";
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const oldEpoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 1 },
@@ -1298,7 +1298,7 @@ describe("dashboard read model", () => {
     const { dir, store } = tempState();
     let runId = "";
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 6 },
@@ -1414,7 +1414,7 @@ describe("dashboard read model", () => {
     let runId = "";
     let workerStateId = "";
     try {
-      const run = createRun(store, "matched_code_percent", 100, 1, { projectId: "test" }, { baseRevision: "base-test" });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const epoch = startSchedulerEpoch(store, run.id, {
         size: { mode: "fixed", value: 1 },
@@ -1524,7 +1524,7 @@ describe("dashboard read model", () => {
       processStatus: () => ({}),
       refreshSyncUpstreamObservation: async () => { syncObservationRefreshes += 1; },
     });
-    const dashboard = await runDashboard({ project: null, repoRoot: dir, stateDir: dir, graphDbPath: "", usePathOverrides: true });
+    const dashboard = await runDashboard({ game: null, repoRoot: dir, stateDir: dir, graphDbPath: "", usePathOverrides: true });
     const active = (dashboard.activeFiles as Record<string, unknown>[])[0];
     const activity = active?.activity as Record<string, unknown>;
     const lastEvent = activity.lastEvent as Record<string, unknown>;

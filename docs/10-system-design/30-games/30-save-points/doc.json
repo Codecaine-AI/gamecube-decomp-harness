@@ -1,0 +1,494 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-70-save-points",
+  "title": "Campaign And Save Points",
+  "root": "b-70-save-points-root-27",
+  "blocks": {
+    "b-70-save-points-root-27": {
+      "id": "b-70-save-points-root-27",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "campaign",
+          "save-points",
+          "cycle-branch",
+          "baseline",
+          "staleness",
+          "ledger"
+        ]
+      },
+      "children": [
+        "b-save-points-opening",
+        "b-save-points-lineage-decision",
+        "b-save-points-why-lineage-split",
+        "b-save-points-why-lineage-body",
+        "b-save-points-timeline-heading",
+        "b-save-points-timeline-lead",
+        "b-save-points-timeline-table",
+        "b-save-points-structure-heading",
+        "b-save-points-structure-lead",
+        "b-save-points-structure-table",
+        "b-save-points-capture-heading",
+        "b-save-points-capture-lead",
+        "b-save-points-failure-list-1",
+        "b-save-points-failure-list-2",
+        "b-save-points-failure-list-3",
+        "b-save-points-failure-list-4",
+        "h-cycle-close-gate",
+        "p-cycle-close-gate",
+        "b-save-points-position-heading",
+        "b-save-points-position-lead",
+        "b-save-points-position-list-1",
+        "b-save-points-position-list-2",
+        "b-save-points-position-list-3",
+        "b-save-points-position-list-4",
+        "b-save-points-runs-heading",
+        "b-save-points-runs-body",
+        "b-save-points-related-heading",
+        "b-save-points-related-score",
+        "b-save-points-related-state",
+        "b-save-points-related-ui"
+      ]
+    },
+    "b-save-points-opening": {
+      "id": "b-save-points-opening",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Cycle is the durable container for the game worktree, head_revision, and the ordered timeline that explains head lineage. Its timeline records epoch_completed, remote_application, pr_phase, and save_point entries, with each workflow owning its writer. Save points attach reproducible evidence to existing commits without creating commits. Sync publication joins these responsibilities by publishing a remote_application boundary and anchoring the resulting source position with a sync-triggered save point."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-lineage-decision": {
+      "id": "b-save-points-lineage-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — sync reconciles in staging and publishes atomically",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Sync reconciles in an isolated staging worktree and leaves the cycle untouched until the operator confirms publication. A source-changing publish performs the non-fast-forward cycle repoint, transactionally records the remote_application entry, invalidations, and monotonic knowledge revision, completes reconciled PR-branch pushes while publishing, and captures a boundary save-point anchor at the published head."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-why-lineage-split": {
+      "id": "b-save-points-why-lineage-split",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Why Sync Stages Before Anchoring"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-why-lineage-body": {
+      "id": "b-save-points-why-lineage-body",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Staging makes publication the first point at which the active cycle can change. Sync rests at validated after reconciliation and validation, so the operator may confirm publish or cancel; cancellation discards staging and leaves the cycle byte-identical. Confirmed source publication repoints the clean cycle to the validated staging head before durable lineage commits, while a pre-durability failure compensates back to the prior head. A knowledge-only pass has no source repoint or remote_application boundary and advances only the monotonic knowledge revision."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-timeline-heading": {
+      "id": "b-save-points-timeline-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Timeline Responsibilities"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-timeline-lead": {
+      "id": "b-save-points-timeline-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The cycle timeline keeps lineage and evidence in one ordered record while applying the failure policy required by each entry class. Sync staging creates no timeline entry before the operator confirms publication."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-timeline-table": {
+      "id": "b-save-points-timeline-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Entry Kind",
+          "Role",
+          "Durability and Failure Rule"
+        ],
+        "density": "normal",
+        "rows": [
+          [
+            "epoch_completed",
+            "Advances head_revision through an epoch integration commit.",
+            "The entry exists if and only if its commit exists; a failed durable step fails the boundary loudly."
+          ],
+          [
+            "remote_application",
+            "Advances head_revision through a source-changing sync's published non-fast-forward repoint and records the prior and new heads, conflict resolutions, and score delta.",
+            "The durable publishing transaction couples the entry to the knowledge revision and invalidations; PR-branch pushes finish under publishing before sync becomes published."
+          ],
+          [
+            "pr_phase",
+            "Defines PR-campaign activation and release evidence without advancing head.",
+            "The PR-campaign workflow contract owns this writer and its lease-bound phase evidence."
+          ],
+          [
+            "save_point",
+            "Anchors reports, the board snapshot, and the headline score to an existing commit.",
+            "A source-changing sync captures this anchor at its published head; a knowledge-only pass creates no source-boundary save point. Capture failure marks evidence stale without rolling back an already durable boundary."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-save-points-structure-heading": {
+      "id": "b-save-points-structure-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Save-Point Structure"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-structure-lead": {
+      "id": "b-save-points-structure-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A save point records enough evidence to reproduce what the game looked like at one existing commit without changing the checkout."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-structure-table": {
+      "id": "b-save-points-structure-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Field",
+          "Meaning"
+        ],
+        "density": "normal",
+        "rows": [
+          [
+            "commit_sha / branch",
+            "The exact existing checkout position that the evidence describes; recording the save point never creates this commit."
+          ],
+          [
+            "base_ref / base_sha",
+            "The upstream anchor, defaulting to origin/master, against which the position is measured."
+          ],
+          [
+            "trigger_kind",
+            "The producing boundary: manual, init, pause, checkpoint, epoch, qa, ship, sync, or fresh."
+          ],
+          [
+            "Score and artifacts",
+            "matched_code_percent is the headline measure; report copies live under state_dir/save_points/<timestamp>/, and board_snapshot_path identifies the board evidence beside them."
+          ],
+          [
+            "Worktree and payload",
+            "worktree_dirty records remaining uncommitted work; payload carries ahead-of-base count, dirty paths, evidence warnings, and full measures."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-save-points-capture-heading": {
+      "id": "b-save-points-capture-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Capture and Failure Semantics"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-capture-lead": {
+      "id": "b-save-points-capture-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Automatic evidence hooks at init, pause, checkpoint, epoch, QA, ship, sync, and fresh-run boundaries join manual creation through the save-point server job and Save Point dashboard action. The save-point path records evidence at the current commit; it never stages work or creates a commit. The source-changing sync publish action includes boundary capture: it completes the confirmed source and knowledge publication plus PR-branch pushes, then invokes save-point capture against the published HEAD. A knowledge-only pass advances only the monotonic knowledge revision, so it records neither a remote_application entry nor a sync boundary save point."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-failure-list-1": {
+      "id": "b-save-points-failure-list-1",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A successful hook appends the save_point entry and its evidence to the durable cycle timeline."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-failure-list-2": {
+      "id": "b-save-points-failure-list-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A failed hook raises a durable cycle blocker and marks the evidence stale, so the failure is visible instead of becoming a silent log line."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-failure-list-3": {
+      "id": "b-save-points-failure-list-3",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Because sync save-point capture follows the durable publish, capture failure marks evidence stale and raises a cycle blocker without reverting the cycle repoint, remote_application entry, invalidations, knowledge revision, or completed PR-branch pushes."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-failure-list-4": {
+      "id": "b-save-points-failure-list-4",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A conflict beyond mechanical auto-resolution blocks sync in staging for the operator; no source boundary or sync save-point anchor exists until the conflict is resolved, validation returns to validated, and the operator confirms publish."
+        }
+      ],
+      "children": []
+    },
+    "h-cycle-close-gate": {
+      "id": "h-cycle-close-gate",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Cycle Close Gate"
+        }
+      ],
+      "children": []
+    },
+    "p-cycle-close-gate": {
+      "id": "p-cycle-close-gate",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Cycle close treats the current head and its evidence anchor as one gate. The dispatch lease must be free, the worktree must contain no changes beyond head_revision, save-point evidence must be fresh, and the operator must select a named save point whose commit matches head_revision. Ahead-of-base commits may remain because the clean, named anchor makes that cycle head explicit."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-heading": {
+      "id": "b-save-points-position-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Where-We-Are Contract"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-lead": {
+      "id": "b-save-points-position-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The dashboard reads the active cycle and answers where the game stands from durable state without triggering a build. Its cycle-backed projection combines the canonical head lineage with the most recent evidence anchor:"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-list-1": {
+      "id": "b-save-points-position-list-1",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The latest save point supplies its commit, trigger, matched percent, and artifacts, so every displayed result names the source position it describes."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-list-2": {
+      "id": "b-save-points-position-list-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The current head supplies head_revision, branch, and dirty paths, so the projection can compare live position with the evidence anchor."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-list-3": {
+      "id": "b-save-points-position-list-3",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "aheadOfBase counts commits that have not been merged into the base reference, which is the durable answer to what has not shipped."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-list-4": {
+      "id": "b-save-points-position-list-4",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "stale is true when head moved past the save point, uncommitted changes exist, or save-point capture failed; the UI exposes the stale evidence instead of presenting old numbers as current."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-runs-heading": {
+      "id": "b-save-points-runs-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Relationship to Runs and the Ledger"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-runs-body": {
+      "id": "b-save-points-runs-body",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The cycle is the durable parent of run, PR, and sync workflows, while runs, target claims, worker states, checkpoints, and report artifacts keep their internal run keys. Each save point records the run active when the evidence was captured. The local change ledger carries patches, facts, and lessons across save points and cycles; only shipped PR candidates leave the system. Reverting to a save point is git-native because its existing commit, reports, and board state travel together."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-related-heading": {
+      "id": "b-save-points-related-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-related-score": {
+      "id": "b-save-points-related-score",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Score integration and PR handoff",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/30-pr/10-score-gate-and-handoff",
+              "label": "Score integration and PR handoff"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-related-state": {
+      "id": "b-save-points-related-state",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "State implementation",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/20-implementation/40-state/00-overview.md",
+              "label": "State implementation"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-related-ui": {
+      "id": "b-save-points-related-ui",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "UI implementation",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/20-implementation/60-ui/00-overview.md",
+              "label": "UI implementation"
+            }
+          }
+        }
+      ],
+      "children": []
+    }
+  }
+}

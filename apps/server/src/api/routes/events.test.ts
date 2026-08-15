@@ -1,35 +1,35 @@
 import { describe, expect, test } from "bun:test";
-import type { ProjectRuntimeContext } from "@server/core/project-registry";
+import type { GameRuntimeContext } from "@server/core/game-registry";
 import type {
-  ProjectEventQueryInput,
-  ProjectEventQueryPage,
-  ProjectEventReconstruction,
-  ProjectEventReconstructionPageOptions,
-} from "@server/core/project-state/event-query";
+  GameEventQueryInput,
+  GameEventQueryPage,
+  GameEventReconstruction,
+  GameEventReconstructionPageOptions,
+} from "@server/core/harness-state/event-query";
 import { handleEventsApiRoute, type EventsApiRouteDeps } from "./events.js";
 
 interface Calls {
-  queries: Array<{ input: ProjectEventQueryInput; stateDir: string }>;
+  queries: Array<{ input: GameEventQueryInput; stateDir: string }>;
   reconstructions: Array<{
     correlationId: string;
-    options: ProjectEventReconstructionPageOptions;
-    projectId: string;
+    options: GameEventReconstructionPageOptions;
+    gameId: string;
     stateDir: string;
   }>;
   requestPaths: number;
 }
 
 function routeDeps(options: {
-  kernelTraces?: ProjectEventReconstruction["kernel_traces"];
-  projectId?: string | null;
+  kernelTraces?: GameEventReconstruction["kernel_traces"];
+  gameId?: string | null;
   queryError?: Error;
   reconstructionError?: Error;
   requestError?: Error;
 } = {}): { calls: Calls; deps: EventsApiRouteDeps } {
   const calls: Calls = { queries: [], reconstructions: [], requestPaths: 0 };
-  const page: ProjectEventQueryPage = { events: [], has_more: false, next_after_sequence: null };
-  const reconstruction: ProjectEventReconstruction = {
-    project_id: options.projectId ?? "melee",
+  const page: GameEventQueryPage = { events: [], has_more: false, next_after_sequence: null };
+  const reconstruction: GameEventReconstruction = {
+    game_id: options.gameId ?? "melee",
     correlation_id: "sync-1",
     events: [],
     has_more: false,
@@ -40,17 +40,17 @@ function routeDeps(options: {
     calls,
     deps: {
       json: (data, init) => Response.json(data, init),
-      projectContext: {
+      gameContext: {
         requestPaths: () => {
           calls.requestPaths += 1;
           if (options.requestError) throw options.requestError;
           return {
-            project: options.projectId === null
+            game: options.gameId === null
               ? null
               : ({
-                  projectId: options.projectId ?? "melee",
+                  gameId: options.gameId ?? "melee",
                   stateDir: "/tmp/state",
-                } as ProjectRuntimeContext["project"]),
+                } as GameRuntimeContext["game"]),
             repoRoot: "/tmp/repo",
             stateDir: "/tmp/state",
             graphDbPath: "/tmp/graph.sqlite",
@@ -63,15 +63,15 @@ function routeDeps(options: {
         calls.queries.push({ input, stateDir });
         return page;
       },
-      reconstructEvents: async (stateDir, projectId, correlationId, pageOptions) => {
+      reconstructEvents: async (stateDir, gameId, correlationId, pageOptions) => {
         if (options.reconstructionError) throw options.reconstructionError;
         calls.reconstructions.push({
           correlationId,
           options: pageOptions,
-          projectId,
+          gameId,
           stateDir,
         });
-        return { ...reconstruction, project_id: projectId, correlation_id: correlationId };
+        return { ...reconstruction, game_id: gameId, correlation_id: correlationId };
       },
     },
   };
@@ -81,8 +81,8 @@ describe("events API routes", () => {
   test("parses list filters, defaults the limit, and preserves snake_case output", async () => {
     const { calls, deps } = routeDeps();
     const url = new URL(
-      "http://localhost/api/events?correlation_id=sync-1&subject_kind=project&subject_id=melee" +
-      "&event_type_prefix=project.dispatch&from_sequence=10&to_sequence=40&after_sequence=12",
+      "http://localhost/api/events?correlation_id=sync-1&subject_kind=game&subject_id=melee" +
+      "&event_type_prefix=game.dispatch&from_sequence=10&to_sequence=40&after_sequence=12",
     );
     const response = await handleEventsApiRoute(new Request(url), url, deps);
 
@@ -91,10 +91,10 @@ describe("events API routes", () => {
     expect(calls.queries).toEqual([{
       stateDir: "/tmp/state",
       input: {
-        projectId: "melee",
+        gameId: "melee",
         correlationId: "sync-1",
-        subject: { kind: "project", id: "melee" },
-        eventTypePrefix: "project.dispatch",
+        subject: { kind: "game", id: "melee" },
+        eventTypePrefix: "game.dispatch",
         fromSequence: 10,
         toSequence: 40,
         afterSequence: 12,
@@ -109,14 +109,14 @@ describe("events API routes", () => {
     kernel_event_id: "kernel-event-1",
     app_session_id: "app-session-1",
     container_id: "container-1",
-    href: "/workspace/trace?projectId=melee&traceId=app-session-1&containerId=container-1",
+    href: "/workspace/trace?gameId=melee&traceId=app-session-1&containerId=container-1",
   };
   const secondKernelTrace = {
     event_id: "event-1",
     kernel_event_id: "kernel-event-2",
     app_session_id: "app-session-1",
     container_id: "container-2",
-    href: "/workspace/trace?projectId=melee&traceId=app-session-1&containerId=container-2",
+    href: "/workspace/trace?gameId=melee&traceId=app-session-1&containerId=container-2",
   };
 
   test.each([
@@ -133,12 +133,12 @@ describe("events API routes", () => {
     expect(calls.reconstructions).toEqual([{
       correlationId: "campaign-1",
       options: { afterSequence: 40, limit: 25 },
-      projectId: "melee",
+      gameId: "melee",
       stateDir: "/tmp/state",
     }]);
     const body = await response?.json();
     expect(body).toEqual({
-      project_id: "melee",
+      game_id: "melee",
       correlation_id: "campaign-1",
       events: [],
       has_more: false,
@@ -154,7 +154,7 @@ describe("events API routes", () => {
   test.each([
     ["/api/events?subject_kind=run", "subject_kind and subject_id must be provided together"],
     ["/api/events?subject_kind=&subject_id=run-1", "subject_kind must be a nonblank string"],
-    ["/api/events?subject_kind=arbitrary&subject_id=run-1", "registered project event subject kind"],
+    ["/api/events?subject_kind=arbitrary&subject_id=run-1", "registered game event subject kind"],
     ["/api/events?correlation_id=", "correlation_id must be a nonblank string"],
     ["/api/events?event_type_prefix=", "event_type_prefix must be a nonblank string"],
     ["/api/events?limit=0", "limit must be an integer between 1 and 200"],
@@ -176,7 +176,7 @@ describe("events API routes", () => {
     expect(calls.reconstructions).toEqual([]);
   });
 
-  test("rejects path/raw overrides before project resolution", async () => {
+  test("rejects path/raw overrides before game resolution", async () => {
     for (const query of [
       "stateDir=../../private",
       "repo_root=/Users/alice/private",
@@ -191,7 +191,7 @@ describe("events API routes", () => {
       const response = await handleEventsApiRoute(new Request(url), url, deps);
       expect(response?.status).toBe(400);
       expect(await response?.json()).toEqual({
-        error: "Project path and raw payload overrides are not supported",
+        error: "Game path and raw payload overrides are not supported",
       });
       expect(calls.requestPaths).toBe(0);
       expect(calls.queries).toEqual([]);
@@ -200,19 +200,19 @@ describe("events API routes", () => {
 
   test("sanitizes context and read failures", async () => {
     const unresolved = routeDeps({
-      requestError: new Error("Unknown project at /Users/alice/private/project.json"),
+      requestError: new Error("Unknown game at /Users/alice/private/game.json"),
     });
     const getUrl = new URL("http://localhost/api/events");
     const unresolvedResponse = await handleEventsApiRoute(new Request(getUrl), getUrl, unresolved.deps);
     expect(unresolvedResponse?.status).toBe(400);
-    expect(await unresolvedResponse?.json()).toEqual({ error: "Invalid project context" });
+    expect(await unresolvedResponse?.json()).toEqual({ error: "Invalid game context" });
 
     const queryFailure = routeDeps({
-      queryError: new Error("SQLITE_SCHEMA project_events /private/state/orchestrator.sqlite"),
+      queryError: new Error("SQLITE_SCHEMA game_events /private/state/orchestrator.sqlite"),
     });
     const queryResponse = await handleEventsApiRoute(new Request(getUrl), getUrl, queryFailure.deps);
     expect(queryResponse?.status).toBe(500);
-    expect(await queryResponse?.json()).toEqual({ error: "Project event read failed" });
+    expect(await queryResponse?.json()).toEqual({ error: "Game event read failed" });
 
     const reconstructionFailure = routeDeps({
       reconstructionError: new Error("password=secret postgres schema trace_events"),
@@ -226,7 +226,7 @@ describe("events API routes", () => {
       reconstructionFailure.deps,
     );
     expect(reconstructionResponse?.status).toBe(500);
-    expect(await reconstructionResponse?.json()).toEqual({ error: "Project event read failed" });
+    expect(await reconstructionResponse?.json()).toEqual({ error: "Game event read failed" });
   });
 
   test("returns Allow: GET for non-GET methods", async () => {

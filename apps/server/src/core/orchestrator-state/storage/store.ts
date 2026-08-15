@@ -6,7 +6,7 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { configureConnection, ensureSchema } from "./ddl.js";
 import { orchestratorStateSchema } from "./schema.js";
 import { withBusyRetry } from "./transaction.js";
-import { replaySavePointFailureSpool } from "@server/core/project-session/save-point-failure-spool.js";
+import { replaySavePointFailureSpool } from "@server/core/cycle/save-point-failure-spool.js";
 
 export { immediateTransaction, withBusyRetry } from "./transaction.js";
 

@@ -1,43 +1,43 @@
 {
   "id": "ghidra",
-  "title": "Ghidra lookup",
+  "title": "Ghidra xref evidence",
   "trust_tier": "tool_evidence",
-  "description": "Cached Ghidra-derived evidence from a live analyzeHeadless import smoke, with a generated source-symbol index for local symbol/address lookup.",
-  "operation_mode": "live_runner_v1",
+  "description": "Generate independent Ghidra call, data, and control-reference evidence for knowledge-graph ingestion.",
+  "operation_mode": "graph_evidence_runner_v1",
   "runner_status": "live_smoke_required",
-  "status_message": "Live runner v1: headless Ghidra evidence is generated locally by toolpacks/gamecube-decomp/research/ghidra/runners/run_headless_probe.py.",
+  "status_message": "The xref exporter writes stable evidence rows that the knowledge graph links to current functions.",
   "limitations": [
     "The live runner requires Ghidra analyzeHeadless, Java 21, and build/GALE01/main.elf.",
-    "The smoke imports/analyzes the ELF and records bounded headless evidence; richer decompile/xref exports can be added as follow-up cache rows.",
-    "Source-symbol rows remain supplemental lookup evidence and should be refreshed with tool indexes after report/code-graph changes."
+    "Only resolved call and data references become structured graph edges; unresolved rows remain searchable evidence chunks.",
+    "Refresh the export after rebuilding the ELF, then rebuild the knowledge graph."
   ],
   "commands": {
     "status": "python3 toolpacks/gamecube-decomp/research/ghidra/api/status.py --repo-root <repo_root> --json",
-    "lookup": "python3 toolpacks/gamecube-decomp/research/ghidra/api/lookup.py --query <query> --json",
-    "runner": "python3 toolpacks/gamecube-decomp/research/ghidra/runners/run_headless_probe.py --repo-root <repo_root>"
+    "runner": "python3 toolpacks/gamecube-decomp/research/ghidra/runners/export_xrefs.py --repo-root <repo_root>",
+    "graph_search": "bun run kg:search -- --source ghidra_xrefs --query <query>",
+    "file_card": "bun run kg:file-card -- --source <source_path>"
   },
   "capabilities": [
     "xrefs",
-    "strings",
-    "decompile"
+    "graph_linked_calls",
+    "graph_linked_data_references"
   ],
   "category": "research",
   "path": "research/ghidra",
-  "process_role": "binary_lookup",
+  "process_role": "graph_evidence_generation",
   "usage": {
     "invocation_mode": "on_demand",
     "mutates_source": false,
     "blocks_on_failure": false,
     "triggers": [
-      "needs_symbol_address",
       "needs_xrefs",
-      "needs_string_or_decompile_hint"
+      "needs_independent_binary_corroboration"
     ],
     "outputs": [
-      "symbol_lookup",
-      "address_lookup",
-      "headless_probe_status"
+      "xref_rows",
+      "graph_call_edges",
+      "graph_data_reference_edges"
     ],
-    "agent_guidance": "Use when a symbol, address, string, or binary-derived clue needs corroboration before editing source."
+    "agent_guidance": "Refresh evidence as maintenance; workers consume it through knowledge_graph_search, graph_related_functions, and code_graph_file_card."
   }
 }

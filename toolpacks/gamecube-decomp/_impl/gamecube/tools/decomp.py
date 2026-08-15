@@ -7,7 +7,7 @@
 Decompile a function or translation unit with the vendored m2c fork.
 
 Vendored from the melee tree's tools/decomp.py and rewired for this tool suite:
-  - the project checkout is resolved via ORCH_PROJECT_REPO_ROOT,
+  - the project checkout is resolved via ORCH_GAME_REPO_ROOT,
     matching the other tool-local helper scripts;
   - m2c is the vendored fork at <tool impl>/m2c, injected onto
     PYTHONPATH for the m2c subprocess (no install step, no venv dependency);
@@ -15,7 +15,7 @@ Vendored from the melee tree's tools/decomp.py and rewired for this tool suite:
 
 Usage (run in place, like the other tools/ scripts):
 
-  ORCH_PROJECT_REPO_ROOT=~/melee python toolpacks/gamecube-decomp/_impl/gamecube/tools/decomp.py <function|tu> [m2c args...]
+  ORCH_GAME_REPO_ROOT=~/melee python toolpacks/gamecube-decomp/_impl/gamecube/tools/decomp.py <function|tu> [m2c args...]
 
 The PEP 723 block above declares the hard deps so `uv run` provisions
 them automatically: pyelftools (function -> obj/asm lookup) and pcpp

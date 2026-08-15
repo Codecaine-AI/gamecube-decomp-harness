@@ -1,6 +1,7 @@
 # Callgraph Tool
 
-Callgraph extracts binary-ground-truth relationships from
+Callgraph generates binary-ground-truth relationships for knowledge-graph
+ingestion from
 `build/GALE01/asm/**/*.s` and joins each caller to unit, source-path, address,
 and fuzzy-match metadata from `build/GALE01/report.json`.
 
@@ -24,7 +25,8 @@ Check readiness and manifest counts:
 python3 toolpacks/gamecube-decomp/research/callgraph/api/status.py --repo-root projects/melee/checkout --json
 ```
 
-Query callers, callees, outgoing data references, or reverse data references:
+Workers query the ingested relationships with `graph_related_functions` and
+`code_graph_file_card`. The raw API remains available for operator diagnostics:
 
 ```sh
 python3 toolpacks/gamecube-decomp/research/callgraph/api/callers_of.py --symbol Fighter_ChangeMotionState --direction callers

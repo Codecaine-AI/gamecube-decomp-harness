@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { globalStandardsContext, globalStandardsPromptXml } from "@server/core/knowledge/decomp-context";
-import { knowledgeSourcesRoot, projectKnowledgeRoot, resourceGraphRoot, sourceStorageRoot } from "@server/core/knowledge/paths";
+import { knowledgeSourcesRoot, gameKnowledgeRoot, resourceGraphRoot, sourceStorageRoot } from "@server/core/knowledge/paths";
 import {
   listStandardsSliceFiles,
   readOrderedSliceRecords,
@@ -9,7 +9,7 @@ import {
   standardsSliceFilePath,
   standardsSlicesRoot,
 } from "@server/core/knowledge/standards-files";
-import type { ProjectSummary, ResolvedProject } from "@server/core/project-registry";
+import type { GameSummary, ResolvedGame } from "@server/core/game-registry";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -71,17 +71,17 @@ export interface StandardEdit {
 }
 
 export interface StandardsService {
-  applyStandardEdit: (edit: unknown, project?: ResolvedProject | null) => JsonObject;
-  loadStandardsPayload: (project: ResolvedProject | null) => JsonObject;
+  applyStandardEdit: (edit: unknown, game?: ResolvedGame | null) => JsonObject;
+  loadStandardsPayload: (game: ResolvedGame | null) => JsonObject;
   safeStandardsContext: (warnings: string[]) => JsonObject;
   safeStandardsXml: (warnings: string[]) => string;
-  standardsInventory: (project: ResolvedProject | null) => JsonObject;
+  standardsInventory: (game: ResolvedGame | null) => JsonObject;
 }
 
 export interface StandardsServiceDeps {
   appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
-  projectDefaults: (project: ResolvedProject | null) => JsonObject | null;
-  projectToSummary: (project: ResolvedProject) => ProjectSummary;
+  gameDefaults: (game: ResolvedGame | null) => JsonObject | null;
+  gameToSummary: (game: ResolvedGame) => GameSummary;
 }
 
 function asObject(value: unknown): JsonObject {
@@ -127,12 +127,12 @@ function optionalStringValue(value: unknown): string | undefined {
   return text ? text : undefined;
 }
 
-function knowledgeRootForProject(project: ResolvedProject | null | undefined): string {
-  return project ? resolve(project.projectDir, "knowledge") : projectKnowledgeRoot();
+function knowledgeRootForGame(game: ResolvedGame | null | undefined): string {
+  return game ? resolve(game.gameDir, "knowledge") : gameKnowledgeRoot();
 }
 
-function sourceRegistryPathForProject(project: ResolvedProject | null | undefined, sourceId: string): string {
-  const knowledgeRoot = knowledgeRootForProject(project);
+function sourceRegistryPathForGame(game: ResolvedGame | null | undefined, sourceId: string): string {
+  const knowledgeRoot = knowledgeRootForGame(game);
   const registryPath = resolve(knowledgeRoot, "sources/registry.json");
   if (!existsSync(registryPath)) return sourceId;
   const registry = asObject(JSON.parse(readFileSync(registryPath, "utf8")));
@@ -143,12 +143,12 @@ function sourceRegistryPathForProject(project: ResolvedProject | null | undefine
   return sourceId;
 }
 
-function sourceStorageRootForProject(project: ResolvedProject | null | undefined, sourceId: string): string {
-  return resolve(knowledgeRootForProject(project), "sources", sourceRegistryPathForProject(project, sourceId));
+function sourceStorageRootForGame(game: ResolvedGame | null | undefined, sourceId: string): string {
+  return resolve(knowledgeRootForGame(game), "sources", sourceRegistryPathForGame(game, sourceId));
 }
 
-function standardsRootForProject(project: ResolvedProject | null | undefined): string {
-  const storageRoot = project ? sourceStorageRootForProject(project, "decomp_standards") : sourceStorageRoot("decomp_standards");
+function standardsRootForGame(game: ResolvedGame | null | undefined): string {
+  const storageRoot = game ? sourceStorageRootForGame(game, "decomp_standards") : sourceStorageRoot("decomp_standards");
   return standardsSlicesRoot(storageRoot);
 }
 
@@ -323,18 +323,18 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
     writeFileSync(orderPath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
 
-  function standardsInventory(project: ResolvedProject | null): JsonObject {
-    const defaults = asObject(deps.projectDefaults(project));
+  function standardsInventory(game: ResolvedGame | null): JsonObject {
+    const defaults = asObject(deps.gameDefaults(game));
     const knowledge = asObject(defaults.knowledge);
-    const ownedKnowledgeRoot = project ? resolve(project.projectDir, "knowledge") : projectKnowledgeRoot();
+    const ownedKnowledgeRoot = game ? resolve(game.gameDir, "knowledge") : gameKnowledgeRoot();
     return {
       globalSources: asArray(knowledge.globalSources).map((item) => stringValue(item)).filter(Boolean),
-      projectSources: asArray(knowledge.projectSources).map((item) => stringValue(item)).filter(Boolean),
+      gameSources: asArray(knowledge.gameSources).map((item) => stringValue(item)).filter(Boolean),
       roots: {
-        projectKnowledgeRoot: ownedKnowledgeRoot,
-        sourcesRoot: project ? resolve(ownedKnowledgeRoot, "sources") : knowledgeSourcesRoot(),
-        resourceGraphRoot: project ? resolve(ownedKnowledgeRoot, "resource_graph") : resourceGraphRoot(),
-        graphDbPath: project?.graphDbPath,
+        gameKnowledgeRoot: ownedKnowledgeRoot,
+        sourcesRoot: game ? resolve(ownedKnowledgeRoot, "sources") : knowledgeSourcesRoot(),
+        resourceGraphRoot: game ? resolve(ownedKnowledgeRoot, "resource_graph") : resourceGraphRoot(),
+        graphDbPath: game?.graphDbPath,
       },
       validation: asObject(defaults.validation),
       pr: asObject(defaults.pr),
@@ -359,8 +359,8 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
     }
   }
 
-  function loadStandardsPayload(project: ResolvedProject | null): JsonObject {
-    const standardsRoot = standardsRootForProject(project);
+  function loadStandardsPayload(game: ResolvedGame | null): JsonObject {
+    const standardsRoot = standardsRootForGame(game);
     const records = readStandardsRecords(standardsRoot);
     const examples = readStandardExampleRecords(standardsRoot);
     const examplesByStandard = examplesByStandardId(examples);
@@ -368,7 +368,7 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
     if (records.length === 0) warnings.push(`No standards found under ${standardsRoot}.`);
     if (examples.length === 0) warnings.push(`No standard examples found under ${standardsRoot}.`);
     return {
-      project: project ? deps.projectToSummary(project) : null,
+      game: game ? deps.gameToSummary(game) : null,
       sourcePath: standardsRoot,
       examplesPath: standardsRoot,
       records: records.map((record) => ({
@@ -394,13 +394,13 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
       examples: examples.map(formatStandardExamplePayload),
       effectiveXml: standardsPromptXmlFromRecords(records, examples),
       context: standardsContextFromRecords(records, examples),
-      inventory: standardsInventory(project),
+      inventory: standardsInventory(game),
       warnings,
     };
   }
 
-  function applyStandardEdit(rawEdit: unknown, project: ResolvedProject | null = null): JsonObject {
-    const standardsRoot = standardsRootForProject(project);
+  function applyStandardEdit(rawEdit: unknown, game: ResolvedGame | null = null): JsonObject {
+    const standardsRoot = standardsRootForGame(game);
     const edit = asObject(rawEdit) as unknown as StandardEdit;
     const errors = validateStandardEdit(edit);
     if (errors.length > 0) return { ok: false, errors };

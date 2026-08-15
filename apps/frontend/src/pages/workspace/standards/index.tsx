@@ -6,23 +6,23 @@ import { RenderedStandardsPanel, StandardsEditor } from "./_components/Standards
 export function StandardsPage({
   form,
   onNavigate,
-  projectName,
+  gameName,
   route,
 }: {
   form: FormState;
   onNavigate: (route: AppRoute) => void;
-  projectName: string;
+  gameName: string;
   route: Extract<AppRoute, { kind: "workspace" }>;
 }) {
   const activeView: StandardsView = route.standardsView ?? "edit";
 
   function goToView(view: StandardsView) {
-    onNavigate({ kind: "workspace", section: "standards", standardsView: view, projectId: route.projectId });
+    onNavigate({ kind: "workspace", section: "standards", standardsView: view, gameId: route.gameId });
   }
 
   return (
     <>
-      <PageHeader kicker={projectName} title="Standards" />
+      <PageHeader kicker={gameName} title="Standards" />
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-line bg-card px-4 py-2">
           <SubNav

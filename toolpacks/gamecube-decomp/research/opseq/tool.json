@@ -1,8 +1,8 @@
 {
   "id": "opseq",
-  "title": "Opcode sequence lookup",
+  "title": "Opcode similarity evidence",
   "trust_tier": "tool_evidence",
-  "description": "Find similar matched and unmatched functions by live opcode-sequence indexes generated from build/GALE01/asm, with deterministic fingerprint and neighbor evidence plus report-based function-shape fallback rows.",
+  "description": "Generate deterministic opcode fingerprints and neighbor evidence for knowledge-graph ingestion and function linking.",
   "operation_mode": "live_runner_v2",
   "runner_status": "live_smoke_required",
   "status_message": "Live runner v2: opcode sequences, fingerprints, and neighbors are generated locally from build/GALE01/asm by toolpacks/gamecube-decomp/research/opseq/runners/extract_opcode_sequences.py.",
@@ -12,16 +12,17 @@
   ],
   "commands": {
     "status": "python3 toolpacks/gamecube-decomp/research/opseq/api/status.py --repo-root <repo_root> --json",
-    "similar_functions": "python3 toolpacks/gamecube-decomp/research/opseq/api/similar_functions.py --query <query> --json",
-    "runner": "python3 toolpacks/gamecube-decomp/research/opseq/runners/extract_opcode_sequences.py --repo-root <repo_root>"
+    "runner": "python3 toolpacks/gamecube-decomp/research/opseq/runners/extract_opcode_sequences.py --repo-root <repo_root>",
+    "graph_search": "bun run kg:search -- --source opseq_similarity --query <query>",
+    "file_card": "bun run kg:file-card -- --source <source_path>"
   },
   "capabilities": [
-    "similar_functions",
-    "duplicate_shape"
+    "graph_linked_similar_functions",
+    "opcode_fingerprints"
   ],
   "category": "research",
   "path": "research/opseq",
-  "process_role": "similar_function_lookup",
+  "process_role": "graph_evidence_generation",
   "usage": {
     "invocation_mode": "on_demand",
     "mutates_source": false,
@@ -32,11 +33,11 @@
       "matching_strategy_unclear"
     ],
     "outputs": [
-      "similar_functions",
+      "analog_edges",
       "opcode_fingerprints",
       "opcode_neighbors",
       "function_shape_rows"
     ],
-    "agent_guidance": "Use before inventing a source shape when similar opcode or function-shape evidence could point to a local analog."
+    "agent_guidance": "Refresh evidence as maintenance; workers consume analogs through graph_related_functions, knowledge_graph_search, and code_graph_file_card."
   }
 }

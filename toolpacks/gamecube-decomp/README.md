@@ -67,7 +67,7 @@ in project bindings, project-owned shared data, or project override roots.
 For high-throughput worker runs, wibo is the preferred MWCC process runner. The
 orchestrator-managed install lives at `projects/<id>/state/tools/wibo`; the
 server resolver exports that path as `MWCC_WIBO`, and tool helpers also discover
-it from `ORCH_PROJECT_STATE_DIR` or from worker worktree paths. Checkout-local
+it from `ORCH_GAME_STATE_DIR` or from worker worktree paths. Checkout-local
 `build/tools/wibo` and `wibo` on `PATH` are fallback wibo locations. Wine is a
 compatibility fallback when wibo is not available or a tool explicitly requests
 it.

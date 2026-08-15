@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildRegistry } from "@agent-kernel/kernel/agent-registry";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
@@ -72,8 +72,8 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
           schema_version: "melee_conflict_resolver_request_v1",
           integration_item_id: "sample-merge-conflict",
           conflict_group_id: "worker-output:sample-merge-conflict",
-          isolated_worktree: { path: "/tmp/sample-conflict", base_revision: "aaaa", session_revision: "bbbb" },
-          session_worktree_path: sampleRepoRoot,
+          isolated_worktree: { path: "/tmp/sample-conflict", base_revision: "aaaa", cycle_revision: "bbbb" },
+          cycle_worktree_path: sampleRepoRoot,
           incoming: {
             claim,
             scoped_checks: scopedChecks,
@@ -139,7 +139,7 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
               id: "sample-review-comment",
               file: "src/melee/ft/chara/ftDemo.c",
               line: 24,
-              body: "Please restore the project assert helper here instead of open-coding this.",
+              body: "Please restore the game assert helper here instead of open-coding this.",
               standard_id: "global_standard:canonical-asserts",
               rule_id: "raw_assert_idiom",
             },
@@ -265,20 +265,15 @@ describe("meleeKernelAgentCatalog", () => {
     expect(worker.resultContract.notes).not.toContain("checkpoint note");
   });
 
-  test("loads Melee agent.ts files as a kernel registry catalog", async () => {
-    const registry = await buildRegistry({
-      catalogRoot: resolve(repoRoot, "apps/server/src/core/agent-catalog/agents"),
-    });
-
-    expect(registry.list().map((agent) => agent.name).sort()).toEqual([...KERNEL_AGENT_IDS].sort());
+  test("keeps every harness-authored agent bundle path complete", () => {
     for (const entry of meleeKernelAgentCatalog) {
-      const definition = registry.get(entry.name);
-      expect(definition.agentFile).toBe(resolve(repoRoot, entry.promptPaths.systemTemplatePath));
-      expect(definition.source).toBe("typed");
-      expect(definition.contextModulePath).toBe(resolve(repoRoot, entry.promptPaths.contextModulePath));
-      expect(definition.toolsModulePath).toBe(resolve(repoRoot, entry.promptPaths.toolsModulePath));
-      expect(definition.parsed.frontmatter.name).toBe(entry.name);
-      expect(definition.parsed.frontmatter.tools).toEqual(entry.tools);
+      expect(existsSync(resolve(repoRoot, entry.promptPaths.systemTemplatePath))).toBeTrue();
+      expect(existsSync(resolve(repoRoot, entry.promptPaths.promptModulePath))).toBeTrue();
+      expect(existsSync(resolve(repoRoot, entry.promptPaths.contextModulePath))).toBeTrue();
+      expect(existsSync(resolve(repoRoot, entry.promptPaths.toolsModulePath))).toBeTrue();
+      if (entry.promptPaths.schemaPath) {
+        expect(existsSync(resolve(repoRoot, entry.promptPaths.schemaPath))).toBeTrue();
+      }
     }
   });
 
@@ -288,9 +283,9 @@ describe("meleeKernelAgentCatalog", () => {
       const bundle = samplePrompt(agentId);
       const converted = toKernelParsedAgentFromBundle(entry, bundle);
 
-      expect(converted.parsed.frontmatter.name).toBe(agentId);
-      expect(converted.parsed.frontmatter.tools).toEqual(entry.tools);
-      expect(converted.parsed.frontmatter.model).toBe(entry.model);
+      expect(converted.parsed.config.name).toBe(agentId);
+      expect(converted.parsed.config.tools).toEqual(entry.tools);
+      expect(converted.parsed.config.model).toBe(entry.model);
       expect(converted.parsed.body).toBe(bundle.systemPrompt);
       expect(bundle.systemTemplatePath.endsWith("/agent.ts")).toBeTrue();
       expect(converted.userPrompt).toBe(
@@ -332,7 +327,7 @@ describe("meleeKernelAgentCatalog", () => {
 
   test("renders dashboard worker sample with validation handoff language and hypothesis context", () => {
     const payload = loadKernelAgentsPayload({
-      project: null,
+      game: null,
       repoRoot: sampleRepoRoot,
       stateDir: sampleStateDir,
       graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),

@@ -2,43 +2,43 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent 
 import { buildTraceSpans, type KernelTraceSessionDetail, type KernelTraceSessionSummary } from "@agent-kernel/viewer-core";
 import { KernelTraceViewer } from "@agent-kernel/viewer-shell";
 import {
-  PROJECT_EVENT_PAGE_SIZE,
-  PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE,
+  GAME_EVENT_PAGE_SIZE,
+  GAME_EVENT_RECONSTRUCTION_PAGE_SIZE,
   fetchKernelStatus,
   fetchKernelTraceSessionDetail,
   fetchKernelTraceSessions,
-  fetchProjectEventReconstruction,
-  fetchProjectEvents,
-  fetchProjectSessionState,
+  fetchGameEventReconstruction,
+  fetchGameEvents,
+  fetchCycleState,
 } from "@/lib/api";
 import type {
-  ProjectEventDto,
-  ProjectEventKernelTraceProjection,
-  ProjectEventReconstructionPage,
+  GameEventDto,
+  GameEventKernelTraceProjection,
+  GameEventReconstructionPage,
 } from "@/lib/api-types";
 import { asArray, asObject, shortId, text, type FormState, type JsonObject } from "@/lib/format";
-import type { SessionView } from "@/pages/workspace/_lib/types";
+import type { CycleView } from "@/pages/workspace/_lib/types";
 import {
-  chooseProjectEventCorrelation,
+  chooseGameEventCorrelation,
   isSafeLocalTraceHref,
-  isSelectedProjectEvent,
+  isSelectedGameEvent,
   kernelTraceSelectionUrl,
-  mergeProjectEventPages,
-  mergeProjectEventReconstructionPages,
-  projectEventAnchorAvailability,
-  projectEventAnchorId,
-  projectEventReconstructionSelection,
-  projectEventSelectionUrl,
-  projectEventTimeline,
-  projectEventUrlSelection,
-  projectEventWorkflowOptions,
+  mergeGameEventPages,
+  mergeGameEventReconstructionPages,
+  gameEventAnchorAvailability,
+  gameEventAnchorId,
+  gameEventReconstructionSelection,
+  gameEventSelectionUrl,
+  gameEventTimeline,
+  gameEventUrlSelection,
+  gameEventWorkflowOptions,
   traceSelectionUrl,
-} from "./project-event-model";
+} from "./game-event-model";
 
-interface TraceProjectSession {
+interface TraceCycle {
   id: string;
-  projectId: string;
-  sessionUuid: string;
+  gameId: string;
+  cycleUuid: string;
   status: string;
   phase: string;
   activeSubphase: string;
@@ -64,10 +64,10 @@ function selectedSessionIdFromLocation(): string | null {
   }
 }
 
-function selectedProjectEventFromLocation() {
+function selectedGameEventFromLocation() {
   if (typeof window === "undefined") return { correlationId: null, eventId: null };
   try {
-    return projectEventUrlSelection(window.location.search, window.location.hash);
+    return gameEventUrlSelection(window.location.search, window.location.hash);
   } catch {
     return { correlationId: null, eventId: null };
   }
@@ -89,12 +89,12 @@ function replaceTraceSelectionInUrl(
   }
 }
 
-function replaceProjectEventSelectionInUrl(correlationId: string | null, eventId?: string | null): void {
+function replaceGameEventSelectionInUrl(correlationId: string | null, eventId?: string | null): void {
   try {
-    const nextUrl = projectEventSelectionUrl(window.location.href, correlationId, eventId);
+    const nextUrl = gameEventSelectionUrl(window.location.href, correlationId, eventId);
     window.history.replaceState(null, "", nextUrl);
   } catch {
-    // Project event selection still works if URL mutation is unavailable.
+    // Game event selection still works if URL mutation is unavailable.
   }
 }
 
@@ -103,7 +103,10 @@ function isActiveTrace(status: string): boolean {
 }
 
 function traceMatchesId(trace: KernelTraceSessionSummary, id: string): boolean {
-  return trace.id === id || trace.containerId === id || trace.appSessionSlug === id;
+  const metadata = asObject(trace.metadata);
+  return trace.id === id
+    || trace.containerId === id
+    || text(metadata.appSessionSlug, text(metadata.app_session_slug)) === id;
 }
 
 function traceSessionCandidates(trace: KernelTraceSessionSummary): string[] {
@@ -111,11 +114,12 @@ function traceSessionCandidates(trace: KernelTraceSessionSummary): string[] {
   return [
     trace.id,
     trace.containerId,
-    trace.appSessionSlug,
+    text(metadata.appSessionSlug),
+    text(metadata.app_session_slug),
     text(metadata.appSessionId),
     text(metadata.app_session_id),
-    text(metadata.sessionUuid),
-    text(metadata.session_uuid),
+    text(metadata.cycleUuid),
+    text(metadata.cycle_uuid),
     text(metadata.sessionId),
     text(metadata.rootContainerId),
     text(metadata.root_container_id),
@@ -125,11 +129,11 @@ function traceSessionCandidates(trace: KernelTraceSessionSummary): string[] {
   ].filter(Boolean);
 }
 
-function projectSessionTraceCandidates(session: TraceProjectSession): string[] {
-  const trace = asObject(session.kernelTrace);
+function cycleTraceCandidates(cycle: TraceCycle): string[] {
+  const trace = asObject(cycle.kernelTrace);
   return [
-    session.sessionUuid,
-    session.id,
+    cycle.cycleUuid,
+    cycle.id,
     text(trace.appSessionId),
     text(trace.app_session_id),
     text(trace.rootContainerId),
@@ -139,25 +143,25 @@ function projectSessionTraceCandidates(session: TraceProjectSession): string[] {
   ].filter(Boolean);
 }
 
-function projectSessionForKernelTrace(
-  sessions: TraceProjectSession[],
-  kernelTrace: ProjectEventKernelTraceProjection,
-): TraceProjectSession | null {
+function cycleForKernelTrace(
+  cycles: TraceCycle[],
+  kernelTrace: GameEventKernelTraceProjection,
+): TraceCycle | null {
   const kernelIdentities = new Set([kernelTrace.app_session_id, kernelTrace.container_id]);
-  return sessions.find(
-    (session) => projectSessionTraceCandidates(session).some((candidate) => kernelIdentities.has(candidate)),
+  return cycles.find(
+    (cycle) => cycleTraceCandidates(cycle).some((candidate) => kernelIdentities.has(candidate)),
   ) ?? null;
 }
 
-function traceMatchesProjectSession(trace: KernelTraceSessionSummary, session: TraceProjectSession): boolean {
+function traceMatchesCycle(trace: KernelTraceSessionSummary, cycle: TraceCycle): boolean {
   const traceCandidates = new Set(traceSessionCandidates(trace));
-  return projectSessionTraceCandidates(session).some((candidate) => traceCandidates.has(candidate));
+  return cycleTraceCandidates(cycle).some((candidate) => traceCandidates.has(candidate));
 }
 
-function traceMatchesProjectId(trace: KernelTraceSessionSummary, projectId: string): boolean {
-  if (!projectId) return true;
+function traceMatchesGameId(trace: KernelTraceSessionSummary, gameId: string): boolean {
+  if (!gameId) return true;
   const metadata = asObject(trace.metadata);
-  return text(metadata.projectId, text(metadata.project_id)) === projectId;
+  return text(metadata.gameId, text(metadata.game_id)) === gameId;
 }
 
 function timestampMs(value: unknown): number {
@@ -171,8 +175,8 @@ function traceTimestamp(trace: KernelTraceSessionSummary): number {
   return timestampMs(trace.latestEventAt ?? trace.updatedAt ?? trace.createdAt);
 }
 
-function sortedTraceSessions(sessions: KernelTraceSessionSummary[]): KernelTraceSessionSummary[] {
-  return [...sessions].sort((left, right) => traceTimestamp(right) - traceTimestamp(left));
+function sortedTraceSessions(cycles: KernelTraceSessionSummary[]): KernelTraceSessionSummary[] {
+  return [...cycles].sort((left, right) => traceTimestamp(right) - traceTimestamp(left));
 }
 
 function prettyLabel(value: string): string {
@@ -187,13 +191,13 @@ function activeSubphaseFromRow(row: JsonObject): string {
   return text(phaseState.subphase);
 }
 
-function projectSessionFromRow(row: JsonObject): TraceProjectSession | null {
-  const sessionUuid = text(row.sessionUuid, text(row.session_uuid));
-  if (!sessionUuid) return null;
+function cycleFromRow(row: JsonObject): TraceCycle | null {
+  const cycleUuid = text(row.cycleUuid, text(row.cycle_uuid));
+  if (!cycleUuid) return null;
   return {
-    id: text(row.id, `project-session:${sessionUuid}`),
-    projectId: text(row.projectId, text(row.project_id)),
-    sessionUuid,
+    id: text(row.id, `cycle:${cycleUuid}`),
+    gameId: text(row.gameId, text(row.game_id)),
+    cycleUuid,
     status: text(row.status, "active"),
     phase: text(row.phase, "preparing"),
     activeSubphase: activeSubphaseFromRow(row),
@@ -203,22 +207,22 @@ function projectSessionFromRow(row: JsonObject): TraceProjectSession | null {
   };
 }
 
-function projectSessionsFromPayload(payload: { projectSession: JsonObject | null; history: JsonObject[] } | null, view: SessionView): TraceProjectSession[] {
+function cyclesFromPayload(payload: { cycle: JsonObject | null; history: JsonObject[] } | null, view: CycleView): TraceCycle[] {
   const rows = payload ? [...asArray(payload.history).map(asObject)] : [];
-  const active = asObject(payload?.projectSession);
+  const active = asObject(payload?.cycle);
   if (Object.keys(active).length > 0) rows.unshift(active);
-  const byUuid = new Map<string, TraceProjectSession>();
+  const byUuid = new Map<string, TraceCycle>();
   for (const row of rows) {
-    const session = projectSessionFromRow(row);
-    if (session && !byUuid.has(session.sessionUuid)) byUuid.set(session.sessionUuid, session);
+    const cycle = cycleFromRow(row);
+    if (cycle && !byUuid.has(cycle.cycleUuid)) byUuid.set(cycle.cycleUuid, cycle);
   }
-  if (byUuid.size === 0 && view.activeSessionId) {
-    byUuid.set(view.activeSessionId, {
-      id: `project-session:${view.activeSessionId}`,
-      projectId: text(view.project?.id),
-      sessionUuid: view.activeSessionId,
+  if (byUuid.size === 0 && view.activeCycleId) {
+    byUuid.set(view.activeCycleId, {
+      id: `cycle:${view.activeCycleId}`,
+      gameId: text(view.game?.id),
+      cycleUuid: view.activeCycleId,
       status: "active",
-      phase: text(view.canonicalPhase, view.mode === "none" ? "session" : view.mode),
+      phase: text(view.canonicalPhase, view.mode === "none" ? "cycle" : view.mode),
       activeSubphase: text(view.canonicalSubphase),
       createdAt: "",
       updatedAt: "",
@@ -228,62 +232,62 @@ function projectSessionsFromPayload(payload: { projectSession: JsonObject | null
   return [...byUuid.values()].sort((left, right) => timestampMs(right.createdAt) - timestampMs(left.createdAt));
 }
 
-function sessionPhaseLabel(session: TraceProjectSession): string {
-  return [session.phase, session.activeSubphase].filter(Boolean).map(prettyLabel).join(" / ");
+function cyclePhaseLabel(cycle: TraceCycle): string {
+  return [cycle.phase, cycle.activeSubphase].filter(Boolean).map(prettyLabel).join(" / ");
 }
 
-function sessionTitle(session: TraceProjectSession): string {
-  return `Session ${shortId(session.sessionUuid)}`;
+function cycleTitle(cycle: TraceCycle): string {
+  return `Cycle ${shortId(cycle.cycleUuid)}`;
 }
 
-function sessionStatusClass(status: string): string {
+function cycleStatusClass(status: string): string {
   if (status === "active") return "border-status-info-border bg-status-info-fill text-status-info";
   if (status === "complete" || status === "completed") return "border-status-success-border bg-status-success-fill text-status-success";
   if (status === "blocked" || status === "error" || status === "failed") return "border-destructive/40 bg-destructive/10 text-destructive";
   return "border-status-neutral-border bg-status-neutral-fill text-status-neutral";
 }
 
-function chooseProjectSessionId(
-  sessions: TraceProjectSession[],
-  projectTraces: KernelTraceSessionSummary[],
-  view: SessionView,
+function chooseCycleId(
+  cycles: TraceCycle[],
+  gameTraces: KernelTraceSessionSummary[],
+  view: CycleView,
   preferredSessionId: string | null,
   preferredTraceId: string | null,
 ): string | null {
-  if (preferredSessionId && sessions.some((session) => session.sessionUuid === preferredSessionId)) return preferredSessionId;
+  if (preferredSessionId && cycles.some((cycle) => cycle.cycleUuid === preferredSessionId)) return preferredSessionId;
   if (preferredTraceId) {
-    const trace = projectTraces.find((candidate) => traceMatchesId(candidate, preferredTraceId));
-    const matchingSession = trace ? sessions.find((session) => traceMatchesProjectSession(trace, session)) : null;
-    if (matchingSession) return matchingSession.sessionUuid;
+    const trace = gameTraces.find((candidate) => traceMatchesId(candidate, preferredTraceId));
+    const matchingSession = trace ? cycles.find((cycle) => traceMatchesCycle(trace, cycle)) : null;
+    if (matchingSession) return matchingSession.cycleUuid;
   }
-  if (view.activeSessionId && sessions.some((session) => session.sessionUuid === view.activeSessionId)) return view.activeSessionId;
-  return sessions[0]?.sessionUuid ?? null;
+  if (view.activeCycleId && cycles.some((cycle) => cycle.cycleUuid === view.activeCycleId)) return view.activeCycleId;
+  return cycles[0]?.cycleUuid ?? null;
 }
 
-function chooseTraceSessionId(sessions: KernelTraceSessionSummary[], preferredId: string | null): string | null {
-  if (preferredId && sessions.some((trace) => traceMatchesId(trace, preferredId))) return preferredId;
-  const runningTrace = sessions.find((trace) => isActiveTrace(trace.status));
-  return runningTrace?.id ?? sessions[0]?.id ?? sessions[0]?.containerId ?? null;
+function chooseTraceSessionId(cycles: KernelTraceSessionSummary[], preferredId: string | null): string | null {
+  if (preferredId && cycles.some((trace) => traceMatchesId(trace, preferredId))) return preferredId;
+  const runningTrace = cycles.find((trace) => isActiveTrace(trace.status));
+  return runningTrace?.id ?? cycles[0]?.id ?? cycles[0]?.containerId ?? null;
 }
 
-function tracesForSession(projectTraces: KernelTraceSessionSummary[], session: TraceProjectSession | null): KernelTraceSessionSummary[] {
-  if (!session) return [];
-  return sortedTraceSessions(projectTraces.filter((trace) => traceMatchesProjectSession(trace, session)));
+function tracesForSession(gameTraces: KernelTraceSessionSummary[], cycle: TraceCycle | null): KernelTraceSessionSummary[] {
+  if (!cycle) return [];
+  return sortedTraceSessions(gameTraces.filter((trace) => traceMatchesCycle(trace, cycle)));
 }
 
-export function TracePage({ form, view }: { form: FormState; view: SessionView }) {
-  const [projectSessions, setProjectSessions] = useState<TraceProjectSession[]>([]);
-  const [projectTraceSessions, setProjectTraceSessions] = useState<KernelTraceSessionSummary[]>([]);
-  const [selectedProjectSessionId, setSelectedProjectSessionId] = useState<string | null>(null);
+export function TracePage({ form, view }: { form: FormState; view: CycleView }) {
+  const [cycles, setCycles] = useState<TraceCycle[]>([]);
+  const [gameTraceSessions, setGameTraceSessions] = useState<KernelTraceSessionSummary[]>([]);
+  const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [selectedTraceSessionId, setSelectedTraceSessionId] = useState<string | null>(null);
   const [detail, setDetail] = useState<KernelTraceSessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [projectEvents, setProjectEvents] = useState<ProjectEventDto[]>([]);
-  const [projectEventSelection, setProjectEventSelection] = useState(selectedProjectEventFromLocation);
-  const selectedCorrelationId = projectEventSelection.correlationId;
-  const selectedProjectEventId = projectEventSelection.eventId;
-  const [reconstruction, setReconstruction] = useState<ProjectEventReconstructionPage | null>(null);
+  const [gameEvents, setGameEvents] = useState<GameEventDto[]>([]);
+  const [gameEventSelection, setGameEventSelection] = useState(selectedGameEventFromLocation);
+  const selectedCorrelationId = gameEventSelection.correlationId;
+  const selectedGameEventId = gameEventSelection.eventId;
+  const [reconstruction, setReconstruction] = useState<GameEventReconstructionPage | null>(null);
   const [eventListLoading, setEventListLoading] = useState(true);
   const [eventListLoadingMore, setEventListLoadingMore] = useState(false);
   const [eventListHasMore, setEventListHasMore] = useState(false);
@@ -297,43 +301,43 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
   const [reconstructionReload, setReconstructionReload] = useState(0);
   const eventLoadGeneration = useRef(0);
   const reconstructionLoadGeneration = useRef(0);
-  const loadedProjectEventButtons = useRef(new Map<string, HTMLButtonElement>());
-  const reconstructionProjectEventItems = useRef(new Map<string, HTMLLIElement>());
-  const focusedProjectEventSelection = useRef<string | null>(null);
+  const loadedGameEventButtons = useRef(new Map<string, HTMLButtonElement>());
+  const reconstructionGameEventItems = useRef(new Map<string, HTMLLIElement>());
+  const focusedGameEventSelection = useRef<string | null>(null);
   const spans = useMemo(
     () => (detail ? buildTraceSpans(detail.events, detail.pi_sessions, detail.agent_runs) : []),
     [detail],
   );
   const listedWorkflowOptions = useMemo(
-    () => projectEventWorkflowOptions(projectEvents),
-    [projectEvents],
+    () => gameEventWorkflowOptions(gameEvents),
+    [gameEvents],
   );
   const workflowOptions = useMemo(
-    () => projectEventWorkflowOptions(
-      reconstruction ? [...projectEvents, ...reconstruction.events] : projectEvents,
+    () => gameEventWorkflowOptions(
+      reconstruction ? [...gameEvents, ...reconstruction.events] : gameEvents,
     ),
-    [projectEvents, reconstruction],
+    [gameEvents, reconstruction],
   );
   const loadedWorkflowEvents = useMemo(() => {
     const correlations = new Set(workflowOptions.map((option) => option.correlation_id));
-    return mergeProjectEventPages(
-      projectEvents,
+    return mergeGameEventPages(
+      gameEvents,
       reconstruction?.events ?? [],
     ).filter((event) => correlations.has(event.correlation_id));
-  }, [projectEvents, reconstruction, workflowOptions]);
+  }, [gameEvents, reconstruction, workflowOptions]);
   const selectedWorkflowAvailable = selectedCorrelationId !== null && workflowOptions.some(
     (option) => option.correlation_id === selectedCorrelationId,
   );
   const timeline = useMemo(
-    () => (reconstruction ? projectEventTimeline(reconstruction) : []),
+    () => (reconstruction ? gameEventTimeline(reconstruction) : []),
     [reconstruction],
   );
-  const selectedEventAvailability = projectEventAnchorAvailability(
-    projectEventSelection,
+  const selectedEventAvailability = gameEventAnchorAvailability(
+    gameEventSelection,
     reconstruction,
   );
-  const selectedSession = projectSessions.find((session) => session.sessionUuid === selectedProjectSessionId) ?? null;
-  const selectedSessionTraces = tracesForSession(projectTraceSessions, selectedSession);
+  const selectedSession = cycles.find((cycle) => cycle.cycleUuid === selectedCycleId) ?? null;
+  const selectedSessionTraces = tracesForSession(gameTraceSessions, selectedSession);
 
   useEffect(() => {
     let cancelled = false;
@@ -342,31 +346,31 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
       setLoading(true);
       setError("");
       try {
-        const [nextStatus, sessionState] = await Promise.all([
+        const [nextStatus, cycleState] = await Promise.all([
           fetchKernelStatus(),
-          fetchProjectSessionState(form).catch(() => null),
+          fetchCycleState(form).catch(() => null),
         ]);
         if (cancelled) return;
 
-        const sessions = projectSessionsFromPayload(sessionState, view);
-        const projectId = text(view.project?.id, form.projectId);
+        const cycles = cyclesFromPayload(cycleState, view);
+        const gameId = text(view.game?.id, form.gameId);
         const kernelList = nextStatus.enabled ? await fetchKernelTraceSessions() : { trace_sessions: [] };
         if (cancelled) return;
 
-        const projectTraces = sortedTraceSessions(kernelList.trace_sessions.filter((trace) => traceMatchesProjectId(trace, projectId)));
-        const sessionId = chooseProjectSessionId(
-          sessions,
-          projectTraces,
+        const gameTraces = sortedTraceSessions(kernelList.trace_sessions.filter((trace) => traceMatchesGameId(trace, gameId)));
+        const sessionId = chooseCycleId(
+          cycles,
+          gameTraces,
           view,
           selectedSessionIdFromLocation(),
           selectedTraceIdFromLocation(),
         );
-        const sessionTraces = tracesForSession(projectTraces, sessions.find((session) => session.sessionUuid === sessionId) ?? null);
+        const sessionTraces = tracesForSession(gameTraces, cycles.find((cycle) => cycle.cycleUuid === sessionId) ?? null);
         const traceId = chooseTraceSessionId(sessionTraces, selectedTraceIdFromLocation());
 
-        setProjectSessions(sessions);
-        setProjectTraceSessions(projectTraces);
-        setSelectedProjectSessionId(sessionId);
+        setCycles(cycles);
+        setGameTraceSessions(gameTraces);
+        setSelectedCycleId(sessionId);
         setSelectedTraceSessionId(traceId);
         setDetail(traceId ? await fetchKernelTraceSessionDetail(traceId) : null);
         replaceTraceSelectionInUrl(
@@ -384,28 +388,28 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
     return () => {
       cancelled = true;
     };
-  }, [form, view.activeSessionId, view.project?.id]);
+  }, [form, view.activeCycleId, view.game?.id]);
 
   useEffect(() => {
     const generation = ++eventLoadGeneration.current;
     let cancelled = false;
 
-    async function loadProjectEvents() {
+    async function loadGameEvents() {
       setEventListLoading(true);
       setEventListLoadingMore(false);
       setEventListError("");
-      setProjectEvents([]);
+      setGameEvents([]);
       setEventListHasMore(false);
       setEventListCursor(null);
       try {
-        const page = await fetchProjectEvents(form);
+        const page = await fetchGameEvents(form);
         if (cancelled || generation !== eventLoadGeneration.current) return;
-        setProjectEvents(mergeProjectEventPages([], page.events));
+        setGameEvents(mergeGameEventPages([], page.events));
         setEventListHasMore(page.has_more);
         setEventListCursor(page.next_after_sequence);
       } catch (err) {
         if (!cancelled && generation === eventLoadGeneration.current) {
-          setProjectEvents([]);
+          setGameEvents([]);
           setEventListError(err instanceof Error ? err.message : String(err));
         }
       } finally {
@@ -413,7 +417,7 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
       }
     }
 
-    void loadProjectEvents();
+    void loadGameEvents();
     return () => {
       cancelled = true;
       if (eventLoadGeneration.current === generation) eventLoadGeneration.current += 1;
@@ -422,19 +426,19 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
 
   useEffect(() => {
     if (eventListLoading || selectedCorrelationId) return;
-    const locationSelection = selectedProjectEventFromLocation();
-    const correlationId = locationSelection.correlationId ?? chooseProjectEventCorrelation(workflowOptions, null);
+    const locationSelection = selectedGameEventFromLocation();
+    const correlationId = locationSelection.correlationId ?? chooseGameEventCorrelation(workflowOptions, null);
     if (!correlationId) return;
-    setProjectEventSelection({ correlationId, eventId: locationSelection.eventId });
+    setGameEventSelection({ correlationId, eventId: locationSelection.eventId });
     if (!locationSelection.correlationId) {
-      replaceProjectEventSelectionInUrl(correlationId, locationSelection.eventId);
+      replaceGameEventSelectionInUrl(correlationId, locationSelection.eventId);
     }
   }, [eventListLoading, selectedCorrelationId, workflowOptions]);
 
   useEffect(() => {
-    function hydrateProjectEventSelectionFromLocation() {
-      const locationSelection = selectedProjectEventFromLocation();
-      const correlationId = locationSelection.correlationId ?? chooseProjectEventCorrelation(
+    function hydrateGameEventSelectionFromLocation() {
+      const locationSelection = selectedGameEventFromLocation();
+      const correlationId = locationSelection.correlationId ?? chooseGameEventCorrelation(
         workflowOptions,
         null,
       );
@@ -444,17 +448,17 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
         setReconstructionLoadingMore(false);
         setReconstructionContinuationError("");
       }
-      setProjectEventSelection({ correlationId, eventId: locationSelection.eventId });
+      setGameEventSelection({ correlationId, eventId: locationSelection.eventId });
       if (!locationSelection.correlationId && correlationId) {
-        replaceProjectEventSelectionInUrl(correlationId, locationSelection.eventId);
+        replaceGameEventSelectionInUrl(correlationId, locationSelection.eventId);
       }
     }
 
-    window.addEventListener("popstate", hydrateProjectEventSelectionFromLocation);
-    window.addEventListener("hashchange", hydrateProjectEventSelectionFromLocation);
+    window.addEventListener("popstate", hydrateGameEventSelectionFromLocation);
+    window.addEventListener("hashchange", hydrateGameEventSelectionFromLocation);
     return () => {
-      window.removeEventListener("popstate", hydrateProjectEventSelectionFromLocation);
-      window.removeEventListener("hashchange", hydrateProjectEventSelectionFromLocation);
+      window.removeEventListener("popstate", hydrateGameEventSelectionFromLocation);
+      window.removeEventListener("hashchange", hydrateGameEventSelectionFromLocation);
     };
   }, [selectedCorrelationId, workflowOptions]);
 
@@ -476,12 +480,12 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
     setReconstructionError("");
     setReconstructionContinuationError("");
     setReconstruction(null);
-    fetchProjectEventReconstruction(form, selectedCorrelationId, {
-      limit: PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE,
+    fetchGameEventReconstruction(form, selectedCorrelationId, {
+      limit: GAME_EVENT_RECONSTRUCTION_PAGE_SIZE,
     })
       .then((page) => {
         if (!cancelled && generation === reconstructionLoadGeneration.current) {
-          setReconstruction(mergeProjectEventReconstructionPages(null, page));
+          setReconstruction(mergeGameEventReconstructionPages(null, page));
         }
       })
       .catch((err: unknown) => {
@@ -508,38 +512,38 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
     if (
       reconstructionLoading ||
       selectedEventAvailability !== "loaded" ||
-      !selectedProjectEventId ||
+      !selectedGameEventId ||
       !selectedCorrelationId
     ) {
-      focusedProjectEventSelection.current = null;
+      focusedGameEventSelection.current = null;
       return;
     }
-    const focusIdentity = `${reconstruction?.project_id ?? ""}\u0000${selectedCorrelationId}\u0000${selectedProjectEventId}`;
-    if (focusedProjectEventSelection.current === focusIdentity) return;
+    const focusIdentity = `${reconstruction?.game_id ?? ""}\u0000${selectedCorrelationId}\u0000${selectedGameEventId}`;
+    if (focusedGameEventSelection.current === focusIdentity) return;
     try {
-      const selectedEvent = loadedProjectEventButtons.current.get(selectedProjectEventId)
-        ?? reconstructionProjectEventItems.current.get(selectedProjectEventId);
+      const selectedEvent = loadedGameEventButtons.current.get(selectedGameEventId)
+        ?? reconstructionGameEventItems.current.get(selectedGameEventId);
       if (!selectedEvent) return;
       selectedEvent.focus({ preventScroll: true });
-      focusedProjectEventSelection.current = focusIdentity;
+      focusedGameEventSelection.current = focusIdentity;
       selectedEvent.scrollIntoView({ block: "nearest" });
     } catch {
       // Event selection remains visible if anchored scrolling is unavailable.
     }
   }, [
     loadedWorkflowEvents,
-    reconstruction?.project_id,
+    reconstruction?.game_id,
     reconstructionLoading,
     selectedCorrelationId,
     selectedEventAvailability,
-    selectedProjectEventId,
+    selectedGameEventId,
     timeline,
   ]);
 
-  async function selectProjectSession(sessionId: string) {
-    const sessionTraces = tracesForSession(projectTraceSessions, projectSessions.find((session) => session.sessionUuid === sessionId) ?? null);
+  async function selectCycle(sessionId: string) {
+    const sessionTraces = tracesForSession(gameTraceSessions, cycles.find((cycle) => cycle.cycleUuid === sessionId) ?? null);
     const traceId = chooseTraceSessionId(sessionTraces, null);
-    setSelectedProjectSessionId(sessionId);
+    setSelectedCycleId(sessionId);
     setSelectedTraceSessionId(traceId);
     replaceTraceSelectionInUrl(
       sessionId,
@@ -556,15 +560,15 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
     }
   }
 
-  async function loadMoreProjectEvents() {
+  async function loadMoreGameEvents() {
     if (eventListLoading || eventListLoadingMore || !eventListHasMore || eventListCursor === null) return;
     const generation = eventLoadGeneration.current;
     setEventListLoadingMore(true);
     setEventListError("");
     try {
-      const page = await fetchProjectEvents(form, { afterSequence: eventListCursor });
+      const page = await fetchGameEvents(form, { afterSequence: eventListCursor });
       if (generation !== eventLoadGeneration.current) return;
-      setProjectEvents((current) => mergeProjectEventPages(current, page.events));
+      setGameEvents((current) => mergeGameEventPages(current, page.events));
       setEventListHasMore(page.has_more);
       setEventListCursor(page.next_after_sequence);
     } catch (err) {
@@ -576,7 +580,7 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
     }
   }
 
-  async function loadMoreProjectEventReconstruction() {
+  async function loadMoreGameEventReconstruction() {
     if (
       reconstructionLoading ||
       reconstructionLoadingMore ||
@@ -591,12 +595,12 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
     setReconstructionLoadingMore(true);
     setReconstructionContinuationError("");
     try {
-      const page = await fetchProjectEventReconstruction(form, selectedCorrelationId, {
+      const page = await fetchGameEventReconstruction(form, selectedCorrelationId, {
         afterSequence: currentReconstruction.next_after_sequence,
-        limit: PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE,
+        limit: GAME_EVENT_RECONSTRUCTION_PAGE_SIZE,
       });
       if (generation !== reconstructionLoadGeneration.current) return;
-      setReconstruction(mergeProjectEventReconstructionPages(currentReconstruction, page));
+      setReconstruction(mergeGameEventReconstructionPages(currentReconstruction, page));
     } catch (err) {
       if (generation === reconstructionLoadGeneration.current) {
         setReconstructionContinuationError(err instanceof Error ? err.message : String(err));
@@ -615,12 +619,12 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
       setReconstructionLoadingMore(false);
       setReconstructionContinuationError("");
     }
-    setProjectEventSelection({ correlationId, eventId });
-    replaceProjectEventSelectionInUrl(correlationId, eventId);
+    setGameEventSelection({ correlationId, eventId });
+    replaceGameEventSelectionInUrl(correlationId, eventId);
   }
 
-  function selectProjectEvent(event: ProjectEventDto) {
-    const selection = projectEventReconstructionSelection(event);
+  function selectGameEvent(event: GameEventDto) {
+    const selection = gameEventReconstructionSelection(event);
     selectCorrelation(selection.correlationId, selection.eventId);
   }
 
@@ -646,9 +650,9 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
           <div className="border-b border-border px-4 py-3">
             <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="truncate font-display text-lg font-bold leading-tight">Sessions</h2>
+                <h2 className="truncate font-display text-lg font-bold leading-tight">Cycles</h2>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {projectSessions.length} project {projectSessions.length === 1 ? "session" : "sessions"}
+                  {cycles.length} game {cycles.length === 1 ? "cycle" : "cycles"}
                 </p>
               </div>
               {loading ? (
@@ -660,26 +664,26 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {projectSessions.length === 0 && !loading ? (
+            {cycles.length === 0 && !loading ? (
               <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-                No project sessions yet.
+                No cycles yet.
               </div>
             ) : (
               <div className="min-w-0">
                 <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_76px_58px] gap-2 border-b border-border bg-card/95 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                  <span>Session</span>
+                  <span>Cycle</span>
                   <span className="text-right">State</span>
                   <span className="text-right">Trace</span>
                 </div>
-                {projectSessions.map((session) => {
-                  const selected = session.sessionUuid === selectedProjectSessionId;
-                  const traceCount = tracesForSession(projectTraceSessions, session).length;
-                  const phaseLabel = sessionPhaseLabel(session);
+                {cycles.map((cycle) => {
+                  const selected = cycle.cycleUuid === selectedCycleId;
+                  const traceCount = tracesForSession(gameTraceSessions, cycle).length;
+                  const phaseLabel = cyclePhaseLabel(cycle);
                   return (
                     <button
-                      key={session.sessionUuid}
+                      key={cycle.cycleUuid}
                       type="button"
-                      onClick={() => void selectProjectSession(session.sessionUuid)}
+                      onClick={() => void selectCycle(cycle.cycleUuid)}
                       className={`relative grid w-full min-w-0 grid-cols-[minmax(0,1fr)_76px_58px] items-center gap-2 border-b border-border/70 px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-status-info-border ${
                         selected
                           ? "bg-status-info-fill/30 text-foreground before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-status-info-border"
@@ -687,9 +691,9 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                       }`}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-bold leading-5">{sessionTitle(session)}</span>
+                        <span className="block truncate text-[13px] font-bold leading-5">{cycleTitle(cycle)}</span>
                         <span className="block truncate font-mono text-[11px] leading-4 text-muted-foreground">
-                          {session.sessionUuid}
+                          {cycle.cycleUuid}
                         </span>
                         {phaseLabel ? (
                           <span className="mt-1 block truncate text-[11px] uppercase leading-4 text-muted-foreground">
@@ -697,8 +701,8 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                           </span>
                         ) : null}
                       </span>
-                      <span className={`justify-self-end rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase ${sessionStatusClass(session.status)}`}>
-                        {session.status}
+                      <span className={`justify-self-end rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase ${cycleStatusClass(cycle.status)}`}>
+                        {cycle.status}
                       </span>
                       <span className="justify-self-end text-[11px] font-bold text-muted-foreground">
                         {traceCount}
@@ -712,7 +716,7 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
         </aside>
 
         <section
-          aria-labelledby="project-event-timeline-title"
+          aria-labelledby="game-event-timeline-title"
           aria-busy={
             eventListLoading ||
             eventListLoadingMore ||
@@ -724,11 +728,11 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
           <div className="border-b border-border px-4 py-3">
             <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 id="project-event-timeline-title" className="truncate font-display text-lg font-bold leading-tight">
-                  Project events
+                <h2 id="game-event-timeline-title" className="truncate font-display text-lg font-bold leading-tight">
+                  Game events
                 </h2>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {listedWorkflowOptions.length} {listedWorkflowOptions.length === 1 ? "workflow" : "workflows"} from {projectEvents.length} loaded {projectEvents.length === 1 ? "event" : "events"}
+                  {listedWorkflowOptions.length} {listedWorkflowOptions.length === 1 ? "workflow" : "workflows"} from {gameEvents.length} loaded {gameEvents.length === 1 ? "event" : "events"}
                 </p>
               </div>
               {eventListLoading || eventListLoadingMore || reconstructionLoading || reconstructionLoadingMore ? (
@@ -737,11 +741,11 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                 </span>
               ) : null}
             </div>
-            <label htmlFor="project-event-correlation" className="mt-3 block text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            <label htmlFor="game-event-correlation" className="mt-3 block text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
               Workflow / correlation
             </label>
             <select
-              id="project-event-correlation"
+              id="game-event-correlation"
               value={selectedWorkflowAvailable ? selectedCorrelationId! : ""}
               disabled={eventListLoading || workflowOptions.length === 0}
               onChange={(event) => selectCorrelation(event.currentTarget.value)}
@@ -758,20 +762,20 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
             </select>
           </div>
 
-          <div id="project-event-surface" className="min-h-0 flex-1 overflow-y-auto p-3">
+          <div id="game-event-surface" className="min-h-0 flex-1 overflow-y-auto p-3">
             {eventListError ? (
               <div role="alert" className="mb-3 rounded border border-destructive/40 bg-destructive/10 px-3 py-3 text-sm text-destructive">
-                <p>Project events could not be loaded: {eventListError}</p>
+                <p>Game events could not be loaded: {eventListError}</p>
                 <button
                   type="button"
-                  disabled={projectEvents.length > 0 && (eventListLoadingMore || eventListCursor === null)}
+                  disabled={gameEvents.length > 0 && (eventListLoadingMore || eventListCursor === null)}
                   onClick={() => {
-                    if (projectEvents.length === 0) setEventListReload((value) => value + 1);
-                    else void loadMoreProjectEvents();
+                    if (gameEvents.length === 0) setEventListReload((value) => value + 1);
+                    else void loadMoreGameEvents();
                   }}
                   className="mt-3 rounded-[2px] border border-destructive/50 px-2.5 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {projectEvents.length === 0 ? "Try again" : "Try loading more again"}
+                  {gameEvents.length === 0 ? "Try again" : "Try loading more again"}
                 </button>
               </div>
             ) : null}
@@ -787,11 +791,11 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                 </button>
               </div>
             ) : null}
-            <div id="loaded-project-event-timeline">
+            <div id="loaded-game-event-timeline">
               {!eventListLoading && loadedWorkflowEvents.length > 0 ? (
-                <section aria-labelledby="loaded-project-event-timeline-title">
+                <section aria-labelledby="loaded-game-event-timeline-title">
                   <div className="mb-2">
-                    <h3 id="loaded-project-event-timeline-title" className="text-xs font-bold text-foreground">
+                    <h3 id="loaded-game-event-timeline-title" className="text-xs font-bold text-foreground">
                       Loaded event timeline
                     </h3>
                     <p className="mt-0.5 text-[10px] text-muted-foreground">
@@ -800,18 +804,18 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                   </div>
                   <ol className="max-h-52 space-y-1 overflow-y-auto pr-1" aria-label="Loaded workflow events">
                     {loadedWorkflowEvents.map((event) => {
-                      const selected = isSelectedProjectEvent(event, projectEventSelection);
+                      const selected = isSelectedGameEvent(event, gameEventSelection);
                       return (
                         <li key={event.event_id}>
                           <button
                             ref={(element) => {
-                              if (element) loadedProjectEventButtons.current.set(event.event_id, element);
-                              else loadedProjectEventButtons.current.delete(event.event_id);
+                              if (element) loadedGameEventButtons.current.set(event.event_id, element);
+                              else loadedGameEventButtons.current.delete(event.event_id);
                             }}
                             type="button"
-                            aria-controls="project-event-reconstruction"
+                            aria-controls="game-event-reconstruction"
                             aria-pressed={selected}
-                            onClick={() => selectProjectEvent(event)}
+                            onClick={() => selectGameEvent(event)}
                             className={`grid w-full min-w-0 grid-cols-[52px_minmax(0,1fr)] gap-2 rounded border px-2 py-1.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-status-info-border ${
                               selected
                                 ? "border-status-info-border bg-status-info-fill/35 text-foreground"
@@ -835,14 +839,14 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
               <div className="mt-3 border-t border-border pt-3 text-center">
                 <button
                   type="button"
-                  aria-controls="loaded-project-event-timeline"
+                  aria-controls="loaded-game-event-timeline"
                   disabled={eventListLoadingMore || eventListCursor === null}
-                  onClick={() => void loadMoreProjectEvents()}
+                  onClick={() => void loadMoreGameEvents()}
                   className="rounded-[2px] border border-border bg-background px-3 py-2 text-xs font-bold text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-status-info-border disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {eventListLoadingMore
-                    ? `Loading next ${PROJECT_EVENT_PAGE_SIZE} events...`
-                    : `Load next ${PROJECT_EVENT_PAGE_SIZE} events`}
+                    ? `Loading next ${GAME_EVENT_PAGE_SIZE} events...`
+                    : `Load next ${GAME_EVENT_PAGE_SIZE} events`}
                 </button>
                 <p className="mt-2 text-[10px] text-muted-foreground">
                   History is loaded only when requested.
@@ -850,12 +854,12 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
               </div>
             ) : null}
             <section
-              id="project-event-reconstruction"
-              aria-labelledby="project-event-reconstruction-title"
+              id="game-event-reconstruction"
+              aria-labelledby="game-event-reconstruction-title"
               aria-live="polite"
               className="mt-3 border-t border-border pt-3"
             >
-              <h3 id="project-event-reconstruction-title" className="mb-2 text-xs font-bold text-foreground">
+              <h3 id="game-event-reconstruction-title" className="mb-2 text-xs font-bold text-foreground">
                 Reconstruction details
               </h3>
               {reconstructionContinuationError ? (
@@ -864,7 +868,7 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                   <button
                     type="button"
                     disabled={reconstructionLoadingMore}
-                    onClick={() => void loadMoreProjectEventReconstruction()}
+                    onClick={() => void loadMoreGameEventReconstruction()}
                     className="mt-3 rounded-[2px] border border-destructive/50 px-2.5 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Try loading more again
@@ -873,31 +877,31 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
               ) : null}
               {eventListLoading ? (
                 <div role="status" className="px-3 py-8 text-center text-sm text-muted-foreground">
-                  Loading the first {PROJECT_EVENT_PAGE_SIZE} project events...
+                  Loading the first {GAME_EVENT_PAGE_SIZE} game events...
                 </div>
-              ) : eventListError && projectEvents.length === 0 ? null : workflowOptions.length === 0 ? (
+              ) : eventListError && gameEvents.length === 0 ? null : workflowOptions.length === 0 ? (
                 <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-                  {projectEvents.length === 0 && !eventListHasMore
-                    ? "No accepted project events yet."
-                    : "No run, sync, campaign, or session workflow is present in the loaded events."}
+                  {gameEvents.length === 0 && !eventListHasMore
+                    ? "No accepted game events yet."
+                    : "No run, sync, campaign, or cycle workflow is present in the loaded events."}
                 </div>
               ) : reconstructionError ? null : reconstructionLoading || !reconstruction ? (
                 <div role="status" className="px-3 py-8 text-center text-sm text-muted-foreground">
-                  Loading the first {PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE} lifecycle events...
+                  Loading the first {GAME_EVENT_RECONSTRUCTION_PAGE_SIZE} lifecycle events...
                 </div>
               ) : timeline.length === 0 ? (
                 <div className="px-3 py-8 text-center text-sm text-muted-foreground">
                   This correlation has no accepted lifecycle events.
                 </div>
               ) : (
-                <ol className="space-y-3" aria-label="Ordered accepted project-event lifecycle">
+                <ol className="space-y-3" aria-label="Ordered accepted game-event lifecycle">
                   {timeline.map((item) => (
                     <li
                       ref={(element) => {
-                        if (element) reconstructionProjectEventItems.current.set(item.event_id, element);
-                        else reconstructionProjectEventItems.current.delete(item.event_id);
+                        if (element) reconstructionGameEventItems.current.set(item.event_id, element);
+                        else reconstructionGameEventItems.current.delete(item.event_id);
                       }}
-                      id={projectEventAnchorId(item.event_id)}
+                      id={gameEventAnchorId(item.event_id)}
                       key={item.event_id}
                       tabIndex={-1}
                       className="scroll-mt-3 rounded border border-border bg-background/45 p-3 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-status-info-border"
@@ -938,7 +942,7 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                         <span className="font-bold uppercase text-muted-foreground">Caused by </span>
                         {item.caused_by.kind === "event" ? (
                           <a
-                            href={projectEventSelectionUrl(
+                            href={gameEventSelectionUrl(
                               window.location.href,
                               item.caused_by.correlation_id,
                               item.caused_by.event_id,
@@ -963,13 +967,13 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                       {item.kernel_traces.length > 0 ? (
                         <div className="mt-2 flex flex-wrap gap-2 border-t border-border/70 pt-2">
                           {item.kernel_traces.map((kernelTrace, index) => {
-                            const kernelSession = projectSessionForKernelTrace(projectSessions, kernelTrace);
+                            const kernelSession = cycleForKernelTrace(cycles, kernelTrace);
                             const href = kernelTraceSelectionUrl(
                               kernelTrace.href,
                               window.location.href,
                               {
-                                projectId: reconstruction.project_id,
-                                sessionId: kernelSession?.sessionUuid ?? null,
+                                gameId: reconstruction.game_id,
+                                sessionId: kernelSession?.cycleUuid ?? null,
                                 correlationId: item.correlation_id,
                                 eventId: item.event_id,
                               },
@@ -1010,7 +1014,7 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
               )}
               {selectedEventAvailability === "continuation-available" ? (
                 <p
-                  id="project-event-selection-continuation"
+                  id="game-event-selection-continuation"
                   role="status"
                   className="mt-3 text-center text-[11px] text-muted-foreground"
                 >
@@ -1025,23 +1029,23 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
                 <div className="mt-3 border-t border-border pt-3 text-center">
                   <button
                     type="button"
-                    aria-controls="project-event-reconstruction"
+                    aria-controls="game-event-reconstruction"
                     aria-describedby={
                       selectedEventAvailability === "continuation-available"
-                        ? "project-event-selection-continuation"
+                        ? "game-event-selection-continuation"
                         : undefined
                     }
                     disabled={
                       reconstructionLoadingMore || reconstruction.next_after_sequence === null
                     }
-                    onClick={() => void loadMoreProjectEventReconstruction()}
+                    onClick={() => void loadMoreGameEventReconstruction()}
                     className="rounded-[2px] border border-border bg-background px-3 py-2 text-xs font-bold text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-status-info-border disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {reconstructionLoadingMore
-                      ? `Loading next ${PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE} lifecycle events...`
+                      ? `Loading next ${GAME_EVENT_RECONSTRUCTION_PAGE_SIZE} lifecycle events...`
                       : selectedEventAvailability === "continuation-available"
-                        ? `Load next ${PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE} to find selected event`
-                        : `Load next ${PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE} lifecycle events`}
+                        ? `Load next ${GAME_EVENT_RECONSTRUCTION_PAGE_SIZE} to find selected event`
+                        : `Load next ${GAME_EVENT_RECONSTRUCTION_PAGE_SIZE} lifecycle events`}
                   </button>
                   <p className="mt-2 text-[10px] text-muted-foreground">
                     Reconstruction continues only when requested.
@@ -1059,11 +1063,11 @@ export function TracePage({ form, view }: { form: FormState; view: SessionView }
             </div>
           ) : !selectedSession ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Select a session.
+              Select a cycle.
             </div>
           ) : selectedSessionTraces.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              No kernel traces for this session yet.
+              No kernel traces for this cycle yet.
             </div>
           ) : !detail ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

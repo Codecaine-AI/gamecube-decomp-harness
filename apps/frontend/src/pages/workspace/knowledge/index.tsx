@@ -9,8 +9,8 @@ import {
   type KnowledgeLearningEvidence,
 } from "@/lib/api";
 import type { FormState } from "@/lib/format";
-import { projectStateAction } from "@/pages/workspace/_lib/model";
-import type { DashboardAction, ProjectStateReadModel } from "@/pages/workspace/_lib/types";
+import { harnessStateAction } from "@/pages/workspace/_lib/model";
+import type { DashboardAction, HarnessStateReadModel } from "@/pages/workspace/_lib/types";
 
 const PAGE_SIZE = 100;
 const MAX_LEARNINGS = 1000;
@@ -425,12 +425,12 @@ export function KnowledgePage({
   busy,
   form,
   onAction,
-  projectState,
+  harnessState,
 }: {
   busy: boolean;
   form: FormState;
   onAction: (action: DashboardAction) => void;
-  projectState: ProjectStateReadModel | null;
+  harnessState: HarnessStateReadModel | null;
 }) {
   void form;
   const [payload, setPayload] = useState<Awaited<ReturnType<typeof fetchKnowledgeLearnings>> | null>(null);
@@ -445,8 +445,8 @@ export function KnowledgePage({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const freshness = projectState?.knowledge ?? null;
-  const processAction = projectStateAction(projectState, "knowledge.process");
+  const freshness = harnessState?.knowledge ?? null;
+  const processAction = harnessStateAction(harnessState, "knowledge.process");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

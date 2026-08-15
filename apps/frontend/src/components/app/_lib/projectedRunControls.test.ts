@@ -37,10 +37,10 @@ describe("legacy process controls", () => {
   test("wire every legacy Drain/Kill surface through the shared projection actions", () => {
     const actionUsage = new Map([
       ["components/details-rail/_components/process-tab.tsx", ["pause", "hardStop"]],
-      ["pages/workspace/sessions/active/subphases/run/components/RunControls.tsx", ["pause", "hardStop"]],
-      ["pages/workspace/sessions/index.tsx", ["pause"]],
+      ["pages/workspace/cycles/active/subphases/run/components/RunControls.tsx", ["pause", "hardStop"]],
+      ["pages/workspace/cycles/index.tsx", ["pause"]],
       ["pages/workspace/overview/index.tsx", ["pause"]],
-      ["pages/workspace/sessions/active/subphases/pr/components/PrModeActions.tsx", ["pause"]],
+      ["pages/workspace/cycles/active/subphases/pr/components/PrModeActions.tsx", ["pause"]],
     ]);
 
     for (const [relativePath, actions] of actionUsage) {

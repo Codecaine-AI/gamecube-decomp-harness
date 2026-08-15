@@ -1,7 +1,7 @@
 /**
  * Agent tool profiles and override resolution.
  *
- * Defaults live here, while project or run configuration can pass enable,
+ * Defaults live here, while game or run configuration can pass enable,
  * disable, or replace overrides through the runtime without changing prompt
  * templates. This keeps agent/tool composition explicit and testable.
  */

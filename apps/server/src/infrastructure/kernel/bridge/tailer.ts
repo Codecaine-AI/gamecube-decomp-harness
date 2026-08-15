@@ -1,11 +1,10 @@
 import { createHash } from "node:crypto";
 
 import {
-  insertTraceEventsBatch as defaultInsertTraceEventsBatch,
-  upsertAgentRun as defaultUpsertAgentRun,
-  upsertPiAgentSession as defaultUpsertPiAgentSession,
   type AgentRun,
+  type Container,
   type NewAgentRun,
+  type NewContainer,
   type NewPiAgentSession,
   type PiAgentSession,
 } from "@agent-kernel/db";
@@ -21,8 +20,14 @@ import {
   type PiEvent,
   type TailerConfig,
   type TailerConfigInput,
-} from "@agent-kernel/tailer";
+} from "./tailer-runtime/index.js";
 
+import {
+  insertMeleeTraceEventsBatch,
+  upsertMeleeAgentRun,
+  upsertMeleeContainer,
+  upsertMeleePiAgentSession,
+} from "./database.js";
 import {
   createMeleeKernelBridgeConfig,
   type CreateMeleeKernelBridgeConfigInput,
@@ -40,6 +45,8 @@ export type TailerTraceEventsInsertPort = (
   events: TraceEvent[],
 ) => Promise<number>;
 
+type MeleeMappedTraceEvent = TraceEvent & { appSessionId?: string };
+
 export type TailerPiAgentSessionUpsertPort = (
   db: unknown,
   data: NewPiAgentSession,
@@ -50,11 +57,17 @@ export type TailerAgentRunUpsertPort = (
   data: NewAgentRun,
 ) => Promise<AgentRun | NewAgentRun>;
 
+export type TailerContainerUpsertPort = (
+  db: unknown,
+  data: NewContainer,
+) => Promise<Container | NewContainer>;
+
 export interface CreateMeleeTraceTailerOptions {
   db: unknown;
   config?: CreateMeleeKernelBridgeConfigInput | MeleeKernelBridgeConfig;
   tailer?: CreateMeleeTailerConfigOptions;
   insertTraceEvents?: TailerTraceEventsInsertPort;
+  upsertContainer?: TailerContainerUpsertPort;
   upsertPiAgentSession?: TailerPiAgentSessionUpsertPort;
   upsertAgentRun?: TailerAgentRunUpsertPort;
   sleep?: (ms: number) => Promise<void>;
@@ -74,7 +87,7 @@ export interface MeleeTraceTailerStatus {
   insertedEventCount: number;
 }
 
-type TailerAgentStatus = NonNullable<NewPiAgentSession["status"]>;
+type TailerAgentStatus = "running" | "completed" | "error";
 
 interface TailerFileState {
   filePath: string;
@@ -97,12 +110,14 @@ interface TailerFileState {
   completedAt?: string;
   inputTokens?: number;
   outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  usageCostEstimate?: number;
+  usageObserved?: boolean;
   kernelManagedRun?: boolean;
 }
 
 const MELEE_AGENT_RUN_NAMESPACE = "56de4ed7-1d44-47ff-8f3b-c5e1b9071f25";
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function resolveBridgeConfig(
   config?: CreateMeleeKernelBridgeConfigInput | MeleeKernelBridgeConfig,
@@ -195,15 +210,24 @@ function rawBoolean(raw: Record<string, unknown>, key: string): boolean | undefi
   return booleanValue(raw[key]) ?? booleanValue(asRecord(raw.metadata)[key]);
 }
 
-function uuidString(value: unknown): string | undefined {
-  const text = stringValue(value);
-  return text && UUID_RE.test(text) ? text : undefined;
-}
-
 function statusFromLifecyclePhase(phase: string | undefined): TailerAgentStatus | undefined {
   if (phase === "agent_end") return "completed";
   if (phase === "agent_start" || phase === "turn_start" || phase === "turn_end") return "running";
   return undefined;
+}
+
+function piSessionStatusFor(state: TailerFileState): NewPiAgentSession["status"] {
+  if (state.status === "error") return "error";
+  return state.status === "completed" ? "ended" : "active";
+}
+
+function agentRunStatusFor(state: TailerFileState): NewAgentRun["status"] {
+  if (state.status === "error") return "error";
+  return state.status === "completed" ? "done" : "running";
+}
+
+function agentRunTriggerFor(state: TailerFileState): NewAgentRun["trigger"] {
+  return state.parentPiSessionId || state.parentToolUseId ? "parent-tool" : "system";
 }
 
 function agentNameFor(state: TailerFileState): string {
@@ -212,7 +236,7 @@ function agentNameFor(state: TailerFileState): string {
 
 function agentRunIdFor(state: TailerFileState): string {
   return (
-    uuidString(state.agentRunId) ??
+    state.agentRunId ??
     stableUuid(
       MELEE_AGENT_RUN_NAMESPACE,
       `pi-session:${state.piSessionUuid ?? "unknown"}\nrun:${state.runNumber ?? 1}`,
@@ -226,6 +250,7 @@ export class MeleeTraceTailer {
 
   private readonly db: unknown;
   private readonly insertTraceEvents: TailerTraceEventsInsertPort;
+  private readonly upsertContainer: TailerContainerUpsertPort;
   private readonly upsertPiAgentSession: TailerPiAgentSessionUpsertPort;
   private readonly upsertAgentRun: TailerAgentRunUpsertPort;
   private readonly cursorStore: CursorStore;
@@ -242,9 +267,10 @@ export class MeleeTraceTailer {
     this.db = options.db;
     this.config = resolveBridgeConfig(options.config);
     this.tailerConfig = createMeleeTailerConfig(this.config, options.tailer);
-    this.insertTraceEvents = options.insertTraceEvents ?? defaultInsertTraceEventsBatch;
-    this.upsertPiAgentSession = options.upsertPiAgentSession ?? defaultUpsertPiAgentSession;
-    this.upsertAgentRun = options.upsertAgentRun ?? defaultUpsertAgentRun;
+    this.insertTraceEvents = options.insertTraceEvents ?? insertMeleeTraceEventsBatch;
+    this.upsertContainer = options.upsertContainer ?? upsertMeleeContainer;
+    this.upsertPiAgentSession = options.upsertPiAgentSession ?? upsertMeleePiAgentSession;
+    this.upsertAgentRun = options.upsertAgentRun ?? upsertMeleeAgentRun;
     this.cursorStore = new CursorStore(this.tailerConfig);
     this.queue = new EventQueue({
       config: this.tailerConfig,
@@ -303,9 +329,11 @@ export class MeleeTraceTailer {
       const result = mapper.map(event);
       const state = this.updateState(filePath, mapper, event, result);
       if (result.traceEvents.length === 0) continue;
-      const enriched = result.traceEvents.map((traceEvent) => ({
+      const runId = state.piSessionUuid ? agentRunIdFor(state) : undefined;
+      const enriched: MeleeMappedTraceEvent[] = result.traceEvents.map((traceEvent) => ({
         ...traceEvent,
-        containerId: traceEvent.containerId ?? state.containerId,
+        containerId: traceEvent.containerId ?? state.containerId ?? traceEvent.appSessionId,
+        runId: traceEvent.runId ?? runId,
         piSessionUuid: traceEvent.piSessionUuid ?? state.piSessionUuid,
       }));
       this.mappedEventCount += enriched.length;
@@ -385,8 +413,9 @@ export class MeleeTraceTailer {
       state.phase = rawString(raw, "phase") ?? state.phase;
       state.agentName = rawString(raw, "agentName") ?? rawString(raw, "role") ?? state.agentName;
       state.displayLabel = rawString(raw, "displayLabel") ?? state.displayLabel;
-      state.agentRunId = rawString(raw, "agentRunId") ?? state.agentRunId;
-      state.parentRunId = uuidString(rawString(raw, "parentRunId")) ?? state.parentRunId;
+      state.agentRunId =
+        rawString(raw, "runId") ?? rawString(raw, "agentRunId") ?? state.agentRunId;
+      state.parentRunId = rawString(raw, "parentRunId") ?? state.parentRunId;
       state.parentToolUseId = rawString(raw, "parentToolUseId") ?? state.parentToolUseId;
       state.runNumber = rawNumber(raw, "runNumber") ?? state.runNumber;
       state.kernelManagedRun = rawBoolean(raw, "kernelManagedRun") ?? state.kernelManagedRun;
@@ -401,14 +430,44 @@ export class MeleeTraceTailer {
         child.displayLabel = link.description || child.displayLabel;
       }
     }
+    if (event.type === "message" && event.message.role === "assistant") {
+      const usage = event.message.usage;
+      if (usage) {
+        state.inputTokens = (state.inputTokens ?? 0) + (usage.input ?? 0);
+        state.outputTokens = (state.outputTokens ?? 0) + (usage.output ?? 0);
+        state.cacheReadTokens = (state.cacheReadTokens ?? 0) + (usage.cacheRead ?? 0);
+        state.cacheWriteTokens = (state.cacheWriteTokens ?? 0) + (usage.cacheWrite ?? 0);
+        state.usageCostEstimate =
+          (state.usageCostEstimate ?? 0) + (usage.cost?.total ?? 0);
+        state.usageObserved = true;
+      }
+      if (event.message.stopReason === "error") state.status = "error";
+    }
     if (event.type === "custom" && event.customType === this.config.markerConfig.lifecycle) {
       const phase = stringValue(event.data.phase);
-      state.status = statusFromLifecyclePhase(phase) ?? state.status;
-      if (phase === "agent_start") state.startedAt ??= event.timestamp;
+      if (phase === "agent_start") {
+        state.status = "running";
+        state.startedAt = event.timestamp;
+        state.completedAt = undefined;
+        state.inputTokens = 0;
+        state.outputTokens = 0;
+        state.cacheReadTokens = 0;
+        state.cacheWriteTokens = 0;
+        state.usageCostEstimate = 0;
+        state.usageObserved = false;
+      } else if (phase === "turn_end" && stringValue(event.data.stopReason) === "error") {
+        state.status = "error";
+      } else if (phase === "agent_end" && state.status !== "error") {
+        state.status = "completed";
+      } else {
+        state.status = statusFromLifecyclePhase(phase) ?? state.status;
+      }
       if (phase === "agent_end") {
         state.completedAt = event.timestamp;
-        state.inputTokens = numberValue(event.data.inputTokens) ?? state.inputTokens;
-        state.outputTokens = numberValue(event.data.outputTokens) ?? state.outputTokens;
+        if (!state.usageObserved) {
+          state.inputTokens = numberValue(event.data.inputTokens) ?? state.inputTokens;
+          state.outputTokens = numberValue(event.data.outputTokens) ?? state.outputTokens;
+        }
       }
     }
     state.model = mapper.getModel() !== "unknown" ? mapper.getModel() : state.model;
@@ -416,7 +475,7 @@ export class MeleeTraceTailer {
     return state;
   }
 
-  private async insertMappedEvents(events: TraceEvent[]): Promise<void> {
+  private async insertMappedEvents(events: MeleeMappedTraceEvent[]): Promise<void> {
     const piSessionIds = new Set(
       events.map((event) => event.piSessionUuid).filter((id): id is string => Boolean(id)),
     );
@@ -430,7 +489,7 @@ export class MeleeTraceTailer {
 
   private async ensurePiSession(
     piSessionUuid: string,
-    sample?: TraceEvent,
+    sample?: MeleeMappedTraceEvent,
   ): Promise<void> {
     let state = this.statesByPiSession.get(piSessionUuid);
     if (!state) {
@@ -446,21 +505,33 @@ export class MeleeTraceTailer {
       this.statesByPiSession.set(piSessionUuid, state);
     }
     state.appSessionId ??= sample?.appSessionId;
+    state.containerId ??= sample?.containerId;
     state.startedAt ??= sample?.timestamp;
 
     const agentName = agentNameFor(state);
+    const containerId = state.containerId ?? state.appSessionId;
+    const startedAt = state.startedAt ?? sample?.timestamp ?? new Date().toISOString();
+    if (!containerId) {
+      throw new Error(`Cannot persist Pi session ${piSessionUuid} without a container id`);
+    }
+    await this.ensureContainer(state, containerId, startedAt);
+    if (state.parentPiSessionId && state.parentPiSessionId !== piSessionUuid) {
+      await this.ensureParentSession(state, containerId, startedAt);
+    }
     const sessionPayload: NewPiAgentSession = {
       id: piSessionUuid,
       agentName,
-      appSessionId: state.appSessionId,
-      parentId: state.parentPiSessionId,
-      containerId: state.containerId,
+      parentSessionId: state.parentPiSessionId,
+      parentToolUseId: state.parentToolUseId,
+      containerId,
       phase: state.phase,
       displayLabel: state.displayLabel ?? agentName,
-      status: state.status ?? "running",
+      status: piSessionStatusFor(state),
       model: state.model ?? "unknown",
-      startedAt: state.startedAt,
-      completedAt: state.completedAt,
+      usageInputTokens: state.inputTokens,
+      usageOutputTokens: state.outputTokens,
+      createdAt: startedAt,
+      endedAt: state.completedAt,
     };
     await this.upsertPiAgentSession(this.db, sessionPayload);
 
@@ -469,19 +540,92 @@ export class MeleeTraceTailer {
         id: agentRunIdFor(state),
         piSessionId: piSessionUuid,
         agentName,
-        containerId: state.containerId,
+        containerId,
         phase: state.phase,
         parentRunId: state.parentRunId,
         displayLabel: state.displayLabel ?? agentName,
         parentToolUseId: state.parentToolUseId,
-        runNumber: state.runNumber ?? 1,
-        status: state.status ?? "running",
-        startedAt: state.startedAt,
-        completedAt: state.completedAt,
-        inputTokens: state.inputTokens,
-        outputTokens: state.outputTokens,
+        trigger: agentRunTriggerFor(state),
+        status: agentRunStatusFor(state),
+        startedAt,
+        endedAt: state.completedAt,
+        usageInputTokens: state.inputTokens,
+        usageOutputTokens: state.outputTokens,
+        usageCacheRead: state.cacheReadTokens,
+        usageCacheWrite: state.cacheWriteTokens,
+        usageCostEstimate: state.usageCostEstimate,
       };
       await this.upsertAgentRun(this.db, runPayload);
+    }
+  }
+
+  private async ensureContainer(
+    state: TailerFileState,
+    containerId: string,
+    startedAt: string,
+  ): Promise<void> {
+    const kind = state.phase ?? state.agentName ?? "agent-session";
+    await this.upsertContainer(this.db, {
+      id: containerId,
+      kernelId: this.config.kernelId,
+      kind,
+      appKey: [containerId],
+      label: state.displayLabel ?? state.agentName ?? "Recovered Pi session",
+      status: state.status === "running" ? "active" : state.status,
+      phase: state.phase,
+      workingDir: state.appSessionDir,
+      metadata: {
+        appSessionId: state.appSessionId,
+        appSessionSlug: state.appSessionSlug,
+        containerId,
+        containerKind: kind,
+        transcriptRecovery: true,
+      },
+      createdAt: startedAt,
+      startedAt,
+      endedAt: state.completedAt,
+    });
+  }
+
+  private async ensureParentSession(
+    child: TailerFileState,
+    childContainerId: string,
+    startedAt: string,
+  ): Promise<void> {
+    const parentId = child.parentPiSessionId;
+    if (!parentId) return;
+    const parent = this.statesByPiSession.get(parentId);
+    const parentContainerId = parent?.containerId ?? childContainerId;
+    if (parent) {
+      await this.ensureContainer(parent, parentContainerId, parent.startedAt ?? startedAt);
+    }
+    await this.upsertPiAgentSession(this.db, {
+      id: parentId,
+      containerId: parentContainerId,
+      agentName: agentNameFor(parent ?? child),
+      displayLabel: parent?.displayLabel ?? parent?.agentName ?? "Recovered parent Pi session",
+      status: parent ? piSessionStatusFor(parent) : "active",
+      model: parent?.model ?? "unknown",
+      phase: parent?.phase,
+      usageInputTokens: parent?.inputTokens,
+      usageOutputTokens: parent?.outputTokens,
+      createdAt: parent?.startedAt ?? startedAt,
+      endedAt: parent?.completedAt,
+    });
+
+    if (child.parentRunId) {
+      await this.upsertAgentRun(this.db, {
+        id: child.parentRunId,
+        piSessionId: parentId,
+        containerId: parentContainerId,
+        agentName: agentNameFor(parent ?? child),
+        trigger: "system",
+        displayLabel: parent?.displayLabel ?? parent?.agentName ?? "Recovered parent run",
+        phase: parent?.phase,
+        status: parent ? agentRunStatusFor(parent) : "running",
+        startedAt: parent?.startedAt ?? startedAt,
+        endedAt: parent?.completedAt,
+      });
     }
   }
 }

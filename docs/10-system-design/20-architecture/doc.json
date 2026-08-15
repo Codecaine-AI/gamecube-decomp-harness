@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-20-architecture",
+  "title": "Architecture",
+  "root": "b-20-architecture-root-18",
+  "blocks": {
+    "b-20-architecture-root-18": {
+      "id": "b-20-architecture-root-18",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-20-architecture-d-comp-orchestrator-is-a-1",
+        "b-20-architecture-machine-at-altitude-2",
+        "b-20-architecture-text-3",
+        "b-20-architecture-the-scheduler-reads-dura-4",
+        "b-20-architecture-worker-execution-5",
+        "b-20-architecture-the-sandbox-is-the-worke-6",
+        "b-20-architecture-decision-target-arch-7",
+        "b-20-architecture-shared-knowledge-8",
+        "b-20-architecture-every-worker-and-support-9",
+        "b-20-architecture-dispatch-authority-10",
+        "b-20-architecture-a-fenced-dispatch-lease-11",
+        "b-20-architecture-system-boundary-12",
+        "b-20-architecture-the-scheduler-owns-durab-13",
+        "b-20-architecture-workers-own-bounded-targ-14",
+        "b-20-architecture-the-durable-board-is-the-15",
+        "b-20-architecture-the-sandbox-supplies-wor-16",
+        "b-20-architecture-shared-knowledge-and-fen-17"
+      ]
+    },
+    "b-20-architecture-d-comp-orchestrator-is-a-1": {
+      "id": "b-20-architecture-d-comp-orchestrator-is-a-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "D-Comp Orchestrator is a coordination machine for many bounded workers operating against one durable board. The scheduler owns reproducible system progress, while each worker owns a small target-local reasoning loop equipped with an isolated execution toolkit. Shared knowledge informs every move, and fenced dispatch authority connects coordination decisions to worker execution."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-machine-at-altitude-2": {
+      "id": "b-20-architecture-machine-at-altitude-2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Machine at Altitude"
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-text-3": {
+      "id": "b-20-architecture-text-3",
+      "type": "code",
+      "props": {
+        "language": "text"
+      },
+      "text": [
+        {
+          "insert": "+----------------------+     +--------------------------+     +----------------------+\n| Scheduler            |     | Durable board            |     | Bounded workers      |\n| - state transitions  |<--->| - claims and events      |<--->| - target-local       |\n| - deterministic      |     | - worker states          |     |   reasoning          |\n|   scheduling         |     | - evidence and facts     |     | - sandbox toolkit    |\n| - dispatch lease     |     | - checkpoints/wakeups    |     | - bounded evidence   |\n+----------------------+     +------------+-------------+     +----------------------+\n                                          |\n                                          v\n                             +------------+-------------+\n                             | Shared knowledge base    |\n                             | searched by every agent  |\n                             +--------------------------+"
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-the-scheduler-reads-dura-4": {
+      "id": "b-20-architecture-the-scheduler-reads-dura-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The scheduler reads durable board state and commits deterministic state transitions before dispatching work. Workers accept bounded claims, reason within one target-local context, and return evidence to the board. They do not coordinate through private messages, shared memory, or direct worker-to-worker control; the durable board is the only coordination surface."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-worker-execution-5": {
+      "id": "b-20-architecture-worker-execution-5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Worker Execution"
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-the-sandbox-is-the-worke-6": {
+      "id": "b-20-architecture-the-sandbox-is-the-worke-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The sandbox is the worker's toolkit. It provides the isolated files, shell, build tools, and scoring environment needed to act on a target claim, while scheduling, agent reasoning, knowledge access, telemetry, and dispatch authority remain with the coordination system."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-decision-target-arch-7": {
+      "id": "b-20-architecture-decision-target-arch-7",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision — Target architecture.",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " Worker execution uses per-claim Daytona micro-VM sandboxes. This boundary is decided but not yet implemented; "
+        },
+        {
+          "insert": "Daytona Sandbox Execution",
+          "attributes": {
+            "link": "../../40-new-features/10-daytona-sandbox-execution"
+          }
+        },
+        {
+          "insert": " defines the execution contract and delivery status."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-shared-knowledge-8": {
+      "id": "b-20-architecture-shared-knowledge-8",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Shared Knowledge"
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-every-worker-and-support-9": {
+      "id": "b-20-architecture-every-worker-and-support-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every worker and supporting agent consults one shared knowledge base. It combines durable findings with target-oriented search surfaces so evidence produced by one bounded move can constrain later work without coupling workers directly. "
+        },
+        {
+          "insert": "Knowledge System",
+          "attributes": {
+            "link": "../60-knowledge"
+          }
+        },
+        {
+          "insert": " defines the knowledge regimes, stores, and worker-facing surfaces."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-dispatch-authority-10": {
+      "id": "b-20-architecture-dispatch-authority-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Dispatch Authority"
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-a-fenced-dispatch-lease-11": {
+      "id": "b-20-architecture-a-fenced-dispatch-lease-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A fenced dispatch lease is the only authority to dispatch workers. The scheduler may select eligible work, but no workflow can turn that decision into worker execution unless it holds the current lease and presents its fencing identity. "
+        },
+        {
+          "insert": "Dispatch Authority and Handoffs",
+          "attributes": {
+            "link": "../40-harness-state/20-dispatch-authority"
+          }
+        },
+        {
+          "insert": " defines lease exclusivity, lifecycle, and stale-actor rejection."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-system-boundary-12": {
+      "id": "b-20-architecture-system-boundary-12",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "System Boundary"
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-the-scheduler-owns-durab-13": {
+      "id": "b-20-architecture-the-scheduler-owns-durab-13",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The scheduler owns durable state transitions and deterministic scheduling."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-workers-own-bounded-targ-14": {
+      "id": "b-20-architecture-workers-own-bounded-targ-14",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Workers own bounded target-local reasoning and produce evidence rather than global decisions."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-the-durable-board-is-the-15": {
+      "id": "b-20-architecture-the-durable-board-is-the-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The durable board is the sole coordination surface between scheduler and workers."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-the-sandbox-supplies-wor-16": {
+      "id": "b-20-architecture-the-sandbox-supplies-wor-16",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The sandbox supplies worker execution tools without inheriting orchestration authority."
+        }
+      ],
+      "children": []
+    },
+    "b-20-architecture-shared-knowledge-and-fen-17": {
+      "id": "b-20-architecture-shared-knowledge-and-fen-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Shared knowledge and fenced dispatch authority connect independent worker moves into one coherent run."
+        }
+      ],
+      "children": []
+    }
+  }
+}

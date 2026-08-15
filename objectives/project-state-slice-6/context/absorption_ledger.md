@@ -2,7 +2,7 @@
 
 Each row assigns one atomic fact from a rendered feature source to one primary canonical document. The feature sources remain unchanged. `A` facts come from `10-authority-and-actions`, `K` facts from `60-knowledge`, and `OV` facts from `80-operator-view`.
 
-Destination abbreviations: `COMP` = `docs/10-system-design/03-state-and-events/05-project-state-and-authority/10-project-state-composition`; `LEASE` = its `20-dispatch-authority-and-handoffs`; `ACTION` = its `30-operator-action-contract`; `VIEW` = its `40-project-state-view`; `CLASS`, `JOBS`, and `PUB` = the three children of `docs/10-system-design/40-knowledge/70-execution-classes-and-jobs`; `UI-DTO` = `docs/20-implementation/60-ui/20-project-state-workspace/10-dto-and-client-model`.
+Destination abbreviations: `COMP` = `docs/10-system-design/03-state-and-events/05-project-state-and-authority/10-project-state-composition`; `LEASE` = its `20-dispatch-authority-and-handoffs`; `ACTION` = its `30-operator-action-contract`; `VIEW` = its `40-project-state-view`; `CLASS`, `JOBS`, and `PUB` = the three children of `docs/10-system-design/40-knowledge/70-execution-classes-and-jobs`; `UI-DTO` = `docs/20-implementation/60-ui/20-harness-state-workspace/10-dto-and-client-model`.
 
 ## Authority and Actions
 

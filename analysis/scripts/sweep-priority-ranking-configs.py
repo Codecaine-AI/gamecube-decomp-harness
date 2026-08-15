@@ -36,7 +36,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DB = ROOT / "projects/melee/state/orchestrator.sqlite"
+DEFAULT_DB = ROOT / "games/melee/state/orchestrator.sqlite"
 DEFAULT_OUT = ROOT / "analysis/reports/priority-ranking-config-sweep"
 XHIGH_RUN_ID = "53d5b342-c066-48fc-aa49-dd78b69dc2ac"
 BATCH_SIZES = [16, 32, 64]

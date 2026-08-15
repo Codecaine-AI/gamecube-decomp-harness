@@ -3,13 +3,13 @@ import {
   type KernelTraceSessionDetail,
   type KernelTraceSessionListResponse,
 } from "@agent-kernel/viewer-core";
-import type { PromptDocument } from "@prompt-kit-next";
+import type { PromptDocument } from "@codecaine-ai/prompt-kit";
 import type {
   Dashboard,
   FormState,
   JsonObject,
-  ProjectEventQueryPage,
-  ProjectEventReconstructionPage,
+  GameEventQueryPage,
+  GameEventReconstructionPage,
   RunDetails,
   StandardsPayload,
   UiConfig,
@@ -82,9 +82,9 @@ export async function fetchJson<T>(url: string, options?: RequestInit): Promise<
   return data as T;
 }
 
-export function dashboardParams(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): URLSearchParams {
+export function dashboardParams(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): URLSearchParams {
   const params = new URLSearchParams();
-  if (form.projectId) params.set("projectId", form.projectId);
+  if (form.gameId) params.set("gameId", form.gameId);
   if (form.usePathOverrides) {
     params.set("usePathOverrides", "true");
     params.set("repoRoot", form.repoRoot);
@@ -112,58 +112,58 @@ export function loadConfig(): Promise<UiConfig> {
   return fetchJson<UiConfig>("/api/config");
 }
 
-export function fetchDashboard(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<Dashboard> {
+export function fetchDashboard(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<Dashboard> {
   return fetchJson<Dashboard>(`/api/dashboard?${dashboardParams(form)}`);
 }
 
-export function fetchProjectSessionState(
-  form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
-): Promise<{ projectSession: JsonObject | null; history: JsonObject[] }> {
-  return fetchJson<{ projectSession: JsonObject | null; history: JsonObject[] }>(`/api/project-session?${dashboardParams(form)}`);
+export function fetchCycleState(
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+): Promise<{ cycle: JsonObject | null; history: JsonObject[] }> {
+  return fetchJson<{ cycle: JsonObject | null; history: JsonObject[] }>(`/api/cycle?${dashboardParams(form)}`);
 }
 
-export const PROJECT_EVENT_PAGE_SIZE = 50;
-export const PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE = 50;
-const MAX_PROJECT_EVENT_PAGE_SIZE = 200;
+export const GAME_EVENT_PAGE_SIZE = 50;
+export const GAME_EVENT_RECONSTRUCTION_PAGE_SIZE = 50;
+const MAX_GAME_EVENT_PAGE_SIZE = 200;
 
-export interface ProjectEventPageRequest {
+export interface GameEventPageRequest {
   afterSequence?: number | null;
   limit?: number;
 }
 
-type ProjectEventProjectContext = Pick<FormState, "projectId">;
+type GameEventContext = Pick<FormState, "gameId">;
 
-function projectEventParams(form: ProjectEventProjectContext): URLSearchParams {
-  const projectId = form.projectId.trim();
-  if (!projectId) throw new Error("Project event requests require a projectId");
-  return new URLSearchParams({ projectId });
+function gameEventParams(form: GameEventContext): URLSearchParams {
+  const gameId = form.gameId.trim();
+  if (!gameId) throw new Error("Game event requests require a gameId");
+  return new URLSearchParams({ gameId });
 }
 
-function validatedProjectEventPageRequest(
-  request: ProjectEventPageRequest,
+function validatedGameEventPageRequest(
+  request: GameEventPageRequest,
   defaultLimit: number,
 ): { afterSequence: number | null; limit: number } {
   const afterSequence = request.afterSequence ?? null;
   const limit = request.limit ?? defaultLimit;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PROJECT_EVENT_PAGE_SIZE) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_GAME_EVENT_PAGE_SIZE) {
     throw new Error(
-      `Project event page limit must be an integer between 1 and ${MAX_PROJECT_EVENT_PAGE_SIZE}`,
+      `Game event page limit must be an integer between 1 and ${MAX_GAME_EVENT_PAGE_SIZE}`,
     );
   }
   if (afterSequence !== null && (!Number.isSafeInteger(afterSequence) || afterSequence < 0)) {
-    throw new Error("Project event afterSequence must be a non-negative safe integer");
+    throw new Error("Game event afterSequence must be a non-negative safe integer");
   }
   return { afterSequence, limit };
 }
 
-function validateProjectEventPageCursor(
-  page: Pick<ProjectEventQueryPage, "events" | "has_more" | "next_after_sequence">,
+function validateGameEventPageCursor(
+  page: Pick<GameEventQueryPage, "events" | "has_more" | "next_after_sequence">,
   afterSequence: number | null,
 ): void {
   const cursor = page.next_after_sequence;
   if (!page.has_more) {
     if (cursor !== null) {
-      throw new Error("Project event pagination returned a cursor without more events");
+      throw new Error("Game event pagination returned a cursor without more events");
     }
     return;
   }
@@ -175,62 +175,62 @@ function validateProjectEventPageCursor(
     lastSequence !== cursor ||
     (afterSequence !== null && cursor <= afterSequence)
   ) {
-    throw new Error("Project event pagination did not provide an advancing next_after_sequence");
+    throw new Error("Game event pagination did not provide an advancing next_after_sequence");
   }
 }
 
-export async function fetchProjectEvents(
-  form: ProjectEventProjectContext,
-  request: ProjectEventPageRequest = {},
-): Promise<ProjectEventQueryPage> {
-  const { afterSequence, limit } = validatedProjectEventPageRequest(
+export async function fetchGameEvents(
+  form: GameEventContext,
+  request: GameEventPageRequest = {},
+): Promise<GameEventQueryPage> {
+  const { afterSequence, limit } = validatedGameEventPageRequest(
     request,
-    PROJECT_EVENT_PAGE_SIZE,
+    GAME_EVENT_PAGE_SIZE,
   );
-  const params = projectEventParams(form);
+  const params = gameEventParams(form);
   params.set("limit", String(limit));
   if (afterSequence !== null) params.set("after_sequence", String(afterSequence));
-  const page = await fetchJson<ProjectEventQueryPage>(`/api/events?${params}`);
-  validateProjectEventPageCursor(page, afterSequence);
+  const page = await fetchJson<GameEventQueryPage>(`/api/events?${params}`);
+  validateGameEventPageCursor(page, afterSequence);
   return page;
 }
 
-export async function fetchProjectEventReconstruction(
-  form: ProjectEventProjectContext,
+export async function fetchGameEventReconstruction(
+  form: GameEventContext,
   correlationId: string,
-  request: ProjectEventPageRequest = {},
-): Promise<ProjectEventReconstructionPage> {
+  request: GameEventPageRequest = {},
+): Promise<GameEventReconstructionPage> {
   const requestedCorrelationId = correlationId.trim();
   if (!requestedCorrelationId) {
-    throw new Error("Project event reconstruction requires a correlationId");
+    throw new Error("Game event reconstruction requires a correlationId");
   }
-  const { afterSequence, limit } = validatedProjectEventPageRequest(
+  const { afterSequence, limit } = validatedGameEventPageRequest(
     request,
-    PROJECT_EVENT_RECONSTRUCTION_PAGE_SIZE,
+    GAME_EVENT_RECONSTRUCTION_PAGE_SIZE,
   );
-  const params = projectEventParams(form);
+  const params = gameEventParams(form);
   params.set("correlation_id", requestedCorrelationId);
   params.set("limit", String(limit));
   if (afterSequence !== null) params.set("after_sequence", String(afterSequence));
-  const page = await fetchJson<ProjectEventReconstructionPage>(
+  const page = await fetchJson<GameEventReconstructionPage>(
     `/api/events/reconstruct?${params}`,
   );
-  validateProjectEventPageCursor(page, afterSequence);
+  validateGameEventPageCursor(page, afterSequence);
   if (
-    page.project_id !== form.projectId.trim() ||
+    page.game_id !== form.gameId.trim() ||
     page.correlation_id !== requestedCorrelationId
   ) {
-    throw new Error("Project event reconstruction returned mismatched project or correlation identity");
+    throw new Error("Game event reconstruction returned mismatched game or correlation identity");
   }
   return page;
 }
 
-export function fetchRunDetails(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, runId: string): Promise<RunDetails> {
+export function fetchRunDetails(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, runId: string): Promise<RunDetails> {
   return fetchJson<RunDetails>(`/api/run/details?${new URLSearchParams({ ...Object.fromEntries(dashboardParams(form)), runId })}`);
 }
 
 export function fetchWorkerStateTrace(
-  form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
   runId: string,
   workerStateId: string,
 ): Promise<WorkerStateTrace> {
@@ -245,7 +245,7 @@ export function postJson<T>(url: string, body: JsonObject): Promise<T> {
   });
 }
 
-export function fetchStandards(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<StandardsPayload> {
+export function fetchStandards(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<StandardsPayload> {
   return fetchJson<StandardsPayload>(`/api/standards?${dashboardParams(form)}`);
 }
 
@@ -253,7 +253,7 @@ export function fetchKernelStatus(): Promise<KernelStatusPayload> {
   return fetchJson<KernelStatusPayload>("/api/kernel/status");
 }
 
-export function fetchKernelAgents(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
   return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
 }
 
@@ -265,7 +265,7 @@ export function fetchKernelTraceSessionDetail(traceSessionId: string): Promise<K
   return fetchJson<KernelTraceSessionDetail>(KERNEL_TRACE_READ_PATHS.traceSessionDetail(traceSessionId));
 }
 
-export function saveStandard(form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, edit: JsonObject): Promise<{ ok: boolean; errors?: string[]; savedId?: string }> {
+export function saveStandard(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, edit: JsonObject): Promise<{ ok: boolean; errors?: string[]; savedId?: string }> {
   return postJson(`/api/standards?${dashboardParams(form)}`, { edit });
 }
 

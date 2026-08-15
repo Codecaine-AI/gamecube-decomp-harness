@@ -1,10 +1,10 @@
 import { renderXmlMarkdown, type PromptDocument } from "@codecaine-ai/prompt-kit";
-import type { TypedAgentDefinition } from "@agent-kernel/kernel/agent-definition";
 import type { AgentContextResolver, LoaderDeclaration } from "@agent-kernel/kernel/context";
 import type { ParsedAgent } from "@agent-kernel/kernel/spawn-pipeline";
 import type { RuntimeAgentRole, PiPromptBundle } from "@server/core/shared/types";
 
 import { DEFAULT_PI_THINKING_LEVEL } from "@server/infrastructure/agent-runtime/runtime";
+import type { HarnessAgentDefinition } from "@server/core/agent-catalog/agent-definition.js";
 import { agentRegistry, type RegisteredAgentId } from "@server/core/agent-catalog/registry";
 import {
   defaultKernelTurnPrompt,
@@ -132,9 +132,9 @@ const typedAgentDefinitions = {
   librarian: librarianKernelAgent,
   reconcile: reconcileKernelAgent,
   "qa-repair": qaRepairKernelAgent,
-} as const satisfies Record<KernelAgentId, TypedAgentDefinition>;
+} as const satisfies Record<KernelAgentId, HarnessAgentDefinition>;
 
-function typedAgentDefinition(id: KernelAgentId): TypedAgentDefinition {
+function typedAgentDefinition(id: KernelAgentId): HarnessAgentDefinition {
   return typedAgentDefinitions[id];
 }
 
@@ -142,23 +142,22 @@ function isPromptDocument(value: unknown): value is PromptDocument {
   return typeof value === "object" && value !== null && (value as { kind?: unknown }).kind === "prompt";
 }
 
-function renderTypedPrompt(definition: TypedAgentDefinition): string {
+function renderTypedPrompt(definition: HarnessAgentDefinition): string {
   return isPromptDocument(definition.prompt) ? renderXmlMarkdown(definition.prompt) : definition.prompt;
 }
 
-function parsedAgentFromTyped(definition: TypedAgentDefinition): ParsedAgent {
+function parsedAgentFromTyped(definition: HarnessAgentDefinition): ParsedAgent {
   return {
-    frontmatter: {
+    config: {
       name: definition.name,
       description: definition.description,
       model: definition.model,
       tools: definition.coreTools ?? [],
-      disallowed_tools: definition.disallowedTools ?? [],
+      disallowedTools: definition.disallowedTools ?? [],
       extensions: definition.extensions ?? true,
-      can_spawn_subagent: definition.canSpawnSubagent ?? false,
       variables: definition.variables ?? {},
-      max_turns: definition.maxTurns,
-      run_in_background: definition.runInBackground ?? false,
+      maxTurns: definition.maxTurns,
+      runInBackground: definition.runInBackground ?? false,
       thinking: definition.thinking,
     },
     body: renderTypedPrompt(definition),
@@ -215,7 +214,7 @@ function resultContract(
   return { schemaVersion, schemaPath, validator, notes };
 }
 
-function catalogVariables(variables: ParsedAgent["frontmatter"]["variables"]): KernelAgentCatalogEntry["variables"] {
+function catalogVariables(variables: ParsedAgent["config"]["variables"]): KernelAgentCatalogEntry["variables"] {
   const normalized: KernelAgentCatalogEntry["variables"] = {};
   for (const [name, declaration] of Object.entries(variables)) {
     normalized[name] = {
@@ -248,23 +247,24 @@ function catalogEntry(
 ): KernelAgentCatalogEntry {
   const registered = registryEntry(id);
   const role = registered.role as RuntimeAgentRole;
-  const parsedAgent = parsedAgentFromTyped(typedAgentDefinition(id));
-  const frontmatter = parsedAgent.frontmatter;
+  const definition = typedAgentDefinition(id);
+  const parsedAgent = parsedAgentFromTyped(definition);
+  const config = parsedAgent.config;
   return {
     id,
-    name: frontmatter.name as KernelAgentId,
+    name: config.name as KernelAgentId,
     role,
-    description: frontmatter.description,
-    model: frontmatter.model,
+    description: config.description,
+    model: config.model,
     toolProfile: role,
-    tools: frontmatter.tools,
-    disallowedTools: frontmatter.disallowed_tools ?? [],
-    extensions: frontmatter.extensions ?? true,
-    canSpawnSubagent: frontmatter.can_spawn_subagent ?? false,
-    variables: catalogVariables(frontmatter.variables),
-    maxTurns: frontmatter.max_turns ?? null,
-    runInBackground: frontmatter.run_in_background ?? false,
-    thinking: frontmatter.thinking ?? DEFAULT_PI_THINKING_LEVEL,
+    tools: config.tools,
+    disallowedTools: config.disallowedTools ?? [],
+    extensions: config.extensions ?? true,
+    canSpawnSubagent: definition.canSpawnSubagent,
+    variables: catalogVariables(config.variables),
+    maxTurns: config.maxTurns ?? null,
+    runInBackground: config.runInBackground ?? false,
+    thinking: config.thinking ?? DEFAULT_PI_THINKING_LEVEL,
     ...details,
   };
 }
@@ -430,7 +430,7 @@ export function toKernelParsedAgentFromBundle(
   const parsedAgent = parsedAgentFromTyped(typedAgentDefinition(entry.id));
   return {
     parsed: {
-      frontmatter: parsedAgent.frontmatter,
+      config: parsedAgent.config,
       body: bundle.systemPrompt,
     },
     userPrompt: contextResolver

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option 3 — Field cards</title>
+<style>
+  :root{
+    color-scheme:light;
+
+    /* Warm neutral ramp: one hue family, stepped by surface depth. */
+    --neutral-0:#fffefa;
+    --neutral-25:#fcfaf6;
+    --neutral-50:#f8f5ef;
+    --neutral-100:#f3efe8;
+    --neutral-150:#ede7dd;
+    --neutral-200:#e4ded4;
+    --neutral-300:#d6cec1;
+
+    --text-primary:#211c17;
+    --text-secondary:#3c342d;
+    --text-muted:#4a4138;
+    --accent-type:#244361;
+    --accent-string:#255235;
+    --accent-number:#713115;
+    --syntax-punctuation:#403830;
+    --accent-amber:#5a420d;
+
+    --surface-page:var(--neutral-25);
+    --surface-stack:var(--neutral-100);
+    --surface-row:var(--neutral-50);
+    --surface-raised:var(--neutral-0);
+    --surface-inset:var(--neutral-150);
+    --surface-code:var(--neutral-100);
+    --surface-band:var(--neutral-50);
+    --surface-banner:#ebe5db;
+    --surface-blue:#e3ebf2;
+    --surface-amber:#f3e5c4;
+    --surface-neutral-chip:#ebe6de;
+    --surface-inline-code:var(--neutral-200);
+    --border-subtle:var(--neutral-200);
+    --border-strong:var(--neutral-300);
+    --border-blue:#bdcad6;
+    --border-amber:#c9b98f;
+
+    --space-0:0;
+    --space-1:4px;
+    --space-2:8px;
+    --space-3:12px;
+    --space-4:16px;
+    --space-5:20px;
+    --space-6:24px;
+    --space-8:32px;
+    --space-10:40px;
+    --space-11:44px;
+    --space-12:48px;
+    --space-16:64px;
+    --space-24:96px;
+
+    --text-xs:.75rem;
+    --text-sm:.8125rem;
+    --text-base:.875rem;
+    --text-md:1rem;
+    --text-lg:1.25rem;
+
+    --leading-tight:1.2;
+    --leading-label:1.4;
+    --leading-body:1.55;
+    --leading-code:1.6;
+    --tracking-tight:-.015em;
+    --tracking-label:.06em;
+
+    --radius-token:6px;
+    --radius-stack:12px;
+    --radius-card:16px;
+    --radius-tray:8px;
+    --shadow-raised:0 0 0 1px rgba(56,45,32,.05), 0 1px 2px -1px rgba(56,45,32,.08), 0 3px 6px rgba(56,45,32,.05);
+
+    --mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    padding:0;
+  }
+  body{
+    background:var(--surface-page);
+    color:var(--text-primary);
+    font-family:var(--sans);
+    font-size:var(--text-base);
+    line-height:var(--leading-body);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .banner{
+    position:sticky;
+    inset-block-start:0;
+    z-index:20;
+    margin:0;
+    padding-block:var(--space-2);
+    padding-inline:var(--space-10);
+    background:var(--surface-banner);
+    border-block-end:1px solid var(--border-strong);
+    color:var(--text-primary);
+    font-size:var(--text-xs);
+    font-weight:600;
+    line-height:var(--leading-label);
+  }
+  .banner span{
+    color:var(--text-secondary);
+    font-weight:450;
+  }
+
+  .wrap{
+    max-width:1500px;
+    margin-inline:0 auto;
+    padding-block:var(--space-8) var(--space-24);
+    padding-inline:var(--space-10);
+  }
+
+  .object{
+    display:grid;
+    grid-template-columns:46fr 54fr;
+    gap:var(--space-11);
+    align-items:start;
+    padding-block-start:var(--space-4);
+  }
+  .object > *{min-inline-size:0}
+  .object + .object{
+    margin-block-start:var(--space-16);
+    padding-block-start:var(--space-12);
+    border-block-start:1px solid var(--border-subtle);
+  }
+
+  .obj-head{margin-block-end:var(--space-6)}
+  .obj-title{
+    display:flex;
+    align-items:center;
+    gap:var(--space-2);
+    margin-block:0 var(--space-2);
+  }
+  .obj-title h2{
+    margin:0;
+    color:var(--text-primary);
+    font-family:var(--mono);
+    font-size:var(--text-lg);
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:var(--tracking-tight);
+    line-height:var(--leading-tight);
+    text-wrap:balance;
+  }
+  .obj-desc{
+    max-inline-size:58ch;
+    margin:0;
+    color:var(--text-secondary);
+    font-size:var(--text-base);
+    line-height:var(--leading-body);
+    text-wrap:pretty;
+  }
+  .obj-meta{
+    margin-block-start:var(--space-2);
+    color:var(--text-muted);
+    font-family:var(--mono);
+    font-size:var(--text-xs);
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+    line-height:var(--leading-label);
+  }
+
+  .group{margin-block-end:var(--space-4)}
+  .group-label{
+    display:flex;
+    align-items:center;
+    gap:var(--space-2);
+    margin-block:0 var(--space-2);
+    margin-inline:var(--space-1) 0;
+    color:var(--text-muted);
+    font-size:var(--text-xs);
+    font-weight:700;
+    letter-spacing:var(--tracking-label);
+    line-height:var(--leading-label);
+    text-transform:uppercase;
+  }
+
+  .chip,
+  .badge,
+  .tag-object,
+  .tag-shape,
+  .count{
+    display:inline-flex;
+    align-items:baseline;
+    gap:var(--space-2);
+    padding:var(--space-1) var(--space-2);
+    border:1px solid var(--border-subtle);
+    border-radius:var(--radius-token);
+    font-family:var(--mono);
+    font-size:var(--text-xs);
+    font-weight:700;
+    line-height:var(--leading-label);
+  }
+  .badge,
+  .tag-object,
+  .tag-shape{
+    letter-spacing:var(--tracking-label);
+    text-transform:uppercase;
+  }
+  .tag-object,
+  .tag-shape{
+    background:var(--surface-blue);
+    border-color:var(--border-blue);
+    color:var(--accent-type);
+  }
+  .badge{
+    background:var(--surface-amber);
+    border-color:var(--border-amber);
+    color:var(--accent-amber);
+  }
+  .badge.req,
+  .count,
+  .chip{
+    background:var(--surface-neutral-chip);
+    border-color:var(--border-subtle);
+    color:var(--text-muted);
+  }
+  .count{
+    font-variant-numeric:tabular-nums;
+  }
+
+  .stack{
+    overflow:hidden;
+    background:var(--surface-stack);
+    border:1px solid var(--border-subtle);
+    border-radius:var(--radius-stack);
+  }
+  .row{
+    padding-block:var(--space-3);
+    padding-inline:var(--space-4);
+    background:var(--surface-row);
+  }
+  .row + .row{border-block-start:1px solid var(--border-subtle)}
+  .row-head{
+    display:flex;
+    align-items:baseline;
+    flex-wrap:wrap;
+    gap:var(--space-2);
+  }
+  .fname{
+    color:var(--text-primary);
+    font-family:var(--mono);
+    font-size:var(--text-sm);
+    font-weight:600;
+    letter-spacing:var(--tracking-tight);
+    line-height:var(--leading-tight);
+  }
+  .ftype{
+    color:var(--accent-type);
+    font-family:var(--mono);
+    font-size:var(--text-xs);
+    font-weight:600;
+    letter-spacing:var(--tracking-tight);
+    line-height:var(--leading-label);
+  }
+  .fname,
+  .ftype,
+  .chip .cn,
+  .chip .ct{
+    font-variant-numeric:tabular-nums;
+  }
+  .ftype .q{color:var(--accent-string)}
+  .ftype .bar,
+  .chip .ct .bar{
+    color:var(--text-muted);
+    font-weight:500;
+  }
+  .fdesc{
+    max-inline-size:52ch;
+    margin-block:var(--space-1) 0;
+    color:var(--text-muted);
+    font-size:var(--text-sm);
+    line-height:var(--leading-body);
+    text-wrap:pretty;
+  }
+
+  .card{
+    margin-block-end:var(--space-4);
+    padding:var(--space-2);
+    background:var(--surface-raised);
+    border:1px solid var(--border-strong);
+    border-radius:var(--radius-card);
+    box-shadow:var(--shadow-raised);
+  }
+  .card-head{padding:var(--space-2)}
+  .card-title{
+    display:flex;
+    align-items:baseline;
+    flex-wrap:wrap;
+    gap:var(--space-2);
+  }
+  .card-title .fname{
+    font-size:var(--text-md);
+    font-weight:700;
+  }
+  .card-inset{
+    padding:var(--space-3);
+    background:var(--surface-inset);
+    border:1px solid var(--border-subtle);
+    border-radius:var(--radius-tray);
+  }
+  .inset-label{
+    margin-block:0 var(--space-2);
+    color:var(--text-muted);
+    font-size:var(--text-xs);
+    font-weight:700;
+    letter-spacing:var(--tracking-label);
+    line-height:var(--leading-label);
+    text-transform:uppercase;
+  }
+  .chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:var(--space-2);
+  }
+  .chip .cn{
+    color:var(--text-primary);
+    font-size:var(--text-xs);
+    font-weight:600;
+  }
+  .chip .ct{
+    color:var(--accent-type);
+    font-size:var(--text-xs);
+    font-weight:600;
+  }
+  .inset-note{
+    max-inline-size:52ch;
+    margin-block:var(--space-2) 0;
+    color:var(--text-muted);
+    font-size:var(--text-xs);
+    line-height:var(--leading-body);
+    text-wrap:pretty;
+  }
+  .inset-note code,
+  .legend code{
+    padding-block:0;
+    padding-inline:var(--space-1);
+    background:var(--surface-inline-code);
+    border-radius:var(--radius-token);
+    color:var(--text-primary);
+    font-family:var(--mono);
+    font-size:var(--text-xs);
+    font-weight:600;
+  }
+
+  .pane{
+    position:sticky;
+    inset-block-start:var(--space-16);
+  }
+  .pane-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:var(--space-3);
+    margin-block:0 var(--space-2);
+    margin-inline:var(--space-1) 0;
+  }
+  .pane-title{
+    color:var(--text-muted);
+    font-size:var(--text-xs);
+    font-weight:700;
+    letter-spacing:var(--tracking-label);
+    line-height:var(--leading-label);
+    text-transform:uppercase;
+  }
+  .pane-sub{
+    color:var(--text-muted);
+    font-family:var(--mono);
+    font-size:var(--text-xs);
+    font-weight:600;
+  }
+  .pane-sub,
+  .code{
+    font-variant-numeric:tabular-nums;
+  }
+  .code{
+    overflow-x:auto;
+    padding-block:var(--space-2);
+    background:var(--surface-code);
+    border:1px solid var(--border-strong);
+    border-radius:var(--radius-stack);
+    color:var(--syntax-punctuation);
+    font-family:var(--mono);
+    font-size:var(--text-xs);
+    line-height:var(--leading-code);
+  }
+  .code .ln{
+    padding-inline:var(--space-4);
+    white-space:pre;
+  }
+  .cgroup{
+    position:relative;
+    margin-block:var(--space-1);
+    background:var(--surface-band);
+    border-block:1px solid var(--border-subtle);
+  }
+  .cgroup .glabel{
+    float:inline-end;
+    padding-inline-start:var(--space-4);
+    color:var(--text-muted);
+    font-size:var(--text-xs);
+    font-weight:700;
+    letter-spacing:var(--tracking-label);
+    line-height:var(--leading-label);
+    text-transform:uppercase;
+  }
+  .k{
+    color:var(--accent-type);
+    font-weight:600;
+  }
+  .s{color:var(--accent-string)}
+  .n{
+    color:var(--accent-number);
+    font-weight:600;
+  }
+  .p{color:var(--syntax-punctuation)}
+  .legend{
+    max-inline-size:72ch;
+    margin-block:var(--space-2) 0;
+    margin-inline:var(--space-1);
+    color:var(--text-muted);
+    font-size:var(--text-xs);
+    line-height:var(--leading-body);
+    text-wrap:pretty;
+  }
+</style>
+</head>
+<body>
+
+<h1 class="banner">Option 3 — Field cards: <span>every field a bounded unit, nested shapes as card stacks</span></h1>
+
+<main class="wrap">
+
+<!-- ================= StateEnvelope ================= -->
+<section class="object">
+  <div>
+    <div class="obj-head">
+      <div class="obj-title">
+        <h2>StateEnvelope</h2>
+        <span class="tag-object">object</span>
+      </div>
+      <p class="obj-desc">Shared metadata carried by every durable harness state object.</p>
+      <div class="obj-meta">10 fields · 4 groups · 1 nested shape</div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Identity <span class="count">3</span></div>
+      <div class="stack">
+        <div class="row">
+          <div class="row-head"><span class="fname">id</span><span class="ftype">StateObjectId</span></div>
+          <p class="fdesc">Stable identity of the state object.</p>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">game_id</span><span class="ftype">GameId</span></div>
+          <p class="fdesc">Owning game.</p>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">kind</span><span class="ftype">StateKind</span></div>
+          <p class="fdesc">Domain state-machine kind.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">State <span class="count">2</span></div>
+      <div class="stack">
+        <div class="row">
+          <div class="row-head"><span class="fname">status</span><span class="ftype">domain-specific enum</span></div>
+          <p class="fdesc">A value owned by this state kind.</p>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">revision</span><span class="ftype">integer</span></div>
+          <p class="fdesc">Monotonic accepted-transition version.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Timestamps &amp; provenance <span class="count">4</span></div>
+      <div class="stack">
+        <div class="row">
+          <div class="row-head"><span class="fname">created_at</span><span class="ftype">timestamp</span></div>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">updated_at</span><span class="ftype">timestamp</span></div>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">trace_id</span><span class="ftype">TraceId</span></div>
+          <p class="fdesc">Root trace for the object.</p>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">caused_by_event_id</span><span class="ftype">EventId</span><span class="badge">optional</span></div>
+          <p class="fdesc">Event that produced the current revision.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-label">Diagnostics <span class="count">1</span></div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="fname">blockers</span>
+          <span class="ftype">Blocker[]</span>
+          <span class="tag-shape">array of objects</span>
+        </div>
+      </div>
+      <div class="card-inset">
+        <p class="inset-label">Blocker fields</p>
+        <div class="chips">
+          <span class="chip"><span class="cn">code</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">message</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">source_kind</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">source_id</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">recoverable</span><span class="ct">boolean</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pane">
+    <div class="pane-head">
+      <div class="pane-title">Example</div>
+      <div class="pane-sub">StateEnvelope</div>
+    </div>
+    <div class="code">
+<div class="ln"><span class="p">{</span></div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">Identity</span><span class="k">  "id"</span><span class="p">: </span><span class="s">"run-2026-08-11-01"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "game_id"</span><span class="p">: </span><span class="s">"melee"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "kind"</span><span class="p">: </span><span class="s">"run"</span><span class="p">,</span></div>
+</div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">State</span><span class="k">  "status"</span><span class="p">: </span><span class="s">"draining"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "revision"</span><span class="p">: </span><span class="n">288</span><span class="p">,</span></div>
+</div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">Timestamps &amp; provenance</span><span class="k">  "created_at"</span><span class="p">: </span><span class="s">"2026-08-11T18:00:00Z"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "updated_at"</span><span class="p">: </span><span class="s">"2026-08-11T18:42:08Z"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "trace_id"</span><span class="p">: </span><span class="s">"trace-run-2026-08-11-01"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "caused_by_event_id"</span><span class="p">: </span><span class="s">"event-92811"</span><span class="p">,</span></div>
+</div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">Diagnostics</span><span class="k">  "blockers"</span><span class="p">: []</span></div>
+</div>
+<div class="ln"><span class="p">}</span></div>
+    </div>
+    <p class="legend">Bands in the example map one-to-one to the card groups on the left.</p>
+  </div>
+</section>
+
+<!-- ================= CycleState ================= -->
+<section class="object">
+  <div>
+    <div class="obj-head">
+      <div class="obj-title">
+        <h2>CycleState</h2>
+        <span class="tag-object">object</span>
+      </div>
+      <p class="obj-desc">Durable container owning the worktree, head lineage, timeline, and child workflows of one cycle.</p>
+      <div class="obj-meta">12 fields · 6 groups · 3 nested shapes</div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Identity <span class="count">2</span></div>
+      <div class="stack">
+        <div class="row">
+          <div class="row-head"><span class="fname">cycle_uuid</span><span class="ftype">CycleUuid</span></div>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">game_id</span><span class="ftype">GameId</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">State <span class="count">2</span></div>
+      <div class="stack">
+        <div class="row">
+          <div class="row-head"><span class="fname">revision</span><span class="ftype">integer</span></div>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">status</span><span class="ftype"><span class="q">"active"</span> <span class="bar">|</span> <span class="q">"closing"</span> <span class="bar">|</span> <span class="q">"closed"</span></span></div>
+          <p class="fdesc">Only one cycle may be active per game; closing is an explicit operator action.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Head lineage <span class="count">2</span></div>
+      <div class="stack">
+        <div class="row">
+          <div class="row-head"><span class="fname">original_baseline_revision</span><span class="ftype">SourceRevision</span><span class="badge req">immutable</span></div>
+          <p class="fdesc">The baseline sync that opened the cycle. Immutable.</p>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">head_revision</span><span class="ftype">SourceRevision</span></div>
+          <p class="fdesc">Canonical cycle head. Only epoch integrations and remote-application boundaries advance it.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-label">Nested shapes <span class="count">2</span></div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="fname">timeline</span>
+          <span class="ftype">TimelineEntry[]</span>
+          <span class="tag-shape">array of objects</span>
+        </div>
+        <p class="fdesc">Ordered head-lineage record.</p>
+      </div>
+      <div class="card-inset">
+        <p class="inset-label">TimelineEntry fields</p>
+        <div class="chips">
+          <span class="chip"><span class="cn">entry_kind</span><span class="ct"><span class="q">"epoch_completed"</span> <span class="bar">|</span> <span class="q">"remote_application"</span> <span class="bar">|</span> <span class="q">"pr_phase"</span> <span class="bar">|</span> <span class="q">"save_point"</span></span></span>
+          <span class="chip"><span class="cn">entry_id</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">occurred_at</span><span class="ct">timestamp</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="fname">workflow_ids</span>
+          <span class="ftype">WorkflowId[]</span>
+          <span class="tag-shape">array of ids</span>
+        </div>
+        <p class="fdesc">Child run, PR, and sync workflows in creation order.</p>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Timestamps &amp; provenance <span class="count">3</span></div>
+      <div class="stack">
+        <div class="row">
+          <div class="row-head"><span class="fname">created_at</span><span class="ftype">timestamp</span></div>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">closed_at</span><span class="ftype">timestamp</span><span class="badge">optional</span></div>
+        </div>
+        <div class="row">
+          <div class="row-head"><span class="fname">trace_id</span><span class="ftype">TraceId</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-label">Diagnostics <span class="count">1</span></div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="fname">blockers</span>
+          <span class="ftype">Blocker[]</span>
+          <span class="tag-shape">array of objects</span>
+        </div>
+      </div>
+      <div class="card-inset">
+        <p class="inset-label">Blocker fields</p>
+        <div class="chips">
+          <span class="chip"><span class="cn">code</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">message</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">source_kind</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">source_id</span><span class="ct">string</span></span>
+          <span class="chip"><span class="cn">recoverable</span><span class="ct">boolean</span></span>
+        </div>
+        <p class="inset-note">Same <code>Blocker</code> shape carried by <code>StateEnvelope</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="pane">
+    <div class="pane-head">
+      <div class="pane-title">Example</div>
+      <div class="pane-sub">CycleState</div>
+    </div>
+    <div class="code">
+<div class="ln"><span class="p">{</span></div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">Identity</span><span class="k">  "cycle_uuid"</span><span class="p">: </span><span class="s">"cycle-7"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "game_id"</span><span class="p">: </span><span class="s">"melee"</span><span class="p">,</span></div>
+</div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">State</span><span class="k">  "revision"</span><span class="p">: </span><span class="n">3104</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "status"</span><span class="p">: </span><span class="s">"active"</span><span class="p">,</span></div>
+</div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">Head lineage</span><span class="k">  "original_baseline_revision"</span><span class="p">: </span><span class="s">"upstream-9ac4"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "head_revision"</span><span class="p">: </span><span class="s">"upstream-9ba1"</span><span class="p">,</span></div>
+</div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">Nested shapes</span><span class="k">  "timeline"</span><span class="p">: [</span></div>
+<div class="ln"><span class="p">    {</span></div>
+<div class="ln"><span class="k">      "entry_kind"</span><span class="p">: </span><span class="s">"epoch_completed"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">      "entry_id"</span><span class="p">: </span><span class="s">"epoch-19"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">      "occurred_at"</span><span class="p">: </span><span class="s">"2026-08-11T17:55:00Z"</span></div>
+<div class="ln"><span class="p">    },</span></div>
+<div class="ln"><span class="p">    {</span></div>
+<div class="ln"><span class="k">      "entry_kind"</span><span class="p">: </span><span class="s">"remote_application"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">      "entry_id"</span><span class="p">: </span><span class="s">"remote-application-3"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">      "occurred_at"</span><span class="p">: </span><span class="s">"2026-08-11T19:10:00Z"</span></div>
+<div class="ln"><span class="p">    }</span></div>
+<div class="ln"><span class="p">  ],</span></div>
+<div class="ln"><span class="k">  "workflow_ids"</span><span class="p">: [</span><span class="s">"run-2026-08-11-01"</span><span class="p">, </span><span class="s">"sync-2026-08-11-02"</span><span class="p">],</span></div>
+</div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">Timestamps &amp; provenance</span><span class="k">  "created_at"</span><span class="p">: </span><span class="s">"2026-08-01T09:00:00Z"</span><span class="p">,</span></div>
+<div class="ln"><span class="k">  "trace_id"</span><span class="p">: </span><span class="s">"trace-cycle-7"</span><span class="p">,</span></div>
+</div>
+<div class="cgroup">
+<div class="ln"><span class="glabel" aria-hidden="true">Nested shapes</span><span class="k">  "blockers"</span><span class="p">: []</span></div>
+</div>
+<div class="ln"><span class="p">}</span></div>
+    </div>
+    <p class="legend">Optional fields absent from the example (<code>closed_at</code>) still appear as bounded rows on the left.</p>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

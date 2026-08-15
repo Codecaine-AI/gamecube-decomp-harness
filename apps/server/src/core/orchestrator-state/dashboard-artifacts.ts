@@ -6,8 +6,8 @@ export type JsonObject = Record<string, unknown>;
 export interface DashboardArtifactRecord {
   id: string;
   runId: string | null;
-  projectId: string | null;
-  sessionUuid: string | null;
+  gameId: string | null;
+  cycleUuid: string | null;
   artifactType: string;
   artifactKey: string;
   sourcePath: string | null;
@@ -18,8 +18,8 @@ export interface DashboardArtifactRecord {
 
 export interface DashboardArtifactInput {
   runId?: string | null;
-  projectId?: string | null;
-  sessionUuid?: string | null;
+  gameId?: string | null;
+  cycleUuid?: string | null;
   artifactType: string;
   artifactKey: string;
   sourcePath?: string | null;
@@ -30,8 +30,8 @@ export interface DashboardArtifactInput {
 
 export interface DashboardArtifactSelector {
   runId?: string | null;
-  projectId?: string | null;
-  sessionUuid?: string | null;
+  gameId?: string | null;
+  cycleUuid?: string | null;
   artifactType: string;
   artifactKey?: string | null;
 }
@@ -54,8 +54,8 @@ function rowToRecord(row: Record<string, unknown>): DashboardArtifactRecord {
   return {
     id: String(row.id ?? ""),
     runId: typeof row.run_id === "string" && row.run_id ? row.run_id : null,
-    projectId: typeof row.project_id === "string" && row.project_id ? row.project_id : null,
-    sessionUuid: typeof row.session_uuid === "string" && row.session_uuid ? row.session_uuid : null,
+    gameId: typeof row.game_id === "string" && row.game_id ? row.game_id : null,
+    cycleUuid: typeof row.cycle_uuid === "string" && row.cycle_uuid ? row.cycle_uuid : null,
     artifactType: String(row.artifact_type ?? ""),
     artifactKey: String(row.artifact_key ?? ""),
     sourcePath: typeof row.source_path === "string" && row.source_path ? row.source_path : null,
@@ -76,13 +76,13 @@ function selectorWhere(selector: DashboardArtifactSelector): { clauses: string[]
     clauses.push(selector.runId ? "run_id = ?" : "run_id IS NULL");
     if (selector.runId) values.push(selector.runId);
   }
-  if (selector.projectId !== undefined) {
-    clauses.push(selector.projectId ? "project_id = ?" : "project_id IS NULL");
-    if (selector.projectId) values.push(selector.projectId);
+  if (selector.gameId !== undefined) {
+    clauses.push(selector.gameId ? "game_id = ?" : "game_id IS NULL");
+    if (selector.gameId) values.push(selector.gameId);
   }
-  if (selector.sessionUuid !== undefined) {
-    clauses.push(selector.sessionUuid ? "session_uuid = ?" : "session_uuid IS NULL");
-    if (selector.sessionUuid) values.push(selector.sessionUuid);
+  if (selector.cycleUuid !== undefined) {
+    clauses.push(selector.cycleUuid ? "cycle_uuid = ?" : "cycle_uuid IS NULL");
+    if (selector.cycleUuid) values.push(selector.cycleUuid);
   }
   return { clauses, values };
 }
@@ -91,8 +91,8 @@ export function recordDashboardArtifact(store: StateStore, input: DashboardArtif
   const record: DashboardArtifactRecord = {
     id: randomUUID(),
     runId: input.runId ?? null,
-    projectId: input.projectId ?? null,
-    sessionUuid: input.sessionUuid ?? null,
+    gameId: input.gameId ?? null,
+    cycleUuid: input.cycleUuid ?? null,
     artifactType: input.artifactType,
     artifactKey: input.artifactKey,
     sourcePath: input.sourcePath ?? null,
@@ -105,7 +105,7 @@ export function recordDashboardArtifact(store: StateStore, input: DashboardArtif
       .query(
         `
           INSERT INTO dashboard_artifacts (
-            id, run_id, project_id, session_uuid, artifact_type, artifact_key,
+            id, run_id, game_id, cycle_uuid, artifact_type, artifact_key,
             source_path, source_label, payload_json, created_at
           )
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -114,8 +114,8 @@ export function recordDashboardArtifact(store: StateStore, input: DashboardArtif
       .run(
         record.id,
         record.runId,
-        record.projectId,
-        record.sessionUuid,
+        record.gameId,
+        record.cycleUuid,
         record.artifactType,
         record.artifactKey,
         record.sourcePath,

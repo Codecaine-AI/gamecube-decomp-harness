@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StateEnvelope — field row anatomy v2</title>
+<style>
+  /* ---------------------------------------------------------------
+     Palette — generated in OKLCH, emitted as sRGB hex.
+     Neutrals: one warm hue (70–85) so the paper base stays coherent.
+     Accent A  hue 248  "named type"  — the only blue in the system.
+     Accent B  hue  55  "section"     — clay, structural only.
+     Every text token measured >= 7:1 (WCAG AAA) on --paper, --card
+     and --sunk. Clay is used at 3.84:1 for non-text rules only.
+     --------------------------------------------------------------- */
+  :root {
+    /* surfaces */
+    --paper:       #fbfaf8;  /* oklch(.984 .003 85)  page               */
+    --card:        #ffffff;  /* oklch(1 0 0)         primary surface    */
+    --sunk:        #f7f4f0;  /* oklch(.968 .006 80)  banner + nested    */
+    --hairline:    #e6e2dd;  /* oklch(.915 .008 75)  separators         */
+    --rule:        #ddd8d2;  /* oklch(.885 .010 72)  stronger rule      */
+    --dot:         #b9b2aa;  /* oklch(.762 .011 72)  bullet marks       */
+
+    /* ink */
+    --ink-strong:  #221d18;  /* oklch(.235 .012 70)  16.0:1 on paper    */
+    --ink-body:    #37322c;  /* oklch(.320 .012 70)  12.2:1            */
+    --ink-muted:   #4e4944;  /* oklch(.408 .011 70)   8.5:1            */
+    --ink-quiet:   #56524d;  /* oklch(.440 .010 70)   7.4:1            */
+
+    /* accent A — named types */
+    --type-named:  #104d7d;  /* oklch(.408 .100 248)  8.5:1            */
+
+    /* accent B — sections */
+    --section-ink: #5c412c;  /* oklch(.400 .050 58)   9.0:1            */
+    --clay:        #ba7038;  /* oklch(.615 .118 55)   3.8:1 non-text   */
+
+    /* elevation — shadow-as-border, three layers */
+    --shadow-card:
+      0 0 0 1px rgba(0, 0, 0, .06),
+      0 1px 2px -1px rgba(0, 0, 0, .06),
+      0 2px 4px 0 rgba(0, 0, 0, .04);
+
+    /* type scale (role-based) */
+    --text-display: 1.625rem;  /* 26px / 1.15 / 650 */
+    --text-heading: 0.875rem;  /* 14px / 1.3  / 600 */
+    --text-body:    0.875rem;  /* 14px / 1.55 / 400 */
+    --text-code:    0.8438rem; /* 13.5px            */
+    --text-caption: 0.7813rem; /* 12.5px            */
+    --text-label:   0.6875rem; /* 11px  overline    */
+
+    /* row geometry */
+    --content:      800px;
+    --card-pad:     22px;
+    --nest-pad:     16px;
+    /* longest name is caused_by_event_id at 132px in this mono stack;
+       the tab stop is that plus ~32px of breathing room */
+    --tab:          164px;  /* 2A: fixed tab stop                       */
+    --name-2b:      152px;  /* 2B: name column                          */
+    --zone-2b:      176px;  /* 2B: centered type zone                   */
+
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+                 "Cascadia Mono", Consolas, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    padding: 52px 48px 80px;
+    background: var(--paper);
+    color: var(--ink-body);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  main { width: 100%; max-width: var(--content); }
+
+  /* ---------------------------------------------------------- header */
+
+  .page-head { margin: 0 0 34px; }
+
+  .eyebrow {
+    margin: 0 0 10px;
+    color: var(--ink-quiet);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: .11em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0;
+    color: var(--ink-strong);
+    font-family: var(--font-mono);
+    font-size: var(--text-display);
+    font-weight: 650;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+  }
+
+  .lede {
+    margin: 10px 0 0;
+    max-width: 62ch;
+    color: var(--ink-muted);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  /* --------------------------------------------------------- variant */
+
+  .variant { margin: 0 0 40px; }
+  .variant:last-child { margin-bottom: 0; }
+
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+
+  .banner {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 11px var(--card-pad);
+    background: var(--sunk);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .banner-pill {
+    flex: none;
+    padding: 2px 7px;
+    background: var(--card);
+    border-radius: 5px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .07);
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: .02em;
+    line-height: 1.45;
+    white-space: nowrap;
+  }
+
+  h2 {
+    margin: 0;
+    flex: none;
+    color: var(--ink-strong);
+    font-size: var(--text-heading);
+    font-weight: 600;
+    letter-spacing: -.005em;
+    line-height: 1.3;
+  }
+
+  .banner-note {
+    margin: 0;
+    color: var(--ink-quiet);
+    font-size: var(--text-caption);
+    line-height: 1.4;
+  }
+
+  .banner-note::before {
+    content: "·";
+    margin-inline-end: 8px;
+    color: var(--rule);
+  }
+
+  .card-body { padding: 6px var(--card-pad) 24px; }
+
+  /* ----------------------------------------------------------- group */
+
+  /* gap between groups (28px + rule) is well over 2x the 18px gap
+     inside a group, so the eye finds the boundaries without lines */
+  .group { padding-top: 28px; }
+
+  .group-head {
+    margin: 0 0 15px;
+    border-bottom: 1px solid var(--hairline);
+    font-size: var(--text-label);
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  /* label-style overline: clay tab riding the section rule */
+  .group-head > span {
+    display: inline-block;
+    margin-bottom: -1px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--clay);
+    color: var(--section-ink);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+  }
+
+  /* ---------------------------------------------------------- fields */
+
+  dl { margin: 0; }
+
+  .field { padding: 0; }
+  .field + .field { margin-top: 18px; }
+
+  /* signature line — the only place the two variants differ */
+  .sig {
+    display: grid;
+    align-items: baseline;
+    margin: 0;
+  }
+
+  .fname {
+    color: var(--ink-strong);
+    font-family: var(--font-mono);
+    font-size: var(--text-code);
+    font-weight: 600;
+    letter-spacing: -.005em;
+    line-height: 1.45;
+    overflow-wrap: break-word;
+  }
+
+  .ftype {
+    font-family: var(--font-mono);
+    font-size: var(--text-code);
+    font-weight: 500;
+    line-height: 1.45;
+    white-space: nowrap;
+  }
+
+  .ftype.named  { color: var(--type-named); }
+  .ftype.prim   { color: var(--ink-muted); }
+
+  /* not a real type name, so it never wears the "named type" blue */
+  .ftype.pseudo {
+    color: var(--ink-quiet);
+    font-family: var(--font-sans);
+    font-size: var(--text-caption);
+    font-style: italic;
+  }
+
+  .fmeta {
+    color: var(--ink-quiet);
+    font-size: var(--text-caption);
+    line-height: 1.45;
+    white-space: nowrap;
+  }
+
+  .fmeta:not(:empty)::before {
+    content: "";
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    margin: 0 7px 3px 0;
+    border-radius: 50%;
+    background: var(--dot);
+  }
+
+  /* description sits below the signature, across the full row width;
+     only the running text is capped to a readable measure (~64ch) */
+  .desc {
+    margin: 5px 0 0;
+    color: var(--ink-body);
+    font-size: var(--text-body);
+    line-height: 1.55;
+  }
+
+  .desc > p { margin: 0; max-width: 64ch; text-wrap: pretty; }
+
+  .desc-list { margin: 0; padding: 0; max-width: 64ch; list-style: none; }
+
+  .desc-list > li {
+    position: relative;
+    padding-inline-start: 15px;
+    text-wrap: pretty;
+  }
+
+  .desc-list > li + li { margin-top: 4px; }
+
+  .desc-list > li::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 2px;
+    top: .62em;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--dot);
+  }
+
+  /* ---------------------------------------------------------- nested */
+
+  .nested {
+    position: relative;
+    margin: 12px 0 0;
+    padding: 13px var(--nest-pad) 15px;
+    background: var(--sunk);
+    border-radius: 10px;
+  }
+
+  .nested::before {
+    content: "";
+    position: absolute;
+    inset-block: 12px;
+    inset-inline-start: 0;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--clay);
+  }
+
+  .nested-head {
+    margin: 0 0 12px;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: -.005em;
+    line-height: 1.3;
+  }
+
+  .nested .field + .field { margin-top: 13px; }
+  .nested .desc { margin-top: 4px; }
+
+  /* ------------------------------------------------ variant geometry */
+
+  /* 2A — type begins at a fixed tab stop after the name */
+  .v-tabstop .sig {
+    grid-template-columns: var(--tab) max-content 1fr;
+  }
+  .v-tabstop .ftype { text-align: start; }
+  .v-tabstop .fmeta { padding-inline-start: 12px; }
+
+  /* nested rows keep the same absolute tab x by paying back their indent */
+  .v-tabstop .nested .sig {
+    grid-template-columns: calc(var(--tab) - var(--nest-pad)) max-content 1fr;
+  }
+
+  /* 2B — type is centered inside a defined middle zone */
+  .v-centered .sig {
+    grid-template-columns: var(--name-2b) var(--zone-2b) 1fr;
+  }
+  .v-centered .ftype { text-align: center; }
+  .v-centered .fmeta { padding-inline-start: 12px; }
+
+  .v-centered .nested .sig {
+    grid-template-columns: calc(var(--name-2b) - var(--nest-pad)) var(--zone-2b) 1fr;
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header class="page-head">
+    <p class="eyebrow">Object reference</p>
+    <h1>StateEnvelope</h1>
+    <p class="lede">The durable record for one domain state machine: who it belongs to, what
+      revision it is on, and what is holding it. Two micro-variants of the same row anatomy
+      follow — identical in every respect except where the type sits on the first line.</p>
+  </header>
+
+  <!-- ============================================ VARIANT 2A ======= -->
+  <section class="variant v-tabstop">
+    <div class="card">
+
+      <div class="banner">
+        <span class="banner-pill">2A</span>
+        <h2>Tab stop</h2>
+        <p class="banner-note">Type begins at a fixed 164&nbsp;px tab stop after the name.</p>
+      </div>
+
+      <div class="card-body">
+
+        <section class="group">
+          <h3 class="group-head"><span>Identity</span></h3>
+          <dl>
+            <div class="field">
+              <dt class="sig"><span class="fname">id</span><span class="ftype named">StateObjectId</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Stable identity of the state object.</p></dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">game_id</span><span class="ftype named">GameId</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Owning game.</p></dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">kind</span><span class="ftype named">StateKind</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Domain state-machine kind.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="group">
+          <h3 class="group-head"><span>Lifecycle</span></h3>
+          <dl>
+            <div class="field">
+              <dt class="sig"><span class="fname">status</span><span class="ftype pseudo">domain-specific enum</span><span class="fmeta"></span></dt>
+              <dd class="desc">
+                <ul class="desc-list">
+                  <li>A value owned by this state kind.</li>
+                  <li>Vocabulary is domain-specific; the envelope never interprets it.</li>
+                </ul>
+              </dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">revision</span><span class="ftype prim">integer</span><span class="fmeta"></span></dt>
+              <dd class="desc">
+                <ul class="desc-list">
+                  <li>Monotonic accepted-transition version.</li>
+                  <li>Increments only on accepted transitions; used for stale-write protection.</li>
+                </ul>
+              </dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">created_at</span><span class="ftype prim">timestamp</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Wall-clock time the object was first written.</p></dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">updated_at</span><span class="ftype prim">timestamp</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Wall-clock time of the most recent accepted revision.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="group">
+          <h3 class="group-head"><span>Tracing</span></h3>
+          <dl>
+            <div class="field">
+              <dt class="sig"><span class="fname">trace_id</span><span class="ftype named">TraceId</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Root trace for the object.</p></dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">caused_by_event_id</span><span class="ftype named">EventId</span><span class="fmeta">optional</span></dt>
+              <dd class="desc"><p>Event that produced the current revision.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="group">
+          <h3 class="group-head"><span>Structure</span></h3>
+          <dl>
+            <div class="field">
+              <dt class="sig"><span class="fname">blockers</span><span class="ftype named">Blocker[]</span><span class="fmeta"></span></dt>
+              <dd class="desc">
+                <p>Reasons the object cannot currently advance.</p>
+                <div class="nested">
+                  <p class="nested-head">Blocker</p>
+                  <dl>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">code</span><span class="ftype prim">string</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Stable machine-readable blocker code.</p></dd>
+                    </div>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">message</span><span class="ftype prim">string</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Human-readable explanation.</p></dd>
+                    </div>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">source_kind</span><span class="ftype prim">string</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Kind of the object that raised the blocker.</p></dd>
+                    </div>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">source_id</span><span class="ftype prim">string</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Identity of the raising object.</p></dd>
+                    </div>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">recoverable</span><span class="ftype prim">boolean</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Whether the blocker can clear without operator action.</p></dd>
+                    </div>
+                  </dl>
+                </div>
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ VARIANT 2B ======= -->
+  <section class="variant v-centered">
+    <div class="card">
+
+      <div class="banner">
+        <span class="banner-pill">2B</span>
+        <h2>Centered column</h2>
+        <p class="banner-note">Type is centered inside a 176&nbsp;px middle zone.</p>
+      </div>
+
+      <div class="card-body">
+
+        <section class="group">
+          <h3 class="group-head"><span>Identity</span></h3>
+          <dl>
+            <div class="field">
+              <dt class="sig"><span class="fname">id</span><span class="ftype named">StateObjectId</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Stable identity of the state object.</p></dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">game_id</span><span class="ftype named">GameId</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Owning game.</p></dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">kind</span><span class="ftype named">StateKind</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Domain state-machine kind.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="group">
+          <h3 class="group-head"><span>Lifecycle</span></h3>
+          <dl>
+            <div class="field">
+              <dt class="sig"><span class="fname">status</span><span class="ftype pseudo">domain-specific enum</span><span class="fmeta"></span></dt>
+              <dd class="desc">
+                <ul class="desc-list">
+                  <li>A value owned by this state kind.</li>
+                  <li>Vocabulary is domain-specific; the envelope never interprets it.</li>
+                </ul>
+              </dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">revision</span><span class="ftype prim">integer</span><span class="fmeta"></span></dt>
+              <dd class="desc">
+                <ul class="desc-list">
+                  <li>Monotonic accepted-transition version.</li>
+                  <li>Increments only on accepted transitions; used for stale-write protection.</li>
+                </ul>
+              </dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">created_at</span><span class="ftype prim">timestamp</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Wall-clock time the object was first written.</p></dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">updated_at</span><span class="ftype prim">timestamp</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Wall-clock time of the most recent accepted revision.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="group">
+          <h3 class="group-head"><span>Tracing</span></h3>
+          <dl>
+            <div class="field">
+              <dt class="sig"><span class="fname">trace_id</span><span class="ftype named">TraceId</span><span class="fmeta"></span></dt>
+              <dd class="desc"><p>Root trace for the object.</p></dd>
+            </div>
+            <div class="field">
+              <dt class="sig"><span class="fname">caused_by_event_id</span><span class="ftype named">EventId</span><span class="fmeta">optional</span></dt>
+              <dd class="desc"><p>Event that produced the current revision.</p></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="group">
+          <h3 class="group-head"><span>Structure</span></h3>
+          <dl>
+            <div class="field">
+              <dt class="sig"><span class="fname">blockers</span><span class="ftype named">Blocker[]</span><span class="fmeta"></span></dt>
+              <dd class="desc">
+                <p>Reasons the object cannot currently advance.</p>
+                <div class="nested">
+                  <p class="nested-head">Blocker</p>
+                  <dl>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">code</span><span class="ftype prim">string</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Stable machine-readable blocker code.</p></dd>
+                    </div>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">message</span><span class="ftype prim">string</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Human-readable explanation.</p></dd>
+                    </div>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">source_kind</span><span class="ftype prim">string</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Kind of the object that raised the blocker.</p></dd>
+                    </div>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">source_id</span><span class="ftype prim">string</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Identity of the raising object.</p></dd>
+                    </div>
+                    <div class="field">
+                      <dt class="sig"><span class="fname">recoverable</span><span class="ftype prim">boolean</span><span class="fmeta"></span></dt>
+                      <dd class="desc"><p>Whether the blocker can clear without operator action.</p></dd>
+                    </div>
+                  </dl>
+                </div>
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

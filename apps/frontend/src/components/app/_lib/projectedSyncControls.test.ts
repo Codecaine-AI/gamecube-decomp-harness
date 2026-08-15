@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ProjectStateSyncReadModel } from "@/pages/workspace/_lib/types";
+import type { HarnessStateSyncReadModel } from "@/pages/workspace/_lib/types";
 import {
   SYNC_CONTROL_ACTION_IDS,
   SYNC_CONTROL_ENDPOINTS,
@@ -15,7 +15,7 @@ const sync = {
     new_head: "new-head",
     series_pushes: 3,
   },
-} as ProjectStateSyncReadModel;
+} as HarnessStateSyncReadModel;
 const sourceRoot = resolve(import.meta.dir, "../../..");
 
 describe("projected sync controls", () => {
@@ -49,7 +49,7 @@ describe("projected sync controls", () => {
       "Publish this validated sync?\n\nHead advance: old-head → new-head\nPR series pushes: 3",
     );
     expect(syncConfirmationMessage("syncCancel", sync)).toBe(
-      "Cancel this sync?\n\nStaging is discarded. The session remains untouched.",
+      "Cancel this sync?\n\nStaging is discarded. The cycle remains untouched.",
     );
     expect(syncConfirmationMessage("syncRecover", sync)).toContain("preserve staging");
     expect(syncConfirmationMessage("syncRevalidate", sync)).toContain("Start a new sync");
@@ -61,7 +61,7 @@ describe("projected sync controls", () => {
     const dispatcher = readFileSync(resolve(sourceRoot, "components/app/index.tsx"), "utf8");
 
     for (const actionId of ["sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover"]) {
-      expect(card).toContain(`projectStateAction(projectState, "${actionId}")`);
+      expect(card).toContain(`harnessStateAction(harnessState, "${actionId}")`);
     }
     expect(card).not.toContain("syncLocked");
     expect(card).not.toContain("process.running");
@@ -72,7 +72,7 @@ describe("projected sync controls", () => {
     expect(dispatcher).toContain('nextAction === "syncGit" || nextAction === "indexPrs"\n        ? "syncStart"');
     expect(dispatcher).toContain("SYNC_CONTROL_ENDPOINTS[syncControlAction]");
     expect(dispatcher).toContain("syncControlRequestPatch(syncControlAction)");
-    expect(dispatcher).not.toContain('/api/project-session/preparing/sync-git');
-    expect(dispatcher).not.toContain('/api/project-session/preparing/pr-index');
+    expect(dispatcher).not.toContain('/api/cycle/preparing/sync-git');
+    expect(dispatcher).not.toContain('/api/cycle/preparing/pr-index');
   });
 });

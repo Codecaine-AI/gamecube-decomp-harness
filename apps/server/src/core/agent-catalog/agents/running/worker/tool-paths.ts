@@ -36,7 +36,7 @@ export const WORKER_CANONICAL_TOOL_PATHS = [
     label: "decomp-toolkit",
     command: "dtk",
     relativePath: "build/tools/dtk",
-    purpose: "Project dtk binary used by configure/build helpers.",
+    purpose: "Game dtk binary used by configure/build helpers.",
   },
   {
     id: "objdiff-cli",

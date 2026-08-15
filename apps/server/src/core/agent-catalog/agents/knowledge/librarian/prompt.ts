@@ -7,8 +7,7 @@ import {
   renderXmlMarkdown,
   section,
   usesContext,
-  // @ts-ignore -- Prompt Kit is unavailable under the current broken kernel pin.
-} from "@codecaine-ai/prompt-kit";
+} from "@server/core/agent-catalog/prompt-kit-compat";
 import type { PiPromptBundle } from "@server/core/shared/types";
 import {
   buildLibrarianKernelContext,

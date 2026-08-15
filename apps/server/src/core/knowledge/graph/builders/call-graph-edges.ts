@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { projectRoot, projectSharedToolDataRoot } from "../../paths.js";
+import { gameRoot, gameSharedToolDataRoot } from "../../paths.js";
 import type { GraphEdge, GraphFact, GraphRecords, SearchChunk } from "../types.js";
 import { arrayValue, filesFingerprint, numberValue, objectValue, readJson, readJsonl, shortHash, stableJson, stringValue, truncate } from "../util.js";
 import { functionEntityId } from "./code-graph.js";
@@ -166,13 +166,13 @@ export function buildCallGraphEdgeRecords(
 }
 
 function defaultCallGraphIndexesRoot(): string {
-  return resolve(projectSharedToolDataRoot("melee"), "callgraph/indexes");
+  return resolve(gameSharedToolDataRoot("melee"), "callgraph/indexes");
 }
 
 function repoRootWithFunctionReport(repoRoot: string): string {
   const requested = resolve(repoRoot);
   if (existsSync(resolve(requested, "build/GALE01/report.json"))) return requested;
-  const fallback = resolve(projectRoot("melee"), "checkout");
+  const fallback = resolve(gameRoot("melee"), "checkout");
   if (fallback !== requested && existsSync(resolve(fallback, "build/GALE01/report.json"))) return fallback;
   return requested;
 }

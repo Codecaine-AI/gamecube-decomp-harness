@@ -7,7 +7,7 @@ import type { WorkspaceNav } from "@/pages/workspace/_lib/types";
 const SECTION_ICONS: Record<WorkspaceSection, ReactNode> = {
   overview: <Home size={18} />,
   standards: <ClipboardCheck size={18} />,
-  sessions: <ListTree size={18} />,
+  cycles: <ListTree size={18} />,
   agents: <Bot size={18} />,
   trace: <Activity size={18} />,
   knowledge: <Database size={18} />,
@@ -21,7 +21,7 @@ function workspaceSection(id: WorkspaceSection) {
   return section;
 }
 
-const SESSION_WORKSPACE_SECTIONS = (["overview", "sessions"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
+const CYCLE_WORKSPACE_SECTIONS = (["overview", "cycles"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const CONFIG_WORKSPACE_SECTIONS = (["standards", "settings"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const AGENT_WORKSPACE_SECTIONS = (["agents", "trace"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const KNOWLEDGE_WORKSPACE_SECTIONS = (["knowledge"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
@@ -43,13 +43,13 @@ export function WorkspaceSidebar({
       <aside className="sidebar-rail sidebar-rail-collapsed grid min-w-0 overflow-hidden border-r border-line2 bg-ink max-[780px]:block">
         <div className="sidebar-rail-tab z-10 flex h-full flex-col items-center justify-start gap-3 bg-raised px-0 max-[780px]:h-[42px] max-[780px]:flex-row max-[780px]:items-center max-[780px]:gap-2 max-[780px]:px-3">
           <div className="flex h-[68px] w-full shrink-0 items-center justify-center border-b border-line2 max-[780px]:h-auto max-[780px]:w-auto">
-            <button aria-expanded={false} className="inline-flex h-8 w-8 shrink-0 items-center justify-center border border-line2 bg-raised text-soft hover:border-faint hover:text-fg" onClick={() => onCollapsedChange(false)} title="Show project navigation" type="button">
+            <button aria-expanded={false} className="inline-flex h-8 w-8 shrink-0 items-center justify-center border border-line2 bg-raised text-soft hover:border-faint hover:text-fg" onClick={() => onCollapsedChange(false)} title="Show game navigation" type="button">
               <ChevronRight size={16} />
               <span className="sr-only">Show</span>
             </button>
           </div>
-          <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-auto max-[780px]:w-auto max-[780px]:flex-none max-[780px]:flex-row max-[780px]:overflow-visible" aria-label="Project workspace">
-            {SESSION_WORKSPACE_SECTIONS.map((item) => (
+          <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-auto max-[780px]:w-auto max-[780px]:flex-none max-[780px]:flex-row max-[780px]:overflow-visible" aria-label="Game workspace">
+            {CYCLE_WORKSPACE_SECTIONS.map((item) => (
               <button
                 aria-current={route.section === item.id ? "page" : undefined}
                 className={`inline-flex h-8 w-8 shrink-0 items-center justify-center border ${
@@ -144,8 +144,8 @@ export function WorkspaceSidebar({
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="grid gap-2.5 p-2.5">
-            <nav className="grid gap-1.5" aria-label="Project workspace">
-              {SESSION_WORKSPACE_SECTIONS.map((item) => (
+            <nav className="grid gap-1.5" aria-label="Game workspace">
+              {CYCLE_WORKSPACE_SECTIONS.map((item) => (
                 <NavItem
                   active={route.section === item.id}
                   description={item.description}
@@ -192,8 +192,8 @@ export function WorkspaceSidebar({
           </div>
         </div>
         <div className="grid shrink-0 gap-1.5 border-t border-line2 p-2.5">
-          <button className="flex min-h-7 items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.16em] text-dim hover:text-soft" onClick={nav.goToDashboard} title="Back to all projects" type="button">
-            <ChevronLeft size={12} /> All Projects
+          <button className="flex min-h-7 items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.16em] text-dim hover:text-soft" onClick={nav.goToDashboard} title="Back to all games" type="button">
+            <ChevronLeft size={12} /> All Games
           </button>
           <NavItem
             active={route.section === STYLE_WORKSPACE_SECTION.id}

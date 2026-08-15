@@ -86,7 +86,7 @@ Audit method: each canonical destination was rendered with `bun packages/docs-fr
 | P101 | `docs/10-system-design/50-ship-and-pr/20-operator-flow-and-pr-tracking` | PRESENT | `closed` means withdrawn or rejected without merging and is terminal. |
 | P108 | `docs/10-system-design/50-ship-and-pr/20-operator-flow-and-pr-tracking` | PRESENT | An item may be resolved by a review-thread answer without a pushed revision. |
 | P109 | `docs/10-system-design/50-ship-and-pr/20-operator-flow-and-pr-tracking` | PRESENT | Resolved work items are terminal and cannot be claimed again. |
-| R075 | `docs/20-implementation/60-ui/20-project-state-workspace/20-state-summary-and-freshness` | PRESENT | Trace/history surfaces render `run.recovered` as a visually distinct recovery marker while preserving event order. |
+| R075 | `docs/20-implementation/60-ui/20-harness-state-workspace/20-state-summary-and-freshness` | PRESENT | Trace/history surfaces render `run.recovered` as a visually distinct recovery marker while preserving event order. |
 
 ## Per-lane counts
 

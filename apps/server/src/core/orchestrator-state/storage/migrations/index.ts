@@ -1,94 +1,132 @@
-import type { Database } from "bun:sqlite";
+import { Database } from "bun:sqlite";
 import { immediateTransaction } from "../transaction.js";
 import { baselineMigration } from "./001-baseline.js";
-import { projectEventsMigration } from "./002-project-events.js";
-import { projectStateMigration } from "./003-project-state.js";
-import { projectSessionContainerMigration } from "./004-project-session-container.js";
-import { runScopedRunIdMigration } from "./005-run-scoped-run-id.js";
-import { runStateContractMigration } from "./006-run-state-contract.js";
-import { pendingIntegrationsMigration } from "./007-pending-integrations.js";
-import { runRecoveryJournalMigration } from "./008-run-recovery-journal.js";
-import { pendingIntegrationAttemptsMigration } from "./009-pending-integration-attempts.js";
-import { runScopedIndexNamesMigration } from "./010-run-scoped-index-names.js";
-import { syncStateMigration } from "./011-sync-state.js";
-import { syncPublicationMigration } from "./012-sync-publication.js";
-import { syncPublicationIntentsMigration } from "./013-sync-publication-intents.js";
-import { prCampaignMigration } from "./014-pr-campaign.js";
-import { prBatchPublicationReservationsMigration } from "./015-pr-batch-publication-reservations.js";
-import { eventConventionsMigration } from "./016-event-conventions.js";
-import { backgroundKnowledgeJobsMigration } from "./017-background-knowledge-jobs.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
-export { rebuildTable } from "./rebuild-table.js";
 export type { StorageMigration } from "./types.js";
 
-export const storageMigrations: readonly StorageMigration[] = Object.freeze([
-  baselineMigration,
-  projectEventsMigration,
-  projectStateMigration,
-  projectSessionContainerMigration,
-  runScopedRunIdMigration,
-  runStateContractMigration,
-  pendingIntegrationsMigration,
-  runRecoveryJournalMigration,
-  pendingIntegrationAttemptsMigration,
-  runScopedIndexNamesMigration,
-  syncStateMigration,
-  syncPublicationMigration,
-  syncPublicationIntentsMigration,
-  prCampaignMigration,
-  prBatchPublicationReservationsMigration,
-  eventConventionsMigration,
-  backgroundKnowledgeJobsMigration,
-]);
+export const storageMigrations: readonly StorageMigration[] = Object.freeze([baselineMigration]);
 
 interface AppliedMigrationRow {
   version: number;
   name: string;
 }
 
-function validateMigrations(migrations: readonly StorageMigration[]): void {
-  let previousVersion = 0;
-  for (const migration of migrations) {
-    if (!Number.isInteger(migration.version) || migration.version <= previousVersion) {
-      throw new Error(`Storage migrations must have strictly increasing positive integer versions: ${migration.version}`);
-    }
-    if (migration.name.length === 0) throw new Error(`Storage migration ${migration.version} has no name`);
-    previousVersion = migration.version;
+interface SchemaObjectRow {
+  type: string;
+  name: string;
+  tbl_name: string;
+  sql: string;
+}
+
+function tableExists(db: Database, table: string): boolean {
+  return Boolean(db.query("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?").get(table));
+}
+
+function ensureBookkeepingTable(db: Database): void {
+  if (!tableExists(db, "schema_migrations")) db.exec(SCHEMA_MIGRATIONS_DDL);
+}
+
+function columnExists(db: Database, table: string, column: string): boolean {
+  if (!tableExists(db, table)) return false;
+  const quoted = `"${table.replaceAll('"', '""')}"`;
+  return (db.query(`PRAGMA table_info(${quoted})`).all() as Array<{ name: string }>).some(
+    (row) => row.name === column,
+  );
+}
+
+function hasBaselineSentinels(db: Database): boolean {
+  return (
+    tableExists(db, "game_events") &&
+    tableExists(db, "harness_state") &&
+    tableExists(db, "cycles") &&
+    tableExists(db, "game_upstream_anchors") &&
+    columnExists(db, "dispatch_handoff_snapshots", "terminal_game_revision")
+  );
+}
+
+function schemaObjects(db: Database): SchemaObjectRow[] {
+  return db
+    .query(`
+      SELECT type, name, tbl_name, sql
+      FROM sqlite_schema
+      WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'
+      ORDER BY
+        CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 WHEN 'trigger' THEN 2 WHEN 'view' THEN 3 ELSE 4 END,
+        name
+    `)
+    .all() as SchemaObjectRow[];
+}
+
+function schemaMatchesBaseline(db: Database): boolean {
+  const expected = new Database(":memory:");
+  try {
+    expected.exec(SCHEMA_MIGRATIONS_DDL);
+    baselineMigration.up(expected);
+    return JSON.stringify(schemaObjects(db)) === JSON.stringify(schemaObjects(expected));
+  } finally {
+    expected.close();
   }
 }
 
+function applicationObjectCount(db: Database): number {
+  const row = db
+    .query(`
+      SELECT count(*) AS count
+      FROM sqlite_schema
+      WHERE sql IS NOT NULL
+        AND name NOT LIKE 'sqlite_%'
+        AND name != 'schema_migrations'
+    `)
+    .get() as { count: number };
+  return Number(row.count);
+}
+
+function resetBaselineBookkeeping(db: Database): void {
+  db.exec("DELETE FROM schema_migrations");
+  db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+    baselineMigration.version,
+    baselineMigration.name,
+    new Date().toISOString(),
+  );
+}
+
 export function runStorageMigrations(db: Database): void {
-  validateMigrations(storageMigrations);
-
   immediateTransaction(db, () => {
-    db.exec(SCHEMA_MIGRATIONS_DDL);
+    ensureBookkeepingTable(db);
 
-    const appliedRows = db
+    const applied = db
       .query("SELECT version, name FROM schema_migrations ORDER BY version")
       .all() as AppliedMigrationRow[];
-    const knownByVersion = new Map(storageMigrations.map((migration) => [migration.version, migration]));
-    const appliedVersions = new Set<number>();
-
-    for (const row of appliedRows) {
-      const known = knownByVersion.get(row.version);
-      if (!known) throw new Error(`Database has unknown storage migration version ${row.version} (${row.name})`);
-      if (known.name !== row.name) {
-        throw new Error(
-          `Storage migration ${row.version} name mismatch: database has ${row.name}, code expects ${known.name}`,
-        );
-      }
-      appliedVersions.add(row.version);
+    if (
+      applied.length === 1 &&
+      applied[0]?.version === baselineMigration.version &&
+      applied[0]?.name === baselineMigration.name &&
+      hasBaselineSentinels(db)
+    ) {
+      return;
     }
 
-    const insertApplied = db.query(
-      "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)",
-    );
-    for (const migration of storageMigrations) {
-      if (appliedVersions.has(migration.version)) continue;
-      migration.up(db);
-      insertApplied.run(migration.version, migration.name, new Date().toISOString());
+    if (applicationObjectCount(db) === 0) {
+      baselineMigration.up(db);
+      resetBaselineBookkeeping(db);
+      return;
+    }
+
+    if (!schemaMatchesBaseline(db)) {
+      throw new Error(
+        `Storage schema is not the squashed baseline (bookkeeping: ${JSON.stringify(applied)}). ` +
+          "Run: bun /tmp/purge-compat-apply.js /absolute/path/to/orchestrator.sqlite",
+      );
+    }
+
+    if (
+      applied.length !== 1 ||
+      applied[0]?.version !== baselineMigration.version ||
+      applied[0]?.name !== baselineMigration.name
+    ) {
+      resetBaselineBookkeeping(db);
     }
   });
 }

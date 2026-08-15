@@ -1,8 +1,8 @@
 {
   "id": "callgraph",
-  "title": "Call graph lookup",
+  "title": "Call graph evidence",
   "trust_tier": "tool_evidence",
-  "description": "Look up binary-ground-truth caller/callee edges and symbolized data-reference edges generated from build/GALE01/asm, joined to report.json function metadata.",
+  "description": "Generate binary-ground-truth caller/callee and symbolized data-reference evidence for knowledge-graph ingestion.",
   "operation_mode": "live_runner_v2",
   "runner_status": "live_smoke_required",
   "status_message": "Live runner v2: call edges and data-reference edges are generated locally from build/GALE01/asm by toolpacks/gamecube-decomp/research/callgraph/runners/extract_call_graph.py.",
@@ -12,16 +12,17 @@
   ],
   "commands": {
     "status": "python3 toolpacks/gamecube-decomp/research/callgraph/api/status.py --repo-root <repo_root> --json",
-    "callers_of": "python3 toolpacks/gamecube-decomp/research/callgraph/api/callers_of.py --symbol <symbol> --direction callers",
-    "runner": "python3 toolpacks/gamecube-decomp/research/callgraph/runners/extract_call_graph.py --repo-root <repo_root>"
+    "runner": "python3 toolpacks/gamecube-decomp/research/callgraph/runners/extract_call_graph.py --repo-root <repo_root>",
+    "graph_search": "bun run kg:search -- --source call_graph --query <query>",
+    "file_card": "bun run kg:file-card -- --source <source_path>"
   },
   "capabilities": [
-    "caller_callee_lookup",
-    "data_reference_lookup"
+    "graph_linked_calls",
+    "graph_linked_data_references"
   ],
   "category": "research",
   "path": "research/callgraph",
-  "process_role": "call_graph_lookup",
+  "process_role": "graph_evidence_generation",
   "usage": {
     "invocation_mode": "on_demand",
     "mutates_source": false,
@@ -34,8 +35,8 @@
     "outputs": [
       "call_edges",
       "data_ref_edges",
-      "caller_callee_lookup"
+      "graph_call_edges"
     ],
-    "agent_guidance": "Use binary-ground-truth call and data-reference edges to orient a function before editing."
+    "agent_guidance": "Refresh evidence as maintenance; workers consume calls and data references through graph_related_functions and code_graph_file_card."
   }
 }

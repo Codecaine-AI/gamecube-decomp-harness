@@ -26,16 +26,16 @@ def package_root_for_tool(tool_root: Path) -> Path:
 
 
 def project_dir_for_tool(tool_root: Path) -> Path:
-    override = os.environ.get("ORCH_PROJECT_DIR")
+    override = os.environ.get("ORCH_GAME_DIR")
     if override:
         path = Path(override).expanduser()
         return path if path.is_absolute() else package_root_for_tool(tool_root) / path
-    project_id = os.environ.get("ORCH_PROJECT_ID", "melee")
+    project_id = os.environ.get("ORCH_GAME_ID", "melee")
     return package_root_for_tool(tool_root) / "projects" / project_id
 
 
 def project_knowledge_root(tool_root: Path) -> Path:
-    override = os.environ.get("ORCH_PROJECT_KNOWLEDGE_ROOT")
+    override = os.environ.get("ORCH_GAME_KNOWLEDGE_ROOT")
     if override:
         path = Path(override).expanduser()
         return path if path.is_absolute() else package_root_for_tool(tool_root) / path
@@ -59,7 +59,7 @@ def tools_resource_root(tool_root: Path) -> Path:
 
 def default_project_shared_data_root(tool_root: Path) -> Path:
     package_root = package_root_for_tool(tool_root)
-    project_id = os.environ.get("ORCH_PROJECT_ID", "melee")
+    project_id = os.environ.get("ORCH_GAME_ID", "melee")
     try:
         rel = tool_root.resolve().relative_to(tools_resource_root(tool_root).resolve())
     except ValueError:

@@ -1,33 +1,33 @@
-import type { DashboardProjectContextService } from "@server/application/dashboard/project-context";
+import type { DashboardGameContextService } from "@server/application/dashboard/game-context";
 import {
   DEFAULT_EVENT_QUERY_LIMIT,
   MAX_EVENT_QUERY_LIMIT,
-  ProjectEventQueryValidationError,
-  type ProjectEventQueryInput,
-  type ProjectEventQueryPage,
-  type ProjectEventReconstruction,
-  type ProjectEventReconstructionPageOptions,
-} from "@server/core/project-state/event-query";
+  GameEventQueryValidationError,
+  type GameEventQueryInput,
+  type GameEventQueryPage,
+  type GameEventReconstruction,
+  type GameEventReconstructionPageOptions,
+} from "@server/core/harness-state/event-query";
 import {
-  PROJECT_EVENT_SUBJECT_KINDS,
-  type ProjectEventSubjectKind,
-} from "@server/core/project-state/event-registry";
+  GAME_EVENT_SUBJECT_KINDS,
+  type GameEventSubjectKind,
+} from "@server/core/harness-state/event-registry";
 
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
 
 export interface EventsApiRouteDeps {
   json: JsonResponder;
-  projectContext: Pick<DashboardProjectContextService, "requestPaths">;
+  gameContext: Pick<DashboardGameContextService, "requestPaths">;
   queryEvents: (
     stateDir: string,
-    input: ProjectEventQueryInput,
-  ) => ProjectEventQueryPage | Promise<ProjectEventQueryPage>;
+    input: GameEventQueryInput,
+  ) => GameEventQueryPage | Promise<GameEventQueryPage>;
   reconstructEvents: (
     stateDir: string,
-    projectId: string,
+    gameId: string,
     correlationId: string,
-    options: ProjectEventReconstructionPageOptions,
-  ) => ProjectEventReconstruction | Promise<ProjectEventReconstruction>;
+    options: GameEventReconstructionPageOptions,
+  ) => GameEventReconstruction | Promise<GameEventReconstruction>;
 }
 
 class EventsApiInputError extends Error {
@@ -60,7 +60,7 @@ function normalizedParameterName(value: string): string {
 function rejectUnsafeReadParameters(params: URLSearchParams): void {
   for (const name of params.keys()) {
     if (FORBIDDEN_READ_PARAMETER_NAMES.has(normalizedParameterName(name))) {
-      throw new EventsApiInputError("Project path and raw payload overrides are not supported");
+      throw new EventsApiInputError("Game path and raw payload overrides are not supported");
     }
   }
 }
@@ -95,11 +95,11 @@ function integerParam(
   return value;
 }
 
-function registeredSubjectKind(value: string): value is ProjectEventSubjectKind {
-  return PROJECT_EVENT_SUBJECT_KINDS.includes(value as ProjectEventSubjectKind);
+function registeredSubjectKind(value: string): value is GameEventSubjectKind {
+  return GAME_EVENT_SUBJECT_KINDS.includes(value as GameEventSubjectKind);
 }
 
-function subjectFilter(params: URLSearchParams): ProjectEventQueryInput["subject"] {
+function subjectFilter(params: URLSearchParams): GameEventQueryInput["subject"] {
   const hasKind = params.has("subject_kind");
   const hasId = params.has("subject_id");
   if (hasKind !== hasId) {
@@ -108,7 +108,7 @@ function subjectFilter(params: URLSearchParams): ProjectEventQueryInput["subject
   if (!hasKind) return undefined;
   const kind = nonblankParam(params, "subject_kind")!;
   if (!registeredSubjectKind(kind)) {
-    throw new EventsApiInputError("subject_kind must be a registered project event subject kind");
+    throw new EventsApiInputError("subject_kind must be a registered game event subject kind");
   }
   return {
     kind,
@@ -116,17 +116,17 @@ function subjectFilter(params: URLSearchParams): ProjectEventQueryInput["subject
   };
 }
 
-function projectRequest(url: URL, deps: EventsApiRouteDeps): { projectId: string; stateDir: string } {
-  const paths = deps.projectContext.requestPaths(url, { useDefaultProject: true });
-  const projectId = paths.project?.projectId.trim() ?? "";
-  const stateDir = paths.project?.stateDir.trim() ?? "";
-  if (!projectId || !stateDir || paths.usePathOverrides) {
-    throw new Error("canonical project context unavailable");
+function gameRequest(url: URL, deps: EventsApiRouteDeps): { gameId: string; stateDir: string } {
+  const paths = deps.gameContext.requestPaths(url, { useDefaultGame: true });
+  const gameId = paths.game?.gameId.trim() ?? "";
+  const stateDir = paths.game?.stateDir.trim() ?? "";
+  if (!gameId || !stateDir || paths.usePathOverrides) {
+    throw new Error("canonical game context unavailable");
   }
-  return { projectId, stateDir };
+  return { gameId, stateDir };
 }
 
-function pageOptions(params: URLSearchParams): ProjectEventReconstructionPageOptions {
+function pageOptions(params: URLSearchParams): GameEventReconstructionPageOptions {
   return {
     afterSequence: integerParam(params, "after_sequence", { minimum: 0 }),
     limit: integerParam(params, "limit", {
@@ -137,14 +137,14 @@ function pageOptions(params: URLSearchParams): ProjectEventReconstructionPageOpt
   };
 }
 
-function listInput(params: URLSearchParams, projectId: string): ProjectEventQueryInput {
+function listInput(params: URLSearchParams, gameId: string): GameEventQueryInput {
   const fromSequence = integerParam(params, "from_sequence", { minimum: 0 });
   const toSequence = integerParam(params, "to_sequence", { minimum: 0 });
   if (fromSequence !== undefined && toSequence !== undefined && fromSequence > toSequence) {
     throw new EventsApiInputError("from_sequence must be less than or equal to to_sequence");
   }
   return {
-    projectId,
+    gameId,
     correlationId: nonblankParam(params, "correlation_id"),
     subject: subjectFilter(params),
     eventTypePrefix: nonblankParam(params, "event_type_prefix"),
@@ -164,7 +164,7 @@ function inputErrorResponse(error: EventsApiInputError, deps: EventsApiRouteDeps
 }
 
 function readFailureResponse(deps: EventsApiRouteDeps): Response {
-  return deps.json({ error: "Project event read failed" }, { status: 500 });
+  return deps.json({ error: "Game event read failed" }, { status: 500 });
 }
 
 export async function handleEventsApiRoute(
@@ -186,55 +186,55 @@ export async function handleEventsApiRoute(
     rejectUnsafeReadParameters(url.searchParams);
   } catch (error) {
     if (error instanceof EventsApiInputError) return inputErrorResponse(error, deps);
-    return deps.json({ error: "Invalid project event request" }, { status: 400 });
+    return deps.json({ error: "Invalid game event request" }, { status: 400 });
   }
 
-  let request: { projectId: string; stateDir: string };
+  let request: { gameId: string; stateDir: string };
   try {
-    request = projectRequest(url, deps);
+    request = gameRequest(url, deps);
   } catch {
-    return deps.json({ error: "Invalid project context" }, { status: 400 });
+    return deps.json({ error: "Invalid game context" }, { status: 400 });
   }
 
   if (url.pathname === reconstructPath) {
     let correlationId: string;
-    let options: ProjectEventReconstructionPageOptions;
+    let options: GameEventReconstructionPageOptions;
     try {
       correlationId = nonblankParam(url.searchParams, "correlation_id") ?? "";
       if (!correlationId) throw new EventsApiInputError("correlation_id is required");
       options = pageOptions(url.searchParams);
     } catch (error) {
       if (error instanceof EventsApiInputError) return inputErrorResponse(error, deps);
-      return deps.json({ error: "Invalid project event request" }, { status: 400 });
+      return deps.json({ error: "Invalid game event request" }, { status: 400 });
     }
     try {
       return deps.json(
         await deps.reconstructEvents(
           request.stateDir,
-          request.projectId,
+          request.gameId,
           correlationId,
           options,
         ),
       );
     } catch (error) {
-      if (error instanceof ProjectEventQueryValidationError) {
+      if (error instanceof GameEventQueryValidationError) {
         return deps.json({ error: error.message }, { status: 400 });
       }
       return readFailureResponse(deps);
     }
   }
 
-  let input: ProjectEventQueryInput;
+  let input: GameEventQueryInput;
   try {
-    input = listInput(url.searchParams, request.projectId);
+    input = listInput(url.searchParams, request.gameId);
   } catch (error) {
     if (error instanceof EventsApiInputError) return inputErrorResponse(error, deps);
-    return deps.json({ error: "Invalid project event request" }, { status: 400 });
+    return deps.json({ error: "Invalid game event request" }, { status: 400 });
   }
   try {
     return deps.json(await deps.queryEvents(request.stateDir, input));
   } catch (error) {
-    if (error instanceof ProjectEventQueryValidationError) {
+    if (error instanceof GameEventQueryValidationError) {
       return deps.json({ error: error.message }, { status: 400 });
     }
     return readFailureResponse(deps);

@@ -7,7 +7,7 @@ import {
   renderXmlMarkdown,
   section,
   usesContext,
-} from "@codecaine-ai/prompt-kit";
+} from "@server/core/agent-catalog/prompt-kit-compat";
 import type { PiPromptBundle } from "@server/core/shared/types";
 import {
   buildPrSplitterKernelContext,

@@ -39,8 +39,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DB = ROOT / "projects/melee/state/orchestrator.sqlite"
-DEFAULT_SESSION = "53d5b342-c066-48fc-aa49-dd78b69dc2ac"
+DEFAULT_DB = ROOT / "games/melee/state/orchestrator.sqlite"
+DEFAULT_RUN = "53d5b342-c066-48fc-aa49-dd78b69dc2ac"
 DEFAULT_REPORT_DIR = ROOT / "analysis/reports"
 REPORT_STAMP = "2026-07-13"
 
@@ -195,10 +195,10 @@ class TargetOutcome:
         return self.best_score - self.baseline_score
 
 
-def load_epoch_ids(conn: sqlite3.Connection, session_id: str) -> dict[int, str]:
+def load_epoch_ids(conn: sqlite3.Connection, run_id: str) -> dict[int, str]:
     rows = conn.execute(
-        "SELECT id, ordinal FROM epochs WHERE session_id = ? ORDER BY ordinal",
-        (session_id,),
+        "SELECT id, ordinal FROM epochs WHERE run_id = ? ORDER BY ordinal",
+        (run_id,),
     ).fetchall()
     return {row["ordinal"]: row["id"] for row in rows}
 
@@ -935,14 +935,14 @@ def build_report(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
-    parser.add_argument("--session", default=DEFAULT_SESSION)
+    parser.add_argument("--run", default=DEFAULT_RUN)
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
     args = parser.parse_args()
 
     np.random.seed(SEED)
     generated_at = utc_now()
     conn = open_db_readonly(args.db)
-    epoch_ids = load_epoch_ids(conn, args.session)
+    epoch_ids = load_epoch_ids(conn, args.run)
 
     print("[1/6] loading outcomes for history epochs", HISTORY_EPOCHS)
     outcomes_by_epoch = {
@@ -1065,7 +1065,7 @@ def main() -> int:
     stats = {
         "generated_at": generated_at,
         "seed": SEED,
-        "session_id": args.session,
+        "run_id": args.run,
         "clean_epochs": CLEAN_EPOCHS,
         "reconciliation": reconciliation,
         "best_family": best_family,

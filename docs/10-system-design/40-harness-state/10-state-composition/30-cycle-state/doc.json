@@ -1,0 +1,712 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-10-state-composition-30-cycle-state",
+  "title": "Cycle State",
+  "root": "b-30-cycle-state-root-32",
+  "blocks": {
+    "b-30-cycle-state-root-32": {
+      "id": "b-30-cycle-state-root-32",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-30-cycle-state-projectcycle-is-the-1",
+        "b-30-cycle-state-base-class-2",
+        "b-30-cycle-state-cycle-state-extends-th-3",
+        "b-30-cycle-state-structure-4",
+        "b-30-cycle-state-projectcycle-5",
+        "b-restored-cycle-state-shape-20260814",
+        "b-30-cycle-state-what-it-does-8",
+        "b-30-cycle-state-container-slot-9",
+        "b-30-cycle-state-single-active-rule-13",
+        "b-30-cycle-state-flows-17",
+        "b-30-cycle-state-prepare-18",
+        "b-30-cycle-state-activate-21",
+        "b-30-cycle-state-run-workflows-under-th-24",
+        "b-30-cycle-state-close-explicitly-28"
+      ]
+    },
+    "b-30-cycle-state-projectcycle-is-the-1": {
+      "id": "b-30-cycle-state-projectcycle-is-the-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "CycleState",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the durable state structure for one bounded period of game work. It carries the baseline-to-head lineage and ordered workflow timeline while "
+        },
+        {
+          "insert": "HarnessState",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " exposes the one current cycle slot. "
+        },
+        {
+          "insert": "Game Cycles",
+          "attributes": {
+            "link": "docs/10-system-design/30-games/20-cycles"
+          }
+        },
+        {
+          "insert": " owns cycle behavior and close policy; this page defines the state shape that supports them."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-base-class-2": {
+      "id": "b-30-cycle-state-base-class-2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Base Class"
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-cycle-state-extends-th-3": {
+      "id": "b-30-cycle-state-cycle-state-extends-th-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Cycle state extends the "
+        },
+        {
+          "insert": "workflow slot envelope",
+          "attributes": {
+            "link": "../20-workflow-slot"
+          }
+        },
+        {
+          "insert": " with cycle-owned lineage, timeline, and lifecycle fields. The envelope supplies shared identity, revision, timestamps, trace provenance, and blockers."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-structure-4": {
+      "id": "b-30-cycle-state-structure-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Structure"
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-projectcycle-5": {
+      "id": "b-30-cycle-state-projectcycle-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "CycleState",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-restored-cycle-state-shape-20260814": {
+      "id": "b-restored-cycle-state-shape-20260814",
+      "type": "state-shape",
+      "props": {
+        "description": "Durable container owning the worktree, head lineage, timeline, and child workflows of one cycle.",
+        "example": "{\n  \"cycle_id\": \"cycle-7\",\n  \"game_id\": \"melee\",\n  \"revision\": 3104,\n  \"status\": \"active\",\n  \"original_baseline_revision\": \"upstream-9ac4\",\n  \"head_revision\": \"upstream-9ba1\",\n  \"timeline\": [\n    {\n      \"entry_kind\": \"epoch_completed\",\n      \"entry_id\": \"epoch-19\",\n      \"occurred_at\": \"2026-08-11T17:55:00Z\"\n    },\n    {\n      \"entry_kind\": \"remote_application\",\n      \"entry_id\": \"remote-application-3\",\n      \"occurred_at\": \"2026-08-11T19:10:00Z\"\n    }\n  ],\n  \"workflow_ids\": [\n    \"run-2026-08-11-01\",\n    \"sync-2026-08-11-02\"\n  ],\n  \"created_at\": \"2026-08-01T09:00:00Z\",\n  \"trace_id\": \"trace-cycle-7\",\n  \"blockers\": []\n}",
+        "fields": [
+          {
+            "name": "cycle_id",
+            "type": "CycleId"
+          },
+          {
+            "name": "game_id",
+            "type": "GameId"
+          },
+          {
+            "name": "revision",
+            "type": "integer"
+          },
+          {
+            "name": "status",
+            "type": "\"active\" | \"closing\" | \"closed\"",
+            "description": "Only one cycle may be active per game; closing is an explicit operator action."
+          },
+          {
+            "name": "original_baseline_revision",
+            "type": "SourceRevision",
+            "description": "The baseline sync that opened the cycle. Immutable."
+          },
+          {
+            "name": "head_revision",
+            "type": "SourceRevision",
+            "description": "Canonical cycle head. Only epoch integrations and remote-application boundaries advance it."
+          },
+          {
+            "name": "timeline",
+            "type": "TimelineEntry[]",
+            "description": "Ordered head-lineage record. Head-advancing entries are transactional with their commits; save points are evidence anchors pinned to existing commits. See the timeline entry-kind table below.",
+            "fields": [
+              {
+                "name": "entry_kind",
+                "type": "\"epoch_completed\" | \"remote_application\" | \"pr_phase\" | \"save_point\""
+              },
+              {
+                "name": "entry_id",
+                "type": "string"
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp"
+              }
+            ]
+          },
+          {
+            "name": "workflow_ids",
+            "type": "WorkflowId[]",
+            "description": "Child run, PR, and sync workflows in creation order."
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "closed_at",
+            "type": "timestamp",
+            "required": false
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId"
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]"
+          }
+        ],
+        "name": "CycleState"
+      },
+      "children": []
+    },
+    "b-30-cycle-state-what-it-does-8": {
+      "id": "b-30-cycle-state-what-it-does-8",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "What It Does"
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-container-slot-9": {
+      "id": "b-30-cycle-state-container-slot-9",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Container slot",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-30-cycle-state-harnessstate-cycle-p-10",
+        "b-30-cycle-state-run-pr-and-sync-states-11",
+        "b-30-cycle-state-the-cycle-timeline-kee-12"
+      ]
+    },
+    "b-30-cycle-state-harnessstate-cycle-p-10": {
+      "id": "b-30-cycle-state-harnessstate-cycle-p-10",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "HarnessState.cycle",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " points to the current "
+        },
+        {
+          "insert": "CycleState",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " identity and status."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-run-pr-and-sync-states-11": {
+      "id": "b-30-cycle-state-run-pr-and-sync-states-11",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run, PR, and sync states remain child workflow records rather than fields that replace the cycle."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-the-cycle-timeline-kee-12": {
+      "id": "b-30-cycle-state-the-cycle-timeline-kee-12",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The cycle timeline keeps their accepted lineage boundaries in one durable order."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-single-active-rule-13": {
+      "id": "b-30-cycle-state-single-active-rule-13",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Single-active rule",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-30-cycle-state-a-game-has-at-most-on-14",
+        "b-30-cycle-state-historical-closed-sessio-15",
+        "b-30-cycle-state-a-successor-can-become-a-16"
+      ]
+    },
+    "b-30-cycle-state-a-game-has-at-most-on-14": {
+      "id": "b-30-cycle-state-a-game-has-at-most-on-14",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A game has at most one cycle in "
+        },
+        {
+          "insert": "active",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or "
+        },
+        {
+          "insert": "closing",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " state."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-historical-closed-sessio-15": {
+      "id": "b-30-cycle-state-historical-closed-sessio-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Historical closed cycles remain durable and inspectable outside the current container slot."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-a-successor-can-become-a-16": {
+      "id": "b-30-cycle-state-a-successor-can-become-a-16",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A successor can become active only after the prior cycle reaches "
+        },
+        {
+          "insert": "closed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-flows-17": {
+      "id": "b-30-cycle-state-flows-17",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Flows"
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-prepare-18": {
+      "id": "b-30-cycle-state-prepare-18",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Prepare",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-30-cycle-state-the-cycle-opening-oper-19",
+        "b-30-cycle-state-preparation-verifies-tha-20"
+      ]
+    },
+    "b-30-cycle-state-the-cycle-opening-oper-19": {
+      "id": "b-30-cycle-state-the-cycle-opening-oper-19",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The cycle-opening operation allocates the envelope identity and captures "
+        },
+        {
+          "insert": "baseline",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " outside the active slot."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-preparation-verifies-tha-20": {
+      "id": "b-30-cycle-state-preparation-verifies-tha-20",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Preparation verifies that the canonical worktree and opening "
+        },
+        {
+          "insert": "head_revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " match the captured source boundary."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-activate-21": {
+      "id": "b-30-cycle-state-activate-21",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Activate",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-30-cycle-state-the-cycle-opening-oper-22",
+        "b-30-cycle-state-harnessstate-records-t-23"
+      ]
+    },
+    "b-30-cycle-state-the-cycle-opening-oper-22": {
+      "id": "b-30-cycle-state-the-cycle-opening-oper-22",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The cycle-opening operation durably creates "
+        },
+        {
+          "insert": "status: \"active\"",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with "
+        },
+        {
+          "insert": "head_revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " equal to the baseline source revision."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-harnessstate-records-t-23": {
+      "id": "b-30-cycle-state-harnessstate-records-t-23",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "HarnessState",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " records the cycle in its sole current-cycle slot."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-run-workflows-under-th-24": {
+      "id": "b-30-cycle-state-run-workflows-under-th-24",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run Workflows Under the Cycle",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-30-cycle-state-run-integration-and-sour-25",
+        "b-30-cycle-state-pr-phase-and-save-point-26",
+        "b-30-cycle-state-workflow-authority-chang-27"
+      ]
+    },
+    "b-30-cycle-state-run-integration-and-sour-25": {
+      "id": "b-30-cycle-state-run-integration-and-sour-25",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run integration and source-changing sync publication append their accepted timeline entries and advance "
+        },
+        {
+          "insert": "head_revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in the same durable transition."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-pr-phase-and-save-point-26": {
+      "id": "b-30-cycle-state-pr-phase-and-save-point-26",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "PR phase and save-point writers append evidence entries without advancing "
+        },
+        {
+          "insert": "head_revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-workflow-authority-chang-27": {
+      "id": "b-30-cycle-state-workflow-authority-chang-27",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Workflow authority changes do not change cycle identity or active status."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-close-explicitly-28": {
+      "id": "b-30-cycle-state-close-explicitly-28",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Close Explicitly",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-30-cycle-state-an-operator-close-action-29",
+        "b-30-cycle-state-the-cycle-close-operat-30",
+        "b-30-cycle-state-no-workflow-transition-c-31"
+      ]
+    },
+    "b-30-cycle-state-an-operator-close-action-29": {
+      "id": "b-30-cycle-state-an-operator-close-action-29",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "An operator close action changes "
+        },
+        {
+          "insert": "status",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " from "
+        },
+        {
+          "insert": "active",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " to "
+        },
+        {
+          "insert": "closing",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " after the close guards accept it."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-the-cycle-close-operat-30": {
+      "id": "b-30-cycle-state-the-cycle-close-operat-30",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The cycle-close operation records the final evidence boundary, changes "
+        },
+        {
+          "insert": "status",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " to "
+        },
+        {
+          "insert": "closed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and clears the current "
+        },
+        {
+          "insert": "HarnessState.cycle",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " slot."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-no-workflow-transition-c-31": {
+      "id": "b-30-cycle-state-no-workflow-transition-c-31",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "No workflow transition closes the cycle automatically."
+        }
+      ],
+      "children": []
+    }
+  }
+}

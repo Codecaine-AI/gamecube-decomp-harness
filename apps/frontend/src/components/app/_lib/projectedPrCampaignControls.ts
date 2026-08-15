@@ -1,7 +1,7 @@
 import type {
   DashboardAction,
-  ProjectStatePrReadModel,
-  ProjectStatePrSeriesSummary,
+  HarnessStatePrReadModel,
+  HarnessStatePrSeriesSummary,
 } from "@/pages/workspace/_lib/types";
 
 export const PR_CAMPAIGN_ACTION_IDS: Partial<Record<DashboardAction, string>> = {
@@ -24,7 +24,7 @@ export const PR_CAMPAIGN_ENDPOINTS: Partial<Record<DashboardAction, string>> = {
   prCampaignRecover: "/api/pr/campaign-recover",
 };
 
-function seriesLabel(series: ProjectStatePrSeriesSummary): string {
+function seriesLabel(series: HarnessStatePrSeriesSummary): string {
   const name = series.branch || series.series_id;
   const units = series.target_units.length > 0 ? ` — ${series.target_units.join(", ")}` : "";
   return `${name}${units}`;
@@ -32,7 +32,7 @@ function seriesLabel(series: ProjectStatePrSeriesSummary): string {
 
 export function prCampaignConfirmationMessage(
   action: DashboardAction,
-  pr: ProjectStatePrReadModel | null,
+  pr: HarnessStatePrReadModel | null,
 ): string | null {
   if (action === "prPublishBatch") {
     const batch = pr?.next_batch;

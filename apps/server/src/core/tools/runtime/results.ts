@@ -3,7 +3,7 @@
  *
  * Tool API responses are part of the model context. These helpers keep responses
  * JSON-shaped for provenance while preventing a lookup command from flooding a
- * worker session.
+ * worker cycle.
  */
 import type { PiToolResult } from "../types.js";
 

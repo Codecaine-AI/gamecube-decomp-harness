@@ -80,7 +80,7 @@ describe("graph query parity", () => {
 
     const registration = knowledgeToolRegistrations.find((tool) => tool.id === "knowledge_graph_search");
     expect(registration).toBeDefined();
-    const tool = registration!.create({ role: "worker", cwd: ".", repoRoot: ".", project: { graphDbPath: dbPath } });
+    const tool = registration!.create({ role: "worker", cwd: ".", repoRoot: ".", game: { graphDbPath: dbPath } });
     const response = await tool.execute("test", { query: "SharedSymbol", limit: 10 });
     const payload = JSON.parse(response.content[0]!.text) as Record<string, unknown>;
     expect(payload).toMatchObject({ tool: "knowledge_graph_search", status: "ok", source_id: null, active_sources_only: true });
@@ -96,7 +96,7 @@ describe("graph query parity", () => {
 
     const registration = knowledgeToolRegistrations.find((tool) => tool.id === "graph_related_functions");
     expect(registration).toBeDefined();
-    const tool = registration!.create({ role: "worker", cwd: ".", repoRoot: ".", project: { graphDbPath: dbPath } });
+    const tool = registration!.create({ role: "worker", cwd: ".", repoRoot: ".", game: { graphDbPath: dbPath } });
     const missing = JSON.parse((await tool.execute("test", {})).content[0]!.text) as Record<string, unknown>;
     expect(missing.status).toBe("missing_function_selector");
 

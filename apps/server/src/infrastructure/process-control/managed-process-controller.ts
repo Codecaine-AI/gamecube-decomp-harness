@@ -10,10 +10,10 @@ export interface CliResult {
   stderr: string;
 }
 
-export interface ManagedProcessProject {
+export interface ManagedProcessGame {
   graphDbPath?: string;
   id?: string;
-  projectId?: string;
+  gameId?: string;
   repoRoot?: string;
   stateDir?: string;
 }
@@ -28,7 +28,7 @@ export interface ManagedProcess {
   name: string;
   pid: number;
   pidFilePath: string;
-  project?: JsonObject | null;
+  game?: JsonObject | null;
   repoRoot?: string;
   signal?: NodeJS.Signals | null;
   startedAt: string;
@@ -45,8 +45,8 @@ export interface ProcessLogLine {
 export interface ProcessStatusInput {
   freshRunActive: boolean;
   operation: JsonObject | null;
-  project: ManagedProcessProject | null;
-  projectSyncActive: boolean;
+  game: ManagedProcessGame | null;
+  gameSyncActive: boolean;
   stateDir: string;
 }
 
@@ -54,13 +54,13 @@ export interface StartManagedInput {
   command: string[];
   env?: Record<string, string>;
   name: string;
-  project: ManagedProcessProject | null;
+  game: ManagedProcessGame | null;
   stateDir: string;
 }
 
 export interface StopManagedInput {
   name: string;
-  project: ManagedProcessProject | null;
+  game: ManagedProcessGame | null;
   recoverClaims?: boolean;
   recoveryCommand?: string[] | null;
   runCommand: (command: string[]) => Promise<CliResult>;
@@ -69,7 +69,7 @@ export interface StopManagedInput {
 
 export interface DrainManagedInput {
   name: string;
-  project: ManagedProcessProject | null;
+  game: ManagedProcessGame | null;
   stateDir: string;
 }
 
@@ -82,14 +82,14 @@ export interface ManagedProcessControllerDeps {
     name?: string | null;
     pid?: number | null;
     processFilePath?: string | null;
-    project: ManagedProcessProject | JsonObject | null | undefined;
+    game: ManagedProcessGame | JsonObject | null | undefined;
     repoRoot?: string | null;
     startedAt?: string | null;
     state?: string | null;
     stateDir: string;
   }) => void;
   packageRoot: string;
-  projectToSummary: (project: ManagedProcessProject) => JsonObject;
+  gameToSummary: (game: ManagedProcessGame) => JsonObject;
 }
 
 function asObject(value: unknown): JsonObject {
@@ -201,8 +201,8 @@ export class ManagedProcessController {
           signal: proc.signal ?? null,
           command: proc.command,
           envOverrides: proc.envOverrides ?? {},
-          project: proc.project ?? null,
-          projectId: stringValue(proc.project?.id),
+          game: proc.game ?? null,
+          gameId: stringValue(proc.game?.id),
           repoRoot: proc.repoRoot ?? null,
           stateDir: proc.stateDir ?? null,
           graphDbPath: proc.graphDbPath ?? null,
@@ -253,25 +253,25 @@ export class ManagedProcessController {
   }
 
   status(input: ProcessStatusInput): JsonObject {
-    const { freshRunActive, operation, project, projectSyncActive, stateDir } = input;
+    const { freshRunActive, operation, game, gameSyncActive, stateDir } = input;
     const knownProcesses = this.savedProcessRecords(stateDir);
     const activeSaved = knownProcesses.find((record) => {
       if (record.alive !== true) return false;
-      if (!project) return true;
-      const savedProject = asObject(record.project);
-      const savedProjectId = stringValue(record.projectId, stringValue(savedProject.id, stringValue(savedProject.projectId)));
-      const projectId = stringValue(project.projectId, stringValue(project.id));
-      return !projectId || savedProjectId === projectId || stringValue(record.name) === "melee-live";
+      if (!game) return true;
+      const savedGame = asObject(record.game);
+      const savedGameId = stringValue(record.gameId, stringValue(savedGame.id, stringValue(savedGame.gameId)));
+      const gameId = stringValue(game.gameId, stringValue(game.id));
+      return !gameId || savedGameId === gameId || stringValue(record.name) === "melee-live";
     });
     const managedRunning = this.managed?.state === "running" || this.managed?.state === "stopping" || this.managed?.state === "draining";
     const savedPid = intValue(activeSaved?.pid, 0, 0);
     const activeProcess = this.managed ?? activeSaved ?? null;
     const activeState = this.managed?.state ?? stringValue(activeSaved?.state, activeSaved ? "running" : "idle");
     const activeCommand = this.managed?.command ?? savedCommand(activeSaved);
-    const activeRepoRoot = this.managed?.repoRoot ?? stringValue(activeSaved?.repoRoot, project?.repoRoot ?? "");
-    const activeGraphDbPath = this.managed?.graphDbPath ?? stringValue(activeSaved?.graphDbPath, project?.graphDbPath ?? "");
+    const activeRepoRoot = this.managed?.repoRoot ?? stringValue(activeSaved?.repoRoot, game?.repoRoot ?? "");
+    const activeGraphDbPath = this.managed?.graphDbPath ?? stringValue(activeSaved?.graphDbPath, game?.graphDbPath ?? "");
     return {
-      project: project ? this.deps.projectToSummary(project) : null,
+      game: game ? this.deps.gameToSummary(game) : null,
       running: Boolean(managedRunning || activeSaved),
       state: activeState,
       name: stringValue(activeProcess?.name, "") || null,
@@ -291,7 +291,7 @@ export class ManagedProcessController {
       logs: this.processLogs.slice(-220),
       knownProcesses,
       freshRunActive,
-      projectSyncActive,
+      gameSyncActive,
       operation,
     };
   }
@@ -306,7 +306,7 @@ export class ManagedProcessController {
   }
 
   spawn(input: StartManagedInput): ManagedProcess {
-    const { command, env, name, project, stateDir } = input;
+    const { command, env, name, game, stateDir } = input;
     const envOverrides = env && Object.keys(env).length > 0 ? env : undefined;
     const child = spawn(command[0] ?? "bun", command.slice(1), {
       cwd: this.deps.packageRoot,
@@ -320,12 +320,12 @@ export class ManagedProcessController {
       child,
       command,
       envOverrides,
-      graphDbPath: project?.graphDbPath,
+      graphDbPath: game?.graphDbPath,
       name,
       pid,
       pidFilePath: this.pidFilePath(stateDir, name),
-      project: project ? this.deps.projectToSummary(project) : null,
-      repoRoot: project?.repoRoot,
+      game: game ? this.deps.gameToSummary(game) : null,
+      repoRoot: game?.repoRoot,
       startedAt: new Date().toISOString(),
       state: "running",
       stateDir,
@@ -339,7 +339,7 @@ export class ManagedProcessController {
       name: proc.name,
       pid: proc.pid,
       processFilePath: proc.pidFilePath,
-      project,
+      game,
       repoRoot: proc.repoRoot,
       startedAt: proc.startedAt,
       state: proc.state,
@@ -362,7 +362,7 @@ export class ManagedProcessController {
         name: proc.name,
         pid: proc.pid,
         processFilePath: proc.pidFilePath,
-        project: proc.project,
+        game: proc.game,
         repoRoot: proc.repoRoot,
         startedAt: proc.startedAt,
         state: proc.state,
@@ -375,7 +375,7 @@ export class ManagedProcessController {
   }
 
   async stop(input: StopManagedInput): Promise<JsonObject> {
-    const { name, project, recoveryCommand, runCommand, stateDir } = input;
+    const { name, game, recoveryCommand, runCommand, stateDir } = input;
     let stopped = false;
 
     if (this.managed && this.managed.state !== "exited") {
@@ -387,7 +387,7 @@ export class ManagedProcessController {
         name: this.managed.name,
         pid: this.managed.pid,
         processFilePath: this.managed.pidFilePath,
-        project: this.managed.project,
+        game: this.managed.game,
         repoRoot: this.managed.repoRoot,
         startedAt: this.managed.startedAt,
         state: this.managed.state,
@@ -415,16 +415,16 @@ export class ManagedProcessController {
     } else {
       const saved = this.savedProcessRecords(stateDir).find((record) => stringValue(record.name) === name);
       const pid = intValue(saved?.pid, 0, 0);
-      if (!pid || saved?.alive !== true) return { stopped: false, reason: "not_running", process: this.status({ freshRunActive: false, operation: null, project, projectSyncActive: false, stateDir }) };
+      if (!pid || saved?.alive !== true) return { stopped: false, reason: "not_running", process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
       this.updateSavedProcessFile(stateDir, name, { state: "stopping", pid });
       this.deps.mirrorProcessState({
         command: savedCommand(saved),
-        graphDbPath: stringValue(saved?.graphDbPath, project?.graphDbPath ?? ""),
+        graphDbPath: stringValue(saved?.graphDbPath, game?.graphDbPath ?? ""),
         name,
         pid,
         processFilePath: this.pidFilePath(stateDir, name),
-        project,
-        repoRoot: stringValue(saved?.repoRoot, project?.repoRoot ?? ""),
+        game,
+        repoRoot: stringValue(saved?.repoRoot, game?.repoRoot ?? ""),
         startedAt: stringValue(saved?.startedAt),
         state: "stopping",
         stateDir,
@@ -452,12 +452,12 @@ export class ManagedProcessController {
       this.deps.mirrorProcessState({
         command: savedCommand(saved),
         endedAt,
-        graphDbPath: stringValue(saved?.graphDbPath, project?.graphDbPath ?? ""),
+        graphDbPath: stringValue(saved?.graphDbPath, game?.graphDbPath ?? ""),
         name,
         pid,
         processFilePath: this.pidFilePath(stateDir, name),
-        project,
-        repoRoot: stringValue(saved?.repoRoot, project?.repoRoot ?? ""),
+        game,
+        repoRoot: stringValue(saved?.repoRoot, game?.repoRoot ?? ""),
         startedAt: stringValue(saved?.startedAt),
         state: exited ? "exited" : "stopping",
         stateDir,
@@ -471,14 +471,14 @@ export class ManagedProcessController {
       recovery = { command: recoveryCommand, ...result };
       this.appendLog("ui", `recover-claims exit=${result.exitCode}`);
     }
-    return { stopped, recovery, process: this.status({ freshRunActive: false, operation: null, project, projectSyncActive: false, stateDir }) };
+    return { stopped, recovery, process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
   }
 
   async drain(input: DrainManagedInput): Promise<JsonObject> {
-    const { name, project, stateDir } = input;
+    const { name, game, stateDir } = input;
     const saved = this.savedProcessRecords(stateDir).find((record) => stringValue(record.name) === name);
     const pid = this.managed && this.managed.state !== "exited" ? this.managed.pid : intValue(saved?.pid, 0, 0);
-    if (!pid || !processGroupAlive(pid)) return { draining: false, reason: "not_running", process: this.status({ freshRunActive: false, operation: null, project, projectSyncActive: false, stateDir }) };
+    if (!pid || !processGroupAlive(pid)) return { draining: false, reason: "not_running", process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
 
     const children = directChildPids(pid);
     if (this.managed && this.managed.pid === pid && this.managed.state !== "exited") {
@@ -490,7 +490,7 @@ export class ManagedProcessController {
         name: this.managed.name,
         pid: this.managed.pid,
         processFilePath: this.managed.pidFilePath,
-        project: this.managed.project,
+        game: this.managed.game,
         repoRoot: this.managed.repoRoot,
         startedAt: this.managed.startedAt,
         state: this.managed.state,
@@ -500,12 +500,12 @@ export class ManagedProcessController {
       this.updateSavedProcessFile(stateDir, name, { state: "draining", pid, drainRequestedAt: new Date().toISOString() });
       this.deps.mirrorProcessState({
         command: savedCommand(saved),
-        graphDbPath: stringValue(saved?.graphDbPath, project?.graphDbPath ?? ""),
+        graphDbPath: stringValue(saved?.graphDbPath, game?.graphDbPath ?? ""),
         name,
         pid,
         processFilePath: this.pidFilePath(stateDir, name),
-        project,
-        repoRoot: stringValue(saved?.repoRoot, project?.repoRoot ?? ""),
+        game,
+        repoRoot: stringValue(saved?.repoRoot, game?.repoRoot ?? ""),
         startedAt: stringValue(saved?.startedAt),
         state: "draining",
         stateDir,
@@ -533,7 +533,7 @@ export class ManagedProcessController {
       }
     }
     this.appendLog("ui", `sent drain signal to ${signaled.length} process${signaled.length === 1 ? "" : "es"}; supervisor remains active until workers finish`);
-    return { draining: signaled.length > 0, signaled, process: this.status({ freshRunActive: false, operation: null, project, projectSyncActive: false, stateDir }) };
+    return { draining: signaled.length > 0, signaled, process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
   }
 }
 

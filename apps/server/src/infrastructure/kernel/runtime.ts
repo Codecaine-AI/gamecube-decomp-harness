@@ -12,13 +12,13 @@ import {
   type MeleeWorkflowTraceStatus,
   type SubmitMeleeWorkflowTraceEventInput,
 } from "@server/infrastructure/kernel/bridge/workflow-trace";
-import type { ProjectRuntimeContext } from "@server/core/project-registry";
+import type { GameRuntimeContext } from "@server/core/game-registry";
 import { openState } from "@server/core/orchestrator-state";
 import {
-  getProjectSessionByUuid,
-  mergeProjectSessionKernelTrace,
-} from "@server/core/project-session/store.js";
-import type { ProjectEventTraceLinkage } from "@server/core/project-state/kernel-links.js";
+  getCycleByUuid,
+  mergeCycleKernelTrace,
+} from "@server/core/cycle/store.js";
+import type { GameEventTraceLinkage } from "@server/core/harness-state/kernel-links.js";
 
 type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
@@ -33,7 +33,7 @@ export interface DashboardKernelWorkflowEventInput {
   detail?: string | null;
   metadata?: Record<string, unknown>;
   correlationId?: string;
-  projectEventId?: string;
+  gameEventId?: string;
   causedByEventId?: string | null;
 }
 
@@ -42,17 +42,17 @@ export interface DashboardKernelRuntimeService {
   databaseUrl: () => string | null;
   enabled: () => Promise<boolean>;
   kernelRuntimeRequired: boolean;
-  projectId: (paths: ProjectRuntimeContext) => string;
+  gameId: (paths: GameRuntimeContext) => string;
   readApiResponse: (req: Request) => Promise<Response>;
   runtime: () => Promise<MeleeKernelRuntime | null>;
-  sessionId: (paths: ProjectRuntimeContext, input: Pick<DashboardKernelWorkflowEventInput, "sessionId" | "runId">) => string;
+  sessionId: (paths: GameRuntimeContext, input: Pick<DashboardKernelWorkflowEventInput, "sessionId" | "runId">) => string;
   startTraceTailer: () => Promise<void>;
   status: () => Promise<JsonObject>;
-  submitWorkflowEvent: (paths: ProjectRuntimeContext, input: DashboardKernelWorkflowEventInput) => Promise<JsonObject | null>;
+  submitWorkflowEvent: (paths: GameRuntimeContext, input: DashboardKernelWorkflowEventInput) => Promise<JsonObject | null>;
 }
 
 export interface DashboardKernelRuntimeServiceDeps {
-  activeProjectSessionUuid?: (stateDir: string, projectId: string) => string | null;
+  activeCycleUuid?: (stateDir: string, gameId: string) => string | null;
   appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   defaultStateDir: string;
   env: Record<string, string | undefined>;
@@ -61,16 +61,16 @@ export interface DashboardKernelRuntimeServiceDeps {
   packageRoot: string;
   port: number;
   createKernelRuntime?: typeof createMeleeKernelRuntime;
-  persistProjectSessionKernelTraceLinkage?: (
+  persistCycleKernelTraceLinkage?: (
     stateDir: string,
-    projectId: string,
-    sessionUuid: string,
-    trace: ProjectSessionKernelTraceLinkageAttachment,
+    gameId: string,
+    cycleUuid: string,
+    trace: CycleKernelTraceLinkageAttachment,
   ) => Promise<void> | void;
-  recordProjectSessionKernelTrace?: (
+  recordCycleKernelTrace?: (
     stateDir: string,
-    projectId: string,
-    sessionUuid: string,
+    gameId: string,
+    cycleUuid: string,
     trace: {
       activeContainerId: string;
       appSessionId: string;
@@ -80,12 +80,12 @@ export interface DashboardKernelRuntimeServiceDeps {
   ) => Promise<void> | void;
 }
 
-export interface ProjectSessionKernelTraceLinkageAttachment {
+export interface CycleKernelTraceLinkageAttachment {
   activeContainerId: string;
   appSessionId: string;
   rootContainerId: string;
   traceUrl: string;
-  projectEventId: string;
+  gameEventId: string;
   kernelEventId: string;
   correlationId: string;
   causedByEventId: string | null;
@@ -95,10 +95,10 @@ export interface ProjectSessionKernelTraceLinkageAttachment {
 export class KernelTraceCursorPersistenceError extends Error {
   readonly cause: unknown;
 
-  constructor(projectEventId: string, cause: unknown) {
+  constructor(gameEventId: string, cause: unknown) {
     const detail = cause instanceof Error ? cause.message : String(cause);
     super(
-      `Kernel trace event for project event ${projectEventId} was emitted but cursor persistence failed: ${detail}`,
+      `Kernel trace event for game event ${gameEventId} was emitted but cursor persistence failed: ${detail}`,
     );
     this.name = "KernelTraceCursorPersistenceError";
     this.cause = cause;
@@ -127,57 +127,57 @@ function redactedUrl(value: string | null): string | null {
   }
 }
 
-function projectScopedWorkflowTraceLinkage(
+function gameScopedWorkflowTraceLinkage(
   db: Database,
-  projectId: string,
+  gameId: string,
   input: DashboardKernelWorkflowEventInput,
-): ProjectEventTraceLinkage {
-  const normalizedProjectId = requiredText(projectId, "projectId");
-  const projectEventId = requiredText(input.projectEventId, "projectEventId");
+): GameEventTraceLinkage {
+  const normalizedGameId = requiredText(gameId, "gameId");
+  const gameEventId = requiredText(input.gameEventId, "gameEventId");
   const correlationId = requiredText(input.correlationId, "correlationId");
   if (input.causedByEventId === undefined) {
     throw new Error("causedByEventId must be explicit (use null for command causation)");
   }
-  const projectEvent = db
+  const gameEvent = db
     .query(
       `SELECT event_id, correlation_id, causation_id
-       FROM project_events
-       WHERE project_id = ? AND event_id = ?`,
+       FROM game_events
+       WHERE game_id = ? AND event_id = ?`,
     )
-    .get(normalizedProjectId, projectEventId) as {
+    .get(normalizedGameId, gameEventId) as {
       event_id: string;
       correlation_id: string;
       causation_id: string;
     } | null;
-  if (!projectEvent) {
+  if (!gameEvent) {
     throw new Error(
-      `Project event ${projectEventId} was not found in project ${normalizedProjectId}`,
+      `Game event ${gameEventId} was not found in game ${normalizedGameId}`,
     );
   }
   const persistedCause = db
-    .query("SELECT event_id, project_id FROM project_events WHERE event_id = ?")
-    .get(projectEvent.causation_id) as {
+    .query("SELECT event_id, game_id FROM game_events WHERE event_id = ?")
+    .get(gameEvent.causation_id) as {
       event_id: string;
-      project_id: string;
+      game_id: string;
     } | null;
-  if (persistedCause && persistedCause.project_id !== normalizedProjectId) {
+  if (persistedCause && persistedCause.game_id !== normalizedGameId) {
     throw new Error(
-      `Project event ${projectEventId} has cross-project causation ${persistedCause.event_id}`,
+      `Game event ${gameEventId} has cross-game causation ${persistedCause.event_id}`,
     );
   }
-  const resolved: ProjectEventTraceLinkage = {
-    correlationId: requiredText(projectEvent.correlation_id, "persisted correlation_id"),
-    projectEventId: projectEvent.event_id,
+  const resolved: GameEventTraceLinkage = {
+    correlationId: requiredText(gameEvent.correlation_id, "persisted correlation_id"),
+    gameEventId: gameEvent.event_id,
     causedByEventId: persistedCause?.event_id ?? null,
   };
   if (correlationId !== resolved.correlationId) {
     throw new Error(
-      `Workflow trace correlation ${correlationId} does not match project event ${projectEventId}`,
+      `Workflow trace correlation ${correlationId} does not match game event ${gameEventId}`,
     );
   }
   if (input.causedByEventId !== resolved.causedByEventId) {
     throw new Error(
-      `Workflow trace causedByEventId does not match persisted causation for ${projectEventId}`,
+      `Workflow trace causedByEventId does not match persisted causation for ${gameEventId}`,
     );
   }
   return resolved;
@@ -185,46 +185,46 @@ function projectScopedWorkflowTraceLinkage(
 
 export function resolveWorkflowTraceLinkage(
   stateDir: string,
-  projectId: string,
+  gameId: string,
   input: DashboardKernelWorkflowEventInput,
-): ProjectEventTraceLinkage {
+): GameEventTraceLinkage {
   const store = openState(stateDir);
   try {
-    return projectScopedWorkflowTraceLinkage(store.db, projectId, input);
+    return gameScopedWorkflowTraceLinkage(store.db, gameId, input);
   } finally {
     store.db.close();
   }
 }
 
-export function persistProjectSessionKernelTraceLinkage(
+export function persistCycleKernelTraceLinkage(
   stateDir: string,
-  projectId: string,
-  sessionUuid: string,
-  trace: ProjectSessionKernelTraceLinkageAttachment,
+  gameId: string,
+  cycleUuid: string,
+  trace: CycleKernelTraceLinkageAttachment,
 ): void {
   const store = openState(stateDir);
   try {
-    const session = getProjectSessionByUuid(store.db, sessionUuid);
-    if (!session) {
-      throw new Error(`Project session ${sessionUuid} was not found`);
+    const cycle = getCycleByUuid(store.db, cycleUuid);
+    if (!cycle) {
+      throw new Error(`Game cycle ${cycleUuid} was not found`);
     }
-    if (session.project_id !== projectId) {
-      throw new Error(`Project session ${sessionUuid} does not belong to ${projectId}`);
+    if (cycle.game_id !== gameId) {
+      throw new Error(`Game cycle ${cycleUuid} does not belong to ${gameId}`);
     }
-    const linkage = projectScopedWorkflowTraceLinkage(store.db, projectId, {
+    const linkage = gameScopedWorkflowTraceLinkage(store.db, gameId, {
       kind: "session",
       operation: "persist-kernel-trace-linkage",
-      projectEventId: trace.projectEventId,
+      gameEventId: trace.gameEventId,
       correlationId: trace.correlationId,
       causedByEventId: trace.causedByEventId,
     });
-    mergeProjectSessionKernelTrace(store.db, session.id, {
+    mergeCycleKernelTrace(store.db, cycle.id, {
       app_session_id: requiredText(trace.appSessionId, "appSessionId"),
       root_container_id: requiredText(trace.rootContainerId, "rootContainerId"),
       active_container_id: requiredText(trace.activeContainerId, "activeContainerId"),
       trace_url: requiredText(trace.traceUrl, "traceUrl"),
       last_linkage_cursor: {
-        project_event_id: linkage.projectEventId,
+        game_event_id: linkage.gameEventId,
         kernel_event_id: requiredText(trace.kernelEventId, "kernelEventId"),
         correlation_id: linkage.correlationId,
         caused_by_event_id: linkage.causedByEventId,
@@ -246,7 +246,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
   const kernelObserverUrl = deps.env.AGENT_KERNEL_OBSERVER_URL ?? null;
   const createKernelRuntime = deps.createKernelRuntime ?? createMeleeKernelRuntime;
   const persistKernelTraceLinkage =
-    deps.persistProjectSessionKernelTraceLinkage ?? persistProjectSessionKernelTraceLinkage;
+    deps.persistCycleKernelTraceLinkage ?? persistCycleKernelTraceLinkage;
   let kernelRuntimePromise: Promise<MeleeKernelRuntime | null> | null = null;
 
   function runtime(): Promise<MeleeKernelRuntime | null> {
@@ -350,21 +350,21 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
     return current.readApi.handle(req);
   }
 
-  function projectId(paths: ProjectRuntimeContext): string {
-    return paths.project?.projectId ?? "melee";
+  function gameId(paths: GameRuntimeContext): string {
+    return paths.game?.gameId ?? "melee";
   }
 
   function sessionId(
-    paths: ProjectRuntimeContext,
+    paths: GameRuntimeContext,
     input: Pick<DashboardKernelWorkflowEventInput, "sessionId" | "runId">,
   ): string {
     const explicit = stringValue(input.sessionId).trim();
     if (explicit) return explicit;
     try {
-      const activeProjectSession = deps.activeProjectSessionUuid?.(paths.stateDir, projectId(paths));
-      if (activeProjectSession) return activeProjectSession;
+      const activeCycle = deps.activeCycleUuid?.(paths.stateDir, gameId(paths));
+      if (activeCycle) return activeCycle;
     } catch {
-      // Fall back to run identity when canonical project-session state is unavailable.
+      // Fall back to run identity when canonical cycle state is unavailable.
     }
     const runId = stringValue(input.runId).trim();
     if (runId) return runId;
@@ -372,13 +372,13 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
       const latest = deps.latestRunId(paths.stateDir);
       if (latest) return latest;
     } catch {
-      // Some session-boundary operations can run before the orchestrator state DB exists.
+      // Some cycle-boundary operations can run before the orchestrator state DB exists.
     }
-    return paths.project?.projectId ? `project:${paths.project.projectId}` : "dashboard-session";
+    return paths.game?.gameId ? `game:${paths.game.gameId}` : "dashboard-session";
   }
 
   async function submitWorkflowEvent(
-    paths: ProjectRuntimeContext,
+    paths: GameRuntimeContext,
     input: DashboardKernelWorkflowEventInput,
   ): Promise<JsonObject | null> {
     try {
@@ -390,20 +390,20 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         if (kernelRuntimeRequired) throw new Error(message);
         return null;
       }
-      const resolvedProjectId = projectId(paths);
+      const resolvedGameId = gameId(paths);
       const resolvedSessionId = sessionId(paths, input);
       const linkage = resolveWorkflowTraceLinkage(
         paths.stateDir,
-        resolvedProjectId,
+        resolvedGameId,
         input,
       );
       const result = await submitMeleeWorkflowTraceEvent({
         runtime: current,
         kind: input.kind,
-        projectId: resolvedProjectId,
+        gameId: resolvedGameId,
         sessionId: resolvedSessionId,
         correlationId: linkage.correlationId,
-        projectEventId: linkage.projectEventId,
+        gameEventId: linkage.gameEventId,
         causedByEventId: linkage.causedByEventId,
         operation: input.operation,
         status: input.status,
@@ -418,20 +418,20 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         },
       });
       const rootContainerId = meleeRootContainerId({
-        projectId: resolvedProjectId,
+        gameId: resolvedGameId,
         sessionId: resolvedSessionId,
       });
       try {
         await persistKernelTraceLinkage(
           paths.stateDir,
-          resolvedProjectId,
+          resolvedGameId,
           resolvedSessionId,
           {
             activeContainerId: result.containerId,
             appSessionId: result.appSessionId,
             rootContainerId,
-            traceUrl: `${kernelAppBaseUrl}/trace?projectId=${encodeURIComponent(resolvedProjectId)}&traceId=${encodeURIComponent(rootContainerId)}`,
-            projectEventId: linkage.projectEventId,
+            traceUrl: `${kernelAppBaseUrl}/trace?gameId=${encodeURIComponent(resolvedGameId)}&traceId=${encodeURIComponent(rootContainerId)}`,
+            gameEventId: linkage.gameEventId,
             kernelEventId: result.event.eventId,
             correlationId: linkage.correlationId,
             causedByEventId: linkage.causedByEventId,
@@ -439,13 +439,13 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
           },
         );
       } catch (error) {
-        throw new KernelTraceCursorPersistenceError(linkage.projectEventId, error);
+        throw new KernelTraceCursorPersistenceError(linkage.gameEventId, error);
       }
       return {
         appSessionId: result.appSessionId,
         containerId: result.containerId,
         eventId: result.event.eventId,
-        projectEventId: linkage.projectEventId,
+        gameEventId: linkage.gameEventId,
       };
     } catch (error) {
       deps.appendLog(
@@ -473,7 +473,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
     databaseUrl: () => kernelDatabaseUrl,
     enabled,
     kernelRuntimeRequired,
-    projectId,
+    gameId,
     readApiResponse,
     runtime,
     sessionId,

@@ -43,9 +43,9 @@ function request(): ConflictResolverRequest {
     isolated_worktree: {
       path: "/tmp/conflict-1",
       base_revision: "aaaa",
-      session_revision: "bbbb",
+      cycle_revision: "bbbb",
     },
-    session_worktree_path: "/repo/session/current",
+    cycle_worktree_path: "/repo/session/current",
     incoming: {
       claim,
       scoped_checks: checks,

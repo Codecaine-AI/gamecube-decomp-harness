@@ -1,5 +1,5 @@
-import { loadBoardSnapshot } from "@server/core/session-runtime/phases/running/board";
-import type { PredictorScorer } from "@server/core/session-runtime/phases/running/board";
+import { loadBoardSnapshot } from "@server/core/cycle-runtime/phases/running/board";
+import type { PredictorScorer } from "@server/core/cycle-runtime/phases/running/board";
 import type { BoardSnapshot } from "@server/core/shared/types";
 import type { CandidateRerankMode } from "@server/core/shared/types/board.js";
 import { codeGraphFunctionsIndexPath, resourceGraphDbPath } from "./paths.js";
@@ -10,7 +10,7 @@ export interface LoadKnowledgeBoardSnapshotOptions {
   graphDbPath?: string;
   predictorScorer?: PredictorScorer;
   predictorDbPath?: string;
-  predictorSessionId?: string;
+  predictorRunId?: string;
 }
 
 export function loadKnowledgeBoardSnapshot(repoRoot: string, limit: number, options: LoadKnowledgeBoardSnapshotOptions = {}): BoardSnapshot {
@@ -22,7 +22,7 @@ export function loadKnowledgeBoardSnapshot(repoRoot: string, limit: number, opti
       rankFeatureProvider,
       predictorScorer: options.predictorScorer,
       predictorDbPath: options.predictorDbPath,
-      predictorSessionId: options.predictorSessionId,
+      predictorRunId: options.predictorRunId,
     }),
   );
 }

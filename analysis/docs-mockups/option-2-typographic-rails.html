@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Option 2 — Typographic rails</title>
+<style>
+  /* ============================================================
+     TOKENS
+     Colors: one warm neutral ramp at a constant OKLCH hue (82°) plus
+     three syntax hues held at equal lightness (L .395) and equal
+     percentage of each hue's max chroma (75%), so no token reads
+     louder than its neighbours. Named by role, never by appearance.
+     Every text/background pair below is WCAG AAA (>= 7:1) on --surface.
+     ============================================================ */
+  :root{
+    /* surface */
+    --surface:#fbfaf8;              /* oklch(.985 .003 84.5)            */
+
+    /* text ramp — hue 82, descending lightness            ratio on --surface */
+    --text-strong:#14110c;          /* oklch(.180 .012 82)      18.05:1 */
+    --text:#292620;                 /* oklch(.270 .012 82)      14.46:1 */
+    --text-muted:#37342e;           /* oklch(.325 .011 82)      11.89:1 */
+    --text-label:#47433d;           /* oklch(.385 .011 82)       9.42:1 */
+    --text-punct:#504d47;           /* oklch(.420 .010 82)       8.07:1 */
+
+    /* syntax — equal L, equal % of max chroma per hue */
+    --syntax-string:#20522e;        /* oklch(.395 .082 150)      8.72:1 */
+    --syntax-number:#653a1c;        /* oklch(.395 .074 54)       9.25:1 */
+    --syntax-boolean:#662474;       /* oklch(.395 .142 320)      9.73:1 */
+
+    /* hairlines — structural only, weight rises with structural depth */
+    --hairline:#e5dfd5;             /* between groups   (quietest)      */
+    --hairline-rail:#d7d1c5;        /* indent + JSON rails              */
+    --hairline-boundary:#cac3b6;    /* between objects  (strongest)     */
+
+    /* selection — legible against every foreground above (min 7.24:1) */
+    --selection:#f8edd5;
+
+    /* chrome */
+    --chrome-surface:#201c17;
+    --chrome-text:#fbfaf8;          /* 16.24:1 on --chrome-surface      */
+    --chrome-text-dim:#d9d3ca;      /* 11.39:1 on --chrome-surface      */
+
+    /* ------------------------------------------------------------
+       TYPE SCALE — six roles. Each role fixes size + line-height +
+       weight together, so a role is one decision instead of three.
+       Sizes are rem so the whole page survives browser text resize.
+       Floor is 11px, reached only by uppercase rail labels whose
+       cap height reads at roughly 13px lowercase.
+       ------------------------------------------------------------ */
+    --type-title:1.375rem;   --lh-title:1.2;    /* 22px  object name    */
+    --type-lead:0.9375rem;   --lh-lead:1.6;     /* 15px  object summary */
+    --type-body:0.875rem;    --lh-body:1.6;     /* 14px  descriptions   */
+    --type-code:0.8125rem;   --lh-code:1.55;    /* 13px  identifiers    */
+    --type-meta:0.75rem;     --lh-meta:1.5;     /* 12px  type names     */
+    --type-label:0.6875rem;  --lh-label:1.45;   /* 11px  small caps     */
+
+    --track-title:-0.012em;  /* large type: slightly negative           */
+    --track-label:0.08em;    /* small uppercase: slightly positive      */
+    --track-chrome:0.04em;
+
+    /* ------------------------------------------------------------
+       SPACING — single 4px step expressed in rem. The whole
+       sectioning argument lives here: 16px inside a group,
+       40px either side of a group divider (2.5x), 64/72px between
+       objects. Nested shapes step in by exactly one rail indent.
+       ------------------------------------------------------------ */
+    --s-1:0.25rem;  /*  4 */
+    --s-2:0.5rem;   /*  8 */
+    --s-3:0.75rem;  /* 12 */
+    --s-4:1rem;     /* 16 — gap inside a group                        */
+    --s-5:1.25rem;  /* 20 — rail indent                               */
+    --s-6:1.5rem;   /* 24 — sticky offset                             */
+    --s-7:1.75rem;  /* 28 — gutter gap                                */
+    --s-10:2.5rem;  /* 40 — gap either side of a group divider        */
+    --s-14:3.5rem;  /* 56 — page inset                                */
+    --s-16:4rem;    /* 64 — object top, pane gap                      */
+    --s-18:4.5rem;  /* 72 — object separation                         */
+
+    --rail-indent:var(--s-5);
+    --gutter:8rem;
+
+    --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  /* increased contrast: widen every lightness gap, keep hue and role */
+  @media (prefers-contrast:more){
+    :root{
+      --text-muted:#221f19;         /* 15.75:1 */
+      --text-label:#25221d;         /* 15.19:1 */
+      --text-punct:#2a2722;         /* 14.26:1 */
+      --syntax-string:#0f2e17;      /* 14.14:1 */
+      --syntax-number:#391f0c;      /* 14.64:1 */
+      --syntax-boolean:#3a1143;     /* 15.01:1 */
+      --hairline:#d2cbc0;
+      --hairline-rail:#c1baac;
+      --hairline-boundary:#b2aa9c;
+    }
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--surface);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:var(--type-body);
+    line-height:var(--lh-body);
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+  ::selection{background:var(--selection)}
+
+  /* ---------- banner: masthead, deliberately a label-style h1 ---------- */
+  .banner{
+    margin:0;
+    background:var(--chrome-surface);
+    color:var(--chrome-text);
+    font-family:var(--mono);
+    font-size:var(--type-label);
+    font-weight:400;
+    line-height:var(--lh-label);
+    letter-spacing:var(--track-chrome);
+    padding:var(--s-2) var(--s-14);
+    text-wrap:balance;
+  }
+  .banner b{font-weight:700}
+  .banner span{color:var(--chrome-text-dim)}
+
+  /* ---------- page frame: left-anchored ---------- */
+  .page{
+    width:100%;
+    max-width:1500px;
+    margin:0;               /* left-anchored, never centered */
+    padding:0 var(--s-14) 10rem;
+  }
+
+  /* ---------- object ---------- */
+  .object{padding-top:var(--s-16);scroll-margin-top:var(--s-4)}
+  .object + .object{
+    margin-top:var(--s-18);
+    border-top:1px solid var(--hairline-boundary);
+  }
+
+  .object-head{max-width:47.5rem;margin-bottom:var(--s-10)}
+  .object-name{
+    font-family:var(--mono);
+    font-size:var(--type-title);
+    line-height:var(--lh-title);
+    font-weight:700;
+    letter-spacing:var(--track-title);
+    color:var(--text-strong);
+    margin:0 0 var(--s-2);
+    overflow-wrap:break-word;
+    scroll-margin-top:var(--s-4);
+  }
+  .object-sub{
+    margin:0;
+    font-size:var(--type-lead);
+    line-height:var(--lh-lead);
+    color:var(--text-muted);
+    max-width:64ch;          /* measure ~64 characters */
+    text-wrap:pretty;
+  }
+
+  /* ---------- two-pane split ---------- */
+  .split{
+    display:grid;
+    grid-template-columns:46fr 54fr;
+    gap:0 var(--s-16);
+    align-items:start;
+  }
+  /* grid items default to min-width:auto, which lets the pre-formatted
+     JSON pane push the page wider than the viewport; reflow needs 0 */
+  .split > *,.group > *{min-width:0}
+
+  /* ---------- fields column ---------- */
+  .group{display:grid;grid-template-columns:var(--gutter) 1fr;gap:0 var(--s-7)}
+  .group + .group{
+    margin-top:var(--s-10);
+    padding-top:var(--s-10);
+    border-top:1px solid var(--hairline);   /* dividers ONLY between groups */
+  }
+
+  .group-fields{display:flex;flex-direction:column;gap:var(--s-4)} /* tight inside a group */
+
+  /* ---------- small-caps labels: one role, one size, one tracking ---------- */
+  .group-label,.nest-label,.example-label{
+    margin:0;
+    font-family:var(--sans);
+    font-size:var(--type-label);
+    line-height:var(--lh-label);
+    font-weight:600;
+    letter-spacing:var(--track-label);
+    text-transform:uppercase;
+    color:var(--text-label);
+  }
+  .group-label{
+    position:sticky;
+    top:var(--s-6);
+    align-self:start;
+    text-align:end;
+    text-wrap:balance;
+    padding-top:0.0625rem;   /* optical: aligns cap height to the first field name */
+  }
+  .nest-label,.example-label{margin-bottom:var(--s-3)}
+
+  /* ---------- field ---------- */
+  .f-sig{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    gap:var(--s-1) var(--s-3);
+    font-family:var(--mono);
+    font-size:var(--type-code);
+    line-height:var(--lh-code);
+    font-variant-numeric:tabular-nums slashed-zero;
+  }
+  .f-name{font-weight:600;color:var(--text-strong);overflow-wrap:break-word}
+  .f-type{font-size:var(--type-meta);font-weight:500;color:var(--text);overflow-wrap:break-word}
+  .f-flag{
+    font-family:var(--sans);
+    font-size:var(--type-label);
+    line-height:var(--lh-label);
+    font-weight:600;
+    letter-spacing:var(--track-label);
+    text-transform:uppercase;
+    color:var(--text-label);
+    white-space:nowrap;
+  }
+  .f-desc{
+    margin:var(--s-1) 0 0;
+    font-size:var(--type-body);
+    line-height:var(--lh-body);
+    color:var(--text-muted);
+    max-width:60ch;
+    text-wrap:pretty;
+  }
+
+  /* ---------- nested: indent rail, no box ----------
+     Nested fields keep the parent type sizes; subordination comes from
+     the rail and the tighter 12px rhythm, not from shaving off half a
+     pixel of font size. */
+  .nest{
+    margin:var(--s-3) 0 var(--s-1);
+    padding-inline-start:var(--rail-indent);
+    border-inline-start:1px solid var(--hairline-rail);
+  }
+  .nest-fields{display:flex;flex-direction:column;gap:var(--s-3)}
+  .nest .f-desc{max-width:56ch}
+
+  /* ---------- example column ---------- */
+  .example{position:sticky;top:var(--s-6)}
+  pre.code{
+    margin:0;
+    padding:var(--s-1) 0;
+    padding-inline-start:var(--rail-indent);   /* same indent step as .nest */
+    border-inline-start:1px solid var(--hairline-rail);   /* rail, not a card */
+    font-family:var(--mono);
+    font-size:var(--type-code);
+    line-height:1.65;
+    font-variant-numeric:tabular-nums slashed-zero;
+    color:var(--text);
+    white-space:pre;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+  }
+  pre.code code{font:inherit;color:inherit}
+  pre.code:focus-visible{
+    outline:2px solid var(--text-strong);
+    outline-offset:var(--s-2);
+  }
+  .k{color:var(--text-strong);font-weight:600}
+  .s{color:var(--syntax-string)}
+  .n{color:var(--syntax-number)}
+  .b{color:var(--syntax-boolean)}
+  .p{color:var(--text-punct)}
+
+  /* ---------- reflow: stack below the two-pane width ---------- */
+  @media (max-width:60rem){
+    .banner,.page{padding-inline:var(--s-5)}
+    .split{grid-template-columns:1fr;gap:var(--s-10) 0}
+    .example{position:static}
+    .group{grid-template-columns:1fr;gap:var(--s-3) 0}
+    .group-label{position:static;text-align:start;padding-top:0}
+  }
+</style>
+</head>
+<body>
+
+<h1 class="banner"><b>Option&nbsp;2</b> <span>— Typographic rails: flat list, sectioning from rhythm, margin labels, and group-only dividers</span></h1>
+
+<main class="page">
+
+  <!-- ============================= StateEnvelope ============================= -->
+  <section class="object" aria-labelledby="obj-state-envelope">
+    <div class="object-head">
+      <h2 class="object-name" id="obj-state-envelope">StateEnvelope</h2>
+      <p class="object-sub">Shared metadata carried by every durable harness state object.</p>
+    </div>
+
+    <div class="split">
+      <div class="fields">
+
+        <div class="group">
+          <h3 class="group-label">Identity</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">id</span><span class="f-type">StateObjectId</span></div>
+              <p class="f-desc">Stable identity of the state object.</p>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">game_id</span><span class="f-type">GameId</span></div>
+              <p class="f-desc">Owning game.</p>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">kind</span><span class="f-type">StateKind</span></div>
+              <p class="f-desc">Domain state-machine kind.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3 class="group-label">State</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">status</span><span class="f-type">domain-specific enum</span></div>
+              <p class="f-desc">A value owned by this state kind.</p>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">revision</span><span class="f-type">integer</span></div>
+              <p class="f-desc">Monotonic accepted-transition version.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3 class="group-label">Timestamps</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">created_at</span><span class="f-type">timestamp</span></div>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">updated_at</span><span class="f-type">timestamp</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3 class="group-label">Provenance</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">trace_id</span><span class="f-type">TraceId</span></div>
+              <p class="f-desc">Root trace for the object.</p>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">caused_by_event_id</span><span class="f-type">EventId</span><span class="f-flag">optional</span></div>
+              <p class="f-desc">Event that produced the current revision.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3 class="group-label">Blockers</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">blockers</span><span class="f-type">Blocker[]</span></div>
+              <div class="nest">
+                <h4 class="nest-label">Blocker</h4>
+                <div class="nest-fields">
+                  <div class="f">
+                    <div class="f-sig"><span class="f-name">code</span><span class="f-type">string</span></div>
+                  </div>
+                  <div class="f">
+                    <div class="f-sig"><span class="f-name">message</span><span class="f-type">string</span></div>
+                  </div>
+                  <div class="f">
+                    <div class="f-sig"><span class="f-name">source_kind</span><span class="f-type">string</span></div>
+                  </div>
+                  <div class="f">
+                    <div class="f-sig"><span class="f-name">source_id</span><span class="f-type">string</span></div>
+                  </div>
+                  <div class="f">
+                    <div class="f-sig"><span class="f-name">recoverable</span><span class="f-type">boolean</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <aside class="example">
+        <h3 class="example-label">Example</h3>
+<pre class="code" tabindex="0" role="region" aria-label="Example StateEnvelope JSON"><code><span class="p">{</span>
+  <span class="k">"id"</span><span class="p">:</span> <span class="s">"run-2026-08-11-01"</span><span class="p">,</span>
+  <span class="k">"game_id"</span><span class="p">:</span> <span class="s">"melee"</span><span class="p">,</span>
+  <span class="k">"kind"</span><span class="p">:</span> <span class="s">"run"</span><span class="p">,</span>
+  <span class="k">"status"</span><span class="p">:</span> <span class="s">"draining"</span><span class="p">,</span>
+  <span class="k">"revision"</span><span class="p">:</span> <span class="n">288</span><span class="p">,</span>
+  <span class="k">"created_at"</span><span class="p">:</span> <span class="s">"2026-08-11T18:00:00Z"</span><span class="p">,</span>
+  <span class="k">"updated_at"</span><span class="p">:</span> <span class="s">"2026-08-11T18:42:08Z"</span><span class="p">,</span>
+  <span class="k">"trace_id"</span><span class="p">:</span> <span class="s">"trace-run-2026-08-11-01"</span><span class="p">,</span>
+  <span class="k">"caused_by_event_id"</span><span class="p">:</span> <span class="s">"event-92811"</span><span class="p">,</span>
+  <span class="k">"blockers"</span><span class="p">:</span> <span class="p">[]</span>
+<span class="p">}</span></code></pre>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============================= CycleState ============================= -->
+  <section class="object" aria-labelledby="obj-cycle-state">
+    <div class="object-head">
+      <h2 class="object-name" id="obj-cycle-state">CycleState</h2>
+      <p class="object-sub">Durable container owning the worktree, head lineage, timeline, and child workflows of one cycle.</p>
+    </div>
+
+    <div class="split">
+      <div class="fields">
+
+        <div class="group">
+          <h3 class="group-label">Identity</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">cycle_uuid</span><span class="f-type">CycleUuid</span></div>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">game_id</span><span class="f-type">GameId</span></div>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">revision</span><span class="f-type">integer</span></div>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">status</span><span class="f-type"><span class="s">"active"</span> | <span class="s">"closing"</span> | <span class="s">"closed"</span></span></div>
+              <p class="f-desc">Only one cycle may be active per game; closing is an explicit operator action.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3 class="group-label">Source lineage</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">original_baseline_revision</span><span class="f-type">SourceRevision</span></div>
+              <p class="f-desc">The baseline sync that opened the cycle. Immutable.</p>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">head_revision</span><span class="f-type">SourceRevision</span></div>
+              <p class="f-desc">Canonical cycle head. Only epoch integrations and remote-application boundaries advance it.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3 class="group-label">History</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">timeline</span><span class="f-type">TimelineEntry[]</span></div>
+              <p class="f-desc">Ordered head-lineage record.</p>
+              <div class="nest">
+                <h4 class="nest-label">TimelineEntry</h4>
+                <div class="nest-fields">
+                  <div class="f">
+                    <div class="f-sig"><span class="f-name">entry_kind</span><span class="f-type"><span class="s">"epoch_completed"</span> | <span class="s">"remote_application"</span> | <span class="s">"pr_phase"</span> | <span class="s">"save_point"</span></span></div>
+                  </div>
+                  <div class="f">
+                    <div class="f-sig"><span class="f-name">entry_id</span><span class="f-type">string</span></div>
+                  </div>
+                  <div class="f">
+                    <div class="f-sig"><span class="f-name">occurred_at</span><span class="f-type">timestamp</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">workflow_ids</span><span class="f-type">WorkflowId[]</span></div>
+              <p class="f-desc">Child run, PR, and sync workflows in creation order.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3 class="group-label">Lifecycle</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">created_at</span><span class="f-type">timestamp</span></div>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">closed_at</span><span class="f-type">timestamp</span><span class="f-flag">optional</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3 class="group-label">Diagnostics</h3>
+          <div class="group-fields">
+            <div class="f">
+              <div class="f-sig"><span class="f-name">trace_id</span><span class="f-type">TraceId</span></div>
+            </div>
+            <div class="f">
+              <div class="f-sig"><span class="f-name">blockers</span><span class="f-type">Blocker[]</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <aside class="example">
+        <h3 class="example-label">Example</h3>
+<pre class="code" tabindex="0" role="region" aria-label="Example CycleState JSON"><code><span class="p">{</span>
+  <span class="k">"cycle_uuid"</span><span class="p">:</span> <span class="s">"cycle-7"</span><span class="p">,</span>
+  <span class="k">"game_id"</span><span class="p">:</span> <span class="s">"melee"</span><span class="p">,</span>
+  <span class="k">"revision"</span><span class="p">:</span> <span class="n">3104</span><span class="p">,</span>
+  <span class="k">"status"</span><span class="p">:</span> <span class="s">"active"</span><span class="p">,</span>
+  <span class="k">"original_baseline_revision"</span><span class="p">:</span> <span class="s">"upstream-9ac4"</span><span class="p">,</span>
+  <span class="k">"head_revision"</span><span class="p">:</span> <span class="s">"upstream-9ba1"</span><span class="p">,</span>
+  <span class="k">"timeline"</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="k">"entry_kind"</span><span class="p">:</span> <span class="s">"epoch_completed"</span><span class="p">,</span>
+      <span class="k">"entry_id"</span><span class="p">:</span> <span class="s">"epoch-19"</span><span class="p">,</span>
+      <span class="k">"occurred_at"</span><span class="p">:</span> <span class="s">"2026-08-11T17:55:00Z"</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+      <span class="k">"entry_kind"</span><span class="p">:</span> <span class="s">"remote_application"</span><span class="p">,</span>
+      <span class="k">"entry_id"</span><span class="p">:</span> <span class="s">"remote-application-3"</span><span class="p">,</span>
+      <span class="k">"occurred_at"</span><span class="p">:</span> <span class="s">"2026-08-11T19:10:00Z"</span>
+    <span class="p">}</span>
+  <span class="p">],</span>
+  <span class="k">"workflow_ids"</span><span class="p">:</span> <span class="p">[</span><span class="s">"run-2026-08-11-01"</span><span class="p">,</span> <span class="s">"sync-2026-08-11-02"</span><span class="p">],</span>
+  <span class="k">"created_at"</span><span class="p">:</span> <span class="s">"2026-08-01T09:00:00Z"</span><span class="p">,</span>
+  <span class="k">"trace_id"</span><span class="p">:</span> <span class="s">"trace-cycle-7"</span><span class="p">,</span>
+  <span class="k">"blockers"</span><span class="p">:</span> <span class="p">[]</span>
+<span class="p">}</span></code></pre>
+      </aside>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

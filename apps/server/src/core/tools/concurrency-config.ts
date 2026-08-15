@@ -65,7 +65,7 @@ export function toolConcurrencyFromEnv(env: Record<string, unknown>): ToolConcur
   return configured;
 }
 
-export function projectToolConcurrencyDefaults(localEnvPath: string | undefined, env: Record<string, unknown> = process.env): {
+export function gameToolConcurrencyDefaults(localEnvPath: string | undefined, env: Record<string, unknown> = process.env): {
   configured: ToolConcurrencySettings;
   defaults: ToolConcurrencySettings;
   env: Record<keyof ToolConcurrencySettings, string>;

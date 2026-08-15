@@ -18,7 +18,7 @@ function fixture(): { dir: string; store: StateStore } {
   const dir = mkdtempSync(join(tmpdir(), "background-knowledge-"));
   const store = openState(dir);
   fixtures.push({ dir, store });
-  store.db.query(`INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, project_id, revision, trace_id)
+  store.db.query(`INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at, game_id, revision, trace_id)
     VALUES ('run-1', 'matched_percent', 100, 1, 'active', '2026-08-14T00:00:00.000Z', 'melee', 0, 'trace-run-1')`).run();
   return { dir, store };
 }

@@ -3,7 +3,7 @@
 
 History is built from closed, full-board epochs before the current active
 epoch, rather than from the training-time ordinal constants.  The training
-history epochs [25, 26, 27, 28, 30, 32] are exactly the session's closed
+history epochs [25, 26, 27, 28, 30, 32] are exactly the run's closed
 full-board passes.  Fixed-size epochs (19-24, 29, 31, and 33) are repair or
 boundary boards with different admission semantics, so excluding them
 preserves training feature parity while allowing future full passes to become
@@ -164,17 +164,17 @@ def _load_models(model_dir: Path) -> tuple[dict[str, Any], dict[str, Any], list[
 
 
 def _load_history(
-    db_path: Path, session_id: str, warnings_out: list[str]
+    db_path: Path, run_id: str, warnings_out: list[str]
 ) -> tuple[dict[int, dict[str, Any]], list[int], int]:
     conn = pao.open_db_readonly(db_path)
     try:
         epoch_rows = conn.execute(
             "SELECT id, ordinal, status, size_mode, closed_at "
-            "FROM epochs WHERE session_id = ? ORDER BY ordinal",
-            (session_id,),
+            "FROM epochs WHERE run_id = ? ORDER BY ordinal",
+            (run_id,),
         ).fetchall()
         if not epoch_rows:
-            raise ValueError(f"session {session_id!r} has no epochs")
+            raise ValueError(f"run {run_id!r} has no epochs")
 
         active_ordinals = [
             int(row["ordinal"]) for row in epoch_rows if row["status"] == "active"
@@ -184,8 +184,8 @@ def _load_history(
             row["epoch_id"]
             for row in conn.execute(
                 "SELECT DISTINCT et.epoch_id FROM epoch_targets AS et "
-                "JOIN epochs AS e ON e.id = et.epoch_id WHERE e.session_id = ?",
-                (session_id,),
+                "JOIN epochs AS e ON e.id = et.epoch_id WHERE e.run_id = ?",
+                (run_id,),
             ).fetchall()
         }
 
@@ -204,7 +204,7 @@ def _load_history(
         history_ordinals = sorted(id_of)
         if not history_ordinals:
             warnings_out.append(
-                "session has no eligible closed full-board history epochs; "
+                "run has no eligible closed full-board history epochs; "
                 "using cold-start history features"
             )
         outcomes = {
@@ -341,7 +341,7 @@ def _score(args: argparse.Namespace, candidates: list[Any]) -> dict[str, Any]:
     db_path = Path(args.db).expanduser().resolve()
     pipes, heads_meta, warnings_out = _load_models(model_dir)
     outcomes, history_ordinals, candidate_ordinal = _load_history(
-        db_path, args.session, warnings_out
+        db_path, args.run, warnings_out
     )
 
     frame, target_keys = _build_candidate_frame(
@@ -392,7 +392,7 @@ def _score(args: argparse.Namespace, candidates: list[Any]) -> dict[str, Any]:
 def main() -> int:
     parser = JsonArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=pao.DEFAULT_DB)
-    parser.add_argument("--session", default=pao.DEFAULT_SESSION)
+    parser.add_argument("--run", default=pao.DEFAULT_RUN)
     parser.add_argument("--models", type=Path, default=DEFAULT_MODELS)
     args = parser.parse_args()
     candidates = _read_request()

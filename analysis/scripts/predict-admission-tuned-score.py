@@ -92,7 +92,7 @@ def main() -> int:
 
     stats = dict(
         generated=STAMP,
-        session_id=pao.DEFAULT_SESSION,
+        run_id=pao.DEFAULT_RUN,
         train_epochs=pao.CLEAN_EPOCHS,
         score_epoch=pao.SCORE_EPOCH,
         heads=chosen,

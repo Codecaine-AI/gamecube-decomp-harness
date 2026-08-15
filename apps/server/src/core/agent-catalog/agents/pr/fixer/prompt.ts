@@ -6,7 +6,7 @@ import {
   renderXmlMarkdown,
   section,
   usesContext,
-} from "@codecaine-ai/prompt-kit";
+} from "@server/core/agent-catalog/prompt-kit-compat";
 import type { PiPromptBundle } from "@server/core/shared/types";
 import {
   buildPrFixerKernelContext,
@@ -116,7 +116,7 @@ export const prompt = definePrompt({
       ], { attrs: { id: "1", name: "read_feedback" } }),
       section("phase", [
         bulletList([
-          "Inspect the relevant source and nearby project idioms before editing.",
+          "Inspect the relevant source and nearby game idioms before editing.",
           "Use past PR evidence and standards examples only when they match the comment or rule.",
         ]),
       ], { attrs: { id: "2", name: "inspect_source" } }),

@@ -1,5 +1,5 @@
 import type { RunRecord } from "@server/core/shared/types";
-import type { ClaimedTarget } from "@server/core/session-runtime/run-state";
+import type { ClaimedTarget } from "@server/core/cycle-runtime/run-state";
 
 export function enabledCapabilities(packet: Record<string, unknown>): string[] {
   const raw = packet.enabled_capabilities;

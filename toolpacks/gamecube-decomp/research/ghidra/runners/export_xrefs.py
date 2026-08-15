@@ -145,12 +145,12 @@ def main() -> int:
         missing.append(str(script_path))
 
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    write_jsonl(index_path, rows)
     if missing:
         skipped = True
         skip_reason = "missing_dependency:" + ",".join(missing)
         log_path.write_text("Missing required Ghidra xrefs dependency: " + ", ".join(missing), encoding="utf-8")
     else:
+        write_jsonl(index_path, rows)
         project_dir.mkdir(parents=True, exist_ok=True)
         analysis_command = [
             analyze,
@@ -224,7 +224,7 @@ def main() -> int:
         "exit_code": proc.returncode if proc else None,
         "record_count": len(rows),
         "generated_artifacts": [str(log_path)] if log_path.exists() else [],
-        "generated_indexes": [str(index_path)] if index_path.exists() else [],
+        "generated_indexes": [str(index_path)] if success and index_path.exists() else [],
         "dependencies": [
             analyze or args.analyze_headless or "analyzeHeadless",
             java or "openjdk@21",

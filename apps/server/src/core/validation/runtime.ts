@@ -1,7 +1,7 @@
-import { compactReportRunResult } from "@server/core/session-runtime/phases/preparing/runtime";
+import { compactReportRunResult } from "@server/core/cycle-runtime/phases/preparing/runtime";
 import { forceReportRun, recordReportRunDashboardArtifacts } from "@server/core/validation/report";
-import { getLatestRun, getRun, openState } from "@server/core/session-runtime/run-state";
-import type { ProjectRuntimeContext, ProjectSummary, ResolvedProject } from "@server/core/project-registry";
+import { getLatestRun, getRun, openState } from "@server/core/cycle-runtime/run-state";
+import type { GameRuntimeContext, GameSummary, ResolvedGame } from "@server/core/game-registry";
 
 type JsonObject = Record<string, unknown>;
 
@@ -11,8 +11,8 @@ export interface ValidationRuntime {
 
 export interface ValidationRuntimeDeps {
   appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
-  projectToSummary: (project: ResolvedProject) => ProjectSummary;
-  resolveDashboardProject: (input: JsonObject, options?: { useDefaultProject?: boolean }) => ProjectRuntimeContext;
+  gameToSummary: (game: ResolvedGame) => GameSummary;
+  resolveDashboardGame: (input: JsonObject, options?: { useDefaultGame?: boolean }) => GameRuntimeContext;
 }
 
 function boolValue(value: unknown): boolean {
@@ -25,7 +25,7 @@ function stringValue(value: unknown, fallback = ""): string {
 
 export function createValidationRuntime(deps: ValidationRuntimeDeps): ValidationRuntime {
   async function runReportNow(body: JsonObject): Promise<JsonObject> {
-    const paths = deps.resolveDashboardProject(body, { useDefaultProject: true });
+    const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
     const repoRoot = paths.repoRoot;
     const resetBaseline = boolValue(body.resetBaseline);
     deps.appendLog("ui", `report-run${resetBaseline ? " --reset-baseline" : ""} started`);
@@ -37,7 +37,7 @@ export function createValidationRuntime(deps: ValidationRuntimeDeps): Validation
       await recordReportRunDashboardArtifacts(store, {
         result,
         runId: run?.id ?? null,
-        projectId: paths.project?.projectId ?? null,
+        gameId: paths.game?.gameId ?? null,
         boardKey: resetBaseline ? "baseline" : "current",
         trustedReportKey: "current",
       });
@@ -45,7 +45,7 @@ export function createValidationRuntime(deps: ValidationRuntimeDeps): Validation
       store.db.close();
     }
     deps.appendLog("ui", `report-run${resetBaseline ? " --reset-baseline" : ""} complete`);
-    return { project: paths.project ? deps.projectToSummary(paths.project) : null, ...compactReportRunResult(result) };
+    return { game: paths.game ? deps.gameToSummary(paths.game) : null, ...compactReportRunResult(result) };
   }
 
   return { runReportNow };

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import conftest  # noqa: F401  (inserts api/ into sys.path)
 import _qa_rules
+import check_extern_ownership
 import symbol_metadata
 
 
@@ -659,6 +660,48 @@ def test_melee_symbol_metadata_resolves_known_function(melee_checkout: Path):
     assert info is not None
     assert info["section"] == ".text"
     assert info["type"] == "function"
+    assert info["address"] == 0x80169238
+    assert info["size"] is not None
+
+
+def test_symbol_metadata_data_gate_never_treats_functions_as_data():
+    assert not symbol_metadata.symbol_is_data(
+        {"section": ".data", "type": "function", "address": 0x80300000}
+    )
+    assert not symbol_metadata.symbol_is_data(
+        {"section": ".text", "type": "object", "address": 0x80100000}
+    )
+    assert symbol_metadata.symbol_is_data(
+        {"section": ".rodata", "type": "object", "address": 0x803B0000}
+    )
+
+
+def test_splits_relation_requires_inside_or_exact_adjacency(tmp_path: Path):
+    splits = tmp_path / "config" / "GALE01" / "splits.txt"
+    splits.parent.mkdir(parents=True)
+    splits.write_text(
+        "melee/gm/x.c:\n"
+        "\t.sdata2 start:0x804DA000 end:0x804DA020\n",
+        encoding="utf-8",
+    )
+    inside = check_extern_ownership.tu_address_relation(
+        tmp_path, "src/melee/gm/x.c", 0x804DA010, ".sdata2", 4
+    )
+    after = check_extern_ownership.tu_address_relation(
+        tmp_path, "src/melee/gm/x.c", 0x804DA020, ".sdata2", 4
+    )
+    before = check_extern_ownership.tu_address_relation(
+        tmp_path, "src/melee/gm/x.c", 0x804D9FFC, ".sdata2", 4
+    )
+    assert inside and inside["relation"] == "inside"
+    assert after and after["boundary"] == "after_end"
+    assert before and before["boundary"] == "before_start"
+    assert check_extern_ownership.tu_address_relation(
+        tmp_path, "src/melee/gm/x.c", 0x804DA024, ".sdata2", 4
+    ) is None
+    assert check_extern_ownership.tu_address_relation(
+        tmp_path, "src/melee/gm/x.c", 0x804DA010, ".text", 4
+    ) is None
 
 
 def test_string_literal_to_symbol_carries_restore_hint_without_sdata2_tool():

@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
-import type { WriteSetEntry } from "@server/core/session-runtime/run-state/write-set-categories";
+import type { WriteSetEntry } from "@server/core/cycle-runtime/run-state/write-set-categories";
 import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
@@ -11,7 +11,7 @@ import type { WorkerRunnerValidation } from "./runner-validation.js";
 const SCORE_EPSILON = 0.000001;
 const EXACT_SCORE = 99.99999;
 
-// The board/report pipeline scores units with the project's objdiff report
+// The board/report pipeline scores units with the game's objdiff report
 // config (build.ninja `objdiff_report_args`, e.g. functionRelocDiffs=data_value).
 // Worker unit diffs must score with the same config: a mismatch lets a worker
 // baseline read 100 while the board reads <100, which strands the target in an
@@ -637,7 +637,7 @@ export function compareWorkerUnitSnapshots(params: {
   //
   // If the pre-worker worktree is already exact, treat an exact post-worker
   // target as accepted too. This happens when the admission board is stale but
-  // the session worktree already contains the exact source.
+  // the cycle worktree already contains the exact source.
   const targetAccepted = targetImproved || targetReachedExact || targetIsExact;
 
   compareRows({ kind: "unit", unit: params.before.unit, beforeRows: params.before.metrics, afterRows: params.after.metrics, regressions, improvements, reasons });
@@ -724,7 +724,7 @@ export function qaLintFromInvocation(invocation: QaScanInvocation, scanPath: str
 }
 
 export const QA_LINT_REPAIR_INSTRUCTION =
-  "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match inside your claimed write set (project assert/report macros, established inline helpers), including typing in-slice code to the foreign types already present on master. When that measurably fails because the canonical fix is a declaration in the owning header or a symbols.txt/splits.txt update, never substitute a source-local shim: if write-set widening is enabled, submit a structured widening_request with the mismatched declaration, objdiff evidence, expected owner, and why the lower rung failed. Until the runner authorizes it, an edit outside the write set is dropped at patch capture. If widening is disabled, denied, or routed at rung 4, state \"exact requires cross-file edit to <path>\" in your note's blockers and return the best gate-clean version confined to your write set. If the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.";
+  "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match inside your claimed write set (game assert/report macros, established inline helpers), including typing in-slice code to the foreign types already present on master. When that measurably fails because the canonical fix is a declaration in the owning header or a symbols.txt/splits.txt update, never substitute a source-local shim: if write-set widening is enabled, submit a structured widening_request with the mismatched declaration, objdiff evidence, expected owner, and why the lower rung failed. Until the runner authorizes it, an edit outside the write set is dropped at patch capture. If widening is disabled, denied, or routed at rung 4, state \"exact requires cross-file edit to <path>\" in your note's blockers and return the best gate-clean version confined to your write set. If the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.";
 
 function qaLintRequiresRepair(qaLint: WorkerQaLint | null | undefined): qaLint is WorkerQaLint {
   return qaLint?.status === "violations" || qaLint?.status === "warnings";

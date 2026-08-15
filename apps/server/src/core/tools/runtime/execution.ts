@@ -24,9 +24,9 @@ import { registeredToolIdsForContext, runRegisteredToolApi, type ToolRuntimeCont
 import type { AgentToolRuntimeContext } from "../types.js";
 import { commandToolPayload } from "./results.js";
 
-/** Determine the graph DB path from project metadata or global defaults. */
+/** Determine the graph DB path from game metadata or global defaults. */
 export function graphDbForContext(context: AgentToolRuntimeContext): string {
-  return context.project?.graphDbPath ?? resourceGraphDbPath();
+  return context.game?.graphDbPath ?? resourceGraphDbPath();
 }
 
 /** Return the set of currently registered knowledge source ids. */
@@ -67,7 +67,7 @@ export async function runKnowledgeToolApi(toolId: string, scriptName: string, ar
   return runKnowledgeToolApiForContext({}, toolId, scriptName, args);
 }
 
-/** Run a registered tool API script with project/worktree-scoped runtime context. */
+/** Run a registered tool API script with game/worktree-scoped runtime context. */
 export async function runKnowledgeToolApiForContext(
   context: ToolRuntimeContext,
   toolId: string,

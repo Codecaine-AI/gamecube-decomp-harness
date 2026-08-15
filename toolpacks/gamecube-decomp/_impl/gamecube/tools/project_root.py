@@ -4,11 +4,11 @@ These tools live in `toolpacks/gamecube-decomp/_impl/gamecube/tools/`, not insid
 the target checkout, so they can't derive the checkout from their own location.
 `resolve_root()` finds it from, in order:
 
-  1. ``$ORCH_PROJECT_REPO_ROOT`` explicit project binding.
+  1. ``$ORCH_GAME_REPO_ROOT`` explicit project binding.
   2. a walk up from the current directory for a ``build/GALE01`` marker.
   3. the current directory as a last resort.
 
-The result is always absolute: a relative root (e.g. ``ORCH_PROJECT_REPO_ROOT=.``) leaves
+The result is always absolute: a relative root (e.g. ``ORCH_GAME_REPO_ROOT=.``) leaves
 mwcc ``-precompile`` output paths un-relativizable, which mwcc rejects with
 OSErr -43.
 """
@@ -33,7 +33,7 @@ def find_checkout(start: Optional[Path] = None) -> Optional[Path]:
 
 def resolve_root() -> Path:
     """Absolute path to the project checkout."""
-    env = os.environ.get("ORCH_PROJECT_REPO_ROOT")
+    env = os.environ.get("ORCH_GAME_REPO_ROOT")
     if env:
         return Path(env).resolve()
     return (find_checkout() or Path.cwd()).resolve()

@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const dbPath = "projects/melee/state/orchestrator.sqlite";
+const dbPath = "games/melee/state/orchestrator.sqlite";
 const outDir = "analysis/reports";
 const generatedAt = new Date().toISOString();
 const today = generatedAt.slice(0, 10);
@@ -180,7 +180,7 @@ function toolRowsForWorkerSummary(toolRows, filter, limit = 24) {
 
 const args = parseArgs(process.argv.slice(2));
 const db = new Database(dbPath, { readonly: true });
-const checkpointRunIds = db.query("SELECT DISTINCT session_id AS run_id FROM worker_checkpoints ORDER BY session_id").all().map((row) => String(row.run_id));
+const checkpointRunIds = db.query("SELECT DISTINCT run_id FROM worker_checkpoints ORDER BY run_id").all().map((row) => String(row.run_id));
 const runIds = args.runIds.length ? args.runIds : checkpointRunIds;
 const placeholders = runIds.map(() => "?").join(", ");
 
@@ -226,14 +226,14 @@ const checkpointRows = db
       JOIN worker_state ws ON ws.id = wc.worker_state_id
       JOIN epoch_targets et ON et.id = wc.epoch_target_id
       JOIN epochs e ON e.id = wc.epoch_id
-      WHERE wc.session_id IN (${placeholders})
+      WHERE wc.run_id IN (${placeholders})
       ORDER BY wc.worker_state_id ASC, wc.attempt_index ASC, wc.validation_time ASC
     `,
   )
   .all(...runIds)
   .map((row) => ({
     id: String(row.id),
-    runId: String(row.session_id),
+    runId: String(row.run_id),
     workerStateId: String(row.worker_state_id),
     targetClaimId: String(row.target_claim_id),
     attemptIndex: Number(row.attempt_index),

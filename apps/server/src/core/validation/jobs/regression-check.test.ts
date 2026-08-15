@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import type { QaScanFinding, QaScanInvocation, QaScanResult } from "@server/core/validation/qa";
 import { regressionCheck } from "./regression-check.js";
 import { composeHandoffVerdict, evaluateQaGate } from "./qa-gate.js";

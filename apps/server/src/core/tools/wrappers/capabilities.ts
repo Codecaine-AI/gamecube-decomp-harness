@@ -101,8 +101,8 @@ function stringListParam(value: unknown): string[] {
     .filter(Boolean);
 }
 
-/** Resolve a project-relative path for APIs that read files directly. */
-function projectPath(context: AgentToolRuntimeContext, value: string): string {
+/** Resolve a game-relative path for APIs that read files directly. */
+function gamePath(context: AgentToolRuntimeContext, value: string): string {
   if (!value) return "";
   return isAbsolute(value) ? value : resolve(context.repoRoot, value);
 }
@@ -278,7 +278,7 @@ export const objdiffScoreCandidateToolRegistration = knowledgeApiTool({
       "--function",
       fn,
       "--candidate-object",
-      projectPath(context, candidate),
+      gamePath(context, candidate),
       "--timeout-seconds",
       String(boundedNumber(params.timeout_seconds, 60, 5, 300)),
     ];
@@ -473,7 +473,7 @@ export const sourcePermuterRunToolRegistration = knowledgeApiTool({
     if (typeof params.keep_prob === "number") args.push("--keep-prob", String(params.keep_prob));
     if (boolParam(params, "no_narrow")) args.push("--no-narrow");
     const saveReplay = stringParam(params, "save_replay");
-    if (saveReplay) args.push("--save-replay", projectPath(context, saveReplay));
+    if (saveReplay) args.push("--save-replay", gamePath(context, saveReplay));
     return args;
   },
 });
@@ -500,7 +500,7 @@ export const sourcePermuterReplayToolRegistration = knowledgeApiTool({
   args(params, context) {
     const replay = stringParam(params, "replay");
     if (!replay) return { status: "missing_replay" };
-    const args = ["--repo-root", context.repoRoot, "--replay", projectPath(context, replay), "--apply", "never", "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 120, 10, 900))];
+    const args = ["--repo-root", context.repoRoot, "--replay", gamePath(context, replay), "--apply", "never", "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 120, 10, 900))];
     const fn = stringParam(params, "function");
     if (fn) args.push("--function", fn);
     return args;
@@ -519,7 +519,7 @@ export const sourceMutationPreviewToolRegistration = knowledgeApiTool({
   parameters: {
     type: "object",
     properties: {
-      source_path: { type: "string", description: "Project-relative C source path." },
+      source_path: { type: "string", description: "Game-relative C source path." },
       function: { type: "string", description: "Function symbol to mutate." },
       pass_name: { type: "string", description: "Optional specific mutation pass." },
       seed: { type: "number", description: "Random seed." },
@@ -567,7 +567,7 @@ export const typeOracleLookupToolRegistration = knowledgeApiTool({
   parameters: {
     type: "object",
     properties: {
-      source_path: { type: "string", description: "Project-relative C source path." },
+      source_path: { type: "string", description: "Game-relative C source path." },
       expression: { type: "string", description: "Exact expression text to look up." },
       byte_start: { type: "number", description: "Exact expression byte start." },
       byte_end: { type: "number", description: "Exact expression byte end." },
@@ -665,7 +665,7 @@ export const includeFixerPreviewToolRegistration = knowledgeApiTool({
   parameters: {
     type: "object",
     properties: {
-      source_path: { type: "string", description: "Project-relative C source path." },
+      source_path: { type: "string", description: "Game-relative C source path." },
     },
     required: ["source_path"],
     additionalProperties: false,
@@ -714,7 +714,7 @@ export const reviewLintScanToolRegistration = knowledgeApiTool({
     type: "object",
     properties: {
       text: { type: "string", description: "Source snippet to scan." },
-      file: { type: "string", description: "Project-relative or absolute file to scan." },
+      file: { type: "string", description: "Game-relative or absolute file to scan." },
       rule: { type: "string", enum: ["all", "type_erasing_casts", "inline_pointer_vars"], description: "Rule group to run." },
     },
     additionalProperties: false,
@@ -723,7 +723,7 @@ export const reviewLintScanToolRegistration = knowledgeApiTool({
     const text = String(params.text ?? "");
     const file = stringParam(params, "file");
     if (!text && !file) return { status: "missing_text_or_file" };
-    const args = text ? ["--text", text] : ["--file", projectPath(context, file)];
+    const args = text ? ["--text", text] : ["--file", gamePath(context, file)];
     const rule = stringParam(params, "rule");
     if (rule) args.push("--rule", rule);
     return args;
@@ -742,13 +742,13 @@ export const reviewLintSdata2OrderHelperToolRegistration = knowledgeApiTool({
   parameters: {
     type: "object",
     properties: {
-      source: { type: "string", description: "Project-relative or absolute source file path." },
+      source: { type: "string", description: "Game-relative or absolute source file path." },
       unit: { type: "string", description: "Unit path without src/ prefix or .c suffix." },
       symbols: { type: "array", items: { type: "string" }, description: "Reference .sdata2 symbol names to include. Defaults to all entries." },
       name: { type: "string", description: "Generated helper function name." },
       apply: { type: "boolean", description: "Write or replace the helper in source. Defaults to false preview mode." },
       validate: { type: "boolean", description: "After apply, direct-compile the TU and compare .sdata2 order." },
-      prefer_named_macros: { type: "boolean", description: "Emit known project macros such as S32_TO_F32 instead of raw double literals." },
+      prefer_named_macros: { type: "boolean", description: "Emit known game macros such as S32_TO_F32 instead of raw double literals." },
     },
     additionalProperties: false,
   },
@@ -757,7 +757,7 @@ export const reviewLintSdata2OrderHelperToolRegistration = knowledgeApiTool({
     const unit = stringParam(params, "unit");
     if (!source && !unit) return { status: "missing_source_or_unit" };
     const args = ["--repo-root", context.repoRoot];
-    if (source) args.push("--source", projectPath(context, source));
+    if (source) args.push("--source", gamePath(context, source));
     else args.push("--unit", unit);
     for (const symbol of stringListParam(params.symbols)) args.push("--symbol", symbol);
     const name = stringParam(params, "name");

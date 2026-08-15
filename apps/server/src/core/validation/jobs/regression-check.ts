@@ -10,7 +10,7 @@ import {
 import { runQaScanDiff, type QaScanInvocation } from "@server/core/validation/qa";
 import { runCommandStreaming } from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
-import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { composeHandoffVerdict, evaluateQaGate } from "./qa-gate.js";
 
 // Progress narration goes to stderr so stdout stays a single JSON document
@@ -54,7 +54,7 @@ function promotionHint(promotion: PrPromotionEvaluation | null, requirePrPromoti
 }
 
 export async function regressionCheck(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
-  const target = stringArg(args, "--target", globals.project?.validation.qaTarget ?? "changes_all");
+  const target = stringArg(args, "--target", globals.game?.validation.qaTarget ?? "changes_all");
   if (!target || target.startsWith("-") || /\s/.test(target)) {
     throw new Error("--target must be one Ninja target name, for example changes_all");
   }
@@ -66,7 +66,7 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
   }
   const requirePrPromotion = booleanArg(args, "--require-pr-promotion");
   const skipQaGate = booleanArg(args, "--skip-qa-gate");
-  const qaBaseRef = stringArg(args, "--qa-base", globals.project?.baseRef ?? "origin/master");
+  const qaBaseRef = stringArg(args, "--qa-base", globals.game?.baseRef ?? "origin/master");
   const promotionPolicy: PrPromotionPolicy = {
     minNewMatches: nonNegativeInteger(numberArg(args, "--promotion-min-new-matches", DEFAULT_PR_PROMOTION_POLICY.minNewMatches), "--promotion-min-new-matches"),
     minMatchedCodeBytesDelta: nonNegativeInteger(
@@ -183,7 +183,7 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
     qaInvocation = await runQaScanDiff({
       repoRoot: globals.repoRoot,
       orchestratorRoot: packageRoot(),
-      project: globals.project,
+      game: globals.game,
       stateDir: globals.stateDir,
       baseRef: qaBaseRef,
       includeWorktree: true,

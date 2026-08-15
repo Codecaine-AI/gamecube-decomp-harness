@@ -9,8 +9,8 @@ Lane 4 created the five canonical Slice 6 documentation subtrees, absorbed all 1
 - `docs/10-system-design/03-state-and-events/05-project-state-and-authority/` with four children: `10-project-state-composition`, `20-dispatch-authority-and-handoffs`, `30-operator-action-contract`, and `40-project-state-view`.
 - `docs/10-system-design/40-knowledge/70-execution-classes-and-jobs/` with three children: `10-source-classification`, `20-job-lifecycle-and-leasing`, and `30-processing-publication-and-provenance`.
 - `docs/20-implementation/30-knowledge/30-background-processing/` with four children: `10-job-storage-and-migration`, `20-enqueue-claim-and-retry`, `30-materialization-and-idempotency`, and `40-operator-trigger`.
-- `docs/20-implementation/40-state/10-project-state-and-authority/` with three children: `10-project-state-view-builder`, `20-action-projection-and-guards`, and `30-dispatch-integration`.
-- `docs/20-implementation/60-ui/20-project-state-workspace/` with four children: `10-dto-and-client-model`, `20-state-summary-and-freshness`, `30-action-controls-and-confirmation`, and `40-compatibility-actions`.
+- `docs/20-implementation/40-state/10-harness-state-and-authority/` with three children: `10-project-state-view-builder`, `20-action-projection-and-guards`, and `30-dispatch-integration`.
+- `docs/20-implementation/60-ui/20-harness-state-workspace/` with four children: `10-dto-and-client-model`, `20-state-summary-and-freshness`, `30-action-controls-and-confirmation`, and `40-compatibility-actions`.
 
 The total is 23 new bundles: five compact subtree overviews and 18 contract-owning children. Bundle creation used the docs model converter, serializer, and server atomic writer APIs; existing-parent edits used the docs-server `/api/bundle` and `/api/ops` contracts. No `doc.json` was hand-edited.
 
@@ -72,11 +72,11 @@ All mutations in this pass used the docs-server `doc_get` and `doc_update_blocks
 | `.../20-enqueue-claim-and-retry` | None; prose references the owning job contract. |
 | `.../30-materialization-and-idempotency` | None; no owned structured contract. |
 | `.../40-operator-trigger` | None; cross-contract prose remains prose. |
-| `20-implementation/40-state/10-project-state-and-authority` | None; overview remains prose and links. |
+| `20-implementation/40-state/10-harness-state-and-authority` | None; overview remains prose and links. |
 | `.../10-project-state-view-builder` | Kept implementation prose and linked the owning Project State View contract. |
 | `.../20-action-projection-and-guards` | Removed the duplicated `ActionProjection` field enumeration and linked the owning Project State View and Operator Action Contract docs. |
 | `.../30-dispatch-integration` | Kept integration prose and linked the owning Dispatch Authority and Execution Classes contracts. |
-| `20-implementation/60-ui/20-project-state-workspace` | None; overview remains prose and links. |
+| `20-implementation/60-ui/20-harness-state-workspace` | None; overview remains prose and links. |
 | `.../10-dto-and-client-model` | Kept DTO hydration prose and linked the owning Project State View contract rather than duplicating it. |
 | `.../20-state-summary-and-freshness` | Added the owning `KnowledgeFreshnessSummary` state-shape, including nested lease, retry, and recent-failure fields. |
 | `.../30-action-controls-and-confirmation` | Kept UI behavior prose and linked the owning 21-action matrices and dated decision. |

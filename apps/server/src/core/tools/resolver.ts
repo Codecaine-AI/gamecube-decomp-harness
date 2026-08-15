@@ -3,15 +3,15 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import {
   defaultToolpackId,
   packageRoot,
-  projectRoot,
+  gameRoot,
   toolpackRoot,
 } from "@server/core/knowledge/paths";
-import type { RunProjectMetadata } from "@server/core/shared/types";
+import type { RunGameMetadata } from "@server/core/shared/types";
 import { runCommand } from "@server/infrastructure/shell";
 import { resolveStateToolArtifact, resolveToolPlatform, type ToolPlatform } from "./platform.js";
 
 export interface ToolRuntimeContext {
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
   repoRoot?: string;
   stateDir?: string;
   toolPlatform?: ToolPlatform;
@@ -20,14 +20,14 @@ export interface ToolRuntimeContext {
   packet?: Record<string, unknown>;
 }
 
-export interface ProjectToolConfig {
+export interface GameToolConfig {
   toolpacks?: string[];
   bindingsRoot?: string;
   sharedDataRoot?: string;
   worktreeCacheRoot?: string;
 }
 
-export interface ProjectToolBinding {
+export interface GameToolBinding {
   tool?: string;
   enabled?: boolean;
   implementation?: string;
@@ -54,13 +54,13 @@ export interface ResolvedRegisteredTool {
   packToolRoot: string;
   toolRoot: string;
   apiRoot: string;
-  projectId: string;
-  projectDir: string;
-  projectRepoRoot: string;
-  projectStateDir: string;
+  gameId: string;
+  gameDir: string;
+  gameRepoRoot: string;
+  gameStateDir: string;
   worktreeId: string;
   bindingPath: string;
-  binding: ProjectToolBinding;
+  binding: GameToolBinding;
   enabled: boolean;
   sharedDataRoot: string;
   worktreeCacheRoot: string;
@@ -76,9 +76,9 @@ interface ToolpackFile {
   tools?: Array<string | ToolpackToolEntry>;
 }
 
-interface ProjectRuntimePaths {
-  projectId: string;
-  projectDir: string;
+interface GameRuntimePaths {
+  gameId: string;
+  gameDir: string;
   repoRoot: string;
   stateDir: string;
   descriptorPath: string;
@@ -112,20 +112,20 @@ function stringMapField(value: unknown): Record<string, string> | undefined {
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
-function projectRuntimePaths(context: ToolRuntimeContext): ProjectRuntimePaths {
-  const projectId = context.project?.projectId ?? "melee";
-  const descriptorPath = context.project?.descriptorPath ?? resolve(projectRoot(projectId), "project.json");
-  const projectDir = dirname(descriptorPath);
+function gameRuntimePaths(context: ToolRuntimeContext): GameRuntimePaths {
+  const gameId = context.game?.gameId ?? "melee";
+  const descriptorPath = context.game?.descriptorPath ?? resolve(gameRoot(gameId), "game.json");
+  const gameDir = dirname(descriptorPath);
   return {
-    projectId,
-    projectDir,
+    gameId,
+    gameDir,
     descriptorPath,
-    repoRoot: context.repoRoot ?? context.project?.repoRoot ?? resolve(projectDir, "checkout"),
-    stateDir: context.stateDir ?? context.project?.stateDir ?? resolve(projectDir, "state"),
+    repoRoot: context.repoRoot ?? context.game?.repoRoot ?? resolve(gameDir, "checkout"),
+    stateDir: context.stateDir ?? context.game?.stateDir ?? resolve(gameDir, "state"),
   };
 }
 
-function projectToolsConfig(paths: ProjectRuntimePaths): ProjectToolConfig {
+function gameToolsConfig(paths: GameRuntimePaths): GameToolConfig {
   const raw = readJsonObject(paths.descriptorPath);
   const tools = isRecord(raw?.tools) ? raw.tools : {};
   return {
@@ -136,7 +136,7 @@ function projectToolsConfig(paths: ProjectRuntimePaths): ProjectToolConfig {
   };
 }
 
-function projectWiboPath(stateDir: string, toolPlatform: ToolPlatform): string | null {
+function gameWiboPath(stateDir: string, toolPlatform: ToolPlatform): string | null {
   return resolveStateToolArtifact({ stateDir, name: "wibo", platform: toolPlatform });
 }
 
@@ -146,8 +146,8 @@ function normalizeToolEntry(entry: string | ToolpackToolEntry): ToolpackToolEntr
 }
 
 export function toolpackIdForContext(context: ToolRuntimeContext = {}): string {
-  const paths = projectRuntimePaths(context);
-  return projectToolsConfig(paths).toolpacks?.[0] ?? defaultToolpackId();
+  const paths = gameRuntimePaths(context);
+  return gameToolsConfig(paths).toolpacks?.[0] ?? defaultToolpackId();
 }
 
 export function readToolpackToolEntries(toolpackId = defaultToolpackId()): ToolpackToolEntry[] {
@@ -167,7 +167,7 @@ export function registeredToolIdsForContext(context: ToolRuntimeContext = {}): S
   return new Set(readToolpackToolEntries(toolpackIdForContext(context)).map((entry) => entry.id));
 }
 
-function resolveProjectPath(baseDir: string, value: string): string {
+function resolveGamePath(baseDir: string, value: string): string {
   return isAbsolute(value) ? resolve(value) : resolve(baseDir, value);
 }
 
@@ -179,20 +179,20 @@ function replaceTokens(value: string, tokens: Record<string, string>): string {
   return next;
 }
 
-function specificProjectPath(baseDir: string, value: string, tokens: Record<string, string>): string {
-  return resolveProjectPath(baseDir, replaceTokens(value, tokens));
+function specificGamePath(baseDir: string, value: string, tokens: Record<string, string>): string {
+  return resolveGamePath(baseDir, replaceTokens(value, tokens));
 }
 
 function scopedToolRoot(baseDir: string, value: string, toolId: string, tokens: Record<string, string>): string {
   const rendered = replaceTokens(value, tokens);
-  const rooted = resolveProjectPath(baseDir, rendered);
+  const rooted = resolveGamePath(baseDir, rendered);
   return rendered.includes("{tool_id}") || rendered.includes("{{tool_id}}") || rooted.endsWith(`/${toolId}`)
     ? rooted
     : resolve(rooted, toolId);
 }
 
-function bindingForTool(projectDir: string, config: ProjectToolConfig, toolId: string): { path: string; binding: ProjectToolBinding } {
-  const root = resolveProjectPath(projectDir, config.bindingsRoot ?? "./tool-bindings");
+function bindingForTool(gameDir: string, config: GameToolConfig, toolId: string): { path: string; binding: GameToolBinding } {
+  const root = resolveGamePath(gameDir, config.bindingsRoot ?? "./tool-bindings");
   const path = resolve(root, `${toolId}.json`);
   const raw = readJsonObject(path);
   if (!raw) return { path, binding: { tool: toolId, enabled: true, implementation: "default" } };
@@ -223,10 +223,10 @@ function toolRuntimeMetadata(resolved: ResolvedRegisteredTool): Record<string, u
     tool_id: resolved.toolId,
     tool_root: resolved.toolRoot,
     api_root: resolved.apiRoot,
-    project_id: resolved.projectId,
-    project_dir: resolved.projectDir,
-    project_repo_root: resolved.projectRepoRoot,
-    project_state_dir: resolved.projectStateDir,
+    game_id: resolved.gameId,
+    game_dir: resolved.gameDir,
+    game_repo_root: resolved.gameRepoRoot,
+    game_state_dir: resolved.gameStateDir,
     worktree_id: resolved.worktreeId,
     shared_data_root: resolved.sharedDataRoot,
     worktree_cache_root: resolved.worktreeCacheRoot,
@@ -237,8 +237,8 @@ function toolRuntimeMetadata(resolved: ResolvedRegisteredTool): Record<string, u
 }
 
 export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: string): ResolvedRegisteredTool {
-  const paths = projectRuntimePaths(context);
-  const config = projectToolsConfig(paths);
+  const paths = gameRuntimePaths(context);
+  const config = gameToolsConfig(paths);
   const toolpackId = config.toolpacks?.[0] ?? defaultToolpackId();
   const packRoot = toolpackRoot(toolpackId);
   const registryEntry = readToolpackToolEntries(toolpackId).find((entry) => entry.id === toolId);
@@ -246,23 +246,23 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
     throw new Error(`Unknown tool id ${toolId} in toolpack ${toolpackId}`);
   }
 
-  const { path: bindingPath, binding } = bindingForTool(paths.projectDir, config, toolId);
+  const { path: bindingPath, binding } = bindingForTool(paths.gameDir, config, toolId);
   const worktreeId = runtimeWorktreeId(context);
   const tokens = {
-    project_id: paths.projectId,
+    game_id: paths.gameId,
     tool_id: toolId,
     toolpack_id: toolpackId,
     worktree_id: worktreeId,
   };
   const packToolRoot = resolve(packRoot, registryEntry.path ?? toolId);
-  const toolRoot = binding.overrideToolRoot ? specificProjectPath(paths.projectDir, binding.overrideToolRoot, tokens) : packToolRoot;
-  const apiRoot = binding.overrideApiRoot ? specificProjectPath(paths.projectDir, binding.overrideApiRoot, tokens) : resolve(toolRoot, "api");
+  const toolRoot = binding.overrideToolRoot ? specificGamePath(paths.gameDir, binding.overrideToolRoot, tokens) : packToolRoot;
+  const apiRoot = binding.overrideApiRoot ? specificGamePath(paths.gameDir, binding.overrideApiRoot, tokens) : resolve(toolRoot, "api");
   const sharedDataRoot = binding.sharedDataRoot
-    ? specificProjectPath(paths.projectDir, binding.sharedDataRoot, tokens)
-    : scopedToolRoot(paths.projectDir, config.sharedDataRoot ?? "./shared/tool-data", toolId, tokens);
+    ? specificGamePath(paths.gameDir, binding.sharedDataRoot, tokens)
+    : scopedToolRoot(paths.gameDir, config.sharedDataRoot ?? "./shared/tool-data", toolId, tokens);
   const worktreeCacheRoot = binding.worktreeCacheRoot
-    ? specificProjectPath(paths.projectDir, binding.worktreeCacheRoot, tokens)
-    : scopedToolRoot(paths.projectDir, config.worktreeCacheRoot ?? "./worktrees/{worktree_id}/tool-cache", toolId, tokens);
+    ? specificGamePath(paths.gameDir, binding.worktreeCacheRoot, tokens)
+    : scopedToolRoot(paths.gameDir, config.worktreeCacheRoot ?? "./worktrees/{worktree_id}/tool-cache", toolId, tokens);
   const env: Record<string, string> = {
     ORCH_TOOLPACK_ID: toolpackId,
     ORCH_TOOLPACK_ROOT: packRoot,
@@ -271,16 +271,16 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
     ORCH_TOOL_API_ROOT: apiRoot,
     ORCH_TOOL_SHARED_DATA_ROOT: sharedDataRoot,
     ORCH_TOOL_WORKTREE_CACHE_ROOT: worktreeCacheRoot,
-    ORCH_PROJECT_ID: paths.projectId,
-    ORCH_PROJECT_DIR: paths.projectDir,
-    ORCH_PROJECT_REPO_ROOT: paths.repoRoot,
-    ORCH_PROJECT_STATE_DIR: paths.stateDir,
+    ORCH_GAME_ID: paths.gameId,
+    ORCH_GAME_DIR: paths.gameDir,
+    ORCH_GAME_REPO_ROOT: paths.repoRoot,
+    ORCH_GAME_STATE_DIR: paths.stateDir,
     ORCH_WORKTREE_ID: worktreeId,
     ORCH_TOOL_BINDING_PATH: bindingPath,
     ORCH_TOOL_IMPL_ROOT: resolve(packRoot, "_impl/gamecube"),
   };
   const toolPlatform = resolveToolPlatform({ targetPlatform: context.toolPlatform });
-  const wibo = projectWiboPath(paths.stateDir, toolPlatform);
+  const wibo = gameWiboPath(paths.stateDir, toolPlatform);
   if (wibo) env.MWCC_WIBO = wibo;
   for (const [key, value] of Object.entries(binding.env ?? {})) {
     env[key] = replaceTokens(value, tokens);
@@ -293,10 +293,10 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
     packToolRoot,
     toolRoot,
     apiRoot,
-    projectId: paths.projectId,
-    projectDir: paths.projectDir,
-    projectRepoRoot: paths.repoRoot,
-    projectStateDir: paths.stateDir,
+    gameId: paths.gameId,
+    gameDir: paths.gameDir,
+    gameRepoRoot: paths.repoRoot,
+    gameStateDir: paths.stateDir,
     worktreeId,
     bindingPath,
     binding,

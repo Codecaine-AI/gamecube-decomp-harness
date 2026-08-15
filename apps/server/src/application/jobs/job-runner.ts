@@ -3,17 +3,17 @@ import { basename, dirname } from "node:path";
 import { closeDefaultMeleeKernelRuntime, resetDefaultMeleeKernelRuntimeForTests } from "@server/infrastructure/kernel/bridge/runtime";
 import { loadLocalEnv } from "@server/infrastructure/env";
 import { configureGlobalCompileJobserver } from "@server/infrastructure/shell/global-compile-jobserver";
-import { parse } from "@server/core/project-registry/runtime-options.js";
-import { babysit } from "@server/core/session-runtime/phases/running/jobs/babysit.js";
-import { checkpointRun } from "@server/core/session-runtime/phases/pr/jobs/checkpoint-run.js";
-import { prDraftQa } from "@server/core/session-runtime/phases/pr/jobs/pr-draft-qa.js";
-import { prPreshipReview } from "@server/core/session-runtime/phases/pr/jobs/pr-preship-review.js";
-import { prSessionReview } from "@server/core/session-runtime/phases/pr/jobs/pr-session-review.js";
-import { prSplitPlan } from "@server/core/session-runtime/phases/pr/jobs/pr-split-plan.js";
-import { qaRepair } from "@server/core/session-runtime/phases/pr/jobs/qa-repair.js";
-import { reconcile } from "@server/core/session-runtime/phases/pr/jobs/reconcile.js";
-import { savePoint } from "@server/core/session-runtime/phases/pr/jobs/save-point.js";
-import { verifyShipSet } from "@server/core/session-runtime/phases/pr/jobs/verify-ship-set.js";
+import { parse } from "@server/core/game-registry/runtime-options.js";
+import { babysit } from "@server/core/cycle-runtime/phases/running/jobs/babysit.js";
+import { checkpointRun } from "@server/core/cycle-runtime/phases/pr/jobs/checkpoint-run.js";
+import { prDraftQa } from "@server/core/cycle-runtime/phases/pr/jobs/pr-draft-qa.js";
+import { prPreshipReview } from "@server/core/cycle-runtime/phases/pr/jobs/pr-preship-review.js";
+import { prCycleReview } from "@server/core/cycle-runtime/phases/pr/jobs/pr-cycle-review.js";
+import { prSplitPlan } from "@server/core/cycle-runtime/phases/pr/jobs/pr-split-plan.js";
+import { qaRepair } from "@server/core/cycle-runtime/phases/pr/jobs/qa-repair.js";
+import { reconcile } from "@server/core/cycle-runtime/phases/pr/jobs/reconcile.js";
+import { savePoint } from "@server/core/cycle-runtime/phases/pr/jobs/save-point.js";
+import { verifyShipSet } from "@server/core/cycle-runtime/phases/pr/jobs/verify-ship-set.js";
 import {
   kgCurate,
   kgFileCard,
@@ -31,24 +31,24 @@ import {
 import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
 import { kgLibrarianCorroborate } from "@server/core/knowledge/jobs/librarian-corroborate.js";
 import { kgLibrarianBackfill } from "@server/core/knowledge/jobs/librarian-backfill.js";
-import { epochRun } from "@server/core/session-runtime/phases/running/epochs/epoch-run.js";
-import { integrationResolve } from "@server/core/session-runtime/phases/running/integration/index.js";
-import { recoverClaims } from "@server/core/session-runtime/phases/running/jobs/recover-claims.js";
-import { tick } from "@server/core/session-runtime/phases/running/scheduler/tick.js";
-import { runLoop } from "@server/core/session-runtime/phases/running/scheduler/run-loop.js";
-import { initRun } from "@server/core/session-runtime/phases/running/service/init-run.js";
-import { status } from "@server/core/session-runtime/phases/running/service/status.js";
-import { worker } from "@server/core/session-runtime/phases/running/workers/worker-cycle.js";
+import { epochRun } from "@server/core/cycle-runtime/phases/running/epochs/epoch-run.js";
+import { integrationResolve } from "@server/core/cycle-runtime/phases/running/integration/index.js";
+import { recoverClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
+import { tick } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
+import { runLoop } from "@server/core/cycle-runtime/phases/running/scheduler/run-loop.js";
+import { initRun } from "@server/core/cycle-runtime/phases/running/service/init-run.js";
+import { status } from "@server/core/cycle-runtime/phases/running/service/status.js";
+import { worker } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { regressionCheck } from "@server/core/validation/jobs/regression-check.js";
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   loadLocalEnv();
   const { command, globals, args } = parse(argv);
-  if (globals.project) {
+  if (globals.game) {
     loadLocalEnv({
-      root: dirname(globals.project.localEnvPath),
-      filenames: [basename(globals.project.localEnvPath)],
+      root: dirname(globals.game.localEnvPath),
+      filenames: [basename(globals.game.localEnvPath)],
     });
   }
   await configureGlobalCompileJobserver();
@@ -71,7 +71,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "qa-repair") await qaRepair(globals, args);
     else if (command === "pr-split-plan") await prSplitPlan(globals, args);
     else if (command === "pr-draft-qa") await prDraftQa(globals, args);
-    else if (command === "pr-session-review") await prSessionReview(globals, args);
+    else if (command === "pr-cycle-review") await prCycleReview(globals, args);
     else if (command === "pr-preship-review") await prPreshipReview(globals, args);
     else if (command === "kg-sources") await kgSources();
     else if (command === "kg-status") await kgStatus(globals, args);

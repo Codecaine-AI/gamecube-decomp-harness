@@ -29,8 +29,8 @@ describe("dashboard artifacts", () => {
     try {
       recordDashboardArtifact(store, {
         runId: "run-a",
-        projectId: "melee",
-        sessionUuid: "session-a",
+        gameId: "melee",
+        cycleUuid: "session-a",
         artifactType: "board_snapshot",
         artifactKey: "current",
         payload: { generatedAt: "2026-06-28T12:00:00.000Z", measures: { fuzzy_match_percent: 70 } },
@@ -38,8 +38,8 @@ describe("dashboard artifacts", () => {
       });
       recordDashboardArtifact(store, {
         runId: "run-a",
-        projectId: "melee",
-        sessionUuid: "session-a",
+        gameId: "melee",
+        cycleUuid: "session-a",
         artifactType: "board_snapshot",
         artifactKey: "current",
         payload: { generatedAt: "2026-06-28T12:05:00.000Z", measures: { fuzzy_match_percent: 71 } },
@@ -47,8 +47,8 @@ describe("dashboard artifacts", () => {
       });
       recordDashboardArtifact(store, {
         runId: "run-b",
-        projectId: "melee",
-        sessionUuid: "session-b",
+        gameId: "melee",
+        cycleUuid: "session-b",
         artifactType: "board_snapshot",
         artifactKey: "current",
         payload: { generatedAt: "2026-06-28T12:10:00.000Z", measures: { fuzzy_match_percent: 90 } },
@@ -73,8 +73,8 @@ describe("dashboard artifacts", () => {
 
       expect(
         latestDashboardArtifactPayload(store, {
-          projectId: "melee",
-          sessionUuid: "session-b",
+          gameId: "melee",
+          cycleUuid: "session-b",
           artifactType: "board_snapshot",
           artifactKey: "current",
         }),

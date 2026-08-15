@@ -97,6 +97,10 @@ class ExportXrefsRunnerTest(unittest.TestCase):
         runner_status.parent.mkdir(parents=True)
         sentinel = b'{"owned_by":"run_headless_probe.py"}\n'
         runner_status.write_bytes(sentinel)
+        index_path = self.storage_root / "indexes" / "xrefs.jsonl"
+        index_path.parent.mkdir(parents=True)
+        index_sentinel = b'{"id":"preserved-xref"}\n'
+        index_path.write_bytes(index_sentinel)
 
         result = self.run_runner(self.root / "missing" / "analyzeHeadless")
 
@@ -109,7 +113,9 @@ class ExportXrefsRunnerTest(unittest.TestCase):
         self.assertTrue(manifest["skipped"])
         self.assertIn("analyzeHeadless", manifest["skip_reason"])
         self.assertEqual(manifest["record_count"], 0)
+        self.assertEqual(manifest["generated_indexes"], [])
         self.assertEqual(runner_status.read_bytes(), sentinel)
+        self.assertEqual(index_path.read_bytes(), index_sentinel)
 
     def test_stub_export_preserves_xref_rows_and_applies_limit(self) -> None:
         stub_path = self.root / "analyzeHeadless"

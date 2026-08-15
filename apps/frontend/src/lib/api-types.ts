@@ -1,6 +1,6 @@
 export type JsonObject = Record<string, unknown>;
 
-export interface ProjectSummary {
+export interface GameSummary {
   id: string;
   displayName: string;
   kind: string;
@@ -20,17 +20,17 @@ export interface UiConfig {
   defaultRepoRoot: string;
   defaultStateDir: string;
   defaultGraphDbPath: string;
-  defaultProjectId: string;
-  selectedProject: ProjectSummary | null;
-  availableProjects: ProjectSummary[];
-  projectDefaults: JsonObject | null;
+  defaultGameId: string;
+  selectedGame: GameSummary | null;
+  availableGames: GameSummary[];
+  gameDefaults: JsonObject | null;
   dashboardStreamIntervalMs: number;
   hotReload: boolean;
   port: number;
 }
 
 export interface FormState {
-  projectId: string;
+  gameId: string;
   usePathOverrides: boolean;
   repoRoot: string;
   stateDir: string;
@@ -60,10 +60,10 @@ export interface ToolConcurrencySettings {
 }
 
 export interface Dashboard {
-  project: ProjectSummary | null;
-  projectState?: JsonObject | null;
-  projectSession?: JsonObject | null;
-  projectWarnings?: string[];
+  game: GameSummary | null;
+  harnessState?: JsonObject | null;
+  cycle?: JsonObject | null;
+  gameWarnings?: string[];
   repoRoot: string;
   stateDir: string;
   graphDbPath?: string;
@@ -91,76 +91,76 @@ export interface Dashboard {
   prs?: JsonObject | null;
 }
 
-export type ProjectEventActor =
+export type GameEventActor =
   | "operator"
   | "runner"
   | "agent"
   | "guardian"
   | "external_observer";
 
-export type ProjectEventSubjectKind =
-  | "project"
+export type GameEventSubjectKind =
+  | "game"
   | "run"
   | "sync_workflow"
   | "sync_push"
-  | "session"
+  | "cycle"
   | "pr_campaign"
   | "pr_series"
   | "knowledge_job"
-  | "project_knowledge";
+  | "game_knowledge";
 
-export type ProjectEventJsonPrimitive = boolean | null | number | string;
-export type ProjectEventJsonValue =
-  | ProjectEventJsonPrimitive
-  | ProjectEventJsonObject
-  | ProjectEventJsonValue[];
-export interface ProjectEventJsonObject {
-  [key: string]: ProjectEventJsonValue;
+export type GameEventJsonPrimitive = boolean | null | number | string;
+export type GameEventJsonValue =
+  | GameEventJsonPrimitive
+  | GameEventJsonObject
+  | GameEventJsonValue[];
+export interface GameEventJsonObject {
+  [key: string]: GameEventJsonValue;
 }
 
-export interface ProjectEventDto {
+export interface GameEventDto {
   event_id: string;
   sequence: number;
   event_type: string;
   schema_version: number;
-  project_id: string;
-  subject_kind: ProjectEventSubjectKind;
+  game_id: string;
+  subject_kind: GameEventSubjectKind;
   subject_id: string;
   correlation_id: string;
   causation_id: string;
   trace_id: string;
   span_id: string;
   parent_span_id: string | null;
-  actor: ProjectEventActor;
+  actor: GameEventActor;
   occurred_at: string;
-  payload_summary: ProjectEventJsonObject;
+  payload_summary: GameEventJsonObject;
 }
 
-export interface ProjectEventQueryPage {
-  events: ProjectEventDto[];
+export interface GameEventQueryPage {
+  events: GameEventDto[];
   has_more: boolean;
   next_after_sequence: number | null;
 }
 
-export interface ProjectEventCauseEvent {
+export interface GameEventCauseEvent {
   kind: "event";
   event_id: string;
   sequence: number;
   event_type: string;
   correlation_id: string;
-  subject_kind: ProjectEventSubjectKind;
+  subject_kind: GameEventSubjectKind;
   subject_id: string;
 }
 
-export interface ProjectEventCauseCommand {
+export interface GameEventCauseCommand {
   kind: "command";
   command_id: string;
 }
 
-export type ProjectEventCause = ProjectEventCauseEvent | ProjectEventCauseCommand;
+export type GameEventCause = GameEventCauseEvent | GameEventCauseCommand;
 
-export interface ReconstructedProjectEvent extends ProjectEventDto {
-  caused_by: ProjectEventCause;
+export interface ReconstructedGameEvent extends GameEventDto {
+  caused_by: GameEventCause;
 }
 
 export interface KernelTraceDeepLinkDto {
@@ -171,21 +171,21 @@ export interface KernelTraceDeepLinkDto {
 }
 
 /** A server-projected event-to-kernel-trace join. The trace target comes only from href. */
-export interface ProjectEventKernelTraceProjection extends KernelTraceDeepLinkDto {
+export interface GameEventKernelTraceProjection extends KernelTraceDeepLinkDto {
   event_id: string;
 }
 
-export interface ProjectEventReconstructionPage {
-  project_id: string;
+export interface GameEventReconstructionPage {
+  game_id: string;
   correlation_id: string;
-  events: ReconstructedProjectEvent[];
+  events: ReconstructedGameEvent[];
   has_more: boolean;
   next_after_sequence: number | null;
-  kernel_traces: ProjectEventKernelTraceProjection[];
+  kernel_traces: GameEventKernelTraceProjection[];
 }
 
 export interface RunDetails {
-  project?: ProjectSummary | null;
+  game?: GameSummary | null;
   stateDir: string;
   runId: string;
   generatedAt?: string;
@@ -228,7 +228,7 @@ export interface PromptPreview {
   requestedSource: PromptPreviewSource;
   contextSource: PromptPreviewSource;
   generatedAt: string;
-  project: ProjectSummary | null;
+  game: GameSummary | null;
   repoRoot: string;
   stateDir: string;
   graphDbPath: string;
@@ -279,9 +279,9 @@ export interface StandardExampleRecord {
 /** Source/tool inventory surfaced by the Knowledge Base. */
 export interface KnowledgeInventory {
   globalSources: string[];
-  projectSources: string[];
+  gameSources: string[];
   roots?: {
-    projectKnowledgeRoot?: string;
+    gameKnowledgeRoot?: string;
     sourcesRoot?: string;
     resourceGraphRoot?: string;
     graphDbPath?: string;
@@ -292,7 +292,7 @@ export interface KnowledgeInventory {
 
 /** Payload returned by GET /api/standards for the Knowledge Base surface. */
 export interface StandardsPayload {
-  project: ProjectSummary | null;
+  game: GameSummary | null;
   sourcePath: string;
   examplesPath?: string;
   records: StandardRecord[];

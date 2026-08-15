@@ -1,10 +1,10 @@
-import { defineAgent } from "@agent-kernel/kernel/agent-definition";
+import { defineHarnessAgent } from "@server/core/agent-catalog/agent-definition.js";
 
 import { context } from "./context.js";
 import { prompt } from "./prompt.js";
 import { tools } from "./tools.js";
 
-export const agent = defineAgent({
+export const agent = defineHarnessAgent({
   name: "librarian",
   description: "Serve three knowledge doors: condense inbound material, curate graph-safe knowledge and source-update proposals, and index PRs into searchable postmortems.",
   model: "codex-lb/gpt-5.6-sol",
@@ -20,7 +20,6 @@ export const agent = defineAgent({
   ],
   disallowedTools: [],
   extensions: false,
-  // @ts-ignore -- The current kernel pin omits this supported catalog field.
   canSpawnSubagent: false,
   variables: {},
   runInBackground: true,

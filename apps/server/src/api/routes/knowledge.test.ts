@@ -4,7 +4,7 @@ import { handleKnowledgeApiRoute, type KnowledgeActionProjection, type Knowledge
 function projection(enabled = true): KnowledgeActionProjection {
   return {
     action_id: "knowledge.process",
-    subject_kind: "project",
+    subject_kind: "game",
     subject_id: "knowledge-queue",
     enabled,
     blocked_by: enabled
@@ -28,7 +28,7 @@ function deps(overrides: Partial<KnowledgeApiRouteDeps> = {}): KnowledgeApiRoute
     json: (data, init) => Response.json(data, init),
     loadStandardsPayload: () => ({ standards: [] }),
     triggerBackgroundKnowledgeProcess: async () => ({ outcome: "succeeded", jobId: "job-1", revision: 1 }),
-    requestPaths: () => ({ project: { projectId: "melee" }, stateDir: "/tmp/state" }),
+    requestPaths: () => ({ game: { gameId: "melee" }, stateDir: "/tmp/state" }),
     ...overrides,
   };
 }
@@ -47,7 +47,7 @@ describe("handleKnowledgeApiRoute knowledge.process", () => {
     });
     const request = new Request("http://localhost/api/knowledge/process", {
       method: "POST",
-      body: JSON.stringify({ projectId: "melee" }),
+      body: JSON.stringify({ gameId: "melee" }),
       headers: { "content-type": "application/json" },
     });
 
@@ -55,7 +55,7 @@ describe("handleKnowledgeApiRoute knowledge.process", () => {
 
     expect(response?.status).toBe(200);
     expect(calls).toBe(1);
-    expect(receivedBody as unknown).toEqual({ projectId: "melee" });
+    expect(receivedBody as unknown).toEqual({ gameId: "melee" });
     expect(await response?.json()).toMatchObject({
       action_id: "knowledge.process",
       enabled: true,

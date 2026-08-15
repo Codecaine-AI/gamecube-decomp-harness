@@ -1,10 +1,10 @@
-import { defineAgent } from "@agent-kernel/kernel/agent-definition";
+import { defineHarnessAgent } from "@server/core/agent-catalog/agent-definition.js";
 
 import { context } from "./context.js";
 import { prompt } from "./prompt.js";
 import { tools } from "./tools.js";
 
-export const agent = defineAgent({
+export const agent = defineHarnessAgent({
   name: "qa-repair",
   description: "Repair deterministic QA findings in PR-bound candidate files before PR split planning, then report minimal edits for runner-owned validation.",
   model: "codex-lb/gpt-5.5",

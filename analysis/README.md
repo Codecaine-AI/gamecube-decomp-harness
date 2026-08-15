@@ -12,7 +12,7 @@ current attempt-tail and Pi worker tool-contribution work.
 ## Data Sources
 
 - Current epoch / checkpoint-backed analysis reads
-  `projects/melee/state/orchestrator.sqlite`, especially
+  `games/melee/state/orchestrator.sqlite`, especially
   `worker_checkpoints`, `worker_state`, `epoch_targets`, and `pi_sessions`.
 - Historical Pi tool-output analysis reads the same SQLite database plus the
   old worker transcript JSONL files in `.pi-sessions/worker/`.

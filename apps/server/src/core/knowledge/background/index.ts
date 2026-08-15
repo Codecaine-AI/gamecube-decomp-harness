@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Database } from "bun:sqlite";
-import { appendProjectEvent, eventSpan, type JsonObject } from "@server/core/project-state/events.js";
+import { appendGameEvent, eventSpan, type JsonObject } from "@server/core/harness-state/events.js";
 import { immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
 
 export type BackgroundKnowledgeJobStatus = "queued" | "processing" | "waiting" | "succeeded" | "failed" | "cancelled";
@@ -8,7 +8,7 @@ export type BackgroundKnowledgeJobStatus = "queued" | "processing" | "waiting" |
 export interface BackgroundKnowledgeJob {
   jobId: string;
   workerStateId: string;
-  projectId: string;
+  gameId: string;
   revision: number;
   status: BackgroundKnowledgeJobStatus;
   attempts: number;
@@ -57,7 +57,7 @@ export interface ProcessBackgroundKnowledgeResult {
 }
 
 interface JobRow {
-  job_id: string; worker_state_id: string; project_id: string; revision: number; status: BackgroundKnowledgeJobStatus;
+  job_id: string; worker_state_id: string; game_id: string; revision: number; status: BackgroundKnowledgeJobStatus;
   attempts: number; next_attempt_at: string | null; lease_id: string | null; lease_expires_at: string | null;
   execution_class: "background_safe" | "sync_stage"; source_kind: string; source_id: string;
   evidence_provenance_json: string; publication_provenance_json: string | null; published_digest: string | null; error_json: string | null;
@@ -72,7 +72,7 @@ function objectJson(value: string | null): JsonObject | null {
 
 function job(row: JobRow): BackgroundKnowledgeJob {
   return {
-    jobId: row.job_id, workerStateId: row.worker_state_id, projectId: row.project_id, revision: row.revision,
+    jobId: row.job_id, workerStateId: row.worker_state_id, gameId: row.game_id, revision: row.revision,
     status: row.status, attempts: row.attempts, nextAttemptAt: row.next_attempt_at, leaseId: row.lease_id,
     leaseExpiresAt: row.lease_expires_at, executionClass: row.execution_class, sourceClass: "worker_result",
     sourceKind: row.source_kind, sourceId: row.source_id, provenance: objectJson(row.evidence_provenance_json) ?? {},
@@ -106,8 +106,8 @@ function transition(store: StateStore, current: BackgroundKnowledgeJob, input: {
     if (!fresh || fresh.revision !== current.revision) throw new Error(`Stale background knowledge job revision ${current.revision} for ${current.jobId}`);
     if (fresh.status === "processing" && current.leaseId && fresh.leaseId !== current.leaseId) throw new Error(`Stale background knowledge lease for ${current.jobId}`);
     const occurredAt = now();
-    const event = appendProjectEvent(store.db, {
-      eventType: input.eventType, projectId: fresh.projectId, subjectKind: "knowledge_job", subjectId: fresh.jobId,
+    const event = appendGameEvent(store.db, {
+      eventType: input.eventType, gameId: fresh.gameId, subjectKind: "knowledge_job", subjectId: fresh.jobId,
       correlationId: fresh.jobId, causationId: fresh.causedByEventId, traceId: fresh.traceId, ...eventSpan(), actor: input.actor,
       occurredAt, payload: lifecyclePayload(fresh, fresh.status, input.to, input.extra),
     });
@@ -129,25 +129,25 @@ function enqueueWorkerInTransaction(store: StateStore, workerStateId: string): B
   const existing = store.db.query("SELECT * FROM background_knowledge_jobs WHERE worker_state_id = ?").get(workerStateId) as JobRow | null;
   if (existing) return job(existing);
   const source = store.db.query(`SELECT ws.id AS worker_state_id, ws.run_id, ws.lifecycle_status, ws.ended_at,
-    r.project_id, r.trace_id, r.caused_by_event_id FROM worker_state ws JOIN runs r ON r.id = ws.run_id WHERE ws.id = ?`).get(workerStateId) as
-    { worker_state_id: string; run_id: string; lifecycle_status: string; ended_at: string | null; project_id: string | null; trace_id: string | null; caused_by_event_id: string | null } | null;
+    r.game_id, r.trace_id, r.caused_by_event_id FROM worker_state ws JOIN runs r ON r.id = ws.run_id WHERE ws.id = ?`).get(workerStateId) as
+    { worker_state_id: string; run_id: string; lifecycle_status: string; ended_at: string | null; game_id: string | null; trace_id: string | null; caused_by_event_id: string | null } | null;
   if (!source || source.ended_at === null) throw new Error(`Completed worker state not found: ${workerStateId}`);
-  const projectId = source.project_id ?? "melee";
-  const traceId = source.trace_id ?? `trace-knowledge-${projectId}`;
+  const gameId = source.game_id ?? "melee";
+  const traceId = source.trace_id ?? `trace-knowledge-${gameId}`;
   const createdAt = source.ended_at;
   const id = `knowledge-job-worker-${workerStateId}`;
   const provenance = { worker_state_id: workerStateId, run_id: source.run_id, lifecycle_status: source.lifecycle_status };
-  const event = appendProjectEvent(store.db, {
-    eventType: "knowledge.job_enqueued", projectId, subjectKind: "knowledge_job", subjectId: id,
+  const event = appendGameEvent(store.db, {
+    eventType: "knowledge.job_enqueued", gameId, subjectKind: "knowledge_job", subjectId: id,
     correlationId: id, causationId: source.caused_by_event_id ?? id, traceId, ...eventSpan(), actor: "runner", occurredAt: createdAt,
     payload: { source_class: "worker_result", provenance, execution_class: "background_safe" },
   });
-  store.db.query(`INSERT INTO background_knowledge_jobs (job_id, worker_state_id, project_id, run_id, revision, status, attempts,
+  store.db.query(`INSERT INTO background_knowledge_jobs (job_id, worker_state_id, game_id, run_id, revision, status, attempts,
     next_attempt_at, lease_id, lease_expires_at, execution_class, source_kind, source_id,
     evidence_provenance_json, publication_provenance_json, published_digest, error_json, trace_id, caused_by_event_id,
     blockers_json, created_at, updated_at, completed_at)
     VALUES (?, ?, ?, ?, 0, 'queued', 0, NULL, NULL, NULL, 'background_safe', 'worker_state', ?, ?, NULL, NULL, NULL, ?, ?, '[]', ?, ?, NULL)
-    ON CONFLICT(worker_state_id) DO NOTHING`).run(id, workerStateId, projectId, source.run_id, workerStateId, JSON.stringify(provenance), traceId, event.eventId, createdAt, createdAt);
+    ON CONFLICT(worker_state_id) DO NOTHING`).run(id, workerStateId, gameId, source.run_id, workerStateId, JSON.stringify(provenance), traceId, event.eventId, createdAt, createdAt);
   return job((store.db.query("SELECT * FROM background_knowledge_jobs WHERE worker_state_id = ?").get(workerStateId) as JobRow));
 }
 
@@ -157,12 +157,12 @@ export function enqueueBackgroundKnowledgeForWorker(store: StateStore, workerSta
 }
 
 /** Idempotently discovers worker states completed before the queue existed. */
-export function catchUpBackgroundKnowledge(store: StateStore, projectId?: string): number {
+export function catchUpBackgroundKnowledge(store: StateStore, gameId?: string): number {
   return immediateTransaction(store.db, () => {
     const rows = store.db.query(`SELECT ws.id FROM worker_state ws JOIN runs r ON r.id = ws.run_id
       LEFT JOIN background_knowledge_jobs j ON j.worker_state_id = ws.id
-      WHERE ws.ended_at IS NOT NULL AND j.job_id IS NULL AND (? IS NULL OR COALESCE(r.project_id, 'melee') = ?)
-      ORDER BY ws.ended_at, ws.id`).all(projectId ?? null, projectId ?? null) as Array<{ id: string }>;
+      WHERE ws.ended_at IS NOT NULL AND j.job_id IS NULL AND (? IS NULL OR COALESCE(r.game_id, 'melee') = ?)
+      ORDER BY ws.ended_at, ws.id`).all(gameId ?? null, gameId ?? null) as Array<{ id: string }>;
     for (const row of rows) enqueueBackgroundKnowledgeForWorker(store, row.id);
     return rows.length;
   });
@@ -214,13 +214,13 @@ export function triggerBackgroundKnowledgeProcess(store: StateStore, processor: 
   return processBackgroundKnowledge(store, processor, { actor: "operator" });
 }
 
-export function queryBackgroundKnowledgeSummary(store: StateStore, projectId: string): BackgroundKnowledgeSummary {
-  const counts = Object.fromEntries((store.db.query("SELECT status, COUNT(*) count FROM background_knowledge_jobs WHERE project_id = ? GROUP BY status").all(projectId) as Array<{status:string;count:number}>).map(r => [r.status, Number(r.count)]));
-  const oldest = store.db.query("SELECT MIN(created_at) value FROM background_knowledge_jobs WHERE project_id = ? AND status IN ('queued','processing','waiting','failed')").get(projectId) as {value:string|null};
-  const lease = store.db.query("SELECT lease_id, lease_expires_at FROM background_knowledge_jobs WHERE project_id = ? AND status = 'processing' ORDER BY updated_at LIMIT 1").get(projectId) as {lease_id:string;lease_expires_at:string}|null;
-  const retry = store.db.query("SELECT next_attempt_at, attempts FROM background_knowledge_jobs WHERE project_id = ? AND status = 'waiting' ORDER BY next_attempt_at LIMIT 1").get(projectId) as {next_attempt_at:string;attempts:number}|null;
-  const failures = store.db.query("SELECT job_id, worker_state_id, error_json, attempts, updated_at FROM background_knowledge_jobs WHERE project_id = ? AND error_json IS NOT NULL ORDER BY updated_at DESC LIMIT 5").all(projectId) as Array<{job_id:string;worker_state_id:string;error_json:string;attempts:number;updated_at:string}>;
-  const revision = store.db.query("SELECT revision FROM knowledge_revisions WHERE project_id = ? ORDER BY revision DESC LIMIT 1").get(projectId) as {revision:number}|null;
+export function queryBackgroundKnowledgeSummary(store: StateStore, gameId: string): BackgroundKnowledgeSummary {
+  const counts = Object.fromEntries((store.db.query("SELECT status, COUNT(*) count FROM background_knowledge_jobs WHERE game_id = ? GROUP BY status").all(gameId) as Array<{status:string;count:number}>).map(r => [r.status, Number(r.count)]));
+  const oldest = store.db.query("SELECT MIN(created_at) value FROM background_knowledge_jobs WHERE game_id = ? AND status IN ('queued','processing','waiting','failed')").get(gameId) as {value:string|null};
+  const lease = store.db.query("SELECT lease_id, lease_expires_at FROM background_knowledge_jobs WHERE game_id = ? AND status = 'processing' ORDER BY updated_at LIMIT 1").get(gameId) as {lease_id:string;lease_expires_at:string}|null;
+  const retry = store.db.query("SELECT next_attempt_at, attempts FROM background_knowledge_jobs WHERE game_id = ? AND status = 'waiting' ORDER BY next_attempt_at LIMIT 1").get(gameId) as {next_attempt_at:string;attempts:number}|null;
+  const failures = store.db.query("SELECT job_id, worker_state_id, error_json, attempts, updated_at FROM background_knowledge_jobs WHERE game_id = ? AND error_json IS NOT NULL ORDER BY updated_at DESC LIMIT 5").all(gameId) as Array<{job_id:string;worker_state_id:string;error_json:string;attempts:number;updated_at:string}>;
+  const revision = store.db.query("SELECT revision FROM knowledge_revisions WHERE game_id = ? ORDER BY revision DESC LIMIT 1").get(gameId) as {revision:number}|null;
   return { publishedRevision: revision ? `knowledge-${Number(revision.revision)}` : null, queued: counts.queued ?? 0, processing: counts.processing ?? 0, waiting: counts.waiting ?? 0, failed: counts.failed ?? 0,
     oldestPendingAt: oldest.value, activeLease: lease ? { id: lease.lease_id, expiresAt: lease.lease_expires_at } : null,
     retry: retry ? { nextAttemptAt: retry.next_attempt_at, attempts: retry.attempts } : null,

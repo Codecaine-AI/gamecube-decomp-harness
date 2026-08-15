@@ -6,18 +6,18 @@ import { TraceSource, type TraceEvent } from "@agent-kernel/protocol";
 
 import { openState } from "@server/core/orchestrator-state";
 import {
-  createProjectSession,
-  getProjectSessionById,
-  mergeProjectSessionKernelTrace,
-  transitionProjectSession,
-} from "@server/core/project-session/store.js";
-import type { ProjectRuntimeContext } from "@server/core/project-registry";
+  createCycle,
+  getCycleById,
+  mergeCycleKernelTrace,
+  transitionCycle,
+} from "@server/core/cycle/store.js";
+import type { GameRuntimeContext } from "@server/core/game-registry";
 import type { MeleeKernelRuntime } from "./bridge/runtime.js";
 import { createMeleeTraceWriter } from "./bridge/trace-writer.js";
 import {
   createDashboardKernelRuntimeService,
   KernelTraceCursorPersistenceError,
-  persistProjectSessionKernelTraceLinkage,
+  persistCycleKernelTraceLinkage,
   resolveWorkflowTraceLinkage,
 } from "./runtime.js";
 
@@ -30,33 +30,33 @@ afterEach(() => {
 });
 
 describe("dashboard kernel trace linkage persistence", () => {
-  test("records kernel identity and the last project-event cursor", () => {
+  test("records kernel identity and the last game-event cursor", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-"));
     tempDirs.push(stateDir);
     const store = openState(stateDir);
-    const created = createProjectSession(store.db, {
+    const created = createCycle(store.db, {
       actor: "operator",
-      id: "project-session:session-runtime",
-      projectId: "melee",
-      sessionUuid: "session-runtime",
+      id: "cycle:cycle-runtime",
+      gameId: "melee",
+      cycleUuid: "cycle-runtime",
     });
-    mergeProjectSessionKernelTrace(store.db, created.id, {
+    mergeCycleKernelTrace(store.db, created.id, {
       collector: { retained: true },
     });
     store.db.close();
 
-    persistProjectSessionKernelTraceLinkage(
+    persistCycleKernelTraceLinkage(
       stateDir,
       "melee",
-      "session-runtime",
+      "cycle-runtime",
       {
         activeContainerId: "container-active",
-        appSessionId: "app-session-runtime",
+        appSessionId: "app-cycle-runtime",
         rootContainerId: "container-root",
         traceUrl: "/trace?containerId=container-active",
-        projectEventId: created.caused_by_event_id!,
+        gameEventId: created.caused_by_event_id!,
         kernelEventId: "kernel-event-runtime",
-        correlationId: "session-runtime",
+        correlationId: "cycle-runtime",
         causedByEventId: null,
         linkedAt: "2026-08-13T13:00:00.000Z",
       },
@@ -64,16 +64,16 @@ describe("dashboard kernel trace linkage persistence", () => {
 
     const reopened = openState(stateDir);
     try {
-      expect(getProjectSessionById(reopened.db, created.id)?.kernel_trace_json).toMatchObject({
-        app_session_id: "app-session-runtime",
+      expect(getCycleById(reopened.db, created.id)?.kernel_trace_json).toMatchObject({
+        app_session_id: "app-cycle-runtime",
         root_container_id: "container-root",
         active_container_id: "container-active",
         trace_url: "/trace?containerId=container-active",
         collector: { retained: true },
         last_linkage_cursor: {
-          project_event_id: created.caused_by_event_id,
+          game_event_id: created.caused_by_event_id,
           kernel_event_id: "kernel-event-runtime",
-          correlation_id: "session-runtime",
+          correlation_id: "cycle-runtime",
           caused_by_event_id: null,
           linked_at: "2026-08-13T13:00:00.000Z",
         },
@@ -83,37 +83,37 @@ describe("dashboard kernel trace linkage persistence", () => {
     }
   });
 
-  test("requires exact, project-scoped linkage and preserves event causation", () => {
+  test("requires exact, game-scoped linkage and preserves event causation", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-scope-"));
     tempDirs.push(stateDir);
     const store = openState(stateDir);
-    const created = createProjectSession(store.db, {
+    const created = createCycle(store.db, {
       actor: "operator",
-      id: "project-session:session-scope",
-      projectId: "melee",
-      sessionUuid: "session-scope",
+      id: "cycle:session-scope",
+      gameId: "melee",
+      cycleUuid: "session-scope",
     });
-    const other = createProjectSession(store.db, {
+    const other = createCycle(store.db, {
       actor: "operator",
-      id: "project-session:session-other-project",
-      projectId: "other-project",
-      sessionUuid: "session-other-project",
+      id: "cycle:session-other-game",
+      gameId: "other-game",
+      cycleUuid: "session-other-game",
     });
-    const transitioned = transitionProjectSession(store.db, created.id, {
+    const transitioned = transitionCycle(store.db, created.id, {
       actor: "runner",
       causationId: created.caused_by_event_id!,
       commandId: "command-session-running",
-      correlationId: created.session_uuid,
-      eventType: "session.running_started",
+      correlationId: created.cycle_uuid,
+      eventType: "cycle.running_started",
       expectedRevision: created.revision,
       patch: { phase: "running" },
     });
-    const crossProjectCause = transitionProjectSession(store.db, other.id, {
+    const crossGameCause = transitionCycle(store.db, other.id, {
       actor: "runner",
       causationId: created.caused_by_event_id!,
-      commandId: "command-cross-project-cause",
-      correlationId: other.session_uuid,
-      eventType: "session.running_started",
+      commandId: "command-cross-game-cause",
+      correlationId: other.cycle_uuid,
+      eventType: "cycle.running_started",
       expectedRevision: other.revision,
       patch: { phase: "running" },
     });
@@ -121,47 +121,47 @@ describe("dashboard kernel trace linkage persistence", () => {
 
     const baseInput = {
       kind: "session" as const,
-      operation: "session.running",
-      correlationId: created.session_uuid,
-      projectEventId: created.caused_by_event_id!,
+      operation: "cycle.running",
+      correlationId: created.cycle_uuid,
+      gameEventId: created.caused_by_event_id!,
       causedByEventId: null,
     };
     expect(resolveWorkflowTraceLinkage(stateDir, "melee", baseInput)).toEqual({
-      correlationId: created.session_uuid,
-      projectEventId: created.caused_by_event_id!,
+      correlationId: created.cycle_uuid,
+      gameEventId: created.caused_by_event_id!,
       causedByEventId: null,
     });
     expect(
       resolveWorkflowTraceLinkage(stateDir, "melee", {
         ...baseInput,
-        projectEventId: transitioned.caused_by_event_id!,
+        gameEventId: transitioned.caused_by_event_id!,
         causedByEventId: created.caused_by_event_id,
       }),
     ).toEqual({
-      correlationId: created.session_uuid,
-      projectEventId: transitioned.caused_by_event_id!,
+      correlationId: created.cycle_uuid,
+      gameEventId: transitioned.caused_by_event_id!,
       causedByEventId: created.caused_by_event_id,
     });
 
     expect(() =>
       resolveWorkflowTraceLinkage(stateDir, "melee", {
         ...baseInput,
-        projectEventId: other.caused_by_event_id!,
-        correlationId: other.session_uuid,
+        gameEventId: other.caused_by_event_id!,
+        correlationId: other.cycle_uuid,
       }),
-    ).toThrow(`was not found in project melee`);
+    ).toThrow(`was not found in game melee`);
     expect(() =>
       resolveWorkflowTraceLinkage(stateDir, "melee", {
         ...baseInput,
-        projectEventId: undefined,
+        gameEventId: undefined,
       }),
-    ).toThrow("projectEventId must be a nonblank string");
+    ).toThrow("gameEventId must be a nonblank string");
     expect(() =>
       resolveWorkflowTraceLinkage(stateDir, "melee", {
         ...baseInput,
         correlationId: "unrelated-correlation",
       }),
-    ).toThrow("does not match project event");
+    ).toThrow("does not match game event");
     expect(() =>
       resolveWorkflowTraceLinkage(stateDir, "melee", {
         ...baseInput,
@@ -169,23 +169,23 @@ describe("dashboard kernel trace linkage persistence", () => {
       }),
     ).toThrow("does not match persisted causation");
     expect(() =>
-      resolveWorkflowTraceLinkage(stateDir, "other-project", {
+      resolveWorkflowTraceLinkage(stateDir, "other-game", {
         ...baseInput,
-        correlationId: other.session_uuid,
-        projectEventId: crossProjectCause.caused_by_event_id!,
+        correlationId: other.cycle_uuid,
+        gameEventId: crossGameCause.caused_by_event_id!,
       }),
-    ).toThrow("has cross-project causation");
+    ).toThrow("has cross-game causation");
   });
 
   test("throws cursor failures and retries the same kernel event id", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-retry-"));
     tempDirs.push(stateDir);
     const store = openState(stateDir);
-    const created = createProjectSession(store.db, {
+    const created = createCycle(store.db, {
       actor: "operator",
-      id: "project-session:session-retry",
-      projectId: "melee",
-      sessionUuid: "session-retry",
+      id: "cycle:session-retry",
+      gameId: "melee",
+      cycleUuid: "session-retry",
     });
     store.db.close();
 
@@ -221,28 +221,28 @@ describe("dashboard kernel trace linkage persistence", () => {
       json: (data, init) => Response.json(data, init),
       latestRunId: () => "",
       packageRoot: "/repo",
-      persistProjectSessionKernelTraceLinkage: () => {
+      persistCycleKernelTraceLinkage: () => {
         throw new Error("simulated cursor write failure");
       },
       port: 8787,
     });
-    const paths: ProjectRuntimeContext = {
+    const paths: GameRuntimeContext = {
       graphDbPath: "/repo/graph.db",
-      project: null,
+      game: null,
       repoRoot: "/repo",
       stateDir,
       usePathOverrides: true,
     };
     const input = {
       kind: "session" as const,
-      operation: "session.opened",
+      operation: "cycle.opened",
       status: "completed" as const,
-      sessionId: created.session_uuid,
-      correlationId: created.session_uuid,
-      projectEventId: created.caused_by_event_id!,
+      sessionId: created.cycle_uuid,
+      correlationId: created.cycle_uuid,
+      gameEventId: created.caused_by_event_id!,
       causedByEventId: null,
       metadata: {
-        projectId: "spoofed-project",
+        gameId: "spoofed-game",
         correlation_id: "spoofed-correlation",
       },
     };
@@ -259,10 +259,10 @@ describe("dashboard kernel trace linkage persistence", () => {
     expect(persistedKernelEvents.values().next().value).toMatchObject({
       source: TraceSource.APP,
       eventData: {
-        projectId: "melee",
-        sessionId: created.session_uuid,
-        correlation_id: created.session_uuid,
-        project_event_id: created.caused_by_event_id,
+        gameId: "melee",
+        sessionId: created.cycle_uuid,
+        correlation_id: created.cycle_uuid,
+        game_event_id: created.caused_by_event_id,
         caused_by_event_id: null,
       },
     });

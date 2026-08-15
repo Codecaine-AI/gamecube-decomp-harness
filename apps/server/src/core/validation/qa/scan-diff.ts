@@ -16,7 +16,7 @@
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
-import type { RunProjectMetadata } from "@server/core/shared/types";
+import type { RunGameMetadata } from "@server/core/shared/types";
 import { resolveRegisteredTool } from "@server/core/tools/resolver";
 
 export type QaScanSeverity = "error" | "warning";
@@ -60,13 +60,13 @@ export interface QaScanInvocation {
 }
 
 export interface RunQaScanDiffOptions {
-  /** Melee (target project) repo root the diff lives in. */
+  /** Melee (target game) repo root the diff lives in. */
   repoRoot: string;
   /** Orchestrator root. Kept for compatibility with older callers. */
   orchestratorRoot: string;
-  /** Project metadata used to resolve project tool bindings when available. */
-  project?: RunProjectMetadata;
-  /** Project state dir used to resolve tool cache/worktree roots when available. */
+  /** Game metadata used to resolve game tool bindings when available. */
+  game?: RunGameMetadata;
+  /** Game state dir used to resolve tool cache/worktree roots when available. */
   stateDir?: string;
   /** Explicit worktree id for parallel validation worktrees. */
   worktreeId?: string;
@@ -168,7 +168,7 @@ function cleanResultFromExitZero(options: RunQaScanDiffOptions, stderr: string):
 export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaScanInvocation> {
   const resolved = resolveRegisteredTool(
     {
-      project: options.project,
+      game: options.game,
       repoRoot: options.repoRoot,
       stateDir: options.stateDir,
       worktreeId: options.worktreeId,

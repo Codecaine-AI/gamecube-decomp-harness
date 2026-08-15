@@ -2,7 +2,7 @@
  * Public entry point for agent Pi tool composition.
  *
  * Consumers should resolve profiles through this module instead of importing
- * individual tool files directly. That leaves room for project-local overrides,
+ * individual tool files directly. That leaves room for game-local overrides,
  * role-specific bundles, and future Pi extension packaging.
  */
 export { agentToolRegistry, agentToolSummary, createAgentTools, type AgentToolId } from "./runtime/registry.js";

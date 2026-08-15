@@ -38,10 +38,10 @@ import {
 import { rankFeatureForSourcePath } from "@server/core/knowledge/graph/rank";
 import { shortHash, stringValue, truncate } from "@server/core/knowledge/graph/util";
 import { resolveRegisteredTool, type ToolRuntimeContext } from "@server/core/tools/resolver";
-import { addPiSession } from "@server/core/session-runtime/run-state";
-import { openState } from "@server/core/session-runtime/run-state";
-import type { GlobalArgs } from "@server/core/project-registry/runtime-options.js";
-import { booleanArg, numberArg, projectMetadata, stringArg } from "@server/core/project-registry/runtime-options.js";
+import { addPiSession } from "@server/core/cycle-runtime/run-state";
+import { openState } from "@server/core/cycle-runtime/run-state";
+import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { booleanArg, numberArg, gameMetadata, stringArg } from "@server/core/game-registry/runtime-options.js";
 
 interface SpawnSummary {
   tool?: string;
@@ -165,13 +165,13 @@ export async function kgStatus(globals: GlobalArgs, args: Map<string, string | t
   const dbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
   const exists = graphDbExists(dbPath);
   const payload: Record<string, unknown> = {
-    project: globals.project
+    game: globals.game
       ? {
-          id: globals.project.projectId,
-          display_name: globals.project.displayName,
-          kind: globals.project.kind,
-          repo_root: globals.project.repoRoot,
-          state_dir: globals.project.stateDir,
+          id: globals.game.gameId,
+          display_name: globals.game.displayName,
+          kind: globals.game.kind,
+          repo_root: globals.game.repoRoot,
+          state_dir: globals.game.stateDir,
         }
       : null,
     graph_db: dbPath,
@@ -410,9 +410,9 @@ async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMai
 }
 
 function toolRunnerRepoRoot(context: ToolRuntimeContext, toolId: string): { repoRoot: string; fallbackReason?: string } {
-  const requested = context.repoRoot ?? context.project?.repoRoot ?? "";
+  const requested = context.repoRoot ?? context.game?.repoRoot ?? "";
   if (toolId !== "opseq") return { repoRoot: requested };
-  const candidates = [requested, context.project?.repoRoot ?? ""].filter((value, index, values) => value && values.indexOf(value) === index);
+  const candidates = [requested, context.game?.repoRoot ?? ""].filter((value, index, values) => value && values.indexOf(value) === index);
   const withAsm = candidates.find(hasOpseqBuildArtifacts);
   if (withAsm && withAsm !== requested) {
     return {
@@ -475,18 +475,18 @@ export async function kgPrIndexerAgent(globals: GlobalArgs, args: Map<string, st
 
   const context = JSON.parse(readFileSync(contextPath, "utf8")) as Record<string, unknown>;
   const prNumber = stringArg(args, "--pr", String((context.pr as { number?: unknown } | undefined)?.number ?? ""));
-  const runId = stringArg(args, "--run-id", stringArg(args, "--session-id", prNumber ? `pr-postmortem-${prNumber}` : "pr-postmortem"));
+  const runId = stringArg(args, "--run-id", prNumber ? `pr-postmortem-${prNumber}` : "pr-postmortem");
   const itemId = stringArg(args, "--item-id", prNumber ? `pr-${prNumber}` : "postmortem");
   const epochId = stringArg(args, "--epoch-id", "knowledge");
   const prepareIntake = booleanArg(args, "--prepare-intake");
-  const kernelProjectId = stringArg(args, "--kernel-project-id", globals.project?.projectId ?? globals.projectId ?? "");
+  const kernelGameId = stringArg(args, "--kernel-project-id", globals.game?.gameId ?? globals.gameId ?? "");
   const outputDir = stringArg(args, "--agent-output-dir", resolve(globals.stateDir, "pr_postmortems", runId));
   const prompt = librarianPrompt({
     door: "pr_indexing",
     prContext: context,
     repoRoot: globals.repoRoot,
     stateDir: globals.stateDir,
-    project: projectMetadata(globals),
+    game: gameMetadata(globals),
   });
 
   const systemPromptOutput = stringArg(args, "--system-prompt-output", "");
@@ -514,12 +514,12 @@ export async function kgPrIndexerAgent(globals: GlobalArgs, args: Map<string, st
     toolContext: {
       repoRoot: globals.repoRoot,
       stateDir: globals.stateDir,
-      project: globals.project,
+      game: globals.game,
     },
     kernelSpawnStrategy: globals.dryRunAgents ? "auto" : "kernel",
     kernelContext: createMeleeKernelSpawnContext({
       kind: prepareIntake ? "intake-postmortem" : "postmortem",
-      projectId: kernelProjectId || undefined,
+      gameId: kernelGameId || undefined,
       sessionId: runId,
       runId,
       epochId,
@@ -570,9 +570,9 @@ export async function kgKnowledgeIntakeAgent(globals: GlobalArgs, args: Map<stri
   const postmortem = JSON.parse(readFileSync(postmortemPath, "utf8")) as Record<string, unknown>;
   const pr = postmortem.pr && typeof postmortem.pr === "object" && !Array.isArray(postmortem.pr) ? (postmortem.pr as Record<string, unknown>) : {};
   const prNumber = stringArg(args, "--pr", String(pr.number ?? ""));
-  const runId = stringArg(args, "--run-id", stringArg(args, "--session-id", prNumber ? `pr-knowledge-intake-${prNumber}` : "pr-knowledge-intake"));
+  const runId = stringArg(args, "--run-id", prNumber ? `pr-knowledge-intake-${prNumber}` : "pr-knowledge-intake");
   const itemId = stringArg(args, "--item-id", prNumber ? `pr-${prNumber}` : "knowledge-intake");
-  const kernelProjectId = stringArg(args, "--kernel-project-id", globals.project?.projectId ?? globals.projectId ?? "");
+  const kernelGameId = stringArg(args, "--kernel-project-id", globals.game?.gameId ?? globals.gameId ?? "");
   const enrichmentPath = stringArg(args, "--knowledge-curator-enrichment", stringArg(args, "--output", knowledgeCuratorEnrichmentPath()));
   const deterministicRecords = curatedPrRecordsForPostmortem(postmortemPath);
   const deterministicSourceProposals = sourceUpdateProposalRecords(deterministicRecords);
@@ -582,7 +582,7 @@ export async function kgKnowledgeIntakeAgent(globals: GlobalArgs, args: Map<stri
     door: "curation",
     repoRoot: globals.repoRoot,
     stateDir: globals.stateDir,
-    project: globals.project,
+    game: globals.game,
     curatorContext: {
       mode: "prepare_pr_knowledge_intake",
       enrichment_path: enrichmentPath,
@@ -618,12 +618,12 @@ export async function kgKnowledgeIntakeAgent(globals: GlobalArgs, args: Map<stri
     toolContext: {
       repoRoot: globals.repoRoot,
       stateDir: globals.stateDir,
-      project: globals.project,
+      game: globals.game,
     },
     kernelSpawnStrategy: globals.dryRunAgents ? "auto" : "kernel",
     kernelContext: createMeleeKernelSpawnContext({
       kind: "intake-knowledge",
-      projectId: kernelProjectId || undefined,
+      gameId: kernelGameId || undefined,
       sessionId: runId,
       runId,
       itemId,
@@ -750,7 +750,7 @@ function knowledgeRepoRoot(globals: GlobalArgs): string {
 
 function knowledgeToolContext(globals: GlobalArgs): ToolRuntimeContext {
   return {
-    project: globals.project,
+    game: globals.game,
     repoRoot: globals.repoRoot,
     stateDir: globals.stateDir,
   };
@@ -792,8 +792,8 @@ async function runPrPostmortemIndex(globals: GlobalArgs, args: Map<string, strin
   ];
   const runId = stringArg(args, "--run-id", "");
   if (runId) command.push("--orchestrator-run-id", runId);
-  const projectId = globals.project?.projectId ?? globals.projectId;
-  if (projectId) command.push("--orchestrator-project-id", projectId);
+  const gameId = globals.game?.gameId ?? globals.gameId;
+  if (gameId) command.push("--orchestrator-project-id", gameId);
   const kernelDatabaseUrl = Bun.env.ORCH_AGENT_KERNEL_DATABASE_URL ?? Bun.env.AGENT_KERNEL_DATABASE_URL;
   if (kernelDatabaseUrl) command.push("--orchestrator-kernel-database-url", kernelDatabaseUrl);
   const prIndexerServerJobEntry = Bun.env.ORCH_PR_INDEXER_SERVER_JOB_ENTRY;
@@ -846,7 +846,7 @@ async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, strin
         door: "curation",
         repoRoot: globals.repoRoot,
         stateDir: globals.stateDir,
-        project: globals.project,
+        game: globals.game,
         curatorContext: {
           enrichment_path: enrichmentPath,
           deterministic_record_count: deterministicRecordCount,
@@ -867,11 +867,11 @@ async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, strin
       toolContext: {
         repoRoot: globals.repoRoot,
         stateDir: globals.stateDir,
-        project: globals.project,
+        game: globals.game,
       },
       kernelContext: createMeleeKernelSpawnContext({
         kind: "knowledge-curation",
-        projectId: globals.project?.projectId ?? globals.projectId,
+        gameId: globals.game?.gameId ?? globals.gameId,
         sessionId: runId || "knowledge-curation",
         runId: runId || "knowledge-curation",
         phase: "knowledge-curation",

@@ -2,7 +2,7 @@ import type { QaScanFinding, QaScanResult } from "./scan-diff.js";
 import type {
   WideningRequest,
   WriteSetEntry,
-} from "@server/core/session-runtime/run-state/write-set-categories";
+} from "@server/core/cycle-runtime/run-state/write-set-categories";
 
 export const QA_REPAIR_QUEUE_SCHEMA_VERSION = "qa_repair_queue_v1";
 export const QA_REPAIR_QUEUE_ITEM_SCHEMA_VERSION = "qa_repair_queue_item_v2";

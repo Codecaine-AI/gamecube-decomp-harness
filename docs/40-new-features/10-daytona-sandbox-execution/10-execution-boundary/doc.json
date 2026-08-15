@@ -1,0 +1,469 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-10-execution-boundary",
+  "title": "Execution Boundary",
+  "root": "b-day-exec-root",
+  "blocks": {
+    "b-day-exec-root": {
+      "id": "b-day-exec-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "sandbox",
+          "execution-envelope",
+          "bash-operations",
+          "file-tools",
+          "worker-workspace"
+        ]
+      },
+      "children": [
+        "b-day-exec-1",
+        "b-day-exec-2",
+        "b-day-exec-3",
+        "b-day-exec-4",
+        "b-day-exec-5",
+        "b-day-exec-6",
+        "b-day-exec-7",
+        "b-day-exec-8",
+        "b-day-exec-9",
+        "b-day-exec-10",
+        "b-day-exec-11",
+        "b-day-exec-12",
+        "b-day-exec-13",
+        "b-day-exec-14",
+        "b-day-exec-15",
+        "b-day-exec-16",
+        "b-day-exec-17",
+        "b-day-exec-18",
+        "b-day-exec-19",
+        "b-day-exec-20",
+        "b-day-exec-21",
+        "b-day-exec-22"
+      ]
+    },
+    "b-day-exec-1": {
+      "id": "b-day-exec-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "The sandbox is where a worker's commands run and its files live; the worker process on the orchestrator host is where the worker thinks. Every shell command, file edit, incremental build, and score executes inside the claim's sandbox, while the Pi agent session, model access, knowledge tools, and telemetry never leave the host. The routing rule is one sentence: work that needs the build tree runs in the sandbox; work that needs a knowledge corpus runs on the host."
+        }
+      ]
+    },
+    "b-day-exec-2": {
+      "id": "b-day-exec-2",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-13) — worker workspaces materialize inside sandboxes",
+        "tone": "success"
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "A worker workspace materializes inside the claim's sandbox from the game image plus the claim's base-revision seed, superseding the per-worker "
+        },
+        {
+          "insert": "git worktree",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " branched from cycle current. The isolation contract — one worker, one claim, one bounded source space — is unchanged; only the mechanism moves."
+        }
+      ]
+    },
+    "b-day-exec-3": {
+      "id": "b-day-exec-3",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-13) — the agent process stays host-side",
+        "tone": "success"
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Sandboxes execute commands and hold files; the agent loop, model calls, and dispatch authority remain in the host worker process. Relocating the whole worker process into the VM is rejected for v1."
+        }
+      ]
+    },
+    "b-day-exec-4": {
+      "id": "b-day-exec-4",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Why the Workspace Leaves the Cycle Checkout"
+        }
+      ]
+    },
+    "b-day-exec-5": {
+      "id": "b-day-exec-5",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "The "
+        },
+        {
+          "insert": "write-safety workspace rule",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/50-workflows/20-run/40-workers/30-write-safety/00-overview.md",
+              "label": "write-safety workspace rule"
+            }
+          }
+        },
+        {
+          "insert": " already states that worker workspaces are the normal execution surface and the main checkout is the canonical integration surface; sandboxes strengthen that boundary rather than bend it:"
+        }
+      ]
+    },
+    "b-day-exec-6": {
+      "id": "b-day-exec-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "A sandbox-resident workspace shares nothing with the cycle checkout — no parent object database, no symlinked toolchain, no shared filesystem — so the classes of cross-worker interference the write-set machinery guards against cannot occur at the filesystem layer at all."
+        }
+      ]
+    },
+    "b-day-exec-7": {
+      "id": "b-day-exec-7",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "The "
+        },
+        {
+          "insert": "cycle operating flow",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/50-workflows/10-sync/00-overview.md",
+              "label": "cycle operating flow"
+            }
+          }
+        },
+        {
+          "insert": " container model names the kernel container as the traceable execution envelope and allows an OS container for process isolation without requiring one; the sandbox is that OS container, realized."
+        }
+      ]
+    },
+    "b-day-exec-8": {
+      "id": "b-day-exec-8",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "The category-typed write set, the necessity ladder, and widening decisions still bound what a worker may edit; the runner enforces them against the patch the sandbox returns, exactly as it enforces them against a worktree diff."
+        }
+      ]
+    },
+    "b-day-exec-9": {
+      "id": "b-day-exec-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "What Runs Where"
+        }
+      ]
+    },
+    "b-day-exec-10": {
+      "id": "b-day-exec-10",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Component",
+          "Why it stays"
+        ],
+        "rows": [
+          [
+            "Run director loop, admission, epoch cycle, dispatch authority",
+            "Scheduling and the dispatch lease are harness-state concerns; a sandbox is capacity, not an actor"
+          ],
+          [
+            "Pi agent session and model calls",
+            "codex-lb is a loopback service; moving the agent session means exposing the proxy and shipping secrets into every VM"
+          ],
+          [
+            "Prompt assembly and corpus-backed knowledge tools (code_graph_*, past_prs_search, opseq, ghidra, mismatch_db, type_oracle, mwcc_debug_lookup)",
+            "Backed by the 1.5 GB graph store and 592 MB shared tool-data on host disk; in-process closures keep tool telemetry interception intact"
+          ],
+          [
+            "Runner validation records, checkpoints, worker states, facts",
+            "Durable state records are runner-owned; the sandbox only executes their commands"
+          ],
+          [
+            "Serial integration, confirmation, head lineage, save points",
+            "The cycle owns head lineage; integration commits and the epoch-close transaction never leave the host"
+          ]
+        ],
+        "title": "Host-side (unchanged by this feature)"
+      },
+      "children": []
+    },
+    "b-day-exec-11": {
+      "id": "b-day-exec-11",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Component",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "The worker workspace: source tree, toolchain, build state",
+            "Materialized from the game image; see Sandbox Contents"
+          ],
+          [
+            "All bash and edit activity from the model",
+            "Routed through the exec and file APIs"
+          ],
+          [
+            "Runner validation commands: incremental unit build and objdiff scoring",
+            "The records stay host-owned; only the command execution is remote"
+          ],
+          [
+            "Build-coupled Python tools: checkdiff, direct compile, score candidate, source permuter, mutation preview, review lint, mwcc_debug diagnostics",
+            "Co-located with the build tree; toolpack scripts ship in the image"
+          ],
+          [
+            "Corpus tools that also read workspace files (m2c_decompile notably)",
+            "Run sandbox-side or fetch the file first; audited per tool"
+          ]
+        ],
+        "title": "Sandbox-side"
+      },
+      "children": []
+    },
+    "b-day-exec-12": {
+      "id": "b-day-exec-12",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "The Bash Operations Seam"
+        }
+      ]
+    },
+    "b-day-exec-13": {
+      "id": "b-day-exec-13",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "The model's "
+        },
+        {
+          "insert": "bash",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " tool is constructed with an injectable operations object, and that injection point is the entire integration surface for agent-driven execution:"
+        }
+      ]
+    },
+    "b-day-exec-14": {
+      "id": "b-day-exec-14",
+      "type": "code",
+      "props": {
+        "language": "typescript"
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "// kernel-pi-runner.ts — the seam\npi.registerTool(createBashToolDefinition(options.cwd, { operations: sandboxBashOperations(claim) }))"
+        }
+      ]
+    },
+    "b-day-exec-15": {
+      "id": "b-day-exec-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "A Daytona-backed "
+        },
+        {
+          "insert": "{ exec(command, cwd, options) }",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " implementation routes every agent shell command into the claim's sandbox with zero changes to the agent, prompt, or scheduler; the model sees identical tool semantics."
+        }
+      ]
+    },
+    "b-day-exec-16": {
+      "id": "b-day-exec-16",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "The wrapper stays in-process on the host, so per-call tool telemetry and abort/timeout handling work exactly as they do for local execution."
+        }
+      ]
+    },
+    "b-day-exec-17": {
+      "id": "b-day-exec-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Host-side validation and configure commands funnel through the shell chokepoint ("
+        },
+        {
+          "insert": "runCommand",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "); the worker-scoped call sites route through the same sandbox exec path."
+        }
+      ]
+    },
+    "b-day-exec-18": {
+      "id": "b-day-exec-18",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "File Tools Against a Remote Workspace"
+        }
+      ]
+    },
+    "b-day-exec-19": {
+      "id": "b-day-exec-19",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "The sandbox holds the only copy of the workspace, so every file-touching tool crosses the wire, each call one HTTPS round trip against multi-second model turns:"
+        }
+      ]
+    },
+    "b-day-exec-20": {
+      "id": "b-day-exec-20",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Tool",
+          "Sandbox-backed implementation"
+        ],
+        "rows": [
+          [
+            "bash",
+            "operations.exec into the claim's sandbox exec session"
+          ],
+          [
+            "read",
+            "file download from the workspace path"
+          ],
+          [
+            "edit",
+            "download, exact-string replace host-side, upload — or a one-round-trip edit-applier script shipped in the image"
+          ],
+          [
+            "grep / glob",
+            "ripgrep and find executed inside the sandbox"
+          ],
+          [
+            "write",
+            "disabled for workers; stays disabled"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-day-exec-21": {
+      "id": "b-day-exec-21",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "Built-ins that cannot be redirected are excluded ("
+        },
+        {
+          "insert": "excludeBuiltinTools",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", the mechanism that disables "
+        },
+        {
+          "insert": "write",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for workers) and replaced by sandbox-backed registrations under the same tool names. A host-side read cache invalidated on any write or exec is the escape hatch if read-heavy loops dominate latency traces."
+        }
+      ]
+    },
+    "b-day-exec-22": {
+      "id": "b-day-exec-22",
+      "type": "callout",
+      "props": {
+        "kind": "proposal",
+        "title": "Named deviation — whole-worker relocation, rejected for v1",
+        "tone": "info"
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Running the worker process itself inside the VM would require kernel database reachability, a routable model proxy, plaintext secrets in every sandbox, vendoring the out-of-tree agent-kernel packages, and would sever in-process tool telemetry. It remains a possible later phase, not a v1 option."
+        }
+      ]
+    }
+  }
+}

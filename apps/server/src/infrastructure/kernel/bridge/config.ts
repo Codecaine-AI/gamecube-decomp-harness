@@ -1,16 +1,20 @@
 import { resolve } from "node:path";
 
-import type { NewKernelRegistration } from "@agent-kernel/db";
-
 export const MELEE_KERNEL_ID = "melee-decomp-orchestrator";
 export const MELEE_KERNEL_DISPLAY_NAME = "Melee Decomp Orchestrator";
 export const MELEE_DASHBOARD_PROCESS_NAME = "melee-live";
+
+export interface MeleeKernelMarkerConfig {
+  sessionBinding: string;
+  lifecycle: string;
+  subagentLink: string;
+}
 
 export const MELEE_KERNEL_MARKER_CONFIG = Object.freeze({
   sessionBinding: "agent-kernel:session-binding",
   lifecycle: "agent-kernel:pi-lifecycle",
   subagentLink: "agent-kernel:subagent-link",
-} satisfies NewKernelRegistration["markerConfig"]);
+} satisfies MeleeKernelMarkerConfig);
 
 export const DEFAULT_PI_SESSIONS_DIR_NAME = ".pi-sessions";
 export const DEFAULT_TAILER_CURSOR_PATH = ".decomp-orchestrator-state/agent-kernel-tailer-cursors.json";
@@ -22,7 +26,7 @@ export interface MeleeKernelBridgeConfig {
   workingDir: string;
   piSessionsDir: string;
   cursorSnapshotPath: string;
-  markerConfig: NewKernelRegistration["markerConfig"];
+  markerConfig: MeleeKernelMarkerConfig;
   appBaseUrl?: string | null;
   appTraceUrlTemplate?: string | null;
   genericTraceUrlTemplate?: string | null;
@@ -36,7 +40,7 @@ export interface CreateMeleeKernelBridgeConfigInput {
   workingDir?: string;
   piSessionsDir?: string;
   cursorSnapshotPath?: string;
-  markerConfig?: Partial<NewKernelRegistration["markerConfig"]>;
+  markerConfig?: Partial<MeleeKernelMarkerConfig>;
   appBaseUrl?: string | null;
   appTraceUrlTemplate?: string | null;
   genericTraceUrlTemplate?: string | null;

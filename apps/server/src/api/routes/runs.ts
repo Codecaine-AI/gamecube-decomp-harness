@@ -45,7 +45,7 @@ async function runCommand(
     return deps.json(commandResponse(action, await execute(body)));
   } catch (error) {
     // A command can lose a status or lease race after the initial projection.
-    // Re-project so those failures use the same blocker decision as the UI.
+    // Re-game so those failures use the same blocker decision as the UI.
     const latest = deps.runActionProjection(body, actionId);
     if (!latest.enabled) {
       return deps.json(

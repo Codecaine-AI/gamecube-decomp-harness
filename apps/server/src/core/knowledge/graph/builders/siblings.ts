@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { projectRoot } from "../../paths.js";
+import { gameRoot } from "../../paths.js";
 import type { GraphEdge, GraphFact, GraphRecords, SearchChunk } from "../types.js";
 import { arrayValue, filesFingerprint, numberValue, objectValue, readJson, shortHash, stableJson, stringValue, truncate } from "../util.js";
 import { functionEntityId } from "./code-graph.js";
@@ -144,13 +144,13 @@ export function buildSiblingGraphRecords(
 }
 
 function defaultSiblingRulesPath(): string {
-  return resolve(projectRoot("melee"), "knowledge/config/sibling_rules.json");
+  return resolve(gameRoot("melee"), "knowledge/config/sibling_rules.json");
 }
 
 function functionReportPath(repoRoot: string): string {
   const requested = resolve(repoRoot, "build/GALE01/report.json");
   if (existsSync(requested)) return requested;
-  return resolve(projectRoot("melee"), "checkout/build/GALE01/report.json");
+  return resolve(gameRoot("melee"), "checkout/build/GALE01/report.json");
 }
 
 function currentFunctionIndex(reportPath: string): CurrentFunction[] {

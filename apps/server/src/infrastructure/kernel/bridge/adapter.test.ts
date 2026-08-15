@@ -3,29 +3,33 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 
 import type {
   AgentRun,
   Container,
-  KernelRegistration,
-  KernelTraceReadIdentity,
   KernelTraceReadOptions,
   KernelTraceReadRows,
   NewContainer,
   NewAgentRun,
-  NewKernelRegistration,
   NewPiAgentSession,
   PiAgentSessionWithEventCount,
   TraceEventRow as KernelTraceEventRow,
 } from "@agent-kernel/db";
 import { EventType, TraceLevel, TraceSource } from "@agent-kernel/protocol";
-import type { PiEvent } from "@agent-kernel/tailer";
+import type { PiEvent } from "@agent-kernel/kernel/transcript-recovery";
 
 import { createMeleeKernelBridgeConfig, MELEE_KERNEL_ID } from "./config.js";
+import { ensureKernelObservabilitySchema } from "./database.js";
 import { createMeleeKernel } from "./kernel.js";
 import { createMeleeLoaderCatalog, MELEE_SESSION_CONTEXT_LOADER_KIND } from "./loaders.js";
 import { createMeleeKernelTraceReadService } from "./read-api.js";
-import { upsertMeleeKernelRegistration } from "./registration.js";
+import {
+  upsertMeleeKernelRegistration,
+  type KernelRegistration,
+  type NewKernelRegistration,
+} from "./registration.js";
 import { createMeleeKernelRuntime } from "./runtime.js";
 import {
   buildMeleeContainer,
@@ -79,45 +83,54 @@ function fixtureRows(): KernelTraceReadRows {
   const appSessionId = "11111111-1111-5111-8111-111111111111";
   const rootContainer: Container = {
     id: "melee:root",
+    kernelId: MELEE_KERNEL_ID,
+    kind: "session",
+    appKey: ["melee", "live"],
     parentContainerId: null,
-    label: "Project session live",
-    status: "running",
+    label: "Game session live",
+    status: "active",
     workingDir: "/repo",
-    worktreePath: null,
     phase: "run",
     phaseVocabulary: ["setup", "baseline", "run", "pr"],
     metadata: {
       appSessionId,
       appSessionSlug: "live",
       topic: "Melee session",
-      appSessionType: "melee-project-session",
+      appSessionType: "melee-cycle",
     },
+    usageInputTokens: 10,
+    usageOutputTokens: 20,
+    usageCacheRead: 0,
+    usageCacheWrite: 0,
+    usageCostEstimate: null,
     startedAt: "2026-06-24T18:00:00.000Z",
-    completedAt: null,
+    endedAt: null,
     createdAt: "2026-06-24T18:00:00.000Z",
-    updatedAt: "2026-06-24T18:10:00.000Z",
   };
   const childContainer: Container = {
     ...rootContainer,
     id: "melee:root:worker",
+    kind: "worker",
+    appKey: ["melee", "live", "worker"],
     parentContainerId: rootContainer.id,
     label: "Worker claim A",
     phase: "worker",
   };
   const piSession: PiAgentSessionWithEventCount = {
     id: "22222222-2222-5222-8222-222222222222",
-    appSessionId,
-    parentId: null,
+    parentSessionId: null,
+    parentToolUseId: null,
     containerId: childContainer.id,
     phase: "worker",
     displayLabel: "Worker A",
     agentName: "worker",
     status: "running",
     model: "gpt-5",
-    startedAt: "2026-06-24T18:01:00.000Z",
-    completedAt: null,
+    promptHash: null,
+    usageInputTokens: 10,
+    usageOutputTokens: 20,
+    endedAt: null,
     createdAt: "2026-06-24T18:01:00.000Z",
-    updatedAt: "2026-06-24T18:02:00.000Z",
     eventCount: 2,
   };
   const agentRun: AgentRun = {
@@ -129,19 +142,23 @@ function fixtureRows(): KernelTraceReadRows {
     parentRunId: null,
     displayLabel: "Worker run",
     parentToolUseId: null,
-    runNumber: 1,
+    trigger: "system",
+    inboundEventId: null,
+    outboundEventId: null,
     status: "running",
     startedAt: "2026-06-24T18:01:00.000Z",
-    completedAt: null,
-    inputTokens: 10,
-    outputTokens: 20,
-    createdAt: "2026-06-24T18:01:00.000Z",
-    updatedAt: "2026-06-24T18:02:00.000Z",
+    endedAt: null,
+    usageInputTokens: 10,
+    usageOutputTokens: 20,
+    usageCacheRead: 0,
+    usageCacheWrite: 0,
+    usageCostEstimate: null,
   };
   const event: KernelTraceEventRow = {
-    id: "44444444-4444-5444-8444-444444444444",
-    appSessionId,
+    eventId: "44444444-4444-5444-8444-444444444444",
     containerId: childContainer.id,
+    runId: agentRun.id,
+    agentId: "worker",
     userId: "00000000-0000-0000-0000-000000000001",
     type: EventType.WARNING,
     source: TraceSource.APP,
@@ -161,6 +178,32 @@ function fixtureRows(): KernelTraceReadRows {
     events: [event],
   };
 }
+
+describe("Postgres observability schema", () => {
+  test("migrates the legacy schema before creating live-model indexes", async () => {
+    const dialect = new PgDialect();
+    const statements: string[] = [];
+    await ensureKernelObservabilitySchema({
+      async execute(query: SQL) {
+        statements.push(dialect.sqlToQuery(query).sql);
+      },
+    });
+
+    const combined = statements.join("\n");
+    const migrationIndex = combined.indexOf("DO $migration$");
+    const runIndex = combined.indexOf("CREATE INDEX IF NOT EXISTS idx_events_run");
+    expect(migrationIndex).toBeGreaterThan(-1);
+    expect(runIndex).toBeGreaterThan(migrationIndex);
+    expect(combined).toContain("ALTER TABLE trace_events RENAME COLUMN id TO event_id");
+    expect(combined).toContain("ALTER COLUMN run_number DROP NOT NULL");
+    expect(combined).toContain("ALTER COLUMN pi_session_id TYPE TEXT");
+    expect(combined).toContain("DROP CONSTRAINT IF EXISTS trace_events_pi_session_id_fkey");
+    expect(combined).toContain("usage_input_tokens = COALESCE(usage_input_tokens, input_tokens, 0)");
+    expect(combined).toContain("ADD CONSTRAINT pi_agent_sessions_container_id_fkey");
+    expect(combined).toContain("CREATE TABLE IF NOT EXISTS prompt_revisions");
+    expect(combined).toContain("CREATE TABLE IF NOT EXISTS trace_blobs");
+  });
+});
 
 describe("kernel registration", () => {
   test("builds and upserts the Melee kernel registration payload", async () => {
@@ -199,10 +242,10 @@ describe("kernel registration", () => {
 
 describe("session and container mapping", () => {
   test("derives stable UUID app sessions and deterministic container ids", () => {
-    const ref = { projectId: "melee", sessionId: "session 2026/06/24" };
+    const ref = { gameId: "melee", sessionId: "session 2026/06/24" };
     const appSessionId = meleeAppSessionId(ref);
     const repeat = meleeAppSessionId({ ...ref });
-    const other = meleeAppSessionId({ projectId: "melee", sessionId: "next" });
+    const other = meleeAppSessionId({ gameId: "melee", sessionId: "next" });
 
     expect(appSessionId).toMatch(UUID_RE);
     expect(repeat).toBe(appSessionId);
@@ -231,12 +274,12 @@ describe("session and container mapping", () => {
     expect(container.metadata).toMatchObject({
       appSessionId,
       containerKind: "session",
-      projectId: "melee",
+      gameId: "melee",
     });
   });
 
   test("maps PR publication containers under the PR tree with publication phase", () => {
-    const ref = { projectId: "melee", sessionId: "run-1" };
+    const ref = { gameId: "melee", sessionId: "run-1" };
     const container = buildMeleeContainer({
       kind: "pr-publication",
       ref,
@@ -256,7 +299,7 @@ describe("session and container mapping", () => {
   });
 
   test("keeps bridge-owned container identity authoritative over caller metadata", () => {
-    const ref = { projectId: "melee", sessionId: "session-real" };
+    const ref = { gameId: "melee", sessionId: "session-real" };
     const container = buildMeleeContainer({
       kind: "pr-publication",
       ref,
@@ -264,7 +307,7 @@ describe("session and container mapping", () => {
         appSessionId: "spoofed-app-session",
         containerId: "spoofed-container",
         containerKind: "worker",
-        projectId: "spoofed-project",
+        gameId: "spoofed-game",
         sessionId: "spoofed-session",
         prId: "draft-real",
       },
@@ -274,7 +317,7 @@ describe("session and container mapping", () => {
       appSessionId: meleeAppSessionId(ref),
       containerId: container.id,
       containerKind: "pr-publication",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "session-real",
       prId: "draft-real",
     });
@@ -282,9 +325,9 @@ describe("session and container mapping", () => {
 
   test("derives stable, submission-specific workflow trace event ids", () => {
     const input = {
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "session-1",
-      projectEventId: "project-event-1",
+      gameEventId: "game-event-1",
       containerId: "container-1",
       eventType: "melee:baseline_completed",
       operation: "prepare.calculateBaseline",
@@ -301,7 +344,7 @@ describe("session and container mapping", () => {
   });
 
   test("maps prepare intake containers under the Prepare tree", () => {
-    const ref = { projectId: "melee", sessionId: "session-1" };
+    const ref = { gameId: "melee", sessionId: "session-1" };
     const item = buildMeleeContainer({
       kind: "intake-item",
       ref,
@@ -335,7 +378,7 @@ describe("spawn context mapping", () => {
   test("builds worker spawn context with app session and claim container identity", () => {
     const context = createMeleeKernelSpawnContext({
       kind: "worker",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "run-1",
       runId: "run-1",
       epochId: 2,
@@ -346,11 +389,11 @@ describe("spawn context mapping", () => {
     });
 
     expect(context.appSessionId).toBe(
-      meleeAppSessionId({ projectId: "melee", sessionId: "run-1" }),
+      meleeAppSessionId({ gameId: "melee", sessionId: "run-1" }),
     );
     expect(context.containerId).toBe(
       meleeWorkerContainerId({
-        projectId: "melee",
+        gameId: "melee",
         sessionId: "run-1",
         runId: "run-1",
         epochId: 2,
@@ -362,7 +405,7 @@ describe("spawn context mapping", () => {
     expect(context.workingDir).toBe("/repo");
     expect(context.metadata).toMatchObject({
       containerKind: "worker",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "run-1",
       runId: "run-1",
       epochId: "2",
@@ -390,7 +433,7 @@ describe("spawn context mapping", () => {
   test("builds postmortem spawn context under the epoch container tree", () => {
     const context = createMeleeKernelSpawnContext({
       kind: "postmortem",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "run-1",
       runId: "run-1",
       epochId: 2,
@@ -401,7 +444,7 @@ describe("spawn context mapping", () => {
 
     expect(context.containerId).toBe(
       meleePostmortemContainerId({
-        projectId: "melee",
+        gameId: "melee",
         sessionId: "run-1",
         runId: "run-1",
         epochId: 2,
@@ -412,7 +455,7 @@ describe("spawn context mapping", () => {
     expect(context.phase).toBe("postmortem");
     expect(context.metadata).toMatchObject({
       containerKind: "postmortem",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "run-1",
       runId: "run-1",
       epochId: "2",
@@ -435,7 +478,7 @@ describe("spawn context mapping", () => {
   test("builds prepare intake agent spawn contexts under the PR intake item", () => {
     const context = createMeleeKernelSpawnContext({
       kind: "intake-postmortem",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "session-1",
       runId: "session-1",
       itemId: "pr-2764",
@@ -445,11 +488,11 @@ describe("spawn context mapping", () => {
     });
 
     expect(context.appSessionId).toBe(
-      meleeAppSessionId({ projectId: "melee", sessionId: "session-1" }),
+      meleeAppSessionId({ gameId: "melee", sessionId: "session-1" }),
     );
     expect(context.containerId).toBe(
       meleeIntakePostmortemContainerId({
-        projectId: "melee",
+        gameId: "melee",
         sessionId: "session-1",
         prId: "2764",
       }),
@@ -457,7 +500,7 @@ describe("spawn context mapping", () => {
     expect(context.phase).toBe("postmortem");
     expect(context.metadata).toMatchObject({
       containerKind: "intake-postmortem",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "session-1",
       runId: "session-1",
       itemId: "pr-2764",
@@ -465,32 +508,32 @@ describe("spawn context mapping", () => {
       targetId: "pr-2764",
     });
     expect(context.containerLineage?.map((container) => container.id)).toEqual([
-      meleeRootContainerId({ projectId: "melee", sessionId: "session-1" }),
-      meleePrepareContainerId({ projectId: "melee", sessionId: "session-1" }),
-      meleeIntakeContainerId({ projectId: "melee", sessionId: "session-1" }),
-      meleeIntakeItemContainerId({ projectId: "melee", sessionId: "session-1", prId: "2764" }),
-      meleeIntakePostmortemContainerId({ projectId: "melee", sessionId: "session-1", prId: "2764" }),
+      meleeRootContainerId({ gameId: "melee", sessionId: "session-1" }),
+      meleePrepareContainerId({ gameId: "melee", sessionId: "session-1" }),
+      meleeIntakeContainerId({ gameId: "melee", sessionId: "session-1" }),
+      meleeIntakeItemContainerId({ gameId: "melee", sessionId: "session-1", prId: "2764" }),
+      meleeIntakePostmortemContainerId({ gameId: "melee", sessionId: "session-1", prId: "2764" }),
     ]);
   });
 
   test("builds PR review context under the PR container tree", () => {
     const context = createMeleeKernelSpawnContext({
       kind: "pr-review",
-      projectId: "melee",
+      gameId: "melee",
       runId: "run-1",
       prId: "run-1",
       reviewId: "slice-001",
     });
 
     expect(context.appSessionId).toBe(
-      meleeAppSessionId({ projectId: "melee", sessionId: "run-1" }),
+      meleeAppSessionId({ gameId: "melee", sessionId: "run-1" }),
     );
     expect(context.containerId).toContain(":pr:");
     expect(context.containerId).toContain(":review:");
     expect(context.phase).toBe("pr-review");
     expect(context.metadata).toMatchObject({
       containerKind: "pr-review",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "run-1",
       runId: "run-1",
       prId: "run-1",
@@ -532,19 +575,21 @@ describe("trace writer", () => {
     expect(submitted).toHaveLength(1);
     expect(event).toMatchObject({
       eventId: "55555555-5555-5555-8555-555555555555",
-      appSessionId: "11111111-1111-5111-8111-111111111111",
       containerId: "melee:root:run",
       source: TraceSource.APP,
       type: "melee:scheduler_decision",
       traceLevel: TraceLevel.DEBUG,
-      eventData: { admittedTargets: 256 },
+      eventData: {
+        admittedTargets: 256,
+        appSessionId: "11111111-1111-5111-8111-111111111111",
+      },
     });
   });
 });
 
 describe("workflow trace helper", () => {
   test("upserts non-agent workflow phase containers and emits app events", async () => {
-    const ref = { projectId: "melee", sessionId: "run-1" };
+    const ref = { gameId: "melee", sessionId: "run-1" };
     const upsertedContexts: unknown[] = [];
     const traceInputs: unknown[] = [];
     const submittedTraceEvents: unknown[] = [];
@@ -557,14 +602,13 @@ describe("workflow trace helper", () => {
           traceInputs.push(input);
           return {
             eventId: "55555555-5555-5555-8555-555555555555",
-            appSessionId: input.appSessionId,
+            containerId: input.containerId!,
             userId: "00000000-0000-0000-0000-000000000001",
             type: input.type,
             source: TraceSource.APP,
             traceLevel: input.traceLevel ?? TraceLevel.PROCESSING,
             eventData: input.eventData,
             timestamp: input.timestamp ?? "2026-06-24T18:00:00.000Z",
-            containerId: input.containerId,
           };
         },
         submit: async (event: unknown) => {
@@ -575,14 +619,14 @@ describe("workflow trace helper", () => {
     };
     const linkage = {
       correlationId: "run-1",
-      projectEventId: "project-event-1",
+      gameEventId: "game-event-1",
       causedByEventId: null,
     };
 
     const prepare = await submitMeleeWorkflowTraceEvent({
       runtime,
       kind: "prepare",
-      projectId: ref.projectId,
+      gameId: ref.gameId,
       sessionId: ref.sessionId,
       operation: "prepareSession",
       status: "started",
@@ -592,7 +636,7 @@ describe("workflow trace helper", () => {
     const setup = await submitMeleeWorkflowTraceEvent({
       runtime,
       kind: "sync-intake",
-      projectId: ref.projectId,
+      gameId: ref.gameId,
       sessionId: ref.sessionId,
       operation: "syncProjectIntake",
       status: "completed",
@@ -603,19 +647,19 @@ describe("workflow trace helper", () => {
     const baseline = await submitMeleeWorkflowTraceEvent({
       runtime,
       kind: "baseline",
-      projectId: ref.projectId,
+      gameId: ref.gameId,
       sessionId: ref.sessionId,
       operation: "rebuildProductionBaseline",
       status: "completed",
       metadata: {
         baseSha: "abc123",
         correlation_id: "spoofed-correlation",
-        project_event_id: "spoofed-event",
+        game_event_id: "spoofed-event",
         caused_by_event_id: "semantic-token",
         appSessionId: "spoofed-app-session",
         containerId: "spoofed-container",
         containerKind: "worker",
-        projectId: "spoofed-project",
+        gameId: "spoofed-game",
         sessionId: "spoofed-session",
       },
       ...linkage,
@@ -623,7 +667,7 @@ describe("workflow trace helper", () => {
     const intakeKnowledge = await submitMeleeWorkflowTraceEvent({
       runtime,
       kind: "intake-knowledge",
-      projectId: ref.projectId,
+      gameId: ref.gameId,
       sessionId: ref.sessionId,
       prId: "2764",
       operation: "prepare.intake.knowledge",
@@ -634,7 +678,7 @@ describe("workflow trace helper", () => {
     const publication = await submitMeleeWorkflowTraceEvent({
       runtime,
       kind: "pr-publication",
-      projectId: ref.projectId,
+      gameId: ref.gameId,
       sessionId: ref.sessionId,
       prId: "draft-1",
       operation: "openPrForSlice",
@@ -667,7 +711,7 @@ describe("workflow trace helper", () => {
       meleeSyncIntakeContainerId(ref),
     ]);
     expect((upsertedContexts[1] as any).containerLineage.map((container: NewContainer) => container.label)).toEqual([
-      "Project session run-1",
+      "Game session run-1",
       "Prepare",
       "Sync Intake",
     ]);
@@ -697,15 +741,15 @@ describe("workflow trace helper", () => {
       appSessionId: meleeAppSessionId(ref),
       containerId: meleeBaselineContainerId(ref),
       containerKind: "baseline",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "run-1",
       correlation_id: "run-1",
-      project_event_id: "project-event-1",
+      game_event_id: "game-event-1",
       caused_by_event_id: null,
     });
     expect((upsertedContexts[4] as any).containerLineage.at(-1).metadata).toMatchObject({
       prId: "draft-1",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "run-1",
     });
     expect(traceInputs).toMatchObject([
@@ -763,11 +807,11 @@ describe("workflow trace helper", () => {
     ]);
     for (const input of traceInputs as Array<{ eventData: Record<string, unknown> }>) {
       expect(input.eventData).toMatchObject({
-        projectId: "melee",
+        gameId: "melee",
         sessionId: "run-1",
         appSessionId: meleeAppSessionId(ref),
         correlation_id: "run-1",
-        project_event_id: "project-event-1",
+        game_event_id: "game-event-1",
         caused_by_event_id: null,
       });
     }
@@ -802,7 +846,7 @@ describe("kernel runtime composition", () => {
     });
     const context = createMeleeKernelSpawnContext({
       kind: "worker",
-      projectId: "melee",
+      gameId: "melee",
       sessionId: "run-1",
       runId: "run-1",
       epochId: 2,
@@ -864,6 +908,7 @@ describe("tailer wrapper", () => {
     const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-tailer-"));
     const appSessionId = "11111111-1111-5111-8111-111111111111";
     const piSessionId = "22222222-2222-5222-8222-222222222222";
+    const kernelRunId = "33333333-3333-5333-8333-333333333333";
     const operations: string[] = [];
     const piSessions: NewPiAgentSession[] = [];
     const agentRuns: NewAgentRun[] = [];
@@ -879,6 +924,10 @@ describe("tailer wrapper", () => {
         batchSize: 100,
         flushIntervalMs: 60_000,
         maxRetries: 1,
+      },
+      upsertContainer: async (_db, data) => {
+        operations.push("container");
+        return data as any;
       },
       upsertPiAgentSession: async (_db, data) => {
         operations.push("pi-session");
@@ -897,7 +946,7 @@ describe("tailer wrapper", () => {
       },
       sleep: async () => {},
     });
-    const filePath = join(tempDir, ".pi-sessions", "worker", "session.jsonl");
+    const filePath = join(tempDir, ".pi-sessions", "worker", "cycle.jsonl");
     const preBindingEvents: PiEvent[] = [
       {
         type: "session",
@@ -949,31 +998,34 @@ describe("tailer wrapper", () => {
           phase: "worker",
           agentName: "worker",
           displayLabel: "Worker claim A",
+          runId: kernelRunId,
           runNumber: 2,
         },
       },
     ]);
     await tailer.flush();
 
-    expect(operations).toEqual(["pi-session", "agent-run", "trace-events"]);
+    expect(operations).toEqual(["container", "pi-session", "agent-run", "trace-events"]);
     expect(piSessions[0]).toMatchObject({
       id: piSessionId,
-      appSessionId,
       agentName: "worker",
       containerId: "melee:worker",
       phase: "worker",
       displayLabel: "Worker claim A",
       model: "gpt-5.5",
-      status: "running",
+      status: "active",
+      createdAt: "2026-06-24T18:00:00.000Z",
     });
     expect(agentRuns[0]).toMatchObject({
+      id: kernelRunId,
       piSessionId,
       agentName: "worker",
       containerId: "melee:worker",
       phase: "worker",
       displayLabel: "Worker claim A",
-      runNumber: 2,
+      trigger: "system",
       status: "running",
+      startedAt: "2026-06-24T18:00:00.000Z",
     });
     expect(agentRuns[0]?.id).toMatch(UUID_RE);
     expect(traceEvents).toHaveLength(2);
@@ -983,6 +1035,7 @@ describe("tailer wrapper", () => {
           appSessionId,
           piSessionUuid: piSessionId,
           containerId: "melee:worker",
+          runId: kernelRunId,
         }),
       ]),
     );
@@ -1014,6 +1067,10 @@ describe("tailer wrapper", () => {
         flushIntervalMs: 60_000,
         maxRetries: 1,
       },
+      upsertContainer: async (_db, data) => {
+        operations.push("container");
+        return data as any;
+      },
       upsertPiAgentSession: async (_db, data) => {
         operations.push("pi-session");
         piSessions.push(data);
@@ -1031,7 +1088,7 @@ describe("tailer wrapper", () => {
       },
       sleep: async () => {},
     });
-    const filePath = join(tempDir, ".pi-sessions", "worker", "session.jsonl");
+    const filePath = join(tempDir, ".pi-sessions", "worker", "cycle.jsonl");
 
     tailer.ingestEvents(filePath, [
       {
@@ -1078,13 +1135,14 @@ describe("tailer wrapper", () => {
     ]);
     await tailer.flush();
 
-    expect(operations).toEqual(["pi-session", "trace-events"]);
+    expect(operations).toEqual(["container", "pi-session", "trace-events"]);
     expect(piSessions[0]).toMatchObject({
       id: piSessionId,
-      appSessionId,
       agentName: "worker",
       containerId: "melee:worker",
       phase: "worker",
+      status: "active",
+      createdAt: "2026-06-24T18:00:00.000Z",
     });
     expect(agentRuns).toHaveLength(0);
     expect(traceEvents).not.toHaveLength(0);
@@ -1103,36 +1161,34 @@ describe("tailer wrapper", () => {
 describe("read API service", () => {
   test("maps raw kernel rows to viewer-core trace session DTOs", async () => {
     const rows = fixtureRows();
-    const identities: KernelTraceReadIdentity[] = [];
+    const identities: string[] = [];
     const options: KernelTraceReadOptions[] = [];
     const service = createMeleeKernelTraceReadService({
-      resolveIdentity: (id) => ({ containerId: `container-for-${id}`, legacySessionId: id }),
-      readRows: async (identity, opts) => {
-        identities.push(identity);
+      resolveIdentity: (id) => `container-for-${id}`,
+      readRows: async (containerId, opts) => {
+        identities.push(containerId);
         options.push(opts);
         return rows;
       },
       listRows: async () => [rows],
     });
 
-    const detail = await service.getTraceSessionDetail("session-id", {
+    const detail = await service.getContainerTrace("session-id", {
       after: "2026-06-24T18:01:00.000Z",
       limit: 10,
     });
-    const list = await service.listTraceSessions?.({ after: null, limit: 5 });
+    const list = await service.listSessionContainers?.({ after: null, limit: 5 });
 
-    expect(identities[0]).toEqual({
-      containerId: "container-for-session-id",
-      legacySessionId: "session-id",
-    });
+    expect(identities[0]).toBe("container-for-session-id");
     expect(options[0]).toEqual({
       after: "2026-06-24T18:01:00.000Z",
       limit: 10,
     });
     expect(detail?.session).toMatchObject({
-      id: "11111111-1111-5111-8111-111111111111",
+      id: "melee:root",
       containerId: "melee:root",
-      appSessionSlug: "live",
+      kind: "session",
+      label: "Game session live",
       topic: "Melee session",
     });
     expect(detail?.containers).toHaveLength(2);
@@ -1142,16 +1198,17 @@ describe("read API service", () => {
     });
     expect(detail?.agent_runs[0]).toMatchObject({
       id: "33333333-3333-5333-8333-333333333333",
-      runNumber: 1,
+      trigger: "system",
+      usageInputTokens: 10,
     });
     expect(detail?.events[0]).toMatchObject({
-      id: "44444444-4444-5444-8444-444444444444",
       eventId: "44444444-4444-5444-8444-444444444444",
       source: TraceSource.APP,
     });
     expect(list?.trace_sessions[0]).toMatchObject({
-      id: "11111111-1111-5111-8111-111111111111",
+      id: "melee:root",
       containerId: "melee:root",
+      kind: "session",
       piSessionCount: 1,
       eventCount: 1,
       latestEventAt: "2026-06-24T18:02:00.000Z",
@@ -1163,7 +1220,7 @@ describe("kernel wrapper", () => {
   test("delegates spawn calls to the provided adapter", async () => {
     const calls: unknown[] = [];
     const kernel = createMeleeKernel({
-      spawnAgent: async (name, prompt, ctx, opts) => {
+      spawnAgent: async (name: string, prompt: string, ctx: unknown, opts: unknown) => {
         calls.push({ name, prompt, ctx, opts });
         return { ok: true, name };
       },
@@ -1234,7 +1291,7 @@ describe("kernel Pi runtime bridge", () => {
             traceInputs.push(input);
             return {
               eventId: `event-${traceInputs.length}`,
-              appSessionId: input.appSessionId,
+              containerId: input.containerId!,
               userId: "00000000-0000-0000-0000-000000000001",
               type: input.type as any,
               source: TraceSource.APP,
@@ -1313,12 +1370,12 @@ describe("kernel Pi runtime bridge", () => {
     const runner = createMeleeKernelPiAgentRunner({
       toKernelParsedAgentFromBundle: (entry, bundle) => ({
         parsed: {
-          frontmatter: {
+          config: {
             name: entry.name,
             description: "",
             model: "codex-lb/gpt-5.5",
             tools: [],
-            disallowed_tools: [],
+            disallowedTools: [],
             variables: {},
           },
           body: bundle.systemPrompt,
@@ -1372,7 +1429,7 @@ describe("kernel Pi runtime bridge", () => {
         traceWriter: {
           submitAppEvent: async (input) => ({
             eventId: "event-1",
-            appSessionId: input.appSessionId,
+            containerId: input.containerId!,
             userId: "00000000-0000-0000-0000-000000000001",
             type: input.type as any,
             source: TraceSource.APP,
@@ -1427,7 +1484,7 @@ describe("kernel Pi runtime bridge", () => {
           traceWriter: {
             submitAppEvent: async (input) => ({
               eventId: "event-1",
-              appSessionId: input.appSessionId,
+              containerId: input.containerId!,
               userId: "00000000-0000-0000-0000-000000000001",
               type: input.type as any,
               source: TraceSource.APP,
@@ -1463,7 +1520,7 @@ describe("kernel Pi runtime bridge", () => {
             prompt,
             opts,
             parsed,
-            toolFactoryCount: adapters.buildToolFactories(parsed.frontmatter).length,
+            toolFactoryCount: adapters.buildToolFactories(parsed.config).length,
           });
           return {
             responseText: "{\"checkpoint_note\":\"progress\",\"source\":\"kernel\"}",
@@ -1516,7 +1573,7 @@ describe("kernel Pi runtime bridge", () => {
             traceInputs.push(input);
             return {
               eventId: `event-${traceInputs.length}`,
-              appSessionId: input.appSessionId,
+              containerId: input.containerId!,
               userId: "00000000-0000-0000-0000-000000000001",
               type: input.type as any,
               source: TraceSource.APP,
@@ -1531,7 +1588,7 @@ describe("kernel Pi runtime bridge", () => {
 
     expect(result).toMatchObject({
       sessionId: "22222222-2222-5222-8222-222222222222",
-      sessionDir: join(tempDir, ".pi-sessions", "11111111-1111-5111-8111-111111111111", "worker"),
+      sessionDir: join(tempDir, ".pi-sessions", "melee:worker", "worker"),
       rawText: "{\"checkpoint_note\":\"progress\",\"source\":\"kernel\"}",
       dryRun: false,
     });
@@ -1561,14 +1618,16 @@ describe("kernel Pi runtime bridge", () => {
         appSessionId: "11111111-1111-5111-8111-111111111111",
         containerId: "melee:worker",
         agentName: "worker",
-        [MELEE_KERNEL_MANAGED_RUN_MARKER_FIELD]: true,
       },
     });
+    expect((bindings[0] as { data?: Record<string, unknown> })?.data).not.toHaveProperty(
+      MELEE_KERNEL_MANAGED_RUN_MARKER_FIELD,
+    );
     expect(traceInputs).toHaveLength(2);
     expect(submittedTraceEvents).toHaveLength(0);
   });
 
-  test("surfaces kernel assistant error stop reasons as provider failures", async () => {
+  test("normalizes live-kernel provider throws as artifact-backed failures", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-provider-error-"));
     const outputDir = join(tempDir, "out");
     const traceInputs: unknown[] = [];
@@ -1577,22 +1636,11 @@ describe("kernel Pi runtime bridge", () => {
         throw new Error("direct Pi runner should not be called for kernel strategy");
       },
       createKernelSpawnAgent: () => {
-        return async () => ({
-          responseText: "",
-          aborted: false,
-          session: {
-            sessionId: "33333333-3333-5333-8333-333333333333",
-            messages: [
-              {
-                role: "assistant",
-                content: [],
-                stopReason: "error",
-                errorMessage: "context_length_exceeded: Your input exceeds the context window of this model",
-              },
-            ],
-            dispose() {},
-          } as any,
-        });
+        return async () => {
+          throw new Error(
+            "context_length_exceeded: Your input exceeds the context window of this model",
+          );
+        };
       },
     });
 
@@ -1625,7 +1673,7 @@ describe("kernel Pi runtime bridge", () => {
             traceInputs.push(input);
             return {
               eventId: `event-${traceInputs.length}`,
-              appSessionId: input.appSessionId,
+              containerId: input.containerId!,
               userId: "00000000-0000-0000-0000-000000000001",
               type: input.type as any,
               source: TraceSource.APP,
@@ -1639,7 +1687,7 @@ describe("kernel Pi runtime bridge", () => {
     });
 
     expect(result.providerError).toBe("context_length_exceeded: Your input exceeds the context window of this model");
-    expect(result.failed).toBeUndefined();
+    expect(result.failed).toBe(true);
     expect(await Bun.file(result.outputPath).text()).toContain("[Pi provider error]");
     expect(traceInputs).toHaveLength(2);
     expect(traceInputs[1]).toMatchObject({
@@ -1651,7 +1699,7 @@ describe("kernel Pi runtime bridge", () => {
     expect(((traceInputs[1] as Record<string, any>).eventData.error as string)).toContain("context_length_exceeded");
   });
 
-  test("delivers resolver-backed rendered context through the kernel createSpawnAgent prompt", async () => {
+  test("leaves resolver-backed context injection to the live kernel", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-context-"));
     const outputDir = join(tempDir, "out");
     const loadedResolvers: unknown[] = [];
@@ -1681,12 +1729,12 @@ describe("kernel Pi runtime bridge", () => {
       },
       toKernelParsedAgentFromBundle: (entry, bundle) => ({
         parsed: {
-          frontmatter: {
+          config: {
             name: entry.name,
             description: "",
             model: "codex-lb/gpt-5.5",
             tools: [],
-            disallowed_tools: [],
+            disallowedTools: [],
             variables: {},
           },
           body: bundle.systemPrompt,
@@ -1749,16 +1797,12 @@ describe("kernel Pi runtime bridge", () => {
       },
     });
 
-    expect(kernelPrompts).toEqual([
-      `${renderedContext}\n\nUse the injected reviewer context.`,
-    ]);
-    expect(kernelPrompts[0]).toContain("<slice_diff>");
-    expect(kernelPrompts[0]).toContain("<lint_findings>");
+    expect(kernelPrompts).toEqual(["Use the injected reviewer context."]);
     expect(loadedResolvers).toHaveLength(1);
     expect(loadedResolvers[0]).toBe(contextResolver);
     expect(await Bun.file(result.systemPromptPath).text()).toBe("reviewer system prompt");
     expect(await Bun.file(result.userPromptPath).text()).toBe(
-      `${renderedContext}\n\nUse the injected reviewer context.`,
+      "Use the injected reviewer context.",
     );
   });
 });
@@ -1774,9 +1818,12 @@ describe("loader catalog", () => {
       { kind: MELEE_SESSION_CONTEXT_LOADER_KIND },
       {
         cwd: "/repo",
-        appSessionId: "11111111-1111-5111-8111-111111111111",
+        containerId: "melee:session",
         activeSessionDir: "/repo/session",
-        sessionData: { target: "ftMain" },
+        sessionData: {
+          appSessionId: "11111111-1111-5111-8111-111111111111",
+          target: "ftMain",
+        },
       },
     );
 

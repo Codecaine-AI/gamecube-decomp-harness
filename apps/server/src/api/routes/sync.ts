@@ -1,7 +1,7 @@
 import type {
   SyncActionId,
   SyncActionProjection,
-} from "@server/core/session-runtime/phases/sync/runtime.js";
+} from "@server/core/cycle-runtime/phases/sync/runtime.js";
 
 type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
@@ -29,7 +29,10 @@ function commandResponse(action: SyncActionProjection, result: unknown, error?: 
 }
 
 function routeAction(pathname: string): SyncActionId | null {
-  if (pathname === "/api/project/sync" || pathname === "/api/sync/start") return "sync.start";
+  if (
+    pathname === "/api/game/sync"
+    || pathname === "/api/sync/start"
+  ) return "sync.start";
   if (pathname === "/api/sync/resolve-conflict") return "sync.resolve_conflict";
   if (pathname === "/api/sync/publish") return "sync.publish";
   if (pathname === "/api/sync/cancel") return "sync.cancel";

@@ -9,8 +9,8 @@ import { loadTrustedReportFile } from "./trusted-report.js";
 export interface RecordReportRunDashboardArtifactsInput {
   result: ReportRunResult;
   runId?: string | null;
-  projectId?: string | null;
-  sessionUuid?: string | null;
+  gameId?: string | null;
+  cycleUuid?: string | null;
   boardKey?: string;
   trustedReportKey?: string;
   reportChangesSource?: string;
@@ -44,8 +44,8 @@ export async function recordReportRunDashboardArtifacts(
 ): Promise<void> {
   const common = {
     runId: input.runId ?? null,
-    projectId: input.projectId ?? null,
-    sessionUuid: input.sessionUuid ?? null,
+    gameId: input.gameId ?? null,
+    cycleUuid: input.cycleUuid ?? null,
   };
   const reportRunKey = input.reportRunKey ?? (input.result.resetBaseline ? "baseline_reset" : "report");
   recordDashboardArtifact(store, {

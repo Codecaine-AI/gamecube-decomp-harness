@@ -29,7 +29,7 @@ const searchParameters = {
 const fileCardParameters = {
   type: "object",
   properties: {
-    source_path: { type: "string", description: "Project-relative source file path." },
+    source_path: { type: "string", description: "Game-relative source file path." },
   },
   required: ["source_path"],
   additionalProperties: false,
@@ -38,7 +38,7 @@ const fileCardParameters = {
 const relatedFunctionsParameters = {
   type: "object",
   properties: {
-    source_path: { type: "string", description: "Project-relative source path. Returns relationships for its functions, optionally narrowed by unit or symbol." },
+    source_path: { type: "string", description: "Game-relative source path. Returns relationships for its functions, optionally narrowed by unit or symbol." },
     unit: { type: "string", description: "Object unit. Pair with symbol when source_path and entity_id are omitted." },
     symbol: { type: "string", description: "Function symbol. Pair with unit, or use it to narrow source_path." },
     entity_id: { type: "string", description: "Exact graph function entity id." },
@@ -184,7 +184,7 @@ export const codeGraphFileCardToolRegistration: AgentToolRegistration = {
     return {
       name: "code_graph_file_card",
       label: "Code Graph File Card",
-      description: "Load graph-owned source-file context for a project-relative path.",
+      description: "Load graph-owned source-file context for a game-relative path.",
       promptSnippet: "code_graph_file_card: load editability, match status, PR history, resource hits, and scheduling signals for a source path.",
       promptGuidelines: ["Use code_graph_file_card first when a worker needs target-specific graph context for the claimed source path."],
       parameters: fileCardParameters,
@@ -343,7 +343,7 @@ export const smashWikiGetPageToolRegistration = fixedSourceApiTool({
   },
 });
 
-/** Tool for corroborating candidate learnings against the project knowledge ledger. */
+/** Tool for corroborating candidate learnings against the game knowledge ledger. */
 export const ledgerSearchToolRegistration: AgentToolRegistration = {
   id: "ledger_search",
   purpose: "Search past ledger learnings to corroborate or refute candidate statements before emitting them.",
@@ -353,7 +353,7 @@ export const ledgerSearchToolRegistration: AgentToolRegistration = {
     return {
       name: "ledger_search",
       label: "Knowledge Ledger Search",
-      description: "Search project ledger learnings and their subjects, provenance, status, and confidence.",
+      description: "Search game ledger learnings and their subjects, provenance, status, and confidence.",
       promptSnippet: "ledger_search: search past learnings to corroborate or refute a candidate statement by judgment.",
       promptGuidelines: [
         "Use ledger_search before emitting a candidate learning so existing statements can corroborate, refute, or deduplicate it by judgment.",
@@ -369,7 +369,7 @@ export const ledgerSearchToolRegistration: AgentToolRegistration = {
             query,
             scope,
             limit: boundedLimit(params.limit),
-            projectId: context.project?.projectId ?? "melee",
+            gameId: context.game?.gameId ?? "melee",
           }),
         });
       },

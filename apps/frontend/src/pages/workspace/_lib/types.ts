@@ -1,7 +1,7 @@
-import type { AppRoute, SessionFocus, SessionStage, SessionSubPage } from "@/routing";
+import type { AppRoute, CycleFocus, CycleStage, CycleSubPage } from "@/routing";
 import type { Dashboard, FormState, JsonObject, UiConfig } from "@/lib/format";
 import type { GrainSettings, GrainSettingsPatch } from "@/lib/styleSettings";
-import type { ImprovedMode, WorkMode } from "@/pages/workspace/sessions/active/subphases/run/components/work-tables";
+import type { ImprovedMode, WorkMode } from "@/pages/workspace/cycles/active/subphases/run/components/work-tables";
 import type { processView } from "@/lib/processView";
 
 export type DashboardAction =
@@ -12,8 +12,8 @@ export type DashboardAction =
   | "init"
   | "fresh"
   | "completeRun"
-  | "sessionSavePoint"
-  | "sessionClose"
+  | "cycleSavePoint"
+  | "cycleClose"
   | "runStart"
   | "runPause"
   | "runResume"
@@ -51,7 +51,7 @@ export type DashboardAction =
   | "openDraftBatch"
   | "openAllPrs";
 
-export interface ProjectStateBlocker {
+export interface HarnessStateBlocker {
   code: string;
   message: string;
   source_kind: string;
@@ -59,17 +59,17 @@ export interface ProjectStateBlocker {
   recoverable: boolean;
 }
 
-export interface ProjectStateActionProjection {
+export interface HarnessStateActionProjection {
   action_id: string;
   subject_kind: string;
   subject_id: string;
   enabled: boolean;
-  blocked_by: ProjectStateBlocker[];
+  blocked_by: HarnessStateBlocker[];
   expected_transition: string;
   confirmation_required: boolean;
 }
 
-export type ProjectStateRunStatus =
+export type HarnessStateRunStatus =
   | "draft"
   | "ready"
   | "active"
@@ -79,7 +79,7 @@ export type ProjectStateRunStatus =
   | "failed"
   | "cancelled";
 
-export type ProjectStateRunSchedulerCondition =
+export type HarnessStateRunSchedulerCondition =
   | "idle"
   | "planning"
   | "dispatching"
@@ -87,20 +87,20 @@ export type ProjectStateRunSchedulerCondition =
   | "boundary"
   | "blocked";
 
-export interface ProjectStateRunRecoveryPoint {
+export interface HarnessStateRunRecoveryPoint {
   event_id: string;
   sequence: number;
   occurred_at: string;
   recovery_reason: string | null;
   cancelled_claim_ids: string[];
   cancelled_operation_ids: string[];
-  resulting_status: ProjectStateRunStatus | null;
+  resulting_status: HarnessStateRunStatus | null;
 }
 
-export interface ProjectStateRunReadModel {
+export interface HarnessStateRunReadModel {
   workflow_id: string;
-  status: ProjectStateRunStatus;
-  scheduler_condition: ProjectStateRunSchedulerCondition | null;
+  status: HarnessStateRunStatus;
+  scheduler_condition: HarnessStateRunSchedulerCondition | null;
   active_epoch: {
     epoch_id: string;
     ordinal: number;
@@ -115,10 +115,10 @@ export interface ProjectStateRunReadModel {
     confirmed_changes: number;
     regressed_changes: number;
   };
-  recovery_points: ProjectStateRunRecoveryPoint[];
+  recovery_points: HarnessStateRunRecoveryPoint[];
 }
 
-export type ProjectStateSyncStatus =
+export type HarnessStateSyncStatus =
   | "requested"
   | "ingesting"
   | "reconciling"
@@ -129,10 +129,10 @@ export type ProjectStateSyncStatus =
   | "blocked"
   | "cancelled";
 
-export interface ProjectStateSyncReadModel {
+export interface HarnessStateSyncReadModel {
   workflow_id: string;
-  status: ProjectStateSyncStatus;
-  blockers: ProjectStateBlocker[];
+  status: HarnessStateSyncStatus;
+  blockers: HarnessStateBlocker[];
   intake: {
     upstream_from: string;
     upstream_to: string;
@@ -171,19 +171,19 @@ export interface ProjectStateSyncReadModel {
     stale: boolean;
     validated_upstream: string | null;
     observed_upstream: string | null;
-    blocker: ProjectStateBlocker | null;
+    blocker: HarnessStateBlocker | null;
     revalidate_action_id: "sync.cancel" | null;
   };
 }
 
-export type ProjectStatePrCampaignStatus =
+export type HarnessStatePrCampaignStatus =
   | "preparing"
   | "in_review"
   | "working"
   | "completed"
   | "abandoned";
 
-export type ProjectStatePrSeriesStatus =
+export type HarnessStatePrSeriesStatus =
   | "prepared"
   | "published"
   | "changes_requested"
@@ -192,35 +192,35 @@ export type ProjectStatePrSeriesStatus =
   | "merged"
   | "closed";
 
-export type ProjectStatePrWorkItemStatus = "pending" | "in_progress" | "resolved" | "declined";
+export type HarnessStatePrWorkItemStatus = "pending" | "in_progress" | "resolved" | "declined";
 
-export interface ProjectStatePrWorkItem {
+export interface HarnessStatePrWorkItem {
   item_id: string;
   series_id: string;
   series_branch: string;
   source_kind: string;
   source_id: string;
-  status: ProjectStatePrWorkItemStatus;
+  status: HarnessStatePrWorkItemStatus;
   summary: string;
   created_at: string;
   resolved_at: string | null;
 }
 
-export interface ProjectStatePrSeriesSummary {
+export interface HarnessStatePrSeriesSummary {
   series_id: string;
   batch_index: number;
-  status: ProjectStatePrSeriesStatus;
+  status: HarnessStatePrSeriesStatus;
   branch: string;
   upstream_pr_number: number | null;
   target_units: string[];
   last_validation: JsonObject | null;
-  blockers: ProjectStateBlocker[];
-  work_items: ProjectStatePrWorkItem[];
+  blockers: HarnessStateBlocker[];
+  work_items: HarnessStatePrWorkItem[];
 }
 
-export interface ProjectStatePrReadModel {
+export interface HarnessStatePrReadModel {
   workflow_id: string;
-  status: ProjectStatePrCampaignStatus;
+  status: HarnessStatePrCampaignStatus;
   source_anchor: {
     save_point_id: string;
     source_revision: string;
@@ -228,37 +228,37 @@ export interface ProjectStatePrReadModel {
   publication_policy: {
     batch_size: number;
   };
-  blockers: ProjectStateBlocker[];
-  series: ProjectStatePrSeriesSummary[];
-  series_by_status: Record<ProjectStatePrSeriesStatus, ProjectStatePrSeriesSummary[]>;
+  blockers: HarnessStateBlocker[];
+  series: HarnessStatePrSeriesSummary[];
+  series_by_status: Record<HarnessStatePrSeriesStatus, HarnessStatePrSeriesSummary[]>;
   next_batch: {
     batch_index: number;
     series_ids: string[];
     validation_state: string;
-    blockers: ProjectStateBlocker[];
-    series: ProjectStatePrSeriesSummary[];
+    blockers: HarnessStateBlocker[];
+    series: HarnessStatePrSeriesSummary[];
   } | null;
   pending_work_items: {
     count: number;
-    items: ProjectStatePrWorkItem[];
+    items: HarnessStatePrWorkItem[];
   };
   activation: {
     active: boolean;
     queued: boolean;
     lease_id: string | null;
     status: string | null;
-    blockers: ProjectStateBlocker[];
+    blockers: HarnessStateBlocker[];
   };
 }
 
-export interface ProjectStateDispatchHandoff {
+export interface HarnessStateDispatchHandoff {
   target_kind: "run" | "pr" | "sync";
   target_workflow_id: string;
   reason: string;
   requested_at: string;
 }
 
-export interface ProjectStateDispatchLease {
+export interface HarnessStateDispatchLease {
   kind: "run" | "pr" | "sync";
   workflow_id: string;
   lease_id: string;
@@ -266,11 +266,11 @@ export interface ProjectStateDispatchLease {
   acquired_at: string;
   heartbeat_at: string;
   headline: string;
-  requested_handoff?: ProjectStateDispatchHandoff;
-  blockers: ProjectStateBlocker[];
+  requested_handoff?: HarnessStateDispatchHandoff;
+  blockers: HarnessStateBlocker[];
 }
 
-export interface ProjectStateQueuedDispatchRequest {
+export interface HarnessStateQueuedDispatchRequest {
   kind: "run" | "pr" | "sync";
   workflow_id: string;
   reason: string;
@@ -278,7 +278,7 @@ export interface ProjectStateQueuedDispatchRequest {
   requested_by: string;
 }
 
-export interface ProjectStateSavePoint {
+export interface HarnessStateSavePoint {
   id: string;
   triggerKind: string;
   label: string | null;
@@ -287,9 +287,9 @@ export interface ProjectStateSavePoint {
   createdAt: string;
 }
 
-export interface ProjectStateTimelineEntry {
+export interface HarnessStateTimelineEntry {
   id: number;
-  session_uuid: string;
+  cycle_uuid: string;
   entry_kind: "epoch_completed" | "remote_application" | "pr_phase" | "save_point";
   entry_id: string;
   occurred_at: string;
@@ -297,21 +297,21 @@ export interface ProjectStateTimelineEntry {
   caused_by_event_id: string | null;
 }
 
-export interface ProjectStateSessionReadModel {
-  session_uuid: string;
+export interface HarnessStateCycleReadModel {
+  cycle_uuid: string;
   head_revision: string | null;
   status: string;
-  latest_save_point: ProjectStateSavePoint | null;
+  latest_save_point: HarnessStateSavePoint | null;
   save_point_stale: boolean;
-  timeline: ProjectStateTimelineEntry[];
+  timeline: HarnessStateTimelineEntry[];
 }
 
-export interface ProjectStateKnowledgeLease extends JsonObject {
+export interface HarnessStateKnowledgeLease extends JsonObject {
   id: string;
   expires_at: string;
 }
 
-export interface ProjectStateKnowledgeFailure extends JsonObject {
+export interface HarnessStateKnowledgeFailure extends JsonObject {
   job_id: string;
   worker_state_id: string;
   error: string;
@@ -319,42 +319,42 @@ export interface ProjectStateKnowledgeFailure extends JsonObject {
   updated_at: string;
 }
 
-export interface ProjectStateKnowledgeFreshness extends JsonObject {
+export interface HarnessStateKnowledgeFreshness extends JsonObject {
   published_revision: string | null;
   queued: number;
   processing: number;
   waiting: number;
   failed: number;
   oldest_pending_at: string | null;
-  active_lease: ProjectStateKnowledgeLease | null;
+  active_lease: HarnessStateKnowledgeLease | null;
   retry: JsonObject | null;
-  recent_failures: ProjectStateKnowledgeFailure[];
+  recent_failures: HarnessStateKnowledgeFailure[];
 }
 
-export interface ProjectStateOperationSummary extends JsonObject {
+export interface HarnessStateOperationSummary extends JsonObject {
   operation_id: string;
   status: string;
 }
 
-export interface ProjectStateEventSummary extends JsonObject {
+export interface HarnessStateEventSummary extends JsonObject {
   event_type: string;
   sequence: number;
 }
 
-export interface ProjectStateReadModel {
-  project_id: string;
-  project_revision: number;
-  active_workflow: ProjectStateDispatchLease | null;
-  queued_dispatch_requests: ProjectStateQueuedDispatchRequest[];
-  session: ProjectStateSessionReadModel | null;
-  run: ProjectStateRunReadModel | null;
-  pr_work: ProjectStatePrReadModel[];
-  knowledge: ProjectStateKnowledgeFreshness;
-  sync: ProjectStateSyncReadModel | null;
-  active_operations: ProjectStateOperationSummary[];
-  recent_events: ProjectStateEventSummary[];
-  available_actions: ProjectStateActionProjection[];
-  compatibility_actions: ProjectStateActionProjection[];
+export interface HarnessStateReadModel {
+  game_id: string;
+  harness_revision: number;
+  active_workflow: HarnessStateDispatchLease | null;
+  queued_dispatch_requests: HarnessStateQueuedDispatchRequest[];
+  cycle: HarnessStateCycleReadModel | null;
+  run: HarnessStateRunReadModel | null;
+  pr_work: HarnessStatePrReadModel[];
+  knowledge: HarnessStateKnowledgeFreshness;
+  sync: HarnessStateSyncReadModel | null;
+  active_operations: HarnessStateOperationSummary[];
+  recent_events: HarnessStateEventSummary[];
+  available_actions: HarnessStateActionProjection[];
+  compatibility_actions: HarnessStateActionProjection[];
 }
 
 export interface PrFlowRecord {
@@ -378,9 +378,9 @@ export interface PrFlowRecord {
   url: string;
 }
 
-export interface SessionView {
-  activeSessionId: string;
-  activeSessionLabel: string;
+export interface CycleView {
+  activeCycleId: string;
+  activeCycleLabel: string;
   activeClaims: number;
   baselineLabel: string;
   branchLabel: string;
@@ -397,8 +397,8 @@ export interface SessionView {
   mode: "none" | "pr" | "run";
   modeEvidence: string[];
   modeLabel: string;
-  newSessionBlocked: boolean;
-  newSessionReasons: string[];
+  newCycleBlocked: boolean;
+  newCycleReasons: string[];
   operationActive: boolean;
   operationLabel: string;
   prBlockedReasons: string[];
@@ -424,7 +424,7 @@ export interface SessionView {
     retryableIntakeItemCount: number;
     totalIntakeItemCount: number;
     readyToStartRun: boolean;
-    sessionCurrentWorktreePath: string;
+    cycleCurrentWorktreePath: string;
     sync: JsonObject;
     syncDone: boolean;
     upstreamChanged: boolean | null;
@@ -440,11 +440,11 @@ export interface SessionView {
     warning: string;
   };
   process: ReturnType<typeof processView>;
-  project: UiConfig["selectedProject"];
-  projectState: ProjectStateReadModel | null;
-  recommendedSub: SessionSubPage;
+  game: UiConfig["selectedGame"];
+  harnessState: HarnessStateReadModel | null;
+  recommendedSub: CycleSubPage;
   runStatus: string;
-  sessionStageStates: Record<SessionStage, "done" | "todo">;
+  cycleStageStates: Record<CycleStage, "done" | "todo">;
   syncLocked: boolean;
   syncing: boolean;
 }
@@ -452,10 +452,10 @@ export interface SessionView {
 export interface WorkspaceNav {
   goToDashboard: () => void;
   goToSection: (section: Extract<AppRoute, { kind: "workspace" }>["section"]) => void;
-  goToSession: (focus: SessionFocus, sub?: SessionSubPage) => void;
+  goToCycle: (focus: CycleFocus, sub?: CycleSubPage) => void;
 }
 
-export interface ProjectWorkspaceProps {
+export interface GameWorkspaceProps {
   busy: boolean;
   collapsed: boolean;
   config: UiConfig | null;

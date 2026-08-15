@@ -6,7 +6,7 @@ import {
   renderXmlMarkdown,
   section,
   usesContext,
-} from "@codecaine-ai/prompt-kit";
+} from "@server/core/agent-catalog/prompt-kit-compat";
 import type { PiPromptBundle } from "@server/core/shared/types";
 import {
   buildIntegrationResolverKernelContext,
@@ -69,7 +69,7 @@ export const prompt = definePrompt({
       bulletList([
         "Resolve a running-phase worker-output integration conflict before PR mode begins.",
         "Operate on the integration queue item produced after a worker finished and the runner tried to apply its selected checkpoint or patch.",
-        "Preserve validated exact matches first, then validated non-exact improvements, while keeping the session integration worktree reviewable and standards-compliant.",
+        "Preserve validated exact matches first, then validated non-exact improvements, while keeping the cycle integration worktree reviewable and standards-compliant.",
         "Respect the explicit write sets and conflict group supplied in `<integration_conflict_item>`; do not broaden scope beyond the files needed to resolve that queue item.",
         "This is not PR QA repair, not PR comment fixing, and not reconcile. Do not post to GitHub, mutate PR records, split PRs, or perform upstream-sync policy decisions.",
       ]),
@@ -91,7 +91,7 @@ export const prompt = definePrompt({
         "Every conflict marker, failed-apply hunk, duplicate hunk, or dirty integration failure in the supplied conflict group is resolved, or listed in `remaining_conflicts[]` with concrete evidence.",
         "Every worker output/checkpoint named by the queue item has an `applied_worker_outputs[]` disposition.",
         "Every touched path has a `conflict_resolutions[]` row explaining what was kept and why.",
-        "The final source obeys the current project standards and avoids fake/generated match tactics.",
+        "The final source obeys the current game standards and avoids fake/generated match tactics.",
         "You ran the most relevant validation available from the attached tools and reported passed, failed, or not_run rows.",
         "The runner still owns queue state, full epoch validation, integration acceptance, and future scheduling.",
       ]),
@@ -102,7 +102,7 @@ export const prompt = definePrompt({
         "Resolve only the supplied worker-output integration queue item or conflict group.",
         "Do not edit unrelated files, admit targets, schedule workers, update board state, mutate knowledge graph state, or touch PR/GitHub state.",
         "Do not use destructive git commands such as `reset --hard`, force checkout over dirty files, branch deletion, or broad stash/drop operations.",
-        "Treat the session-current integration worktree as the base truth unless the worker checkpoint has explicit validation evidence for a better source hunk.",
+        "Treat the cycle-current integration worktree as the base truth unless the worker checkpoint has explicit validation evidence for a better source hunk.",
         "Prefer preserving exact matches over fuzzy improvements, but never preserve exactness by keeping banned, generated, fake, or standards-rejected source.",
         "If two worker outputs conflict, keep both only when the merged source remains coherent and validated; otherwise keep the higher-confidence exact/improvement and record the dropped/superseded output.",
         "If the conflict spans multiple target source files, handle the whole supplied group together so shared declarations and source edits remain consistent.",
@@ -119,14 +119,14 @@ export const prompt = definePrompt({
       ], { attrs: { id: "1", name: "read_queue_item" } }),
       section("phase", [
         bulletList([
-          "Inspect the conflicted source, session-current intent, worker output intent, and nearby project idioms.",
+          "Inspect the conflicted source, cycle-current intent, worker output intent, and nearby game idioms.",
           "Use graph/path facts or past PR evidence only for files and symbols named by the conflict group.",
         ]),
       ], { attrs: { id: "2", name: "inspect_conflict" } }),
       section("phase", [
         bulletList([
           "Remove conflict markers or failed-apply residue file by file.",
-          "Keep session-current structure unless the worker's validated hunk clearly improves or exact-matches the target.",
+          "Keep cycle-current structure unless the worker's validated hunk clearly improves or exact-matches the target.",
           "Preserve useful worker output by adapting it to the current source shape rather than blindly choosing one side.",
         ]),
       ], { attrs: { id: "3", name: "resolve_minimally" } }),

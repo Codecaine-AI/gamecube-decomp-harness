@@ -5,17 +5,17 @@ type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
 
 export type KnowledgeActionProjection = Omit<ActionProjection, "action_id" | "subject_kind" | "confirmation_required"> & {
   action_id: "knowledge.process";
-  subject_kind: "project";
+  subject_kind: "game";
   confirmation_required: false;
 };
 
 export interface KnowledgeApiRouteDeps {
   action: (body: JsonObject) => KnowledgeActionProjection;
-  applyStandardEdit: (edit: unknown, project: unknown) => unknown;
+  applyStandardEdit: (edit: unknown, game: unknown) => unknown;
   json: JsonResponder;
-  loadStandardsPayload: (project: unknown) => unknown;
-  triggerBackgroundKnowledgeProcess: (paths: { project?: unknown; stateDir: string }, body: JsonObject) => Promise<unknown>;
-  requestPaths: (url: URL, options: { useDefaultProject?: boolean }) => { project?: unknown; stateDir: string };
+  loadStandardsPayload: (game: unknown) => unknown;
+  triggerBackgroundKnowledgeProcess: (paths: { game?: unknown; stateDir: string }, body: JsonObject) => Promise<unknown>;
+  requestPaths: (url: URL, options: { useDefaultGame?: boolean }) => { game?: unknown; stateDir: string };
 }
 
 function commandResponse(action: KnowledgeActionProjection, result: unknown, error?: string): JsonObject {
@@ -37,11 +37,11 @@ export async function handleKnowledgeApiRoute(req: Request, url: URL, deps: Know
     const action = deps.action(body);
     if (!action.enabled) return deps.json(commandResponse(action, null), { status: 409 });
 
-    const paths = deps.requestPaths(url, { useDefaultProject: true });
+    const paths = deps.requestPaths(url, { useDefaultGame: true });
     try {
       return deps.json(commandResponse(action, await deps.triggerBackgroundKnowledgeProcess(paths, body)));
     } catch (error) {
-      // Queue state can change between projection and claim. Re-project so a
+      // Queue state can change between projection and claim. Recompute the projection so a
       // lease, retry backoff, or drained queue is returned as the blocker.
       const latest = deps.action(body);
       if (!latest.enabled) {
@@ -55,10 +55,10 @@ export async function handleKnowledgeApiRoute(req: Request, url: URL, deps: Know
   }
 
   if (url.pathname !== "/api/standards") return null;
-  const paths = deps.requestPaths(url, { useDefaultProject: true });
+  const paths = deps.requestPaths(url, { useDefaultGame: true });
   if (req.method === "POST") {
     const body = (await req.json().catch(() => ({}))) as JsonObject;
-    return deps.json(deps.applyStandardEdit((body.edit ?? {}) as unknown, paths.project ?? null));
+    return deps.json(deps.applyStandardEdit((body.edit ?? {}) as unknown, paths.game ?? null));
   }
-  return deps.json(deps.loadStandardsPayload(paths.project ?? null));
+  return deps.json(deps.loadStandardsPayload(paths.game ?? null));
 }

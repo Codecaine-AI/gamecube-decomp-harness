@@ -8,14 +8,14 @@ import {
 import type { ReactNode } from "react";
 import { num, shortId } from "@/lib/format";
 import { Button, PanelSection, PanelTitle, StatCard } from "@/components/primitives";
-import { prettyStatus, projectStateAction } from "@/pages/workspace/_lib/model";
+import { prettyStatus, harnessStateAction } from "@/pages/workspace/_lib/model";
 import type {
   DashboardAction,
-  ProjectStateActionProjection,
-  ProjectStateReadModel,
+  HarnessStateActionProjection,
+  HarnessStateReadModel,
 } from "@/pages/workspace/_lib/types";
 
-function projectionTitle(projection: ProjectStateActionProjection | null): string {
+function projectionTitle(projection: HarnessStateActionProjection | null): string {
   if (!projection) return "Action is missing from the server projection.";
   if (projection.enabled) return projection.expected_transition;
   return projection.blocked_by.map((blocker) => blocker.message || prettyStatus(blocker.code)).join("; ") || "Blocked by the server projection.";
@@ -40,7 +40,7 @@ function ProjectedButton({
   children: string;
   icon: ReactNode;
   onAction: (action: DashboardAction) => void;
-  projection: ProjectStateActionProjection | null;
+  projection: HarnessStateActionProjection | null;
   tone?: "default" | "primary" | "warning" | "danger";
 }) {
   return (
@@ -60,18 +60,18 @@ function ProjectedButton({
 export function SyncStateCard({
   busy,
   onAction,
-  projectState,
+  harnessState,
 }: {
   busy: boolean;
   onAction: (action: DashboardAction) => void;
-  projectState: ProjectStateReadModel | null;
+  harnessState: HarnessStateReadModel | null;
 }) {
-  const sync = projectState?.sync ?? null;
-  const start = projectStateAction(projectState, "sync.start");
-  const resolveConflict = projectStateAction(projectState, "sync.resolve_conflict");
-  const publish = projectStateAction(projectState, "sync.publish");
-  const cancel = projectStateAction(projectState, "sync.cancel");
-  const recover = projectStateAction(projectState, "sync.recover");
+  const sync = harnessState?.sync ?? null;
+  const start = harnessStateAction(harnessState, "sync.start");
+  const resolveConflict = harnessStateAction(harnessState, "sync.resolve_conflict");
+  const publish = harnessStateAction(harnessState, "sync.publish");
+  const cancel = harnessStateAction(harnessState, "sync.cancel");
+  const recover = harnessStateAction(harnessState, "sync.recover");
   const percent = sync?.staging
     ? progressPercent(sync.staging.epochs_applied, sync.staging.epochs_total)
     : 0;
@@ -86,7 +86,7 @@ export function SyncStateCard({
   return (
     <PanelSection>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <PanelTitle className="mb-0">Project Sync</PanelTitle>
+        <PanelTitle className="mb-0">Game Sync</PanelTitle>
         <div className="flex flex-wrap items-center gap-2">
           {sync?.staleness.stale ? (
             <span className="status-tag status-tag-warn" title={sync.staleness.blocker?.message}>

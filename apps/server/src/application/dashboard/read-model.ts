@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
-import { latestCheckpointSummary } from "@server/core/session-runtime/phases/pr/checkpoint";
-import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/core/session-runtime/phases/running/epochs";
+import { latestCheckpointSummary } from "@server/core/cycle-runtime/phases/pr/checkpoint";
+import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/core/cycle-runtime/phases/running/epochs";
 import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
 import { queryBackgroundKnowledgeSummary } from "@server/core/knowledge/background/index.js";
 import {
@@ -12,54 +12,54 @@ import {
   openState,
   schedulerEpochProgress,
   statusSnapshot,
-} from "@server/core/session-runtime/run-state";
-import { runDispatchLeaseStaleness } from "@server/core/session-runtime/phases/running/run-control.js";
+} from "@server/core/cycle-runtime/run-state";
+import { runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { dashboardArtifactPayloads, latestDashboardArtifactPayload } from "@server/core/orchestrator-state";
 import {
-  getActiveProjectSession,
-  type CloseProjectSessionInput,
-  type ProjectSessionBlocker,
-  type ProjectSessionRecord,
-  type SessionTimelineEntry,
-} from "@server/core/project-session";
-import { activeProjectSessionProjection } from "@server/core/project-session/store";
-import { listSessionTimeline, unresolvedSavePointFailures } from "@server/core/project-session/timeline";
+  getActiveCycle,
+  type CloseCycleInput,
+  type CycleBlocker,
+  type CycleRecord,
+  type CycleTimelineEntry,
+} from "@server/core/cycle";
+import { activeCycleProjection } from "@server/core/cycle/store";
+import { listCycleTimeline, unresolvedSavePointFailures } from "@server/core/cycle/timeline";
 import {
   eventsForSubject,
-  getProjectState,
+  getHarnessState,
   latestSequence,
   STALE_DISPATCH_LEASE_MS,
   type Blocker,
   type DispatchLease,
   type QueuedDispatchRequest,
-} from "@server/core/project-state";
-import { recentProjectEvents, type ProjectEventDto } from "@server/core/project-state/event-query";
+} from "@server/core/harness-state";
+import { recentGameEvents, type GameEventDto } from "@server/core/harness-state/event-query";
 import type { RunRecord, RunSchedulerCondition, RunStatus } from "@server/core/shared/types";
-import { readPrRecordsArtifact } from "@server/core/session-runtime/phases/pr/pr-records.js";
-import { listSavePoints, type SavePointRecord } from "@server/core/session-runtime/phases/pr/state";
+import { readPrRecordsArtifact } from "@server/core/cycle-runtime/phases/pr/pr-records.js";
+import { listSavePoints, type SavePointRecord } from "@server/core/cycle-runtime/phases/pr/state";
 import {
   PR_SERIES_STATUSES,
-  getOpenPrCampaignForProject,
+  getOpenPrCampaignForGame,
   listPrSeriesForCampaign,
-  projectPrCampaignAction,
+  gamePrCampaignAction,
   type PrCampaignActionId,
   type PrCampaignState,
   type PrSeriesState,
   type PrSeriesStatus,
   type PrWorkItem,
-} from "@server/core/session-runtime/phases/pr/campaign";
-import { projectToSummary as defaultProjectToSummary, type ProjectRuntimeContext, type ResolvedProject } from "@server/core/project-registry";
-import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/session-runtime/phases/pr/artifacts";
+} from "@server/core/cycle-runtime/phases/pr/campaign";
+import { gameToSummary as defaultGameToSummary, type GameRuntimeContext, type ResolvedGame } from "@server/core/game-registry";
+import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/cycle-runtime/phases/pr/artifacts";
 import {
   getSyncState,
   type SyncPublication,
   type SyncState,
   type SyncStatus,
-} from "@server/core/session-runtime/phases/sync";
+} from "@server/core/cycle-runtime/phases/sync";
 import {
-  projectSyncAction,
+  gameSyncAction,
   type SyncActionId,
-} from "@server/core/session-runtime/phases/sync/runtime.js";
+} from "@server/core/cycle-runtime/phases/sync/runtime.js";
 
 export type JsonObject = Record<string, unknown>;
 type WorkerStateOutcome =
@@ -93,7 +93,7 @@ type WorkerStateOutcome =
 type WorkerStateResult = "exact" | "improved" | "no_progress";
 type StopReason = "target_complete" | "stalled";
 
-export type DashboardProjectContext = ProjectRuntimeContext;
+export type DashboardGameContext = GameRuntimeContext;
 
 export interface ActionProjection {
   action_id:
@@ -103,12 +103,12 @@ export interface ActionProjection {
     | "run.hard_stop"
     | "run.cancel"
     | "run.recover"
-    | "session.close"
-    | "session.save_point"
+    | "cycle.close"
+    | "cycle.save_point"
     | "knowledge.process"
     | PrCampaignActionId
     | SyncActionId;
-  subject_kind: "run" | "session" | "sync" | "pr_campaign" | "project";
+  subject_kind: "run" | "cycle" | "sync" | "pr_campaign" | "game";
   subject_id: string;
   enabled: boolean;
   blocked_by: Blocker[];
@@ -116,9 +116,9 @@ export interface ActionProjection {
   confirmation_required: boolean;
 }
 
-export interface ProjectSessionActionState {
+export interface CycleActionState {
   availableActions: ActionProjection[];
-  closeInput: Pick<CloseProjectSessionInput, "aheadOfBase" | "namedSavePointId" | "worktreeDirtyBeyondHead">;
+  closeInput: Pick<CloseCycleInput, "aheadOfBase" | "namedSavePointId" | "worktreeDirtyBeyondHead">;
 }
 
 export interface DashboardRunRecoveryPoint {
@@ -152,12 +152,12 @@ export interface DashboardRunSummary {
   recovery_points: DashboardRunRecoveryPoint[];
 }
 
-export interface ProjectRunActionState {
+export interface GameRunActionState {
   availableActions: ActionProjection[];
   run: DashboardRunSummary | null;
 }
 
-export interface ProjectRunActionStateOptions {
+export interface GameRunActionStateOptions {
   hasActiveProcess?: (stateDir: string) => { active: boolean };
   now?: Date | number | string;
   runId?: string;
@@ -204,7 +204,7 @@ export interface DashboardSyncSummary {
   };
 }
 
-export interface ProjectSyncActionState {
+export interface GameSyncActionState {
   availableActions: ActionProjection[];
   sync: DashboardSyncSummary | null;
 }
@@ -252,44 +252,44 @@ export interface DashboardPrSummary {
   };
 }
 
-export interface ProjectPrActionState {
+export interface GamePrActionState {
   availableActions: ActionProjection[];
   pr: DashboardPrSummary | null;
 }
 
-const ALL_SESSION_EVIDENCE_LIMIT = Number.MAX_SAFE_INTEGER;
+const ALL_CYCLE_EVIDENCE_LIMIT = Number.MAX_SAFE_INTEGER;
 
-export interface DashboardProjectState {
+export interface DashboardHarnessState {
   revision: number;
   active_workflow: DispatchLease | null;
   queued_dispatch_requests: QueuedDispatchRequest[];
   run: DashboardRunSummary | null;
   pr: DashboardPrSummary | null;
   sync: DashboardSyncSummary | null;
-  session: {
-    session_uuid: string;
+  cycle: {
+    cycle_uuid: string;
     head_revision: string | null;
-    status: ProjectSessionRecord["status"];
+    status: CycleRecord["status"];
     latest_save_point: Pick<
       SavePointRecord,
       "id" | "triggerKind" | "label" | "commitSha" | "matchedCodePercent" | "createdAt"
     > | null;
     save_point_stale: boolean;
     blockers: Blocker[];
-    timeline: SessionTimelineEntry[];
+    timeline: CycleTimelineEntry[];
   } | null;
-  session_blockers: Blocker[];
+  cycle_blockers: Blocker[];
   save_point_stale: boolean;
   latest_event_sequence: number;
-  recent_events: ProjectEventDto[];
+  recent_events: GameEventDto[];
   available_actions: ActionProjection[];
 }
 
-/** The server-owned, operator-facing project projection. */
-export interface ProjectStateView {
-  project_id: string;
-  project_revision: number;
-  session: (NonNullable<DashboardProjectState["session"]> & { latest_timeline_entry: SessionTimelineEntry | null }) | null;
+/** The server-owned, operator-facing game projection. */
+export interface HarnessStateView {
+  game_id: string;
+  harness_revision: number;
+  cycle: (NonNullable<DashboardHarnessState["cycle"]> & { latest_timeline_entry: CycleTimelineEntry | null }) | null;
   active_workflow: (DispatchLease & { headline: string }) | null;
   queued_dispatch_requests: QueuedDispatchRequest[];
   run: DashboardRunSummary | null;
@@ -313,13 +313,13 @@ export interface ProjectStateView {
   };
   sync: DashboardSyncSummary | null;
   active_operations: Array<{ operation_id: string; status: string; [key: string]: unknown }>;
-  recent_events: ProjectEventDto[];
+  recent_events: GameEventDto[];
   available_actions: ActionProjection[];
   compatibility_actions: ActionProjection[];
 }
 
-export interface ProjectStateViewOptions extends Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now"> {
-  /** Legacy dashboard evidence used by the session close/readiness gates. */
+export interface HarnessStateViewOptions extends Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> {
+  /** Legacy dashboard evidence used by the cycle close/readiness gates. */
   campaign?: JsonObject;
 }
 
@@ -328,9 +328,9 @@ export interface DashboardReadModelDependencies {
   buildPrRecordsView: (stateDir: string, runId: string) => JsonObject;
   campaignStatus: (repoRoot: string, stateDir: string, baseRefFallback: string) => JsonObject;
   hasActiveProcess?: (stateDir: string) => { active: boolean };
-  processStatus: (stateDir: string, project: ResolvedProject | null) => JsonObject;
-  projectToSummary?: (project: ResolvedProject) => unknown;
-  refreshSyncUpstreamObservation?: (paths: DashboardProjectContext, observedUpstream: string) => Promise<unknown>;
+  processStatus: (stateDir: string, game: ResolvedGame | null) => JsonObject;
+  gameToSummary?: (game: ResolvedGame) => unknown;
+  refreshSyncUpstreamObservation?: (paths: DashboardGameContext, observedUpstream: string) => Promise<unknown>;
 }
 
 let readModelDependencies: DashboardReadModelDependencies | null = null;
@@ -340,8 +340,8 @@ function dashboardDeps(): DashboardReadModelDependencies {
   return readModelDependencies;
 }
 
-function projectSummary(project: ResolvedProject): unknown {
-  return readModelDependencies?.projectToSummary ? readModelDependencies.projectToSummary(project) : defaultProjectToSummary(project);
+function gameSummary(game: ResolvedGame): unknown {
+  return readModelDependencies?.gameToSummary ? readModelDependencies.gameToSummary(game) : defaultGameToSummary(game);
 }
 
 function readModelLog(stream: "stdout" | "stderr" | "ui", text: string): void {
@@ -351,8 +351,8 @@ function readModelLog(stream: "stdout" | "stderr" | "ui", text: string): void {
 export function createDashboardReadModel(dependencies: DashboardReadModelDependencies): {
   dashboardStableSignature: (dashboard: JsonObject) => string;
   dashboardTick: (dashboard: JsonObject) => JsonObject;
-  runDashboard: (paths: DashboardProjectContext) => Promise<JsonObject>;
-  runDetails: (stateDir: string, explicitRunId?: string, project?: ResolvedProject | null) => JsonObject;
+  runDashboard: (paths: DashboardGameContext) => Promise<JsonObject>;
+  runDetails: (stateDir: string, explicitRunId?: string, game?: ResolvedGame | null) => JsonObject;
   workerStateTrace: (stateDir: string, runId: string, workerStateId: string) => JsonObject;
 } {
   readModelDependencies = dependencies;
@@ -381,7 +381,7 @@ function numberValue(value: unknown, fallback = 0): number {
 }
 
 function actionBlocker(
-  blocker: ProjectSessionBlocker,
+  blocker: CycleBlocker,
   fallback: { sourceKind: string; sourceId: string },
 ): Blocker {
   return {
@@ -395,7 +395,7 @@ function actionBlocker(
 
 function savePointByEntry(
   savePoints: SavePointRecord[],
-  entry: SessionTimelineEntry | undefined,
+  entry: CycleTimelineEntry | undefined,
 ): SavePointRecord | null {
   if (!entry) return null;
   return savePoints.find((savePoint) => savePoint.id === entry.entry_id) ?? null;
@@ -411,12 +411,12 @@ function dedupeBlockers(blockers: Blocker[]): Blocker[] {
   });
 }
 
-function sessionEvidenceState(
+function cycleEvidenceState(
   store: ReturnType<typeof openState>,
-  projectId: string,
+  gameId: string,
   campaign: JsonObject,
-  session: ProjectSessionRecord | null,
-  timeline: SessionTimelineEntry[],
+  cycle: CycleRecord | null,
+  timeline: CycleTimelineEntry[],
   savePoints: SavePointRecord[],
 ): {
   blockers: Blocker[];
@@ -429,12 +429,12 @@ function sessionEvidenceState(
   const latestSavePoint = savePointByEntry(savePoints, latestEntry);
   const worktreeDirty = asObject(campaign.head).dirty === true;
   const spooled = unresolvedSavePointFailures(store, {
-    projectId,
-    sessionUuid: session?.session_uuid,
+    gameId,
+    cycleUuid: cycle?.cycle_uuid,
   });
   const blockers = dedupeBlockers([
-    ...(session?.blockers_json ?? []).map((blocker) =>
-      actionBlocker(blocker, { sourceKind: "session", sourceId: session?.session_uuid ?? projectId }),
+    ...(cycle?.blockers_json ?? []).map((blocker) =>
+      actionBlocker(blocker, { sourceKind: "cycle", sourceId: cycle?.cycle_uuid ?? gameId }),
     ),
     ...spooled.map((failure): Blocker => ({
       code: "save_point_failed",
@@ -444,7 +444,7 @@ function sessionEvidenceState(
       recoverable: true,
     })),
   ]);
-  const headRevision = session?.head_revision?.trim() ?? "";
+  const headRevision = cycle?.head_revision?.trim() ?? "";
   const latestAnchorDrifted = Boolean(
     latestEntry && (
       !latestSavePoint?.commitSha?.trim() ||
@@ -452,7 +452,7 @@ function sessionEvidenceState(
       latestSavePoint.worktreeDirty
     ),
   );
-  const freshNamedSavePoint = session && headRevision && !latestAnchorDrifted
+  const freshNamedSavePoint = cycle && headRevision && !latestAnchorDrifted
     ? timeline
         .filter((entry) => entry.entry_kind === "save_point")
         .map((entry) => savePointByEntry(savePoints, entry))
@@ -467,82 +467,82 @@ function sessionEvidenceState(
     blockers,
     freshNamedSavePoint,
     latestSavePoint,
-    stale: Boolean(session?.save_point_stale) || spooled.length > 0 || latestAnchorDrifted || worktreeDirty,
+    stale: Boolean(cycle?.save_point_stale) || spooled.length > 0 || latestAnchorDrifted || worktreeDirty,
     worktreeDirty,
   };
 }
 
-function sessionActionState(
+function cycleActionStateInternal(
   store: ReturnType<typeof openState>,
-  projectId: string,
+  gameId: string,
   campaign: JsonObject,
-  session: ProjectSessionRecord | null,
-  timeline: SessionTimelineEntry[],
+  cycle: CycleRecord | null,
+  timeline: CycleTimelineEntry[],
   savePoints: SavePointRecord[],
-): ProjectSessionActionState {
-  const projectState = getProjectState(store, projectId);
-  const subjectId = session?.session_uuid ?? projectId;
-  const inactiveBlockers: Blocker[] = session
-    ? session.status === "active" || session.status === "blocked"
+): CycleActionState {
+  const harnessState = getHarnessState(store, gameId);
+  const subjectId = cycle?.cycle_uuid ?? gameId;
+  const inactiveBlockers: Blocker[] = cycle
+    ? cycle.status === "active" || cycle.status === "blocked"
       ? []
-      : session.blockers_json.length > 0
-        ? session.blockers_json.map((blocker) =>
-            actionBlocker(blocker, { sourceKind: "session", sourceId: session.session_uuid }),
+      : cycle.blockers_json.length > 0
+        ? cycle.blockers_json.map((blocker) =>
+            actionBlocker(blocker, { sourceKind: "cycle", sourceId: cycle.cycle_uuid }),
           )
         : [
             {
-              code: "session_not_active",
-              message: `The project session is ${session.status}.`,
-              source_kind: "session",
-              source_id: session.session_uuid,
+              code: "cycle_not_active",
+              message: `The game cycle is ${cycle.status}.`,
+              source_kind: "cycle",
+              source_id: cycle.cycle_uuid,
               recoverable: false,
             },
           ]
     : [
         {
-          code: "session_not_active",
-          message: "No active project session exists.",
-          source_kind: "project",
-          source_id: projectId,
+          code: "cycle_not_active",
+          message: "No active game cycle exists.",
+          source_kind: "game",
+          source_id: gameId,
           recoverable: true,
         },
       ];
 
-  const evidence = sessionEvidenceState(store, projectId, campaign, session, timeline, savePoints);
+  const evidence = cycleEvidenceState(store, gameId, campaign, cycle, timeline, savePoints);
   const head = asObject(campaign.head);
   const aheadOfBaseKnown = typeof campaign.aheadOfBase === "number" && Number.isFinite(campaign.aheadOfBase);
   const worktreeStateKnown = typeof head.dirty === "boolean";
   const aheadOfBase = aheadOfBaseKnown ? Math.max(0, numberValue(campaign.aheadOfBase)) : 0;
   const worktreeDirtyBeyondHead = evidence.worktreeDirty;
   const closeBlockers: Blocker[] = [...inactiveBlockers, ...evidence.blockers];
-  if (session && projectState?.active_workflow) {
+  if (cycle && harnessState?.active_workflow) {
     closeBlockers.push({
       code: "dispatch_lease_held",
       message: "A workflow still holds the dispatch lease.",
-      source_kind: "project",
-      source_id: projectId,
+      source_kind: "game",
+      source_id: gameId,
       recoverable: true,
     });
   }
-  if (session && (evidence.stale || !evidence.freshNamedSavePoint)) {
+  if (cycle && (evidence.stale || !evidence.freshNamedSavePoint)) {
     closeBlockers.push({
       code: "unshipped_work",
       message: worktreeDirtyBeyondHead
-        ? "The worktree contains changes beyond the session head."
+        ? "The worktree contains changes beyond the cycle head."
         : evidence.stale
-          ? "Save-point evidence is stale or not anchored at the current session head."
-          : "A named save point at the current session head is required.",
-      source_kind: "session",
-      source_id: session.session_uuid,
+          ? "Save-point evidence is stale or not anchored at the current cycle head."
+          : "A named save point at the current cycle head is required.",
+      source_kind: "cycle",
+      source_id: cycle.cycle_uuid,
       recoverable: true,
     });
   }
-  if (session && (!aheadOfBaseKnown || !worktreeStateKnown)) {
+  if (cycle && (!aheadOfBaseKnown || !worktreeStateKnown)) {
     closeBlockers.push({
       code: "close_evidence_unavailable",
       message: "Current worktree or upstream-distance evidence is unavailable.",
-      source_kind: "session",
-      source_id: session.session_uuid,
+      source_kind: "cycle",
+      source_id: cycle.cycle_uuid,
       recoverable: true,
     });
   }
@@ -550,8 +550,8 @@ function sessionActionState(
   return {
     availableActions: [
       {
-        action_id: "session.save_point",
-        subject_kind: "session",
+        action_id: "cycle.save_point",
+        subject_kind: "cycle",
         subject_id: subjectId,
         enabled: inactiveBlockers.length === 0,
         blocked_by: inactiveBlockers,
@@ -559,8 +559,8 @@ function sessionActionState(
         confirmation_required: false,
       },
       {
-        action_id: "session.close",
-        subject_kind: "session",
+        action_id: "cycle.close",
+        subject_kind: "cycle",
         subject_id: subjectId,
         enabled: closeBlockers.length === 0,
         blocked_by: closeBlockers,
@@ -576,49 +576,49 @@ function sessionActionState(
   };
 }
 
-export function projectSessionActionState(
+export function cycleActionState(
   store: ReturnType<typeof openState>,
-  projectId: string,
+  gameId: string,
   campaign: JsonObject,
-): ProjectSessionActionState {
-  const session = getActiveProjectSession(store.db, projectId);
-  const timeline = session
-    ? listSessionTimeline(store.db, session.session_uuid, ALL_SESSION_EVIDENCE_LIMIT)
+): CycleActionState {
+  const cycle = getActiveCycle(store.db, gameId);
+  const timeline = cycle
+    ? listCycleTimeline(store.db, cycle.cycle_uuid, ALL_CYCLE_EVIDENCE_LIMIT)
     : [];
-  const savePoints = listSavePoints(store, ALL_SESSION_EVIDENCE_LIMIT);
-  return sessionActionState(store, projectId, campaign, session, timeline, savePoints);
+  const savePoints = listSavePoints(store, ALL_CYCLE_EVIDENCE_LIMIT);
+  return cycleActionStateInternal(store, gameId, campaign, cycle, timeline, savePoints);
 }
 
-function latestRunForProject(
+function latestRunForGame(
   store: ReturnType<typeof openState>,
-  projectId: string,
-  session: ProjectSessionRecord | null,
+  gameId: string,
+  cycle: CycleRecord | null,
   explicitRunId?: string,
 ): RunRecord | null {
   if (explicitRunId) return getRun(store, explicitRunId);
-  if (session?.active_run_id) {
-    const active = getRun(store, session.active_run_id);
+  if (cycle?.active_run_id) {
+    const active = getRun(store, cycle.active_run_id);
     if (active) return active;
   }
-  const row = (session
+  const row = (cycle
     ? store.db
         .query(
           `SELECT id
            FROM runs
-           WHERE project_id = ? AND session_uuid = ?
+           WHERE game_id = ? AND cycle_uuid = ?
            ORDER BY created_at DESC
            LIMIT 1`,
         )
-        .get(projectId, session.session_uuid)
+        .get(gameId, cycle.cycle_uuid)
     : store.db
         .query(
           `SELECT id
            FROM runs
-           WHERE project_id = ?
+           WHERE game_id = ?
            ORDER BY created_at DESC
            LIMIT 1`,
         )
-        .get(projectId)) as { id: string } | null;
+        .get(gameId)) as { id: string } | null;
   return row?.id ? getRun(store, row.id) : null;
 }
 
@@ -626,7 +626,7 @@ function runStatusProjection(store: ReturnType<typeof openState>, run: RunRecord
   const latest = statusSnapshot(store);
   if (stringValue(asObject(latest.run).id) === run.id) return latest;
 
-  // A state database may contain more than one project. Reuse the same
+  // A state database may contain more than one game. Reuse the same
   // canonical status queries for an explicitly selected non-latest run.
   const activeEpoch = activeSchedulerEpoch(store, run.id);
   return {
@@ -680,10 +680,10 @@ function runProgress(store: ReturnType<typeof openState>, run: RunRecord): Dashb
 
 function runRecoveryPoints(
   store: ReturnType<typeof openState>,
-  projectId: string,
+  gameId: string,
   runId: string,
 ): DashboardRunRecoveryPoint[] {
-  return eventsForSubject(store.db, "run", runId, { projectId })
+  return eventsForSubject(store.db, "run", runId, { gameId })
     .filter((event) => event.eventType === "run.recovered")
     .map((event) => ({
       event_id: event.eventId,
@@ -698,7 +698,7 @@ function runRecoveryPoints(
 
 function runSummaryProjection(
   store: ReturnType<typeof openState>,
-  projectId: string,
+  gameId: string,
   run: RunRecord,
 ): DashboardRunSummary {
   const status = runStatusProjection(store, run);
@@ -719,7 +719,7 @@ function runSummaryProjection(
     claimed: numberValue(schedulerEpoch.claimed),
     running: numberValue(status.activeClaims),
     progress: runProgress(store, run),
-    recovery_points: runRecoveryPoints(store, projectId, run.id),
+    recovery_points: runRecoveryPoints(store, gameId, run.id),
   };
 }
 
@@ -758,17 +758,17 @@ function runActionProjection(
   };
 }
 
-export function projectRunActionState(
+export function gameRunActionState(
   store: ReturnType<typeof openState>,
-  projectId: string,
-  options: ProjectRunActionStateOptions = {},
-): ProjectRunActionState {
-  const projectState = getProjectState(store, projectId);
-  const session = getActiveProjectSession(store.db, projectId);
-  const run = latestRunForProject(store, projectId, session, options.runId);
-  if (!run || run.projectId !== projectId) {
-    const subjectId = options.runId ?? `run:new:${projectId}`;
-    const missing = stateBlocker("run_not_found", "No run exists for this project.", "project", projectId);
+  gameId: string,
+  options: GameRunActionStateOptions = {},
+): GameRunActionState {
+  const harnessState = getHarnessState(store, gameId);
+  const cycle = getActiveCycle(store.db, gameId);
+  const run = latestRunForGame(store, gameId, cycle, options.runId);
+  if (!run || run.gameId !== gameId) {
+    const subjectId = options.runId ?? `run:new:${gameId}`;
+    const missing = stateBlocker("run_not_found", "No run exists for this game.", "game", gameId);
     const absent = (actionId: Extract<ActionProjection["action_id"], `run.${string}`>, transition: string, confirmationRequired: boolean): ActionProjection => ({
       action_id: actionId,
       subject_kind: "run",
@@ -791,7 +791,7 @@ export function projectRunActionState(
     };
   }
 
-  const lease = projectState?.active_workflow ?? null;
+  const lease = harnessState?.active_workflow ?? null;
   const ownLease = lease?.kind === "run" && lease.workflow_id === run.id ? lease : null;
   const leaseStaleness = runDispatchLeaseStaleness({
     hasActiveProcess: options.hasActiveProcess,
@@ -808,34 +808,34 @@ export function projectRunActionState(
       )
     : null;
   const syncRequest =
-    lease?.kind === "sync" || projectState?.queued_dispatch_requests.some((request) => request.kind === "sync")
+    lease?.kind === "sync" || harnessState?.queued_dispatch_requests.some((request) => request.kind === "sync")
       ? stateBlocker(
           "unresolved_sync_request",
           "An unresolved sync request must settle before the run can acquire dispatch authority.",
-          "project",
-          projectId,
+          "game",
+          gameId,
         )
       : null;
-  const inactiveSession =
-    session?.status === "active"
+  const inactiveCycle =
+    cycle?.status === "active"
       ? null
       : stateBlocker(
-          "session_not_active",
-          session ? `The project session is ${session.status}.` : "No active project session exists.",
-          session ? "session" : "project",
-          session?.session_uuid ?? projectId,
+          "cycle_not_active",
+          cycle ? `The game cycle is ${cycle.status}.` : "No active game cycle exists.",
+          cycle ? "cycle" : "game",
+          cycle?.cycle_uuid ?? gameId,
         );
   const staleBaseline =
-    run.inputs?.base_revision && session?.head_revision && run.inputs.base_revision !== session.head_revision
+    run.inputs?.base_revision && cycle?.head_revision && run.inputs.base_revision !== cycle.head_revision
       ? stateBlocker(
           "stale_baseline",
-          "The ready run baseline no longer matches the active session head.",
+          "The ready run baseline no longer matches the active cycle head.",
           "run",
           run.id,
         )
       : null;
   const readinessMissing = [
-    !run.projectId && "project_id",
+    !run.gameId && "game_id",
     !run.inputs?.base_revision?.trim() && "inputs.base_revision",
     !run.inputs?.policy_revision?.trim() && "inputs.policy_revision",
     !run.inputs?.starting_knowledge_revision?.trim() && "inputs.starting_knowledge_revision",
@@ -862,7 +862,7 @@ export function projectRunActionState(
       ? []
       : [stateBlocker("run_not_ready", `Run ${run.id} is ${run.status}; start requires ready.`, "run", run.id)]),
     ...runReadinessBlockers,
-    ...(inactiveSession ? [inactiveSession] : []),
+    ...(inactiveCycle ? [inactiveCycle] : []),
     ...(leaseHeld ? [leaseHeld] : []),
     ...(staleBaseline ? [staleBaseline] : []),
     ...(syncRequest ? [syncRequest] : []),
@@ -962,7 +962,7 @@ export function projectRunActionState(
         ];
 
   return {
-    run: runSummaryProjection(store, projectId, run),
+    run: runSummaryProjection(store, gameId, run),
     availableActions: [
       runActionProjection(run, "run.start", startBlockers, "ready → active", false),
       runActionProjection(run, "run.pause", pauseBlockers, "active → draining → paused", false),
@@ -1019,7 +1019,7 @@ function nextPrBatch(
 
 function prSummaryProjection(
   store: ReturnType<typeof openState>,
-  projectId: string,
+  gameId: string,
   campaign: PrCampaignState,
   availableActions: ActionProjection[],
 ): DashboardPrSummary {
@@ -1049,10 +1049,10 @@ function prSummaryProjection(
         series_branch: entry.branch,
       })),
   );
-  const projectState = getProjectState(store, projectId);
-  const lease = projectState?.active_workflow;
+  const harnessState = getHarnessState(store, gameId);
+  const lease = harnessState?.active_workflow;
   const ownLease = lease?.kind === "pr" && lease.workflow_id === campaign.campaign_id ? lease : null;
-  const queued = projectState?.queued_dispatch_requests.some(
+  const queued = harnessState?.queued_dispatch_requests.some(
     (request) => request.kind === "pr" && request.workflow_id === campaign.campaign_id,
   ) ?? false;
 
@@ -1089,16 +1089,16 @@ function prSummaryProjection(
 
 function prActionState(
   store: ReturnType<typeof openState>,
-  projectId: string,
-  session: ProjectSessionRecord | null,
+  gameId: string,
+  cycle: CycleRecord | null,
   freshNamedSavePoint: SavePointRecord | null,
-  options: Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now">,
-): ProjectPrActionState {
-  const campaign = getOpenPrCampaignForProject(store, projectId);
-  const projectState = getProjectState(store, projectId);
-  const ownLease = campaign && projectState?.active_workflow?.kind === "pr" &&
-      projectState.active_workflow.workflow_id === campaign.campaign_id
-    ? projectState.active_workflow
+  options: Pick<GameRunActionStateOptions, "hasActiveProcess" | "now">,
+): GamePrActionState {
+  const campaign = getOpenPrCampaignForGame(store, gameId);
+  const harnessState = getHarnessState(store, gameId);
+  const ownLease = campaign && harnessState?.active_workflow?.kind === "pr" &&
+      harnessState.active_workflow.workflow_id === campaign.campaign_id
+    ? harnessState.active_workflow
     : null;
   const heartbeatAt = ownLease ? Date.parse(ownLease.heartbeat_at) : NaN;
   const now = options.now instanceof Date
@@ -1114,29 +1114,29 @@ function prActionState(
     activationStale,
     hasLegacyRecords: hasLegacyPrRecords(store.stateDir),
     namedSavePointId: freshNamedSavePoint?.id,
-    sessionUuid: session?.session_uuid,
+    cycleUuid: cycle?.cycle_uuid,
   };
   const availableActions = PR_ACTION_IDS.map((actionId) =>
-    projectPrCampaignAction(store, projectId, actionId, campaign?.campaign_id, context) as ActionProjection,
+    gamePrCampaignAction(store, gameId, actionId, campaign?.campaign_id, context) as ActionProjection,
   );
   return {
     availableActions,
-    pr: campaign ? prSummaryProjection(store, projectId, campaign, availableActions) : null,
+    pr: campaign ? prSummaryProjection(store, gameId, campaign, availableActions) : null,
   };
 }
 
-export function projectPrActionState(
+export function gamePrActionState(
   store: ReturnType<typeof openState>,
-  projectId: string,
-  options: Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now"> = {},
-): ProjectPrActionState {
-  const session = getActiveProjectSession(store.db, projectId);
-  const timeline = session
-    ? listSessionTimeline(store.db, session.session_uuid, ALL_SESSION_EVIDENCE_LIMIT)
+  gameId: string,
+  options: Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> = {},
+): GamePrActionState {
+  const cycle = getActiveCycle(store.db, gameId);
+  const timeline = cycle
+    ? listCycleTimeline(store.db, cycle.cycle_uuid, ALL_CYCLE_EVIDENCE_LIMIT)
     : [];
-  const savePoints = listSavePoints(store, ALL_SESSION_EVIDENCE_LIMIT);
-  const evidence = sessionEvidenceState(store, projectId, {}, session, timeline, savePoints);
-  return prActionState(store, projectId, session, evidence.freshNamedSavePoint, options);
+  const savePoints = listSavePoints(store, ALL_CYCLE_EVIDENCE_LIMIT);
+  const evidence = cycleEvidenceState(store, gameId, {}, cycle, timeline, savePoints);
+  return prActionState(store, gameId, cycle, evidence.freshNamedSavePoint, options);
 }
 
 const SYNC_ACTION_IDS: readonly SyncActionId[] = [
@@ -1147,25 +1147,25 @@ const SYNC_ACTION_IDS: readonly SyncActionId[] = [
   "sync.recover",
 ];
 
-function latestSyncForProject(
+function latestSyncForGame(
   store: ReturnType<typeof openState>,
-  projectId: string,
+  gameId: string,
 ): SyncState | null {
   const row = store.db
     .query(
       `SELECT sync_id
        FROM sync_state
-       WHERE project_id = ?
+       WHERE game_id = ?
        ORDER BY latest_event_sequence DESC, created_at DESC, sync_id DESC
        LIMIT 1`,
     )
-    .get(projectId) as { sync_id: string } | null;
+    .get(gameId) as { sync_id: string } | null;
   return row ? getSyncState(store, row.sync_id) : null;
 }
 
 function syncSummaryProjection(
   sync: SyncState,
-  session: ProjectSessionRecord | null,
+  cycle: CycleRecord | null,
   availableActions: ActionProjection[],
 ): DashboardSyncSummary {
   const reconciliationCounts = {
@@ -1182,7 +1182,7 @@ function syncSummaryProjection(
   const stale = staleBlocker !== null || Boolean(
     validatedUpstream && observedUpstream && validatedUpstream !== observedUpstream,
   );
-  const priorHead = sync.staging?.session_head_sha ?? session?.head_revision ?? sync.intake.upstream_from;
+  const priorHead = sync.staging?.cycle_head_sha ?? cycle?.head_revision ?? sync.intake.upstream_from;
   const newHead = sync.intake.knowledge_only
     ? priorHead
     : sync.staging?.staging_head_sha ?? sync.intake.upstream_to;
@@ -1231,46 +1231,46 @@ function syncSummaryProjection(
   };
 }
 
-export function projectSyncActionState(
+export function gameSyncActionState(
   store: ReturnType<typeof openState>,
-  projectId: string,
-  session: ProjectSessionRecord | null = getActiveProjectSession(store.db, projectId),
-  options: Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now"> = {},
-): ProjectSyncActionState {
+  gameId: string,
+  cycle: CycleRecord | null = getActiveCycle(store.db, gameId),
+  options: Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> = {},
+): GameSyncActionState {
   const availableActions = SYNC_ACTION_IDS.map((actionId) =>
-    projectSyncAction(store, projectId, actionId, undefined, {
+    gameSyncAction(store, gameId, actionId, undefined, {
       hasActiveProcess: options.hasActiveProcess,
       now: options.now,
       stateDir: store.stateDir,
     }) as ActionProjection,
   );
-  const sync = latestSyncForProject(store, projectId);
+  const sync = latestSyncForGame(store, gameId);
   return {
     availableActions,
-    sync: sync ? syncSummaryProjection(sync, session, availableActions) : null,
+    sync: sync ? syncSummaryProjection(sync, cycle, availableActions) : null,
   };
 }
 
-export function buildProjectStateReadModel(
+export function buildHarnessStateReadModel(
   store: ReturnType<typeof openState>,
-  projectId: string,
+  gameId: string,
   campaign: JsonObject,
-  options: Pick<ProjectRunActionStateOptions, "hasActiveProcess" | "now"> = {},
-): DashboardProjectState {
-  const canonical = getProjectState(store, projectId);
-  const session = getActiveProjectSession(store.db, projectId);
-  const allTimeline = session
-    ? listSessionTimeline(store.db, session.session_uuid, ALL_SESSION_EVIDENCE_LIMIT)
+  options: Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> = {},
+): DashboardHarnessState {
+  const canonical = getHarnessState(store, gameId);
+  const cycle = getActiveCycle(store.db, gameId);
+  const allTimeline = cycle
+    ? listCycleTimeline(store.db, cycle.cycle_uuid, ALL_CYCLE_EVIDENCE_LIMIT)
     : [];
   const timeline = allTimeline.slice(0, 20);
-  const savePoints = listSavePoints(store, ALL_SESSION_EVIDENCE_LIMIT);
+  const savePoints = listSavePoints(store, ALL_CYCLE_EVIDENCE_LIMIT);
   const latestSavePointEntry = allTimeline.find((entry) => entry.entry_kind === "save_point");
   const latestSavePoint = savePointByEntry(savePoints, latestSavePointEntry);
-  const actions = sessionActionState(store, projectId, campaign, session, allTimeline, savePoints);
-  const runState = projectRunActionState(store, projectId, options);
-  const syncState = projectSyncActionState(store, projectId, session, options);
-  const evidence = sessionEvidenceState(store, projectId, campaign, session, allTimeline, savePoints);
-  const prState = prActionState(store, projectId, session, evidence.freshNamedSavePoint, options);
+  const actions = cycleActionStateInternal(store, gameId, campaign, cycle, allTimeline, savePoints);
+  const runState = gameRunActionState(store, gameId, options);
+  const syncState = gameSyncActionState(store, gameId, cycle, options);
+  const evidence = cycleEvidenceState(store, gameId, campaign, cycle, allTimeline, savePoints);
+  const prState = prActionState(store, gameId, cycle, evidence.freshNamedSavePoint, options);
 
   return {
     revision: canonical?.revision ?? 0,
@@ -1279,11 +1279,11 @@ export function buildProjectStateReadModel(
     run: runState.run,
     pr: prState.pr,
     sync: syncState.sync,
-    session: session
+    cycle: cycle
       ? {
-          session_uuid: session.session_uuid,
-          head_revision: session.head_revision,
-          status: session.status,
+          cycle_uuid: cycle.cycle_uuid,
+          head_revision: cycle.head_revision,
+          status: cycle.status,
           latest_save_point: latestSavePoint
             ? {
                 id: latestSavePoint.id,
@@ -1299,10 +1299,10 @@ export function buildProjectStateReadModel(
           timeline,
         }
       : null,
-    session_blockers: evidence.blockers,
+    cycle_blockers: evidence.blockers,
     save_point_stale: evidence.stale,
-    latest_event_sequence: latestSequence(store.db, projectId),
-    recent_events: recentProjectEvents(store.db, projectId, 20),
+    latest_event_sequence: latestSequence(store.db, gameId),
+    recent_events: recentGameEvents(store.db, gameId, 20),
     available_actions: [
       ...runState.availableActions,
       ...prState.availableActions,
@@ -1316,7 +1316,7 @@ const CANONICAL_ACTION_IDS = [
   "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
   "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
   "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
-  "session.save_point", "session.close", "knowledge.process",
+  "cycle.save_point", "cycle.close", "knowledge.process",
 ] as const;
 
 function workflowHeadline(lease: DispatchLease): string {
@@ -1324,13 +1324,13 @@ function workflowHeadline(lease: DispatchLease): string {
   return `${label} ${lease.workflow_id} is ${lease.status}.`;
 }
 
-function canonicalActiveWorkflow(lease: DispatchLease | null): ProjectStateView["active_workflow"] {
+function canonicalActiveWorkflow(lease: DispatchLease | null): HarnessStateView["active_workflow"] {
   if (!lease) return null;
   return { ...lease, headline: workflowHeadline(lease) };
 }
 
-function projectKnowledgeSummary(store: ReturnType<typeof openState>, projectId: string): ProjectStateView["knowledge"] {
-  const summary = queryBackgroundKnowledgeSummary(store, projectId);
+function gameKnowledgeSummary(store: ReturnType<typeof openState>, gameId: string): HarnessStateView["knowledge"] {
+  const summary = queryBackgroundKnowledgeSummary(store, gameId);
   return {
     published_revision: summary.publishedRevision,
     queued: summary.queued,
@@ -1355,8 +1355,8 @@ function projectKnowledgeSummary(store: ReturnType<typeof openState>, projectId:
 }
 
 function knowledgeActionProjection(
-  projectId: string,
-  knowledge: ProjectStateView["knowledge"],
+  gameId: string,
+  knowledge: HarnessStateView["knowledge"],
 ): ActionProjection {
   const blockers: Blocker[] = [];
   const now = Date.now();
@@ -1372,22 +1372,22 @@ function knowledgeActionProjection(
     blockers.push(stateBlocker(
       "knowledge_retry_backoff",
       `Knowledge processing is in retry backoff until ${knowledge.retry.next_attempt_at}.`,
-      "project",
-      projectId,
+      "game",
+      gameId,
     ));
   }
   if (knowledge.queued === 0) {
     blockers.push(stateBlocker(
       "knowledge_queue_empty",
       "The background knowledge queue has no processable work.",
-      "project",
-      projectId,
+      "game",
+      gameId,
     ));
   }
   return {
     action_id: "knowledge.process",
-    subject_kind: "project",
-    subject_id: projectId,
+    subject_kind: "game",
+    subject_id: gameId,
     enabled: blockers.length === 0,
     blocked_by: dedupeBlockers(blockers),
     expected_transition: "queued → processing → succeeded",
@@ -1397,34 +1397,34 @@ function knowledgeActionProjection(
 
 /**
  * Build the canonical operator authority view.  The older
- * buildProjectStateReadModel remains available for legacy dashboard payloads;
+ * buildHarnessStateReadModel remains available for legacy dashboard payloads;
  * callers of this function receive the Slice 6 DTO and never need to derive
  * action availability themselves.
  */
-export function getProjectStateView(
+export function getHarnessStateView(
   store: ReturnType<typeof openState>,
-  projectId: string,
-  options: ProjectStateViewOptions = {},
-): ProjectStateView {
+  gameId: string,
+  options: HarnessStateViewOptions = {},
+): HarnessStateView {
   const campaign = options.campaign ?? {};
-  const session = getActiveProjectSession(store.db, projectId);
-  const allTimeline = session
-    ? listSessionTimeline(store.db, session.session_uuid, ALL_SESSION_EVIDENCE_LIMIT)
+  const cycle = getActiveCycle(store.db, gameId);
+  const allTimeline = cycle
+    ? listCycleTimeline(store.db, cycle.cycle_uuid, ALL_CYCLE_EVIDENCE_LIMIT)
     : [];
-  const savePoints = listSavePoints(store, ALL_SESSION_EVIDENCE_LIMIT);
-  const evidence = sessionEvidenceState(store, projectId, campaign, session, allTimeline, savePoints);
-  const runState = projectRunActionState(store, projectId, options);
-  const syncState = projectSyncActionState(store, projectId, session, options);
-  const prState = prActionState(store, projectId, session, evidence.freshNamedSavePoint, options);
-  const sessionState = sessionActionState(store, projectId, campaign, session, allTimeline, savePoints);
-  const knowledge = projectKnowledgeSummary(store, projectId);
-  const knowledgeAction = knowledgeActionProjection(projectId, knowledge);
-  const canonical = getProjectState(store, projectId);
+  const savePoints = listSavePoints(store, ALL_CYCLE_EVIDENCE_LIMIT);
+  const evidence = cycleEvidenceState(store, gameId, campaign, cycle, allTimeline, savePoints);
+  const runState = gameRunActionState(store, gameId, options);
+  const syncState = gameSyncActionState(store, gameId, cycle, options);
+  const prState = prActionState(store, gameId, cycle, evidence.freshNamedSavePoint, options);
+  const cycleState = cycleActionStateInternal(store, gameId, campaign, cycle, allTimeline, savePoints);
+  const knowledge = gameKnowledgeSummary(store, gameId);
+  const knowledgeAction = knowledgeActionProjection(gameId, knowledge);
+  const canonical = getHarnessState(store, gameId);
   const canonicalActions = [
     ...runState.availableActions,
     ...prState.availableActions.filter((action) => action.action_id !== "pr.adopt_legacy"),
     ...syncState.availableActions,
-    ...sessionState.availableActions,
+    ...cycleState.availableActions,
     knowledgeAction,
   ];
   const actionsById = new Map(canonicalActions.map((action) => [action.action_id, action]));
@@ -1441,33 +1441,33 @@ export function getProjectStateView(
         ? "pr_campaign"
         : actionId.startsWith("sync.")
           ? "sync"
-          : actionId.startsWith("session.")
-            ? "session"
-            : "project";
-    const missingCode = missingKind === "project" ? "action_projection_unavailable" : `${missingKind}_not_found`;
-    const missingMessage = missingKind === "project"
+          : actionId.startsWith("cycle.")
+            ? "cycle"
+            : "game";
+    const missingCode = missingKind === "game" ? "action_projection_unavailable" : `${missingKind}_not_found`;
+    const missingMessage = missingKind === "game"
       ? `Action ${actionId} could not be projected.`
-      : `No ${missingKind.replace("_", " ")} exists for project ${projectId}.`;
+      : `No ${missingKind.replace("_", " ")} exists for game ${gameId}.`;
     availableActions.push({
       action_id: actionId,
       subject_kind: missingKind,
-      subject_id: projectId,
+      subject_id: gameId,
       enabled: false,
-      blocked_by: [stateBlocker(missingCode, missingMessage, missingKind, projectId)],
+      blocked_by: [stateBlocker(missingCode, missingMessage, missingKind, gameId)],
       expected_transition: "state transition unavailable",
-      confirmation_required: ["run.hard_stop", "run.cancel", "run.recover", "pr.publish_batch", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover", "sync.publish", "sync.cancel", "sync.recover", "session.close"].includes(actionId),
+      confirmation_required: ["run.hard_stop", "run.cancel", "run.recover", "pr.publish_batch", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover", "sync.publish", "sync.cancel", "sync.recover", "cycle.close"].includes(actionId),
     });
   }
   const compatibility = prState.availableActions.filter((action) => action.action_id === "pr.adopt_legacy");
   const latestSavePoint = savePointByEntry(savePoints, allTimeline.find((entry) => entry.entry_kind === "save_point"));
   return {
-    project_id: projectId,
-    project_revision: canonical?.revision ?? 0,
-    session: session
+    game_id: gameId,
+    harness_revision: canonical?.revision ?? 0,
+    cycle: cycle
       ? {
-          session_uuid: session.session_uuid,
-          head_revision: session.head_revision,
-          status: session.status,
+          cycle_uuid: cycle.cycle_uuid,
+          head_revision: cycle.head_revision,
+          status: cycle.status,
           latest_save_point: latestSavePoint
             ? {
                 id: latestSavePoint.id,
@@ -1491,7 +1491,7 @@ export function getProjectStateView(
     knowledge,
     sync: syncState.sync,
     active_operations: [],
-    recent_events: recentProjectEvents(store.db, projectId, 20),
+    recent_events: recentGameEvents(store.db, gameId, 20),
     available_actions: availableActions,
     compatibility_actions: compatibility,
   };
@@ -1609,20 +1609,20 @@ function summaryHasValue(summary: JsonObject): boolean {
   return Object.values(summary).some((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
 }
 
-function enrichProjectSessionBaseline(projectSession: JsonObject | null): JsonObject | null {
-  if (!projectSession) return projectSession;
-  const phases = asObject(projectSession.phases);
+function enrichCycleBaseline(cycle: JsonObject | null): JsonObject | null {
+  if (!cycle) return cycle;
+  const phases = asObject(cycle.phases);
   const preparing = asObject(phases.preparing);
   const baseline = asObject(preparing.baseline);
-  if (Object.keys(baseline).length === 0 || summaryHasValue(asObject(baseline.summary))) return projectSession;
+  if (Object.keys(baseline).length === 0 || summaryHasValue(asObject(baseline.summary))) return cycle;
   const reportRun = asObject(baseline.reportRun);
   const resetReport = asObject(baseline.resetReport);
   const summary =
     (summaryHasValue(asObject(reportRun.summary)) ? asObject(reportRun.summary) : null) ??
     (summaryHasValue(asObject(resetReport.summary)) ? asObject(resetReport.summary) : null);
-  if (!summary) return projectSession;
+  if (!summary) return cycle;
   return {
-    ...projectSession,
+    ...cycle,
     phases: {
       ...phases,
       preparing: {
@@ -1636,34 +1636,37 @@ function enrichProjectSessionBaseline(projectSession: JsonObject | null): JsonOb
   };
 }
 
-function activeSessionRunId(projectSession: JsonObject | null): string {
-  if (!projectSession) return "";
-  return stringValue(projectSession.activeRunId, stringValue(projectSession.active_run_id));
+function activeCycleRunId(cycle: JsonObject | null): string {
+  if (!cycle) return "";
+  return stringValue(cycle.activeRunId, stringValue(cycle.active_run_id));
 }
 
-function activeSessionRepoRoot(projectSession: JsonObject | null): string {
-  if (!projectSession) return "";
-  const sync = asObject(asObject(asObject(projectSession.phases).preparing).sync);
-  return stringValue(sync.sessionCurrentWorktreePath, stringValue(sync.sessionWorktreePath));
+function activeCycleRepoRoot(cycle: JsonObject | null): string {
+  if (!cycle) return "";
+  const sync = asObject(asObject(asObject(cycle.phases).preparing).sync);
+  return stringValue(
+    sync.cycleCurrentWorktreePath,
+    stringValue(sync.cycleWorktreePath),
+  );
 }
 
 export function dashboardAuthorityRepoRoot(
-  paths: Pick<DashboardProjectContext, "repoRoot" | "usePathOverrides">,
-  projectSession: JsonObject | null,
+  paths: Pick<DashboardGameContext, "repoRoot" | "usePathOverrides">,
+  cycle: JsonObject | null,
   status: JsonObject,
 ): string {
   if (paths.usePathOverrides) return paths.repoRoot;
   const run = asObject(status.run);
-  return activeSessionRepoRoot(projectSession) || stringValue(asObject(run.project).repoRoot, paths.repoRoot);
+  return activeCycleRepoRoot(cycle) || stringValue(asObject(run.game).repoRoot, paths.repoRoot);
 }
 
-function activeSessionBaseline(projectSession: JsonObject | null, runId: string): JsonObject | null {
-  if (!projectSession || !runId || activeSessionRunId(projectSession) !== runId) return null;
-  const baseline = asObject(asObject(asObject(projectSession.phases).preparing).baseline);
+function activeCycleBaseline(cycle: JsonObject | null, runId: string): JsonObject | null {
+  if (!cycle || !runId || activeCycleRunId(cycle) !== runId) return null;
+  const baseline = asObject(asObject(asObject(cycle.phases).preparing).baseline);
   return Object.keys(baseline).length > 0 ? baseline : null;
 }
 
-function measuresFromSessionSummary(summary: JsonObject): JsonObject {
+function measuresFromCycleSummary(summary: JsonObject): JsonObject {
   return {
     fuzzy_match_percent: numberValue(summary.fuzzyMatchPercent, NaN),
     matched_code_percent: numberValue(summary.matchedCodePercent, NaN),
@@ -1675,11 +1678,11 @@ function measuresFromSessionSummary(summary: JsonObject): JsonObject {
   };
 }
 
-function sessionBaselineBoard(projectSession: JsonObject | null, runId: string): JsonObject | null {
-  const baseline = activeSessionBaseline(projectSession, runId);
+function cycleBaselineBoard(cycle: JsonObject | null, runId: string): JsonObject | null {
+  const baseline = activeCycleBaseline(cycle, runId);
   if (!baseline) return null;
   const summary = asObject(baseline.summary);
-  const measures = measuresFromSessionSummary(summary);
+  const measures = measuresFromCycleSummary(summary);
   if (!summaryHasValue(measures)) return null;
   const reportRun = asObject(baseline.reportRun);
   const timestamps = asObject(reportRun.timestamps);
@@ -1688,7 +1691,7 @@ function sessionBaselineBoard(projectSession: JsonObject | null, runId: string):
     measures,
     candidates: [],
     reportPath: stringValue(reportRun.reportPath),
-    source: "session_baseline",
+    source: "cycle_baseline",
   };
 }
 
@@ -3257,7 +3260,7 @@ function knowledgeIntakeSummary(stateDir: string, graphDbPath: string): JsonObje
   };
 }
 
-function runDetails(stateDir: string, explicitRunId = "", project: ResolvedProject | null = null): JsonObject {
+function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | null = null): JsonObject {
   const store = openState(stateDir);
   let status: JsonObject;
   let runId = explicitRunId;
@@ -3268,7 +3271,7 @@ function runDetails(stateDir: string, explicitRunId = "", project: ResolvedProje
   } finally {
     store.db.close();
   }
-  if (!runId) return { project: project ? projectSummary(project) : null, stateDir, status, runId: "", summary: {}, timeline: [] };
+  if (!runId) return { game: game ? gameSummary(game) : null, stateDir, status, runId: "", summary: {}, timeline: [] };
 
   const workerStates = workerStatesForRun(stateDir, runId, 0);
   const events = eventsForRun(stateDir, runId, 0);
@@ -3282,7 +3285,7 @@ function runDetails(stateDir: string, explicitRunId = "", project: ResolvedProje
   const exactMatches = improvements.reduce((sum, improvement) => sum + numberValue(improvement.exactMatches), 0);
 
   return {
-    project: project ? projectSummary(project) : null,
+    game: game ? gameSummary(game) : null,
     stateDir,
     runId,
     generatedAt: new Date().toISOString(),
@@ -3318,7 +3321,7 @@ function runDetails(stateDir: string, explicitRunId = "", project: ResolvedProje
     epochTargets,
     improvements,
     improvedFiles,
-    knowledgeIntake: knowledgeIntakeSummary(stateDir, project?.graphDbPath ?? ""),
+    knowledgeIntake: knowledgeIntakeSummary(stateDir, game?.graphDbPath ?? ""),
   };
 }
 
@@ -3499,7 +3502,7 @@ function runScopedTrustedReport(report: JsonObject, runCreatedAt: string, report
   return report;
 }
 
-async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject> {
+async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   const { stateDir } = paths;
   let repoRoot = paths.repoRoot;
   const store = openState(stateDir);
@@ -3507,35 +3510,35 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   let runId = "";
   let runCreatedAt = "";
   let runDesiredWorkers = 0;
-  let projectSession: JsonObject | null = null;
+  let cycle: JsonObject | null = null;
   try {
     status = statusSnapshot(store);
     const run = asObject(status.run);
     runId = stringValue(run.id);
     runCreatedAt = stringValue(run.createdAt);
     runDesiredWorkers = numberValue(run.desiredWorkers, 0);
-    if (paths.project) projectSession = activeProjectSessionProjection(store.db, paths.project.projectId) as unknown as JsonObject | null;
-    projectSession = enrichProjectSessionBaseline(projectSession);
-    repoRoot = dashboardAuthorityRepoRoot(paths, projectSession, status);
+    if (paths.game) cycle = activeCycleProjection(store.db, paths.game.gameId) as unknown as JsonObject | null;
+    cycle = enrichCycleBaseline(cycle);
+    repoRoot = dashboardAuthorityRepoRoot(paths, cycle, status);
   } finally {
     store.db.close();
   }
 
   const initialSnapshot = runId ? latestInitialSnapshot(stateDir, runId) : {};
   let initialMeasures = compactMeasures(measuresFromSnapshot(initialSnapshot));
-  const campaign = dashboardDeps().campaignStatus(repoRoot, stateDir, paths.project?.baseRef ?? "origin/master");
+  const campaign = dashboardDeps().campaignStatus(repoRoot, stateDir, paths.game?.baseRef ?? "origin/master");
   const observedUpstream = stringValue(campaign.baseSha);
   if (observedUpstream) {
     await dashboardDeps().refreshSyncUpstreamObservation?.(paths, observedUpstream);
   }
-  const sessionBaseline = sessionBaselineBoard(projectSession, runId);
+  const cycleBaseline = cycleBaselineBoard(cycle, runId);
   let currentBoard = loadCurrentBoard(stateDir, runId, campaign);
-  if (!summaryHasValue(asObject(currentBoard.measures)) && sessionBaseline) {
+  if (!summaryHasValue(asObject(currentBoard.measures)) && cycleBaseline) {
     currentBoard = {
       ...currentBoard,
-      ...sessionBaseline,
+      ...cycleBaseline,
       error: currentBoard.error,
-      source: "session_baseline",
+      source: "cycle_baseline",
     } as typeof currentBoard;
   }
   // With no run baseline, "start" is the campaign anchor: the last save point.
@@ -3543,10 +3546,10 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   // shows drift since the anchor instead of n/a.
   let initialSource: string | null = runId ? "run" : null;
   let initialGeneratedAt: unknown = initialSnapshot.generatedAt ?? null;
-  if (sessionBaseline) {
-    initialMeasures = asObject(sessionBaseline.measures);
-    initialSource = "session_baseline";
-    initialGeneratedAt = sessionBaseline.generatedAt ?? null;
+  if (cycleBaseline) {
+    initialMeasures = asObject(cycleBaseline.measures);
+    initialSource = "cycle_baseline";
+    initialGeneratedAt = cycleBaseline.generatedAt ?? null;
   }
   if (!Object.values(initialMeasures).some((value) => Number.isFinite(Number(value)))) {
     const savePoint = asObject(campaign.savePoint);
@@ -3570,31 +3573,31 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
   const checkpoint = runId ? checkpointForRun(stateDir, runId) : null;
   const handoff = runId ? handoffForRun(stateDir, runId, checkpoint) : { checkpoint: null, qa: null, splitPlan: null };
   const epochs = runningEpochHistory(stateDir);
-  const projectId = paths.project?.projectId ?? stringValue(projectSession?.projectId);
-  let projectState: ProjectStateView | null = null;
-  if (projectId) {
-    const projectStateStore = openState(stateDir);
+  const gameId = paths.game?.gameId ?? stringValue(cycle?.gameId);
+  let harnessState: HarnessStateView | null = null;
+  if (gameId) {
+    const harnessStateStore = openState(stateDir);
     try {
-      projectState = getProjectStateView(projectStateStore, projectId, {
+      harnessState = getHarnessStateView(harnessStateStore, gameId, {
         campaign,
         hasActiveProcess: dashboardDeps().hasActiveProcess,
       });
     } finally {
-      projectStateStore.db.close();
+      harnessStateStore.db.close();
     }
   }
-  if (projectSession && projectState?.session) {
-    projectSession = {
-      ...projectSession,
-      blockers: projectState.session.blockers,
-      savePointStale: projectState.session.save_point_stale,
+  if (cycle && harnessState?.cycle) {
+    cycle = {
+      ...cycle,
+      blockers: harnessState.cycle.blockers,
+      savePointStale: harnessState.cycle.save_point_stale,
     };
   }
   return {
-    project: paths.project ? projectSummary(paths.project) : null,
-    projectSession,
-    projectState,
-    projectWarnings: paths.project?.warnings ?? [],
+    game: paths.game ? gameSummary(paths.game) : null,
+    cycle,
+    harnessState,
+    gameWarnings: paths.game?.warnings ?? [],
     repoRoot,
     configuredRepoRoot: paths.repoRoot,
     stateDir,
@@ -3619,7 +3622,7 @@ async function runDashboard(paths: DashboardProjectContext): Promise<JsonObject>
     progressWorkerStates,
     touchedFiles: touchedFilesFromWorkerStates(allWorkerStates),
     events: runId ? eventsForRun(stateDir, runId, 40) : [],
-    process: dashboardDeps().processStatus(stateDir, paths.project),
+    process: dashboardDeps().processStatus(stateDir, paths.game),
     campaign,
     epochs,
     checkpointProgress: runId

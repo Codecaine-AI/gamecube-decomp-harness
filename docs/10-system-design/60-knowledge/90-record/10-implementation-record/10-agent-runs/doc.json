@@ -1,0 +1,474 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-knowledge-60-implementation-record-10-agent-runs",
+  "title": "The librarian's kernel config",
+  "root": "b-10-agent-runs-root-23",
+  "blocks": {
+    "b-10-agent-runs-root-23": {
+      "id": "b-10-agent-runs-root-23",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-10-agent-runs-agent-runs-define-the-li-1",
+        "b-10-agent-runs-the-librarian-s-kernel-c-2",
+        "b-10-agent-runs-there-is-no-separate-obs-3",
+        "b-10-agent-runs-ts-4",
+        "b-10-agent-runs-cli-provider-model-5",
+        "b-10-agent-runs-parallelization-design-6",
+        "b-10-agent-runs-the-machinery-already-ex-7",
+        "b-10-agent-runs-structured-table-block-8",
+        "b-10-agent-runs-round-estimates-9",
+        "b-10-agent-runs-structured-table-block-10",
+        "b-10-agent-runs-worker-95-history-836-b-11",
+        "b-10-agent-runs-total-roughly-2-400-4-12",
+        "b-10-agent-runs-process-outline-block-13",
+        "b-10-agent-runs-wave-2-runbook-14",
+        "b-10-agent-runs-1-the-codecaine-ai-p-15",
+        "b-10-agent-runs-process-outline-block-16",
+        "b-10-agent-runs-structured-table-block-17",
+        "b-10-agent-runs-discord-puller-scaf-18",
+        "b-10-agent-runs-run-results-2026-08-11-19",
+        "b-10-agent-runs-smoke-verified-all-three-20",
+        "b-10-agent-runs-structured-table-block-21",
+        "b-10-agent-runs-the-corroboration-job-ga-22"
+      ]
+    },
+    "b-10-agent-runs-agent-runs-define-the-li-1": {
+      "id": "b-10-agent-runs-agent-runs-define-the-li-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Agent runs define the librarian configuration and the parallel execution plan for knowledge backfills. The record covers review surfaces, batching, concurrency, run estimates, operational prerequisites, and observed results."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-the-librarian-s-kernel-c-2": {
+      "id": "b-10-agent-runs-the-librarian-s-kernel-c-2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The librarian's kernel config"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-there-is-no-separate-obs-3": {
+      "id": "b-10-agent-runs-there-is-no-separate-obs-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "There is no separate observer/observatory module — the inspection surface is the "
+        },
+        {
+          "insert": "Kernel Agent Viewer",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " ("
+        },
+        {
+          "insert": "GET /api/kernel/agents",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", built from "
+        },
+        {
+          "insert": "kernel-preview.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "), which renders every agent's model, thinking level, tools, and fully rendered system/user prompts from sample fixtures. The librarian shows up there the moment its catalog entry lands — review happens before any run. ("
+        },
+        {
+          "insert": "AGENT_KERNEL_OBSERVER_URL",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is only an external trace-link template.)"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-ts-4": {
+      "id": "b-10-agent-runs-ts-4",
+      "type": "code",
+      "props": {
+        "language": "ts"
+      },
+      "text": [
+        {
+          "insert": "// agents/knowledge/librarian/agent.ts — proposed definition\nexport default defineAgent({\n  name: \"librarian\",\n  description: \"Condenses inbound material (transcripts+checkpoints, PRs, discord) into attempts and learnings; catalogs into the knowledge ledger.\",\n  model: \"codex-lb/gpt-5.6-sol\",   // judgment-heavy: same tier as workers, not curator's 5.5\n  thinking: \"medium\",               // \"high\" for the corroboration pass\n  coreTools: [\"read\", \"grep\", \"code_graph_search\", \"past_prs_search\", \"ledger_append\", \"ledger_search\"],\n  extensions: false,\n  canSpawnSubagent: false,\n  runInBackground: true,\n});\n// schema.json: learning proposals (subject+scope, origin, statement, evidence[], confidence)\n//            + attempt overlays (checkpoint_id, tactics[{tactic, outcome, at}])\n//            + verdicts on existing learnings (confirm | refute)"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-cli-provider-model-5": {
+      "id": "b-10-agent-runs-cli-provider-model-5",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "CLI "
+        },
+        {
+          "insert": "--provider/--model/--thinking-level",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " globally override every agent's "
+        },
+        {
+          "insert": "agent.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " model ("
+        },
+        {
+          "insert": "spawn-agent.ts:91-116",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). Backfill invocations must omit those flags (or match intentionally) or the librarian's config is silently replaced."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-parallelization-design-6": {
+      "id": "b-10-agent-runs-parallelization-design-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Parallelization design"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-the-machinery-already-ex-7": {
+      "id": "b-10-agent-runs-the-machinery-already-ex-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The machinery already exists: the curator path runs batches through "
+        },
+        {
+          "insert": "mapLimit",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with "
+        },
+        {
+          "insert": "--curator-agent-jobs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (default 16) — it is just unreachable from the run-loop because the flags are not forwarded. The backfill therefore runs as a "
+        },
+        {
+          "insert": "standalone CLI job",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " (new "
+        },
+        {
+          "insert": "job-runner kg-librarian-backfill --source <s> --jobs N",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "), not inside the run-loop: no forwarding gap, no competition with live workers, and the harness can stay paused during big passes."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-structured-table-block-8": {
+      "id": "b-10-agent-runs-structured-table-block-8",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "[structured-table block]"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-round-estimates-9": {
+      "id": "b-10-agent-runs-round-estimates-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Round estimates"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-structured-table-block-10": {
+      "id": "b-10-agent-runs-structured-table-block-10",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "[structured-table block]"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-worker-95-history-836-b-11": {
+      "id": "b-10-agent-runs-worker-95-history-836-b-11",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "worker&#95;history 836 batches (3,460 of 3,987 workers have checkpoints, 836 distinct targets) · past&#95;prs 1,168 · discord 1 (one month synced so far) — ~2,005 backfill calls plus the corroboration pass, the low end of the estimate band. Operational note: worker_history planning requires "
+        },
+        {
+          "insert": "--game melee",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or the default state dir resolves to an empty stub and plans zero batches."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-total-roughly-2-400-4-12": {
+      "id": "b-10-agent-runs-total-roughly-2-400-4-12",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Total: roughly 2,400–4,900 librarian calls; ~8–17 hours wall-clock at jobs=16",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": " — comfortably a weekend run, or split per source across evenings. The raw-discord row dominates the uncertainty; the distillate cross-check pass can ship first and the raw repull can re-run later without redoing anything else (present-anchored batches are independent)."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-process-outline-block-13": {
+      "id": "b-10-agent-runs-process-outline-block-13",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "[process-outline block]"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-wave-2-runbook-14": {
+      "id": "b-10-agent-runs-wave-2-runbook-14",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Wave 2 runbook"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-1-the-codecaine-ai-p-15": {
+      "id": "b-10-agent-runs-1-the-codecaine-ai-p-15",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "(1) The "
+        },
+        {
+          "insert": "@codecaine-ai/prompt-kit",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " blocker: job-runner cannot launch because the kernel worktree pinned at main lacks the package — resolve (newer pin or vendor) before any command below. (2) Ford reviews the librarian in the Agent Viewer ("
+        },
+        {
+          "insert": "GET /api/kernel/agents",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") and approves model/thinking/prompt. (3) codex-lb up (reboot-fragile set)."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-process-outline-block-16": {
+      "id": "b-10-agent-runs-process-outline-block-16",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "[process-outline block]"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-structured-table-block-17": {
+      "id": "b-10-agent-runs-structured-table-block-17",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "[structured-table block]"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-discord-puller-scaf-18": {
+      "id": "b-10-agent-runs-discord-puller-scaf-18",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Discord puller: ",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": "scaffolded at "
+        },
+        {
+          "insert": "games/melee/knowledge/sources/rag_search/discord_raw/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — pure-python channel puller (timestamps, resume, rate-limit aware), "
+        },
+        {
+          "insert": "config/channels.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " placeholder, dry-run validator. Activation needs exactly two inputs from Ford: "
+        },
+        {
+          "insert": "DISCORD_TOKEN",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in local.env and the guild + channel IDs. Backfill = "
+        },
+        {
+          "insert": "pull_all.py",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; cron = "
+        },
+        {
+          "insert": "pull_all.py --since-yesterday",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-run-results-2026-08-11-19": {
+      "id": "b-10-agent-runs-run-results-2026-08-11-19",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Run results (2026-08-11)"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-smoke-verified-all-three-20": {
+      "id": "b-10-agent-runs-smoke-verified-all-three-20",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "smoke verified all three doors on real data; ramp 16 (200 batches, 6 transient fails) → 32 (400, 1) → 64 (571, 2), settled at 64; every failure was a codex-lb websocket transient recovered by manifest retry; totals past&#95;prs 1,168/1,168 · worker&#95;history 836/836 · discord 1/1; wall-clock under two hours vs the 8–17h estimate."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-structured-table-block-21": {
+      "id": "b-10-agent-runs-structured-table-block-21",
+      "type": "quote",
+      "props": {},
+      "text": [
+        {
+          "insert": "[structured-table block]"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-the-corroboration-job-ga-22": {
+      "id": "b-10-agent-runs-the-corroboration-job-ga-22",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The corroboration job gained per-wave manifest+apply crash-safety after a session kill demonstrated the need."
+        }
+      ],
+      "children": []
+    }
+  }
+}

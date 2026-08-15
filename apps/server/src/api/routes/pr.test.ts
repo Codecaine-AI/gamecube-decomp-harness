@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type {
   PrCampaignActionId,
   PrCampaignActionProjection,
-} from "@server/core/session-runtime/phases/pr/campaign/runtime.js";
+} from "@server/core/cycle-runtime/phases/pr/campaign/runtime.js";
 import { handlePrApiRoute, type PrApiRouteDeps } from "./pr.js";
 
 function projection(
@@ -75,7 +75,7 @@ describe("PR campaign API command routes", () => {
       },
     });
     const request = new Request(`http://localhost${path}`, {
-      body: JSON.stringify({ ...(confirmed ? { confirmed: true } : {}), projectId: "melee" }),
+      body: JSON.stringify({ ...(confirmed ? { confirmed: true } : {}), gameId: "melee" }),
       headers: { "content-type": "application/json" },
       method: "POST",
     });
@@ -168,7 +168,7 @@ describe("PR campaign API command routes", () => {
       },
     });
     const request = new Request(`http://localhost${path}`, {
-      body: JSON.stringify({ leaseId: "lease-pr", projectId: "melee", seriesId: "series-1" }),
+      body: JSON.stringify({ leaseId: "lease-pr", gameId: "melee", seriesId: "series-1" }),
       headers: { "content-type": "application/json" },
       method: "POST",
     });
@@ -176,7 +176,7 @@ describe("PR campaign API command routes", () => {
     const response = await handlePrApiRoute(request, new URL(request.url), routeDeps);
     expect(response?.status).toBe(200);
     expect(await response?.json()).toEqual({ result: { command } });
-    expect(received).toEqual([{ leaseId: "lease-pr", projectId: "melee", seriesId: "series-1" }]);
+    expect(received).toEqual([{ leaseId: "lease-pr", gameId: "melee", seriesId: "series-1" }]);
   });
 
   test("ignores non-command requests", async () => {

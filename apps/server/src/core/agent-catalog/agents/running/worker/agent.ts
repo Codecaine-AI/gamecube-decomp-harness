@@ -1,10 +1,10 @@
-import { defineAgent } from "@agent-kernel/kernel/agent-definition";
+import { defineHarnessAgent } from "@server/core/agent-catalog/agent-definition.js";
 
 import { context } from "./context.js";
 import { prompt } from "./prompt.js";
 import { tools } from "./tools.js";
 
-export const agent = defineAgent({
+export const agent = defineHarnessAgent({
   name: "worker",
   description: "Execute one claimed Melee decomp target while the runner owns checkpoints and lifecycle state.",
   model: "codex-lb/gpt-5.6-sol",

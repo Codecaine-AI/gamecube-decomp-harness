@@ -37,7 +37,7 @@ describe("PR campaign API", () => {
   test("requires explicit confirmation before batch publication", async () => {
     let calls = 0;
     const request = new Request("http://test/api/pr/publish-batch", {
-      body: JSON.stringify({ projectId: "melee" }),
+      body: JSON.stringify({ gameId: "melee" }),
       method: "POST",
     });
     const response = await handlePrCampaignApiRoute(request, new URL(request.url), deps({
@@ -67,7 +67,7 @@ describe("PR campaign API", () => {
       ["/api/pr/adopt-legacy", false],
     ] as const) {
       const request = new Request(`http://test${path}`, {
-        body: JSON.stringify({ confirmed, projectId: "melee" }),
+        body: JSON.stringify({ confirmed, gameId: "melee" }),
         method: "POST",
       });
       expect((await handlePrCampaignApiRoute(request, new URL(request.url), routeDeps))?.status).toBe(200);

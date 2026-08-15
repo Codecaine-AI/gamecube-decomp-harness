@@ -30,8 +30,8 @@ import {
   numberArg,
   stringArg,
   type GlobalArgs,
-} from "@server/core/project-registry/runtime-options.js";
-import { openState, type StateStore } from "@server/core/session-runtime/run-state";
+} from "@server/core/game-registry/runtime-options.js";
+import { openState, type StateStore } from "@server/core/cycle-runtime/run-state";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
@@ -507,7 +507,7 @@ async function executeBatch(options: {
         librarianBatch,
         repoRoot: globals.repoRoot,
         stateDir: globals.stateDir,
-        project: globals.project,
+        game: globals.game,
       }),
       outputDir,
       dryRun: globals.dryRunAgents,
@@ -518,11 +518,11 @@ async function executeBatch(options: {
       toolContext: {
         repoRoot: globals.repoRoot,
         stateDir: globals.stateDir,
-        project: globals.project,
+        game: globals.game,
       },
       kernelContext: createMeleeKernelSpawnContext({
         kind: "knowledge-curation",
-        projectId: globals.project?.projectId ?? globals.projectId,
+        gameId: globals.game?.gameId ?? globals.gameId,
         sessionId: runId || batch.batch_id,
         runId: runId || batch.batch_id,
         phase: "knowledge-curation",
@@ -616,7 +616,7 @@ export async function kgLibrarianBackfill(
   const ledgerPath = stringArg(
     args,
     "--ledger-path",
-    defaultLedgerPath(globals.project?.projectId ?? "melee"),
+    defaultLedgerPath(globals.game?.gameId ?? "melee"),
   );
   let workerDb: Database | null = null;
   let recordStore: StateStore | null = null;

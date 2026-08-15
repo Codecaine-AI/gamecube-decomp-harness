@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score
 
-REPO = Path("/Users/Ford/Github Repos/oss/gamecube-decomp-harness")
+REPO = Path(__file__).resolve().parents[2]
 SCRATCH = Path(os.environ.get("TUNE_SCRATCH", "/tmp/admission-tuning-scratch"))
 HERE = Path(__file__).resolve().parent
 
@@ -64,8 +64,8 @@ AUG_EPOCHS = [25, 27]
 # ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
-conn = pao.open_db_readonly(REPO / "projects/melee/state/orchestrator.sqlite")
-epoch_ids = pao.load_epoch_ids(conn, pao.DEFAULT_SESSION)
+conn = pao.open_db_readonly(REPO / "games/melee/state/orchestrator.sqlite")
+epoch_ids = pao.load_epoch_ids(conn, pao.DEFAULT_RUN)
 outcomes = {o: pao.load_epoch_outcomes(conn, o, epoch_ids[o]) for o in pao.HISTORY_EPOCHS}
 dataset = pd.concat(
     [pao.build_rows(conn, o, epoch_ids[o], outcomes, with_labels=True) for o in pao.CLEAN_EPOCHS],

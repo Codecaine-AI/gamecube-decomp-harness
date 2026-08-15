@@ -23,38 +23,38 @@ import { processName } from "@/pages/workspace/_lib/model";
 import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 import type {
   DashboardAction,
-  SessionView,
+  CycleView,
   WorkspaceNav,
 } from "@/pages/workspace/_lib/types";
-import { activeSessionFocus } from "@/pages/workspace/sessions/_lib/sessionRoute";
+import { activeCycleFocus } from "@/pages/workspace/cycles/_lib/cycleRoute";
 import { SyncStateCard } from "@/pages/workspace/overview/SyncStateCard";
 
 function readinessRows(
-  view: SessionView,
+  view: CycleView,
   nav: WorkspaceNav,
 ): Array<[string, ReactNode, string]> {
   const repoTone =
-    view.project?.repoRootExists === false ? "text-down" : "text-up";
+    view.game?.repoRootExists === false ? "text-down" : "text-up";
   const stateTone =
-    view.project?.stateDirExists === false ? "text-down" : "text-up";
+    view.game?.stateDirExists === false ? "text-down" : "text-up";
   const graphTone =
-    view.project?.graphDbExists === false ? "text-down" : "text-up";
+    view.game?.graphDbExists === false ? "text-down" : "text-up";
   return [
     [
       "Repository",
-      view.project?.repoRootExists === false
+      view.game?.repoRootExists === false
         ? "missing checkout"
         : "synced / known branch",
       repoTone,
     ],
     [
       "State dir",
-      view.project?.stateDirExists === false ? "missing" : "present",
+      view.game?.stateDirExists === false ? "missing" : "present",
       stateTone,
     ],
     [
       "Graph DB",
-      view.project?.graphDbExists === false ? "not built" : "built",
+      view.game?.graphDbExists === false ? "not built" : "built",
       graphTone,
     ],
     [
@@ -87,11 +87,11 @@ export function OverviewPage({
   form: FormState;
   nav: WorkspaceNav;
   onAction: (action: DashboardAction) => void;
-  view: SessionView;
+  view: CycleView;
 }) {
-  const sessionFocus = activeSessionFocus(view);
-  const hasCanonicalActiveSession = Boolean(
-    view.activeSessionId &&
+  const cycleFocus = activeCycleFocus(view);
+  const hasCanonicalActiveCycle = Boolean(
+    view.activeCycleId &&
     view.canonicalPhase &&
     view.canonicalPhase !== "complete",
   );
@@ -99,11 +99,11 @@ export function OverviewPage({
     .filter(Boolean)
     .map(prettyPhase)
     .join(" / ");
-  let recommendedAction = "Start a Session";
+  let recommendedAction = "Start a Cycle";
   let recommendedHint =
-    "No active session. Open the project sessions to start a run when ready.";
+    "No active cycle. Open the game cycles to start a run when ready.";
   let recommendedIcon: ReactNode = <Play size={14} />;
-  if (hasCanonicalActiveSession) {
+  if (hasCanonicalActiveCycle) {
     recommendedAction =
       view.canonicalPhase === "preparing"
         ? "Open Preparation"
@@ -111,8 +111,8 @@ export function OverviewPage({
           ? "Open Run"
           : view.canonicalPhase === "pr"
             ? "Open PR Queue"
-            : "Open Session";
-    recommendedHint = `Continue the active ${activePhaseLabel || "project"} session. New Session is gated until this session is complete.`;
+            : "Open Cycle";
+    recommendedHint = `Continue the active ${activePhaseLabel || "game"} cycle. New Cycle is gated until this cycle is complete.`;
     recommendedIcon =
       view.canonicalPhase === "pr" ? (
         <GitPullRequest size={14} />
@@ -122,7 +122,7 @@ export function OverviewPage({
   } else if (view.mode === "pr") {
     recommendedAction = "Open PR Queue";
     recommendedHint =
-      "Resolve the active PR-mode session before starting another run.";
+      "Resolve the active PR-mode cycle before starting another run.";
     recommendedIcon = <GitPullRequest size={14} />;
   } else if (view.mode === "run") {
     recommendedAction = "Open Run";
@@ -132,16 +132,16 @@ export function OverviewPage({
   return (
     <>
       <PageHeader
-        kicker={view.project?.displayName ?? "No project selected"}
+        kicker={view.game?.displayName ?? "No game selected"}
         title="Overview"
       />
       <div className="@container grid min-h-0 flex-1 content-top gap-4 overflow-auto p-4 max-w-4xl">
         <PanelSection>
-          <PanelTitle>Active Session</PanelTitle>
+          <PanelTitle>Active Cycle</PanelTitle>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
             <div className="min-w-0">
               <div className="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-fg">
-                {view.activeSessionLabel}
+                {view.activeCycleLabel}
               </div>
               <div className="mt-1 text-xs text-dim">
                 Phase:{" "}
@@ -157,24 +157,24 @@ export function OverviewPage({
                   {view.modeLabel}
                 </span>
                 {" / "}branch {view.branchLabel}
-                {" / "}gate {view.newSessionBlocked ? "blocked" : "clear"}
+                {" / "}gate {view.newCycleBlocked ? "blocked" : "clear"}
               </div>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <Button
                 icon={<ListTree size={13} />}
                 onClick={() =>
-                  nav.goToSession(sessionFocus, view.recommendedSub)
+                  nav.goToCycle(cycleFocus, view.recommendedSub)
                 }
                 tone="primary"
                 type="button"
               >
-                Open Session
+                Open Cycle
               </Button>
               {view.mode === "pr" ? (
                 <Button
                   icon={<GitPullRequest size={13} />}
-                  onClick={() => nav.goToSession(sessionFocus, "pr")}
+                  onClick={() => nav.goToCycle(cycleFocus, "pr")}
                   type="button"
                 >
                   Open PR Queue
@@ -189,7 +189,7 @@ export function OverviewPage({
                   tone="warning"
                   type="button"
                 >
-                  Close Session
+                  Close Cycle
                 </Button>
               ) : null}
               <Button
@@ -222,7 +222,7 @@ export function OverviewPage({
             </div>
           </div>
         </PanelSection>
-        <SyncStateCard busy={busy} onAction={onAction} projectState={view.projectState} />
+        <SyncStateCard busy={busy} onAction={onAction} harnessState={view.harnessState} />
       </div>
     </>
   );

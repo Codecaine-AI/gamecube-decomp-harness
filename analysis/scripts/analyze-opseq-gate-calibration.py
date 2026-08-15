@@ -24,7 +24,7 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DB = ROOT / "projects/melee/state/orchestrator.sqlite"
+DEFAULT_DB = ROOT / "games/melee/state/orchestrator.sqlite"
 DEFAULT_OUT = ROOT / "analysis/reports/opseq-gate-calibration"
 TARGET_EXACT_RATE = 0.80
 DEFAULT_MIN_SUPPORT = 5

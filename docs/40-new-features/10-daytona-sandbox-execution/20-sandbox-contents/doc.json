@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-20-sandbox-contents",
+  "title": "Sandbox Contents",
+  "root": "b-day-img-root",
+  "blocks": {
+    "b-day-img-root": {
+      "id": "b-day-img-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "image",
+          "manifest",
+          "seed",
+          "bundle",
+          "toolchain",
+          "wibo"
+        ]
+      },
+      "children": [
+        "b-day-img-1",
+        "b-day-img-2",
+        "b-day-img-3",
+        "b-day-img-4",
+        "b-day-img-5",
+        "b-day-img-6",
+        "b-day-img-7",
+        "b-day-img-8",
+        "b-day-img-9",
+        "b-day-img-10",
+        "b-day-img-11"
+      ]
+    },
+    "b-day-img-1": {
+      "id": "b-day-img-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "A sandbox's contents come in three layers: the game image baked once and shared by every sandbox, a per-claim seed pushed at claim creation, and the command and artifact traffic of the run itself. Nothing intelligent enters at any layer — no model access, no knowledge corpora, no secrets, no orchestrator state."
+        }
+      ]
+    },
+    "b-day-img-2": {
+      "id": "b-day-img-2",
+      "type": "callout",
+      "props": {
+        "kind": "status",
+        "title": "Image authority and hold",
+        "tone": "warning"
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "The acceptance manifest at "
+        },
+        {
+          "insert": "toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/MANIFEST.md",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " governs image contents, with "
+        },
+        {
+          "insert": "build_image_bundle.sh",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " beside it producing the ~2.7 GiB verified bundle. Builds hold until the harness working-tree changes are committed and the Linux musl build of the patched objdiff-cli exists."
+        }
+      ]
+    },
+    "b-day-img-3": {
+      "id": "b-day-img-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Layer 1 — the Game Image"
+        }
+      ]
+    },
+    "b-day-img-4": {
+      "id": "b-day-img-4",
+      "type": "file-tree",
+      "props": {
+        "entries": [
+          {
+            "path": "melee/",
+            "note": "synthetic single-commit git repo, ~25 MB; the 3.2 GB history stays on the host"
+          },
+          {
+            "path": "melee/src/",
+            "note": "source tree, 21 MB"
+          },
+          {
+            "path": "melee/config/",
+            "note": "3.8 MB"
+          },
+          {
+            "path": "melee/build/compilers/",
+            "note": "MWCC, 166 MB, real files"
+          },
+          {
+            "path": "melee/build/binutils/",
+            "note": "Linux gc-wii-binutils, 51 MB"
+          },
+          {
+            "path": "melee/build/tools/",
+            "note": "Linux dtk, patched objdiff-cli score fork (musl build pending), sjiswrap.exe, optimized wibo 1.2.0-opt1 static i686 — never the configure.py 0.7.0 download"
+          },
+          {
+            "path": "melee/build/GALE01/",
+            "note": "fully built Linux tree: build.ninja, every object, report.json — 125 MB"
+          },
+          {
+            "path": "toolpacks/",
+            "note": "build-coupled Python tools, plus python3, ninja, git, ripgrep"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-day-img-5": {
+      "id": "b-day-img-5",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "The image is configured and fully built at bake time — MANIFEST.md requires the Linux tree built through "
+        },
+        {
+          "insert": "ninja report.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and the all-object target before the snapshot is accepted — so a worker's first unit build is an incremental rebuild in the one-to-five-second range rather than an eighty-plus-second cold configure. The optimized wibo (upstream 1.2.0 plus local patches) halved the full build with every object hash-identical, and runs natively on Linux with no wine fallback."
+        }
+      ]
+    },
+    "b-day-img-6": {
+      "id": "b-day-img-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Layer 2 — the Per-Claim Seed"
+        }
+      ]
+    },
+    "b-day-img-7": {
+      "id": "b-day-img-7",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "Claim creation pushes under 10 MB and completes in seconds:"
+        }
+      ]
+    },
+    "b-day-img-8": {
+      "id": "b-day-img-8",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Upload the base-revision delta: a git bundle of commits between the image's baked revision and the claim's base revision",
+            "steps": [
+              {
+                "text": "kilobytes to megabytes per epoch, and every claim in an epoch pushes the same bundle",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Fetch the bundle and check out the base revision detached inside the workspace"
+          },
+          {
+            "text": "Seed report artifacts: report.json (3.4 MB), baseline.json (3.4 MB), report_changes.json (4 KB)"
+          },
+          {
+            "text": "Apply per-session environment: canonical tool paths and PATH, carried by exec sessions rather than baked"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-day-img-9": {
+      "id": "b-day-img-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Layer 3 — Run Traffic"
+        }
+      ]
+    },
+    "b-day-img-10": {
+      "id": "b-day-img-10",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Inbound, every agent tool call and runner validation command arrives as an exec or file-API call; the prompt and the model never touch the sandbox."
+        }
+      ]
+    },
+    "b-day-img-11": {
+      "id": "b-day-img-11",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Outbound, command output streams back per call, objdiff verdicts return per attempt, and claim settlement downloads the selected checkpoint's patch and validation artifacts; the workspace itself is never copied out."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "id": "20-implementation-60-ui-20-harness-state-workspace-20-state-summary-and-freshness-doc-json",
+  "title": "Harness State Summary and Freshness",
+  "root": "b-doc-root-3",
+  "blocks": {
+    "b-doc-root-3": {
+      "id": "b-doc-root-3",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-doc-workspace-summaries-make-1",
+        "b-ui-knowledge-freshness-summary-shape",
+        "b-ui-knowledge-contract-links",
+        "b-doc-knowledge-freshness-show-2",
+        "b-ui-recovery-point-marker"
+      ]
+    },
+    "b-doc-workspace-summaries-make-1": {
+      "id": "b-doc-workspace-summaries-make-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Workspace summaries make the dispatch-lease holder, queued handoffs, workflow status, blockers, active operations, recent accepted events, and knowledge publication freshness visible together. A free lease is explicit rather than inferred from missing process data."
+        }
+      ],
+      "children": []
+    },
+    "b-ui-knowledge-freshness-summary-shape": {
+      "id": "b-ui-knowledge-freshness-summary-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Client-visible knowledge publication freshness, durable queue counts, current processor authority, retry timing, and bounded recent failures.",
+        "example": "{\n  \"published_revision\": \"knowledge-381\",\n  \"queued\": 6,\n  \"processing\": 1,\n  \"waiting\": 2,\n  \"failed\": 1,\n  \"oldest_pending_at\": \"2026-08-14T09:00:00Z\",\n  \"active_lease\": {\n    \"id\": \"knowledge-lease-1\",\n    \"expires_at\": \"2026-08-14T10:05:00Z\"\n  },\n  \"retry\": {\n    \"next_attempt_at\": \"2026-08-14T10:03:00Z\",\n    \"attempts\": 2\n  },\n  \"recent_failures\": [\n    {\n      \"job_id\": \"job-9\",\n      \"worker_state_id\": \"worker-9\",\n      \"error\": \"materializer failed\",\n      \"attempts\": 3,\n      \"updated_at\": \"2026-08-14T09:59:00Z\"\n    }\n  ]\n}",
+        "fields": [
+          {
+            "name": "published_revision",
+            "type": "string | null",
+            "description": "Most recent accepted knowledge revision."
+          },
+          {
+            "name": "queued",
+            "type": "integer",
+            "description": "Durable jobs eligible to start."
+          },
+          {
+            "name": "processing",
+            "type": "integer",
+            "description": "Jobs currently owned by a processor lease."
+          },
+          {
+            "name": "waiting",
+            "type": "integer",
+            "description": "Jobs delayed by a dependency or retry time."
+          },
+          {
+            "name": "failed",
+            "type": "integer",
+            "description": "Failed jobs retained for operator visibility."
+          },
+          {
+            "name": "oldest_pending_at",
+            "type": "ISO-8601 timestamp | null"
+          },
+          {
+            "name": "active_lease",
+            "type": "KnowledgeProcessorLease | null",
+            "fields": [
+              {
+                "name": "id",
+                "type": "string"
+              },
+              {
+                "name": "expires_at",
+                "type": "ISO-8601 timestamp"
+              }
+            ]
+          },
+          {
+            "name": "retry",
+            "type": "KnowledgeRetrySummary | null",
+            "fields": [
+              {
+                "name": "next_attempt_at",
+                "type": "ISO-8601 timestamp"
+              },
+              {
+                "name": "attempts",
+                "type": "integer"
+              }
+            ]
+          },
+          {
+            "name": "recent_failures",
+            "type": "KnowledgeFailureSummary[]",
+            "fields": [
+              {
+                "name": "job_id",
+                "type": "string"
+              },
+              {
+                "name": "worker_state_id",
+                "type": "string"
+              },
+              {
+                "name": "error",
+                "type": "string"
+              },
+              {
+                "name": "attempts",
+                "type": "integer"
+              },
+              {
+                "name": "updated_at",
+                "type": "ISO-8601 timestamp"
+              }
+            ]
+          }
+        ],
+        "name": "KnowledgeFreshnessSummary"
+      },
+      "children": []
+    },
+    "b-ui-knowledge-contract-links": {
+      "id": "b-ui-knowledge-contract-links",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Harness State View",
+          "attributes": {
+            "link": "../../../../10-system-design/40-harness-state/30-operator-actions"
+          }
+        },
+        {
+          "insert": " owns the enclosing HarnessStateView projection. "
+        },
+        {
+          "insert": "Job Lifecycle and Leasing",
+          "attributes": {
+            "link": "../../../../10-system-design/60-knowledge/70-background-jobs/20-job-lifecycle-and-leasing"
+          }
+        },
+        {
+          "insert": " owns the durable status and lease semantics rendered by this summary."
+        }
+      ],
+      "children": []
+    },
+    "b-doc-knowledge-freshness-show-2": {
+      "id": "b-doc-knowledge-freshness-show-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Knowledge freshness shows the published revision and queued, processing, and failed work. Event rows explain accepted history while the state revision remains the source of current truth. Stale snapshots trigger refresh instead of local reconciliation."
+        }
+      ],
+      "children": []
+    },
+    "b-ui-recovery-point-marker": {
+      "id": "b-ui-recovery-point-marker",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Trace and history surfaces render the run.recovered event as a visually distinct recovery marker at its timeline position. The marker separates retained cancelled-claim and partial-epoch history from subsequent resumed activity, so the recovery point cannot blend into ordinary event rows; the durable event order remains unchanged."
+        }
+      ],
+      "children": []
+    }
+  }
+}

@@ -57,7 +57,7 @@ SELECTION_METRICS = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=pao.DEFAULT_DB)
-    parser.add_argument("--session", default=pao.DEFAULT_SESSION)
+    parser.add_argument("--run", default=pao.DEFAULT_RUN)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     return parser.parse_args()
 
@@ -69,7 +69,7 @@ def main() -> int:
     print(f"loading training data for clean epochs {pao.CLEAN_EPOCHS}")
     conn = pao.open_db_readonly(args.db)
     try:
-        epoch_ids = pao.load_epoch_ids(conn, args.session)
+        epoch_ids = pao.load_epoch_ids(conn, args.run)
         outcomes = {
             ordinal: pao.load_epoch_outcomes(conn, ordinal, epoch_ids[ordinal])
             for ordinal in pao.HISTORY_EPOCHS
@@ -143,7 +143,7 @@ def main() -> int:
         "stamp": STAMP,
         "generated_at": pao.utc_now(),
         "seed": pao.SEED,
-        "session_id": args.session,
+        "run_id": args.run,
         "db": str(args.db),
         "train_rows": len(train),
         "clean_epochs": list(pao.CLEAN_EPOCHS),

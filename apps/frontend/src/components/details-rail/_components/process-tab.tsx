@@ -25,7 +25,7 @@ const subphaseSentences: Record<string, string> = {
   baseline: "We are building the baseline right now.",
   candidate_list: "We are building the candidate list right now.",
   checkpoint: "We are writing a checkpoint right now.",
-  config: "We are configuring the session right now.",
+  config: "We are configuring the cycle right now.",
   epoch_build: "We are building the epoch right now.",
   final_build: "We are running the final build right now.",
   graph_rebuild: "We are rebuilding graph context right now.",
@@ -57,8 +57,8 @@ function commandLine(record: JsonObject): string {
 }
 
 function processName(dashboard: ProcessTabProps["dashboard"]): string {
-  const project = asObject(dashboard?.project);
-  return text(project.processName, "melee-live");
+  const game = asObject(dashboard?.game);
+  return text(game.processName, "melee-live");
 }
 
 function processSentence(dashboard: ProcessTabProps["dashboard"], running: boolean, draining: boolean): string {
@@ -68,9 +68,9 @@ function processSentence(dashboard: ProcessTabProps["dashboard"], running: boole
   if (operationStatus === "running") return `${text(operation.label, "Operation")} is running right now.`;
   if (draining) return "Workers are draining; no new workers will start.";
 
-  const session = asObject(dashboard?.projectSession);
-  const phase = text(session.phase);
-  const subphase = text(session.activeSubphase);
+  const cycle = asObject(dashboard?.cycle);
+  const phase = text(cycle.phase);
+  const subphase = text(cycle.activeSubphase);
   if (running && subphaseSentences[subphase]) return subphaseSentences[subphase];
 
   if (running && phase) {
@@ -119,7 +119,7 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
   const elapsed = startedAt ? formatElapsed(startedAt, running ? undefined : endedAt) : "";
   const command = commandLine(proc) || commandLine(view.proc);
   const status = asObject(dashboard?.status);
-  const session = asObject(dashboard?.projectSession);
+  const cycle = asObject(dashboard?.cycle);
   const run = asObject(status.run);
   const checkpoint = asObject(dashboard?.checkpointProgress);
   const schedulerEpoch = asObject(status.schedulerEpoch);
@@ -185,8 +185,8 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
           ["PID", recordValue(proc, "pid") ? String(recordValue(proc, "pid")) : "-"],
           ["State", prettyLabel(view.pillState)],
           ["Elapsed", elapsed || "-"],
-          ["Session", text(session.sessionUuid, text(session.id)) ? `Session ${shortId(text(session.sessionUuid, text(session.id)))}` : text(run.id) ? `Run ${shortId(run.id)}` : "-"],
-          ["Phase", [prettyLabel(session.phase, ""), prettyLabel(session.activeSubphase, "")].filter(Boolean).join(" / ") || "-"],
+          ["Cycle", text(cycle.cycleUuid, text(cycle.id)) ? `Cycle ${shortId(text(cycle.cycleUuid, text(cycle.id)))}` : text(run.id) ? `Run ${shortId(run.id)}` : "-"],
+          ["Phase", [prettyLabel(cycle.phase, ""), prettyLabel(cycle.activeSubphase, "")].filter(Boolean).join(" / ") || "-"],
           ["Claims", String(activeClaims)],
           ["Checkpoint", checkpoint.building === true ? "building" : text(checkpoint.status, text(checkpoint.nextCheckpoint, "-"))],
         ]}

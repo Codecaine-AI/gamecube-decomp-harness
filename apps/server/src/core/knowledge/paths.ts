@@ -17,13 +17,14 @@ export function packageRoot(): string {
 }
 
 export function knowledgeRoot(): string {
-  return projectKnowledgeRoot();
+  return gameKnowledgeRoot();
 }
 
-export function projectKnowledgeRoot(projectId = "melee"): string {
-  const override = process.env.ORCH_PROJECT_KNOWLEDGE_ROOT ?? process.env.ORCHESTRATOR_PROJECT_KNOWLEDGE_ROOT;
+export function gameKnowledgeRoot(gameId = "melee"): string {
+  const override = process.env.ORCH_GAME_KNOWLEDGE_ROOT
+    ?? process.env.ORCHESTRATOR_GAME_KNOWLEDGE_ROOT;
   if (override) return isAbsolute(override) ? override : resolve(packageRoot(), override);
-  return resolve(packageRoot(), "projects", projectId, "knowledge");
+  return resolve(gameRoot(gameId), "knowledge");
 }
 
 export function pastPrsRoot(): string {
@@ -35,7 +36,7 @@ export function sourceDataRoot(sourceId: string): string {
 }
 
 export function knowledgeSourcesRoot(): string {
-  return resolve(projectKnowledgeRoot(), "sources");
+  return resolve(gameKnowledgeRoot(), "sources");
 }
 
 export function sourceRoot(sourceId: string): string {
@@ -43,7 +44,7 @@ export function sourceRoot(sourceId: string): string {
 }
 
 export function sourceStorageRoot(sourceId: string): string {
-  return resolve(projectKnowledgeRoot(), "sources", sourceRegistryPath(sourceId));
+  return resolve(gameKnowledgeRoot(), "sources", sourceRegistryPath(sourceId));
 }
 
 export function codeGraphFunctionsIndexPath(): string {
@@ -90,24 +91,24 @@ export function toolpackToolRegistryPath(toolpackId = defaultToolpackId()): stri
   return resolve(toolpackRoot(toolpackId), "registry.json");
 }
 
-export function projectRoot(projectId = "melee"): string {
-  return resolve(packageRoot(), "projects", projectId);
+export function gameRoot(gameId = "melee"): string {
+  return resolve(packageRoot(), "games", gameId);
 }
 
-export function projectToolBindingRoot(projectId = "melee"): string {
-  return resolve(projectRoot(projectId), "tool-bindings");
+export function gameToolBindingRoot(gameId = "melee"): string {
+  return resolve(gameRoot(gameId), "tool-bindings");
 }
 
-export function projectSharedToolDataRoot(projectId = "melee"): string {
-  return resolve(projectRoot(projectId), "shared/tool-data");
+export function gameSharedToolDataRoot(gameId = "melee"): string {
+  return resolve(gameRoot(gameId), "shared/tool-data");
 }
 
-export function projectWorktreeRoot(projectId = "melee", worktreeId = "main"): string {
-  return resolve(projectRoot(projectId), "worktrees", worktreeId);
+export function gameWorktreeRoot(gameId = "melee", worktreeId = "main"): string {
+  return resolve(gameRoot(gameId), "worktrees", worktreeId);
 }
 
-export function projectWorktreeToolCacheRoot(projectId = "melee", worktreeId = "main"): string {
-  return resolve(projectWorktreeRoot(projectId, worktreeId), "tool-cache");
+export function gameWorktreeToolCacheRoot(gameId = "melee", worktreeId = "main"): string {
+  return resolve(gameWorktreeRoot(gameId, worktreeId), "tool-cache");
 }
 
 export function resourceGraphRoot(): string {
@@ -127,7 +128,7 @@ export function knowledgeCuratorEnrichmentPath(): string {
 }
 
 export function resourceGraphDbPath(): string {
-  return resolve(packageRoot(), "projects/melee/graph/graph.sqlite");
+  return resolve(gameRoot("melee"), "graph/graph.sqlite");
 }
 
 function sourceRegistryPath(sourceId: string): string {

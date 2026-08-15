@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ProjectStatePrReadModel } from "@/pages/workspace/_lib/types";
+import type { HarnessStatePrReadModel } from "@/pages/workspace/_lib/types";
 import {
   PR_CAMPAIGN_ACTION_IDS,
   PR_CAMPAIGN_ENDPOINTS,
@@ -28,7 +28,7 @@ const campaign = {
     blockers: [],
     series: [series],
   },
-} as unknown as ProjectStatePrReadModel;
+} as unknown as HarnessStatePrReadModel;
 
 describe("projected PR campaign controls", () => {
   test("maps the complete action inventory to campaign routes", () => {
@@ -62,9 +62,9 @@ describe("projected PR campaign controls", () => {
   });
 
   test("renders the campaign card and reroutes legacy batch publication through pr.publish_batch", () => {
-    const card = readFileSync(resolve(sourceRoot, "pages/workspace/sessions/active/subphases/pr/components/PrCampaignCard.tsx"), "utf8");
-    const legacy = readFileSync(resolve(sourceRoot, "pages/workspace/sessions/active/subphases/pr/components/PrModeActions.tsx"), "utf8");
-    const page = readFileSync(resolve(sourceRoot, "pages/workspace/sessions/active/subphases/pr/index.tsx"), "utf8");
+    const card = readFileSync(resolve(sourceRoot, "pages/workspace/cycles/active/subphases/pr/components/PrCampaignCard.tsx"), "utf8");
+    const legacy = readFileSync(resolve(sourceRoot, "pages/workspace/cycles/active/subphases/pr/components/PrModeActions.tsx"), "utf8");
+    const page = readFileSync(resolve(sourceRoot, "pages/workspace/cycles/active/subphases/pr/index.tsx"), "utf8");
     const dispatcher = readFileSync(resolve(sourceRoot, "components/app/index.tsx"), "utf8");
 
     for (const actionId of [
@@ -78,13 +78,13 @@ describe("projected PR campaign controls", () => {
     ]) {
       expect(card).toContain(`actionId: "${actionId}"`);
     }
-    expect(card).toContain('projectStateCompatibilityAction(projectState, "pr.adopt_legacy")');
+    expect(card).toContain('harnessStateCompatibilityAction(harnessState, "pr.adopt_legacy")');
     expect(card).toContain("Compatibility — legacy migration only");
     expect(card).toContain("campaign.series_by_status");
     expect(card).toContain("campaign.pending_work_items.items");
     expect(card).toContain("campaign.next_batch.series");
     expect(page).toContain("<PrCampaignCard");
-    expect(legacy).toContain('projectStateAction(view.projectState, "pr.publish_batch")');
+    expect(legacy).toContain('harnessStateAction(view.harnessState, "pr.publish_batch")');
     expect(legacy).toContain('onAction("prPublishBatch")');
     expect(legacy).not.toContain('onAction("openDraftBatch")');
     expect(legacy).not.toContain('onAction("openAllPrs")');

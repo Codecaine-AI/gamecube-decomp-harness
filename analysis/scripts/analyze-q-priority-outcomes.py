@@ -33,9 +33,9 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DB = ROOT / "projects/melee/state/orchestrator.sqlite"
-DEFAULT_GRAPH_DB = ROOT / "projects/melee/graph/graph.sqlite"
-DEFAULT_CHECKOUT_ROOT = ROOT / "projects/melee/checkout"
+DEFAULT_DB = ROOT / "games/melee/state/orchestrator.sqlite"
+DEFAULT_GRAPH_DB = ROOT / "games/melee/graph/graph.sqlite"
+DEFAULT_CHECKOUT_ROOT = ROOT / "games/melee/checkout"
 DEFAULT_REPORT_PREFIX = ROOT / "analysis/reports/q-priority-outcome-analysis"
 NORMAL_REGIMES = {"graph_informed", "closeness_only"}
 TERMINAL_WORKER_STATES = {"exact", "timeout", "error", "cancelled", "finished"}
@@ -880,7 +880,7 @@ def load_modern_worker_rows(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         """
         SELECT
           ws.id AS worker_state_id,
-          ws.session_id AS run_id,
+          ws.run_id,
           ws.epoch_id,
           ws.epoch_target_id,
           ws.target_claim_id,

@@ -12,7 +12,7 @@ import {
   meleeAppSessionId,
   meleeWorkflowTraceEventId,
   type MeleeContainerKind,
-  type MeleeProjectSessionRef,
+  type MeleeCycleRef,
 } from "./session-mapping.js";
 import type { AppTraceEventInput } from "./trace-writer.js";
 
@@ -47,10 +47,10 @@ export interface SubmitMeleeWorkflowTraceEventInput {
     | "pr-qa"
     | "pr-publication"
   >;
-  projectId: string;
+  gameId: string;
   sessionId: string;
   correlationId: string;
-  projectEventId: string;
+  gameEventId: string;
   causedByEventId: string | null;
   operation: string;
   status?: MeleeWorkflowTraceStatus;
@@ -98,19 +98,19 @@ function withEventStatus(
   status: MeleeWorkflowTraceStatus,
   timestamp?: string,
 ): NewContainer {
-  const completedAt =
+  const endedAt =
     status === "completed" || status === "failed" || status === "skipped"
       ? timestamp ?? new Date().toISOString()
       : null;
   return {
     ...container,
     status: containerStatus(status),
-    completedAt,
+    endedAt,
   };
 }
 
 function childContainerLineage(input: {
-  ref: MeleeProjectSessionRef;
+  ref: MeleeCycleRef;
   kind: SubmitMeleeWorkflowTraceEventInput["kind"];
   status: MeleeWorkflowTraceStatus;
   prId?: string | null;
@@ -217,23 +217,23 @@ function childContainerLineage(input: {
 export async function submitMeleeWorkflowTraceEvent(
   input: SubmitMeleeWorkflowTraceEventInput,
 ): Promise<SubmittedMeleeWorkflowTraceEvent> {
-  const projectId = requiredText(input.projectId, "projectId");
+  const gameId = requiredText(input.gameId, "gameId");
   const sessionId = requiredText(input.sessionId, "sessionId");
   const correlationId = requiredText(input.correlationId, "correlationId");
-  const projectEventId = requiredText(input.projectEventId, "projectEventId");
+  const gameEventId = requiredText(input.gameEventId, "gameEventId");
   const operation = requiredText(input.operation, "operation");
   const causedByEventId = input.causedByEventId === null
     ? null
     : requiredText(input.causedByEventId, "causedByEventId");
   const status = input.status ?? "completed";
-  const ref = { projectId, sessionId };
+  const ref = { gameId, sessionId };
   const appSessionId = meleeAppSessionId(ref);
   const protectedMetadata = {
     ...(input.metadata ?? {}),
-    projectId,
+    gameId,
     sessionId,
     correlation_id: correlationId,
-    project_event_id: projectEventId,
+    game_event_id: gameEventId,
     caused_by_event_id: causedByEventId,
   };
   const containers = childContainerLineage({
@@ -257,12 +257,12 @@ export async function submitMeleeWorkflowTraceEvent(
     appSessionId,
     containerId: container.id,
     containerKind: input.kind,
-    projectId,
+    gameId,
     sessionId,
     ...(input.prId ? { prId: input.prId } : {}),
     ...(input.detail ? { detail: input.detail } : {}),
     correlation_id: correlationId,
-    project_event_id: projectEventId,
+    game_event_id: gameEventId,
     caused_by_event_id: causedByEventId,
   };
   const context: MeleeKernelSpawnContext = {
@@ -277,9 +277,9 @@ export async function submitMeleeWorkflowTraceEvent(
   await input.runtime.upsertSpawnContainers(context);
   const eventType = input.type ?? `melee:${eventTypePhase(phase)}_${status}`;
   const eventId = meleeWorkflowTraceEventId({
-    projectId,
+    gameId,
     sessionId,
-    projectEventId,
+    gameEventId,
     containerId: container.id,
     eventType,
     operation,

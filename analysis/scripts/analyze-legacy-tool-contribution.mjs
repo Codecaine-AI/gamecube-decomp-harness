@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
-const dbPath = "projects/melee/state/orchestrator.sqlite";
+const dbPath = "games/melee/state/orchestrator.sqlite";
 const outDir = "analysis/reports";
 const generatedAt = new Date().toISOString();
 const today = generatedAt.slice(0, 10);
@@ -313,7 +313,7 @@ const jsonPath = htmlPath.replace(/\.html$/, ".stats.json");
 const db = new Database(dbPath, { readonly: true });
 
 const checkpointRunIds = new Set(
-  db.query("SELECT DISTINCT session_id AS run_id FROM worker_checkpoints ORDER BY session_id")
+  db.query("SELECT DISTINCT run_id FROM worker_checkpoints ORDER BY run_id")
     .all()
     .map((row) => String(row.run_id)),
 );

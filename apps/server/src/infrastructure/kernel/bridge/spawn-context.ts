@@ -1,5 +1,7 @@
 import type { NewContainer } from "@agent-kernel/db";
 
+import { MELEE_KERNEL_ID } from "./config.js";
+
 import type { MeleeKernelSpawnContext } from "./kernel.js";
 import {
   meleeAppSessionId,
@@ -17,7 +19,7 @@ import {
   meleeRunContainerId,
   meleeWorkerIntegrationContainerId,
   meleeWorkerContainerId,
-  type MeleeProjectSessionRef,
+  type MeleeCycleRef,
 } from "./session-mapping.js";
 
 export type MeleeKernelSpawnContainerKind =
@@ -36,7 +38,7 @@ export type MeleeKernelSpawnContainerKind =
 
 export interface MeleeKernelSpawnContextInput {
   kind: MeleeKernelSpawnContainerKind;
-  projectId?: string | null;
+  gameId?: string | null;
   sessionId?: string | null;
   runId?: string | null;
   epochId?: string | number | null;
@@ -51,7 +53,7 @@ export interface MeleeKernelSpawnContextInput {
   metadata?: Record<string, unknown>;
 }
 
-const DEFAULT_PROJECT_ID = "melee";
+const DEFAULT_GAME_ID = "melee";
 const MANUAL_SESSION_ID = "manual";
 const MELEE_PHASE_VOCABULARY = [
   "setup",
@@ -79,17 +81,17 @@ function nonEmpty(value: string | number | null | undefined): string | undefined
   return text ? text : undefined;
 }
 
-function baseRef(input: MeleeKernelSpawnContextInput): MeleeProjectSessionRef {
-  const projectId = nonEmpty(input.projectId) ?? DEFAULT_PROJECT_ID;
+function baseRef(input: MeleeKernelSpawnContextInput): MeleeCycleRef {
+  const gameId = nonEmpty(input.gameId) ?? DEFAULT_GAME_ID;
   const sessionId =
     nonEmpty(input.sessionId) ??
     nonEmpty(input.runId) ??
     nonEmpty(input.prId) ??
     MANUAL_SESSION_ID;
-  return { projectId, sessionId };
+  return { gameId, sessionId };
 }
 
-function containerId(input: MeleeKernelSpawnContextInput, ref: MeleeProjectSessionRef): string {
+function containerId(input: MeleeKernelSpawnContextInput, ref: MeleeCycleRef): string {
   const runId = nonEmpty(input.runId) ?? ref.sessionId;
   switch (input.kind) {
     case "worker":
@@ -178,43 +180,50 @@ function containerRecord(input: {
   parentContainerId: string | null;
   label: string;
   phase: string;
-  ref: MeleeProjectSessionRef;
+  ref: MeleeCycleRef;
   appSessionId: string;
   kind: string;
   workingDir?: string;
   metadata?: Record<string, unknown>;
 }): NewContainer {
+  const createdAt = new Date().toISOString();
   return {
     id: input.id,
+    kernelId: MELEE_KERNEL_ID,
+    kind: input.kind,
+    // Keep the harness's stable hierarchical id as the app identity key until
+    // the live kernel UUID/containerBinding migration is scheduled.
+    appKey: [input.id],
     parentContainerId: input.parentContainerId,
     label: input.label,
     status: "running",
     workingDir: input.workingDir ?? null,
-    worktreePath: null,
     phase: input.phase,
     phaseVocabulary: MELEE_PHASE_VOCABULARY,
     metadata: {
       appSessionId: input.appSessionId,
       appSessionSlug: input.ref.sessionId,
-      appSessionType: "melee-project-session",
+      appSessionType: "melee-cycle",
       containerKind: input.kind,
-      projectId: input.ref.projectId,
+      gameId: input.ref.gameId,
       sessionId: input.ref.sessionId,
-      topic: `Melee ${input.ref.projectId} session ${input.ref.sessionId}`,
+      topic: `Melee ${input.ref.gameId} session ${input.ref.sessionId}`,
       ...(input.metadata ?? {}),
     },
+    createdAt,
+    startedAt: createdAt,
   };
 }
 
 function rootContainer(
-  ref: MeleeProjectSessionRef,
+  ref: MeleeCycleRef,
   appSessionId: string,
   workingDir?: string,
 ): NewContainer {
   return containerRecord({
     id: `melee:${appSessionId}:session`,
     parentContainerId: null,
-    label: `Project session ${ref.sessionId}`,
+    label: `Game session ${ref.sessionId}`,
     phase: "session",
     ref,
     appSessionId,
@@ -225,7 +234,7 @@ function rootContainer(
 
 function containerLineage(
   input: MeleeKernelSpawnContextInput,
-  ref: MeleeProjectSessionRef,
+  ref: MeleeCycleRef,
   appSessionId: string,
 ): NewContainer[] {
   const workingDir = nonEmpty(input.workingDir);
@@ -528,7 +537,7 @@ export function createMeleeKernelSpawnContext(
     workingDir: nonEmpty(input.workingDir),
     metadata: {
       containerKind: input.kind,
-      projectId: ref.projectId,
+      gameId: ref.gameId,
       sessionId: ref.sessionId,
       ...(runId ? { runId } : {}),
       ...(epochId ? { epochId } : {}),

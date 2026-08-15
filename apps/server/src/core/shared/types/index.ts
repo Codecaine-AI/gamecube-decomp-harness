@@ -1,7 +1,7 @@
 export type {
   RunBlocker,
   RunInputs,
-  RunProjectMetadata,
+  RunGameMetadata,
   RunRecord,
   RunSchedulerCondition,
   RunStatus,

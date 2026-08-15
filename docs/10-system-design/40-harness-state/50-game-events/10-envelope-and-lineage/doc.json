@@ -1,0 +1,536 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-03-state-and-events-40-game-events-10-envelope-and-lineage-index",
+  "title": "Game Event Envelope and Lineage",
+  "root": "b-index-root-15",
+  "blocks": {
+    "b-index-root-15": {
+      "id": "b-index-root-15",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-index-game-event-envelope-a-1",
+        "b-index-every-game-event-is-o-2",
+        "b-index-envelope-3",
+        "b-index-text-4",
+        "b-index-sequence-is-monotonica-5",
+        "e5-decision-one-event-per-transition",
+        "lane-c-series-lineage-heading",
+        "lane-c-series-lineage-narrative",
+        "lane-c-series-lineage-shape",
+        "b-index-correlation-and-causatio-6",
+        "b-index-correlation-id-is-requ-7",
+        "b-index-causation-id-is-requir-8",
+        "b-index-span-lineage-and-compati-9",
+        "b-index-span-id-is-the-leaf-s-10",
+        "b-index-storage-migration-016-ad-11",
+        "b-index-accountable-actors-12",
+        "b-index-each-event-credits-exact-13",
+        "b-index-actor-credit-follows-the-14"
+      ]
+    },
+    "b-index-game-event-envelope-a-1": {
+      "id": "b-index-game-event-envelope-a-1",
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "text": [
+        {
+          "insert": "Game Event Envelope and Lineage"
+        }
+      ],
+      "children": []
+    },
+    "b-index-every-game-event-is-o-2": {
+      "id": "b-index-every-game-event-is-o-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every game event is one durable, game-scoped fact with explicit workflow identity, immediate causation, accountable authorship, and trace lineage. Consumers use the envelope to reconstruct accepted history while durable state remains authoritative for current state."
+        }
+      ],
+      "children": []
+    },
+    "b-index-envelope-3": {
+      "id": "b-index-envelope-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Envelope"
+        }
+      ],
+      "children": []
+    },
+    "b-index-text-4": {
+      "id": "b-index-text-4",
+      "type": "code",
+      "props": {
+        "language": "text"
+      },
+      "text": [
+        {
+          "insert": "event_id: EventId\nsequence: integer\nevent_type: registered string\nschema_version: positive integer\ngame_id: GameId\nsubject_kind: registered string\nsubject_id: string\ncorrelation_id: CorrelationId\ncausation_id: CommandId | EventId\ntrace_id: TraceId\nspan_id: span-<uuid>\nparent_span_id: span-<uuid> | null\nactor: operator | runner | agent | guardian | external_observer\noccurred_at: timestamp\npayload: registered closed object"
+        }
+      ],
+      "children": []
+    },
+    "b-index-sequence-is-monotonica-5": {
+      "id": "b-index-sequence-is-monotonica-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "sequence",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is monotonically increasing within the game event log. A successful accepted transaction appends one semantic event for one durable revision or fact, increments the affected state revision once when a state revision is involved, and makes that event the state's "
+        },
+        {
+          "insert": "caused_by_event_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". A refused or rolled-back transaction leaves no event or partial durable revision."
+        }
+      ],
+      "children": []
+    },
+    "e5-decision-one-event-per-transition": {
+      "id": "e5-decision-one-event-per-transition",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-12) — one event per accepted transition, with per-series PR subjects",
+        "tone": "decision"
+      },
+      "text": [
+        {
+          "insert": "Every accepted revision of a durable state object is produced by exactly one event: event_type names the transition semantically, and StateEnvelope.caused_by_event_id is therefore never null after creation. The status tables in this feature double as the transition catalog — each table row's entry and exit transitions define events mechanically, so per-status events are not separately enumerated in the event table; the table below lists the coordination, lifecycle, and recovery events whose payloads need explicit facts. Every workflow has an explicit recovery event: run.recovered, sync.recovered, and pr.campaign_recovered. Event topology follows state topology: the campaign is the containing PR workflow, but each PR series is its own event subject — feedback, revision, approval, merge, and close events carry subject_id of the individual series, with correlation_id grouping them under the campaign — so a consumer can process one PR's stream in isolation. Explicitly desired future relaxation: per-series triggers that react to these streams and handle routine review changes more out-of-loop; v1 keeps fixer execution operator-gated per the PR-phase decision."
+        }
+      ],
+      "children": []
+    },
+    "lane-c-series-lineage-heading": {
+      "id": "lane-c-series-lineage-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Per-Series State Lineage"
+        }
+      ],
+      "children": []
+    },
+    "lane-c-series-lineage-narrative": {
+      "id": "lane-c-series-lineage-narrative",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each PR series owns the durable cursor and trace root for its event subject, so consumers can distinguish accepted state versions from individual event spans and order the latest series state by acceptance time. These are the lineage fields of "
+        },
+        {
+          "insert": "PrSeriesState",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; "
+        },
+        {
+          "insert": "PR tracking",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "docs/10-system-design/50-workflows/30-pr/20-campaign-and-tracking",
+              "label": "PR tracking"
+            }
+          }
+        },
+        {
+          "insert": " owns the lifecycle contract and the rest of the series shape."
+        }
+      ],
+      "children": []
+    },
+    "lane-c-series-lineage-shape": {
+      "id": "lane-c-series-lineage-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Series-owned durable lineage fields for the per-series event subject.",
+        "example": "{\n  \"revision\": 12,\n  \"updated_at\": \"2026-08-12T15:02:11Z\",\n  \"trace_id\": \"trace-series-20\"\n}",
+        "fields": [
+          {
+            "name": "revision",
+            "type": "integer",
+            "description": "Stored series-state version; advances once for each accepted series transition."
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp",
+            "description": "Timestamp of the latest accepted series update."
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId",
+            "description": "Stable root trace identity for the series event stream."
+          }
+        ],
+        "name": "PrSeriesState lineage projection"
+      },
+      "children": []
+    },
+    "b-index-correlation-and-causatio-6": {
+      "id": "b-index-correlation-and-causatio-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Correlation and causation"
+        }
+      ],
+      "children": []
+    },
+    "b-index-correlation-id-is-requ-7": {
+      "id": "b-index-correlation-id-is-requ-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "correlation_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is required, non-null, and nonblank. It identifies exactly one user-visible workflow: retries and derived work retain it, while an independent operator intent receives a distinct value. Correlation and trace identities remain workflow-local across a dispatch handoff: guardian settlement uses the outgoing settlement lineage, while successor acquisition and ingestion use the queued operator workflow's original lineage."
+        }
+      ],
+      "children": []
+    },
+    "b-index-causation-id-is-requir-8": {
+      "id": "b-index-causation-id-is-requir-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "causation_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is required, non-null, and nonblank. A fact accepted directly from a command names the command. A fact derived from a durable event names that event. Reconstruction resolves a causation token as an event only when the named event exists in the same game; every other token remains a command cause. A delayed sync handoff preserves the causal chain from "
+        },
+        {
+          "insert": "game.dispatch_released",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " to "
+        },
+        {
+          "insert": "game.dispatch_acquired",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " to "
+        },
+        {
+          "insert": "sync.ingesting",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", even though release uses the outgoing workflow lineage and the successor events use the queued sync workflow lineage."
+        }
+      ],
+      "children": []
+    },
+    "b-index-span-lineage-and-compati-9": {
+      "id": "b-index-span-lineage-and-compati-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Span lineage and compatibility"
+        }
+      ],
+      "children": []
+    },
+    "b-index-span-id-is-the-leaf-s-10": {
+      "id": "b-index-span-id-is-the-leaf-s-10",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "span_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the leaf "
+        },
+        {
+          "insert": "span-<uuid>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for the accepted operation. "
+        },
+        {
+          "insert": "parent_span_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is explicit: a derived operation names a distinct parent span, and a new root operation writes "
+        },
+        {
+          "insert": "null",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". "
+        },
+        {
+          "insert": "trace_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " stays stable inside its workflow even as leaf spans change."
+        }
+      ],
+      "children": []
+    },
+    "b-index-storage-migration-016-ad-11": {
+      "id": "b-index-storage-migration-016-ad-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Storage migration 016 added nullable "
+        },
+        {
+          "insert": "parent_span_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " storage without rewriting append-only history. New envelopes must supply a UUID-shaped parent or explicit root null. Legacy rows remain readable, including rows whose stored value is null because no parent was recorded; readers treat that legacy null as unavailable lineage rather than inferring or backfilling a parent from sequence, timestamps, or causation."
+        }
+      ],
+      "children": []
+    },
+    "b-index-accountable-actors-12": {
+      "id": "b-index-accountable-actors-12",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Accountable actors"
+        }
+      ],
+      "children": []
+    },
+    "b-index-each-event-credits-exact-13": {
+      "id": "b-index-each-event-credits-exact-13",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each event credits exactly one principal that performed the accepted action: "
+        },
+        {
+          "insert": "operator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for an authenticated operator command, "
+        },
+        {
+          "insert": "runner",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for deterministic controller or scheduler work, "
+        },
+        {
+          "insert": "agent",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for the identified agent whose action produced the fact, "
+        },
+        {
+          "insert": "guardian",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for recovery or liveness work, and "
+        },
+        {
+          "insert": "external_observer",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " only for observation. A transport, dispatcher, service account, or reader does not replace that principal. The registry rejects actors outside each event's allowed set."
+        }
+      ],
+      "children": []
+    },
+    "b-index-actor-credit-follows-the-14": {
+      "id": "b-index-actor-credit-follows-the-14",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Actor credit follows the accepted action, not the process carrying it. A delayed babysit or process-exit handoff is two accepted actions. Guardian settlement emits "
+        },
+        {
+          "insert": "game.dispatch_released",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "run.paused",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " under the settlement command and settlement root span. The successor action emits "
+        },
+        {
+          "insert": "game.dispatch_acquired",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "sync.ingesting",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " under the original queued operator "
+        },
+        {
+          "insert": "sync.start",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " command and root span, with "
+        },
+        {
+          "insert": "operator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " as actor. Immediate "
+        },
+        {
+          "insert": "sync.start",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " uses the same operator provenance. The registry permits only "
+        },
+        {
+          "insert": "operator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "runner",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for "
+        },
+        {
+          "insert": "sync.ingesting",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; it never permits "
+        },
+        {
+          "insert": "guardian",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

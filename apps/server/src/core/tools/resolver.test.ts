@@ -9,14 +9,14 @@ import {
 } from "./resolver.js";
 
 describe("toolpack runtime resolver", () => {
-  test("resolves Melee project bindings into shared data and worktree cache roots", () => {
+  test("resolves Melee game bindings into shared data and worktree cache roots", () => {
     const root = packageRoot();
     const context = {
-      project: {
-        projectId: "melee",
-        repoRoot: resolve(root, "projects/melee/checkout"),
-        stateDir: resolve(root, "projects/melee/state"),
-        descriptorPath: resolve(root, "projects/melee/project.json"),
+      game: {
+        gameId: "melee",
+        repoRoot: resolve(root, "games/melee/checkout"),
+        stateDir: resolve(root, "games/melee/state"),
+        descriptorPath: resolve(root, "games/melee/game.json"),
       },
       worktreeId: "lease-a",
     };
@@ -26,19 +26,19 @@ describe("toolpack runtime resolver", () => {
     expect(tool.toolpackId).toBe("gamecube-decomp");
     expect(tool.toolRoot).toBe(resolve(root, "toolpacks/gamecube-decomp/research/ghidra"));
     expect(tool.apiRoot).toBe(resolve(root, "toolpacks/gamecube-decomp/research/ghidra/api"));
-    expect(tool.bindingPath).toBe(resolve(root, "projects/melee/tool-bindings/ghidra.json"));
-    expect(tool.sharedDataRoot).toBe(resolve(root, "projects/melee/shared/tool-data/ghidra"));
-    expect(tool.worktreeCacheRoot).toBe(resolve(root, "projects/melee/worktrees/lease-a/tool-cache/ghidra"));
+    expect(tool.bindingPath).toBe(resolve(root, "games/melee/tool-bindings/ghidra.json"));
+    expect(tool.sharedDataRoot).toBe(resolve(root, "games/melee/shared/tool-data/ghidra"));
+    expect(tool.worktreeCacheRoot).toBe(resolve(root, "games/melee/worktrees/lease-a/tool-cache/ghidra"));
     expect(tool.env.ORCH_TOOL_SHARED_DATA_ROOT).toBe(tool.sharedDataRoot);
     expect(tool.env.ORCH_TOOL_WORKTREE_CACHE_ROOT).toBe(tool.worktreeCacheRoot);
     expect(tool.env.ORCH_TOOL_IMPL_ROOT).toBe(resolve(root, "toolpacks/gamecube-decomp/_impl/gamecube"));
   });
 
-  test("reads registered ids from the project-enabled toolpack", () => {
+  test("reads registered ids from the game-enabled toolpack", () => {
     const ids = registeredToolIdsForContext({
-      project: {
-        projectId: "melee",
-        descriptorPath: resolve(packageRoot(), "projects/melee/project.json"),
+      game: {
+        gameId: "melee",
+        descriptorPath: resolve(packageRoot(), "games/melee/game.json"),
       },
     });
 
@@ -48,10 +48,10 @@ describe("toolpack runtime resolver", () => {
   });
 
   test("resolves a non-Melee fixture without reading Melee bindings or data", () => {
-    const projectDir = mkdtempSync(join(tmpdir(), "gamecube-tool-fixture-"));
-    mkdirSync(join(projectDir, "tool-bindings"), { recursive: true });
+    const gameDir = mkdtempSync(join(tmpdir(), "gamecube-tool-fixture-"));
+    mkdirSync(join(gameDir, "tool-bindings"), { recursive: true });
     writeFileSync(
-      join(projectDir, "project.json"),
+      join(gameDir, "game.json"),
       `${JSON.stringify(
         {
           id: "sunshine",
@@ -69,44 +69,44 @@ describe("toolpack runtime resolver", () => {
       )}\n`,
     );
     writeFileSync(
-      join(projectDir, "tool-bindings/checkdiff.json"),
+      join(gameDir, "tool-bindings/checkdiff.json"),
       `${JSON.stringify({ tool: "checkdiff", enabled: false }, null, 2)}\n`,
     );
     writeFileSync(
-      join(projectDir, "tool-bindings/type_oracle.json"),
+      join(gameDir, "tool-bindings/type_oracle.json"),
       `${JSON.stringify({ tool: "type_oracle", overrideApiRoot: "overrides/type_oracle/api" }, null, 2)}\n`,
     );
 
     const context = {
-      project: {
-        projectId: "sunshine",
-        repoRoot: join(projectDir, "checkout"),
-        stateDir: join(projectDir, "state"),
-        descriptorPath: join(projectDir, "project.json"),
+      game: {
+        gameId: "sunshine",
+        repoRoot: join(gameDir, "checkout"),
+        stateDir: join(gameDir, "state"),
+        descriptorPath: join(gameDir, "game.json"),
       },
       worktreeId: "parallel-1",
     };
 
     const ghidra = resolveRegisteredTool(context, "ghidra");
-    expect(ghidra.projectId).toBe("sunshine");
-    expect(ghidra.sharedDataRoot).toBe(join(projectDir, "shared/tool-data/ghidra"));
-    expect(ghidra.worktreeCacheRoot).toBe(join(projectDir, "worktrees/parallel-1/tool-cache/ghidra"));
-    expect(ghidra.bindingPath).toBe(join(projectDir, "tool-bindings/ghidra.json"));
+    expect(ghidra.gameId).toBe("sunshine");
+    expect(ghidra.sharedDataRoot).toBe(join(gameDir, "shared/tool-data/ghidra"));
+    expect(ghidra.worktreeCacheRoot).toBe(join(gameDir, "worktrees/parallel-1/tool-cache/ghidra"));
+    expect(ghidra.bindingPath).toBe(join(gameDir, "tool-bindings/ghidra.json"));
     expect(ghidra.binding.enabled).toBe(true);
 
     const disabled = resolveRegisteredTool(context, "checkdiff");
     expect(disabled.enabled).toBe(false);
 
     const override = resolveRegisteredTool(context, "type_oracle");
-    expect(override.apiRoot).toBe(join(projectDir, "overrides/type_oracle/api"));
+    expect(override.apiRoot).toBe(join(gameDir, "overrides/type_oracle/api"));
   });
 
   test("exports the platform-specific state wibo for an explicit execution target", () => {
-    const projectDir = mkdtempSync(join(tmpdir(), "gamecube-tool-platform-fixture-"));
-    const stateDir = join(projectDir, "state");
+    const gameDir = mkdtempSync(join(tmpdir(), "gamecube-tool-platform-fixture-"));
+    const stateDir = join(gameDir, "state");
     mkdirSync(join(stateDir, "tools"), { recursive: true });
     writeFileSync(
-      join(projectDir, "project.json"),
+      join(gameDir, "game.json"),
       `${JSON.stringify({ id: "sunshine", repoRoot: "./checkout", stateDir: "./state", tools: { toolpacks: ["gamecube-decomp"] } }, null, 2)}\n`,
     );
     writeFileSync(join(stateDir, "tools/wibo"), "legacy host artifact");
@@ -116,11 +116,11 @@ describe("toolpack runtime resolver", () => {
     try {
       const tool = resolveRegisteredTool(
         {
-          project: {
-            projectId: "sunshine",
-            repoRoot: join(projectDir, "checkout"),
+          game: {
+            gameId: "sunshine",
+            repoRoot: join(gameDir, "checkout"),
             stateDir,
-            descriptorPath: join(projectDir, "project.json"),
+            descriptorPath: join(gameDir, "game.json"),
           },
           toolPlatform: "linux-x86_64",
         },

@@ -4,9 +4,9 @@
  * The orchestrator keeps this interface intentionally small instead of tying
  * every caller to Pi SDK internals. The objects still match the SDK's custom
  * tool shape at runtime, while agent code can resolve tools by id, role, and
- * project context.
+ * game context.
  */
-import type { RunProjectMetadata, RuntimeAgentRole } from "@server/core/shared/types";
+import type { RunGameMetadata, RuntimeAgentRole } from "@server/core/shared/types";
 import type { ToolPlatform } from "./platform.js";
 
 export interface AgentToolRuntimeContext {
@@ -14,7 +14,7 @@ export interface AgentToolRuntimeContext {
   cwd: string;
   repoRoot: string;
   stateDir?: string;
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
   toolPlatform?: ToolPlatform;
   worktreeId?: string;
   packet?: Record<string, unknown>;

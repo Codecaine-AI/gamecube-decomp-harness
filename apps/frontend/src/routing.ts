@@ -1,16 +1,16 @@
-// Project workspace routing. The orchestrator UI is project-centered: a top
-// Project Dashboard holds project cards, each card opens a Project Workspace
-// (Overview / Standards / Sessions / Agents / Trace / Settings / Style), and the active session is a
-// nested surface inside Sessions with its own phase sub-navigation.
+// Game workspace routing. The orchestrator UI is game-centered: a top
+// Game Dashboard holds game cards, each card opens a Game Workspace
+// (Overview / Standards / Cycles / Agents / Trace / Settings / Style), and the active cycle is a
+// nested surface inside Cycles with its own phase sub-navigation.
 //
 // The route is encoded in the path so deep links and reloads keep the operator
 // where they were without leaking internal view state into the URL:
-//   /                                -> project dashboard
+//   /                                -> game dashboard
 //   /overview
 //   /standards
 //   /standards/rendered
-//   /sessions
-//   /sessions/active/run
+//   /cycles
+//   /cycles/active/run
 //   /agents
 //   /trace
 //   /settings
@@ -19,25 +19,25 @@
 // Legacy ?page=<old> and ?view=workspace&section=<old> values map onto the new
 // structure so existing bookmarks and deep links keep working.
 
-export type WorkspaceSection = "overview" | "standards" | "sessions" | "agents" | "trace" | "knowledge" | "settings" | "style";
+export type WorkspaceSection = "overview" | "standards" | "cycles" | "agents" | "trace" | "knowledge" | "settings" | "style";
 export type StandardsView = "edit" | "rendered";
-export type SessionStage = "prepare" | "run" | "pr" | "done";
-export type SessionSubPage = SessionStage | "summary" | "review" | "artifacts";
-// "active" points at the single active session; a run id opens a past session.
-export type SessionFocus = "active" | "new" | string;
+export type CycleStage = "prepare" | "run" | "pr" | "done";
+export type CycleSubPage = CycleStage | "summary" | "review" | "artifacts";
+// "active" points at the single active cycle; a run id opens a past cycle.
+export type CycleFocus = "active" | "new" | string;
 
 export type AppRoute =
   | { kind: "dashboard" }
-  | { kind: "workspace"; section: WorkspaceSection; projectId?: string; standardsView?: StandardsView; session?: SessionFocus; sessionSub?: SessionSubPage };
+  | { kind: "workspace"; section: WorkspaceSection; gameId?: string; standardsView?: StandardsView; cycle?: CycleFocus; cycleSub?: CycleSubPage };
 
 export const WORKSPACE_SECTIONS: ReadonlyArray<{ id: WorkspaceSection; label: string; description: string }> = [
-  { id: "overview", label: "Overview", description: "Active session, PR gate, readiness, and next action." },
+  { id: "overview", label: "Overview", description: "Active cycle, PR gate, readiness, and next action." },
   { id: "standards", label: "Standards", description: "Inspect decomp standards, QA coverage, examples, and rendered prompt XML." },
-  { id: "sessions", label: "Sessions", description: "Active session, run/PR phases, and history." },
+  { id: "cycles", label: "Cycles", description: "Active cycle, run/PR phases, and history." },
   { id: "agents", label: "Agents", description: "Prompt previews, agent catalog migration, and recent agent execution identity." },
   { id: "trace", label: "Trace", description: "Kernel container tree, trace events, agent runs, and session lineage." },
   { id: "knowledge", label: "Knowledge", description: "Browse the learning ledger: search, filter by scope/origin/status, and inspect evidence." },
-  { id: "settings", label: "Settings", description: "Project paths, overrides, and validation defaults." },
+  { id: "settings", label: "Settings", description: "Game paths, overrides, and validation defaults." },
   { id: "style", label: "Style", description: "Global grain texture controls." },
 ];
 
@@ -46,24 +46,24 @@ export const STANDARDS_VIEWS: ReadonlyArray<{ id: StandardsView; label: string }
   { id: "rendered", label: "Rendered" },
 ];
 
-export const SESSION_STAGES: ReadonlyArray<{ id: SessionStage; label: string }> = [
+export const CYCLE_STAGES: ReadonlyArray<{ id: CycleStage; label: string }> = [
   { id: "prepare", label: "Prepare" },
   { id: "run", label: "Run" },
   { id: "pr", label: "PR" },
   { id: "done", label: "Done" },
 ];
 
-export const SESSION_SUBPAGES: ReadonlyArray<{ id: SessionSubPage; label: string }> = [
-  ...SESSION_STAGES,
+export const CYCLE_SUBPAGES: ReadonlyArray<{ id: CycleSubPage; label: string }> = [
+  ...CYCLE_STAGES,
   { id: "summary", label: "Summary" },
   { id: "review", label: "Review" },
   { id: "artifacts", label: "Artifacts" },
 ];
 
-// The active-session workflow stepper doubles as the visible sub-navigation.
-export const SESSION_PHASES = SESSION_STAGES;
+// The active-cycle workflow stepper doubles as the visible sub-navigation.
+export const CYCLE_PHASES = CYCLE_STAGES;
 
-export function sessionStageForSubPage(sub: SessionSubPage | null | undefined): SessionStage {
+export function cycleStageForSubPage(sub: CycleSubPage | null | undefined): CycleStage {
   if (sub === "prepare" || sub === "run" || sub === "pr" || sub === "done") return sub;
   if (sub === "review") return "pr";
   return "done";
@@ -77,37 +77,35 @@ export function isStandardsView(value: string | null): value is StandardsView {
   return STANDARDS_VIEWS.some((view) => view.id === value);
 }
 
-export function isSessionSubPage(value: string | null): value is SessionSubPage {
-  return SESSION_SUBPAGES.some((sub) => sub.id === value);
+export function isCycleSubPage(value: string | null): value is CycleSubPage {
+  return CYCLE_SUBPAGES.some((sub) => sub.id === value);
 }
 
 // Map the pre-redesign peer tabs onto the new nested structure.
 function routeFromLegacyPage(page: string | null): AppRoute | null {
   switch (page ?? "") {
-    case "project":
-      return { kind: "workspace", section: "overview" };
     case "access":
       return { kind: "workspace", section: "settings" };
-    case "session":
-      return { kind: "workspace", section: "sessions", session: "active", sessionSub: "done" };
+    case "cycle":
+      return { kind: "workspace", section: "cycles", cycle: "active", cycleSub: "done" };
     case "run":
-      return { kind: "workspace", section: "sessions", session: "active", sessionSub: "run" };
+      return { kind: "workspace", section: "cycles", cycle: "active", cycleSub: "run" };
     case "pr":
-      return { kind: "workspace", section: "sessions", session: "active", sessionSub: "pr" };
+      return { kind: "workspace", section: "cycles", cycle: "active", cycleSub: "pr" };
     case "history":
-      return { kind: "workspace", section: "sessions", session: "active", sessionSub: "done" };
+      return { kind: "workspace", section: "cycles", cycle: "active", cycleSub: "done" };
     default:
       return null;
   }
 }
 
-function projectIdFromParams(params: URLSearchParams): string | undefined {
-  return params.get("projectId") || undefined;
+function gameIdFromParams(params: URLSearchParams): string | undefined {
+  return params.get("gameId") || undefined;
 }
 
-function withProjectId(route: AppRoute, projectId: string | undefined): AppRoute {
-  if (route.kind === "dashboard" || !projectId) return route;
-  return { ...route, projectId };
+function withGameId(route: AppRoute, gameId: string | undefined): AppRoute {
+  if (route.kind === "dashboard" || !gameId) return route;
+  return { ...route, gameId };
 }
 
 function stripTrailingSlash(pathname: string): string {
@@ -130,7 +128,7 @@ function pathSegments(pathname: string): string[] {
 
 function workspaceRouteFromSearchParams(params: URLSearchParams): AppRoute | null {
   const legacy = routeFromLegacyPage(params.get("page"));
-  if (legacy) return withProjectId(legacy, projectIdFromParams(params));
+  if (legacy) return withGameId(legacy, gameIdFromParams(params));
 
   const view = params.get("view");
   if (!view) return null;
@@ -150,7 +148,7 @@ function workspaceRouteFromSearchParams(params: URLSearchParams): AppRoute | nul
   const base = {
     kind: "workspace",
     section,
-    projectId: projectIdFromParams(params),
+    gameId: gameIdFromParams(params),
   } as const;
   if (section === "standards") {
     return {
@@ -158,11 +156,11 @@ function workspaceRouteFromSearchParams(params: URLSearchParams): AppRoute | nul
       standardsView: isStandardsView(params.get("std")) ? (params.get("std") as StandardsView) : "edit",
     };
   }
-  if (section === "sessions") {
+  if (section === "cycles") {
     return {
       ...base,
-      session: params.get("session") || undefined,
-      sessionSub: isSessionSubPage(params.get("sub")) ? (params.get("sub") as SessionSubPage) : undefined,
+      cycle: params.get("cycle") || undefined,
+      cycleSub: isCycleSubPage(params.get("sub")) ? (params.get("sub") as CycleSubPage) : undefined,
     };
   }
   return base;
@@ -170,7 +168,7 @@ function workspaceRouteFromSearchParams(params: URLSearchParams): AppRoute | nul
 
 function routeFromPathname(pathname: string, params: URLSearchParams): AppRoute {
   const segments = pathSegments(pathname);
-  if (segments.length === 0 || segments[0] === "dashboard" || segments[0] === "projects") {
+  if (segments.length === 0 || segments[0] === "dashboard") {
     return { kind: "dashboard" };
   }
 
@@ -179,7 +177,7 @@ function routeFromPathname(pathname: string, params: URLSearchParams): AppRoute 
     return {
       kind: "workspace",
       section: "standards",
-      projectId: projectIdFromParams(params),
+      gameId: gameIdFromParams(params),
       standardsView: "edit",
     };
   }
@@ -189,7 +187,7 @@ function routeFromPathname(pathname: string, params: URLSearchParams): AppRoute 
   const base = {
     kind: "workspace" as const,
     section,
-    projectId: projectIdFromParams(params),
+    gameId: gameIdFromParams(params),
   };
 
   if (section === "standards") {
@@ -199,12 +197,12 @@ function routeFromPathname(pathname: string, params: URLSearchParams): AppRoute 
     };
   }
 
-  if (section === "sessions") {
-    const session = second || undefined;
+  if (section === "cycles") {
+    const cycle = second || undefined;
     return {
       ...base,
-      session,
-      sessionSub: isSessionSubPage(third ?? null) ? third as SessionSubPage : undefined,
+      cycle,
+      cycleSub: isCycleSubPage(third ?? null) ? third as CycleSubPage : undefined,
     };
   }
 
@@ -220,8 +218,8 @@ export function routeFromUrl(): AppRoute {
   }
 }
 
-function setProjectId(url: URL, projectId: string | undefined): void {
-  if (projectId) url.searchParams.set("projectId", projectId);
+function setGameId(url: URL, gameId: string | undefined): void {
+  if (gameId) url.searchParams.set("gameId", gameId);
 }
 
 export function routeToUrl(route: AppRoute): string {
@@ -231,14 +229,14 @@ export function routeToUrl(route: AppRoute): string {
   if (route.kind === "dashboard") {
     url.pathname = "/";
   } else {
-    setProjectId(url, route.projectId);
+    setGameId(url, route.gameId);
     if (route.section === "standards") {
       url.pathname = route.standardsView === "rendered" ? "/standards/rendered" : "/standards";
-    } else if (route.section === "sessions") {
-      const segments = ["sessions"];
-      if (route.session) {
-        segments.push(encodeURIComponent(route.session));
-        if (route.sessionSub) segments.push(route.sessionSub);
+    } else if (route.section === "cycles") {
+      const segments = ["cycles"];
+      if (route.cycle) {
+        segments.push(encodeURIComponent(route.cycle));
+        if (route.cycleSub) segments.push(route.cycleSub);
       }
       url.pathname = `/${segments.join("/")}`;
     } else {

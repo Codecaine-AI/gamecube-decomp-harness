@@ -22,7 +22,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DB = ROOT / "projects/melee/state/orchestrator.sqlite"
+DEFAULT_DB = ROOT / "games/melee/state/orchestrator.sqlite"
 DEFAULT_OUT = ROOT / "analysis/reports/xhigh-epoch-sizing"
 DEFAULT_EPOCHS = "20,21"
 SEGMENT_SIZES = [4, 8, 16, 20, 24, 32, 40, 48, 64, 96, 128, 256]

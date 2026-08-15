@@ -1,0 +1,856 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-10-state-composition-20-workflow-slot",
+  "title": "Workflow State Envelope",
+  "root": "b-20-workflow-slot-root-43",
+  "blocks": {
+    "b-20-workflow-slot-root-43": {
+      "id": "b-20-workflow-slot-root-43",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "StateEnvelope",
+          "workflow-state",
+          "revision",
+          "blockers",
+          "lease-linkage"
+        ],
+        "covers": "The shared StateEnvelope carried by every durable workflow state and its creation, transition, and supersession flows."
+      },
+      "children": [
+        "b-20-workflow-slot-every-durable-session-s-1",
+        "b-20-workflow-slot-structure-2",
+        "b-restored-state-envelope-shape-20260814",
+        "b-20-workflow-slot-the-domain-object-extend-4",
+        "b-20-workflow-slot-what-it-does-5",
+        "b-20-workflow-slot-identity-and-routing-6",
+        "b-20-workflow-slot-accepted-ordering-8",
+        "b-20-workflow-slot-domain-status-11",
+        "b-20-workflow-slot-authority-linkage-14",
+        "b-20-workflow-slot-uniform-blockage-17",
+        "b-20-workflow-slot-state-remains-authoritat-20",
+        "b-20-workflow-slot-flows-21",
+        "b-20-workflow-slot-create-an-enveloped-obje-22",
+        "b-20-workflow-slot-allocate-a-stable-object-23",
+        "b-20-workflow-slot-set-game-id-kind-24",
+        "b-20-workflow-slot-commit-revision-1-with-25",
+        "b-20-workflow-slot-leave-authority-null-u-26",
+        "b-20-workflow-slot-add-the-object-to-the-co-27",
+        "b-20-workflow-slot-transition-status-28",
+        "b-20-workflow-slot-read-the-object-and-requ-29",
+        "b-20-workflow-slot-validate-the-requested-t-30",
+        "b-20-workflow-slot-require-the-current-lea-31",
+        "b-20-workflow-slot-commit-the-domain-payloa-32",
+        "b-20-workflow-slot-increment-revision-onc-33",
+        "b-20-workflow-slot-advance-harnessstate-so-34",
+        "b-20-workflow-slot-a-refused-or-rolled-back-35",
+        "b-20-workflow-slot-supersede-an-object-36",
+        "b-20-workflow-slot-move-the-existing-object-37",
+        "b-20-workflow-slot-release-any-attached-dis-38",
+        "b-20-workflow-slot-preserve-the-old-object-39",
+        "b-20-workflow-slot-create-the-successor-wit-40",
+        "b-20-workflow-slot-replace-the-relevant-pro-41",
+        "b-20-workflow-slot-supersession-never-reuse-42"
+      ]
+    },
+    "b-20-workflow-slot-every-durable-session-s-1": {
+      "id": "b-20-workflow-slot-every-durable-session-s-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every durable cycle, sync, run, and PR campaign state extends one StateEnvelope. The envelope gives generic consumers stable identity, transition ordering, status, tracing, blockers, and a link to current dispatch authority without replacing domain-owned workflow payloads."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-structure-2": {
+      "id": "b-20-workflow-slot-structure-2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Structure"
+        }
+      ],
+      "children": []
+    },
+    "b-restored-state-envelope-shape-20260814": {
+      "id": "b-restored-state-envelope-shape-20260814",
+      "type": "state-shape",
+      "props": {
+        "description": "Shared metadata carried by every durable game state object.",
+        "example": "{\n  \"id\": \"run-2026-08-11-01\",\n  \"game_id\": \"melee\",\n  \"kind\": \"run\",\n  \"status\": \"draining\",\n  \"revision\": 288,\n  \"created_at\": \"2026-08-11T18:00:00Z\",\n  \"updated_at\": \"2026-08-11T18:42:08Z\",\n  \"trace_id\": \"trace-run-2026-08-11-01\",\n  \"caused_by_event_id\": \"event-92811\",\n  \"blockers\": []\n}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "StateObjectId",
+            "description": "Stable identity of the state object."
+          },
+          {
+            "name": "game_id",
+            "type": "GameId",
+            "description": "Owning game."
+          },
+          {
+            "name": "kind",
+            "type": "StateKind",
+            "description": "Domain state-machine kind."
+          },
+          {
+            "name": "status",
+            "type": "domain-specific enum",
+            "description": "A value owned by this state kind."
+          },
+          {
+            "name": "revision",
+            "type": "integer",
+            "description": "Monotonic accepted-transition version."
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId",
+            "description": "Root trace for the object."
+          },
+          {
+            "name": "caused_by_event_id",
+            "type": "EventId",
+            "required": false,
+            "description": "Event that produced the current revision."
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]",
+            "fields": [
+              {
+                "name": "code",
+                "type": "string"
+              },
+              {
+                "name": "message",
+                "type": "string"
+              },
+              {
+                "name": "source_kind",
+                "type": "string"
+              },
+              {
+                "name": "source_id",
+                "type": "string"
+              },
+              {
+                "name": "recoverable",
+                "type": "boolean"
+              }
+            ]
+          }
+        ],
+        "name": "StateEnvelope"
+      },
+      "children": []
+    },
+    "b-20-workflow-slot-the-domain-object-extend-4": {
+      "id": "b-20-workflow-slot-the-domain-object-extend-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The domain object extends this base with its own payload and status enum. Cycle state uses the envelope for durable identity and lineage but does not acquire dispatch authority; its "
+        },
+        {
+          "insert": "authority",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " field remains null. Sync, run, and PR state link to the current lease only while they own it."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-what-it-does-5": {
+      "id": "b-20-workflow-slot-what-it-does-5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "What It Does"
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-identity-and-routing-6": {
+      "id": "b-20-workflow-slot-identity-and-routing-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Identity and routing",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-20-workflow-slot-id-game-id-and-7"
+      ]
+    },
+    "b-20-workflow-slot-id-game-id-and-7": {
+      "id": "b-20-workflow-slot-id-game-id-and-7",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "game_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " let stores, events, traces, and views address every workflow state uniformly."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-accepted-ordering-8": {
+      "id": "b-20-workflow-slot-accepted-ordering-8",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Accepted ordering",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-20-workflow-slot-revision-increments-on-9",
+        "b-20-workflow-slot-caused-by-event-id-ide-10"
+      ]
+    },
+    "b-20-workflow-slot-revision-increments-on-9": {
+      "id": "b-20-workflow-slot-revision-increments-on-9",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " increments once per accepted transition."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-caused-by-event-id-ide-10": {
+      "id": "b-20-workflow-slot-caused-by-event-id-ide-10",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "caused_by_event_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " identifies the event that produced that revision."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-domain-status-11": {
+      "id": "b-20-workflow-slot-domain-status-11",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Domain status",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-20-workflow-slot-each-workflow-owns-its-s-12",
+        "b-20-workflow-slot-generic-consumers-displa-13"
+      ]
+    },
+    "b-20-workflow-slot-each-workflow-owns-its-s-12": {
+      "id": "b-20-workflow-slot-each-workflow-owns-its-s-12",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Each workflow owns its status vocabulary and transition rules."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-generic-consumers-displa-13": {
+      "id": "b-20-workflow-slot-generic-consumers-displa-13",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Generic consumers display and route the value without interpreting domain transitions."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-authority-linkage-14": {
+      "id": "b-20-workflow-slot-authority-linkage-14",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Authority linkage",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-20-workflow-slot-the-optional-authority-l-15",
+        "b-20-workflow-slot-dispatch-authority-and-16"
+      ]
+    },
+    "b-20-workflow-slot-the-optional-authority-l-15": {
+      "id": "b-20-workflow-slot-the-optional-authority-l-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The optional authority link identifies the fencing token attached to the current workflow activation."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-dispatch-authority-and-16": {
+      "id": "b-20-workflow-slot-dispatch-authority-and-16",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Dispatch Authority and Handoffs",
+          "attributes": {
+            "link": "docs/10-system-design/40-harness-state/20-dispatch-authority"
+          }
+        },
+        {
+          "insert": " defines lease acquisition, exclusivity, draining, release, and recovery."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-uniform-blockage-17": {
+      "id": "b-20-workflow-slot-uniform-blockage-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Uniform blockage",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-20-workflow-slot-shared-blocker-fields-le-18",
+        "b-20-workflow-slot-operator-action-contrac-19"
+      ]
+    },
+    "b-20-workflow-slot-shared-blocker-fields-le-18": {
+      "id": "b-20-workflow-slot-shared-blocker-fields-le-18",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Shared blocker fields let any operator surface explain why progress or transition is unavailable."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-operator-action-contrac-19": {
+      "id": "b-20-workflow-slot-operator-action-contrac-19",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Operator Action Contract",
+          "attributes": {
+            "link": "docs/10-system-design/40-harness-state/30-operator-actions"
+          }
+        },
+        {
+          "insert": " defines how blockers gate projected commands."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-state-remains-authoritat-20": {
+      "id": "b-20-workflow-slot-state-remains-authoritat-20",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "State remains authoritative for the current revision. Events preserve accepted-fact history and causation; they do not substitute for the current object."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-flows-21": {
+      "id": "b-20-workflow-slot-flows-21",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Flows"
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-create-an-enveloped-obje-22": {
+      "id": "b-20-workflow-slot-create-an-enveloped-obje-22",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Create an Enveloped Object"
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-allocate-a-stable-object-23": {
+      "id": "b-20-workflow-slot-allocate-a-stable-object-23",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Allocate a stable object identity and workflow-local trace root."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-set-game-id-kind-24": {
+      "id": "b-20-workflow-slot-set-game-id-kind-24",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Set "
+        },
+        {
+          "insert": "game_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", the domain's initial status, and initial payload."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-commit-revision-1-with-25": {
+      "id": "b-20-workflow-slot-commit-revision-1-with-25",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Commit revision "
+        },
+        {
+          "insert": "1",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with creation timestamps and the accepted creation event."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-leave-authority-null-u-26": {
+      "id": "b-20-workflow-slot-leave-authority-null-u-26",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Leave "
+        },
+        {
+          "insert": "authority",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " null unless creation and lease acquisition are one accepted transaction."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-add-the-object-to-the-co-27": {
+      "id": "b-20-workflow-slot-add-the-object-to-the-co-27",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Add the object to the corresponding HarnessState slot at the next "
+        },
+        {
+          "insert": "game_revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-transition-status-28": {
+      "id": "b-20-workflow-slot-transition-status-28",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Transition Status"
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-read-the-object-and-requ-29": {
+      "id": "b-20-workflow-slot-read-the-object-and-requ-29",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Read the object and require its expected "
+        },
+        {
+          "insert": "revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-validate-the-requested-t-30": {
+      "id": "b-20-workflow-slot-validate-the-requested-t-30",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Validate the requested transition against the domain state machine and current blockers."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-require-the-current-lea-31": {
+      "id": "b-20-workflow-slot-require-the-current-lea-31",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Require the current "
+        },
+        {
+          "insert": "lease_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " when the operation dispatches workers or mutates an allowed checkout surface."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-commit-the-domain-payloa-32": {
+      "id": "b-20-workflow-slot-commit-the-domain-payloa-32",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Commit the domain payload, status, blockers, and authority linkage atomically."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-increment-revision-onc-33": {
+      "id": "b-20-workflow-slot-increment-revision-onc-33",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Increment "
+        },
+        {
+          "insert": "revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " once, update "
+        },
+        {
+          "insert": "updated_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", emit one accepted event, and store its id in "
+        },
+        {
+          "insert": "caused_by_event_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-advance-harnessstate-so-34": {
+      "id": "b-20-workflow-slot-advance-harnessstate-so-34",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Advance HarnessState so consumers observe one coherent aggregate revision."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-a-refused-or-rolled-back-35": {
+      "id": "b-20-workflow-slot-a-refused-or-rolled-back-35",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A refused or rolled-back transition changes neither the state revision nor accepted event history."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-supersede-an-object-36": {
+      "id": "b-20-workflow-slot-supersede-an-object-36",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "Supersede an Object"
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-move-the-existing-object-37": {
+      "id": "b-20-workflow-slot-move-the-existing-object-37",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Move the existing object into a terminal or replaced domain status after its obligations settle."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-release-any-attached-dis-38": {
+      "id": "b-20-workflow-slot-release-any-attached-dis-38",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Release any attached dispatch lease before another workflow acquires authority."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-preserve-the-old-object-39": {
+      "id": "b-20-workflow-slot-preserve-the-old-object-39",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Preserve the old object, revision, trace, and event lineage as durable history."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-create-the-successor-wit-40": {
+      "id": "b-20-workflow-slot-create-the-successor-wit-40",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Create the successor with a new "
+        },
+        {
+          "insert": "id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", revision "
+        },
+        {
+          "insert": "1",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and its own trace root."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-replace-the-relevant-pro-41": {
+      "id": "b-20-workflow-slot-replace-the-relevant-pro-41",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Replace the relevant HarnessState slot in one accepted aggregate transition."
+        }
+      ],
+      "children": []
+    },
+    "b-20-workflow-slot-supersession-never-reuse-42": {
+      "id": "b-20-workflow-slot-supersession-never-reuse-42",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Supersession never reuses identity or resets an existing object's revision. A workflow that pauses, drains, or reacquires authority without being replaced keeps the same object identity and continues its revision sequence."
+        }
+      ],
+      "children": []
+    }
+  }
+}

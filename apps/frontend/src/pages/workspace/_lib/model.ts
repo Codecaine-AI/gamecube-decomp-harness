@@ -2,18 +2,18 @@ import { asArray, asObject, numberValue, shortId, text, type Dashboard, type For
 import { processView } from "@/lib/processView";
 import type {
   PrFlowRecord,
-  ProjectStateActionProjection,
-  ProjectStateBlocker,
-  ProjectStatePrSeriesStatus,
-  ProjectStatePrSeriesSummary,
-  ProjectStatePrWorkItem,
-  ProjectStatePrReadModel,
-  ProjectStateReadModel,
-  ProjectStateRunRecoveryPoint,
-  ProjectStateRunSchedulerCondition,
-  ProjectStateRunStatus,
-  ProjectStateSyncStatus,
-  SessionView,
+  HarnessStateActionProjection,
+  HarnessStateBlocker,
+  HarnessStatePrSeriesStatus,
+  HarnessStatePrSeriesSummary,
+  HarnessStatePrWorkItem,
+  HarnessStatePrReadModel,
+  HarnessStateReadModel,
+  HarnessStateRunRecoveryPoint,
+  HarnessStateRunSchedulerCondition,
+  HarnessStateRunStatus,
+  HarnessStateSyncStatus,
+  CycleView,
 } from "./types";
 
 function isLocalBranchPrRecord(record: PrFlowRecord): boolean {
@@ -104,7 +104,7 @@ function nullableNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function projectStateBlocker(value: unknown): ProjectStateBlocker {
+function harnessStateBlocker(value: unknown): HarnessStateBlocker {
   const blocker = asObject(value);
   return {
     code: text(blocker.code),
@@ -115,20 +115,20 @@ function projectStateBlocker(value: unknown): ProjectStateBlocker {
   };
 }
 
-function projectStateActionProjection(value: unknown): ProjectStateActionProjection {
+function harnessStateActionProjection(value: unknown): HarnessStateActionProjection {
   const action = asObject(value);
   return {
     action_id: text(action.action_id),
     subject_kind: text(action.subject_kind),
     subject_id: text(action.subject_id),
     enabled: booleanValue(action.enabled),
-    blocked_by: asArray(action.blocked_by).map(projectStateBlocker),
+    blocked_by: asArray(action.blocked_by).map(harnessStateBlocker),
     expected_transition: text(action.expected_transition),
     confirmation_required: booleanValue(action.confirmation_required),
   };
 }
 
-const PROJECT_STATE_PR_SERIES_STATUSES = [
+const HARNESS_STATE_PR_SERIES_STATUSES = [
   "prepared",
   "published",
   "changes_requested",
@@ -136,9 +136,9 @@ const PROJECT_STATE_PR_SERIES_STATUSES = [
   "approved",
   "merged",
   "closed",
-] as const satisfies readonly ProjectStatePrSeriesStatus[];
+] as const satisfies readonly HarnessStatePrSeriesStatus[];
 
-function projectStatePrWorkItem(value: unknown, seriesBranch = ""): ProjectStatePrWorkItem {
+function harnessStatePrWorkItem(value: unknown, seriesBranch = ""): HarnessStatePrWorkItem {
   const item = asObject(value);
   return {
     item_id: text(item.item_id),
@@ -146,37 +146,37 @@ function projectStatePrWorkItem(value: unknown, seriesBranch = ""): ProjectState
     series_branch: text(item.series_branch, seriesBranch),
     source_kind: text(item.source_kind),
     source_id: text(item.source_id),
-    status: text(item.status) as ProjectStatePrWorkItem["status"],
+    status: text(item.status) as HarnessStatePrWorkItem["status"],
     summary: text(item.summary),
     created_at: text(item.created_at),
     resolved_at: text(item.resolved_at) || null,
   };
 }
 
-function projectStatePrSeries(value: unknown): ProjectStatePrSeriesSummary {
+function harnessStatePrSeries(value: unknown): HarnessStatePrSeriesSummary {
   const series = asObject(value);
   const branch = text(series.branch);
   const lastValidation = asObject(series.last_validation);
   return {
     series_id: text(series.series_id),
     batch_index: numberValue(series.batch_index),
-    status: text(series.status) as ProjectStatePrSeriesStatus,
+    status: text(series.status) as HarnessStatePrSeriesStatus,
     branch,
     upstream_pr_number: nullableNumber(series.upstream_pr_number),
     target_units: asArray(series.target_units).map((unit) => text(unit)).filter(Boolean),
     last_validation: Object.keys(lastValidation).length > 0 ? lastValidation : null,
-    blockers: asArray(series.blockers).map(projectStateBlocker),
-    work_items: asArray(series.work_items).map((item) => projectStatePrWorkItem(item, branch)),
+    blockers: asArray(series.blockers).map(harnessStateBlocker),
+    work_items: asArray(series.work_items).map((item) => harnessStatePrWorkItem(item, branch)),
   };
 }
 
-export function projectStateReadModel(dashboard: Dashboard | null): ProjectStateReadModel | null {
-  const raw = asObject(dashboard?.projectState);
+export function harnessStateReadModel(dashboard: Dashboard | null): HarnessStateReadModel | null {
+  const raw = asObject(dashboard?.harnessState);
   if (Object.keys(raw).length === 0) return null;
 
   const activeWorkflowRaw = asObject(raw.active_workflow);
   const requestedHandoffRaw = asObject(activeWorkflowRaw.requested_handoff);
-  const sessionRaw = asObject(raw.session);
+  const cycleRaw = asObject(raw.cycle);
   const runRaw = asObject(raw.run);
   const syncRaw = asObject(raw.sync);
   const knowledgeRaw = asObject(raw.knowledge);
@@ -189,7 +189,7 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
   const syncPublicationRaw = asObject(syncRaw.publication);
   const syncStalenessRaw = asObject(syncRaw.staleness);
   const syncStalenessBlockerRaw = asObject(syncStalenessRaw.blocker);
-  const latestSavePointRaw = asObject(sessionRaw.latest_save_point);
+  const latestSavePointRaw = asObject(cycleRaw.latest_save_point);
   const activeWorkflow = Object.keys(activeWorkflowRaw).length > 0
     ? {
         kind: text(activeWorkflowRaw.kind) as "run" | "pr" | "sync",
@@ -209,15 +209,15 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
               },
             }
           : {}),
-        blockers: asArray(activeWorkflowRaw.blockers).map(projectStateBlocker),
+        blockers: asArray(activeWorkflowRaw.blockers).map(harnessStateBlocker),
       }
     : null;
 
-  const session = Object.keys(sessionRaw).length > 0
+  const cycle = Object.keys(cycleRaw).length > 0
     ? {
-        session_uuid: text(sessionRaw.session_uuid),
-        head_revision: text(sessionRaw.head_revision) || null,
-        status: text(sessionRaw.status),
+        cycle_uuid: text(cycleRaw.cycle_uuid),
+        head_revision: text(cycleRaw.head_revision) || null,
+        status: text(cycleRaw.status),
         latest_save_point: Object.keys(latestSavePointRaw).length > 0
           ? {
               id: text(latestSavePointRaw.id),
@@ -230,12 +230,12 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
               createdAt: text(latestSavePointRaw.createdAt),
             }
           : null,
-        save_point_stale: booleanValue(sessionRaw.save_point_stale),
-        timeline: asArray(sessionRaw.timeline).map((value) => {
+        save_point_stale: booleanValue(cycleRaw.save_point_stale),
+        timeline: asArray(cycleRaw.timeline).map((value) => {
           const entry = asObject(value);
           return {
             id: numberValue(entry.id),
-            session_uuid: text(entry.session_uuid),
+            cycle_uuid: text(entry.cycle_uuid),
             entry_kind: text(entry.entry_kind) as "epoch_completed" | "remote_application" | "pr_phase" | "save_point",
             entry_id: text(entry.entry_id),
             occurred_at: text(entry.occurred_at),
@@ -249,8 +249,8 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
   const run = Object.keys(runRaw).length > 0
     ? {
         workflow_id: text(runRaw.workflow_id),
-        status: text(runRaw.status) as ProjectStateRunStatus,
-        scheduler_condition: (text(runRaw.scheduler_condition) || null) as ProjectStateRunSchedulerCondition | null,
+        status: text(runRaw.status) as HarnessStateRunStatus,
+        scheduler_condition: (text(runRaw.scheduler_condition) || null) as HarnessStateRunSchedulerCondition | null,
         active_epoch: Object.keys(activeEpochRaw).length > 0
           ? {
               epoch_id: text(activeEpochRaw.epoch_id),
@@ -267,7 +267,7 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
           confirmed_changes: numberValue(progressRaw.confirmed_changes),
           regressed_changes: numberValue(progressRaw.regressed_changes),
         },
-        recovery_points: asArray(runRaw.recovery_points).map((value): ProjectStateRunRecoveryPoint => {
+        recovery_points: asArray(runRaw.recovery_points).map((value): HarnessStateRunRecoveryPoint => {
           const point = asObject(value);
           return {
             event_id: text(point.event_id),
@@ -276,13 +276,13 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
             recovery_reason: text(point.recovery_reason) || null,
             cancelled_claim_ids: asArray(point.cancelled_claim_ids).map((id) => text(id)).filter(Boolean),
             cancelled_operation_ids: asArray(point.cancelled_operation_ids).map((id) => text(id)).filter(Boolean),
-            resulting_status: (text(point.resulting_status) || null) as ProjectStateRunStatus | null,
+            resulting_status: (text(point.resulting_status) || null) as HarnessStateRunStatus | null,
           };
         }),
       }
     : null;
 
-  const parsePr = (prRaw: JsonObject): ProjectStatePrReadModel => {
+  const parsePr = (prRaw: JsonObject): HarnessStatePrReadModel => {
     const prSourceAnchorRaw = asObject(prRaw.source_anchor);
     const prPublicationPolicyRaw = asObject(prRaw.publication_policy);
     const prSeriesByStatusRaw = asObject(prRaw.series_by_status);
@@ -291,7 +291,7 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
     const prActivationRaw = asObject(prRaw.activation);
     return {
         workflow_id: text(prRaw.workflow_id),
-        status: text(prRaw.status) as ProjectStatePrReadModel["status"],
+        status: text(prRaw.status) as HarnessStatePrReadModel["status"],
         source_anchor: {
           save_point_id: text(prSourceAnchorRaw.save_point_id),
           source_revision: text(prSourceAnchorRaw.source_revision),
@@ -299,33 +299,33 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
         publication_policy: {
           batch_size: numberValue(prPublicationPolicyRaw.batch_size),
         },
-        blockers: asArray(prRaw.blockers).map(projectStateBlocker),
-        series: asArray(prRaw.series).map(projectStatePrSeries),
+        blockers: asArray(prRaw.blockers).map(harnessStateBlocker),
+        series: asArray(prRaw.series).map(harnessStatePrSeries),
         series_by_status: Object.fromEntries(
-          PROJECT_STATE_PR_SERIES_STATUSES.map((status) => [
+          HARNESS_STATE_PR_SERIES_STATUSES.map((status) => [
             status,
-            asArray(prSeriesByStatusRaw[status]).map(projectStatePrSeries),
+            asArray(prSeriesByStatusRaw[status]).map(harnessStatePrSeries),
           ]),
-        ) as ProjectStatePrReadModel["series_by_status"],
+        ) as HarnessStatePrReadModel["series_by_status"],
         next_batch: Object.keys(prNextBatchRaw).length > 0
           ? {
               batch_index: numberValue(prNextBatchRaw.batch_index),
               series_ids: asArray(prNextBatchRaw.series_ids).map((id) => text(id)).filter(Boolean),
               validation_state: text(prNextBatchRaw.validation_state),
-              blockers: asArray(prNextBatchRaw.blockers).map(projectStateBlocker),
-              series: asArray(prNextBatchRaw.series).map(projectStatePrSeries),
+              blockers: asArray(prNextBatchRaw.blockers).map(harnessStateBlocker),
+              series: asArray(prNextBatchRaw.series).map(harnessStatePrSeries),
             }
           : null,
         pending_work_items: {
           count: numberValue(prPendingWorkItemsRaw.count),
-          items: asArray(prPendingWorkItemsRaw.items).map((item) => projectStatePrWorkItem(item)),
+          items: asArray(prPendingWorkItemsRaw.items).map((item) => harnessStatePrWorkItem(item)),
         },
         activation: {
           active: booleanValue(prActivationRaw.active),
           queued: booleanValue(prActivationRaw.queued),
           lease_id: text(prActivationRaw.lease_id) || null,
           status: text(prActivationRaw.status) || null,
-          blockers: asArray(prActivationRaw.blockers).map(projectStateBlocker),
+          blockers: asArray(prActivationRaw.blockers).map(harnessStateBlocker),
         },
       };
   };
@@ -333,8 +333,8 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
   const sync = Object.keys(syncRaw).length > 0
     ? {
         workflow_id: text(syncRaw.workflow_id),
-        status: text(syncRaw.status) as ProjectStateSyncStatus,
-        blockers: asArray(syncRaw.blockers).map(projectStateBlocker),
+        status: text(syncRaw.status) as HarnessStateSyncStatus,
+        blockers: asArray(syncRaw.blockers).map(harnessStateBlocker),
         intake: {
           upstream_from: text(syncIntakeRaw.upstream_from),
           upstream_to: text(syncIntakeRaw.upstream_to),
@@ -380,7 +380,7 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
           validated_upstream: text(syncStalenessRaw.validated_upstream) || null,
           observed_upstream: text(syncStalenessRaw.observed_upstream) || null,
           blocker: Object.keys(syncStalenessBlockerRaw).length > 0
-            ? projectStateBlocker(syncStalenessBlockerRaw)
+            ? harnessStateBlocker(syncStalenessBlockerRaw)
             : null,
           revalidate_action_id: text(syncStalenessRaw.revalidate_action_id) === "sync.cancel"
             ? "sync.cancel" as const
@@ -393,8 +393,8 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
   const knowledgeLeaseRaw = asObject(knowledgeRaw.active_lease);
 
   return {
-    project_id: text(raw.project_id),
-    project_revision: numberValue(raw.project_revision),
+    game_id: text(raw.game_id),
+    harness_revision: numberValue(raw.harness_revision),
     active_workflow: activeWorkflow,
     queued_dispatch_requests: asArray(raw.queued_dispatch_requests).map((value) => {
       const request = asObject(value);
@@ -406,7 +406,7 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
         requested_by: text(request.requested_by),
       };
     }),
-    session,
+    cycle,
     run,
     pr_work: asArray(raw.pr_work).map((value) => parsePr(asObject(value))),
     knowledge: {
@@ -448,23 +448,23 @@ export function projectStateReadModel(dashboard: Dashboard | null): ProjectState
       const event = asObject(value);
       return { ...event, event_type: text(event.event_type), sequence: numberValue(event.sequence) };
     }),
-    available_actions: asArray(raw.available_actions).map(projectStateActionProjection),
-    compatibility_actions: asArray(raw.compatibility_actions).map(projectStateActionProjection),
+    available_actions: asArray(raw.available_actions).map(harnessStateActionProjection),
+    compatibility_actions: asArray(raw.compatibility_actions).map(harnessStateActionProjection),
   };
 }
 
-export function projectStateAction(
-  projectState: ProjectStateReadModel | null,
+export function harnessStateAction(
+  harnessState: HarnessStateReadModel | null,
   actionId: string,
-): ProjectStateActionProjection | null {
-  return projectState?.available_actions.find((action) => action.action_id === actionId) ?? null;
+): HarnessStateActionProjection | null {
+  return harnessState?.available_actions.find((action) => action.action_id === actionId) ?? null;
 }
 
-export function projectStateCompatibilityAction(
-  projectState: ProjectStateReadModel | null,
+export function harnessStateCompatibilityAction(
+  harnessState: HarnessStateReadModel | null,
   actionId: string,
-): ProjectStateActionProjection | null {
-  return projectState?.compatibility_actions.find((action) => action.action_id === actionId) ?? null;
+): HarnessStateActionProjection | null {
+  return harnessState?.compatibility_actions.find((action) => action.action_id === actionId) ?? null;
 }
 
 function artifactStatus(value: JsonObject, keys: string[]): boolean {
@@ -475,16 +475,10 @@ function operationLooksPrMode(name: string): boolean {
   return /pr|qa|handoff|reconcile|split|draft|open/i.test(name);
 }
 
-function sessionIdForRun(runId: string): string {
-  return runId ? `run:${runId}` : "legacy";
-}
-
-function prRecordMatchesSession(record: JsonObject, runId: string, activeBranches: Set<string>): boolean {
+function prRecordMatchesCycle(record: JsonObject, runId: string, activeBranches: Set<string>): boolean {
   if (!runId) return true;
   const recordRunId = text(record.runId);
   if (recordRunId) return recordRunId === runId;
-  const sessionId = text(record.sessionId);
-  if (sessionId && sessionId !== "legacy") return sessionId === sessionIdForRun(runId);
   const branch = text(record.branch);
   if (branch && activeBranches.has(branch)) return true;
   const status = text(record.status, "planned");
@@ -498,7 +492,7 @@ function derivedPrRecords(dashboard: Dashboard | null, hasMeleePrFixture: boolea
   const splitPlan = asObject(asObject(dashboard?.handoff).splitPlan);
   const activeBranches = new Set(asArray(splitPlan.slices).map((slice) => text(asObject(slice).branchName)).filter(Boolean));
   if (records.length > 0) {
-    return records.filter((record) => prRecordMatchesSession(record, runId, activeBranches)).map((record): PrFlowRecord => {
+    return records.filter((record) => prRecordMatchesCycle(record, runId, activeBranches)).map((record): PrFlowRecord => {
       const local = asObject(record.local);
       const validation = asObject(record.validation);
       const sourcePlan = asObject(record.sourcePlan);
@@ -594,18 +588,18 @@ function derivedPrRecords(dashboard: Dashboard | null, hasMeleePrFixture: boolea
   ];
 }
 
-export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig | null, form: FormState): SessionView {
-  const projectState = projectStateReadModel(dashboard);
-  const project =
-    dashboard?.project ??
-    config?.availableProjects.find((item) => item.id === form.projectId) ??
-    config?.selectedProject ??
+export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | null, form: FormState): CycleView {
+  const harnessState = harnessStateReadModel(dashboard);
+  const game =
+    dashboard?.game ??
+    config?.availableGames.find((item) => item.id === form.gameId) ??
+    config?.selectedGame ??
     null;
-  const selectedProcessName = processName(form.processName || project?.processName);
+  const selectedProcessName = processName(form.processName || game?.processName);
   const process = processView(dashboard, selectedProcessName);
-  const canonicalSession = asObject(dashboard?.projectSession);
-  const canonicalGates = asObject(canonicalSession.gates);
-  const canonicalPhases = asObject(canonicalSession.phases);
+  const canonicalCycle = asObject(dashboard?.cycle);
+  const canonicalGates = asObject(canonicalCycle.gates);
+  const canonicalPhases = asObject(canonicalCycle.phases);
   const preparingPhase = asObject(canonicalPhases.preparing);
   const prepareSync = asObject(preparingPhase.sync);
   const prepareIntake = asObject(preparingPhase.intake);
@@ -621,8 +615,11 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
   const prepareHeadSha = text(prepareSync.afterRef);
   const prepareBeforeSha = text(prepareSync.beforeRef);
   const prepareUpstreamChanged = prepareBeforeSha && prepareHeadSha ? prepareBeforeSha !== prepareHeadSha : null;
-  const prepareUpstreamWorktreePath = text(prepareSync.upstreamWorktreePath, text(prepareSync.mainWorktreePath));
-  const prepareSessionCurrentWorktreePath = text(prepareSync.sessionCurrentWorktreePath, text(prepareSync.sessionWorktreePath));
+  const prepareUpstreamWorktreePath = text(prepareSync.upstreamWorktreePath);
+  const prepareCycleCurrentWorktreePath = text(
+    prepareSync.cycleCurrentWorktreePath,
+    text(prepareSync.cycleWorktreePath),
+  );
   const preparePrIndexDebt = asObject(
     intakeDone
       ? prepareIntake.prIndexDebtAfter
@@ -646,20 +643,20 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
   const failedIntakeItemCount = numberValue(prepareIntakeItemCounts.failed, prepareIntakeItems.filter((item) => text(item.status) === "failed").length);
   const retryableIntakeItemCount = numberValue(prepareIntakeItemCounts.retryable, prepareIntakeItems.filter((item) => text(item.status) === "failed" && item.retryable === true).length);
   const totalIntakeItemCount = numberValue(prepareIntakeItemCounts.total, prepareIntakeItems.length);
-  const canonicalPhase = text(canonicalSession.phase);
-  const canonicalSubphase = text(canonicalSession.activeSubphase);
-  const canonicalStatus = text(canonicalSession.status);
-  const canonicalSessionId = projectState?.session?.session_uuid || text(canonicalSession.sessionUuid, text(canonicalSession.id));
-  const canonicalBlockers = asArray(canonicalSession.blockers)
+  const canonicalPhase = text(canonicalCycle.phase);
+  const canonicalSubphase = text(canonicalCycle.activeSubphase);
+  const canonicalStatus = text(canonicalCycle.status);
+  const canonicalCycleId = harnessState?.cycle?.cycle_uuid || text(canonicalCycle.cycleUuid, text(canonicalCycle.id));
+  const canonicalBlockers = asArray(canonicalCycle.blockers)
     .map(asObject)
     .map((blocker) => text(blocker.message, text(blocker.code)))
     .filter(Boolean);
-  const hasCanonicalSession = Boolean(canonicalSessionId && canonicalPhase);
+  const hasCanonicalCycle = Boolean(canonicalCycleId && canonicalPhase);
   const status = asObject(dashboard?.status);
   const run = asObject(status.run);
   const runStatus = text(run.status);
   const runId = text(run.id);
-  const completedLegacyRun = Boolean(runId) && runStatus === "completed" && !hasCanonicalSession;
+  const completedLegacyRun = Boolean(runId) && runStatus === "completed" && !hasCanonicalCycle;
   const activeClaims = numberValue(status.activeClaims, 0);
   const campaign = asObject(dashboard?.campaign);
   const head = asObject(campaign.head);
@@ -675,9 +672,9 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
   const operationStatus = text(operation.status);
   const operationName = text(operation.name);
   const operationActive = operationStatus === "running" || asObject(dashboard?.process).freshRunActive === true;
-  const syncing = asObject(dashboard?.process).projectSyncActive === true;
+  const syncing = asObject(dashboard?.process).gameSyncActive === true;
   const syncLocked = runStatus === "active";
-  const handoffCanDerivePrMode = !hasCanonicalSession || canonicalPhase === "pr";
+  const handoffCanDerivePrMode = !hasCanonicalCycle || canonicalPhase === "pr";
   const hasHandoffEvidence =
     !completedLegacyRun &&
     handoffCanDerivePrMode &&
@@ -688,9 +685,9 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
       artifactStatus(ship, ["status", "patchPath"]) ||
       rawPrRecords.length > 0 ||
       operationLooksPrMode(operationName));
-  const hasMeleePrFixture = project?.id === "melee" && !process.running && runStatus !== "active" && !completedLegacyRun && rawPrRecords.length === 0;
+  const hasMeleePrFixture = game?.id === "melee" && !process.running && runStatus !== "active" && !completedLegacyRun && rawPrRecords.length === 0;
   const modeEvidence: string[] = [];
-  if (hasCanonicalSession) modeEvidence.push(`canonical phase ${prettyStatus(canonicalPhase)}${canonicalSubphase ? ` / ${prettyStatus(canonicalSubphase)}` : ""}`);
+  if (hasCanonicalCycle) modeEvidence.push(`canonical phase ${prettyStatus(canonicalPhase)}${canonicalSubphase ? ` / ${prettyStatus(canonicalSubphase)}` : ""}`);
   if (canonicalBlockers.length > 0) modeEvidence.push(`${canonicalBlockers.length.toLocaleString()} canonical blocker(s)`);
   if (process.running) modeEvidence.push(process.draining ? "process draining" : "worker process running");
   if (activeClaims > 0) modeEvidence.push(`${activeClaims.toLocaleString()} active claim(s)`);
@@ -698,7 +695,7 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
   if (hasHandoffEvidence) modeEvidence.push("handoff, QA, split, ship, or PR evidence exists");
   if (hasMeleePrFixture && !hasHandoffEvidence) modeEvidence.push("current Melee PR-flow planned/mock fixture");
 
-  let mode: SessionView["mode"] = "none";
+  let mode: CycleView["mode"] = "none";
   if (canonicalPhase === "running") mode = "run";
   else if (canonicalPhase === "pr") mode = "pr";
   else if (canonicalPhase === "preparing" || canonicalPhase === "complete") mode = "none";
@@ -706,13 +703,13 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
   else if (hasHandoffEvidence || hasMeleePrFixture) mode = "pr";
   else if (runStatus === "active" || (runId && !completedLegacyRun)) mode = "run";
 
-  const hasActivePrSession = !completedLegacyRun && (canonicalPhase === "pr" || mode === "pr" || hasHandoffEvidence || hasMeleePrFixture);
-  const prRecords = hasActivePrSession ? derivedPrRecords(dashboard, hasMeleePrFixture) : [];
+  const hasActivePrCycle = !completedLegacyRun && (canonicalPhase === "pr" || mode === "pr" || hasHandoffEvidence || hasMeleePrFixture);
+  const prRecords = hasActivePrCycle ? derivedPrRecords(dashboard, hasMeleePrFixture) : [];
   const prBlockedReasons: string[] = [];
   const shipStatus = text(ship.status);
   const qaStatus = text(asObject(qa.prPromotion).status, text(qa.status));
   const qaRepairStatus = text(qaRepair.recommendation, text(qaRepair.status));
-  if (hasActivePrSession) {
+  if (hasActivePrCycle) {
     if (shipStatus && shipStatus !== "pr_ready") prBlockedReasons.push(`ship set ${prettyStatus(shipStatus)}`);
     if (qaStatus === "blocked" || qaStatus === "failed") prBlockedReasons.push(`QA ${prettyStatus(qaStatus)}`);
     if (qaRepairStatus && !["passed", "clean", "pr_ready"].includes(qaRepairStatus)) prBlockedReasons.push(`QA repair ${prettyStatus(qaRepairStatus)}`);
@@ -723,16 +720,16 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
   const activePrStatuses = new Set(["planned", "planned_mock", "branch_pushed", "draft", "open", "changes_requested", "blocked"]);
   const unresolvedPrRecords = prRecords.filter((record) => activePrStatuses.has(record.status));
   const localPrRecords = prRecords.filter((record) => !["merged", "closed"].includes(record.status) && ["ready", "blocked", "dirty"].includes(record.localStatus));
-  const newSessionReasons: string[] = [];
-  if (hasCanonicalSession && canonicalStatus !== "complete") newSessionReasons.push(`canonical session is ${prettyStatus(canonicalPhase)}${canonicalSubphase ? ` / ${prettyStatus(canonicalSubphase)}` : ""}`);
-  if (canonicalBlockers.length > 0) newSessionReasons.push(...canonicalBlockers);
-  if (process.running) newSessionReasons.push("worker process is running or detached");
-  if (activeClaims > 0) newSessionReasons.push(`${activeClaims.toLocaleString()} active claim(s) remain`);
-  if (runStatus === "active") newSessionReasons.push("run status is active");
-  if (hasActivePrSession && unresolvedPrRecords.length > 0) newSessionReasons.push(`${unresolvedPrRecords.length.toLocaleString()} PR slice(s) unresolved`);
-  if (hasActivePrSession && localPrRecords.length > 0) newSessionReasons.push(`${localPrRecords.length.toLocaleString()} local PR workspace(s) unresolved`);
-  if (hasActivePrSession && prBlockedReasons.length > 0) newSessionReasons.push(...prBlockedReasons);
-  if (head.dirty === true) newSessionReasons.push("campaign head is dirty");
+  const newCycleReasons: string[] = [];
+  if (hasCanonicalCycle && canonicalStatus !== "complete") newCycleReasons.push(`canonical cycle is ${prettyStatus(canonicalPhase)}${canonicalSubphase ? ` / ${prettyStatus(canonicalSubphase)}` : ""}`);
+  if (canonicalBlockers.length > 0) newCycleReasons.push(...canonicalBlockers);
+  if (process.running) newCycleReasons.push("worker process is running or detached");
+  if (activeClaims > 0) newCycleReasons.push(`${activeClaims.toLocaleString()} active claim(s) remain`);
+  if (runStatus === "active") newCycleReasons.push("run status is active");
+  if (hasActivePrCycle && unresolvedPrRecords.length > 0) newCycleReasons.push(`${unresolvedPrRecords.length.toLocaleString()} PR slice(s) unresolved`);
+  if (hasActivePrCycle && localPrRecords.length > 0) newCycleReasons.push(`${localPrRecords.length.toLocaleString()} local PR workspace(s) unresolved`);
+  if (hasActivePrCycle && prBlockedReasons.length > 0) newCycleReasons.push(...prBlockedReasons);
+  if (head.dirty === true) newCycleReasons.push("campaign head is dirty");
 
   const handoffIdle = Boolean(runId) && !completedLegacyRun && !process.running && activeClaims === 0 && !syncing && !operationActive;
   const handoffReason = !runId
@@ -752,29 +749,29 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
               : "";
 
   const baseline = asObject(handoff.baseline);
-  const baselineSha = text(canonicalSession.baseSha, text(baseline.baseSha, text(campaign.baseSha)));
+  const baselineSha = text(canonicalCycle.baseSha, text(baseline.baseSha, text(campaign.baseSha)));
   const branch = canonicalPhase === "preparing"
-    ? text(prepareSync.sessionBranch, text(canonicalSession.baseRef, text(head.branch, text(campaign.branch, "-"))))
+    ? text(prepareSync.cycleBranch, text(canonicalCycle.baseRef, text(head.branch, text(campaign.branch, "-"))))
     : text(head.branch, text(campaign.branch, "-"));
-  const fallbackSessionId = text(asObject(campaign.savePoint).commit_sha, `${project?.id ?? "project"}:no-run`);
+  const fallbackCycleId = text(asObject(campaign.savePoint).commit_sha, `${game?.id ?? "game"}:no-run`);
   const activeRunId = completedLegacyRun && mode === "none" ? "" : runId;
-  const activeSessionId = canonicalSessionId || activeRunId || (mode === "none" ? "" : fallbackSessionId);
-  const activeSessionLabel = canonicalSessionId ? `Session ${shortId(canonicalSessionId)}` : activeRunId ? `Run ${shortId(activeRunId)}` : "No active session";
+  const activeCycleId = canonicalCycleId || activeRunId || (mode === "none" ? "" : fallbackCycleId);
+  const activeCycleLabel = canonicalCycleId ? `Cycle ${shortId(canonicalCycleId)}` : activeRunId ? `Run ${shortId(activeRunId)}` : "No active cycle";
   const recommendedSub = canonicalPhase === "preparing" ? "prepare" : canonicalPhase === "pr" ? "pr" : canonicalPhase === "running" ? "run" : mode === "pr" ? "pr" : mode === "run" ? "run" : "done";
-  const sessionStageStates: SessionView["sessionStageStates"] = {
+  const cycleStageStates: CycleView["cycleStageStates"] = {
     prepare: text(asObject(canonicalPhases.preparing).completed_at) ? "done" : "todo",
     run: text(asObject(canonicalPhases.running).completed_at) ? "done" : "todo",
     pr: text(asObject(canonicalPhases.pr).completed_at) ? "done" : "todo",
-    done: text(canonicalSession.completedAt) || canonicalStatus === "complete" || canonicalPhase === "complete" || (completedLegacyRun && !hasCanonicalSession) ? "done" : "todo",
+    done: text(canonicalCycle.completedAt) || canonicalStatus === "complete" || canonicalPhase === "complete" || (completedLegacyRun && !hasCanonicalCycle) ? "done" : "todo",
   };
-  const canStartWorkers = hasCanonicalSession
+  const canStartWorkers = hasCanonicalCycle
     ? booleanValue(canonicalGates.can_start_workers)
     : mode === "run" && !process.running && !syncing && !operationActive;
-  const canOpenPrs = hasCanonicalSession
+  const canOpenPrs = hasCanonicalCycle
     ? booleanValue(canonicalGates.can_publish_prs) || booleanValue(canonicalGates.can_prepare_prs)
     : mode !== "none" && !process.running && activeClaims === 0 && !syncing && !operationActive;
   const canCompleteRun =
-    !hasCanonicalSession &&
+    !hasCanonicalCycle &&
     Boolean(runId) &&
     (runStatus === "active" || runStatus === "paused") &&
     !process.running &&
@@ -790,11 +787,11 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
           ? "PR Mode"
           : mode === "run"
             ? "Run Mode"
-            : "No Active Session";
+            : "No Active Cycle";
 
   return {
-    activeSessionId,
-    activeSessionLabel,
+    activeCycleId,
+    activeCycleLabel,
     activeClaims,
     baselineLabel: baselineSha ? baselineSha.slice(0, 10) : "not built",
     branchLabel: `${branch}${head.dirty === true ? " dirty" : ""}`,
@@ -811,8 +808,8 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
     mode,
     modeEvidence,
     modeLabel,
-    newSessionBlocked: newSessionReasons.length > 0,
-    newSessionReasons,
+    newCycleBlocked: newCycleReasons.length > 0,
+    newCycleReasons,
     operationActive,
     operationLabel: text(operation.label, "An operation"),
     prBlockedReasons,
@@ -837,8 +834,8 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
       failedIntakeItemCount,
       retryableIntakeItemCount,
       totalIntakeItemCount,
-      readyToStartRun: hasCanonicalSession && canonicalPhase === "preparing" && baselineDone && !process.running && activeClaims === 0 && !syncing && !operationActive,
-      sessionCurrentWorktreePath: prepareSessionCurrentWorktreePath,
+      readyToStartRun: hasCanonicalCycle && canonicalPhase === "preparing" && baselineDone && !process.running && activeClaims === 0 && !syncing && !operationActive,
+      cycleCurrentWorktreePath: prepareCycleCurrentWorktreePath,
       sync: prepareSync,
       syncDone,
       upstreamChanged: prepareUpstreamChanged,
@@ -854,11 +851,11 @@ export function deriveSessionView(dashboard: Dashboard | null, config: UiConfig 
       warning: text(prs.warning),
     },
     process,
-    project,
-    projectState,
+    game,
+    harnessState,
     recommendedSub,
     runStatus,
-    sessionStageStates,
+    cycleStageStates,
     syncLocked,
     syncing,
   };

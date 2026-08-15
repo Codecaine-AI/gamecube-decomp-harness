@@ -175,12 +175,12 @@ set -eu
 [ "$1" = "report" ]
 [ "$2" = "generate" ]
 shift 2
-project=""
+game=""
 output=""
 config=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --project|-p) project="$2"; shift 2 ;;
+    --project|-p) game="$2"; shift 2 ;;
     --output|-o) output="$2"; shift 2 ;;
     --format|-f) [ "$2" = "json" ]; shift 2 ;;
     --config|-c) config="$2"; shift 2 ;;
@@ -188,10 +188,10 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 [ "$config" = "functionRelocDiffs=data_value" ]
-[ "$(grep -c '\"name\": \"main/melee/lb/lbrefract\"' "$project/objdiff.json")" -eq 1 ]
-! grep -q 'main/melee/lb/other' "$project/objdiff.json"
-grep -q '\"base_path\": \"/' "$project/objdiff.json"
-grep -q '\"target_path\": \"/' "$project/objdiff.json"
+[ "$(grep -c '\"name\": \"main/melee/lb/lbrefract\"' "$game/objdiff.json")" -eq 1 ]
+! grep -q 'main/melee/lb/other' "$game/objdiff.json"
+grep -q '\"base_path\": \"/' "$game/objdiff.json"
+grep -q '\"target_path\": \"/' "$game/objdiff.json"
 printf '%s\n' '{"units":[{"name":"main/melee/lb/lbrefract","functions":[{"name":"lbRefract_80021CE8","size":"588","fuzzy_match_percent":99.93198},{"name":"fn_80021F70","size":68,"fuzzy_match_percent":100}],"sections":[{"name":".text","fuzzy_match_percent":99.03},{"name":".data","fuzzy_match_percent":100}]}]}' > "$output"
 `,
     );

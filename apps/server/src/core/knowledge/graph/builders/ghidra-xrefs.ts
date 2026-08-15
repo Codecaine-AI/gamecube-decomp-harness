@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { projectRoot, projectSharedToolDataRoot } from "../../paths.js";
+import { gameRoot, gameSharedToolDataRoot } from "../../paths.js";
 import type { GraphEdge, GraphFact, GraphRecords, SearchChunk } from "../types.js";
 import {
   arrayValue,
@@ -72,7 +72,7 @@ export function buildGhidraXrefGraphRecords(
   repoRoot: string,
   options: BuildGhidraXrefGraphRecordsOptions = {},
 ): GraphRecords | null {
-  const indexesRoot = options.indexesRoot ?? resolve(projectSharedToolDataRoot("melee"), "ghidra/indexes");
+  const indexesRoot = options.indexesRoot ?? resolve(gameSharedToolDataRoot("melee"), "ghidra/indexes");
   const xrefsPath = resolve(indexesRoot, "xrefs.jsonl");
   if (!existsSync(xrefsPath)) return null;
 
@@ -156,7 +156,7 @@ export function buildGhidraXrefGraphRecords(
 function repoRootWithFunctionReport(repoRoot: string): string {
   const requested = resolve(repoRoot);
   if (existsSync(resolve(requested, "build/GALE01/report.json"))) return requested;
-  const fallback = resolve(projectRoot("melee"), "checkout");
+  const fallback = resolve(gameRoot("melee"), "checkout");
   if (fallback !== requested && existsSync(resolve(fallback, "build/GALE01/report.json"))) return fallback;
   return requested;
 }

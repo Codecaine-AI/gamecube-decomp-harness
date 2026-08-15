@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const dbPath = "projects/melee/state/orchestrator.sqlite";
+const dbPath = "games/melee/state/orchestrator.sqlite";
 const outDir = "analysis/reports";
 const generatedAt = new Date().toISOString();
 const today = generatedAt.slice(0, 10);

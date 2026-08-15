@@ -2,10 +2,10 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { projectToolConcurrencyDefaults, toolConcurrencyEnvFromInput } from "./concurrency-config.js";
+import { gameToolConcurrencyDefaults, toolConcurrencyEnvFromInput } from "./concurrency-config.js";
 
 describe("tool concurrency config", () => {
-  test("reads configured project local env values with code defaults", () => {
+  test("reads configured game local env values with code defaults", () => {
     const dir = mkdtempSync(join(tmpdir(), "tool-concurrency-"));
     const localEnvPath = join(dir, "local.env");
     writeFileSync(
@@ -18,7 +18,7 @@ describe("tool concurrency config", () => {
       ].join("\n"),
     );
 
-    const config = projectToolConcurrencyDefaults(localEnvPath, {});
+    const config = gameToolConcurrencyDefaults(localEnvPath, {});
 
     expect(config.configured).toMatchObject({
       checkdiff: 20,

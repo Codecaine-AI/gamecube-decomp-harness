@@ -7,9 +7,9 @@ import {
   renderXmlMarkdown,
   section,
   usesContext,
-} from "@codecaine-ai/prompt-kit";
+} from "@server/core/agent-catalog/prompt-kit-compat";
 import type { PiPromptBundle } from "@server/core/shared/types";
-import type { WideningRequest } from "@server/core/session-runtime/run-state/write-set-categories";
+import type { WideningRequest } from "@server/core/cycle-runtime/run-state/write-set-categories";
 import {
   buildQaRepairKernelContext,
   QA_REPAIR_TURN_PROMPT,
@@ -97,7 +97,7 @@ export const prompt = definePrompt({
         "Every finding in the queue item is a requirement violation, not a suggestion. The default disposition is to repair it. Leaving a finding unfixed requires stated evidence, not preference.",
         "Make the smallest valuable source edits that remove the listed maintainer-rejected patterns.",
         "Treat worker output as useful but fallible: make the retained source worth merging into the repo, not preserve every score gain.",
-        "Preserve useful matching work when possible by converting bad tactics into project idioms.",
+        "Preserve useful matching work when possible by converting bad tactics into game idioms.",
         "Exact matches are the primary PR value. Fuzzy-only improvements are expendable, and peeling them back is acceptable when that keeps the code reviewable.",
         "Do not introduce new regressions in existing report items. If a repair would break an already-matched or already-improved baseline item, stop and report the regression evidence instead of shipping the edit.",
         "If a clean source repair is not possible, revert only the minimal problematic hunk needed to remove the violation.",
@@ -127,7 +127,7 @@ export const prompt = definePrompt({
       "Write-set widening is gated. A widening_request is honored only when widening is enabled. Until the runner returns authorization in <qa_repair_item>.authorized_write_set, keep every requested path unchanged.",
       orderedList([
         "Rung 1 — target-source: repair the target source only. Before requesting any widening, try typing the in-slice code to master's existing foreign declarations and types, then record the measured objdiff result.",
-        "Rung 2 — config-metadata: request only the project symbols.txt or splits.txt entry needed for an address-range ownership mismatch, with evidence that rung 1 failed.",
+        "Rung 2 — config-metadata: request only the game symbols.txt or splits.txt entry needed for an address-range ownership mismatch, with evidence that rung 1 failed.",
         "Rung 3 — owning-header: request the single header that owns the mismatched declaration or type, with evidence that rungs 1 and 2 cannot produce the canonical repair.",
         "Rung 4 — foreign-source: request the foreign .c definition only after the lower rungs fail. This request is routed to the operator lane; if it is not authorized, keep the best in-slice repair and report the concrete blocker.",
       ]),
@@ -153,13 +153,13 @@ export const prompt = definePrompt({
         "Return JSON only; no Markdown outside the JSON object.",
         "Work only on the current target translation unit and its findings. Edit the target source plus authorized_write_set paths only, and follow the gated four-rung ladder before requesting another path.",
         "Do not preserve exactness by retaining `register`, inline asm, `M2C_FIELD`, generated labels, fake assert macros, extern-literal anchors, packed string blobs, define aliases, or other listed QA violations.",
-        "Prefer project idioms already present in nearby source: existing field names, helpers, HSD_ASSERT/HSD_ASSERTMSG forms, canonical macros, and typed accesses.",
+        "Prefer game idioms already present in nearby source: existing field names, helpers, HSD_ASSERT/HSD_ASSERTMSG forms, canonical macros, and typed accesses.",
         "Treat `<standard_examples>` as pattern-specific repair guidance, not as permission to edit unrelated code.",
         "Do not invent semantic names. If semantics are not evidenced, use a conservative local name and explain the evidence.",
         'Do not "fix" a finding by deleting useful unrelated implementation work. Preserve the useful hunk and remove only the banned tactic when an idiomatic source repair exists.',
         "Revert or drop source only after trying an idiomatic repair. When you revert, keep the revert minimal and report the disposition as `fixed_by_minimal_revert`.",
         "For extern/data-symbol/literal findings, inspect ownership evidence before editing: determine whether the current TU owns the data, whether an inline literal is sufficient, or whether binary-order data definition is required. Do not leave fake self-TU externs.",
-        "For raw `__assert`/`OSReport` findings, try to restore the project assert/report idiom (`HSD_ASSERT`, `HSD_ASSERTMSG`, or an existing helper) before removing matching work.",
+        "For raw `__assert`/`OSReport` findings, try to restore the game assert/report idiom (`HSD_ASSERT`, `HSD_ASSERTMSG`, or an existing helper) before removing matching work.",
         "Do not use destructive git commands or reset unrelated user work.",
         "A small score loss is acceptable when it is the cost of removing standards-violating worker output; record the loss instead of chasing it back with generated, tactic-shaped, or fake source. Fuzzy improvements are less important than exact matches, and both are less important than avoiding new regressions in existing items.",
         'A finding is a requirement violation by default; do not mark `false_positive` to avoid a repair. Only when a finding is genuinely a scanner error may you set `outcome: "false_positive"`, add a `false_positive` disposition, and you MUST state the concrete rule/evidence gap (the source fact the detector misread). An unexplained `false_positive` is not acceptable and is not clean.',

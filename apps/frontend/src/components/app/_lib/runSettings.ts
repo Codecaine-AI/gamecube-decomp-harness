@@ -82,7 +82,7 @@ export function saveRunSettings(form: FormState) {
     };
     localStorage.setItem(RUN_SETTINGS_KEY, JSON.stringify(settings));
   } catch {
-    // Settings still apply for this session if storage is unavailable.
+    // Settings still apply for this cycle if storage is unavailable.
   }
 }
 
@@ -97,7 +97,7 @@ export function initialForm(): FormState {
 }
 
 const defaultForm: FormState = {
-  projectId: "",
+  gameId: "",
   usePathOverrides: false,
   repoRoot: "",
   stateDir: "",

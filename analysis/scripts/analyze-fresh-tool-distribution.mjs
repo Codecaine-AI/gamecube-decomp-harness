@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const dbPath = "projects/melee/state/orchestrator.sqlite";
+const dbPath = "games/melee/state/orchestrator.sqlite";
 const outDir = "analysis/reports";
 const generatedAt = new Date().toISOString();
 const today = generatedAt.slice(0, 10);
@@ -209,9 +209,9 @@ function latestCheckpointRunId(db) {
   const row = db
     .query(
       `
-        SELECT session_id AS run_id, MAX(validation_time) AS last_validation
+        SELECT run_id, MAX(validation_time) AS last_validation
         FROM worker_checkpoints
-        GROUP BY session_id
+        GROUP BY run_id
         ORDER BY MAX(validation_time) DESC
         LIMIT 1
       `,
@@ -231,17 +231,17 @@ if (!runId) {
 const allEpochs = db
   .query(
     `
-      SELECT id, session_id, ordinal, status, admitted_count, finished_count,
+      SELECT id, run_id, ordinal, status, admitted_count, finished_count,
              worker_pool_size, candidate_window, created_at, closed_at
       FROM epochs
-      WHERE session_id = ?
+      WHERE run_id = ?
       ORDER BY ordinal
     `,
   )
   .all(runId)
   .map((row) => ({
     id: String(row.id),
-    runId: String(row.session_id),
+    runId: String(row.run_id),
     ordinal: Number(row.ordinal),
     status: String(row.status),
     admittedCount: Number(row.admitted_count ?? 0),
@@ -287,7 +287,7 @@ const workerRows = db
   .all(...includedEpochIds)
   .map((row) => ({
     id: String(row.id),
-    runId: String(row.session_id),
+    runId: String(row.run_id),
     epochId: String(row.epoch_id),
     epochOrdinal: Number(row.epoch_ordinal),
     epochTargetId: String(row.epoch_target_id),
@@ -334,7 +334,7 @@ const checkpointRows = db
   .all(...includedEpochIds)
   .map((row) => ({
     id: String(row.id),
-    runId: String(row.session_id),
+    runId: String(row.run_id),
     workerStateId: String(row.worker_state_id),
     targetClaimId: String(row.target_claim_id),
     epochId: String(row.epoch_id),

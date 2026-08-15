@@ -48,9 +48,13 @@ export interface CreateMeleeLoaderCatalogOptions extends CreateDefaultCatalogOpt
 }
 
 function renderSessionContext(ctx: LoaderResolveContext): string {
+  const appSessionId = typeof ctx.sessionData?.appSessionId === "string"
+    ? ctx.sessionData.appSessionId
+    : null;
   return JSON.stringify(
     {
-      appSessionId: ctx.appSessionId ?? null,
+      appSessionId,
+      containerId: ctx.containerId ?? null,
       activeSessionDir: ctx.activeSessionDir ?? null,
       sessionData: ctx.sessionData ?? null,
     },

@@ -6,7 +6,7 @@ import {
   renderXmlMarkdown,
   section,
   usesContext,
-} from "@codecaine-ai/prompt-kit";
+} from "@server/core/agent-catalog/prompt-kit-compat";
 import type { PiPromptBundle } from "@server/core/shared/types";
 import {
   buildConflictResolverKernelContext,
@@ -56,7 +56,7 @@ export const prompt = definePrompt({
     section("goal", [
       bulletList([
         "Resolve one immediate worker-output merge conflict without weakening either side's validation claims.",
-        "Work only in the isolated worktree named in the request; the session integration worktree is read-only context.",
+        "Work only in the isolated worktree named in the request; the cycle integration worktree is read-only context.",
         "Return a minimal resolved patch that the runner can apply serially and record, or fail closed to the existing operator-visible conflict path.",
       ]),
     ]),
@@ -71,7 +71,7 @@ export const prompt = definePrompt({
     section("rules", [
       orderedList([
         "Return exactly one JSON object matching the injected output contract.",
-        "Never edit the session integration worktree, worker worktree, or any checkout other than isolated_worktree.path.",
+        "Never edit the cycle integration worktree, worker worktree, or any checkout other than isolated_worktree.path.",
         "Do not reset, checkout over, stash, clean, delete branches, or rewrite history.",
         "Preserve a confirmed current-side change over a tentative incoming change unless the supplied evidence proves the incoming resolution is compatible.",
         "Do not claim scoped checks passed unless the result or supplied artifacts prove it.",

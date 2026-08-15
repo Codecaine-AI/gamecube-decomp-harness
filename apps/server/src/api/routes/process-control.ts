@@ -7,8 +7,8 @@ export interface ProcessControlApiRouteDeps {
   drainManaged: (body: JsonObject) => Promise<unknown>;
   finishEpochNow: (body: JsonObject) => Promise<unknown>;
   json: JsonResponder;
-  processStatus: (stateDir?: string, project?: unknown) => unknown;
-  requestPaths: (url: URL, options: { useDefaultProject?: boolean }) => { project?: unknown; stateDir: string };
+  processStatus: (stateDir?: string, game?: unknown) => unknown;
+  requestPaths: (url: URL, options: { useDefaultGame?: boolean }) => { game?: unknown; stateDir: string };
   runActionProjection: (body: JsonObject, actionId: "run.start") => ActionProjection;
   startManagedProcess: (body: JsonObject) => Promise<Response>;
   stopManaged: (body: JsonObject) => Promise<unknown>;
@@ -47,8 +47,8 @@ async function startRun(body: JsonObject, deps: ProcessControlApiRouteDeps): Pro
 
 export async function handleProcessControlApiRoute(req: Request, url: URL, deps: ProcessControlApiRouteDeps): Promise<Response | null> {
   if (url.pathname === "/api/process") {
-    const paths = deps.requestPaths(url, { useDefaultProject: true });
-    return deps.json(deps.processStatus(paths.stateDir, paths.project));
+    const paths = deps.requestPaths(url, { useDefaultGame: true });
+    return deps.json(deps.processStatus(paths.stateDir, paths.game));
   }
   if (req.method !== "POST") return null;
   if (url.pathname === "/api/process/start") return startRun(await requestBody(req), deps);

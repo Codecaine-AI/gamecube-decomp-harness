@@ -46,14 +46,18 @@ export class MeleeTraceWriter {
   createAppEvent(input: AppTraceEventInput): TraceEvent {
     return {
       eventId: this.createId(),
-      appSessionId: input.appSessionId,
+      // The live envelope is container-first. Keep the harness app-session
+      // correlation in payload metadata until its callers migrate fully.
+      containerId: input.containerId ?? input.appSessionId,
       userId: input.userId ?? this.userId,
       type: input.type as TraceEvent["type"],
       source: TraceSource.APP,
       traceLevel: input.traceLevel ?? TraceLevel.PROCESSING,
-      eventData: input.eventData,
+      eventData: {
+        ...input.eventData,
+        appSessionId: input.appSessionId,
+      } as EventData,
       timestamp: input.timestamp ?? this.now(),
-      ...(input.containerId !== undefined ? { containerId: input.containerId } : {}),
       ...(input.agentId !== undefined ? { agentId: input.agentId } : {}),
       ...(input.spanId !== undefined ? { spanId: input.spanId } : {}),
       ...(input.parentEventId !== undefined ? { parentEventId: input.parentEventId } : {}),

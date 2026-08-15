@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildQaRepairQueue, type QaRepairQueueItem } from "@server/core/validation/qa/repair-lane";
 import type { QaScanFinding, QaScanResult } from "@server/core/validation/qa";
-import type { WideningRequest } from "@server/core/session-runtime/run-state/write-set-categories";
+import type { WideningRequest } from "@server/core/cycle-runtime/run-state/write-set-categories";
 import {
   QA_REPAIR_AGENT_SCHEMA_VERSION,
   qaRepairPrompt,

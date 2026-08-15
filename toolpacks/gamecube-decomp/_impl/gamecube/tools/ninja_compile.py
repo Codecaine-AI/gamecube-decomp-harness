@@ -601,7 +601,7 @@ def _runner_command() -> tuple[str, Path | str] | None:
 
 
 def _state_wibo_path() -> Path | None:
-    state_dir = os.environ.get("ORCH_PROJECT_STATE_DIR")
+    state_dir = os.environ.get("ORCH_GAME_STATE_DIR")
     if state_dir:
         candidate = Path(state_dir).expanduser() / "tools" / "wibo"
         if candidate.is_file():

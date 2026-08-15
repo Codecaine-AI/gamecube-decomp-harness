@@ -12,7 +12,7 @@ each slice module against its ``slice.json`` manifest, and assembles the
 
 Rule families and their slices:
 
-- ``literals_data_and_externs``: ``extern_in_c``,
+- ``literals_data_and_externs``: ``extern_in_c``, ``extern_own_tu_data``,
   ``string_literal_to_symbol``, ``numeric_literal_to_symbol``,
   ``address_named_static_data``, ``packed_string_blob``, plus the post-scan
   ownership analysis that picks the repair path for ``extern_in_c`` findings
@@ -24,7 +24,7 @@ Rule families and their slices:
 - ``codegen_tactics``: ``volatile_local_tactic``, ``register_keyword``,
   ``inline_asm``, ``novel_pragma``, ``codegen_pragma``.
 - ``names_defines_headers_and_prototypes``: ``m2c_residue_names``,
-  ``define_alias``, ``bare_local_prototype``.
+  ``define_alias``, ``shadowed_declaration``, ``bare_local_prototype``.
 - ``authored_source_shape``: ``m2c_goto_label``.
 - ``pipeline_owned_verification``: standards-only slice (no rules.py).
 
@@ -111,6 +111,7 @@ CANONICAL_FAMILY_ORDER = [
 # ordered by this explicit id list — never by slice-directory glob order.
 CANONICAL_RULE_ORDER = [
     "extern_in_c",
+    "extern_own_tu_data",
     "volatile_local_tactic",
     "string_literal_to_symbol",
     "numeric_literal_to_symbol",
@@ -128,6 +129,7 @@ CANONICAL_RULE_ORDER = [
     "m2c_field_use",
     "pointer_offset_arithmetic",
     "define_alias",
+    "shadowed_declaration",
     "bare_local_prototype",
     "novel_pragma",
     "codegen_pragma",

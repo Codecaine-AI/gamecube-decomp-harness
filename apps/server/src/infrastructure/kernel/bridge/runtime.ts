@@ -1,31 +1,33 @@
 import {
-  getKernelTraceReadRows,
-  upsertAgentRun as defaultUpsertAgentRun,
-  insertTraceEventsBatch as defaultInsertTraceEventsBatch,
-  upsertPiAgentSession as defaultUpsertPiAgentSession,
-  upsertContainer as defaultUpsertContainer,
   type AgentRun,
   type Container,
-  type KernelRegistration,
-  type KernelTraceReadIdentity,
   type KernelTraceReadRows,
   type NewAgentRun,
   type NewContainer,
   type NewPiAgentSession,
   type PiAgentSession,
 } from "@agent-kernel/db";
-import * as schema from "@agent-kernel/db/schema";
+import * as schema from "@agent-kernel/db/schema/pg";
 import { createKernelTraceReadApi } from "@agent-kernel/kernel/read-api";
 import type { TraceEvent } from "@agent-kernel/protocol";
 import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
 
+// The linked Core checkout owns a second physical Drizzle installation. Keep
+// that type-skew contained at the exported Postgres schema boundary.
+const pgSchema = schema as any;
+
 import {
   createMeleeKernelBridgeConfig,
+  MELEE_KERNEL_ID,
   type CreateMeleeKernelBridgeConfigInput,
   type MeleeKernelBridgeConfig,
 } from "./config.js";
 import {
   ensureKernelObservabilitySchema,
+  insertMeleeTraceEventsBatch,
+  upsertMeleeAgentRun,
+  upsertMeleeContainer,
+  upsertMeleePiAgentSession,
   DEFAULT_AGENT_KERNEL_DATABASE_URL,
   meleeKernelDatabaseUrlFromEnv,
   meleeKernelRuntimeRequiredFromEnv,
@@ -37,12 +39,14 @@ import type { MeleeKernelSpawnContext } from "./kernel.js";
 import {
   createDbKernelTraceRowsReader,
   createMeleeKernelTraceReadService,
+  getMeleeKernelTraceReadRows,
   type KernelTraceRowsLister,
   type KernelTraceRowsReader,
   type KernelTraceIdentityResolver,
 } from "./read-api.js";
 import {
   upsertMeleeKernelRegistration,
+  type KernelRegistration,
   type KernelRegistrationUpsertPort,
 } from "./registration.js";
 import {
@@ -81,7 +85,7 @@ export interface MeleeKernelRuntime {
   databaseUrl: string | null;
   db: unknown;
   registration: KernelRegistration | null;
-  readApi: ReturnType<typeof createKernelTraceReadApi>;
+  readApi: { handle(request: Request): Promise<Response> };
   readRows: KernelTraceRowsReader;
   traceWriter: MeleeTraceWriter;
   upsertSpawnContainers: (context: MeleeKernelSpawnContext) => Promise<void>;
@@ -135,7 +139,7 @@ function dedupeContainers(containers: NewContainer[]): NewContainer[] {
 export async function upsertMeleeSpawnContextContainers({
   context,
   db,
-  upsert = defaultUpsertContainer,
+  upsert = upsertMeleeContainer,
 }: {
   context: MeleeKernelSpawnContext;
   db: unknown;
@@ -143,19 +147,24 @@ export async function upsertMeleeSpawnContextContainers({
 }): Promise<void> {
   const lineage = dedupeContainers(context.containerLineage ?? []);
   if (lineage.length === 0 && context.containerId) {
+    const createdAt = new Date().toISOString();
     lineage.push({
       id: context.containerId,
+      kernelId: MELEE_KERNEL_ID,
+      kind: context.phase ?? "session",
+      appKey: [context.containerId],
       parentContainerId: null,
       label: context.containerId,
       status: "running",
       workingDir: context.workingDir ?? null,
-      worktreePath: null,
       phase: context.phase ?? null,
       phaseVocabulary: [],
       metadata: {
         appSessionId: context.appSessionId,
         ...(context.metadata ?? {}),
       },
+      createdAt,
+      startedAt: createdAt,
     });
   }
 
@@ -170,47 +179,38 @@ export async function upsertMeleeSpawnContextContainers({
 export async function resolveMeleeKernelTraceIdentity(
   db: unknown,
   id: string,
-): Promise<KernelTraceReadIdentity> {
+): Promise<string> {
   const [direct] = await (db as any)
-    .select({ id: schema.containers.id, metadata: schema.containers.metadata })
-    .from(schema.containers)
-    .where(eq(schema.containers.id, id))
+    .select({ id: pgSchema.containers.id, metadata: pgSchema.containers.metadata })
+    .from(pgSchema.containers)
+    .where(eq(pgSchema.containers.id, id))
     .limit(1);
   if (direct?.id) {
-    return {
-      containerId: direct.id,
-      legacySessionId: metadataString(direct.metadata, "appSessionId") ?? id,
-    };
+    return direct.id;
   }
 
   const metadataIdentity = or(
-    sql`${schema.containers.metadata}->>'appSessionId' = ${id}`,
-    sql`${schema.containers.metadata}->>'appSessionSlug' = ${id}`,
-    sql`${schema.containers.metadata}->>'sessionId' = ${id}`,
+    sql`${pgSchema.containers.metadata}->>'appSessionId' = ${id}`,
+    sql`${pgSchema.containers.metadata}->>'appSessionSlug' = ${id}`,
+    sql`${pgSchema.containers.metadata}->>'sessionId' = ${id}`,
   );
 
   const [rootByMetadata] = await (db as any)
-    .select({ id: schema.containers.id, metadata: schema.containers.metadata })
-    .from(schema.containers)
-    .where(and(isNull(schema.containers.parentContainerId), metadataIdentity))
+    .select({ id: pgSchema.containers.id, metadata: pgSchema.containers.metadata })
+    .from(pgSchema.containers)
+    .where(and(isNull(pgSchema.containers.parentContainerId), metadataIdentity))
     .limit(1);
   if (rootByMetadata?.id) {
-    return {
-      containerId: rootByMetadata.id,
-      legacySessionId: metadataString(rootByMetadata.metadata, "appSessionId") ?? id,
-    };
+    return rootByMetadata.id;
   }
 
   const [byMetadata] = await (db as any)
-    .select({ id: schema.containers.id, metadata: schema.containers.metadata })
-    .from(schema.containers)
+    .select({ id: pgSchema.containers.id, metadata: pgSchema.containers.metadata })
+    .from(pgSchema.containers)
     .where(metadataIdentity)
     .limit(1);
 
-  return {
-    containerId: byMetadata?.id ?? id,
-    legacySessionId: metadataString(byMetadata?.metadata, "appSessionId") ?? id,
-  };
+  return byMetadata?.id ?? id;
 }
 
 export function createDbMeleeKernelTraceRowsLister(
@@ -220,26 +220,23 @@ export function createDbMeleeKernelTraceRowsLister(
   return async (query) => {
     const limit = Math.min(Math.max(query.limit ?? 100, 1), 500);
     const roots: Array<{ id: string; metadata: Record<string, unknown> }> = await (db as any)
-      .select({ id: schema.containers.id, metadata: schema.containers.metadata })
-      .from(schema.containers)
+      .select({ id: pgSchema.containers.id, metadata: pgSchema.containers.metadata })
+      .from(pgSchema.containers)
       .where(
         and(
-          isNull(schema.containers.parentContainerId),
-          like(schema.containers.id, "melee:%:session"),
-          sql`${schema.containers.metadata}->>'projectId' IS NOT NULL`,
+          isNull(pgSchema.containers.parentContainerId),
+          like(pgSchema.containers.id, "melee:%:session"),
+          sql`${pgSchema.containers.metadata}->>'gameId' IS NOT NULL`,
         ),
       )
-      .orderBy(desc(schema.containers.updatedAt), desc(schema.containers.createdAt))
+      .orderBy(desc(pgSchema.containers.endedAt), desc(pgSchema.containers.createdAt))
       .limit(limit);
 
     const rows: KernelTraceReadRows[] = [];
     for (const root of roots) {
-      const readRows = await getKernelTraceReadRows(
+      const readRows = await getMeleeKernelTraceReadRows(
         db,
-        {
-          containerId: root.id,
-          legacySessionId: metadataString(root.metadata, "appSessionId"),
-        },
+        root.id,
         {
           after: query.after,
           limit: query.limit,
@@ -256,7 +253,7 @@ export async function createMeleeKernelRuntime(
   options: CreateMeleeKernelRuntimeOptions = {},
 ): Promise<MeleeKernelRuntime> {
   const config = createMeleeKernelBridgeConfig(options.config);
-  const handle: MeleeKernelDatabaseHandle = options.db
+  const handle: Pick<MeleeKernelDatabaseHandle, "databaseUrl" | "close"> & { db: unknown } = options.db
     ? {
         db: options.db,
         databaseUrl: options.database?.databaseUrl ?? null,
@@ -277,7 +274,7 @@ export async function createMeleeKernelRuntime(
           config,
           upsert: options.upsertRegistration,
         });
-  const insertTraceEvents = options.insertTraceEvents ?? defaultInsertTraceEventsBatch;
+  const insertTraceEvents = options.insertTraceEvents ?? insertMeleeTraceEventsBatch;
   const traceWriter = createMeleeTraceWriter({
     insertBatch: (events) => insertTraceEvents(db, events),
   });
@@ -291,9 +288,9 @@ export async function createMeleeKernelRuntime(
     resolveIdentity,
   });
   const readApi = createKernelTraceReadApi(readService);
-  const upsertContainer = options.upsertContainer ?? defaultUpsertContainer;
-  const upsertPiAgentSession = options.upsertPiAgentSession ?? defaultUpsertPiAgentSession;
-  const upsertAgentRun = options.upsertAgentRun ?? defaultUpsertAgentRun;
+  const upsertContainer = options.upsertContainer ?? upsertMeleeContainer;
+  const upsertPiAgentSession = options.upsertPiAgentSession ?? upsertMeleePiAgentSession;
+  const upsertAgentRun = options.upsertAgentRun ?? upsertMeleeAgentRun;
   let traceTailer: MeleeTraceTailer | null = null;
   let traceTailerStartPromise: Promise<void> | null = null;
 

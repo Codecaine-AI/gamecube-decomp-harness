@@ -1,6 +1,6 @@
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
-import type { PiPromptBundle, RunProjectMetadata } from "@server/core/shared/types";
+import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
 import { globalStandardsPromptXml } from "@server/core/knowledge";
 import {
   createInlineAgentContextResolver,
@@ -46,7 +46,7 @@ export interface ConflictResolverSideEvidence {
 
 /**
  * Complete conflict packet. The runner creates `isolated_worktree.path`; the
- * agent must never operate in `session_worktree_path` directly.
+ * agent must never operate in `cycle_worktree_path` directly.
  */
 export interface ConflictResolverRequest {
   schema_version: typeof CONFLICT_RESOLVER_REQUEST_SCHEMA_VERSION;
@@ -55,9 +55,9 @@ export interface ConflictResolverRequest {
   isolated_worktree: {
     path: string;
     base_revision: string;
-    session_revision: string;
+    cycle_revision: string;
   };
-  session_worktree_path: string;
+  cycle_worktree_path: string;
   incoming: ConflictResolverSideEvidence & {
     patch: {
       path: string | null;
@@ -81,7 +81,7 @@ export interface ConflictResolverPromptOptions {
   request: ConflictResolverRequest;
   repoRoot?: string;
   stateDir?: string;
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
 }
 
 export const CONFLICT_RESOLVER_TURN_PROMPT = [
@@ -136,14 +136,14 @@ export const CONFLICT_RESOLVER_OUTPUT_CONTRACT = {
 
 const CONFLICT_CONTEXT_TEMPLATE = `<task>
     Resolve one merge-on-finish conflict in the supplied isolated worktree.
-    Produce a resolved patch for runner-owned application and recording on the session branch.
+    Produce a resolved patch for runner-owned application and recording on the cycle branch.
 </task>
 
 {{DECOMP_STANDARDS_XML}}
 
 <execution_contract>
 The only writable checkout for this task is {{ISOLATED_WORKTREE_JSON}}.
-The session integration checkout is context only. Never edit it directly.
+The cycle integration checkout is context only. Never edit it directly.
 </execution_contract>
 
 <merge_on_finish_conflict>

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
-import type { PiPromptBundle, RunProjectMetadata } from "@server/core/shared/types";
+import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
 import { globalStandardsPromptXml } from "@server/core/knowledge";
 import { availableToolsPromptXml, type AgentToolRuntimeContext } from "@server/core/tools/index.js";
 import { renderTemplate, stableJson, type PromptTemplateValues } from "@server/infrastructure/agent-runtime/runtime";
@@ -18,7 +18,7 @@ const loaders = [
 
 export interface PrSplitterPromptOptions {
   splitContext: unknown;
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
   repoRoot?: string;
   stateDir?: string;
 }
@@ -65,7 +65,7 @@ function toolContext(options: PrSplitterPromptOptions): AgentToolRuntimeContext 
     cwd: repoRoot,
     repoRoot,
     stateDir: options.stateDir,
-    project: options.project,
+    game: options.game,
   };
 }
 

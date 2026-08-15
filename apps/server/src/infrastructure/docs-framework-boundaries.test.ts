@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 type RootPackage = {
@@ -9,29 +9,75 @@ type RootPackage = {
 };
 
 const repoRoot = fileURLToPath(new URL("../../../..", import.meta.url));
-const frameworkRoot = join(repoRoot, "packages", "docs-framework");
-const frameworkSkill = join(frameworkRoot, "packages", "framework");
-const projectSkill = join(repoRoot, ".codex", "skills", "docs-framework");
+const selfPath = fileURLToPath(import.meta.url);
+const vendoredFrameworkRoot = join(repoRoot, "packages", "docs-framework");
+const docsCliPath = "../Core/docs-system/packages/docs-cli/src/index.ts";
+const liveDocsCli = join(repoRoot, docsCliPath);
 
-describe("docs-framework package boundaries", () => {
-  test("keeps one pinned package source and exposes its maintained skill", () => {
-    const gitmodules = readFileSync(join(repoRoot, ".gitmodules"), "utf8");
-    expect(gitmodules).toContain('[submodule "packages/docs-framework"]');
-    expect(gitmodules).toContain("path = packages/docs-framework");
+function repoRelative(path: string): string {
+  const rel = relative(repoRoot, path);
+  return rel.split(sep).join("/") || ".";
+}
 
-    expect(existsSync(join(frameworkRoot, "packages", "docs-cli", "src", "index.ts"))).toBe(true);
-    expect(existsSync(join(frameworkSkill, "SKILL.md"))).toBe(true);
-    expect(lstatSync(projectSkill).isSymbolicLink()).toBe(true);
-    expect(realpathSync(projectSkill)).toBe(realpathSync(frameworkSkill));
+function entryExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function collectDocsSystemSourceImports(): string[] {
+  const failures: string[] = [];
+  const importPattern =
+    /(?:from\s+|import\s*\(|require\s*\()\s*["']([^"']*(?:docs-system\/packages\/|packages\/docs-framework\/|@codecaine-ai\/docs-(?:cli|index|kernel|model|server|viewer|workbench))[^"']*)["']/g;
+
+  function walk(path: string): void {
+    if (!existsSync(path) || path === selfPath) return;
+    const stat = lstatSync(path);
+    if (stat.isSymbolicLink()) return;
+    if (stat.isDirectory()) {
+      const name = path.slice(path.lastIndexOf(sep) + 1);
+      if (name === "node_modules" || name === ".git" || name === "dist") return;
+      for (const entry of readdirSync(path)) walk(join(path, entry));
+      return;
+    }
+    if (!stat.isFile() || !/\.(?:ts|tsx|mts|cts)$/.test(path)) return;
+
+    const text = readFileSync(path, "utf8");
+    let match: RegExpExecArray | null;
+    while ((match = importPattern.exec(text))) {
+      failures.push(`${repoRelative(path)} imports docs-system internals via ${match[1]}`);
+    }
+  }
+
+  walk(join(repoRoot, "apps"));
+  return failures;
+}
+
+describe("docs-system package boundaries", () => {
+  test("uses the live sibling docs CLI without vendoring docs-system source", () => {
+    expect(entryExists(vendoredFrameworkRoot)).toBe(false);
+    expect(existsSync(liveDocsCli)).toBe(true);
+
+    const gitmodulesPath = join(repoRoot, ".gitmodules");
+    if (existsSync(gitmodulesPath)) {
+      expect(readFileSync(gitmodulesPath, "utf8")).not.toContain("packages/docs-framework");
+    }
 
     const rootPackage = JSON.parse(
       readFileSync(join(repoRoot, "package.json"), "utf8"),
     ) as RootPackage;
     expect(rootPackage.workspaces).not.toContain("packages/*");
-    expect(rootPackage.scripts?.docs).toContain(
-      "packages/docs-framework/packages/docs-cli/src/index.ts",
-    );
+    expect(rootPackage.scripts?.docs).toContain(`bun ${docsCliPath} serve`);
+    expect(rootPackage.scripts?.["docs:audit"]).toContain(`bun ${docsCliPath} audit`);
+    expect(rootPackage.scripts?.["docs:links"]).toContain(`bun ${docsCliPath} links check`);
     expect(rootPackage.scripts?.["docs:check"]).toBe("bun run docs:audit && bun run docs:links");
     expect(rootPackage.scripts?.check).toStartWith("bun run docs:check && ");
+  });
+
+  test("keeps harness source behind the docs CLI boundary", () => {
+    expect(collectDocsSystemSourceImports()).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 import { forceReportRun, recordReportRunDashboardArtifacts } from "@server/core/validation/report";
-import { getLatestRun, openState } from "@server/core/session-runtime/run-state";
-import { booleanArg, type GlobalArgs } from "@server/core/project-registry/runtime-options.js";
+import { getLatestRun, openState } from "@server/core/cycle-runtime/run-state";
+import { booleanArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
 export async function reportRun(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const resetBaseline = booleanArg(args, "--reset-baseline");
@@ -11,7 +11,7 @@ export async function reportRun(globals: GlobalArgs, args: Map<string, string | 
     await recordReportRunDashboardArtifacts(store, {
       result,
       runId: run?.id ?? null,
-      projectId: globals.project?.projectId ?? globals.projectId ?? null,
+      gameId: globals.game?.gameId ?? globals.gameId ?? null,
       boardKey: resetBaseline ? "baseline" : "current",
       trustedReportKey: "current",
     });

@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
-import type { PiPromptBundle, RunProjectMetadata } from "@server/core/shared/types";
+import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
 import { globalStandardsPromptXml } from "@server/core/knowledge";
 import { availableToolsPromptXml, type AgentToolRuntimeContext } from "@server/core/tools/index.js";
 import {
@@ -24,7 +24,7 @@ const loaders = [
 ] as const satisfies readonly LoaderDeclaration[];
 
 interface LibrarianPromptBaseOptions {
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
   repoRoot?: string;
   stateDir?: string;
 }
@@ -166,7 +166,7 @@ function toolContext(options: LibrarianPromptOptions): AgentToolRuntimeContext {
     cwd: repoRoot,
     repoRoot,
     stateDir: options.stateDir,
-    project: options.project,
+    game: options.game,
   };
 }
 
@@ -381,7 +381,7 @@ function prMetadata(contextValue: JsonRecord): JsonRecord {
     object_id: contextValue.object_id,
     generated_at: contextValue.generated_at,
     context_source: contextValue.context_source,
-    project: contextValue.project,
+    game: contextValue.game,
     source: contextValue.source,
     pr: typedRecord(contextValue.pr, "pr"),
     counts: contextValue.counts,

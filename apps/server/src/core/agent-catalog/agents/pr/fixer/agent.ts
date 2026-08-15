@@ -1,10 +1,10 @@
-import { defineAgent } from "@agent-kernel/kernel/agent-definition";
+import { defineHarnessAgent } from "@server/core/agent-catalog/agent-definition.js";
 
 import { context } from "./context.js";
 import { prompt } from "./prompt.js";
 import { tools } from "./tools.js";
 
-export const agent = defineAgent({
+export const agent = defineHarnessAgent({
   name: "pr-fixer",
   description: "Resolve maintainer PR comments and reviewer findings on an opened PR branch, then report edits, validation, and any manual-review notes.",
   model: "codex-lb/gpt-5.5",

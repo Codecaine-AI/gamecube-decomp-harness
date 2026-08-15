@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StateEnvelope — field row anatomy</title>
+  <style>
+    :root {
+      --page: #fbfaf8;
+      --text-strong: #1c1917;
+      --text: #292620;
+      --text-secondary: #3f3a35;
+      --text-label: #47433d;
+      --text-muted: #514b45;
+      --rail: #e2ddd6;
+      --hairline: #e5dfd5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 56px 48px 72px;
+      background: var(--page);
+      color: var(--text);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: 100%;
+    }
+
+    .page-header {
+      max-width: 760px;
+      margin-bottom: 52px;
+    }
+
+    h1,
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--text-strong);
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.02em;
+    }
+
+    .page-subline {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    section {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 0 58px;
+    }
+
+    section:last-child {
+      margin-bottom: 0;
+    }
+
+    .variant-banner {
+      margin: 0;
+      padding: 0 0 8px;
+      border-bottom: 1px solid var(--hairline);
+      color: var(--text-label);
+      font-size: 11.5px;
+      font-weight: 600;
+      line-height: 1.35;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .variant-note {
+      margin: 8px 0 22px;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .field-list {
+      margin: 0;
+      padding: 0;
+    }
+
+    .field {
+      padding: 7px 0;
+    }
+
+    .field-name,
+    .field-detail {
+      margin: 0;
+    }
+
+    .field-name code {
+      color: var(--text-strong);
+      font-size: 14.5px;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+
+    .field-type {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    .separator,
+    .optional {
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .field-description {
+      margin: 3px 0 0;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+
+    .nested {
+      margin-top: 10px;
+      padding: 2px 0 1px 16px;
+      border-left: 1px solid var(--rail);
+    }
+
+    .nested-label {
+      margin: 0 0 4px;
+      color: var(--text-label);
+      font-size: 10.5px;
+      font-weight: 600;
+      line-height: 1.35;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .nested .field {
+      padding: 5px 0;
+    }
+
+    .nested .field-name code {
+      font-size: 13px;
+    }
+
+    .nested .field-type {
+      font-size: 12.5px;
+    }
+
+    .variant-a {
+      --a-name-column: 210px;
+      --a-column-gap: 24px;
+    }
+
+    .variant-a > .field-list > .field {
+      display: grid;
+      grid-template-columns: var(--a-name-column) minmax(0, 1fr);
+      column-gap: var(--a-column-gap);
+      align-items: baseline;
+    }
+
+    .variant-a > .field-list > .field > .field-name {
+      grid-column: 1;
+      min-width: 0;
+    }
+
+    .variant-a > .field-list > .field > .field-detail {
+      grid-column: 2;
+      min-width: 0;
+    }
+
+    .variant-a > .field-list > .field:nth-child(1)::before,
+    .variant-a > .field-list > .field:nth-child(5)::before,
+    .variant-a > .field-list > .field:nth-child(9)::before {
+      grid-column: 1 / -1;
+      margin: 9px 0 4px;
+      color: var(--text-label);
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 10.5px;
+      font-weight: 500;
+      line-height: 1.35;
+      letter-spacing: 0.1em;
+    }
+
+    .variant-a > .field-list > .field:nth-child(1)::before {
+      content: "// IDENTITY";
+      margin-top: 0;
+    }
+
+    .variant-a > .field-list > .field:nth-child(5)::before {
+      content: "// LIFECYCLE";
+    }
+
+    .variant-a > .field-list > .field:nth-child(9)::before {
+      content: "// TRACING";
+    }
+
+    .variant-a .nested .field {
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      column-gap: 18px;
+      align-items: baseline;
+    }
+
+    .variant-a .nested .field-detail {
+      min-width: 0;
+    }
+
+    .variant-b .field {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+    }
+
+    .variant-b .field-detail {
+      display: contents;
+    }
+
+    .variant-b .field-type {
+      order: 3;
+      margin-left: auto;
+    }
+
+    .variant-b .optional {
+      order: 1;
+      margin-left: auto;
+    }
+
+    .variant-b .separator {
+      order: 2;
+    }
+
+    .variant-b .field-detail:has(> .optional) > .field-type {
+      margin-left: 0;
+    }
+
+    .variant-b .field-description {
+      order: 4;
+      flex: 0 0 100%;
+    }
+
+    .variant-b .nested {
+      order: 5;
+      flex: 0 0 calc(100% - 18px);
+      margin-left: 18px;
+    }
+
+    .variant-b .nested .field-name {
+      order: 0;
+    }
+
+    .variant-c .field-name {
+      display: block;
+    }
+
+    .variant-c .field-detail {
+      position: relative;
+      display: block;
+      min-height: 1.45em;
+      margin: 3px 0 0 24px;
+    }
+
+    .variant-c .field-detail::before {
+      content: "\00b7";
+      position: absolute;
+      left: -16px;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .variant-c .nested {
+      margin-left: 0;
+    }
+
+    .variant-c .nested .field-detail {
+      margin-top: 2px;
+      margin-left: 20px;
+    }
+
+    .variant-d {
+      --d-name-column: 210px;
+      --d-column-gap: 25px;
+      --d-rule-position: 222px;
+    }
+
+    .variant-d > .field-list {
+      position: relative;
+    }
+
+    .variant-d > .field-list::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: var(--d-rule-position);
+      width: 1px;
+      background: var(--rail);
+    }
+
+    .variant-d > .field-list > .field {
+      display: grid;
+      grid-template-columns: var(--d-name-column) minmax(0, 1fr);
+      column-gap: var(--d-column-gap);
+      align-items: baseline;
+    }
+
+    .variant-d > .field-list > .field > .field-name {
+      grid-column: 1;
+      min-width: 0;
+    }
+
+    .variant-d > .field-list > .field > .field-detail {
+      grid-column: 2;
+      min-width: 0;
+    }
+
+    .variant-d .nested .field {
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      column-gap: 18px;
+      align-items: baseline;
+    }
+
+    .variant-d .nested .field-detail {
+      min-width: 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <h1>StateEnvelope — field row anatomy</h1>
+      <p class="page-subline">Four alignment studies for a shared object-renderer field list.</p>
+    </header>
+
+    <section class="variant-a" aria-labelledby="variant-a-title">
+      <h2 class="variant-banner" id="variant-a-title">VARIANT A — TYPE COLUMN</h2>
+      <p class="variant-note">Names form one rail; every type and description begins on the same vertical scan line.</p>
+      <dl class="field-list">
+        <div class="field">
+          <dt class="field-name"><code>id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">StateObjectId</code>
+            <p class="field-description">Stable identity of the state object.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>game_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">GameId</code>
+            <p class="field-description">Owning game.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>kind</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">StateKind</code>
+            <p class="field-description">Domain state-machine kind.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>status</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">domain-specific enum</code>
+            <p class="field-description">A value owned by this state kind.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>revision</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">integer</code>
+            <p class="field-description">Monotonic accepted-transition version.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>created_at</code></dt>
+          <dd class="field-detail"><code class="field-type">timestamp</code></dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>updated_at</code></dt>
+          <dd class="field-detail"><code class="field-type">timestamp</code></dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>blockers</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">Blocker[]</code>
+            <div class="nested">
+              <p class="nested-label">Blocker</p>
+              <dl class="field-list">
+                <div class="field">
+                  <dt class="field-name"><code>code</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>message</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>source_kind</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>source_id</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>recoverable</code></dt>
+                  <dd class="field-detail"><code class="field-type">boolean</code></dd>
+                </div>
+              </dl>
+            </div>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>trace_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">TraceId</code>
+            <p class="field-description">Root trace for the object.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>caused_by_event_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">EventId</code>
+            <span class="separator"> · </span><span class="optional">optional</span>
+            <p class="field-description">Event that produced the current revision.</p>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="variant-b" aria-labelledby="variant-b-title">
+      <h2 class="variant-banner" id="variant-b-title">VARIANT B — TYPE RIGHT-ALIGNED</h2>
+      <p class="variant-note">The far right edge becomes the scan line, leaving field names free to vary in length.</p>
+      <dl class="field-list">
+        <div class="field">
+          <dt class="field-name"><code>id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">StateObjectId</code>
+            <p class="field-description">Stable identity of the state object.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>game_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">GameId</code>
+            <p class="field-description">Owning game.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>kind</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">StateKind</code>
+            <p class="field-description">Domain state-machine kind.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>status</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">domain-specific enum</code>
+            <p class="field-description">A value owned by this state kind.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>revision</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">integer</code>
+            <p class="field-description">Monotonic accepted-transition version.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>created_at</code></dt>
+          <dd class="field-detail"><code class="field-type">timestamp</code></dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>updated_at</code></dt>
+          <dd class="field-detail"><code class="field-type">timestamp</code></dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>trace_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">TraceId</code>
+            <p class="field-description">Root trace for the object.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>caused_by_event_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">EventId</code>
+            <span class="separator"> · </span><span class="optional">optional</span>
+            <p class="field-description">Event that produced the current revision.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>blockers</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">Blocker[]</code>
+            <div class="nested">
+              <p class="nested-label">Blocker</p>
+              <dl class="field-list">
+                <div class="field">
+                  <dt class="field-name"><code>code</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>message</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>source_kind</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>source_id</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>recoverable</code></dt>
+                  <dd class="field-detail"><code class="field-type">boolean</code></dd>
+                </div>
+              </dl>
+            </div>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="variant-c" aria-labelledby="variant-c-title">
+      <h2 class="variant-banner" id="variant-c-title">VARIANT C — TYPE AS BULLET LINE</h2>
+      <p class="variant-note">A single fixed indent aligns every marked type line and the description directly beneath it.</p>
+      <dl class="field-list">
+        <div class="field">
+          <dt class="field-name"><code>id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">StateObjectId</code>
+            <p class="field-description">Stable identity of the state object.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>game_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">GameId</code>
+            <p class="field-description">Owning game.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>kind</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">StateKind</code>
+            <p class="field-description">Domain state-machine kind.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>status</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">domain-specific enum</code>
+            <p class="field-description">A value owned by this state kind.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>revision</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">integer</code>
+            <p class="field-description">Monotonic accepted-transition version.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>created_at</code></dt>
+          <dd class="field-detail"><code class="field-type">timestamp</code></dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>updated_at</code></dt>
+          <dd class="field-detail"><code class="field-type">timestamp</code></dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>trace_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">TraceId</code>
+            <p class="field-description">Root trace for the object.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>caused_by_event_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">EventId</code>
+            <span class="separator"> · </span><span class="optional">optional</span>
+            <p class="field-description">Event that produced the current revision.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>blockers</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">Blocker[]</code>
+            <div class="nested">
+              <p class="nested-label">Blocker</p>
+              <dl class="field-list">
+                <div class="field">
+                  <dt class="field-name"><code>code</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>message</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>source_kind</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>source_id</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>recoverable</code></dt>
+                  <dd class="field-detail"><code class="field-type">boolean</code></dd>
+                </div>
+              </dl>
+            </div>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="variant-d" aria-labelledby="variant-d-title">
+      <h2 class="variant-banner" id="variant-d-title">VARIANT D — LABELED MICRO-COLUMNS</h2>
+      <p class="variant-note">A continuous hairline fixes the type-and-prose column while preserving a clean name rail.</p>
+      <dl class="field-list">
+        <div class="field">
+          <dt class="field-name"><code>id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">StateObjectId</code>
+            <p class="field-description">Stable identity of the state object.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>game_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">GameId</code>
+            <p class="field-description">Owning game.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>kind</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">StateKind</code>
+            <p class="field-description">Domain state-machine kind.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>status</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">domain-specific enum</code>
+            <p class="field-description">A value owned by this state kind.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>revision</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">integer</code>
+            <p class="field-description">Monotonic accepted-transition version.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>created_at</code></dt>
+          <dd class="field-detail"><code class="field-type">timestamp</code></dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>updated_at</code></dt>
+          <dd class="field-detail"><code class="field-type">timestamp</code></dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>trace_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">TraceId</code>
+            <p class="field-description">Root trace for the object.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>caused_by_event_id</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">EventId</code>
+            <span class="separator"> · </span><span class="optional">optional</span>
+            <p class="field-description">Event that produced the current revision.</p>
+          </dd>
+        </div>
+        <div class="field">
+          <dt class="field-name"><code>blockers</code></dt>
+          <dd class="field-detail">
+            <code class="field-type">Blocker[]</code>
+            <div class="nested">
+              <p class="nested-label">Blocker</p>
+              <dl class="field-list">
+                <div class="field">
+                  <dt class="field-name"><code>code</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>message</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>source_kind</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>source_id</code></dt>
+                  <dd class="field-detail"><code class="field-type">string</code></dd>
+                </div>
+                <div class="field">
+                  <dt class="field-name"><code>recoverable</code></dt>
+                  <dd class="field-detail"><code class="field-type">boolean</code></dd>
+                </div>
+              </dl>
+            </div>
+          </dd>
+        </div>
+      </dl>
+    </section>
+  </main>
+</body>
+</html>

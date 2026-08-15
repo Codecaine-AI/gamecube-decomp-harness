@@ -33,10 +33,10 @@ docs/10-system-design/40-knowledge/70-execution-classes-and-jobs/
 docs/20-implementation/30-knowledge/30-background-processing/
   10-job-storage-and-migration/  20-enqueue-claim-and-retry/
   30-materialization-and-idempotency/  40-operator-trigger/
-docs/20-implementation/40-state/10-project-state-and-authority/
+docs/20-implementation/40-state/10-harness-state-and-authority/
   10-project-state-view-builder/  20-action-projection-and-guards/
   30-dispatch-integration/
-docs/20-implementation/60-ui/20-project-state-workspace/
+docs/20-implementation/60-ui/20-harness-state-workspace/
   10-dto-and-client-model/  20-state-summary-and-freshness/
   30-action-controls-and-confirmation/  40-compatibility-actions/
 ```

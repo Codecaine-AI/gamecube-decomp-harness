@@ -1,10 +1,10 @@
-import { defineAgent } from "@agent-kernel/kernel/agent-definition";
+import { defineHarnessAgent } from "@server/core/agent-catalog/agent-definition.js";
 
 import { context } from "./context.js";
 import { prompt } from "./prompt.js";
 import { tools } from "./tools.js";
 
-export const agent = defineAgent({
+export const agent = defineHarnessAgent({
   name: "conflict-resolver",
   description:
     "Resolve one merge-on-finish worker-output conflict in an isolated worktree, producing a runner-applied patch or a safe conflict fallback.",

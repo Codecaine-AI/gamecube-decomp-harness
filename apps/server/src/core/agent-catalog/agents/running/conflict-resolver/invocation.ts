@@ -1,4 +1,4 @@
-import type { PiPromptBundle, RunProjectMetadata } from "@server/core/shared/types";
+import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import type { ConflictResolverRequest } from "./context.js";
 import {
@@ -20,11 +20,11 @@ export interface ConflictResolverRunnerOptions {
   toolContext: {
     repoRoot: string;
     stateDir?: string;
-    project?: RunProjectMetadata;
+    game?: RunGameMetadata;
   };
   executionContract: {
     worktreeKind: "isolated-conflict-worktree";
-    sessionWorktreePath: string;
+    cycleWorktreePath: string;
   };
 }
 
@@ -48,7 +48,7 @@ export interface ConflictResolutionAcceptance {
 }
 
 /**
- * Applies the resolver-produced patch to the session integration branch under
+ * Applies the resolver-produced patch to the cycle integration branch under
  * the queue's serial apply discipline and records the integration disposition.
  * Implementations must compensate or throw if either half cannot complete.
  */
@@ -61,7 +61,7 @@ export interface InvokeConflictResolverOptions {
   request: ConflictResolverRequest;
   outputDir: string;
   stateDir?: string;
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
   provider?: string;
   model?: string;
   thinkingLevel?: string;
@@ -119,10 +119,10 @@ export async function invokeConflictResolver(
   if (!isolatedPath) {
     return conflictFallback(request, "isolated conflict worktree path is missing");
   }
-  if (isolatedPath === request.session_worktree_path.trim()) {
+  if (isolatedPath === request.cycle_worktree_path.trim()) {
     return conflictFallback(
       request,
-      "isolated conflict worktree must differ from the session integration worktree",
+      "isolated conflict worktree must differ from the cycle integration worktree",
     );
   }
 
@@ -135,7 +135,7 @@ export async function invokeConflictResolver(
         request,
         repoRoot: isolatedPath,
         stateDir: options.stateDir,
-        project: options.project,
+        game: options.game,
       }),
       outputDir: options.outputDir,
       dryRun: options.dryRun ?? false,
@@ -146,11 +146,11 @@ export async function invokeConflictResolver(
       toolContext: {
         repoRoot: isolatedPath,
         stateDir: options.stateDir,
-        project: options.project,
+        game: options.game,
       },
       executionContract: {
         worktreeKind: "isolated-conflict-worktree",
-        sessionWorktreePath: request.session_worktree_path,
+        cycleWorktreePath: request.cycle_worktree_path,
       },
     });
   } catch (error) {

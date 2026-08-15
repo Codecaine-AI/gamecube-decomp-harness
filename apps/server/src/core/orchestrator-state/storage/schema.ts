@@ -9,22 +9,22 @@ import type {
   RunStatus,
   RuntimeAgentRole,
 } from "@server/core/shared/types";
-import type { WriteSetEntry } from "@server/core/session-runtime/run-state/write-set-categories.js";
+import type { WriteSetEntry } from "@server/core/cycle-runtime/run-state/write-set-categories.js";
 import type {
+  CycleBlocker,
+  CycleKernelTraceState,
+  CyclePhase,
+  CycleProcessState,
+  CycleStatus,
+  CycleTimelineEntryKind,
   CompletePhaseState,
   PreparingPhaseState,
-  ProjectSessionBlocker,
-  ProjectSessionKernelTraceState,
-  ProjectSessionPhase,
-  ProjectSessionProcessState,
-  ProjectSessionStatus,
   PrPhaseState,
   RunningPhaseState,
-  SessionTimelineEntryKind,
-} from "@server/core/project-session/types.js";
+} from "@server/core/cycle/types.js";
 
 export type JsonObject = Record<string, unknown>;
-export type ProjectEventActor = "operator" | "runner" | "agent" | "guardian" | "external_observer";
+export type GameEventActor = "operator" | "runner" | "agent" | "guardian" | "external_observer";
 
 export const schemaMigrations = sqliteTable("schema_migrations", {
   version: integer("version").primaryKey(),
@@ -32,38 +32,38 @@ export const schemaMigrations = sqliteTable("schema_migrations", {
   appliedAt: text("applied_at").notNull(),
 });
 
-export const projectEvents = sqliteTable(
-  "project_events",
+export const gameEvents = sqliteTable(
+  "game_events",
   {
     sequence: integer("sequence").primaryKey({ autoIncrement: true }),
     eventId: text("event_id").notNull().unique(),
     eventType: text("event_type").notNull(),
     schemaVersion: integer("schema_version").notNull().default(1),
-    projectId: text("project_id").notNull(),
+    gameId: text("game_id").notNull(),
     subjectKind: text("subject_kind").notNull(),
     subjectId: text("subject_id").notNull(),
     correlationId: text("correlation_id").notNull(),
     causationId: text("causation_id").notNull(),
     traceId: text("trace_id").notNull(),
     spanId: text("span_id").notNull(),
-    actor: text("actor").$type<ProjectEventActor>().notNull(),
+    actor: text("actor").$type<GameEventActor>().notNull(),
     occurredAt: text("occurred_at").notNull(),
     payloadJson: text("payload_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
     parentSpanId: text("parent_span_id"),
   },
   (table) => [
-    index("project_events_subject_sequence").on(table.subjectKind, table.subjectId, table.sequence),
-    index("project_events_type_sequence").on(table.eventType, table.sequence),
-    index("project_events_correlation_sequence").on(table.correlationId, table.sequence),
+    index("game_events_subject_sequence").on(table.subjectKind, table.subjectId, table.sequence),
+    index("game_events_type_sequence").on(table.eventType, table.sequence),
+    index("game_events_correlation_sequence").on(table.correlationId, table.sequence),
     check(
-      "project_events_actor_check",
+      "game_events_actor_check",
       sql`${table.actor} IN ('operator', 'runner', 'agent', 'guardian', 'external_observer')`,
     ),
   ],
 );
 
-export const projectState = sqliteTable("project_state", {
-  projectId: text("project_id").primaryKey(),
+export const harnessState = sqliteTable("harness_state", {
+  gameId: text("game_id").primaryKey(),
   revision: integer("revision").notNull().default(0),
   activeWorkflowJson: text("active_workflow_json", { mode: "json" }).$type<JsonObject>(),
   queuedRequestsJson: text("queued_requests_json", { mode: "json" })
@@ -81,18 +81,18 @@ export const dispatchHandoffSnapshots = sqliteTable(
   "dispatch_handoff_snapshots",
   {
     snapshotId: text("snapshot_id").primaryKey(),
-    projectId: text("project_id").notNull(),
+    gameId: text("game_id").notNull(),
     contentJson: text("content_json", { mode: "json" }).$type<JsonObject>().notNull(),
     contentHash: text("content_hash").notNull().unique(),
     oldLeaseHolderJson: text("old_lease_holder_json", { mode: "json" }).$type<JsonObject>().notNull(),
     requestedHandoffJson: text("requested_handoff_json", { mode: "json" }).$type<JsonObject>(),
-    terminalProjectRevision: integer("terminal_project_revision").notNull(),
-    releaseEventId: text("release_event_id").notNull().unique().references(() => projectEvents.eventId),
-    acquisitionEventId: text("acquisition_event_id").unique().references(() => projectEvents.eventId),
+    terminalHarnessRevision: integer("terminal_game_revision").notNull(),
+    releaseEventId: text("release_event_id").notNull().unique().references(() => gameEvents.eventId),
+    acquisitionEventId: text("acquisition_event_id").unique().references(() => gameEvents.eventId),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
-    index("dispatch_handoff_snapshots_project_created").on(table.projectId, table.createdAt),
+    index("dispatch_handoff_snapshots_game_created").on(table.gameId, table.createdAt),
     check("dispatch_handoff_snapshots_content_json_check", sql`json_valid(${table.contentJson})`),
     check(
       "dispatch_handoff_snapshots_content_hash_check",
@@ -105,8 +105,8 @@ export const syncState = sqliteTable(
   "sync_state",
   {
     syncId: text("sync_id").primaryKey(),
-    projectId: text("project_id").notNull(),
-    sessionUuid: text("session_uuid").notNull(),
+    gameId: text("game_id").notNull(),
+    cycleUuid: text("cycle_uuid").notNull(),
     revision: integer("revision").notNull().default(0),
     status: text("status")
       .$type<
@@ -144,8 +144,8 @@ export const syncState = sqliteTable(
       .default(sql`'[]'`),
   },
   (table) => [
-    uniqueIndex("sync_state_one_non_terminal_project")
-      .on(table.projectId)
+    uniqueIndex("sync_state_one_non_terminal_game")
+      .on(table.gameId)
       .where(sql`${table.status} NOT IN ('published', 'cancelled')`),
     check(
       "sync_state_status_check",
@@ -163,19 +163,19 @@ export const runs = sqliteTable("runs", {
   desiredWorkers: integer("desired_workers").notNull(),
   status: text("status").$type<RunStatus>().notNull(),
   createdAt: text("created_at").notNull(),
-  projectId: text("project_id"),
-  projectKind: text("project_kind"),
-  projectRepoRoot: text("project_repo_root"),
-  projectStateDir: text("project_state_dir"),
-  projectGraphDb: text("project_graph_db"),
-  projectDescriptorPath: text("project_descriptor_path"),
-  projectLocalOverridePath: text("project_local_override_path"),
+  gameId: text("game_id"),
+  gameKind: text("game_kind"),
+  gameRepoRoot: text("game_repo_root"),
+  gameStateDir: text("game_state_dir"),
+  gameGraphDb: text("game_graph_db"),
+  gameDescriptorPath: text("game_descriptor_path"),
+  gameLocalOverridePath: text("game_local_override_path"),
   revision: integer("revision").notNull().default(0),
   traceId: text("trace_id"),
   causedByEventId: text("caused_by_event_id"),
   blockersJson: text("blockers_json", { mode: "json" }).$type<JsonObject[]>().notNull().default(sql`'[]'`),
   headRevision: text("head_revision"),
-  sessionUuid: text("session_uuid"),
+  cycleUuid: text("cycle_uuid"),
   inputsJson: text("inputs_json", { mode: "json" }).$type<RunInputs>(),
   stopRequestJson: text("stop_request_json", { mode: "json" }).$type<JsonObject>(),
   terminalReason: text("terminal_reason"),
@@ -186,17 +186,17 @@ export const runs = sqliteTable("runs", {
     .default(sql`'[]'`),
 });
 
-export const projectUpstreamAnchors = sqliteTable(
-  "project_upstream_anchors",
+export const gameUpstreamAnchors = sqliteTable(
+  "game_upstream_anchors",
   {
-    projectId: text("project_id").primaryKey(),
-    sessionUuid: text("session_uuid").notNull(),
+    gameId: text("game_id").primaryKey(),
+    cycleUuid: text("cycle_uuid").notNull(),
     upstreamRevision: text("upstream_revision").notNull(),
     syncId: text("sync_id").notNull(),
     causedByEventId: text("caused_by_event_id").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [index("project_upstream_anchors_session").on(table.sessionUuid)],
+  (table) => [index("game_upstream_anchors_cycle").on(table.cycleUuid)],
 );
 
 export const syncPushRecords = sqliteTable(
@@ -232,9 +232,9 @@ export const syncPublicationIntents = sqliteTable(
   "sync_publication_intents",
   {
     syncId: text("sync_id").primaryKey(),
-    projectId: text("project_id").notNull(),
-    sessionUuid: text("session_uuid").notNull(),
-    sessionWorktreePath: text("session_worktree_path").notNull(),
+    gameId: text("game_id").notNull(),
+    cycleUuid: text("cycle_uuid").notNull(),
+    cycleWorktreePath: text("cycle_worktree_path").notNull(),
     priorHead: text("prior_head").notNull(),
     newHead: text("new_head").notNull(),
     worktreeStateJson: text("worktree_state_json", { mode: "json" }).$type<JsonObject>().notNull(),
@@ -244,7 +244,7 @@ export const syncPublicationIntents = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [index("sync_publication_intents_project").on(table.projectId, table.createdAt)],
+  (table) => [index("sync_publication_intents_game").on(table.gameId, table.createdAt)],
 );
 
 export const prBatchPublications = sqliteTable(
@@ -305,8 +305,8 @@ export const syncInvalidations = sqliteTable(
   {
     invalidationId: text("invalidation_id").primaryKey(),
     syncId: text("sync_id").notNull(),
-    projectId: text("project_id").notNull(),
-    sessionUuid: text("session_uuid").notNull(),
+    gameId: text("game_id").notNull(),
+    cycleUuid: text("cycle_uuid").notNull(),
     subjectKind: text("subject_kind").$type<"target" | "checkpoint" | "pr_snapshot">().notNull(),
     subjectId: text("subject_id").notNull(),
     reason: text("reason").notNull(),
@@ -315,7 +315,7 @@ export const syncInvalidations = sqliteTable(
   },
   (table) => [
     uniqueIndex("sync_invalidations_sync_subject").on(table.syncId, table.subjectKind, table.subjectId),
-    index("sync_invalidations_project_subject").on(table.projectId, table.subjectKind, table.subjectId),
+    index("sync_invalidations_game_subject").on(table.gameId, table.subjectKind, table.subjectId),
     check(
       "sync_invalidations_subject_kind_check",
       sql`${table.subjectKind} IN ('target', 'checkpoint', 'pr_snapshot')`,
@@ -327,13 +327,13 @@ export const knowledgeRevisions = sqliteTable(
   "knowledge_revisions",
   {
     revision: integer("revision").primaryKey({ autoIncrement: true }),
-    projectId: text("project_id").notNull(),
+    gameId: text("game_id").notNull(),
     digest: text("digest").notNull(),
     syncId: text("sync_id"),
     causedByEventId: text("caused_by_event_id").notNull(),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [index("knowledge_revisions_project_revision").on(table.projectId, table.revision)],
+  (table) => [index("knowledge_revisions_game_revision").on(table.gameId, table.revision)],
 );
 
 export const syncKnowledgeJobs = sqliteTable(
@@ -341,7 +341,7 @@ export const syncKnowledgeJobs = sqliteTable(
   {
     jobId: text("job_id").primaryKey(),
     syncId: text("sync_id").notNull(),
-    projectId: text("project_id").notNull(),
+    gameId: text("game_id").notNull(),
     sourceKind: text("source_kind").$type<"merged_pr" | "corpus">().notNull(),
     sourceId: text("source_id").notNull(),
     revision: integer("revision").notNull().default(0),
@@ -397,8 +397,8 @@ export const dashboardArtifacts = sqliteTable(
   {
     id: text("id").primaryKey(),
     runId: text("run_id"),
-    projectId: text("project_id"),
-    sessionUuid: text("session_uuid"),
+    gameId: text("game_id"),
+    cycleUuid: text("cycle_uuid"),
     artifactType: text("artifact_type").notNull(),
     artifactKey: text("artifact_key").notNull(),
     sourcePath: text("source_path"),
@@ -408,8 +408,8 @@ export const dashboardArtifacts = sqliteTable(
   },
   (table) => [
     index("dashboard_artifacts_run_type").on(table.runId, table.artifactType, table.artifactKey, table.createdAt),
-    index("dashboard_artifacts_project_type").on(table.projectId, table.artifactType, table.artifactKey, table.createdAt),
-    index("dashboard_artifacts_session_type").on(table.sessionUuid, table.artifactType, table.artifactKey, table.createdAt),
+    index("dashboard_artifacts_game_type").on(table.gameId, table.artifactType, table.artifactKey, table.createdAt),
+    index("dashboard_artifacts_cycle_type").on(table.cycleUuid, table.artifactType, table.artifactKey, table.createdAt),
   ],
 );
 
@@ -713,7 +713,7 @@ export const checkpointItems = sqliteTable(
 
 export const campaigns = sqliteTable("campaigns", {
   id: text("id").primaryKey(),
-  projectId: text("project_id"),
+  gameId: text("game_id"),
   branch: text("branch"),
   baseRef: text("base_ref").notNull(),
   createdAt: text("created_at").notNull(),
@@ -744,62 +744,62 @@ export const savePoints = sqliteTable(
   (table) => [index("save_points_campaign").on(table.campaignId, table.createdAt)],
 );
 
-export const projectSessions = sqliteTable(
-  "project_sessions",
+export const cycles = sqliteTable(
+  "cycles",
   {
     id: text("id").primaryKey(),
-    projectId: text("project_id").notNull(),
-    sessionUuid: text("session_uuid").notNull().unique(),
-    status: text("status").$type<ProjectSessionStatus>().notNull(),
-    phase: text("phase").$type<ProjectSessionPhase>().notNull(),
+    gameId: text("game_id").notNull(),
+    cycleUuid: text("cycle_uuid").notNull().unique(),
+    status: text("status").$type<CycleStatus>().notNull(),
+    phase: text("phase").$type<CyclePhase>().notNull(),
     activeRunId: text("active_run_id"),
     baseRef: text("base_ref"),
     baseSha: text("base_sha"),
     revision: integer("revision").notNull().default(0),
     headRevision: text("head_revision"),
     traceId: text("trace_id"),
-    blockersJson: text("blockers_json", { mode: "json" }).$type<ProjectSessionBlocker[]>().notNull().default(sql`'[]'`),
+    blockersJson: text("blockers_json", { mode: "json" }).$type<CycleBlocker[]>().notNull().default(sql`'[]'`),
     savePointStale: integer("save_point_stale", { mode: "boolean" }).notNull().default(false),
     causedByEventId: text("caused_by_event_id"),
     preparingStateJson: text("preparing_state_json", { mode: "json" }).$type<PreparingPhaseState>().notNull(),
     runningStateJson: text("running_state_json", { mode: "json" }).$type<RunningPhaseState>().notNull(),
     prStateJson: text("pr_state_json", { mode: "json" }).$type<PrPhaseState>().notNull(),
     completeStateJson: text("complete_state_json", { mode: "json" }).$type<CompletePhaseState>().notNull(),
-    processStateJson: text("process_state_json", { mode: "json" }).$type<ProjectSessionProcessState | JsonObject | null>().notNull(),
-    kernelTraceJson: text("kernel_trace_json", { mode: "json" }).$type<ProjectSessionKernelTraceState | null>().notNull(),
+    processStateJson: text("process_state_json", { mode: "json" }).$type<CycleProcessState | JsonObject | null>().notNull(),
+    kernelTraceJson: text("kernel_trace_json", { mode: "json" }).$type<CycleKernelTraceState | null>().notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     completedAt: text("completed_at"),
     closedAt: text("closed_at"),
   },
   (table) => [
-    index("project_sessions_project_updated").on(table.projectId, table.updatedAt),
-    uniqueIndex("project_sessions_one_active_project")
-      .on(table.projectId)
+    index("cycles_game_updated").on(table.gameId, table.updatedAt),
+    uniqueIndex("cycles_one_active_game")
+      .on(table.gameId)
       .where(sql`${table.status} IN ('active', 'blocked', 'closing')`),
   ],
 );
 
-export const sessionTimelineEntries = sqliteTable(
-  "session_timeline_entries",
+export const cycleTimelineEntries = sqliteTable(
+  "cycle_timeline_entries",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    sessionUuid: text("session_uuid").notNull(),
-    entryKind: text("entry_kind").$type<SessionTimelineEntryKind>().notNull(),
+    cycleUuid: text("cycle_uuid").notNull(),
+    entryKind: text("entry_kind").$type<CycleTimelineEntryKind>().notNull(),
     entryId: text("entry_id").notNull(),
     occurredAt: text("occurred_at").notNull(),
     payloadJson: text("payload_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
     causedByEventId: text("caused_by_event_id"),
   },
   (table) => [
-    uniqueIndex("session_timeline_entries_session_kind_entry").on(
-      table.sessionUuid,
+    uniqueIndex("cycle_timeline_entries_cycle_kind_entry").on(
+      table.cycleUuid,
       table.entryKind,
       table.entryId,
     ),
-    index("session_timeline_entries_session_order").on(table.sessionUuid, table.id),
+    index("cycle_timeline_entries_cycle_order").on(table.cycleUuid, table.id),
     check(
-      "session_timeline_entries_kind_check",
+      "cycle_timeline_entries_kind_check",
       sql`${table.entryKind} IN ('epoch_completed', 'remote_application', 'pr_phase', 'save_point')`,
     ),
   ],
@@ -865,10 +865,10 @@ export const orchestratorStateSchema = {
   prBatchPublications,
   runRecoveryJournal,
   dispatchHandoffSnapshots,
-  projectEvents,
-  projectSessions,
-  projectState,
-  projectUpstreamAnchors,
+  gameEvents,
+  cycles,
+  harnessState,
+  gameUpstreamAnchors,
   syncState,
   syncInvalidations,
   syncKnowledgeJobs,
@@ -877,7 +877,7 @@ export const orchestratorStateSchema = {
   runs,
   savePoints,
   schemaMigrations,
-  sessionTimelineEntries,
+  cycleTimelineEntries,
   targetClaims,
   targets,
   workerCheckpoints,
@@ -890,7 +890,7 @@ export type RunRow = typeof runs.$inferSelect;
 export type NewRunRow = typeof runs.$inferInsert;
 export type KnowledgeRevisionRow = typeof knowledgeRevisions.$inferSelect;
 export type NewKnowledgeRevisionRow = typeof knowledgeRevisions.$inferInsert;
-export type ProjectUpstreamAnchorRow = typeof projectUpstreamAnchors.$inferSelect;
+export type GameUpstreamAnchorRow = typeof gameUpstreamAnchors.$inferSelect;
 export type SyncInvalidationRow = typeof syncInvalidations.$inferSelect;
 export type SyncKnowledgeJobRow = typeof syncKnowledgeJobs.$inferSelect;
 export type SyncPushRecordRow = typeof syncPushRecords.$inferSelect;
@@ -915,18 +915,18 @@ export type RunCheckpointRow = typeof runCheckpoints.$inferSelect;
 export type CheckpointItemRow = typeof checkpointItems.$inferSelect;
 export type CampaignRow = typeof campaigns.$inferSelect;
 export type SavePointRow = typeof savePoints.$inferSelect;
-export type ProjectSessionRow = typeof projectSessions.$inferSelect;
-export type NewProjectSessionRow = typeof projectSessions.$inferInsert;
-export type SessionTimelineEntryRow = typeof sessionTimelineEntries.$inferSelect;
-export type NewSessionTimelineEntryRow = typeof sessionTimelineEntries.$inferInsert;
+export type CycleRow = typeof cycles.$inferSelect;
+export type NewCycleRow = typeof cycles.$inferInsert;
+export type CycleTimelineEntryRow = typeof cycleTimelineEntries.$inferSelect;
+export type NewCycleTimelineEntryRow = typeof cycleTimelineEntries.$inferInsert;
 export type DashboardArtifactRow = typeof dashboardArtifacts.$inferSelect;
 export type SchemaMigrationRow = typeof schemaMigrations.$inferSelect;
-export type ProjectEventRow = typeof projectEvents.$inferSelect;
-export type NewProjectEventRow = typeof projectEvents.$inferInsert;
+export type GameEventRow = typeof gameEvents.$inferSelect;
+export type NewGameEventRow = typeof gameEvents.$inferInsert;
 export type DispatchHandoffSnapshotRow = typeof dispatchHandoffSnapshots.$inferSelect;
 export type NewDispatchHandoffSnapshotRow = typeof dispatchHandoffSnapshots.$inferInsert;
-export type ProjectStateRow = typeof projectState.$inferSelect;
-export type NewProjectStateRow = typeof projectState.$inferInsert;
+export type HarnessStateRow = typeof harnessState.$inferSelect;
+export type NewHarnessStateRow = typeof harnessState.$inferInsert;
 export type PrBatchPublicationRow = typeof prBatchPublications.$inferSelect;
 export type PrBatchPublicationSeriesRow = typeof prBatchPublicationSeries.$inferSelect;
 export type PendingIntegrationRow = typeof pendingIntegrations.$inferSelect;

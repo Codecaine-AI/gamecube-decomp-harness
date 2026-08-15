@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { WideningRequest, WriteSetEntry } from "@server/core/session-runtime/run-state/write-set-categories";
+import type { WideningRequest, WriteSetEntry } from "@server/core/cycle-runtime/run-state/write-set-categories";
 import type { QaScanFinding, QaScanResult } from "./scan-diff.js";
 import {
   buildQaRepairQueue,

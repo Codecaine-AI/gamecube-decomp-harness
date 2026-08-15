@@ -1,6 +1,6 @@
 import type { AgentToolPromptMetadata } from "../types.js";
 
-/** Prompt metadata for wrappers over project-owned knowledge sources. */
+/** Prompt metadata for wrappers over game-owned knowledge sources. */
 export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
   code_graph_file_card: {
     provider: "code_graph",

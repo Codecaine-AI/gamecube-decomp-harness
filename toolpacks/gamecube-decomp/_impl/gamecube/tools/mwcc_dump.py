@@ -1091,7 +1091,7 @@ def wibo_path() -> Path:
     """Resolve a wibo runner. Order:
 
       1. $MWCC_WIBO                          explicit override
-      2. $ORCH_PROJECT_STATE_DIR/tools/wibo  orchestrator-managed install
+      2. $ORCH_GAME_STATE_DIR/tools/wibo  orchestrator-managed install
       3. <tool impl>/bin/wibo                optional tool-local install
       4. <tool impl>/wibo/build/release/wibo raw cmake output
       5. <melee>/build/tools/wibo            project tool artifact
@@ -1121,7 +1121,7 @@ def wibo_path() -> Path:
 
 
 def state_wibo_path() -> Path | None:
-    state_dir = os.environ.get("ORCH_PROJECT_STATE_DIR")
+    state_dir = os.environ.get("ORCH_GAME_STATE_DIR")
     if state_dir:
         candidate = Path(state_dir).expanduser() / "tools" / "wibo"
         if candidate.is_file():

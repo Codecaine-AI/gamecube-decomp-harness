@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { openState } from "@server/core/session-runtime/run-state";
+import { openState } from "@server/core/cycle-runtime/run-state";
 import { knowledgeCuratorEnrichmentPath, pastPrsRoot } from "./paths.js";
 import type { TrustTier } from "./graph/types.js";
 import { arrayValue, ensureParentDir, numberValue, objectValue, readJsonl, shortHash, stringValue, truncate } from "./graph/util.js";

@@ -15,9 +15,9 @@ import {
   type LearningRecord,
   type LearningScope,
 } from "@server/core/knowledge/ledger.js";
-import type { GlobalArgs } from "@server/core/project-registry/runtime-options.js";
-import { stringArg } from "@server/core/project-registry/runtime-options.js";
-import { addPiSession, openState, type StateStore } from "@server/core/session-runtime/run-state";
+import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { stringArg } from "@server/core/game-registry/runtime-options.js";
+import { addPiSession, openState, type StateStore } from "@server/core/cycle-runtime/run-state";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
@@ -321,7 +321,7 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
   if (!workerStateId) throw new Error("kg-librarian-condense requires --worker-state-id");
 
   const runId = stringArg(args, "--run-id", "");
-  const ledgerPath = stringArg(args, "--ledger-path", defaultLedgerPath(globals.project?.projectId ?? "melee"));
+  const ledgerPath = stringArg(args, "--ledger-path", defaultLedgerPath(globals.game?.gameId ?? "melee"));
   const store = openState(globals.stateDir);
 
   try {
@@ -350,7 +350,7 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
         librarianBatch,
         repoRoot: globals.repoRoot,
         stateDir: globals.stateDir,
-        project: globals.project,
+        game: globals.game,
       }),
       outputDir,
       dryRun: globals.dryRunAgents,
@@ -361,11 +361,11 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
       toolContext: {
         repoRoot: globals.repoRoot,
         stateDir: globals.stateDir,
-        project: globals.project,
+        game: globals.game,
       },
       kernelContext: createMeleeKernelSpawnContext({
         kind: "knowledge-curation",
-        projectId: globals.project?.projectId ?? globals.projectId,
+        gameId: globals.game?.gameId ?? globals.gameId,
         sessionId: runId || workerStateId,
         runId: runId || workerStateId,
         phase: "knowledge-curation",

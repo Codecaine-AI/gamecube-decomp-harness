@@ -1,20 +1,7 @@
 # Ghidra Tool
 
-Cache-backed Ghidra lookup surface for xrefs, strings, names, and bounded
-headless import/analyze evidence.
-
-Current state: live runner v1.
-`python3 toolpacks/gamecube-decomp/research/ghidra/runners/run_headless_probe.py --repo-root <repo_root>`
-resolves the Homebrew Ghidra/OpenJDK install, runs `analyzeHeadless` against
-`build/GALE01/main.elf`, and writes:
-
-- `cache/runner_status.json`
-- `cache/ghidra_headless_probe.log`
-- `indexes/ghidra_headless_probe.jsonl`
-
-`build_tool_indexes.py` also generates `indexes/symbol_lookup.jsonl` from local
-code-graph/source-symbol evidence for symbol/address/file lookup. Those rows
-are supplemental; live readiness comes from the headless runner smoke.
+Ghidra-derived cross-reference evidence generator. It is a maintenance input to
+the knowledge graph, not a separate worker lookup surface.
 
 ## Xref export
 
@@ -23,3 +10,8 @@ runs a separate headless project and writes `indexes/xrefs.jsonl`,
 `cache/export_xrefs_status.json`, and `cache/ghidra_export_xrefs.log` under the
 tool storage root. Use `--limit <rows>` to retain a bounded prefix or `0` for
 all exported references.
+
+Rebuild the graph after export. Workers retrieve resolved calls and data
+references with `graph_related_functions` or `code_graph_file_card`, and use
+`knowledge_graph_search` for lexical discovery across unresolved evidence.
+The older status and lookup scripts remain operator diagnostics only.

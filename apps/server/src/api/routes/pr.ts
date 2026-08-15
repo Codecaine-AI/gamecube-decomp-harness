@@ -1,7 +1,7 @@
 import type {
   PrCampaignActionId,
   PrCampaignActionProjection,
-} from "@server/core/session-runtime/phases/pr/campaign/runtime.js";
+} from "@server/core/cycle-runtime/phases/pr/campaign/runtime.js";
 
 type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;

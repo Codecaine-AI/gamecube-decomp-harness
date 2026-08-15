@@ -15,7 +15,7 @@ compiler temporaries, instruction scheduling, or helper-call setup.
 From the Melee checkout:
 
 ```sh
-ORCH_PROJECT_REPO_ROOT=/Users/luke/melee \
+ORCH_GAME_REPO_ROOT=/Users/luke/melee \
   python /path/to/decomp-orchestrator/toolpacks/gamecube-decomp/_impl/gamecube/tools/mwcc_dump.py it_8026CD50
 ```
 

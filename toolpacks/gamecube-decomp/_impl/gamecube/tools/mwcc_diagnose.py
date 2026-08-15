@@ -61,17 +61,17 @@ def _looks_like_project_root(path: Path) -> bool:
 
 
 def _bootstrap_project_root() -> None:
-    """Set ORCH_PROJECT_REPO_ROOT early enough that imported helper modules bind to it.
+    """Set ORCH_GAME_REPO_ROOT early enough that imported helper modules bind to it.
 
     Existing helper scripts assume they are run from a project checkout unless
-    ORCH_PROJECT_REPO_ROOT is set. The public API binds that environment
+    ORCH_GAME_REPO_ROOT is set. The public API binds that environment
     variable before this module runs.
     """
     cli_root = _arg_value("--root", "--project-root")
     if cli_root:
-        os.environ["ORCH_PROJECT_REPO_ROOT"] = cli_root
+        os.environ["ORCH_GAME_REPO_ROOT"] = cli_root
         return
-    if os.environ.get("ORCH_PROJECT_REPO_ROOT"):
+    if os.environ.get("ORCH_GAME_REPO_ROOT"):
         return
 
     script_root = Path(__file__).resolve().parents[1]
@@ -81,7 +81,7 @@ def _bootstrap_project_root() -> None:
     ]
     for candidate in candidates:
         if _looks_like_project_root(candidate):
-            os.environ["ORCH_PROJECT_REPO_ROOT"] = str(candidate)
+            os.environ["ORCH_GAME_REPO_ROOT"] = str(candidate)
             return
 
 
@@ -1466,7 +1466,7 @@ def run_mwcc_dump(
     runner: str,
 ) -> tuple[int, str, str, Optional[mwcc_dump.MwccStackAnalysis], Optional[Path]]:
     env = os.environ.copy()
-    env["ORCH_PROJECT_REPO_ROOT"] = str(ROOT)
+    env["ORCH_GAME_REPO_ROOT"] = str(ROOT)
     env.setdefault("WINEDEBUG", "-all")
 
     proc = subprocess.run(
@@ -1983,7 +1983,7 @@ def print_guidance(
 def diagnose_stack(args: argparse.Namespace) -> int:
     if not REPORT_PATH.exists():
         print(
-            f"error: missing {REPORT_PATH}; pass --root/ORCH_PROJECT_REPO_ROOT for the Melee checkout",
+            f"error: missing {REPORT_PATH}; pass --root/ORCH_GAME_REPO_ROOT for the Melee checkout",
             file=sys.stderr,
         )
         return 1
@@ -2092,7 +2092,7 @@ def print_regflow_lines(lines: list[RegFlowLine]) -> None:
 def diagnose_regflow(args: argparse.Namespace) -> int:
     if not REPORT_PATH.exists():
         print(
-            f"error: missing {REPORT_PATH}; pass --root/ORCH_PROJECT_REPO_ROOT for the Melee checkout",
+            f"error: missing {REPORT_PATH}; pass --root/ORCH_GAME_REPO_ROOT for the Melee checkout",
             file=sys.stderr,
         )
         return 1
@@ -2166,7 +2166,7 @@ def diagnose_regflow(args: argparse.Namespace) -> int:
 def diagnose_inlines(args: argparse.Namespace) -> int:
     if not REPORT_PATH.exists():
         print(
-            f"error: missing {REPORT_PATH}; pass --root/ORCH_PROJECT_REPO_ROOT for the Melee checkout",
+            f"error: missing {REPORT_PATH}; pass --root/ORCH_GAME_REPO_ROOT for the Melee checkout",
             file=sys.stderr,
         )
         return 1
@@ -2232,7 +2232,7 @@ def diagnose_inlines(args: argparse.Namespace) -> int:
 def diagnose_raw(args: argparse.Namespace) -> int:
     if not REPORT_PATH.exists():
         print(
-            f"error: missing {REPORT_PATH}; pass --root/ORCH_PROJECT_REPO_ROOT for the Melee checkout",
+            f"error: missing {REPORT_PATH}; pass --root/ORCH_GAME_REPO_ROOT for the Melee checkout",
             file=sys.stderr,
         )
         return 1
@@ -2272,7 +2272,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="root",
         type=Path,
         default=ROOT,
-        help="Project checkout root (default: ORCH_PROJECT_REPO_ROOT or cwd markers)",
+        help="Project checkout root (default: ORCH_GAME_REPO_ROOT or cwd markers)",
     )
 
     parser = argparse.ArgumentParser(
@@ -2361,7 +2361,7 @@ def main() -> int:
     if Path(args.root) != ROOT:
         print(
             "error: --root must be supplied before imports take effect; rerun as "
-            f"`ORCH_PROJECT_REPO_ROOT={args.root} {sys.argv[0]} ...` or put --root before the mode",
+            f"`ORCH_GAME_REPO_ROOT={args.root} {sys.argv[0]} ...` or put --root before the mode",
             file=sys.stderr,
         )
         return 1

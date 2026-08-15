@@ -28,7 +28,7 @@ class OpseqV2SmokeTest(unittest.TestCase):
             env = {
                 **os.environ,
                 "ORCH_TOOL_SHARED_DATA_ROOT": str(storage_root),
-                "ORCH_PROJECT_ID": f"opseq-v2-smoke-{os.getpid()}",
+                "ORCH_GAME_ID": f"opseq-v2-smoke-{os.getpid()}",
             }
 
             runner_payload = self.run_json(

@@ -1,6 +1,6 @@
 import { AlertTriangle } from "@/icons";
 import type { ReactNode } from "react";
-import { type AppRoute, type SessionSubPage } from "@/routing";
+import { type AppRoute, type CycleSubPage } from "@/routing";
 import { WorkspaceSidebar } from "@/pages/workspace/_components/WorkspaceSidebar";
 import type { WorkspaceNav } from "@/pages/workspace/_lib/types";
 
@@ -19,11 +19,11 @@ function ErrorStrip({ error, onDismiss }: { error: string; onDismiss: () => void
   );
 }
 
-export function useWorkspaceNav(onNavigate: (route: AppRoute) => void, projectId: string | undefined): WorkspaceNav {
+export function useWorkspaceNav(onNavigate: (route: AppRoute) => void, gameId: string | undefined): WorkspaceNav {
   return {
     goToDashboard: () => onNavigate({ kind: "dashboard" }),
-    goToSection: (section) => onNavigate({ kind: "workspace", section, projectId }),
-    goToSession: (focus, sub?: SessionSubPage) => onNavigate({ kind: "workspace", section: "sessions", session: focus, sessionSub: sub, projectId }),
+    goToSection: (section) => onNavigate({ kind: "workspace", section, gameId }),
+    goToCycle: (focus, sub?: CycleSubPage) => onNavigate({ kind: "workspace", section: "cycles", cycle: focus, cycleSub: sub, gameId }),
   };
 }
 

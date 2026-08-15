@@ -13,21 +13,20 @@
       "id": "ghidra",
       "category": "research",
       "path": "research/ghidra",
-      "knowledge_runner": "run_headless_probe.py",
-      "process_role": "binary_lookup",
+      "knowledge_runner": "export_xrefs.py",
+      "process_role": "graph_evidence_generation",
       "mutates_source": false,
       "blocks_on_failure": false,
       "triggers": [
-        "needs_symbol_address",
         "needs_xrefs",
-        "needs_string_or_decompile_hint"
+        "needs_independent_binary_corroboration"
       ],
       "outputs": [
-        "symbol_lookup",
-        "address_lookup",
-        "headless_probe_status"
+        "xref_rows",
+        "graph_call_edges",
+        "graph_data_reference_edges"
       ],
-      "agent_guidance": "Use when a symbol, address, string, or binary-derived clue needs corroboration before editing source.",
+      "agent_guidance": "Refresh evidence as maintenance; workers consume it through knowledge_graph_search, graph_related_functions, and code_graph_file_card.",
       "invocation_mode": "on_demand"
     },
     {
@@ -35,7 +34,7 @@
       "category": "research",
       "path": "research/opseq",
       "knowledge_runner": "extract_opcode_sequences.py",
-      "process_role": "similar_function_lookup",
+      "process_role": "graph_evidence_generation",
       "mutates_source": false,
       "blocks_on_failure": false,
       "triggers": [
@@ -44,11 +43,11 @@
         "matching_strategy_unclear"
       ],
       "outputs": [
-        "similar_functions",
+        "analog_edges",
         "opcode_fingerprints",
         "function_shape_rows"
       ],
-      "agent_guidance": "Use before inventing a source shape when similar opcode or function-shape evidence could point to a local analog.",
+      "agent_guidance": "Refresh evidence as maintenance; workers consume analogs through graph_related_functions, knowledge_graph_search, and code_graph_file_card.",
       "invocation_mode": "on_demand"
     },
     {
@@ -56,7 +55,7 @@
       "category": "research",
       "path": "research/mismatch_db",
       "knowledge_runner": "analyze_objdiff_mismatches.py",
-      "process_role": "mismatch_pattern_lookup",
+      "process_role": "graph_evidence_generation",
       "mutates_source": false,
       "blocks_on_failure": false,
       "triggers": [
@@ -69,7 +68,7 @@
         "source_shape_tactics",
         "known_negative_evidence"
       ],
-      "agent_guidance": "Use after seeing an objdiff/checkdiff symptom to find known matching tactics and cautions.",
+      "agent_guidance": "Refresh evidence as maintenance; workers consume mismatch patterns through knowledge_graph_search and code_graph_file_card.",
       "invocation_mode": "on_demand"
     },
     {
@@ -77,7 +76,7 @@
       "category": "research",
       "path": "research/callgraph",
       "knowledge_runner": "extract_call_graph.py",
-      "process_role": "call_graph_lookup",
+      "process_role": "graph_evidence_generation",
       "mutates_source": false,
       "blocks_on_failure": false,
       "triggers": [
@@ -88,9 +87,9 @@
       "outputs": [
         "call_edges",
         "data_ref_edges",
-        "caller_callee_lookup"
+        "graph_call_edges"
       ],
-      "agent_guidance": "Use binary-ground-truth call and data-reference edges to orient a function before editing source.",
+      "agent_guidance": "Refresh evidence as maintenance; workers consume calls and data references through graph_related_functions and code_graph_file_card.",
       "invocation_mode": "on_demand"
     },
     {

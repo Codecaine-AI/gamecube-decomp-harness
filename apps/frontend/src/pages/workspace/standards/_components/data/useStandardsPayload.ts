@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStandards } from "@/lib/api";
 import type { FormState, StandardsPayload } from "@/lib/format";
 
-type StandardsForm = Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">;
+type StandardsForm = Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">;
 
 export interface StandardsState {
   loading: boolean;
@@ -28,7 +28,7 @@ export function useStandardsPayload(form: StandardsForm) {
       }
       return null;
     }
-  }, [form.projectId, form.stateDir, form.repoRoot, form.graphDbPath, form.usePathOverrides]);
+  }, [form.gameId, form.stateDir, form.repoRoot, form.graphDbPath, form.usePathOverrides]);
 
   useEffect(() => {
     void reload();

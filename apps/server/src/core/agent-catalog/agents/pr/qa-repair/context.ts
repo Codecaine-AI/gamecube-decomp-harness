@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
 import type { QaRepairQueueItem } from "@server/core/validation/qa/repair-lane";
-import type { PiPromptBundle, RunProjectMetadata } from "@server/core/shared/types";
+import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
 import { globalStandardsPromptXml, standardExamplesPromptXml } from "@server/core/knowledge";
 import { availableToolsPromptXml, type AgentToolRuntimeContext } from "@server/core/tools/index.js";
 import { renderTemplate, stableJson, type PromptTemplateValues } from "@server/infrastructure/agent-runtime/runtime";
@@ -24,7 +24,7 @@ export interface QaRepairPromptOptions {
   queueSummary?: unknown;
   repoRoot?: string;
   stateDir?: string;
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
 }
 
 export const QA_REPAIR_TURN_PROMPT = [
@@ -60,7 +60,7 @@ function toolContext(options: QaRepairPromptOptions): AgentToolRuntimeContext {
     cwd: repoRoot,
     repoRoot,
     stateDir: options.stateDir,
-    project: options.project,
+    game: options.game,
   };
 }
 

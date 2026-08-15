@@ -85,9 +85,9 @@ export async function handleKnowledgeLearningsApiRoute(
   if (url.pathname !== collectionPath && !url.pathname.startsWith(detailPrefix)) return null;
   if (req.method !== "GET") return deps.json({ error: "method not allowed" }, { status: 405 });
 
-  const projectId = url.searchParams.get("projectId") || "melee";
-  const ledgerPath = defaultLedgerPath(projectId);
-  const dbPath = defaultLedgerSearchDbPath(projectId);
+  const gameId = url.searchParams.get("gameId") || "melee";
+  const ledgerPath = defaultLedgerPath(gameId);
+  const dbPath = defaultLedgerSearchDbPath(gameId);
   const { latestById, versionsById } = indexLearnings(loadLearnings(ledgerPath));
 
   if (url.pathname.startsWith(detailPrefix)) {

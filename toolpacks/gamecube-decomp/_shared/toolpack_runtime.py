@@ -88,13 +88,13 @@ def resolve_repo_root(value: str | Path | None = None) -> Path:
 
     if value:
         return Path(value).expanduser().resolve()
-    env_value = os.environ.get("ORCH_PROJECT_REPO_ROOT")
+    env_value = os.environ.get("ORCH_GAME_REPO_ROOT")
     if env_value:
         return Path(env_value).expanduser().resolve()
     cwd = Path.cwd().resolve()
     if looks_like_project_repo(cwd):
         return cwd
-    project_id = os.environ.get("ORCH_PROJECT_ID", "melee")
+    project_id = os.environ.get("ORCH_GAME_ID", "melee")
     return (package_root() / "projects" / project_id / "checkout").resolve()
 
 
@@ -380,7 +380,7 @@ def tool_env(repo_root: Path) -> dict[str, str]:
     """Create an environment that points helper scripts at the target repo."""
 
     env = dict(os.environ)
-    env["ORCH_PROJECT_REPO_ROOT"] = str(repo_root)
+    env["ORCH_GAME_REPO_ROOT"] = str(repo_root)
     env.setdefault("WINEDEBUG", "-all")
     wibo = state_wibo_path(repo_root)
     if wibo is not None:
@@ -392,7 +392,7 @@ def tool_env(repo_root: Path) -> dict[str, str]:
 
 
 def state_wibo_path(repo_root: Path) -> Path | None:
-    state_dir = os.environ.get("ORCH_PROJECT_STATE_DIR")
+    state_dir = os.environ.get("ORCH_GAME_STATE_DIR")
     if state_dir:
         candidate = Path(state_dir).expanduser() / "tools" / "wibo"
         if candidate.is_file():
@@ -578,7 +578,7 @@ def run_tool_script(
 def import_tool_module(module_name: str, repo_root: Path) -> Any:
     """Import one tool-local helper module after binding the project root."""
 
-    os.environ["ORCH_PROJECT_REPO_ROOT"] = str(repo_root)
+    os.environ["ORCH_GAME_REPO_ROOT"] = str(repo_root)
     tools_root = str(tool_impl_tools_root())
     m2c_root = str(tool_impl_root() / "m2c")
     for path in (tools_root, m2c_root):

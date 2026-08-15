@@ -25,9 +25,9 @@ export interface RunBlocker {
   recoverable: boolean;
 }
 
-export interface RunProjectMetadata {
-  projectId?: string;
-  projectKind?: string;
+export interface RunGameMetadata {
+  gameId?: string;
+  gameKind?: string;
   repoRoot?: string;
   stateDir?: string;
   graphDbPath?: string;
@@ -37,7 +37,7 @@ export interface RunProjectMetadata {
 
 export interface RunRecord {
   id: string;
-  projectId: string | null;
+  gameId: string | null;
   goalKind: string;
   goalValue: number;
   desiredWorkers: number;
@@ -47,11 +47,11 @@ export interface RunRecord {
   causedByEventId: string | null;
   blockers: RunBlocker[];
   headRevision: string | null;
-  sessionUuid: string | null;
+  cycleUuid: string | null;
   inputs: RunInputs | null;
   stopRequest: Record<string, unknown> | null;
   terminalReason: string | null;
   schedulerCondition: RunSchedulerCondition | null;
   createdAt: string;
-  project?: RunProjectMetadata;
+  game?: RunGameMetadata;
 }

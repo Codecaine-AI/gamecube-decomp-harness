@@ -1,7 +1,7 @@
 # Opseq Tool
 
-Opcode sequence lookup surface for finding similar matched and unmatched
-functions by instruction patterns.
+Opcode-sequence evidence generator for linking similar matched and unmatched
+functions in the knowledge graph.
 
 Current state: live runner v2.
 `python3 toolpacks/gamecube-decomp/research/opseq/runners/extract_opcode_sequences.py --repo-root <repo_root>`
@@ -15,6 +15,7 @@ top-K neighbor evidence. It writes:
 - `indexes/opcode_fingerprints.jsonl`
 - `indexes/opcode_neighbors.jsonl`
 
-`build_tool_indexes.py` still generates `indexes/function_shapes.jsonl` from
-local code-graph/function-shape evidence, so `api/similar_functions.py` can
-fall back to supplemental shape rows when no concrete opcode sequence resolves.
+Rebuild the graph after refresh. Workers retrieve analogs with
+`graph_related_functions`, `knowledge_graph_search`, or
+`code_graph_file_card`. `api/similar_functions.py` remains an operator
+diagnostic for inspecting raw indexes, not a worker-facing search API.

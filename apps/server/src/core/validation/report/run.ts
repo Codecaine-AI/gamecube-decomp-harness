@@ -114,7 +114,7 @@ async function pathCommandExists(command: string): Promise<boolean> {
 }
 
 async function stateWiboPath(repoRoot: string, toolPlatform: ToolPlatform): Promise<string | null> {
-  const stateDir = process.env.ORCH_PROJECT_STATE_DIR;
+  const stateDir = process.env.ORCH_GAME_STATE_DIR;
   if (stateDir) {
     const candidate = resolveStateToolArtifact({ stateDir, name: "wibo", platform: toolPlatform });
     if (candidate && (await pathExists(candidate))) return candidate;

@@ -9,7 +9,7 @@ describe("handleHandoffApiRoute", () => {
       new Request("http://localhost/api/pr/qa-repair", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ leaseId: "lease-pr", projectId: "melee" }),
+        body: JSON.stringify({ leaseId: "lease-pr", gameId: "melee" }),
       }),
       new URL("http://localhost/api/pr/qa-repair"),
       {
@@ -21,7 +21,7 @@ describe("handleHandoffApiRoute", () => {
       } as unknown as HandoffApiRouteDeps,
     );
 
-    expect(received).toEqual([{ leaseId: "lease-pr", projectId: "melee" }]);
+    expect(received).toEqual([{ leaseId: "lease-pr", gameId: "melee" }]);
     expect(response?.status).toBe(200);
     expect(await response?.json()).toEqual({ status: "passed" });
   });

@@ -4,7 +4,7 @@ import type { Dashboard, FormState } from "../lib/api-types";
 
 interface UseDashboardStreamOptions {
   enabled: boolean;
-  form: Pick<FormState, "projectId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">;
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">;
   intervalMs: number;
   onError: (error: Error) => void;
 }
@@ -45,7 +45,7 @@ export function useDashboardStream({ enabled, form, intervalMs, onError }: UseDa
   }, [form]);
 
   useEffect(() => {
-    if (!enabled || (!form.projectId && (!form.repoRoot || !form.stateDir))) return;
+    if (!enabled || (!form.gameId && (!form.repoRoot || !form.stateDir))) return;
     stop();
     setStreamState("connecting");
 

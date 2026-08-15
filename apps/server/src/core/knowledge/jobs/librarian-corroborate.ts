@@ -20,7 +20,7 @@ import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agen
 import { appendLearnings, defaultLedgerPath, type LearningRecord } from "../ledger";
 import { validateLibrarianReport, learningRecord } from "./librarian";
 import { mapLimit } from "./kg";
-import type { GlobalArgs } from "@server/core/project-registry/runtime-options";
+import type { GlobalArgs } from "@server/core/game-registry/runtime-options";
 
 interface SubjectGroup {
   subject_key: string;
@@ -73,7 +73,7 @@ function buildAnchorChecker(repoRoot: string): (scope: string, anchor: string) =
   const symbols = new Set<string>();
   const functionsIndex = resolve(
     repoRoot,
-    "projects/melee/knowledge/sources/code_context/code_graph/indexes/functions.jsonl",
+    "games/melee/knowledge/sources/code_context/code_graph/indexes/functions.jsonl",
   );
   if (existsSync(functionsIndex)) {
     for (const line of readFileSync(functionsIndex, "utf8").split("\n")) {
@@ -87,7 +87,7 @@ function buildAnchorChecker(repoRoot: string): (scope: string, anchor: string) =
       }
     }
   }
-  const checkoutRoot = resolve(repoRoot, "projects/melee/checkout");
+  const checkoutRoot = resolve(repoRoot, "games/melee/checkout");
   return (scope, anchor) => {
     if (scope === "symbol") return { kind: "symbol", exists: symbols.has(anchor) };
     if (scope === "file") return { kind: "file", exists: existsSync(resolve(checkoutRoot, anchor)) || existsSync(resolve(repoRoot, anchor)) };
@@ -173,7 +173,7 @@ export async function kgLibrarianCorroborate(globals: GlobalArgs, args: Map<stri
   const jobs = Number(args.get("--jobs") ?? 16) || 16;
   const limit = Number(args.get("--limit") ?? 0) || 0;
   const planOnly = args.get("--plan") === true;
-  const ledgerPath = defaultLedgerPath(globals.project?.projectId ?? globals.projectId ?? "melee");
+  const ledgerPath = defaultLedgerPath(globals.game?.gameId ?? globals.gameId ?? "melee");
   const baseDir = join(globals.stateDir, "knowledge_librarian", "corroborate");
   const manifestPath = join(baseDir, "manifest.jsonl");
   mkdirSync(baseDir, { recursive: true });
@@ -224,7 +224,7 @@ export async function kgLibrarianCorroborate(globals: GlobalArgs, args: Map<stri
           },
           repoRoot: globals.repoRoot,
           stateDir: globals.stateDir,
-          project: globals.project,
+          game: globals.game,
         }),
         outputDir,
         dryRun: globals.dryRunAgents,
@@ -232,10 +232,10 @@ export async function kgLibrarianCorroborate(globals: GlobalArgs, args: Map<stri
         model: globals.model,
         thinkingLevel: globals.thinkingLevel,
         timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
-        toolContext: { repoRoot: globals.repoRoot, stateDir: globals.stateDir, project: globals.project },
+        toolContext: { repoRoot: globals.repoRoot, stateDir: globals.stateDir, game: globals.game },
         kernelContext: createMeleeKernelSpawnContext({
           kind: "knowledge-curation",
-          projectId: globals.project?.projectId ?? globals.projectId,
+          gameId: globals.game?.gameId ?? globals.gameId,
           sessionId: `corroborate-${batch.batch_id}`,
           runId: runId,
           phase: "knowledge-curation",

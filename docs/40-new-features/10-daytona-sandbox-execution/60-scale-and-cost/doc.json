@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-60-scale-and-cost",
+  "title": "Scale and Cost",
+  "root": "b-day-scale-root",
+  "blocks": {
+    "b-day-scale-root": {
+      "id": "b-day-scale-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "capacity",
+          "concurrency",
+          "compile-slots",
+          "jobserver",
+          "tiers",
+          "idle-economics",
+          "host-footprint"
+        ]
+      },
+      "children": [
+        "b-day-scale-1",
+        "b-day-scale-2",
+        "b-day-scale-3",
+        "b-day-scale-4",
+        "b-day-scale-5",
+        "b-day-scale-6",
+        "b-day-scale-7",
+        "b-day-scale-8",
+        "b-day-scale-9",
+        "b-day-scale-10",
+        "b-day-scale-11",
+        "b-day-scale-12"
+      ]
+    },
+    "b-day-scale-1": {
+      "id": "b-day-scale-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "The run director's three capacity controls — worker pool, epoch ready queue, and tool/build slots — survive sandboxes intact; what changes is the mechanism behind the third and the resource the first is bounded by. Worker pool size remains the claim target and becomes a platform quota question, and compile pressure moves from shared-filesystem slot directories to orchestrator-owned admission plus per-sandbox vCPU."
+        }
+      ]
+    },
+    "b-day-scale-2": {
+      "id": "b-day-scale-2",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-13) — compile admission is orchestrator-owned",
+        "tone": "success"
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Fleet-wide compile and tool admission is enforced by the orchestrator's global jobserver behind "
+        },
+        {
+          "insert": "ORCH_GLOBAL_COMPILE_SLOTS",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", sized to sandbox vCPU. Per-epoch filesystem slot directories retire with the shared filesystem: on per-VM disks they are silently per-sandbox and enforce nothing fleet-wide."
+        }
+      ]
+    },
+    "b-day-scale-3": {
+      "id": "b-day-scale-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Sizing for 64 Concurrent Workers"
+        }
+      ]
+    },
+    "b-day-scale-4": {
+      "id": "b-day-scale-4",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Per-sandbox",
+          "64 sandboxes",
+          "Tier"
+        ],
+        "rows": [
+          [
+            "1 vCPU / 2 GiB / 4 GiB disk",
+            "64 vCPU / 128 GiB / 256 GiB",
+            "Tier 2 (100 vCPU) — fits but thin"
+          ],
+          [
+            "2 vCPU / 4 GiB / 5 GiB disk — recommended",
+            "128 vCPU / 256 GiB / 320 GiB",
+            "Tier 3 (250 vCPU); Tier 2 suffices with stop-while-thinking, since only running sandboxes hold vCPU quota"
+          ],
+          [
+            "4 vCPU / 8 GiB / 8 GiB disk",
+            "256 vCPU / 512 GiB / 512 GiB",
+            "Tier 4 or bring-your-own-compute"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-day-scale-5": {
+      "id": "b-day-scale-5",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Two vCPU per sandbox matches the hot path — single-unit incremental compiles — with only the permuter wanting more cores; creation rate limits are a non-issue at 64, and bring-your-own-compute removes the quota ceiling past roughly 120."
+        }
+      ]
+    },
+    "b-day-scale-6": {
+      "id": "b-day-scale-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Stopped sandboxes hold disk quota until archived: 64 at 5 GiB is 320 GiB, just over Tier 2's 300 GiB, so either 4 GiB per sandbox or Tier 3."
+        }
+      ]
+    },
+    "b-day-scale-7": {
+      "id": "b-day-scale-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Idle Economics"
+        }
+      ]
+    },
+    "b-day-scale-8": {
+      "id": "b-day-scale-8",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "At roughly a quarter active duty cycle — minutes of model reasoning between tool-call bursts — the lifecycle strategy dominates the bill:"
+        }
+      ]
+    },
+    "b-day-scale-9": {
+      "id": "b-day-scale-9",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Strategy",
+          "Compute billed",
+          "Added latency",
+          "Verdict"
+        ],
+        "rows": [
+          [
+            "Always running for the claim's lifetime",
+            "128 vCPU continuously",
+            "none",
+            "pays roughly fourfold for idle"
+          ],
+          [
+            "Stop while thinking",
+            "~32 vCPU effective",
+            "a wake of seconds after each long think",
+            "adopted; see Lease, Claims, and Lifecycle"
+          ],
+          [
+            "Fresh sandbox per tool call",
+            "low idle, high churn",
+            "boot, seed, and patch replay on every call",
+            "rejected; loses workspace and incremental build state"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-day-scale-10": {
+      "id": "b-day-scale-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "children": [],
+      "text": [
+        {
+          "insert": "Host Footprint"
+        }
+      ]
+    },
+    "b-day-scale-11": {
+      "id": "b-day-scale-11",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Per worker",
+          "Worktree-based execution",
+          "Sandbox-based execution"
+        ],
+        "rows": [
+          [
+            "Workspace and build output",
+            "gigabytes each; the worktrees directory totals 592 GB",
+            "zero host bytes; lives and dies in the VM"
+          ],
+          [
+            "Tool caches and permuter scratch",
+            "inside worktrees and a 190 GB state directory",
+            "zero host bytes"
+          ],
+          [
+            "Patch, validation artifacts, logs, transcripts",
+            "megabytes",
+            "the same megabytes; evidence is all that returns"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-day-scale-12": {
+      "id": "b-day-scale-12",
+      "type": "paragraph",
+      "props": {},
+      "children": [],
+      "text": [
+        {
+          "insert": "The host retains durable shared state only: the cycle repo and control clone, the knowledge stores, and the orchestrator database. Worker-count changes stop moving host disk or CPU at all, and claim cleanup is a sandbox deletion rather than worktree hygiene."
+        }
+      ]
+    }
+  }
+}

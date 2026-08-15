@@ -1,24 +1,24 @@
 import { existsSync, watch, type FSWatcher } from "node:fs";
 import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
-import { handleProjectSessionApiRoute } from "@server/api/project-session/routes";
+import { handleCycleApiRoute } from "@server/api/cycle/routes";
 import { handleAgentsApiRoute } from "@server/api/routes/agents";
 import { createCampaignStatusService } from "@server/application/dashboard/campaign-status";
 import { createDashboardKernelRuntimeService } from "@server/infrastructure/kernel/runtime";
 import { createOperationStateService } from "@server/application/dashboard/operation-state";
-import { createDashboardProjectContextService, projectToSummary } from "@server/application/dashboard/project-context";
+import { createDashboardGameContextService, gameToSummary } from "@server/application/dashboard/game-context";
 import {
   createDashboardReadModel,
-  getProjectStateView,
-  projectRunActionState,
+  getHarnessStateView,
+  gameRunActionState,
   type ActionProjection,
 } from "@server/application/dashboard/read-model";
-import { latestChildDirectory, latestPrSplitPlanSummary } from "@server/core/session-runtime/phases/pr/artifacts";
-import { createPrRecordsService } from "@server/core/session-runtime/phases/pr/pr-records";
-import { createPrSyncService } from "@server/core/session-runtime/phases/pr/pr-sync";
-import { createHandoffRuntime, localPrPreparationOperationRunning } from "@server/core/session-runtime/phases/pr/runtime";
-import { createSavePointRuntime } from "@server/core/session-runtime/phases/pr/save-points-runtime";
-import { createPrWorktreeService } from "@server/core/session-runtime/phases/pr/pr-worktrees";
+import { latestChildDirectory, latestPrSplitPlanSummary } from "@server/core/cycle-runtime/phases/pr/artifacts";
+import { createPrRecordsService } from "@server/core/cycle-runtime/phases/pr/pr-records";
+import { createPrSyncService } from "@server/core/cycle-runtime/phases/pr/pr-sync";
+import { createHandoffRuntime, localPrPreparationOperationRunning } from "@server/core/cycle-runtime/phases/pr/runtime";
+import { createSavePointRuntime } from "@server/core/cycle-runtime/phases/pr/save-points-runtime";
+import { createPrWorktreeService } from "@server/core/cycle-runtime/phases/pr/pr-worktrees";
 import { handleHandoffApiRoute } from "@server/api/routes/handoff";
 import { handleKernelApiRoute, handleKernelReadRoute } from "@server/api/routes/kernel";
 import { handleKnowledgeApiRoute } from "@server/api/routes/knowledge";
@@ -32,46 +32,46 @@ import {
   DEFAULT_PI_MODEL,
   DEFAULT_PI_PROVIDER,
   DEFAULT_PI_THINKING_LEVEL,
-} from "@server/core/project-registry/runtime-defaults.js";
+} from "@server/core/game-registry/runtime-defaults.js";
 import {
-  queryProjectEvents,
-  reconstructProjectEvents,
-  type ProjectEventQueryInput,
-  type ProjectEventReconstructionPageOptions,
-} from "@server/core/project-state/event-query";
+  queryGameEvents,
+  reconstructGameEvents,
+  type GameEventQueryInput,
+  type GameEventReconstructionPageOptions,
+} from "@server/core/harness-state/event-query";
 import {
-  buildProjectKernelTraceQuery,
-  enrichProjectEventReconstructionFromKernelReader,
+  buildGameKernelTraceQuery,
+  enrichGameEventReconstructionFromKernelReader,
   kernelTraceLinkagesFromObservations,
   readKernelTraceLinkagesFromConfiguredReader,
-  readProjectKernelAppSessionIds,
+  readGameKernelAppSessionIds,
   type KernelTraceDatabase,
   type KernelTraceEventObservation,
   type KernelTraceLinkage,
-} from "@server/core/project-state/kernel-links";
-import { createProcessControlRuntime } from "@server/core/session-runtime/phases/running/process-control/runtime";
-import { createRunControlRuntime } from "@server/core/session-runtime/phases/running/run-control-runtime";
+} from "@server/core/harness-state/kernel-links";
+import { createProcessControlRuntime } from "@server/core/cycle-runtime/phases/running/process-control/runtime";
+import { createRunControlRuntime } from "@server/core/cycle-runtime/phases/running/run-control-runtime";
 import { handleProcessControlApiRoute } from "@server/api/routes/process-control";
 import { createProcessStatusService } from "@server/application/dashboard/process-status";
-import { latestRunId } from "@server/core/session-runtime/run-state/latest-run";
-import { getRun } from "@server/core/session-runtime/run-state";
+import { latestRunId } from "@server/core/cycle-runtime/run-state/latest-run";
+import { getRun } from "@server/core/cycle-runtime/run-state";
 import { handleRunsApiRoute } from "@server/api/routes/runs";
-import { createPreparingRuntime } from "@server/core/session-runtime/phases/preparing/runtime";
-import { handleSessionsApiRoute } from "@server/api/routes/sessions";
+import { createPreparingRuntime } from "@server/core/cycle-runtime/phases/preparing/runtime";
+import { handleCyclesApiRoute } from "@server/api/routes/cycles";
 import { handleSyncApiRoute } from "@server/api/routes/sync";
-import { createSyncRuntime } from "@server/core/session-runtime/phases/sync/runtime";
+import { createSyncRuntime } from "@server/core/cycle-runtime/phases/sync/runtime";
 import { handlePrApiRoute } from "@server/api/routes/pr";
-import { createPrCampaignRuntime } from "@server/core/session-runtime/phases/pr/campaign/runtime";
+import { createPrCampaignRuntime } from "@server/core/cycle-runtime/phases/pr/campaign/runtime";
 import { createValidationRuntime } from "@server/core/validation/runtime";
 import { handleValidationApiRoute } from "@server/api/routes/validation";
 import { readRegressionReport } from "@server/core/validation/objdiff/report";
 import { createManagedProcessController, type ManagedProcessController, type ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
-import { createProjectSessionProcessMirror } from "@server/core/project-session/process-mirror";
-import { getActiveProjectSession, getProjectSessionByUuid, updateProjectSession } from "@server/core/project-session/store";
+import { createCycleProcessMirror } from "@server/core/cycle/process-mirror";
+import { getActiveCycle, getCycleByUuid, updateCycle } from "@server/core/cycle/store";
 import { openState } from "@server/core/orchestrator-state";
 import { createUiCommandRunner } from "@server/infrastructure/shell/ui-command-runner";
 import { localFontResponse } from "@server/infrastructure/http/local-fonts";
-import type { ProjectRuntimeContext, ProjectSummary, ResolvedProject } from "@server/core/project-registry";
+import type { GameRuntimeContext, GameSummary, ResolvedGame } from "@server/core/game-registry";
 import { loadKernelAgentsPayload } from "@server/core/agent-catalog/kernel-preview";
 
 type JsonObject = Record<string, unknown>;
@@ -95,19 +95,19 @@ let hotReloadWatcher: FSWatcher | null = null;
 
 let processController: ManagedProcessController;
 
-function activeProjectSessionUuid(stateDir: string, projectId: string): string | null {
+function activeCycleUuid(stateDir: string, gameId: string): string | null {
   const store = openState(stateDir);
   try {
-    return getActiveProjectSession(store.db, projectId)?.session_uuid ?? null;
+    return getActiveCycle(store.db, gameId)?.cycle_uuid ?? null;
   } finally {
     store.db.close();
   }
 }
 
-function recordProjectSessionKernelTrace(
+function recordCycleKernelTrace(
   stateDir: string,
-  projectId: string,
-  sessionUuid: string,
+  gameId: string,
+  cycleUuid: string,
   trace: {
     activeContainerId: string;
     appSessionId: string;
@@ -117,12 +117,12 @@ function recordProjectSessionKernelTrace(
 ): void {
   const store = openState(stateDir);
   try {
-    const record = getProjectSessionByUuid(store.db, sessionUuid);
-    if (!record || record.project_id !== projectId) return;
-    updateProjectSession(store.db, record.id, {
+    const record = getCycleByUuid(store.db, cycleUuid);
+    if (!record || record.game_id !== gameId) return;
+    updateCycle(store.db, record.id, {
       kernel_trace_json: {
         ...(record.kernel_trace_json ?? {}),
-        session_uuid: record.session_uuid,
+        cycle_uuid: record.cycle_uuid,
         app_session_id: trace.appSessionId,
         root_container_id: trace.rootContainerId,
         active_container_id: trace.activeContainerId,
@@ -242,22 +242,22 @@ function hotReloadEvents(): Response {
   });
 }
 
-const projectContext = createDashboardProjectContextService({
+const gameContext = createDashboardGameContextService({
   appendLog,
   defaultRepoRoot,
   defaultStateDir,
   packageRoot,
 });
 
-const projectSessionProcessMirror = createProjectSessionProcessMirror({ appendLog });
+const cycleProcessMirror = createCycleProcessMirror({ appendLog });
 
 processController = createManagedProcessController({
   packageRoot,
-  projectToSummary: (project) => projectToSummary(project as ResolvedProject) as unknown as JsonObject,
+  gameToSummary: (game) => gameToSummary(game as ResolvedGame) as unknown as JsonObject,
   mirrorProcessState: (params) =>
-    projectSessionProcessMirror.mirrorProcessStateToProjectSession({
+    cycleProcessMirror.mirrorProcessStateToCycle({
       ...params,
-      project: params.project as ResolvedProject | ProjectSummary | null | undefined,
+      game: params.game as ResolvedGame | GameSummary | null | undefined,
     }),
 });
 
@@ -265,7 +265,7 @@ const commandRunner = createUiCommandRunner({ appendLog, packageRoot });
 const operationState = createOperationStateService();
 
 const kernelRuntime = createDashboardKernelRuntimeService({
-  activeProjectSessionUuid,
+  activeCycleUuid,
   appendLog,
   defaultStateDir,
   env: Bun.env as Record<string, string | undefined>,
@@ -273,16 +273,16 @@ const kernelRuntime = createDashboardKernelRuntimeService({
   latestRunId,
   packageRoot,
   port,
-  recordProjectSessionKernelTrace,
+  recordCycleKernelTrace,
 });
 
-function projectKernelTraceHref(
-  projectId: string,
+function gameKernelTraceHref(
+  gameId: string,
   appSessionId: string,
   containerId: string,
 ): string {
   const params = new URLSearchParams({
-    projectId,
+    gameId,
     traceId: appSessionId,
     containerId,
   });
@@ -297,21 +297,21 @@ function kernelTraceRowText(value: unknown, field: string): string {
 }
 
 async function readKernelTraceLinkages(
-  projectId: string,
-  projectEventIds: readonly string[],
+  gameId: string,
+  gameEventIds: readonly string[],
   appSessionIds: readonly string[],
 ): Promise<readonly KernelTraceLinkage[]> {
   return readKernelTraceLinkagesFromConfiguredReader(
     kernelRuntime.databaseUrl(),
     appSessionIds,
-    projectEventIds,
+    gameEventIds,
     () => kernelRuntime.runtime(),
     async (current) => {
       const db = current.db as KernelTraceDatabase;
-      const rows = await buildProjectKernelTraceQuery(
+      const rows = await buildGameKernelTraceQuery(
         db,
-        projectId,
-        projectEventIds,
+        gameId,
+        gameEventIds,
         appSessionIds,
       );
       const observations = rows.flatMap((row): KernelTraceEventObservation[] => {
@@ -323,17 +323,17 @@ async function readKernelTraceLinkages(
           container_id: containerId,
           event_data: row.eventData,
           kernel_event_id: kernelEventId,
-          trace_url: projectKernelTraceHref(projectId, appSessionId, containerId),
+          trace_url: gameKernelTraceHref(gameId, appSessionId, containerId),
         }];
       });
-      return kernelTraceLinkagesFromObservations(observations, projectId, projectEventIds);
+      return kernelTraceLinkagesFromObservations(observations, gameId, gameEventIds);
     },
   );
 }
 
-function readProjectEventDatabase<T>(stateDir: string, read: (db: Database) => T): T {
+function readGameEventDatabase<T>(stateDir: string, read: (db: Database) => T): T {
   const databasePath = resolve(stateDir, "orchestrator.sqlite");
-  if (!existsSync(databasePath)) throw new Error("Project event database is unavailable");
+  if (!existsSync(databasePath)) throw new Error("Game event database is unavailable");
   const db = new Database(databasePath, { readonly: true });
   try {
     return read(db);
@@ -343,26 +343,26 @@ function readProjectEventDatabase<T>(stateDir: string, read: (db: Database) => T
 }
 
 const eventReadApi = {
-  queryEvents(stateDir: string, input: ProjectEventQueryInput) {
-    return readProjectEventDatabase(stateDir, (db) => queryProjectEvents(db, input));
+  queryEvents(stateDir: string, input: GameEventQueryInput) {
+    return readGameEventDatabase(stateDir, (db) => queryGameEvents(db, input));
   },
   async reconstructEvents(
     stateDir: string,
-    projectId: string,
+    gameId: string,
     correlationId: string,
-    options: ProjectEventReconstructionPageOptions,
+    options: GameEventReconstructionPageOptions,
   ) {
     const kernelConfigured = Boolean(kernelRuntime.databaseUrl()?.trim());
-    const { reconstruction, appSessionIds } = readProjectEventDatabase(stateDir, (db) => ({
-      reconstruction: reconstructProjectEvents(db, projectId, correlationId, options),
+    const { reconstruction, appSessionIds } = readGameEventDatabase(stateDir, (db) => ({
+      reconstruction: reconstructGameEvents(db, gameId, correlationId, options),
       appSessionIds: kernelConfigured
-        ? readProjectKernelAppSessionIds(db, projectId)
+        ? readGameKernelAppSessionIds(db, gameId)
         : [],
     }));
-    return enrichProjectEventReconstructionFromKernelReader(
+    return enrichGameEventReconstructionFromKernelReader(
       reconstruction,
-      (projectEventIds) =>
-        readKernelTraceLinkages(projectId, projectEventIds, appSessionIds),
+      (gameEventIds) =>
+        readKernelTraceLinkages(gameId, gameEventIds, appSessionIds),
     );
   },
 };
@@ -385,7 +385,7 @@ const savePoints = createSavePointRuntime({
   appendLog,
   invalidateCampaignCache: campaignStatus.invalidateCampaignCache,
   outputTail: commandRunner.outputTail,
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
   runCli: commandRunner.runCli,
   serverJobPath,
 });
@@ -395,7 +395,7 @@ const syncRuntime = createSyncRuntime({
   kernelEnabled: kernelRuntime.enabled,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   packageRoot,
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
   runCli: commandRunner.runCli,
   runGit: commandRunner.runGit,
   serverJobPath,
@@ -407,11 +407,11 @@ const prRecords = createPrRecordsService({
   latestChildDirectory,
   latestPrSplitPlanSummary,
   latestRunId,
-  sessionUuidForRun: (stateDir, runId) => {
+  cycleUuidForRun: (stateDir, runId) => {
     const store = openState(stateDir);
     try {
       const run = runId ? getRun(store, runId) : null;
-      return run?.sessionUuid ?? (run?.projectId ? getActiveProjectSession(store.db, run.projectId)?.session_uuid : null) ?? "";
+      return run?.cycleUuid ?? (run?.gameId ? getActiveCycle(store.db, run.gameId)?.cycle_uuid : null) ?? "";
     } finally {
       store.db.close();
     }
@@ -425,11 +425,11 @@ const prSync = createPrSyncService({
   latestRunId,
   outputTail: commandRunner.outputTail,
   records: prRecords,
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
   runCli: commandRunner.runCli,
 });
 
-const prWorktrees = createPrWorktreeService<ProjectRuntimeContext>({
+const prWorktrees = createPrWorktreeService<GameRuntimeContext>({
   appendLog,
   branchExists: prSync.branchExists,
   isLocalBranchPrRecord: prSync.isLocalBranchPrRecord,
@@ -445,11 +445,11 @@ const prWorktrees = createPrWorktreeService<ProjectRuntimeContext>({
 });
 
 const preparingRuntime = createPreparingRuntime({
-  activeSessionPrBlockers: prRecords.activeSessionPrBlockers,
+  activeCyclePrBlockers: prRecords.activeCyclePrBlockers,
   appendLog,
   beginOperation: operationState.beginOperation,
-  boundarySavePoint: (paths, trigger, sessionUuid, label) =>
-    savePoints.boundarySavePoint(paths as ProjectRuntimeContext, trigger, sessionUuid, label),
+  boundarySavePoint: (paths, trigger, cycleUuid, label) =>
+    savePoints.boundarySavePoint(paths as GameRuntimeContext, trigger, cycleUuid, label),
   endOperation: operationState.endOperation,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   kernelDatabaseUrl: kernelRuntime.databaseUrl,
@@ -457,14 +457,14 @@ const preparingRuntime = createPreparingRuntime({
   operationStep: operationState.operationStep,
   operationStepDetail: operationState.operationStepDetail,
   packageRoot,
-  projectToSummary,
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  gameToSummary,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
   runCli: commandRunner.runCli,
   runGit: commandRunner.runGit,
   runReport: undefined,
   serverJobPath,
   sourceRoot,
-  submitWorkflowEvent: (paths, input) => kernelRuntime.submitWorkflowEvent(paths as ProjectRuntimeContext, input),
+  submitWorkflowEvent: (paths, input) => kernelRuntime.submitWorkflowEvent(paths as GameRuntimeContext, input),
 });
 
 const processStatusService = createProcessStatusService({
@@ -479,8 +479,8 @@ const processControlRuntime = createProcessControlRuntime({
   json,
   processController,
   processStatus: processStatusService.processStatus,
-  projectToSummary,
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  gameToSummary,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
   runCli: commandRunner.runCli,
   serverJobPath,
 });
@@ -488,7 +488,7 @@ const processControlRuntime = createProcessControlRuntime({
 const runControlRuntime = createRunControlRuntime({
   drainManaged: processControlRuntime.drainManaged,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
   stopManaged: processControlRuntime.stopManaged,
 });
 
@@ -496,14 +496,14 @@ function runActionProjection(
   body: JsonObject,
   actionId: Extract<ActionProjection["action_id"], `run.${string}`>,
 ): ActionProjection {
-  const paths = projectContext.resolveDashboardProject(body, { useDefaultProject: true });
-  const bodyProjectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
-  const projectId = paths.project?.projectId ?? bodyProjectId;
-  if (!projectId) throw new Error(`Cannot project ${actionId} without a project id`);
+  const paths = gameContext.resolveDashboardGame(body, { useDefaultGame: true });
+  const bodyGameId = typeof body.gameId === "string" ? body.gameId.trim() : "";
+  const gameId = paths.game?.gameId ?? bodyGameId;
+  if (!gameId) throw new Error(`Cannot game ${actionId} without a game id`);
   const runId = typeof body.runId === "string" && body.runId.trim() ? body.runId.trim() : undefined;
   const store = openState(paths.stateDir);
   try {
-    const action = projectRunActionState(store, projectId, {
+    const action = gameRunActionState(store, gameId, {
       hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
       runId,
     }).availableActions.find((candidate) => candidate.action_id === actionId);
@@ -523,8 +523,8 @@ const handoffRuntime = createHandoffRuntime({
   prSync,
   prWorktrees,
   processControl: processControlRuntime,
-  projectToSummary,
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  gameToSummary,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
   runCli: commandRunner.runCli,
   runGit: commandRunner.runGit,
   savePoints,
@@ -535,20 +535,20 @@ const handoffRuntime = createHandoffRuntime({
 const prCampaignRuntime = createPrCampaignRuntime({
   handoff: handoffRuntime,
   prSync,
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
   runGit: commandRunner.runGit,
 });
 
 const standards = createStandardsService({
   appendLog,
-  projectDefaults: projectContext.projectDefaults,
-  projectToSummary,
+  gameDefaults: gameContext.gameDefaults,
+  gameToSummary,
 });
 
 const validationRuntime = createValidationRuntime({
   appendLog,
-  projectToSummary,
-  resolveDashboardProject: projectContext.resolveDashboardProject,
+  gameToSummary,
+  resolveDashboardGame: gameContext.resolveDashboardGame,
 });
 
 const dashboardReadModel = createDashboardReadModel({
@@ -557,10 +557,10 @@ const dashboardReadModel = createDashboardReadModel({
   campaignStatus: campaignStatus.campaignStatus,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   processStatus: processStatusService.processStatus,
-  projectToSummary,
+  gameToSummary,
   refreshSyncUpstreamObservation: (paths, observedUpstream) => syncRuntime.refreshObservation({
     observedUpstream,
-    projectId: paths.project?.projectId,
+    gameId: paths.game?.gameId,
     repoRoot: paths.repoRoot,
     stateDir: paths.stateDir,
     usePathOverrides: true,
@@ -568,7 +568,7 @@ const dashboardReadModel = createDashboardReadModel({
 });
 
 function dashboardEvents(url: URL): Response {
-  const paths = projectContext.requestPaths(url, { useDefaultProject: true });
+  const paths = gameContext.requestPaths(url, { useDefaultGame: true });
   let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
   let interval: ReturnType<typeof setInterval> | null = null;
   let lastSignature = "";
@@ -638,7 +638,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
 
   const events = await handleEventsApiRoute(req, url, {
     json,
-    projectContext,
+    gameContext,
     queryEvents: eventReadApi.queryEvents,
     reconstructEvents: eventReadApi.reconstructEvents,
   });
@@ -673,13 +673,13 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   });
   if (sync) return sync;
 
-  const sessions = await handleSessionsApiRoute(req, url, {
-    availableProjects: projectContext.availableProjects,
+  const cycles = await handleCyclesApiRoute(req, url, {
+    availableGames: gameContext.availableGames,
     dashboardEvents,
     dashboardStreamIntervalMs,
-    defaultGraphDbPath: (project) => (project as ResolvedProject | null)?.graphDbPath ?? resolve(defaultStateDir, "knowledge-graph.sqlite"),
-    defaultProject: projectContext.defaultProject,
-    defaultProjectId: (project) => (project as ResolvedProject | null)?.projectId ?? "",
+    defaultGraphDbPath: (game) => (game as ResolvedGame | null)?.graphDbPath ?? resolve(defaultStateDir, "knowledge-graph.sqlite"),
+    defaultGame: gameContext.defaultGame,
+    defaultGameId: (game) => (game as ResolvedGame | null)?.gameId ?? "",
     defaultRepoRoot,
     defaultStateDir,
     hotReloadEnabled,
@@ -689,60 +689,60 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     port,
     calculateBaselineForPrepare: preparingRuntime.calculateBaselineForPrepare,
     indexPrsForPrepare: preparingRuntime.indexPrsForPrepare,
-    projectDefaults: (project) => projectContext.projectDefaults(project as ResolvedProject | null),
-    projectToSummary: (project) => projectToSummary(project as ResolvedProject),
-    requestPaths: projectContext.requestPaths,
-    runDashboard: (paths) => dashboardReadModel.runDashboard(paths as ProjectRuntimeContext),
-    runDetails: (stateDir, runId, project) => dashboardReadModel.runDetails(stateDir, runId, project as ResolvedProject | null),
+    gameDefaults: (game) => gameContext.gameDefaults(game as ResolvedGame | null),
+    gameToSummary: (game) => gameToSummary(game as ResolvedGame),
+    requestPaths: gameContext.requestPaths,
+    runDashboard: (paths) => dashboardReadModel.runDashboard(paths as GameRuntimeContext),
+    runDetails: (stateDir, runId, game) => dashboardReadModel.runDetails(stateDir, runId, game as ResolvedGame | null),
     workerStateTrace: (stateDir, runId, workerStateId) => dashboardReadModel.workerStateTrace(stateDir, runId, workerStateId),
     syncGitForPrepare: preparingRuntime.syncGitForPrepare,
   });
-  if (sessions) return sessions;
+  if (cycles) return cycles;
 
-  const projectSession = await handleProjectSessionApiRoute(req, url, {
-    baseRefForProject: (project) => (project as ResolvedProject | null)?.baseRef ?? "origin/master",
+  const cycleResponse = await handleCycleApiRoute(req, url, {
+    baseRefForGame: (game) => (game as ResolvedGame | null)?.baseRef ?? "origin/master",
     campaignStatus: campaignStatus.campaignStatus,
     createSavePoint: savePoints.createSavePoint,
     invalidateCampaignCache: campaignStatus.invalidateCampaignCache,
     json,
-    projectIdForProject: (project) => (project as ResolvedProject | null)?.projectId ?? "",
-    requestPaths: projectContext.requestPaths,
-    submitSessionStartedTrace: async (paths, session) => {
-      const runtimePaths = paths as ProjectRuntimeContext;
-      const projectId = kernelRuntime.projectId(runtimePaths);
-      if (session.projectId !== projectId) {
+    gameIdForGame: (game) => (game as ResolvedGame | null)?.gameId ?? "",
+    requestPaths: gameContext.requestPaths,
+    submitCycleStartedTrace: async (paths, cycle) => {
+      const runtimePaths = paths as GameRuntimeContext;
+      const gameId = kernelRuntime.gameId(runtimePaths);
+      if (cycle.gameId !== gameId) {
         throw new Error(
-          `Session trace project ${session.projectId} does not match request project ${projectId}`,
+          `Cycle trace game ${cycle.gameId} does not match request game ${gameId}`,
         );
       }
-      const { resolveProjectEventTraceLinkage } = await import(
-        "@server/core/project-state/kernel-links"
+      const { resolveGameEventTraceLinkage } = await import(
+        "@server/core/harness-state/kernel-links"
       );
       const traceLinkage = (() => {
         const store = openState(runtimePaths.stateDir);
         try {
-          const durableSession = getProjectSessionByUuid(
+          const durableCycle = getCycleByUuid(
             store.db,
-            session.sessionUuid,
+            cycle.cycleUuid,
           );
-          if (!durableSession || durableSession.project_id !== projectId) {
+          if (!durableCycle || durableCycle.game_id !== gameId) {
             throw new Error(
-              `Session ${session.sessionUuid} has no durable state in project ${projectId}`,
+              `Cycle ${cycle.cycleUuid} has no durable state in game ${gameId}`,
             );
           }
-          if (!durableSession.caused_by_event_id) {
+          if (!durableCycle.caused_by_event_id) {
             throw new Error(
-              `Session ${session.sessionUuid} has no durable opening event`,
+              `Cycle ${cycle.cycleUuid} has no durable opening event`,
             );
           }
-          const linkage = resolveProjectEventTraceLinkage(
+          const linkage = resolveGameEventTraceLinkage(
             store.db,
-            projectId,
-            durableSession.caused_by_event_id,
+            gameId,
+            durableCycle.caused_by_event_id,
           );
-          if (linkage.correlationId !== session.sessionUuid) {
+          if (linkage.correlationId !== cycle.cycleUuid) {
             throw new Error(
-              `Session trace correlation ${linkage.correlationId} does not match ${session.sessionUuid}`,
+              `Cycle trace correlation ${linkage.correlationId} does not match ${cycle.cycleUuid}`,
             );
           }
           return linkage;
@@ -752,22 +752,22 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       })();
       return kernelRuntime.submitWorkflowEvent(runtimePaths, {
         kind: "session",
-        operation: "New session started",
+        operation: "New cycle started",
         status: "started",
-        sessionId: session.sessionUuid,
-        detail: "New session started.",
+        sessionId: cycle.cycleUuid,
+        detail: "New cycle started.",
         metadata: {
-          baseRef: session.baseRef,
-          baseSha: session.baseSha,
-          sessionUuid: session.sessionUuid,
+          baseRef: cycle.baseRef,
+          baseSha: cycle.baseSha,
+          cycleUuid: cycle.cycleUuid,
         },
         correlationId: traceLinkage.correlationId,
-        projectEventId: traceLinkage.projectEventId,
+        gameEventId: traceLinkage.gameEventId,
         causedByEventId: traceLinkage.causedByEventId,
       });
     },
   });
-  if (projectSession) return projectSession;
+  if (cycleResponse) return cycleResponse;
 
   const kernel = await handleKernelApiRoute(url, {
     json,
@@ -779,53 +779,53 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
 
   const agents = await handleAgentsApiRoute(url, {
     json,
-    loadKernelAgentsPayload: (paths) => loadKernelAgentsPayload(paths as ProjectRuntimeContext),
-    requestPaths: projectContext.requestPaths,
+    loadKernelAgentsPayload: (paths) => loadKernelAgentsPayload(paths as GameRuntimeContext),
+    requestPaths: gameContext.requestPaths,
   });
   if (agents) return agents;
 
   const knowledge = await handleKnowledgeApiRoute(req, url, {
     action: (body) => {
-      const paths = projectContext.resolveDashboardProject(body, { useDefaultProject: true });
-      const projectId = paths.project?.projectId ?? (typeof body.projectId === "string" ? body.projectId.trim() : "");
-      if (!projectId) throw new Error("Cannot project knowledge.process without a project id");
+      const paths = gameContext.resolveDashboardGame(body, { useDefaultGame: true });
+      const gameId = paths.game?.gameId ?? (typeof body.gameId === "string" ? body.gameId.trim() : "");
+      if (!gameId) throw new Error("Cannot resolve knowledge.process without a game id");
       const store = openState(paths.stateDir);
       try {
-        const action = getProjectStateView(store, projectId).available_actions.find(
+        const action = getHarnessStateView(store, gameId).available_actions.find(
           (candidate) => candidate.action_id === "knowledge.process",
         );
         if (!action || action.action_id !== "knowledge.process") throw new Error("Missing knowledge.process action projection");
         return {
           ...action,
           action_id: "knowledge.process" as const,
-          subject_kind: "project" as const,
+          subject_kind: "game" as const,
           confirmation_required: false as const,
         };
       } finally {
         store.db.close();
       }
     },
-    applyStandardEdit: (edit, project) => standards.applyStandardEdit(edit, project as ResolvedProject | null),
+    applyStandardEdit: (edit, game) => standards.applyStandardEdit(edit, game as ResolvedGame | null),
     json,
-    loadStandardsPayload: (project) => standards.loadStandardsPayload(project as ResolvedProject | null),
-    requestPaths: projectContext.requestPaths,
+    loadStandardsPayload: (game) => standards.loadStandardsPayload(game as ResolvedGame | null),
+    requestPaths: gameContext.requestPaths,
     triggerBackgroundKnowledgeProcess: async (paths) => {
-      const project = paths.project as ResolvedProject | undefined;
-      if (!project) throw new Error("knowledge.process requires a resolved project");
+      const game = paths.game as ResolvedGame | undefined;
+      if (!game) throw new Error("knowledge.process requires a resolved game");
       const store = openState(paths.stateDir);
       try {
         return await triggerBackgroundKnowledgeProcess(store, (job) =>
           kgLibrarianCondense({
-            repoRoot: project.repoRoot,
+            repoRoot: game.repoRoot,
             stateDir: paths.stateDir,
-            projectId: project.projectId,
-            project,
-            graphDbPath: project.graphDbPath,
+            gameId: game.gameId,
+            game,
+            graphDbPath: game.graphDbPath,
             dryRunAgents: false,
             provider: DEFAULT_PI_PROVIDER,
             model: DEFAULT_PI_MODEL,
             thinkingLevel: DEFAULT_PI_THINKING_LEVEL,
-            agentTimeoutSeconds: project.dashboard.agentTimeoutSeconds,
+            agentTimeoutSeconds: game.dashboard.agentTimeoutSeconds,
           }, new Map<string, string | true>([
             ["--worker-state-id", job.workerStateId],
             ["--run-id", typeof job.provenance.run_id === "string" ? job.provenance.run_id : ""],
@@ -845,8 +845,8 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     drainManaged: processControlRuntime.drainManaged,
     finishEpochNow: processControlRuntime.finishEpochNow,
     json,
-    processStatus: (stateDir, project) => processStatusService.processStatus(stateDir, project as ResolvedProject | null),
-    requestPaths: projectContext.requestPaths,
+    processStatus: (stateDir, game) => processStatusService.processStatus(stateDir, game as ResolvedGame | null),
+    requestPaths: gameContext.requestPaths,
     runActionProjection,
     startManagedProcess: processControlRuntime.startManagedProcess,
     stopManaged: processControlRuntime.stopManaged,

@@ -10,12 +10,12 @@ import {
   type WorkerUnitScoreSnapshot,
 } from "@server/core/agent-catalog/agents/running/worker";
 import { defaultWorkerToolProfile } from "@server/core/tools";
-import { parse } from "../src/core/project-registry/runtime-options.js";
-import { buildPrSplitPlanFromChanges } from "../src/core/session-runtime/phases/pr/jobs/pr-split-plan.js";
-import { workerOpenSlots } from "../src/core/session-runtime/phases/running/scheduler/run-loop.js";
-import { agentNoteSignalsToolError, workerAttemptRepairReasons } from "../src/core/session-runtime/phases/running/workers/worker-cycle.js";
+import { parse } from "../src/core/game-registry/runtime-options.js";
+import { buildPrSplitPlanFromChanges } from "../src/core/cycle-runtime/phases/pr/jobs/pr-split-plan.js";
+import { workerOpenSlots } from "../src/core/cycle-runtime/phases/running/scheduler/run-loop.js";
+import { agentNoteSignalsToolError, workerAttemptRepairReasons } from "../src/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { loadKnowledgeBoardSnapshot, openKnowledgeGraph } from "@server/core/knowledge";
-import { planRegressionRepair } from "@server/core/session-runtime/phases/running/epochs";
+import { planRegressionRepair } from "@server/core/cycle-runtime/phases/running/epochs";
 import { evaluatePrPromotion, readRegressionReport } from "@server/core/validation/objdiff/report";
 import {
   activeClaimsForRun,
@@ -30,8 +30,8 @@ import {
   schedulableTargetCount,
   startSchedulerEpoch,
   updateRunStatus,
-} from "@server/core/session-runtime/run-state";
-import { listProjects, resolveProject } from "@server/core/project-registry";
+} from "@server/core/cycle-runtime/run-state";
+import { listGames, resolveGame } from "@server/core/game-registry";
 import { scoreOrPercent, scorePairLooksPercent } from "../../frontend/src/lib/format.js";
 import { loadTrustedReport } from "../src/core/validation/report/trusted-report.js";
 import { fetchServer } from "../src/server.js";
@@ -197,22 +197,22 @@ async function main(): Promise<void> {
   const parsedDefaultState = parse(["--repo-root", fixtureRoot, "status"]);
   assertSmoke("server job default state dir follows command cwd", parsedDefaultState.globals.stateDir === resolve(process.cwd(), ".decomp-orchestrator-state"));
   assertSmoke("server job default state dir does not follow repo root", parsedDefaultState.globals.stateDir !== resolve(fixtureRoot, ".decomp-orchestrator-state"));
-  const parsedProject = parse(["--project", "melee", "status"]);
-  assertSmoke("server job project flag resolves project identity", parsedProject.globals.project?.projectId === "melee");
-  assertSmoke("server job project flag resolves project state dir", parsedProject.globals.stateDir.endsWith("projects/melee/state"));
+  const parsedGame = parse(["--game", "melee", "status"]);
+  assertSmoke("server job game flag resolves game identity", parsedGame.globals.game?.gameId === "melee");
+  assertSmoke("server job game flag resolves game state dir", parsedGame.globals.stateDir.endsWith("games/melee/state"));
 
-  const projectWorkspace = await mkdtemp(join(tmpdir(), "decomp-orchestrator-projects-"));
-  const projectDir = resolve(projectWorkspace, "projects/fixture");
-  const externalRepo = resolve(projectWorkspace, "external-checkout");
-  const explicitStateDir = resolve(projectWorkspace, "explicit-state");
-  await mkdir(projectDir, { recursive: true });
+  const gameWorkspace = await mkdtemp(join(tmpdir(), "decomp-orchestrator-games-"));
+  const gameDir = resolve(gameWorkspace, "games/fixture");
+  const externalRepo = resolve(gameWorkspace, "external-checkout");
+  const explicitStateDir = resolve(gameWorkspace, "explicit-state");
+  await mkdir(gameDir, { recursive: true });
   await mkdir(externalRepo, { recursive: true });
   await writeFile(
-    resolve(projectDir, "project.json"),
+    resolve(gameDir, "game.json"),
     JSON.stringify(
       {
         id: "fixture",
-        displayName: "Fixture Project",
+        displayName: "Fixture Game",
         kind: "fixture-decomp",
         repoRoot: "./checkout",
         stateDir: "./state",
@@ -225,7 +225,7 @@ async function main(): Promise<void> {
     ),
   );
   await writeFile(
-    resolve(projectDir, "local.project.json"),
+    resolve(gameDir, "local.game.json"),
     JSON.stringify(
       {
         repoRoot: externalRepo,
@@ -235,20 +235,20 @@ async function main(): Promise<void> {
       2,
     ),
   );
-  const resolvedProject = resolveProject({
-    orchestratorRoot: projectWorkspace,
-    projectId: "fixture",
+  const resolvedGame = resolveGame({
+    orchestratorRoot: gameWorkspace,
+    gameId: "fixture",
     explicitOverrides: { stateDir: explicitStateDir },
   });
-  assertSmoke("project resolver preserves descriptor identity", resolvedProject.projectId === "fixture" && resolvedProject.kind === "fixture-decomp");
-  assertSmoke("project resolver lets local override repo root win", resolvedProject.repoRoot === externalRepo);
-  assertSmoke("project resolver lets explicit state dir win", resolvedProject.stateDir === explicitStateDir);
-  assertSmoke("project resolver uses local graph override", resolvedProject.graphDbPath === resolve(projectDir, "graph/local.sqlite"));
-  assertSmoke("project resolver reports local override path", resolvedProject.localOverridePath === resolve(projectDir, "local.project.json"));
-  assertSmoke("project listing returns configured fixture", listProjects({ orchestratorRoot: projectWorkspace }).some((project) => project.id === "fixture"));
-  assertSmoke("project resolver rejects missing ids", (() => {
+  assertSmoke("game resolver preserves descriptor identity", resolvedGame.gameId === "fixture" && resolvedGame.kind === "fixture-decomp");
+  assertSmoke("game resolver lets local override repo root win", resolvedGame.repoRoot === externalRepo);
+  assertSmoke("game resolver lets explicit state dir win", resolvedGame.stateDir === explicitStateDir);
+  assertSmoke("game resolver uses local graph override", resolvedGame.graphDbPath === resolve(gameDir, "graph/local.sqlite"));
+  assertSmoke("game resolver reports local override path", resolvedGame.localOverridePath === resolve(gameDir, "local.game.json"));
+  assertSmoke("game listing returns configured fixture", listGames({ orchestratorRoot: gameWorkspace }).some((game) => game.id === "fixture"));
+  assertSmoke("game resolver rejects missing ids", (() => {
     try {
-      resolveProject({ orchestratorRoot: projectWorkspace, projectId: "missing" });
+      resolveGame({ orchestratorRoot: gameWorkspace, gameId: "missing" });
       return false;
     } catch {
       return true;

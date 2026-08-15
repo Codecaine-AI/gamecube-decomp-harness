@@ -129,6 +129,44 @@ def tu_owns_address(repo_root: Path | str, tu_rel_path: str, address: int) -> bo
     return False
 
 
+def tu_address_relation(
+    repo_root: Path | str,
+    tu_rel_path: str,
+    address: int,
+    section: str,
+    size: int | None = None,
+) -> dict[str, Any] | None:
+    """Return proof that data lies inside or exactly adjacent to a TU range.
+
+    Splits use half-open ranges. ``address == end`` is therefore the first
+    symbol just past the TU; when size is known, ``address + size == start``
+    proves exact adjacency on the other side. No fuzzy distance is used.
+    """
+
+    if section not in DATA_SECTIONS:
+        return None
+    ranges = tu_section_ranges(repo_root, tu_rel_path).get(section, [])
+    for start, end in ranges:
+        relation: str | None = None
+        boundary: str | None = None
+        if start <= address < end:
+            relation = "inside"
+        elif address == end:
+            relation = "adjacent"
+            boundary = "after_end"
+        elif size is not None and address + size == start:
+            relation = "adjacent"
+            boundary = "before_start"
+        if relation is not None:
+            return {
+                "relation": relation,
+                "boundary": boundary,
+                "section": section,
+                "range": [start, end],
+            }
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True, help="Melee repo root.")

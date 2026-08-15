@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ensurePromptNodeIds } from "@prompt-kit-next";
-import { PromptInlineLab, type LabContextPreview } from "@prompt-kit-next/ui/lab";
+import { ensurePromptNodeIds } from "@codecaine-ai/prompt-kit";
+import { PromptInlineLab, type LabContextPreview } from "@codecaine-ai/prompt-kit/ui/lab";
 import {
   PromptStyleSidebar,
   PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH,
   clampPromptStyleSidebarWidth,
   usePromptStyleSettings,
-} from "@prompt-kit-next/ui/style";
+} from "@codecaine-ai/prompt-kit/ui/style";
 import {
   fetchKernelAgents,
   type KernelAgentDefinition,
@@ -90,7 +90,7 @@ export function AgentsPage({ form }: { form: FormState }) {
     return () => {
       cancelled = true;
     };
-  }, [form.graphDbPath, form.projectId, form.repoRoot, form.stateDir, form.usePathOverrides]);
+  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides]);
 
   return (
     <div className="kernel-reference-workspace min-h-0 flex-1 overflow-auto bg-background p-4 font-sans text-foreground">
