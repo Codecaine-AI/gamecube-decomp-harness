@@ -90,14 +90,32 @@ fi
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/melee-image-bundle.XXXXXX")
 trap 'rm -rf "$TMP_ROOT"' EXIT INT TERM
 PAYLOAD="$TMP_ROOT/daytona-melee-image"
+SHALLOW_REPO="$TMP_ROOT/shallow"
 mkdir -p "$PAYLOAD/melee" "$PAYLOAD/provenance/wibo-1.2.0-opt1" \
   "$PAYLOAD/provenance/objdiff-cli-3.6.1-score" "$PAYLOAD/image-tools"
 
 echo "Copying configured Melee checkout..." >&2
-# A live macOS checkout can contain Git's fsmonitor Unix socket. It is transient,
-# cannot be archived, and must not prevent packaging the remaining Git metadata.
-tar -C "$CHECKOUT" --exclude='./.git/fsmonitor--daemon.ipc' -cf - . | \
+# Exclude measured local-development dead weight, including AI corpora that policy
+# forbids in sandboxes. The live fsmonitor socket is transient and unarchivable.
+tar -C "$CHECKOUT" \
+  --exclude='./ai_docs' \
+  --exclude='./build/orchestrator-direct-compile' \
+  --exclude='./build/mwcc-dump' \
+  --exclude='./build/cargo' \
+  --exclude='./.venv' \
+  --exclude='./.cache' \
+  --exclude='./.decomp-orchestrator-state' \
+  --exclude='./.git' \
+  --exclude='./.git/fsmonitor--daemon.ipc' \
+  -cf - . | \
   tar -C "$PAYLOAD/melee" -xf -
+
+BAKED_HEAD=$(git -C "$CHECKOUT" rev-parse --verify 'HEAD^{commit}')
+git clone --quiet --depth 1 --no-checkout "file://$CHECKOUT" "$SHALLOW_REPO"
+[ "$(git -C "$SHALLOW_REPO" rev-parse --verify 'HEAD^{commit}')" = "$BAKED_HEAD" ] || \
+  die "shallow clone HEAD does not match checkout HEAD"
+cp -a "$SHALLOW_REPO/.git" "$PAYLOAD/melee/.git"
+printf '%s\n' "$BAKED_HEAD" > "$PAYLOAD/provenance/melee-baked-head.txt"
 cp -a "$WIBO_DIR/README.md" "$WIBO_DIR/wibo-opt-vs-upstream-e8f4795.patch" \
   "$PAYLOAD/provenance/wibo-1.2.0-opt1/"
 cp -a "$OBJDIFF_DIR/README.md" "$PAYLOAD/provenance/objdiff-cli-3.6.1-score/"
