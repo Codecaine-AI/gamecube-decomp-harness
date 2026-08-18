@@ -18,7 +18,10 @@
           "validation-state",
           "integration",
           "merge-on-finish",
-          "tool-slots"
+          "tool-slots",
+          "job",
+          "claim-token",
+          "jobs-table"
         ]
       },
       "children": [
@@ -59,7 +62,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Target-claim write sets, worker workspaces, integration validation, and shared artifact safety."
+          "insert": "ClaimToken-fenced worker writes, target-claim write sets, host-provisioned workspaces, integration jobs, and shared artifact safety."
         }
       ],
       "children": []
@@ -70,7 +73,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Write safety starts with category-typed target-claim write sets and isolated\nworker workspaces. The state substrate records who owns a target, which approved\npaths and categories that worker may touch, and whether a banked checkpoint is\ntentative, confirmed, or regressed."
+          "insert": "Write safety combines category-typed target-claim write sets with a job-lease fence. The state substrate records which job owns the target, which approved paths and categories its worker may touch, and whether a banked checkpoint is tentative, confirmed, or regressed. Every durable worker write presents the current ClaimToken; lease expiry rejects stale writes inside the same transaction that would change worker state."
         }
       ],
       "children": []
@@ -94,7 +97,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Before editing, a worker receives a target claim whose initial write set contains\nthe target source. The worker edits only approved paths. A necessary path outside\nthat set requires a handoff-note widening request with lower-rung evidence; an\nunrequested path is categorized, recorded in telemetry, and returned as a repair\nreason instead of being silently dropped or allowed to bank."
+          "insert": "The host atomically claims a worker job and epoch target, provisions the worktree, and gives the child a TaskSpec plus the minted ClaimToken. The initial write set contains the target source. recordWorkerCheckpoint, closeWorkerState, widenClaimWriteSet, setClaimWorktreePath, appendWorkerSessionId, and updateWorkerStateBaselineScore accept that token or an explicit host authority marker; a necessary path outside the set still requires an evidence-backed widening request."
         }
       ],
       "children": []
@@ -378,7 +381,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The integration record carries checkpoint metadata, patch paths, category-typed\nwrite sets, widening decisions, scoped-check evidence, conflict paths, target\nidentity, and validation state. The runner owns serial application and boundary\ntruth. The conflict-resolver agent edits only the supplied conflict group and\nreturns a resolved patch or an operator-visible conflict disposition."
+          "insert": "A job of kind integration serializes application for one run through its concurrency_key and runId-scoped claim. Its 15-minute lease is the application liveness fence. The durable integration_outcomes row carries checkpoint metadata, patch paths, category-typed write sets, widening decisions, scoped-check evidence, conflict paths, target identity, and validation state; result_ref connects the dispatch job to that domain evidence. The conflict-resolver lane consumes outcomes and edits only the supplied conflict group."
         }
       ],
       "children": []
@@ -576,7 +579,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "10-system-design/50-workflows/30-pr/10-score-gate-and-handoff",
+              "path": "10-system-design/50-workflows/30-pr/20-score-gate-and-handoff",
               "label": "Score integration and PR handoff"
             }
           }

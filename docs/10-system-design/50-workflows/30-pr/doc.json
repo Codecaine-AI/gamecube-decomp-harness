@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "10-system-design-50-ship-and-pr-00-overview",
+  "id": "10-system-design-50-workflows-30-pr",
   "title": "PR Workflow",
   "root": "b-30-pr-root-24",
   "blocks": {
@@ -14,6 +14,11 @@
         "b-30-pr-score-integration-and-qa-3",
         "b-30-pr-a-stable-split-point-tra-6",
         "b-30-pr-pr-execution-is-separate-9",
+        "b-30-pr-process-overview-25",
+        "b-30-pr-pr-process-canvas-32",
+        "b-30-pr-process-classification-26",
+        "b-30-pr-process-qa-split-27",
+        "b-30-pr-process-campaign-28",
         "b-30-pr-queue-workers-12",
         "b-30-pr-the-pr-phase-schedules-i-13",
         "b-30-pr-the-splitter-proposes-re-14",
@@ -21,7 +26,9 @@
         "b-30-pr-the-fixer-resolves-claim-16",
         "b-30-pr-the-qa-repair-agent-repa-17",
         "b-30-pr-in-this-section-18",
+        "b-30-pr-pr-state-29",
         "b-30-pr-score-gate-and-handoff-19",
+        "b-30-pr-qa-ship-gate-31",
         "b-30-pr-campaign-and-tracking-21",
         "b-30-pr-cycle-intake-upstream-23"
       ]
@@ -41,7 +48,25 @@
           }
         },
         {
-          "insert": ", may hold the dispatch lease during active PR work, and runs reviewer, fixer, splitter, and QA-repair agents as queue workers. Score and QA gates decide what ships, while one durable PR campaign owns the resulting review series from a stable split point through operator-confirmed closure."
+          "insert": ", may hold the "
+        },
+        {
+          "insert": "dispatch lease",
+          "attributes": {
+            "link": "../../40-harness-state/20-dispatch-authority"
+          }
+        },
+        {
+          "insert": " during active PR work, and runs reviewer, fixer, splitter, and QA-repair agents as queue workers. Score and QA gates decide what ships, while one "
+        },
+        {
+          "insert": "durable PR campaign",
+          "attributes": {
+            "link": "./40-campaign-and-tracking"
+          }
+        },
+        {
+          "insert": " owns the resulting review series from a stable split point through operator-confirmed closure."
         }
       ],
       "children": []
@@ -185,6 +210,106 @@
       ],
       "children": []
     },
+    "b-30-pr-process-overview-25": {
+      "id": "b-30-pr-process-overview-25",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Process Overview"
+        }
+      ],
+      "children": []
+    },
+    "b-30-pr-pr-process-canvas-32": {
+      "id": "b-30-pr-pr-process-canvas-32",
+      "type": "canvas",
+      "props": {
+        "src": "./assets/canvases/pr-process.canvas.json",
+        "title": "PR process"
+      },
+      "children": []
+    },
+    "b-30-pr-process-classification-26": {
+      "id": "b-30-pr-process-classification-26",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The run's end-of-run classification separates boundary-confirmed exact matches from improvements and blocked candidates, yielding the eligible ship set while retaining everything else as durable local evidence. The "
+        },
+        {
+          "insert": "promotion gate",
+          "attributes": {
+            "link": "./20-score-gate-and-handoff"
+          }
+        },
+        {
+          "insert": " then combines score integration, regression protection, and validation evidence to classify that result as pr_ready, local_only, or blocked."
+        }
+      ],
+      "children": []
+    },
+    "b-30-pr-process-qa-split-27": {
+      "id": "b-30-pr-process-qa-split-27",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Before anything ships, the "
+        },
+        {
+          "insert": "QA ship gate",
+          "attributes": {
+            "link": "./30-qa-ship-gate"
+          }
+        },
+        {
+          "insert": " screens the eligible files for score-inflating hacks and routes findings through its repair lane instead of allowing metric gains to override source quality. The split plan then cuts the surviving ship set into a review-sized series at a stable split point, preserving file assignment, lane eligibility, dependency evidence, and validation boundaries."
+        }
+      ],
+      "children": []
+    },
+    "b-30-pr-process-campaign-28": {
+      "id": "b-30-pr-process-campaign-28",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "One "
+        },
+        {
+          "insert": "durable campaign",
+          "attributes": {
+            "link": "./40-campaign-and-tracking"
+          }
+        },
+        {
+          "insert": " owns that series through operator-confirmed publication batches, background review observation, and review-and-repair fixer cycles until every series is merged or closed and the operator confirms campaign closure. The workflow-local "
+        },
+        {
+          "insert": "campaign and series progress",
+          "attributes": {
+            "link": "./10-pr-state"
+          }
+        },
+        {
+          "insert": " semantics explain how that work advances, while the canonical "
+        },
+        {
+          "insert": "PrCampaignState and PrSeriesState",
+          "attributes": {
+            "link": "../../40-harness-state/10-state-composition/60-pr-state"
+          }
+        },
+        {
+          "insert": " shapes keep the durable representation defined once at the harness-state tier."
+        }
+      ],
+      "children": []
+    },
     "b-30-pr-queue-workers-12": {
       "id": "b-30-pr-queue-workers-12",
       "type": "heading",
@@ -274,6 +399,38 @@
       ],
       "children": []
     },
+    "b-30-pr-pr-state-29": {
+      "id": "b-30-pr-pr-state-29",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "PR State",
+          "attributes": {
+            "bold": true,
+            "link": "./10-pr-state"
+          }
+        }
+      ],
+      "children": [
+        "b-30-pr-pr-state-description-30"
+      ]
+    },
+    "b-30-pr-pr-state-description-30": {
+      "id": "b-30-pr-pr-state-description-30",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Defines the workflow-local status and progress semantics for campaigns, series, and review feedback work items."
+        }
+      ],
+      "children": []
+    },
     "b-30-pr-score-gate-and-handoff-19": {
       "id": "b-30-pr-score-gate-and-handoff-19",
       "type": "list-item",
@@ -284,7 +441,8 @@
         {
           "insert": "Score Gate and Handoff",
           "attributes": {
-            "bold": true
+            "bold": true,
+            "link": "./20-score-gate-and-handoff"
           }
         }
       ],
@@ -300,7 +458,39 @@
       },
       "text": [
         {
-          "insert": "Defines score integration, regression protection, QA gates, split planning, and the stable-point handoff into PR work."
+          "insert": "Defines end-of-run classification, score integration, regression protection, promotion decisions, split planning, and the stable-point handoff into PR work."
+        }
+      ],
+      "children": []
+    },
+    "b-30-pr-qa-ship-gate-31": {
+      "id": "b-30-pr-qa-ship-gate-31",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "QA Ship Gate",
+          "attributes": {
+            "bold": true,
+            "link": "./30-qa-ship-gate"
+          }
+        }
+      ],
+      "children": [
+        "b-30-pr-qa-ship-gate-description-32"
+      ]
+    },
+    "b-30-pr-qa-ship-gate-description-32": {
+      "id": "b-30-pr-qa-ship-gate-description-32",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Defines the layered QA defense against score-inflating hacks, its deliberate failure asymmetry, and the repair lane that disposes of findings before split planning."
         }
       ],
       "children": []
@@ -315,7 +505,8 @@
         {
           "insert": "Campaign and Tracking",
           "attributes": {
-            "bold": true
+            "bold": true,
+            "link": "./40-campaign-and-tracking"
           }
         }
       ],
@@ -342,7 +533,16 @@
       "props": {},
       "text": [
         {
-          "insert": "Cycle intake, upstream reconciliation, and cycle closure belong to the game cycle workflow."
+          "insert": "Cycle intake, upstream reconciliation, and cycle closure belong to the "
+        },
+        {
+          "insert": "game cycle workflow",
+          "attributes": {
+            "link": "../../30-games/30-cycles"
+          }
+        },
+        {
+          "insert": "."
         }
       ],
       "children": []

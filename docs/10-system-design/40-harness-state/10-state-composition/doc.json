@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "03-state-and-events-05-harness-state-and-authority-10-harness-state-composition-doc-json-60b39358",
+  "id": "10-system-design-40-harness-state-10-state-composition",
   "title": "State Composition",
   "root": "b-10-state-composition-root-16",
   "blocks": {
@@ -11,12 +11,22 @@
         "concepts": [
           "harness-state",
           "workflow-state",
-          "state-envelope"
+          "state-envelope",
+          "job",
+          "kind",
+          "claim-token",
+          "executor",
+          "jobs-table"
         ],
         "covers": "The vertical state composition from canonical game state through shared workflow metadata and domain-owned workflow state."
       },
       "children": [
         "b-10-state-composition-harness-state-is-read-fr-1",
+        "b-10-state-composition-composition-at-a-glance-17",
+        "b-10-state-composition-composition-tree-18",
+        "b-10-state-composition-job-vocabulary-21",
+        "b-10-state-composition-state-composition-tree-20",
+        "b-10-state-composition-the-layers-19",
         "b-10-state-composition-canonical-harness-state-2",
         "b-10-state-composition-workflow-state-envelope-4",
         "b-10-state-composition-cycle-state-30-ses-6",
@@ -32,7 +42,64 @@
       "props": {},
       "text": [
         {
-          "insert": "Game state is read from the canonical game aggregate down through shared workflow metadata and domain-owned state. Read these pages in order to separate game-wide composition from the lifecycle and payload owned by each workflow."
+          "insert": "HarnessState is one composed aggregate read at a single game revision. The canonical game aggregate and domain records explain workflow truth, while the shared jobs table records dispatch truth for worker, knowledge_absorption, sync_publication, and integration work. A job points through result_ref to domain evidence instead of embedding that evidence in queue state."
+        }
+      ],
+      "children": []
+    },
+    "b-10-state-composition-composition-at-a-glance-17": {
+      "id": "b-10-state-composition-composition-at-a-glance-17",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Composition at a Glance"
+        }
+      ],
+      "children": []
+    },
+    "b-10-state-composition-composition-tree-18": {
+      "id": "b-10-state-composition-composition-tree-18",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The composition tree runs HarnessState through dispatch authority and the five domain views. The jobs table is the durable cross-workflow dispatch ledger beside those views; the dispatch lease authorizes host dispatch, while a claimed worker job mints the ClaimToken that fences worker-state writes."
+        }
+      ],
+      "children": []
+    },
+    "b-10-state-composition-state-composition-tree-20": {
+      "id": "b-10-state-composition-state-composition-tree-20",
+      "type": "canvas",
+      "props": {
+        "src": "./assets/canvases/state-composition-tree.canvas.json",
+        "title": "State composition tree"
+      },
+      "children": []
+    },
+    "b-10-state-composition-job-vocabulary-21": {
+      "id": "b-10-state-composition-job-vocabulary-21",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A job is one durable request for executable work in the jobs table. Its kind selects the registered descriptor and consumer policy. A ClaimToken is the {jobId, kind, leaseId} fence minted by claim and required for durable worker writes. An executor is the WorkerExecutor port that submits, polls, collects, or cancels a task; local uses LocalProcessExecutor, while sandbox reserves the same port for a future Daytona adapter."
+        }
+      ],
+      "children": []
+    },
+    "b-10-state-composition-the-layers-19": {
+      "id": "b-10-state-composition-the-layers-19",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The Layers"
         }
       ],
       "children": []
@@ -249,7 +316,7 @@
       },
       "text": [
         {
-          "insert": "Defines background queue, processing, publication, freshness, and failure state."
+          "insert": "Defines knowledge freshness and failure projections derived from knowledge_absorption and sync_publication jobs plus their domain publication evidence."
         }
       ],
       "children": []

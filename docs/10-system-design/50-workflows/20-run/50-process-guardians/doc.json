@@ -14,7 +14,7 @@
           "process-wrapper",
           "health-events",
           "recovery",
-          "trigger-actors"
+          "job-consumer"
         ]
       },
       "children": [
@@ -108,10 +108,6 @@
                 "kind": "note"
               },
               {
-                "text": "recovers failed claims",
-                "kind": "note"
-              },
-              {
                 "text": "restarts system process",
                 "kind": "note"
               }
@@ -121,19 +117,10 @@
             "text": "Decomp system process",
             "steps": [
               {
-                "text": "Trigger actor",
+                "text": "Run loop",
                 "steps": [
                   {
-                    "text": "scheduler tick, fill worker slots, sleep",
-                    "kind": "note"
-                  }
-                ]
-              },
-              {
-                "text": "Scheduler",
-                "steps": [
-                  {
-                    "text": "epoch intent",
+                    "text": "scheduler, worker consumer, integration drain, reapers, epoch boundary",
                     "kind": "note"
                   }
                 ]
@@ -159,7 +146,16 @@
       "props": {},
       "text": [
         {
-          "insert": "The run loop lives inside the decomp system process. It advances durable run\nstate by running deterministic scheduler ticks and realizing worker slots.\nThe guardian wraps that process boundary and handles liveness, crash recovery,\nand incident artifacts."
+          "insert": "The run loop lives inside the decomp system process. It advances durable run\nstate by running deterministic "
+        },
+        {
+          "insert": "scheduler ticks",
+          "attributes": {
+            "link": "../20-director-loop"
+          }
+        },
+        {
+          "insert": ", hosting the worker consumer, draining integration work, and reaping expired jobs and target claims. babysit supervises this run-loop process as an opaque child; it does not parse worker commands or maintain command allowlists."
         }
       ],
       "children": []
@@ -222,7 +218,16 @@
       },
       "text": [
         {
-          "insert": "The system process exits while active workers remain in durable state."
+          "insert": "The system process exits while "
+        },
+        {
+          "insert": "active workers",
+          "attributes": {
+            "link": "../40-workers/10-lifecycle"
+          }
+        },
+        {
+          "insert": " remain in durable state."
         }
       ],
       "children": []
@@ -281,7 +286,16 @@
       "props": {},
       "text": [
         {
-          "insert": "The run loop owns decomp-system wakeups. It handles durable events with the\ndeterministic scheduler, and it may also write a "
+          "insert": "The run loop owns decomp-system wakeups. It handles "
+        },
+        {
+          "insert": "durable events",
+          "attributes": {
+            "link": "../../../40-harness-state/60-event-handshake"
+          }
+        },
+        {
+          "insert": " with the\ndeterministic scheduler, and it may also write a "
         },
         {
           "insert": "pool_below_target",
@@ -362,7 +376,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Those run-loop-produced wake events ask the scheduler to admit, reprioritize,\nor back off according to policy. The run loop does not edit source or perform\ndecomp research; it only applies durable scheduling policy and starts workers."
+          "insert": "Those run-loop-produced wake events ask the scheduler to admit, reprioritize, or back off according to policy. The run loop does not edit source or perform decomp research; it applies durable scheduling policy and hosts the consumers and recovery lanes that execute jobs."
         }
       ],
       "children": []
@@ -399,7 +413,7 @@
       },
       "text": [
         {
-          "insert": "Capture stdout, stderr, parsed trigger result, and status summary."
+          "insert": "Capture the run-loop process exit, stderr, and status summary."
         }
       ],
       "children": []
@@ -425,7 +439,7 @@
       },
       "text": [
         {
-          "insert": "Recover failed worker claims when the failed worker id is known."
+          "insert": "Leave worker-job settlement and claim recovery to the restarted run loop, whose durable jobs and worker states preserve the required evidence."
         }
       ],
       "children": []
@@ -438,7 +452,7 @@
       },
       "text": [
         {
-          "insert": "Recover expired claims for broader process incidents."
+          "insert": "The restarted run loop reaps expired job leases and target claims before claiming more work."
         }
       ],
       "children": []

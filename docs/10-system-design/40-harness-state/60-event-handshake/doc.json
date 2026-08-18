@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "10-system-design-03-state-and-events-30-event-handshake-index",
+  "id": "10-system-design-40-harness-state-60-event-handshake",
   "title": "Event Handshake",
   "root": "b-index-root-21",
   "blocks": {
@@ -59,13 +59,22 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "docs/10-system-design/40-harness-state/50-game-events.mdx",
+              "path": "10-system-design/40-harness-state/50-game-events",
               "label": "game event"
             }
           }
         },
         {
-          "insert": " and updates RunState under its expected revision in one transaction. The transition increments revision once and points "
+          "insert": " and updates RunState in "
+        },
+        {
+          "insert": "HarnessState",
+          "attributes": {
+            "link": "../10-state-composition/10-harness-state"
+          }
+        },
+        {
+          "insert": " under its expected revision in one transaction. The transition increments revision once and points "
         },
         {
           "insert": "caused_by_event_id",
@@ -410,7 +419,16 @@
       "props": {},
       "text": [
         {
-          "insert": "A dispatch transfer validates the participating state and lease revisions, persists the release and acquisition facts, and stores one immutable handoff snapshot in a single transaction. The release event carries the snapshot reference and content identity with the old holder and terminal revision; the acquisition event references that same snapshot with the new lease and accepted state revision. Consumers follow and verify the stored reference instead of reconstructing handoff state from event payload fragments."
+          "insert": "A dispatch transfer stores one immutable handoff snapshot with the release and acquisition facts, giving both sides a shared, verifiable handoff identity. The payload and transactional identity rules are owned by "
+        },
+        {
+          "insert": "dispatch, cycle, and replay events",
+          "attributes": {
+            "link": "../50-game-events/30-dispatch-cycle-and-replay"
+          }
+        },
+        {
+          "insert": "."
         }
       ],
       "children": []
@@ -434,16 +452,16 @@
       "props": {},
       "text": [
         {
-          "insert": "Every accepted game-event transaction writes its outgoing delivery records to a durable spool in the same commit. Each delivery has a deterministic identity derived from "
+          "insert": "Accepted game-event transactions spool outgoing deliveries durably, and replay uses stable delivery identities so retries cannot create a second accepted fact. The ordering, acknowledgement, and duplicate-delivery rules are owned by "
         },
         {
-          "insert": "event_id",
+          "insert": "dispatch, cycle, and replay events",
           "attributes": {
-            "code": true
+            "link": "../50-game-events/30-dispatch-cycle-and-replay"
           }
         },
         {
-          "insert": " and destination. Replay uses that identity transactionally with the consumer effect, so a crash before acknowledgement retries the same delivery and a duplicate becomes an acknowledged no-op rather than a second transition. A delivery is cleared only after acceptance is durable."
+          "insert": "."
         }
       ],
       "children": []

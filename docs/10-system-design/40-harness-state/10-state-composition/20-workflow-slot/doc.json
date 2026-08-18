@@ -59,7 +59,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Every durable cycle, sync, run, and PR campaign state extends one StateEnvelope. The envelope gives generic consumers stable identity, transition ordering, status, tracing, blockers, and a link to current dispatch authority without replacing domain-owned workflow payloads."
+          "insert": "Every durable cycle, sync, run, and PR campaign state extends one StateEnvelope. The envelope gives generic consumers stable identity, transition ordering, status, tracing, and blockers without replacing domain-owned workflow payloads; authority remains a HarnessState concern."
         }
       ],
       "children": []
@@ -165,16 +165,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The domain object extends this base with its own payload and status enum. Cycle state uses the envelope for durable identity and lineage but does not acquire dispatch authority; its "
-        },
-        {
-          "insert": "authority",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " field remains null. Sync, run, and PR state link to the current lease only while they own it."
+          "insert": "The domain object extends this base with its own payload and status enum. Cycle state uses the envelope for durable identity and lineage but never acquires dispatch authority. A sync, run, or PR workflow is authoritative only when HarnessState's active_workflow lease points at that object; the envelope itself carries no authority field."
         }
       ],
       "children": []
@@ -357,7 +348,7 @@
       },
       "text": [
         {
-          "insert": "Authority linkage",
+          "insert": "Dispatch authority",
           "attributes": {
             "bold": true
           }
@@ -376,7 +367,7 @@
       },
       "text": [
         {
-          "insert": "The optional authority link identifies the fencing token attached to the current workflow activation."
+          "insert": "A workflow state is authoritative only when the game's active_workflow lease identifies that workflow object."
         }
       ],
       "children": []
@@ -389,13 +380,13 @@
       },
       "text": [
         {
-          "insert": "Dispatch Authority and Handoffs",
+          "insert": "dispatch lease",
           "attributes": {
-            "link": "docs/10-system-design/40-harness-state/20-dispatch-authority"
+            "link": "../../20-dispatch-authority"
           }
         },
         {
-          "insert": " defines lease acquisition, exclusivity, draining, release, and recovery."
+          "insert": " lives on HarnessState and defines acquisition, exclusivity, fencing, draining, release, and recovery."
         }
       ],
       "children": []
@@ -442,7 +433,7 @@
         {
           "insert": "Operator Action Contract",
           "attributes": {
-            "link": "docs/10-system-design/40-harness-state/30-operator-actions"
+            "link": "../../30-operator-actions"
           }
         },
         {
@@ -562,16 +553,7 @@
       },
       "text": [
         {
-          "insert": "Leave "
-        },
-        {
-          "insert": "authority",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " null unless creation and lease acquisition are one accepted transaction."
+          "insert": "Create the envelope without authority metadata; any lease acquisition updates HarnessState's active_workflow separately."
         }
       ],
       "children": []
@@ -663,7 +645,7 @@
           }
         },
         {
-          "insert": " when the operation dispatches workers or mutates an allowed checkout surface."
+          "insert": " when the host dispatches workers or mutates an allowed checkout surface. A claimed worker job then mints the ClaimToken required for durable child writes; the child never receives this dispatch lease."
         }
       ],
       "children": []
@@ -676,7 +658,7 @@
       },
       "text": [
         {
-          "insert": "Commit the domain payload, status, blockers, and authority linkage atomically."
+          "insert": "Commit the domain payload, status, and blockers atomically."
         }
       ],
       "children": []
@@ -779,7 +761,7 @@
       },
       "text": [
         {
-          "insert": "Release any attached dispatch lease before another workflow acquires authority."
+          "insert": "Release the HarnessState dispatch lease before another workflow acquires authority."
         }
       ],
       "children": []

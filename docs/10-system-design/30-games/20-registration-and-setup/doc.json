@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-30-games-20-registration-and-setup",
+  "title": "Registration and Setup",
+  "root": "b-20-registration-root",
+  "blocks": {
+    "b-20-registration-root": {
+      "id": "b-20-registration-root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-20-registration-title",
+        "b-20-registration-intro",
+        "b-20-registration-game-registration-heading",
+        "b-20-registration-game-registration-contract",
+        "b-20-registration-game-registration-durability",
+        "b-20-registration-procedure-open",
+        "b-20-registration-worktree-heading",
+        "b-20-registration-worktree-provisioning",
+        "b-20-registration-opened-payload",
+        "b-20-registration-nullable-boundary",
+        "b-20-registration-cycle-open-heading",
+        "b-20-registration-cycle-open-intro",
+        "b-20-registration-precondition-prior-cycle",
+        "b-20-registration-precondition-envelope",
+        "b-20-registration-precondition-verify",
+        "b-20-registration-precondition-activate",
+        "b-20-registration-baseline-heading",
+        "b-20-registration-opening-sync",
+        "b-20-registration-bootstrap",
+        "b-20-registration-action-gap"
+      ]
+    },
+    "b-20-registration-title": {
+      "id": "b-20-registration-title",
+      "type": "heading",
+      "props": { "level": 1 },
+      "text": [{ "insert": "Registration and Setup" }],
+      "children": []
+    },
+    "b-20-registration-intro": {
+      "id": "b-20-registration-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        { "insert": "This page covers the front edge of a game's life: how a game enters the orchestrator, how its canonical worktree is provisioned, and how the first and every subsequent cycle opens. Downstream lifecycle behavior lives in " },
+        { "insert": "Cycles", "attributes": { "link": "../30-cycles" } },
+        { "insert": " and " },
+        { "insert": "Campaign and Save Points", "attributes": { "link": "../40-save-points" } },
+        { "insert": "." }
+      ],
+      "children": []
+    },
+    "b-20-registration-game-registration-heading": {
+      "id": "b-20-registration-game-registration-heading",
+      "type": "heading",
+      "props": { "level": 2 },
+      "text": [{ "insert": "Game Registration" }],
+      "children": []
+    },
+    "b-20-registration-game-registration-contract": {
+      "id": "b-20-registration-game-registration-contract",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        { "insert": "The operator registers a game, binding game-specific configuration to a stable game identity. As defined by the " },
+        { "insert": "game model", "attributes": { "link": "../10-game-model" } },
+        { "insert": ", that configuration supplies the source repository, available tools, policy defaults, and knowledge inputs required to work on the game. Registration validates that these inputs are complete and coherent before the game becomes operable." }
+      ],
+      "children": []
+    },
+    "b-20-registration-game-registration-durability": {
+      "id": "b-20-registration-game-registration-durability",
+      "type": "paragraph",
+      "props": {},
+      "text": [{ "insert": "The resulting game descriptor is the durable contract for orchestration. Later edits to game defaults do not rewrite the meaning of existing cycle work, because each cycle captures the policy in force at its opening baseline. Melee supplies the current configuration; another game supplies the same contract without changing orchestration semantics." }],
+      "children": []
+    },
+    "b-20-registration-procedure-open": {
+      "id": "b-20-registration-procedure-open",
+      "type": "callout",
+      "props": {
+        "kind": "open",
+        "title": "Open: registration procedure",
+        "tone": "warning"
+      },
+      "text": [{ "insert": "The concrete registration procedure—where the descriptor is stored, which validation runs, and how a descriptor is amended—remains a design-level contract and is not yet bound to an implemented surface." }],
+      "children": []
+    },
+    "b-20-registration-worktree-heading": {
+      "id": "b-20-registration-worktree-heading",
+      "type": "heading",
+      "props": { "level": 2 },
+      "text": [{ "insert": "Worktree Provisioning" }],
+      "children": []
+    },
+    "b-20-registration-worktree-provisioning": {
+      "id": "b-20-registration-worktree-provisioning",
+      "type": "paragraph",
+      "props": {},
+      "text": [{ "insert": "Registration establishes which repository the game tracks. Provisioning creates the one canonical worktree the game owns, and the first cycle open validates that worktree before assigning it to the cycle." }],
+      "children": []
+    },
+    "b-20-registration-opened-payload": {
+      "id": "b-20-registration-opened-payload",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        { "insert": "At open time, the " },
+        { "insert": "cycle.opened", "attributes": { "code": true } },
+        { "insert": " payload records the source boundary and its preparation. " },
+        { "insert": "worktree_identity", "attributes": { "code": true } },
+        { "insert": " names the canonical worktree the new cycle takes exclusive ownership of and is non-null because a cycle never opens without a worktree to own. " },
+        { "insert": "baseline_revision", "attributes": { "code": true } },
+        { "insert": " and " },
+        { "insert": "initial_head_revision", "attributes": { "code": true } },
+        { "insert": " record the captured source boundary from which the cycle starts, with " },
+        { "insert": "head_revision", "attributes": { "code": true } },
+        { "insert": " equal to the baseline source revision. " },
+        { "insert": "opening_sync_id", "attributes": { "code": true } },
+        { "insert": " links the open to the sync pass that prepared the baseline when one ran, while " },
+        { "insert": "state_revision", "attributes": { "code": true } },
+        { "insert": " identifies the non-null durable state revision produced by opening." }
+      ],
+      "children": []
+    },
+    "b-20-registration-nullable-boundary": {
+      "id": "b-20-registration-nullable-boundary",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        { "insert": "The required but nullable " },
+        { "insert": "baseline_revision", "attributes": { "code": true } },
+        { "insert": " and " },
+        { "insert": "initial_head_revision", "attributes": { "code": true } },
+        { "insert": " fields allow a cycle envelope to be opened before its baseline has been prepared; Baseline Preparation completes that boundary during the opening operation. " },
+        { "insert": "opening_sync_id", "attributes": { "code": true } },
+        { "insert": " is likewise nullable for the bootstrap case described below." }
+      ],
+      "children": []
+    },
+    "b-20-registration-cycle-open-heading": {
+      "id": "b-20-registration-cycle-open-heading",
+      "type": "heading",
+      "props": { "level": 2 },
+      "text": [{ "insert": "Cycle Open" }],
+      "children": []
+    },
+    "b-20-registration-cycle-open-intro": {
+      "id": "b-20-registration-cycle-open-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [{ "insert": "Opening is an explicit lifecycle boundary with the following preconditions and durable effects:" }],
+      "children": []
+    },
+    "b-20-registration-precondition-prior-cycle": {
+      "id": "b-20-registration-precondition-prior-cycle",
+      "type": "list-item",
+      "props": { "ordered": false },
+      "text": [
+        { "insert": "No prior cycle may still be active. Under the " },
+        { "insert": "single-active-cycle rule", "attributes": { "link": "../30-cycles" } },
+        { "insert": ", a successor opens only after its predecessor closes." }
+      ],
+      "children": []
+    },
+    "b-20-registration-precondition-envelope": {
+      "id": "b-20-registration-precondition-envelope",
+      "type": "list-item",
+      "props": { "ordered": false },
+      "text": [{ "insert": "The cycle-opening operation allocates the envelope identity and captures the baseline outside the active slot, so incomplete preparation cannot expose a partially active cycle." }],
+      "children": []
+    },
+    "b-20-registration-precondition-verify": {
+      "id": "b-20-registration-precondition-verify",
+      "type": "list-item",
+      "props": { "ordered": false },
+      "text": [
+        { "insert": "Preparation verifies that the canonical worktree and opening " },
+        { "insert": "head_revision", "attributes": { "code": true } },
+        { "insert": " match the captured source boundary." }
+      ],
+      "children": []
+    },
+    "b-20-registration-precondition-activate": {
+      "id": "b-20-registration-precondition-activate",
+      "type": "list-item",
+      "props": { "ordered": false },
+      "text": [
+        { "insert": "Only after verification does the opening operation durably create " },
+        { "insert": "status: \"active\"", "attributes": { "code": true } },
+        { "insert": " with " },
+        { "insert": "head_revision", "attributes": { "code": true } },
+        { "insert": " equal to the baseline source revision; the " },
+        { "insert": "cycle.opened", "attributes": { "code": true } },
+        { "insert": " event records that boundary." }
+      ],
+      "children": []
+    },
+    "b-20-registration-baseline-heading": {
+      "id": "b-20-registration-baseline-heading",
+      "type": "heading",
+      "props": { "level": 3 },
+      "text": [{ "insert": "Baseline Preparation and the Opening Sync" }],
+      "children": []
+    },
+    "b-20-registration-opening-sync": {
+      "id": "b-20-registration-opening-sync",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        { "insert": "The " },
+        { "insert": "opening sync", "attributes": { "link": "../../50-workflows/10-sync" } },
+        { "insert": " plays the Baseline Preparation role: it establishes the validated source position captured by the baseline. When that pass runs, " },
+        { "insert": "opening_sync_id", "attributes": { "code": true } },
+        { "insert": " ties the cycle to it." }
+      ],
+      "children": []
+    },
+    "b-20-registration-bootstrap": {
+      "id": "b-20-registration-bootstrap",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        { "insert": "The first cycle for a game has no predecessor head to inherit. Its baseline comes from provisioning plus the opening sync. This bootstrap boundary is why the opened event tolerates a null " },
+        { "insert": "opening_sync_id", "attributes": { "code": true } },
+        { "insert": " and nullable baseline fields while " },
+        { "insert": "worktree_identity", "attributes": { "code": true } },
+        { "insert": " remains required and non-null." }
+      ],
+      "children": []
+    },
+    "b-20-registration-action-gap": {
+      "id": "b-20-registration-action-gap",
+      "type": "callout",
+      "props": {
+        "kind": "open",
+        "title": "Open decision: no registration or open action in the operator surface",
+        "tone": "warning"
+      },
+      "text": [
+        { "insert": "The " },
+        { "insert": "operator action surface", "attributes": { "link": "../../40-harness-state/30-operator-actions" } },
+        { "insert": " currently defines no " },
+        { "insert": "game.create", "attributes": { "code": true } },
+        { "insert": " or " },
+        { "insert": "cycle.open", "attributes": { "code": true } },
+        { "insert": " action. The entry path must either be documented as an out-of-band operation or added to the action contract; this page flags the gap rather than resolving it." }
+      ],
+      "children": []
+    }
+  }
+}

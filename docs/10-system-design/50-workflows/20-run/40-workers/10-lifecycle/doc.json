@@ -19,7 +19,12 @@
           "write-safety",
           "write-set-widening",
           "validation-state",
-          "tool-slots"
+          "tool-slots",
+          "job",
+          "kind",
+          "claim-token",
+          "executor",
+          "jobs-table"
         ]
       },
       "children": [
@@ -99,7 +104,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Worker target packet lifecycle, target claims, runner validation, checkpoints, timeout/error classification, and continuation policy."
+          "insert": "Worker slot-job lifecycle, host-side claim and provisioning, TaskSpec execution, ClaimToken-fenced checkpoints, settlement, lease recovery, and continuation policy."
         }
       ],
       "children": []
@@ -110,7 +115,7 @@
       "props": {},
       "text": [
         {
-          "insert": "A worker is a bounded decompilation attempt for one claimed epoch target. The\nworker keeps trying to reach an exact match; the runner owns lifecycle,\nvalidation, checkpointing, best-attempt selection, timeout handling, and final\nclassification."
+          "insert": "A worker is a bounded decompilation attempt represented by one durable job of kind worker. Admission enqueues one slot job per epoch target with the epoch-target id as its dedupe key and board priority as its job priority. The host claims the job and target in one transaction, provisions the worktree, writes task_spec.json, and submits job-runner worker-task --task-file … through the executor; the runner owns validation, checkpointing, best-attempt selection, timeout handling, and final classification."
         }
       ],
       "children": []
@@ -136,7 +141,7 @@
       },
       "text": [
         {
-          "insert": "Receive one target packet and active target claim."
+          "insert": "The host claims one worker job and its admitted epoch target atomically, producing the target claim, worker state, lease, and ClaimToken as one authoritative dispatch boundary."
         }
       ],
       "children": []
@@ -149,7 +154,7 @@
       },
       "text": [
         {
-          "insert": "Build a compact context pack from local source, report/objdiff evidence,"
+          "insert": "buildTask provisions the host-side worktree and writes a TaskSpec containing the compact context pack from local source, report/objdiff evidence,"
         }
       ],
       "children": []
@@ -282,7 +287,7 @@
       },
       "text": [
         {
-          "insert": "The closed worker state emits a wake event for scheduler and dashboard"
+          "insert": "The consumer heartbeats the job lease while the child runs. Completion classifies the settled job from the closed worker-state row and emits durable scheduler and dashboard"
         }
       ],
       "children": []
@@ -492,7 +497,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The worker can loop from validation back into planning while evidence is getting\nsharper and budget remains. New facts and blockers are evidence attached to the\nworker state; workers do not coordinate through direct worker-to-worker chat."
+          "insert": "The worker can loop from validation back into planning while evidence sharpens and budget remains. Every durable worker mutation presents the ClaimToken minted by claim; lease expiry or reaping invalidates that token, so a stale child is rejected inside the write transaction. The consumer heartbeats valid ownership and host recovery uses explicit authority markers such as claim-recovery or run-loop-settle. New facts and blockers remain domain evidence attached to the worker state."
         }
       ],
       "children": []
@@ -538,7 +543,7 @@
       "props": {},
       "text": [
         {
-          "insert": "A recycled or re-picked-up target resets to its target-source write set. The new\nworker re-earns every wider category from fresh evidence; prior requests and\ndecisions remain telemetry, not authorization."
+          "insert": "A recycled or re-picked-up target resets to its target-source write set. Requeue and reap preserve the durable job attempt and trace lineage while invalidating the expired ClaimToken; a later claim mints a new lease and token. The new worker re-earns every wider category from fresh evidence, while prior requests and decisions remain telemetry rather than authorization."
         }
       ],
       "children": []
@@ -755,7 +760,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "10-system-design/50-workflows/30-pr/10-score-gate-and-handoff",
+              "path": "10-system-design/50-workflows/30-pr/20-score-gate-and-handoff",
               "label": "score and PR handoff"
             }
           }

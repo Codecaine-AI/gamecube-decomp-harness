@@ -17,7 +17,10 @@
           "worker-state",
           "wake-events",
           "checkpoints",
-          "tool-slots"
+          "tool-slots",
+          "job",
+          "kind",
+          "jobs-table"
         ]
       },
       "children": [
@@ -85,7 +88,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Deterministic run scheduler responsibilities, run-loop process semantics, epoch admission, wake handling, and worker checkpoint flow."
+          "insert": "Deterministic run scheduling through the durable job queue, including epoch admission, worker settlement, integration drain, lease reaping, and epoch boundaries."
         }
       ],
       "children": []
@@ -96,7 +99,16 @@
       "props": {},
       "text": [
         {
-          "insert": "The run scheduler is the board-level control loop. It reads durable run state,\nrefreshes epoch-target priorities from the ranked board, admits deterministic\nwork, starts workers through target claims, and handles wake events without\nrequiring a model-driven scheduling agent session in the hot path."
+          "insert": "The run scheduler is the board-level control loop. It reads durable run state,\nrefreshes "
+        },
+        {
+          "insert": "epoch-target priorities",
+          "attributes": {
+            "link": "../30-board-prioritization"
+          }
+        },
+        {
+          "insert": " from the ranked board and admits deterministic work as worker jobs. The run loop hosts the worker consumer pool, classifies settled jobs from durable worker-state evidence, drains integration work, reaps expired leases, and invokes the epoch boundary without a board-level model session in the hot path."
         }
       ],
       "children": []
@@ -120,7 +132,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Each scheduler pass has five phases:"
+          "insert": "Each scheduler pass reads one durable control surface. Epoch admission creates one worker job per admitted target; claim, execution, settlement, integration, and recovery remain visible through jobs, target claims, worker states, and game events."
         }
       ],
       "children": []
@@ -181,7 +193,7 @@
       },
       "text": [
         {
-          "insert": "Worker realization: start workers only for open slots and admitted,"
+          "insert": "Worker consumption lets the hosted consumer claim eligible worker jobs only while the run and dispatch lease permit work."
         }
       ],
       "children": []
@@ -192,7 +204,7 @@
       "props": {},
       "text": [
         {
-          "insert": "   unclaimed epoch targets, with target claims and explicit write sets as the\n   authority."
+          "insert": "The kernel claim and claimNextEpochTarget commit atomically, so a job cannot become claimed without its epoch target and two consumers cannot acquire the same job."
         }
       ],
       "children": []
@@ -205,7 +217,7 @@
       },
       "text": [
         {
-          "insert": "Boundary checks: trigger fast run-evidence refreshes during an epoch and a full"
+          "insert": "Settlement and maintenance classify completed worker jobs from worker-state rows, apply provider-pause and exit-on-worker-error policy, drain the run-scoped integration lane in single flight, and reap expired worker leases and target claims."
         }
       ],
       "children": []
@@ -216,7 +228,7 @@
       "props": {},
       "text": [
         {
-          "insert": "   truth rebuild plus tentative-change confirmation pass at epoch boundaries."
+          "insert": "The extracted scheduler/epoch-boundary module performs the full truth rebuild, pending-integration reconciliation, and tentative-change confirmation at the boundary."
         }
       ],
       "children": []
@@ -391,7 +403,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The run loop is the non-agent process component that gives the scheduler a\nresting shape. It checks durable events, runs one deterministic scheduler tick\nwhen an unhandled event exists, keeps worker slots filled from admitted epoch\ntargets, runs maintenance cadence checks, and then sleeps without keeping a\nboard-level model agent session alive."
+          "insert": "The run loop is the non-agent host for scheduling and consumption. It enqueues admitted slot jobs, hosts the per-kind worker pool, evaluates shouldClaim against run and dispatch state, heartbeats leases while children execute, and handles onJobSettled from durable worker-state rows. It also drains integration work, reaps expired jobs and target claims, runs maintenance cadence checks, and sleeps until durable state or cadence makes another pass useful."
         }
       ],
       "children": []
@@ -507,7 +519,7 @@
       },
       "text": [
         {
-          "insert": "Workers claim admitted targets. Each claim creates one worker state and an"
+          "insert": "Admission creates one worker job for each epoch target, deduplicated by epoch-target id and prioritized from the board. The host claims that job and its target together; the transaction creates the worker state and an"
         }
       ],
       "children": []
@@ -599,7 +611,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Worker pool size is the claim/process target, not the raw compiler parallelism\ntarget. Worker processes can be active while their expensive validation or\ntool calls are queued behind per-epoch tool slots. The active epoch still owns a\nfixed admitted target set; the slot queues only smooth local CPU/build pressure\ninside the already-claimed work."
+          "insert": "Worker pool size is the consumer concurrency target, not the raw compiler parallelism target. Worker jobs can be running while expensive validation or tool calls wait behind per-epoch tool slots. The active epoch owns a fixed admitted target set, while the jobs table is the durable ready and execution queue for those targets."
         }
       ],
       "children": []
@@ -621,7 +633,7 @@
       "props": {},
       "text": [
         {
-          "insert": "| Control | Owns |\n| --- | --- |\n| Worker pool | Number of live worker claims/processes. |\n| Epoch ready queue | Number of admitted, unclaimed targets kept available to feed worker slots. |\n| Tool/build slots | Number of concurrent compile-heavy validation and Pi tool operations allowed across worker worktrees in an epoch. |"
+          "insert": "| Control | Owns |\n| --- | --- |\n| Worker consumer pool | Number of worker jobs allowed to execute concurrently. |\n| Jobs table | Admitted worker slots ordered by priority DESC, created_at ASC, and job_id ASC, with durable claim and lease state. |\n| Tool/build slots | Number of concurrent compile-heavy validation and Pi tool operations allowed across worker worktrees in an epoch. |"
         }
       ],
       "children": []
@@ -756,7 +768,7 @@
       "props": {},
       "text": [
         {
-          "insert": "An epoch target plus target claim is the bounded delegation contract. It names\nthe unit, symbol, source path, current score evidence, priority, reason, and\nexplicit write set. The worker receives target-local context and validation\nexpectations, but it does not receive board-level authority."
+          "insert": "A worker job, its atomically acquired epoch target, and the resulting target claim form the bounded delegation contract. The host provisions the worktree, builds the TaskSpec, and writes task_spec.json before the executor starts job-runner worker-task --task-file …. The child receives target-local context, validation expectations, and a ClaimToken; it never claims queue work or receives the dispatch lease."
         }
       ],
       "children": []

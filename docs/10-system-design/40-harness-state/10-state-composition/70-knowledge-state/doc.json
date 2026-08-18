@@ -11,7 +11,9 @@
         "concepts": [
           "knowledge",
           "harness-state",
-          "background-jobs",
+          "job",
+          "kind",
+          "jobs-table",
           "freshness",
           "leases",
           "retries"
@@ -35,6 +37,7 @@
         "b-70-knowledge-state-operator-visibility-30",
         "b-70-knowledge-state-execution-classes-and-j-32",
         "b-70-knowledge-state-flows-33",
+        "b-70-knowledge-state-process-overview-50",
         "b-70-knowledge-state-enqueue-at-worker-close-34",
         "b-70-knowledge-state-worker-close-durably-enq-35",
         "b-70-knowledge-state-a-processor-atomically-c-36",
@@ -58,7 +61,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Knowledge state is not a classic workflow slot. It is a set of durable background job records plus a game-level freshness summary, so it can advance while sync, run, or PR work owns workflow authority. The state exposes publication freshness, queued work, lease ownership, retry timing, and failures without pretending that knowledge processing occupies the shared workflow slot."
+          "insert": "Knowledge state is not a workflow slot. The shared jobs table carries dispatch truth for knowledge_absorption and sync_publication, while domain records and the game-level projection carry accepted knowledge evidence. This separation lets knowledge work advance while sync, run, or PR work owns workflow authority and exposes freshness, queued work, lease ownership, retry timing, and failures without treating queue state as publication evidence."
         }
       ],
       "children": []
@@ -213,7 +216,7 @@
       },
       "text": [
         {
-          "insert": "Job and source identity provide idempotent enqueueing."
+          "insert": "The knowledge_absorption kind uses the worker_state id as its dedupe_key; the sync_publication kind uses a deterministic sync/source identity."
         }
       ],
       "children": []
@@ -226,7 +229,7 @@
       },
       "text": [
         {
-          "insert": "Attempt, lease, retry, provenance, digest, error, and timestamp fields belong to each background job."
+          "insert": "Each row in jobs carries queued, claimed, running, waiting, succeeded, failed, or cancelled status, revision fencing, attempts and backoff, and the lease visibility timeout. Small dispatch input stays in payload_json; result_ref points to domain evidence."
         }
       ],
       "children": []
@@ -239,7 +242,7 @@
       },
       "text": [
         {
-          "insert": "These records do not carry workflow-slot blockers or dispatch authority. A fenced processor lease governs materialization instead."
+          "insert": "The jobs row governs dispatch and retry authority. It does not replace accepted knowledge records: successful publication leaves its digest in result_ref and preserves the knowledge.job_* domain events as the evidence-facing history."
         }
       ],
       "children": []
@@ -311,7 +314,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The durable record retains the identity, lifecycle, fencing, publication, and failure evidence needed to process one knowledge artifact."
+          "insert": "The jobs table retains dispatch identity, kind, lifecycle, lease fencing, retry policy, and trace lineage. Knowledge artifacts, publication digests, and accepted revisions remain domain evidence addressed by result_ref rather than duplicated into queue payloads."
         }
       ],
       "children": []
@@ -322,7 +325,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The game view reduces those records to operator-facing freshness and processing state."
+          "insert": "The game view projects queue activity together with accepted domain evidence into operator-facing freshness and processing state."
         }
       ],
       "children": []
@@ -331,31 +334,43 @@
       "id": "b-restored-knowledge-state-shape-20260814",
       "type": "state-shape",
       "props": {
-        "description": "Durable background knowledge jobs plus the game-level freshness, lease, retry, and failure projection derived from them.",
-        "example": "{\n  \"jobs\": [\n    {\n      \"job_id\": \"knowledge-job-worker-worker-1842\",\n      \"worker_state_id\": \"worker-1842\",\n      \"game_id\": \"melee\",\n      \"run_id\": \"run-2026-08-11-01\",\n      \"revision\": 2,\n      \"status\": \"processing\",\n      \"execution_class\": \"background_safe\",\n      \"source_kind\": \"worker_result\",\n      \"source_id\": \"worker-1842\",\n      \"attempts\": 1,\n      \"next_attempt_at\": null,\n      \"lease_id\": \"knowledge-lease-44\",\n      \"lease_expires_at\": \"2026-08-12T18:43:08Z\",\n      \"evidence_provenance\": {\n        \"worker_state_id\": \"worker-1842\"\n      },\n      \"publication_provenance\": null,\n      \"published_digest\": null,\n      \"error\": null,\n      \"trace_id\": \"trace-worker-1842\",\n      \"caused_by_event_id\": \"event-92811\",\n      \"blockers\": [],\n      \"created_at\": \"2026-08-12T18:42:08Z\",\n      \"updated_at\": \"2026-08-12T18:42:10Z\",\n      \"completed_at\": null\n    }\n  ],\n  \"published_revision\": \"knowledge-381\",\n  \"queued\": 6,\n  \"processing\": 1,\n  \"waiting\": 1,\n  \"failed\": 1,\n  \"oldest_pending_at\": \"2026-08-12T18:35:12Z\",\n  \"active_lease\": {\n    \"id\": \"knowledge-lease-44\",\n    \"expires_at\": \"2026-08-12T18:43:08Z\"\n  },\n  \"retry\": {\n    \"next_attempt_at\": \"2026-08-12T18:45:00Z\",\n    \"attempts\": 2\n  },\n  \"recent_failures\": [\n    {\n      \"job_id\": \"knowledge-job-worker-worker-1819\",\n      \"worker_state_id\": \"worker-1819\",\n      \"error\": \"Materialized evidence failed schema validation.\",\n      \"attempts\": 3,\n      \"updated_at\": \"2026-08-12T18:40:22Z\"\n    }\n  ]\n}",
+        "description": "Knowledge dispatch projected from the shared jobs table together with accepted publication evidence and game-level freshness.",
+        "example": "{\n  \"jobs\": [\n    {\n      \"job_id\": \"job-knowledge-absorption-worker-1842\",\n      \"kind\": \"knowledge_absorption\",\n      \"dedupe_key\": \"worker-1842\",\n      \"worker_state_id\": \"worker-1842\",\n      \"game_id\": \"melee\",\n      \"run_id\": \"run-2026-08-11-01\",\n      \"revision\": 2,\n      \"status\": \"running\",\n      \"execution_class\": \"local\",\n      \"attempts\": 1,\n      \"next_attempt_at\": null,\n      \"lease_id\": \"knowledge-lease-44\",\n      \"lease_expires_at\": \"2026-08-12T18:43:08Z\",\n      \"result_ref\": null,\n      \"trace_id\": \"trace-worker-1842\",\n      \"caused_by_event_id\": \"event-92811\",\n      \"created_at\": \"2026-08-12T18:42:08Z\",\n      \"updated_at\": \"2026-08-12T18:42:10Z\",\n      \"completed_at\": null\n    }\n  ],\n  \"published_revision\": \"knowledge-381\",\n  \"queued\": 6,\n  \"running\": 1,\n  \"waiting\": 1,\n  \"failed\": 1,\n  \"oldest_pending_at\": \"2026-08-12T18:35:12Z\",\n  \"active_lease\": {\n    \"id\": \"knowledge-lease-44\",\n    \"expires_at\": \"2026-08-12T18:43:08Z\"\n  },\n  \"retry\": {\n    \"next_attempt_at\": \"2026-08-12T18:45:00Z\",\n    \"attempts\": 2\n  },\n  \"recent_failures\": [\n    {\n      \"job_id\": \"job-knowledge-absorption-worker-1819\",\n      \"worker_state_id\": \"worker-1819\",\n      \"error\": \"Materialized evidence failed schema validation.\",\n      \"attempts\": 3,\n      \"updated_at\": \"2026-08-12T18:40:22Z\"\n    }\n  ]\n}",
         "fields": [
           {
             "name": "jobs",
-            "type": "BackgroundKnowledgeJobRecord[]",
-            "description": "Durable artifact-processing records carrying lifecycle, fencing, provenance, publication, and failure evidence.",
+            "type": "JobRecord[]",
+            "description": "Knowledge-kind rows projected from the shared jobs table; domain publication evidence remains outside the dispatch record.",
             "fields": [
               {
                 "name": "job_id",
-                "type": "KnowledgeJobId",
+                "type": "JobId",
                 "description": "Stable durable job identity."
+              },
+              {
+                "name": "kind",
+                "type": "\"knowledge_absorption\" | \"sync_publication\"",
+                "description": "Descriptor that selects the inline knowledge handler."
+              },
+              {
+                "name": "dedupe_key",
+                "type": "string",
+                "description": "Worker-state identity for absorption or deterministic sync/source identity for publication."
               },
               {
                 "name": "worker_state_id",
                 "type": "WorkerStateId",
-                "description": "Unique deduplication identity; one background job exists per worker state."
+                "description": "Source worker identity carried by knowledge_absorption jobs."
               },
               {
                 "name": "game_id",
-                "type": "GameId"
+                "type": "GameId",
+                "description": "Game whose accepted knowledge this job may advance."
               },
               {
                 "name": "run_id",
-                "type": "RunId"
+                "type": "RunId",
+                "description": "Run that produced the source evidence."
               },
               {
                 "name": "revision",
@@ -364,27 +379,33 @@
               },
               {
                 "name": "status",
-                "type": "\"queued\" | \"processing\" | \"waiting\" | \"succeeded\" | \"failed\" | \"cancelled\""
+                "type": "\"queued\" | \"claimed\" | \"running\" | \"waiting\" | \"succeeded\" | \"failed\" | \"cancelled\"",
+                "description": "Current lifecycle position of the shared queue job."
               },
               {
                 "name": "execution_class",
-                "type": "\"background_safe\" | \"sync_stage\""
+                "type": "\"local\" | \"sandbox\"",
+                "description": "Executor class recorded by the shared queue; both knowledge kinds execute inline locally."
               },
               {
                 "name": "source_kind",
-                "type": "string"
+                "type": "string",
+                "description": "Kind of artifact or event that requested processing."
               },
               {
                 "name": "source_id",
-                "type": "string"
+                "type": "string",
+                "description": "Stable identity of the source artifact for idempotent enqueueing."
               },
               {
                 "name": "attempts",
-                "type": "integer"
+                "type": "integer",
+                "description": "Number of accepted processing attempts."
               },
               {
                 "name": "next_attempt_at",
-                "type": "timestamp | null"
+                "type": "timestamp | null",
+                "description": "Earliest time a waiting job may be claimed again."
               },
               {
                 "name": "lease_id",
@@ -393,7 +414,8 @@
               },
               {
                 "name": "lease_expires_at",
-                "type": "timestamp | null"
+                "type": "timestamp | null",
+                "description": "Time after which the current processing claim may be reclaimed."
               },
               {
                 "name": "evidence_provenance",
@@ -406,37 +428,44 @@
                 "description": "Accepted output lineage, populated after publication."
               },
               {
-                "name": "published_digest",
+                "name": "result_ref",
                 "type": "string | null",
-                "description": "Idempotency identity for the accepted output."
+                "description": "Reference to accepted domain evidence; sync publication stores its digest here."
               },
               {
                 "name": "error",
-                "type": "JSON object | null"
+                "type": "JSON object | null",
+                "description": "Failure evidence from the latest unsuccessful attempt."
               },
               {
                 "name": "trace_id",
-                "type": "TraceId"
+                "type": "TraceId",
+                "description": "Trace lineage shared with the work that produced the job."
               },
               {
                 "name": "caused_by_event_id",
-                "type": "EventId | null"
+                "type": "EventId | null",
+                "description": "Event whose accepted transition caused the job to exist."
               },
               {
                 "name": "blockers",
-                "type": "Blocker[]"
+                "type": "Blocker[]",
+                "description": "Explicit conditions preventing the next job transition."
               },
               {
                 "name": "created_at",
-                "type": "timestamp"
+                "type": "timestamp",
+                "description": "Time the durable job was first enqueued."
               },
               {
                 "name": "updated_at",
-                "type": "timestamp"
+                "type": "timestamp",
+                "description": "Time of the most recent accepted job transition."
               },
               {
                 "name": "completed_at",
-                "type": "timestamp | null"
+                "type": "timestamp | null",
+                "description": "Time the job reached a terminal lifecycle state."
               }
             ]
           },
@@ -449,7 +478,7 @@
             "type": "integer"
           },
           {
-            "name": "processing",
+            "name": "running",
             "type": "integer"
           },
           {
@@ -467,7 +496,7 @@
           {
             "name": "active_lease",
             "type": "KnowledgeLeaseSummary | null",
-            "description": "Current fenced materializer claim, independent of the shared workflow dispatch lease.",
+            "description": "Current visibility-timeout lease projected from a claimed or running jobs row.",
             "fields": [
               {
                 "name": "id",
@@ -501,7 +530,7 @@
             "fields": [
               {
                 "name": "job_id",
-                "type": "KnowledgeJobId"
+                "type": "JobId"
               },
               {
                 "name": "worker_state_id",
@@ -563,7 +592,7 @@
       },
       "text": [
         {
-          "insert": "A stable source identity makes enqueueing idempotent across repeated close and recovery paths."
+          "insert": "A stable dedupe_key makes enqueueing idempotent: worker_state identity for knowledge_absorption and deterministic sync/source identity for sync_publication."
         }
       ],
       "children": []
@@ -576,7 +605,7 @@
       },
       "text": [
         {
-          "insert": "Job status distinguishes pending, leased, delayed, accepted, failed, and cancelled work."
+          "insert": "Job status distinguishes queued, claimed, running, waiting, succeeded, failed, and cancelled work. Attempts and next_attempt_at make retry backoff durable."
         }
       ],
       "children": []
@@ -662,7 +691,7 @@
       },
       "text": [
         {
-          "insert": "Provenance and digest fields connect accepted output to its source, attempt, and trace."
+          "insert": "Trace lineage connects dispatch to its cause, while result_ref connects a succeeded job to accepted domain evidence without making the queue row the evidence itself. For sync_publication, result_ref is the publication digest."
         }
       ],
       "children": []
@@ -731,7 +760,7 @@
         {
           "insert": "Background Knowledge Processing",
           "attributes": {
-            "link": "../../../../20-implementation/30-knowledge/30-background-processing"
+            "link": "../../../../20-implementation/30-knowledge"
           }
         },
         {
@@ -749,6 +778,26 @@
       "text": [
         {
           "insert": "Flows"
+        }
+      ],
+      "children": []
+    },
+    "b-70-knowledge-state-process-overview-50": {
+      "id": "b-70-knowledge-state-process-overview-50",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Knowledge absorption runs through an inline consumer pool with a limit of two jobs. Sync publication uses the same queue kernel but is driven synchronously by staged ingest, keeping publication ordering within the sync pipeline. The design-level enqueue → claim → materialize → publish walkthrough lives in the "
+        },
+        {
+          "insert": "knowledge process overview",
+          "attributes": {
+            "link": "../../../60-knowledge/05-process-overview"
+          }
+        },
+        {
+          "insert": "; the flows below show how that spine changes composed state."
         }
       ],
       "children": []
@@ -774,7 +823,7 @@
       },
       "text": [
         {
-          "insert": "Worker close durably enqueues completed-worker evidence with a stable source identity."
+          "insert": "Worker close durably enqueues one knowledge_absorption job per worker_state id."
         }
       ],
       "children": []
@@ -787,10 +836,10 @@
       },
       "text": [
         {
-          "insert": "A processor atomically claims eligible work, changes its status to "
+          "insert": "The inline consumer atomically claims eligible work, changes its status to "
         },
         {
-          "insert": "processing",
+          "insert": "running",
           "attributes": {
             "code": true
           }
@@ -809,7 +858,7 @@
       },
       "text": [
         {
-          "insert": "The processor materializes evidence into a staged publication with provenance and a digest."
+          "insert": "The inline handler materializes the worker evidence while the per-kind pool limits knowledge_absorption concurrency to two."
         }
       ],
       "children": []
@@ -822,7 +871,7 @@
       },
       "text": [
         {
-          "insert": "Serialized acceptance publishes the result idempotently, records publication evidence, marks the job "
+          "insert": "Serialized acceptance publishes the result idempotently, stores accepted evidence in the knowledge domain, marks the job "
         },
         {
           "insert": "succeeded",
@@ -901,7 +950,7 @@
       },
       "text": [
         {
-          "insert": "An active materializer lease or unexpired retry backoff blocks the drain when no work is eligible."
+          "insert": "An active job lease or unexpired retry backoff blocks the drain when no work is eligible."
         }
       ],
       "children": []
@@ -993,7 +1042,7 @@
       },
       "text": [
         {
-          "insert": "The job becomes claimable after backoff expires or after an expired processing lease is reclaimed."
+          "insert": "The job becomes claimable after backoff expires or after an expired running lease is reaped and requeued."
         }
       ],
       "children": []

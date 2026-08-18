@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-50-workflows-10-sync-10-sync-state",
+  "title": "Sync State",
+  "root": "b-10-sync-state-root-1",
+  "blocks": {
+    "b-10-sync-state-root-1": {
+      "id": "b-10-sync-state-root-1",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "sync",
+          "sync-state",
+          "workflow-status",
+          "staging",
+          "publication"
+        ],
+        "covers": "Workflow-local sync status semantics and the invariants that protect staged reconciliation and confirmed publication."
+      },
+      "text": [],
+      "children": [
+        "b-10-sync-state-framing-2",
+        "b-10-sync-statuses-54",
+        "b-10-sync-status-meaning-sta-55",
+        "b-10-sync-state-closing-3"
+      ]
+    },
+    "b-10-sync-state-framing-2": {
+      "id": "b-10-sync-state-framing-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This page owns the workflow-local status semantics of the "
+        },
+        {
+          "insert": "Sync Workflow",
+          "attributes": {
+            "link": "../"
+          }
+        },
+        {
+          "insert": ". The "
+        },
+        {
+          "insert": "canonical SyncState shape",
+          "attributes": {
+            "link": "../../../40-harness-state/10-state-composition/40-sync-state"
+          }
+        },
+        {
+          "insert": " remains the typed authority for the state itself."
+        }
+      ],
+      "children": []
+    },
+    "b-10-sync-statuses-54": {
+      "id": "b-10-sync-statuses-54",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Statuses"
+        }
+      ],
+      "children": []
+    },
+    "b-10-sync-status-meaning-sta-55": {
+      "id": "b-10-sync-status-meaning-sta-55",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| Status | Meaning | Stable Invariant |\n| --- | --- | --- |\n| "
+        },
+        {
+          "insert": "requested",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Intake is observed but not started. | No lease is held and no protected state changes. |\n| "
+        },
+        {
+          "insert": "ingesting",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Sync stages source and knowledge inputs. | Canonical source and knowledge truth remain unchanged. |\n| "
+        },
+        {
+          "insert": "reconciling",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Staging rebases cycle history and open PR series. | Cycle current remains untouched. |\n| "
+        },
+        {
+          "insert": "validating",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Staged state produces publication evidence. | Publication cannot start without successful evidence. |\n| "
+        },
+        {
+          "insert": "validated",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Evidence is complete and awaits confirmation. | Later upstream movement requires revalidation. |\n| "
+        },
+        {
+          "insert": "publishing",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Confirmed records and branch updates are being committed. | Cancellation is unavailable; recovery moves forward. |\n| "
+        },
+        {
+          "insert": "published",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | The boundary and required pushes are durable. | Sync is terminal and releases authority. |\n| "
+        },
+        {
+          "insert": "blocked",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | Intervention or retry is required. | Lease and recoverable state are preserved when active. |\n| "
+        },
+        {
+          "insert": "cancelled",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | The operator abandoned pre-publication work. | Staging is discarded and cycle current is unchanged. |"
+        }
+      ],
+      "children": []
+    },
+    "b-10-sync-state-closing-3": {
+      "id": "b-10-sync-state-closing-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "These invariants enforce the staged-before-publish design: "
+        },
+        {
+          "insert": "validated",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the operator gate, "
+        },
+        {
+          "insert": "publishing",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " permits only forward recovery, and "
+        },
+        {
+          "insert": "cancelled",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " discards staging without changing cycle current."
+        }
+      ],
+      "children": []
+    }
+  }
+}

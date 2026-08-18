@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-50-workflows-30-pr-10-pr-state",
+  "title": "PR State",
+  "root": "b-pr-state-root",
+  "blocks": {
+    "b-pr-state-root": {
+      "id": "b-pr-state-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "pr-state",
+          "campaign-progress",
+          "series-progress",
+          "feedback-work"
+        ]
+      },
+      "text": [],
+      "children": [
+        "b-pr-state-framing",
+        "b-pr-state-canonical-shapes",
+        "b-pr-state-campaign-progress",
+        "b-pr-state-campaign-intro",
+        "b-pr-state-campaign-table",
+        "b-pr-state-series-progress",
+        "b-pr-state-series-intro",
+        "b-pr-state-series-table",
+        "b-pr-state-work-item-outcomes",
+        "b-pr-state-work-item-intro",
+        "b-pr-state-work-item-table",
+        "b-pr-state-related"
+      ]
+    },
+    "b-pr-state-framing": {
+      "id": "b-pr-state-framing",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This page owns the workflow-local status and progress semantics of PR work: how campaigns, series, and feedback work items report where they stand as review work moves from preparation through execution and terminal outcomes."
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-canonical-shapes": {
+      "id": "b-pr-state-canonical-shapes",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The durable fields and nesting of "
+        },
+        {
+          "insert": "PrCampaignState and PrSeriesState",
+          "attributes": {
+            "link": "../../../40-harness-state/10-state-composition/60-pr-state"
+          }
+        },
+        {
+          "insert": " are defined once at the harness-state tier. This workflow page explains what their statuses mean without duplicating those canonical object shapes."
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-campaign-progress": {
+      "id": "b-pr-state-campaign-progress",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Campaign Progress"
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-campaign-intro": {
+      "id": "b-pr-state-campaign-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Campaign state names whether the durable review cycle is waiting, executing, or terminal:"
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-campaign-table": {
+      "id": "b-pr-state-campaign-table",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| State | Meaning | Dispatch Authority |\n| --- | --- | --- |\n| `preparing` | The campaign exists at its stable source anchor while prepared series and their validation evidence are assembled; nothing is open upstream. | No campaign lease is implied. |\n| `working` | An operator-entered activation is publishing, fixing, or validating series. | The campaign holds the dispatch lease. |\n| `in_review` | At least one series is open upstream and no activation holds the lease. | Only background remote observation and feedback ingestion may advance series. |\n| `completed` | Every series is merged or closed and the operator confirmed closure. | Terminal; the campaign cannot reacquire dispatch. |\n| `abandoned` | The operator ended the campaign without requiring every series to complete. | Terminal; unpublished evidence remains readable. |"
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-series-progress": {
+      "id": "b-pr-state-series-progress",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Series Progress"
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-series-intro": {
+      "id": "b-pr-state-series-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Series state separates local readiness, remote review, and terminal outcome so each source of evidence has one place to advance it:"
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-series-table": {
+      "id": "b-pr-state-series-table",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "| State | Meaning | Advanced By |\n| --- | --- | --- |\n| `prepared` | The series is locally cut and gate-validated but is not open upstream. | A lease-holding activation |\n| `published` | The series is open upstream and waiting for review. | An operator-confirmed publication batch |\n| `changes_requested` | Review feedback exists as pending work. | Background observation or feedback ingestion |\n| `revising` | Fixers own feedback work and may mutate the series workspace. | A lease-holding activation |\n| `approved` | Remote review approved the series and merge is pending. | Background observation |\n| `merged` | Upstream merged the series. Terminal. | Background observation |\n| `closed` | The series was withdrawn or rejected without merging. Terminal. | Background observation or an explicit operator close |"
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-work-item-outcomes": {
+      "id": "b-pr-state-work-item-outcomes",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Work Item Outcomes"
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-work-item-intro": {
+      "id": "b-pr-state-work-item-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Feedback work items resolve to one of two terminal outcomes. The table below defines whether the feedback was addressed or deliberately declined."
+        }
+      ],
+      "children": []
+    },
+    "b-pr-state-work-item-table": {
+      "id": "b-pr-state-work-item-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Status",
+          "Meaning",
+          "Terminal"
+        ],
+        "rows": [
+          [
+            "resolved",
+            "The feedback was addressed by a pushed revision or answered in the review thread.",
+            "yes"
+          ],
+          [
+            "declined",
+            "The feedback was deliberately not actioned and carries a reason.",
+            "yes"
+          ]
+        ],
+        "title": "PR work-item terminal outcomes"
+      },
+      "text": [],
+      "children": []
+    },
+    "b-pr-state-related": {
+      "id": "b-pr-state-related",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The "
+        },
+        {
+          "insert": "score gate and handoff",
+          "attributes": {
+            "link": "../20-score-gate-and-handoff"
+          }
+        },
+        {
+          "insert": " page decides the ship set and promotion gate, while "
+        },
+        {
+          "insert": "Campaign and Tracking",
+          "attributes": {
+            "link": "../40-campaign-and-tracking"
+          }
+        },
+        {
+          "insert": " defines the detailed campaign lifecycle that these statuses report on."
+        }
+      ],
+      "children": []
+    }
+  }
+}

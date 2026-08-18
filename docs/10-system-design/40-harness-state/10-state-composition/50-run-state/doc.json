@@ -13,7 +13,11 @@
           "harness-state",
           "epochs",
           "claims",
-          "recovery"
+          "recovery",
+          "job",
+          "kind",
+          "claim-token",
+          "jobs-table"
         ],
         "covers": "How RunState composes run identity, fixed inputs, control, scheduling, progress, integration, and evidence inside HarnessState."
       },
@@ -43,14 +47,8 @@
         "b-50-run-state-epoch-closure-appends-th-33",
         "b-50-run-state-pause-and-recover-34",
         "b-50-run-state-a-pause-request-moves-th-35",
-        "b-50-run-state-recovery-reconciles-pend-36",
-        "b-50-run-state-a-failed-run-returns-to-37",
-        "b-50-run-state-the-canonical-run-state-38",
         "b-50-run-state-reconcile-pending-integr-39",
         "b-50-run-state-before-creating-an-epoch-40",
-        "b-50-run-state-the-git-commit-carries-t-41",
-        "b-50-run-state-the-state-transaction-cl-42",
-        "b-50-run-state-startup-or-recovery-sear-43",
         "b-50-run-state-close-the-run-44",
         "b-50-run-state-the-scheduler-stops-admi-45",
         "b-50-run-state-required-boundary-confir-46",
@@ -130,7 +128,7 @@
       "type": "state-shape",
       "props": {
         "description": "Run control, scheduling position, progress, queue summaries, references, and tracing.",
-        "example": "{\n  \"run_id\": \"run-2026-08-11-01\",\n  \"game_id\": \"melee\",\n  \"cycle_id\": \"cycle-7\",\n  \"revision\": 288,\n  \"inputs\": {\n    \"base_revision\": \"upstream-9ac4\",\n    \"policy_revision\": \"policy-42\",\n    \"starting_knowledge_revision\": \"knowledge-375\",\n    \"configuration_snapshot\": {\n      \"desired_workers\": 64,\n      \"epoch_size\": 64\n    }\n  },\n  \"head_revision\": \"upstream-9ba1\",\n  \"control\": {\n    \"status\": \"draining\",\n    \"stop_request\": {\n      \"target\": \"sync\",\n      \"mode\": \"finish_epoch\"\n    }\n  },\n  \"scheduling\": {\n    \"active_epoch_id\": \"epoch-19\",\n    \"desired_workers\": 64,\n    \"scheduler_condition\": \"boundary\",\n    \"admitted\": 64,\n    \"claimed\": 64,\n    \"running\": 2\n  },\n  \"progress\": {\n    \"baseline_score\": 72.642,\n    \"confirmed_score\": 73.147,\n    \"tentative_changes\": 2,\n    \"confirmed_changes\": 31,\n    \"regressed_changes\": 1\n  },\n  \"integration_queue\": {\n    \"pending\": 1,\n    \"conflicts\": 0\n  },\n  \"epoch_ids\": [\n    \"epoch-18\",\n    \"epoch-19\"\n  ],\n  \"remote_application_ids\": [\n    \"remote-application-3\"\n  ],\n  \"worker_state_ids\": [\n    \"worker-state-501\",\n    \"worker-state-502\"\n  ],\n  \"checkpoint_ids\": [\n    \"checkpoint-88\"\n  ],\n  \"active_operation_ids\": [\n    \"operation-run-drain-44\"\n  ],\n  \"latest_event_sequence\": 92811,\n  \"blockers\": []\n}",
+        "example": "{\n  \"run_id\": \"run-2026-08-11-01\",\n  \"game_id\": \"melee\",\n  \"cycle_id\": \"cycle-7\",\n  \"revision\": 288,\n  \"inputs\": {\n    \"base_revision\": \"upstream-9ac4\",\n    \"policy_revision\": \"policy-42\",\n    \"starting_knowledge_revision\": \"knowledge-375\",\n    \"configuration_snapshot\": {\n      \"desired_workers\": 64,\n      \"epoch_size\": 64\n    }\n  },\n  \"head_revision\": \"upstream-9ba1\",\n  \"control\": {\n    \"status\": \"draining\",\n    \"stop_request\": {\n      \"target\": \"sync\",\n      \"mode\": \"finish_epoch\"\n    }\n  },\n  \"scheduling\": {\n    \"active_epoch_id\": \"epoch-19\",\n    \"desired_workers\": 64,\n    \"scheduler_condition\": \"boundary\",\n    \"admitted\": 64,\n    \"claimed\": 64,\n    \"running\": 2\n  },\n  \"progress\": {\n    \"baseline_score\": 72.642,\n    \"confirmed_score\": 73.147,\n    \"tentative_changes\": 2,\n    \"confirmed_changes\": 31,\n    \"regressed_changes\": 1\n  },\n  \"job_ids\": [\n    \"job-worker-501\",\n    \"job-integration-88\"\n  ],\n  \"integration_outcome_ids\": [\n    \"integration-outcome-88\"\n  ],\n  \"epoch_ids\": [\n    \"epoch-18\",\n    \"epoch-19\"\n  ],\n  \"remote_application_ids\": [\n    \"remote-application-3\"\n  ],\n  \"worker_state_ids\": [\n    \"worker-state-501\",\n    \"worker-state-502\"\n  ],\n  \"checkpoint_ids\": [\n    \"checkpoint-88\"\n  ],\n  \"active_operation_ids\": [\n    \"operation-run-drain-44\"\n  ],\n  \"latest_event_sequence\": 92811,\n  \"blockers\": []\n}",
         "fields": [
           {
             "name": "run_id",
@@ -255,8 +253,14 @@
             ]
           },
           {
-            "name": "integration_queue",
-            "type": "IntegrationQueueSummary"
+            "name": "job_ids",
+            "type": "JobId[]",
+            "description": "Worker and integration dispatch records associated with this run."
+          },
+          {
+            "name": "integration_outcome_ids",
+            "type": "IntegrationOutcomeId[]",
+            "description": "Domain outcomes referenced by settled integration jobs."
           },
           {
             "name": "epoch_ids",
@@ -328,13 +332,13 @@
           "insert": " identifies validation attempts. "
         },
         {
-          "insert": "integration_queue",
+          "insert": "job_ids",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " summarizes unresolved publication work, and the durable pending-integration records carry the branch and commit evidence required for reconciliation."
+          "insert": " identifies the durable worker and integration dispatch records, while integration_outcome_ids identifies domain evidence for application and conflict resolution. Job status answers whether work can execute; worker states, checkpoints, and integration outcomes answer what the work established."
         }
       ],
       "children": []
@@ -679,7 +683,7 @@
       },
       "text": [
         {
-          "insert": "Admission creates epoch targets and claims beneath "
+          "insert": "Admission creates epoch targets and one deduplicated worker slot job per target beneath "
         },
         {
           "insert": "run_id",
@@ -688,7 +692,7 @@
           }
         },
         {
-          "insert": "; scheduling counts summarize their current positions."
+          "insert": "; the host creates target claims only while atomically claiming those jobs, and scheduling counts summarize the resulting positions."
         }
       ],
       "children": []
@@ -749,7 +753,7 @@
       },
       "text": [
         {
-          "insert": "Claims compose worker states, and runner validation appends checkpoints beneath those worker states."
+          "insert": "Atomic job-and-target claims compose worker states. Runner validation appends checkpoints under ClaimToken authority, and settlement derives the job result from the durable worker-state row."
         }
       ],
       "children": []
@@ -804,61 +808,11 @@
     },
     "b-50-run-state-a-pause-request-moves-th-35": {
       "id": "b-50-run-state-a-pause-request-moves-th-35",
-      "type": "list-item",
-      "props": {
-        "ordered": true
-      },
+      "type": "paragraph",
+      "props": {},
       "text": [
         {
-          "insert": "A pause request moves the run through draining, disables new admission, and lets claims and boundary work settle."
-        }
-      ],
-      "children": []
-    },
-    "b-50-run-state-recovery-reconciles-pend-36": {
-      "id": "b-50-run-state-recovery-reconciles-pend-36",
-      "type": "list-item",
-      "props": {
-        "ordered": true
-      },
-      "text": [
-        {
-          "insert": "Recovery reconciles pending integrations before it cancels or settles orphaned claims, operations, and stale authority."
-        }
-      ],
-      "children": []
-    },
-    "b-50-run-state-a-failed-run-returns-to-37": {
-      "id": "b-50-run-state-a-failed-run-returns-to-37",
-      "type": "list-item",
-      "props": {
-        "ordered": true
-      },
-      "text": [
-        {
-          "insert": "A failed run returns to paused on the same "
-        },
-        {
-          "insert": "run_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "; resume reacquires the workflow slot and dispatch lease."
-        }
-      ],
-      "children": []
-    },
-    "b-50-run-state-the-canonical-run-state-38": {
-      "id": "b-50-run-state-the-canonical-run-state-38",
-      "type": "list-item",
-      "props": {
-        "ordered": true
-      },
-      "text": [
-        {
-          "insert": "The canonical "
+          "insert": "Pausing drains admission so active claims and boundary work can settle without abandoning the run's identity; recovery then reconciles durable integration and authority evidence before work resumes. See "
         },
         {
           "insert": "Run State",
@@ -867,7 +821,7 @@
           }
         },
         {
-          "insert": " page owns the status transitions, scheduler conditions, and recovery invariants."
+          "insert": " for the full status tables and pause/recovery narrative."
         }
       ],
       "children": []
@@ -887,70 +841,20 @@
     },
     "b-50-run-state-before-creating-an-epoch-40": {
       "id": "b-50-run-state-before-creating-an-epoch-40",
-      "type": "list-item",
-      "props": {
-        "ordered": true
-      },
+      "type": "paragraph",
+      "props": {},
       "text": [
         {
-          "insert": "Before creating an epoch integration commit, the run writes a pending-integration record keyed by "
+          "insert": "The scheduler/epoch-boundary module reconciles pending integration before it admits the next epoch. Integration jobs provide single-flight dispatch with a 15-minute lease, while integration_outcomes preserve the accepted application or conflict evidence needed to finish or reject an interrupted boundary. See "
         },
         {
-          "insert": "run_id",
+          "insert": "Run State",
           "attributes": {
-            "code": true
+            "link": "../../../50-workflows/20-run/10-run-state"
           }
         },
         {
-          "insert": " and "
-        },
-        {
-          "insert": "epoch_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "."
-        }
-      ],
-      "children": []
-    },
-    "b-50-run-state-the-git-commit-carries-t-41": {
-      "id": "b-50-run-state-the-git-commit-carries-t-41",
-      "type": "list-item",
-      "props": {
-        "ordered": true
-      },
-      "text": [
-        {
-          "insert": "The Git commit carries the stable epoch-integration marker."
-        }
-      ],
-      "children": []
-    },
-    "b-50-run-state-the-state-transaction-cl-42": {
-      "id": "b-50-run-state-the-state-transaction-cl-42",
-      "type": "list-item",
-      "props": {
-        "ordered": true
-      },
-      "text": [
-        {
-          "insert": "The state transaction closes the epoch, advances cycle and run head mirrors, and removes the pending record atomically."
-        }
-      ],
-      "children": []
-    },
-    "b-50-run-state-startup-or-recovery-sear-43": {
-      "id": "b-50-run-state-startup-or-recovery-sear-43",
-      "type": "list-item",
-      "props": {
-        "ordered": true
-      },
-      "text": [
-        {
-          "insert": "Startup or recovery searches from the recorded parent for the marker, then either completes the state transaction or records an integration error and clears the stale pending record."
+          "insert": " for the full status tables and Epoch-Integration trailer protocol detail."
         }
       ],
       "children": []
@@ -976,7 +880,7 @@
       },
       "text": [
         {
-          "insert": "The scheduler stops admission and settles the active epoch, claims, operations, and integration queue."
+          "insert": "The scheduler stops admission and settles the active epoch, worker jobs, target claims, operations, and run-scoped integration jobs."
         }
       ],
       "children": []

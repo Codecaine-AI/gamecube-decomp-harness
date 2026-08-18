@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-60-knowledge-05-process-overview",
+  "title": "Knowledge Process Overview",
+  "root": "b-05-process-overview-root",
+  "blocks": {
+    "b-05-process-overview-root": {
+      "id": "b-05-process-overview-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "knowledge",
+          "background-processing",
+          "leases",
+          "publication",
+          "freshness",
+          "worker-surfaces"
+        ],
+        "covers": "The end-to-end knowledge process from worker close through durable processing, authoritative publication, revision advancement, and refreshed worker surfaces."
+      },
+      "children": [
+        "b-05-process-overview-intro",
+        "b-05-process-overview-spine",
+        "b-05-process-overview-close-heading",
+        "b-05-process-overview-close-prose",
+        "b-05-process-overview-claim-heading",
+        "b-05-process-overview-claim-prose",
+        "b-05-process-overview-materialize-heading",
+        "b-05-process-overview-materialize-prose",
+        "b-05-process-overview-publish-heading",
+        "b-05-process-overview-publish-prose",
+        "b-05-process-overview-consumption-heading",
+        "b-05-process-overview-consumption-prose"
+      ]
+    },
+    "b-05-process-overview-intro": {
+      "id": "b-05-process-overview-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Knowledge maintenance runs as a durable background process because learning must survive the worker that produced it without taking ownership of a workflow slot. The workflow can continue while knowledge catches up, and the "
+        },
+        {
+          "insert": "knowledge state",
+          "attributes": {
+            "link": "../../40-harness-state/10-state-composition/70-knowledge-state"
+          }
+        },
+        {
+          "insert": " records the pending work, processing ownership, failures, and accepted freshness needed to make that separation visible. The "
+        },
+        {
+          "insert": "implementation account",
+          "attributes": {
+            "link": "../../../20-implementation/30-knowledge"
+          }
+        },
+        {
+          "insert": " describes how these contracts are realized; this page stays at the design level and follows the process from completed work to the next informed worker."
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-spine": {
+      "id": "b-05-process-overview-spine",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "a worker closes with results and evidence"
+          },
+          {
+            "text": "the results become a durable background knowledge job"
+          },
+          {
+            "text": "a processor claims the job under a fenced lease"
+          },
+          {
+            "text": "the job materializes learnings and attempt records"
+          },
+          {
+            "text": "accepted results publish at the governing authority boundary"
+          },
+          {
+            "text": "the accepted knowledge revision advances"
+          },
+          {
+            "text": "refreshed knowledge surfaces reach subsequent workers"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-05-process-overview-close-heading": {
+      "id": "b-05-process-overview-close-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Close and Enqueue"
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-close-prose": {
+      "id": "b-05-process-overview-close-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker close is the handoff point between doing work and preserving what the work revealed. Results are enqueued before the worker disappears so a restart, interruption, or busy processor cannot erase the learning opportunity. The durable job decouples worker throughput from knowledge throughput: closing work stays prompt, while maintenance can retry and recover independently. The execution classes and full job lifecycle are defined in "
+        },
+        {
+          "insert": "Background Jobs",
+          "attributes": {
+            "link": "../70-background-jobs"
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-claim-heading": {
+      "id": "b-05-process-overview-claim-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Claim and Lease"
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-claim-prose": {
+      "id": "b-05-process-overview-claim-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A processor claims eligible work under an expiring, fenced lease. Expiry makes abandoned work recoverable; fencing ensures that an earlier processor cannot publish after ownership has moved on. Together they allow retries without treating duplicate processing as acceptable and keep one current owner accountable for each publication attempt."
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-materialize-heading": {
+      "id": "b-05-process-overview-materialize-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Materialize Learnings and Attempts"
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-materialize-prose": {
+      "id": "b-05-process-overview-materialize-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Claimed results are interpreted into two complementary records. Learnings capture reusable understanding supported by evidence; attempt records preserve what was tried and what outcome followed, including work that did not succeed. Materialization prepares both for acceptance without making them visible as authoritative knowledge, so incomplete or replayed work cannot leak into worker-facing views."
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-publish-heading": {
+      "id": "b-05-process-overview-publish-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Publish and Advance the Revision"
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-publish-prose": {
+      "id": "b-05-process-overview-publish-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Publication occurs only at the boundary that already has authority to accept the affected knowledge. That placement keeps background processing from bypassing the ownership rules of the system it updates. Acceptance is replay-safe: once the result is authoritative, the knowledge revision advances as the compact signal that a newer coherent view exists. A completed job without an advanced accepted revision does not claim freshness."
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-consumption-heading": {
+      "id": "b-05-process-overview-consumption-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Refresh Worker Consumption"
+        }
+      ],
+      "children": []
+    },
+    "b-05-process-overview-consumption-prose": {
+      "id": "b-05-process-overview-consumption-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The accepted revision gates refresh of the "
+        },
+        {
+          "insert": "worker surfaces",
+          "attributes": {
+            "link": "../60-worker-surfaces"
+          }
+        },
+        {
+          "insert": " that supply context at startup and during work. Workers therefore receive a coherent published view rather than partially materialized changes. The process closes its loop when later workers act with those refreshed surfaces and their results, in turn, become durable input to the next knowledge revision."
+        }
+      ],
+      "children": []
+    }
+  }
+}

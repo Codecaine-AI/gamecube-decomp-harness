@@ -1,0 +1,521 @@
+{
+ "schemaVersion": 1,
+ "id": "10-system-design-50-workflows-30-pr-30-qa-ship-gate",
+ "title": "QA Ship Gate",
+ "root": "b-30-qa-ship-gate-root-1",
+ "blocks": {
+  "b-30-qa-ship-gate-root-1": {
+   "id": "b-30-qa-ship-gate-root-1",
+   "type": "paragraph",
+   "props": {
+    "concepts": [
+     "qa-ship-gate",
+     "preship-review",
+     "qa-repair",
+     "pr-promotion-gate"
+    ]
+   },
+   "text": [],
+   "children": [
+    "b-30-qa-ship-gate-intro-2",
+    "b-30-qa-ship-gate-gate-layers-3",
+    "b-60-score-and-pr-handoff-score-gates-cannot-catch-46",
+    "b-60-score-and-pr-handoff-l1-worker-attempt-li-47",
+    "b-60-score-and-pr-handoff-including-warning-only-f-48",
+    "b-60-score-and-pr-handoff-l2-regression-check-49",
+    "b-60-score-and-pr-handoff-deterministic-review-li-50",
+    "b-60-score-and-pr-handoff-l3-pre-ship-adversar-51",
+    "b-60-score-and-pr-handoff-pr-reviewer-agent-in-adv-52",
+    "b-60-score-and-pr-handoff-draft-pr-lifecycle-53",
+    "b-60-score-and-pr-handoff-the-draft-first-it-trea-54",
+    "b-60-score-and-pr-handoff-l4-feedback-loop-55",
+    "b-60-score-and-pr-handoff-banned-patterns-source-56",
+    "b-60-score-and-pr-handoff-the-failure-asymmetry-be-57",
+    "b-60-score-and-pr-handoff-disposition-is-consisten-58",
+    "b-60-score-and-pr-handoff-adversarial-cleanup-and-59",
+    "b-60-score-and-pr-handoff-the-qa-repair-lane-exten-60",
+    "b-30-qa-ship-gate-related-4",
+    "b-30-qa-ship-gate-score-related-5",
+    "b-30-qa-ship-gate-campaign-related-6"
+   ]
+  },
+  "b-30-qa-ship-gate-intro-2": {
+   "id": "b-30-qa-ship-gate-intro-2",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "Score gates measure byte movement but cannot catch the score-inflating hacks that exploit that metric. A layered QA gate therefore stands between the "
+    },
+    {
+     "insert": "score gate and handoff",
+     "attributes": {
+      "link": "../20-score-gate-and-handoff"
+     }
+    },
+    {
+     "insert": " promotion decision and split planning. This page defines those layers, explains why their failure modes differ, and describes the repair lane that disposes of findings before a candidate can ship."
+    }
+   ],
+   "children": []
+  },
+  "b-30-qa-ship-gate-gate-layers-3": {
+   "id": "b-30-qa-ship-gate-gate-layers-3",
+   "type": "heading",
+   "props": {
+    "level": 2
+   },
+   "text": [
+    {
+     "insert": "Gate Layers"
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-score-gates-cannot-catch-46": {
+   "id": "b-60-score-and-pr-handoff-score-gates-cannot-catch-46",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "Score gates cannot catch score-inflating hacks. The 2026-06-11 maintainer\nreview of PRs #2655\u2013#2659 flagged a batch of them \u2014 data-ordering externs,\nhand-packed string blobs, open-coded asserts, and one resubmission of a\npreviously rejected change \u2014 all explicitly prohibited by the QA standards,\nyet waved through because every gate measured objdiff score and the violation\nis what inflates the score. The QA ship gate makes \"maintainer-rejected\npattern\" a machine-detected, ship-blocking condition in four layers:"
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-l1-worker-attempt-li-47": {
+   "id": "b-60-score-and-pr-handoff-l1-worker-attempt-li-47",
+   "type": "list-item",
+   "props": {
+    "ordered": false
+   },
+   "text": [
+    {
+     "insert": "L1 \u2014 worker attempt lint.",
+     "attributes": {
+      "bold": true
+     }
+    },
+    {
+     "insert": " Any attempt with deterministic QA findings,"
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-including-warning-only-f-48": {
+   "id": "b-60-score-and-pr-handoff-including-warning-only-f-48",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "  including warning-only findings, is rejected at attempt time inside the\n  worker post-return gate, with the findings fed back as repair feedback (see\n  "
+    },
+    {
+     "insert": "worker lifecycle",
+     "attributes": {
+      "link": "../../20-run/40-workers/10-lifecycle"
+     }
+    },
+    {
+     "insert": "). When the same attempt measured\n  an exact score, the runner treats it as failed-gate exact repair evidence,\n  not as an accepted match."
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-l2-regression-check-49": {
+   "id": "b-60-score-and-pr-handoff-l2-regression-check-49",
+   "type": "list-item",
+   "props": {
+    "ordered": false
+   },
+   "text": [
+    {
+     "insert": "L2 \u2014 regression-check hard gate.",
+     "attributes": {
+      "bold": true
+     }
+    },
+    {
+     "insert": " "
+    },
+    {
+     "insert": "regression-check",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": " runs the"
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-deterministic-review-li-50": {
+   "id": "b-60-score-and-pr-handoff-deterministic-review-li-50",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "  deterministic "
+    },
+    {
+     "insert": "review_lint",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": " diff scan against the upstream base by default;\n  the only bypass is an explicit "
+    },
+    {
+     "insert": "--skip-qa-gate",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": ". The summary gains\n  "
+    },
+    {
+     "insert": "qaGateExitCode",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": ", "
+    },
+    {
+     "insert": "qaGateSkipped",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": ", "
+    },
+    {
+     "insert": "qaFindings",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": ", "
+    },
+    {
+     "insert": "qaCounts",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": ", and\n  "
+    },
+    {
+     "insert": "qaScanPath",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": ", and the verdict folds the gate in:\n  "
+    },
+    {
+     "insert": "passed = regressionGatePassed && !promotionBlocked && qaGatePassed",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": ". A\n  failure hint lists every finding at "
+    },
+    {
+     "insert": "file:line",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": ", including warning-only\n  findings, and each finding cites the standard it violates."
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-l3-pre-ship-adversar-51": {
+   "id": "b-60-score-and-pr-handoff-l3-pre-ship-adversar-51",
+   "type": "list-item",
+   "props": {
+    "ordered": false
+   },
+   "text": [
+    {
+     "insert": "L3 \u2014 pre-ship adversarial review.",
+     "attributes": {
+      "bold": true
+     }
+    },
+    {
+     "insert": " "
+    },
+    {
+     "insert": "pr-preship-review",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": " runs the"
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-pr-reviewer-agent-in-adv-52": {
+   "id": "b-60-score-and-pr-handoff-pr-reviewer-agent-in-adv-52",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "  PR reviewer agent in adversarial mode over every shipping slice between\n  regression-check and PR body drafting; any "
+    },
+    {
+     "insert": "reject",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": " finding \u2014 or any\n  infrastructure failure \u2014 exits 1 and blocks the handoff (see\n  "
+    },
+    {
+     "insert": "PR splitter, reviewer, and repair agents",
+     "attributes": {
+      "link": "../../../../20-implementation/10-agents/20-pr"
+     }
+    },
+    {
+     "insert": ")."
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-draft-pr-lifecycle-53": {
+   "id": "b-60-score-and-pr-handoff-draft-pr-lifecycle-53",
+   "type": "list-item",
+   "props": {
+    "ordered": false
+   },
+   "text": [
+    {
+     "insert": "Draft PR lifecycle.",
+     "attributes": {
+      "bold": true
+     }
+    },
+    {
+     "insert": " "
+    },
+    {
+     "insert": "pr-draft-qa",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": " runs after a draft PR exists, or opens"
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-the-draft-first-it-trea-54": {
+   "id": "b-60-score-and-pr-handoff-the-draft-first-it-trea-54",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "  the draft first. The campaign treats the PR as the central remote object: background observation records GitHub comments, review comments, and remote status as durable series state as soon as they arrive. Preship review, QA repair, and CI/local validation execute only inside an operator-entered campaign activation that holds the dispatch lease; the activation posts deduped comments for unresolved findings before the PR is ready for human review."
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-l4-feedback-loop-55": {
+   "id": "b-60-score-and-pr-handoff-l4-feedback-loop-55",
+   "type": "list-item",
+   "props": {
+    "ordered": false
+   },
+   "text": [
+    {
+     "insert": "L4 \u2014 feedback loop.",
+     "attributes": {
+      "bold": true
+     }
+    },
+    {
+     "insert": " Every new maintainer rejection is ingested into the"
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-banned-patterns-source-56": {
+   "id": "b-60-score-and-pr-handoff-banned-patterns-source-56",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "  "
+    },
+    {
+     "insert": "banned_patterns",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": " source as regex rules, review exhibits, and resubmission\n  tombstones, so a rejected change is mechanically blocked from ever being\n  resubmitted (see "
+    },
+    {
+     "insert": "knowledge model",
+     "attributes": {
+      "link": "../../../60-knowledge"
+     }
+    },
+    {
+     "insert": ")."
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-the-failure-asymmetry-be-57": {
+   "id": "b-60-score-and-pr-handoff-the-failure-asymmetry-be-57",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "The failure asymmetry between L1 and L2 is deliberate. L2 fails "
+    },
+    {
+     "insert": "closed",
+     "attributes": {
+      "bold": true
+     }
+    },
+    {
+     "insert": ": a\nscanner that cannot run blocks the handoff, because the patterns it detects\nare exactly the ones that inflate the score metric every other gate trusts.\nL1 fails "
+    },
+    {
+     "insert": "open",
+     "attributes": {
+      "bold": true
+     }
+    },
+    {
+     "insert": " on scanner infrastructure errors, so an environment hiccup\ndoes not mass-reject worker attempts; the blind spot is recorded in the\nattempt artifacts."
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-disposition-is-consisten-58": {
+   "id": "b-60-score-and-pr-handoff-disposition-is-consisten-58",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "Disposition is consistent with the promotion policy: symbols blocked by the\ngate become "
+    },
+    {
+     "insert": "needs_rework",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": " and are readmitted at repair priority; a slice ships\nwithout them or not at all. MATCHES-only shipping is unchanged \u2014 the gate\nnarrows what a match is allowed to contain."
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-adversarial-cleanup-and-59": {
+   "id": "b-60-score-and-pr-handoff-adversarial-cleanup-and-59",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "Adversarial cleanup and QA repair are allowed to lower fuzzy score or lose an\nexact match when they remove overzealous worker output or maintainer-rejected\nsource shape. The lower-score result is reported and carried forward or routed\nthrough an explicit improvement lane; the banned tactic is not restored simply\nto preserve a score."
+    }
+   ],
+   "children": []
+  },
+  "b-60-score-and-pr-handoff-the-qa-repair-lane-exten-60": {
+   "id": "b-60-score-and-pr-handoff-the-qa-repair-lane-exten-60",
+   "type": "paragraph",
+   "props": {},
+   "text": [
+    {
+     "insert": "The QA repair lane extends this disposition before split planning: a\ncandidate-file sweep converts deterministic QA findings and file-backed review\nfindings into a repair queue, a resolver-style agent attempts source-level\nrepairs before minimal reverts, and each finding receives an explicit\ndisposition. Strict automated handoff treats warnings as repair targets:\nworker L1 and "
+    },
+    {
+     "insert": "regression-check",
+     "attributes": {
+      "code": true
+     }
+    },
+    {
+     "insert": " L2 both require zero QA findings, and draft\nPR QA keeps the same strict default unless an operator explicitly selects\nadvisory warnings. Each repair queue item carries an authorized_write_set. The\nrepair lane retains authorized cross-file fixes, partially reverts only\nunauthorized hunks, and returns blocked_needs_cross_file when the clean repair\nrequires a path outside that set; it does not restore the target source\nwholesale. Clean-lower-score files stay out of ready status unless an operator\nexplicitly accepts that outcome. The ship-filter artifact feeds split planning\nso queued, blocked, false-positive, or clean-lower-score files are not silently\nincluded in match PRs."
+    }
+   ],
+   "children": []
+  },
+  "b-30-qa-ship-gate-related-4": {
+   "id": "b-30-qa-ship-gate-related-4",
+   "type": "heading",
+   "props": {
+    "level": 2
+   },
+   "text": [
+    {
+     "insert": "Related"
+    }
+   ],
+   "children": []
+  },
+  "b-30-qa-ship-gate-score-related-5": {
+   "id": "b-30-qa-ship-gate-score-related-5",
+   "type": "list-item",
+   "props": {
+    "ordered": false
+   },
+   "text": [
+    {
+     "insert": "Score gate and handoff",
+     "attributes": {
+      "link": "../20-score-gate-and-handoff"
+     }
+    },
+    {
+     "insert": " decides the ship set before this gate evaluates its source shape."
+    }
+   ],
+   "children": []
+  },
+  "b-30-qa-ship-gate-campaign-related-6": {
+   "id": "b-30-qa-ship-gate-campaign-related-6",
+   "type": "list-item",
+   "props": {
+    "ordered": false
+   },
+   "text": [
+    {
+     "insert": "Campaign and tracking",
+     "attributes": {
+      "link": "../40-campaign-and-tracking"
+     }
+    },
+    {
+     "insert": " publishes and tracks the candidates that survive the gate."
+    }
+   ],
+   "children": []
+  }
+ }
+}

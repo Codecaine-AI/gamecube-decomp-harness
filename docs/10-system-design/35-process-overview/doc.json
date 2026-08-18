@@ -1,0 +1,757 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-35-process-overview",
+  "title": "Process Overview",
+  "root": "b-35-process-overview-root-1",
+  "blocks": {
+    "b-35-process-overview-root-1": {
+      "id": "b-35-process-overview-root-1",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "process",
+          "lifecycle",
+          "registration",
+          "cycles",
+          "sync",
+          "run",
+          "PR",
+          "knowledge"
+        ],
+        "covers": "The end-to-end walk of one game pass: registration and cycle open, the sync/run/PR phases and their handoffs, and the knowledge lane running alongside."
+      },
+      "children": [
+        "b-35-process-overview-intro-2",
+        "b-35-process-overview-game-lifecycle-outline-39",
+        "b-35-process-overview-registration-and-cycle-open-3",
+        "b-35-process-overview-registration-4",
+        "b-35-process-overview-cycle-open-5",
+        "b-35-process-overview-game-phase-walk-6",
+        "b-35-process-overview-sync-establishes-the-w-7",
+        "b-35-process-overview-run-produces-confirmed-12",
+        "b-35-process-overview-pr-turns-confirmed-out-17",
+        "b-35-process-overview-the-next-intake-return-22",
+        "b-35-process-overview-handoffs-25",
+        "b-35-process-overview-sync-to-run-26",
+        "b-35-process-overview-run-to-pr-28",
+        "b-35-process-overview-pr-to-sync-30",
+        "b-35-process-overview-interrupted-phase-32",
+        "b-35-process-overview-a-cycle-may-re-34",
+        "b-35-process-overview-knowledge-lane-35",
+        "b-35-process-overview-knowledge-processing-36",
+        "b-35-process-overview-knowledge-pointers-37"
+      ]
+    },
+    "b-35-process-overview-intro-2": {
+      "id": "b-35-process-overview-intro-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This page is the end-to-end narrative of one full game pass: a game is registered, a cycle opens on a captured baseline, and the game then moves through the sync, run, and PR phases and back through sync, while background knowledge jobs run alongside every phase. Phase mechanics and authority rules live in "
+        },
+        {
+          "insert": "Game Workflows",
+          "attributes": {
+            "link": "../50-workflows"
+          }
+        },
+        {
+          "insert": "; the durable shape of each phase lives under "
+        },
+        {
+          "insert": "state composition",
+          "attributes": {
+            "link": "../40-harness-state/10-state-composition"
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-game-lifecycle-outline-39": {
+      "id": "b-35-process-overview-game-lifecycle-outline-39",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "register the game and provision its canonical worktree",
+            "kind": "step"
+          },
+          {
+            "text": "open a cycle and capture its baseline revision",
+            "kind": "step",
+            "steps": [
+              {
+                "text": "sync reconciles inputs and publishes the working baseline",
+                "kind": "step"
+              },
+              {
+                "text": "run dispatches epochs and publishes confirmed game work",
+                "kind": "step"
+              },
+              {
+                "text": "PR prepares, reviews, and publishes the campaign",
+                "kind": "step"
+              },
+              {
+                "text": "operator-started sync reconciles merged results into the next baseline",
+                "kind": "step"
+              },
+              {
+                "text": "background knowledge jobs run alongside every phase",
+                "kind": "note"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-35-process-overview-registration-and-cycle-open-3": {
+      "id": "b-35-process-overview-registration-and-cycle-open-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Registration and Cycle Open"
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-registration-4": {
+      "id": "b-35-process-overview-registration-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A game enters the harness through registration: the game supplies its source repository, tools, policy defaults, and knowledge inputs, and the harness provisions the canonical worktree the phases will operate on. "
+        },
+        {
+          "insert": "Registration and Setup",
+          "attributes": {
+            "link": "../30-games/20-registration-and-setup"
+          }
+        },
+        {
+          "insert": " defines what a game declares and how its worktree is prepared."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-cycle-open-5": {
+      "id": "b-35-process-overview-cycle-open-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "All phase work happens inside a cycle. Opening a cycle allocates the cycle's envelope identity and captures the baseline revision the coming phases build on; "
+        },
+        {
+          "insert": "Cycles",
+          "attributes": {
+            "link": "../30-games/30-cycles"
+          }
+        },
+        {
+          "insert": " defines the cycle container and its single-active rule, and "
+        },
+        {
+          "insert": "cycle state",
+          "attributes": {
+            "link": "../40-harness-state/10-state-composition/30-cycle-state"
+          }
+        },
+        {
+          "insert": " holds its durable shape."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-game-phase-walk-6": {
+      "id": "b-35-process-overview-game-phase-walk-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Game Phase Walk"
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-sync-establishes-the-w-7": {
+      "id": "b-35-process-overview-sync-establishes-the-w-7",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Sync",
+          "attributes": {
+            "bold": true,
+            "link": "../50-workflows/10-sync"
+          }
+        },
+        {
+          "insert": " establishes the working baseline.",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-35-process-overview-the-operator-starts-reco-8",
+        "b-35-process-overview-sync-stages-intake-and-r-9",
+        "b-35-process-overview-validation-and-operator-10",
+        "b-35-process-overview-sync-workflow-10-syn-11"
+      ]
+    },
+    "b-35-process-overview-the-operator-starts-reco-8": {
+      "id": "b-35-process-overview-the-operator-starts-reco-8",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The operator starts reconciliation from observed upstream movement, merged PR identities, staged corpora, or a knowledge-only request."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-sync-stages-intake-and-r-9": {
+      "id": "b-35-process-overview-sync-stages-intake-and-r-9",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sync stages intake and reconciliation away from the cycle tree."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-validation-and-operator-10": {
+      "id": "b-35-process-overview-validation-and-operator-10",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Validation and operator-confirmed publication advance game truth atomically."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-sync-workflow-10-syn-11": {
+      "id": "b-35-process-overview-sync-workflow-10-syn-11",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sync Workflow",
+          "attributes": {
+            "link": "../50-workflows/10-sync"
+          }
+        },
+        {
+          "insert": " defines intake, staging, authority, and publication."
+        },
+        {
+          "insert": " Its durable shape is "
+        },
+        {
+          "insert": "Sync State",
+          "attributes": {
+            "link": "../40-harness-state/10-state-composition/40-sync-state"
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-run-produces-confirmed-12": {
+      "id": "b-35-process-overview-run-produces-confirmed-12",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "Run",
+          "attributes": {
+            "bold": true,
+            "link": "../50-workflows/20-run"
+          }
+        },
+        {
+          "insert": " produces confirmed game work.",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-35-process-overview-run-acquires-dispatch-au-13",
+        "b-35-process-overview-its-director-admits-epoc-14",
+        "b-35-process-overview-epoch-boundaries-classif-15",
+        "b-35-process-overview-running-20-run-defi-16"
+      ]
+    },
+    "b-35-process-overview-run-acquires-dispatch-au-13": {
+      "id": "b-35-process-overview-run-acquires-dispatch-au-13",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run acquires dispatch authority after sync releases it."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-its-director-admits-epoc-14": {
+      "id": "b-35-process-overview-its-director-admits-epoc-14",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Its director admits epoch work and its epoch workers operate in isolated worktrees."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-epoch-boundaries-classif-15": {
+      "id": "b-35-process-overview-epoch-boundaries-classif-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Epoch boundaries classify tentative output and publish confirmed head movement."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-running-20-run-defi-16": {
+      "id": "b-35-process-overview-running-20-run-defi-16",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Running",
+          "attributes": {
+            "link": "../50-workflows/20-run"
+          }
+        },
+        {
+          "insert": " defines run state, scheduling, workers, and epoch publication."
+        },
+        {
+          "insert": " Its durable shape is "
+        },
+        {
+          "insert": "Run State",
+          "attributes": {
+            "link": "../40-harness-state/10-state-composition/50-run-state"
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-pr-turns-confirmed-out-17": {
+      "id": "b-35-process-overview-pr-turns-confirmed-out-17",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "PR",
+          "attributes": {
+            "bold": true,
+            "link": "../50-workflows/30-pr"
+          }
+        },
+        {
+          "insert": " turns confirmed output into a review campaign.",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-35-process-overview-pr-acquires-dispatch-aut-18",
+        "b-35-process-overview-its-queue-prepares-ship-19",
+        "b-35-process-overview-operator-gates-control-p-20",
+        "b-35-process-overview-ship-and-pr-30-pr-d-21"
+      ]
+    },
+    "b-35-process-overview-pr-acquires-dispatch-aut-18": {
+      "id": "b-35-process-overview-pr-acquires-dispatch-aut-18",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "PR acquires dispatch authority for lease-holding campaign activations."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-its-queue-prepares-ship-19": {
+      "id": "b-35-process-overview-its-queue-prepares-ship-19",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Its queue prepares ship slices, runs QA, and dispatches review and repair agents."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-operator-gates-control-p-20": {
+      "id": "b-35-process-overview-operator-gates-control-p-20",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Operator gates control publication and campaign closure."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-ship-and-pr-30-pr-d-21": {
+      "id": "b-35-process-overview-ship-and-pr-30-pr-d-21",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Ship and PR",
+          "attributes": {
+            "link": "../50-workflows/30-pr"
+          }
+        },
+        {
+          "insert": " defines score gates, handoff, review, and PR tracking."
+        },
+        {
+          "insert": " Its durable shape is "
+        },
+        {
+          "insert": "PR State",
+          "attributes": {
+            "link": "../40-harness-state/10-state-composition/60-pr-state"
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-the-next-intake-return-22": {
+      "id": "b-35-process-overview-the-next-intake-return-22",
+      "type": "list-item",
+      "props": {
+        "ordered": true
+      },
+      "text": [
+        {
+          "insert": "The next intake returns through ",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": "sync",
+          "attributes": {
+            "bold": true,
+            "link": "../50-workflows/10-sync"
+          }
+        },
+        {
+          "insert": ".",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-35-process-overview-upstream-merges-review-23",
+        "b-35-process-overview-the-same-staging-and-pub-24"
+      ]
+    },
+    "b-35-process-overview-upstream-merges-review-23": {
+      "id": "b-35-process-overview-upstream-merges-review-23",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Upstream merges, review outcomes, and staged knowledge become inputs to another operator-started sync."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-the-same-staging-and-pub-24": {
+      "id": "b-35-process-overview-the-same-staging-and-pub-24",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The same staging and publication boundary reconciles the next baseline before more run work begins."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-handoffs-25": {
+      "id": "b-35-process-overview-handoffs-25",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Handoffs"
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-sync-to-run-26": {
+      "id": "b-35-process-overview-sync-to-run-26",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sync to run",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-35-process-overview-sync-publishes-the-valid-27"
+      ]
+    },
+    "b-35-process-overview-sync-publishes-the-valid-27": {
+      "id": "b-35-process-overview-sync-publishes-the-valid-27",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sync publishes the validated baseline, releases its lease, and leaves the run slot eligible for activation."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-run-to-pr-28": {
+      "id": "b-35-process-overview-run-to-pr-28",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run to PR",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-35-process-overview-run-settles-or-recovers-29"
+      ]
+    },
+    "b-35-process-overview-run-settles-or-recovers-29": {
+      "id": "b-35-process-overview-run-settles-or-recovers-29",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run settles or recovers active epoch workers, records its handoff state, and releases authority before PR dispatch begins."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-pr-to-sync-30": {
+      "id": "b-35-process-overview-pr-to-sync-30",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "PR to sync",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-35-process-overview-pr-preserves-campaign-an-31"
+      ]
+    },
+    "b-35-process-overview-pr-preserves-campaign-an-31": {
+      "id": "b-35-process-overview-pr-preserves-campaign-an-31",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "PR preserves campaign and review records while merged upstream results wait for operator-started sync intake."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-interrupted-phase-32": {
+      "id": "b-35-process-overview-interrupted-phase-32",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Interrupted phase",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "b-35-process-overview-the-current-lease-holder-33"
+      ]
+    },
+    "b-35-process-overview-the-current-lease-holder-33": {
+      "id": "b-35-process-overview-the-current-lease-holder-33",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The current lease holder drains, settles, or recovers its queue before another workflow receives dispatch authority."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-a-cycle-may-re-34": {
+      "id": "b-35-process-overview-a-cycle-may-re-34",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A cycle may revisit these phases without creating a new cycle identity. Durable workflow slots preserve each phase's status, blockers, and evidence while "
+        },
+        {
+          "insert": "HarnessState",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " remains the authority for which phase may act."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-knowledge-lane-35": {
+      "id": "b-35-process-overview-knowledge-lane-35",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Knowledge Lane"
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-knowledge-processing-36": {
+      "id": "b-35-process-overview-knowledge-processing-36",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Knowledge processing is not a fourth phase. Background knowledge jobs run alongside every phase: a worker enqueues knowledge candidates as it closes, a background processor claims each job under a lease, materializes its outputs, and publishes them so that later workers observe an advanced knowledge revision. The lane never takes the dispatch lease and never blocks a phase handoff."
+        }
+      ],
+      "children": []
+    },
+    "b-35-process-overview-knowledge-pointers-37": {
+      "id": "b-35-process-overview-knowledge-pointers-37",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Knowledge System",
+          "attributes": {
+            "link": "../60-knowledge"
+          }
+        },
+        {
+          "insert": " defines the stores, inputs, and worker surfaces the lane maintains; "
+        },
+        {
+          "insert": "Knowledge Process Overview",
+          "attributes": {
+            "link": "../60-knowledge/05-process-overview"
+          }
+        },
+        {
+          "insert": " walks the enqueue-claim-materialize-publish spine in detail; and "
+        },
+        {
+          "insert": "knowledge state",
+          "attributes": {
+            "link": "../40-harness-state/10-state-composition/70-knowledge-state"
+          }
+        },
+        {
+          "insert": " holds the durable job queue shape."
+        }
+      ],
+      "children": []
+    }
+  }
+}

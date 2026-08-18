@@ -1,68 +1,45 @@
 {
   "schemaVersion": 1,
   "id": "20-implementation-20-server-jobs-00-overview",
-  "title": "Server Jobs: Overview",
-  "root": "b-00-overview-root-18",
+  "title": "Server Jobs",
+  "root": "b-server-jobs-root-1",
   "blocks": {
-    "b-00-overview-root-18": {
-      "id": "b-00-overview-root-18",
+    "b-server-jobs-root-1": {
+      "id": "b-server-jobs-root-1",
       "type": "paragraph",
       "props": {
         "concepts": [
           "server-jobs",
-          "commands",
-          "init-run",
-          "tick",
-          "worker",
-          "write-set-widening",
-          "merge-on-finish",
-          "integration-resolve",
-          "scheduler",
-          "run-loop",
-          "babysit",
-          "recovery",
-          "checkpoint",
-          "regression-check",
-          "qa-ship-gate",
-          "qa-repair",
-          "pr-split-plan",
-          "pr-draft-qa",
-          "pr-preship-review",
-          "ui"
+          "job-runner",
+          "dispatcher",
+          "phase-owned-jobs"
         ]
       },
       "children": [
-        "b-00-overview-d-comp-orchestrator-serv-2",
-        "b-00-overview-sources-apps-server-sr-3",
-        "b-00-overview-the-operator-job-surface-4",
-        "b-00-overview-game-id-selects-5",
-        "b-00-overview-file-tree-6",
-        "b-00-overview-text-7",
-        "b-00-overview-jobs-8",
-        "b-00-overview-job-owner-purpose-9",
-        "b-00-overview-run-a-job-with-10",
-        "b-00-overview-sh-11",
-        "b-00-overview-qa-repair-is-the-resol-12",
-        "b-00-overview-integration-resolve-i-13",
-        "b-00-overview-boundaries-14",
-        "b-00-overview-server-jobs-are-debuggab-15",
-        "b-00-overview-game-resolution-is-a-16",
-        "b-00-overview-the-run-loop-is-delibera-17"
+        "b-server-jobs-role-2",
+        "b-server-jobs-sources-3",
+        "b-server-jobs-governed-by-4",
+        "b-server-jobs-gov-workflows-5",
+        "b-server-jobs-gov-background-jobs-6",
+        "b-server-jobs-decisions-7",
+        "b-server-jobs-decision-dispatcher-8",
+        "b-server-jobs-decision-dispatcher-why-9",
+        "b-server-jobs-decision-dispatcher-applies-10"
       ]
     },
-    "b-00-overview-d-comp-orchestrator-serv-2": {
-      "id": "b-00-overview-d-comp-orchestrator-serv-2",
+    "b-server-jobs-role-2": {
+      "id": "b-server-jobs-role-2",
       "type": "paragraph",
       "props": {},
       "text": [
         {
-          "insert": "D-Comp Orchestrator server-owned job modules and operator command surface."
+          "insert": "Operator job surface for the orchestrator: one command dispatcher that parses global game/runtime options and hands each command to the domain slice that owns its workflow. Behavior lives in the design workflow docs; this page records only how job code is organized."
         }
       ],
       "children": []
     },
-    "b-00-overview-sources-apps-server-sr-3": {
-      "id": "b-00-overview-sources-apps-server-sr-3",
+    "b-server-jobs-sources-3": {
+      "id": "b-server-jobs-sources-3",
       "type": "paragraph",
       "props": {},
       "text": [
@@ -70,25 +47,175 @@
           "insert": "Sources: "
         },
         {
-          "insert": "apps/server/src/job-runner.ts",
+          "insert": "apps/server/src/application/jobs",
           "attributes": {
             "reference": {
               "kind": "source",
-              "path": "apps/server/src/job-runner.ts",
-              "label": "apps/server/src/job-runner.ts"
+              "path": "apps/server/src/application/jobs",
+              "label": "apps/server/src/application/jobs"
             }
           }
         },
         {
-          "insert": ", "
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-governed-by-4": {
+      "id": "b-server-jobs-governed-by-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Governed by"
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-gov-workflows-5": {
+      "id": "b-server-jobs-gov-workflows-5",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Workflows",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows",
+              "label": "Workflows"
+            }
+          }
         },
         {
-          "insert": "apps/server/src/application/jobs/job-runner.ts",
+          "insert": " — owns the sync, run, and PR workflow behavior that jobs invoke."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-gov-background-jobs-6": {
+      "id": "b-server-jobs-gov-background-jobs-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Execution Classes and Jobs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/60-knowledge/70-background-jobs",
+              "label": "Execution Classes and Jobs"
+            }
+          }
+        },
+        {
+          "insert": " — owns the execution-class contract for knowledge jobs."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decisions-7": {
+      "id": "b-server-jobs-decisions-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Decisions"
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-8": {
+      "id": "b-server-jobs-decision-dispatcher-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "application/jobs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " owns only the command dispatcher; every job's implementation lives with its owning domain slice — running-phase jobs under the running phase, PR jobs under the PR phase, knowledge jobs under "
+        },
+        {
+          "insert": "core/knowledge/jobs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", validation jobs under "
+        },
+        {
+          "insert": "core/validation/jobs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-why-9": {
+      "id": "b-server-jobs-decision-dispatcher-why-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the rejected alternative was a standalone command app carrying job business logic in the application layer. Jobs are debuggable entrypoints over phase-owned workflow code, so workflow behavior stays with the phase that owns it and the dispatcher stays a thin routing table."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-applies-10": {
+      "id": "b-server-jobs-decision-dispatcher-applies-10",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "apps/server/src/application/jobs",
           "attributes": {
             "reference": {
               "kind": "source",
-              "path": "apps/server/src/application/jobs/job-runner.ts",
-              "label": "apps/server/src/application/jobs/job-runner.ts"
+              "path": "apps/server/src/application/jobs",
+              "label": "apps/server/src/application/jobs"
             }
           }
         },
@@ -106,794 +233,33 @@
           }
         },
         {
-          "insert": "."
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-the-operator-job-surface-4": {
-      "id": "b-00-overview-the-operator-job-surface-4",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The operator job surface is owned by "
+          "insert": ", "
         },
         {
-          "insert": "apps/server",
+          "insert": "apps/server/src/core/knowledge/jobs",
           "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ". "
-        },
-        {
-          "insert": "apps/server/src/job-runner.ts",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "\nis a stable executable shim. "
-        },
-        {
-          "insert": "apps/server/src/application/jobs/job-runner.ts",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "\nparses global game/runtime options, loads game-local env, and dispatches\nto phase-owned job modules or shared core/infrastructure helpers. The deleted\nstandalone command app is not a runtime boundary."
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-game-id-selects-5": {
-      "id": "b-00-overview-game-id-selects-5",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "--game <id>",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " selects "
-        },
-        {
-          "insert": "games/<id>/game.json",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", applies ignored\n"
-        },
-        {
-          "insert": "games/<id>/local.game.json",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " when present, then applies explicit\n"
-        },
-        {
-          "insert": "--repo-root",
-          "attributes": {
-            "code": true
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge/jobs",
+              "label": "apps/server/src/core/knowledge/jobs"
+            }
           }
         },
         {
           "insert": ", "
         },
         {
-          "insert": "--state-dir",
+          "insert": "apps/server/src/core/validation/jobs",
           "attributes": {
-            "code": true
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/jobs",
+              "label": "apps/server/src/core/validation/jobs"
+            }
           }
         },
         {
-          "insert": ", and command-level "
-        },
-        {
-          "insert": "--graph-db",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " overrides. Game\nmode carries the resolved game id, checkout root, state directory, graph\ndatabase, descriptor path, and local override path through server jobs. Raw path\nmode remains available when "
-        },
-        {
-          "insert": "--game",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " is omitted."
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-file-tree-6": {
-      "id": "b-00-overview-file-tree-6",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "File Tree"
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-text-7": {
-      "id": "b-00-overview-text-7",
-      "type": "file-tree",
-      "props": {
-        "entries": [
-          {
-            "path": "apps/server/src/job-runner.ts"
-          },
-          {
-            "path": "apps/server/src/application/jobs/job-runner.ts"
-          },
-          {
-            "path": "apps/server/src/core/game-registry/runtime-options.ts"
-          },
-          {
-            "path": "apps/server/src/core/game-registry/runtime-defaults.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/run-state/"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/preparing/"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/running/scheduler/tick.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/running/integration/integration-resolve.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/running/workers/worker-cycle.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/running/jobs/babysit.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/running/jobs/recover-claims.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/running/epochs/epoch-run.ts"
-          },
-          {
-            "path": "apps/server/src/core/cycle-runtime/phases/pr/jobs/"
-          },
-          {
-            "path": "apps/server/src/core/validation/jobs/"
-          },
-          {
-            "path": "apps/server/src/core/knowledge/jobs/"
-          },
-          {
-            "path": "apps/server/src/infrastructure/env/"
-          },
-          {
-            "path": "apps/server/src/infrastructure/persistence/sqlite/"
-          },
-          {
-            "path": "apps/server/src/infrastructure/shell/"
-          }
-        ]
-      },
-      "children": []
-    },
-    "b-00-overview-jobs-8": {
-      "id": "b-00-overview-jobs-8",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Jobs"
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-job-owner-purpose-9": {
-      "id": "b-00-overview-job-owner-purpose-9",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "| Job | Owner | Purpose |\n| --- | --- | --- |\n| "
-        },
-        {
-          "insert": "init-run",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/running/service",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Creates run state, stores the run checkpoint goal, loads board data, admits initial epoch target candidates, and writes the initial board snapshot. |\n| "
-        },
-        {
-          "insert": "tick",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/running/scheduler",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Handles one unhandled wake event with the deterministic scheduler, epoch target admission, and worker wake logic. |\n| "
-        },
-        {
-          "insert": "worker",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/running/workers",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Claims one epoch target, decides evidence-backed write-set widening, runs scope-following validation, and closes worker state with runner-owned lifecycle state. |\n| "
-        },
-        {
-          "insert": "integration-resolve",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/running/integration",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Spawns the running-phase "
-        },
-        {
-          "insert": "integration-resolver",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " agent for one worker-output integration conflict queue item supplied by "
-        },
-        {
-          "insert": "--item-file",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ". |\n| "
-        },
-        {
-          "insert": "run-loop",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/running/scheduler",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Resting deterministic scheduler loop that handles wake events, keeps epoch work moving, starts workers up to capacity, and sleeps when the board is quiet. |\n| "
-        },
-        {
-          "insert": "babysit",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/running/jobs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Guardian wrapper for the run loop and detached game process lifecycle. |\n| "
-        },
-        {
-          "insert": "recover-claims",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/running/jobs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Closes interrupted or expired active target claims and their worker state as runner-owned errors after operator confirmation. |\n| "
-        },
-        {
-          "insert": "epoch-run",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/running/epochs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Runs one epoch checkpoint cycle: rebuilds global report truth, confirms clean tentative integrations, attributes and reverts regressions, saves a boundary point, and routes regressed work back through epoch target admission. |\n| "
-        },
-        {
-          "insert": "regression-check",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " and "
-        },
-        {
-          "insert": "report-run",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/validation/jobs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Run saved-baseline report/objdiff validation, QA scan integration, and report artifact generation. |\n| "
-        },
-        {
-          "insert": "checkpoint-run",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "qa-repair",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "pr-split-plan",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "pr-draft-qa",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "pr-preship-review",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "reconcile",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "save-point",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/cycle-runtime/phases/pr/jobs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Own checkpoint, QA repair, PR split/review, reconcile, and campaign save-point workflows. |\n| "
-        },
-        {
-          "insert": "kg-*",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | "
-        },
-        {
-          "insert": "core/knowledge/jobs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Own knowledge source status, maintenance, graph rebuild/search, PR indexing, file-card, and ranking jobs. |"
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-run-a-job-with-10": {
-      "id": "b-00-overview-run-a-job-with-10",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Run a job with these controls. "
-        },
-        {
-          "insert": "--write-set-widening=off|shadow|config|header",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " defaults to "
-        },
-        {
-          "insert": "off",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "; shadow records decisions without granting paths, config enables metadata widening, and header also enables owning-header widening. "
-        },
-        {
-          "insert": "--merge-on-finish",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " also defaults off; when present, scoped-clean worker output is applied serially to cycle ancestry as soon as the worker finishes:"
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-sh-11": {
-      "id": "b-00-overview-sh-11",
-      "type": "code",
-      "props": {
-        "language": "sh"
-      },
-      "text": [
-        {
-          "insert": "bun run server:job -- --game melee status\nbun run server:job -- --game melee init-run --desired-workers 16 --goal-kind matched_code_percent --goal-value 72\nbun run server:job -- --game melee babysit --max-workers 16 --idle-sleep-ms 5000 --write-set-widening=shadow --merge-on-finish"
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-qa-repair-is-the-resol-12": {
-      "id": "b-00-overview-qa-repair-is-the-resol-12",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "qa-repair",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " is the resolver runtime for QA repair queue items. The job builds\n"
-        },
-        {
-          "insert": "queue.json",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and "
-        },
-        {
-          "insert": "--run-agents",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " launches the "
-        },
-        {
-          "insert": "qa-repair",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " agent over queued\nitems; "
-        },
-        {
-          "insert": "--item-id <id>",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " narrows the launch to a single queue item while\n"
-        },
-        {
-          "insert": "--max-items <n>",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " bounds a batch. Each item can carry an "
-        },
-        {
-          "insert": "authorized_write_set",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "; the runner partially reverts unauthorized paths and records "
-        },
-        {
-          "insert": "blocked_needs_cross_file",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " when the necessary support edit is outside that authorization. The dashboard PR-mode manual handoff actions\ncall "
-        },
-        {
-          "insert": "/api/pr/qa-repair",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", which maps to the same runtime and opens the\noperation log while the resolver runs."
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-integration-resolve-i-13": {
-      "id": "b-00-overview-integration-resolve-i-13",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "integration-resolve --item-file <path>",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " is the pre-PR worker-output conflict\nresolver runtime. It consumes an explicit integration conflict queue item JSON,\noptionally a "
-        },
-        {
-          "insert": "--queue-summary-file",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and launches role "
-        },
-        {
-          "insert": "integration-resolver",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "\nwith kernel kind "
-        },
-        {
-          "insert": "worker-integration",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ". It writes parsed output and summary\nartifacts under "
-        },
-        {
-          "insert": "state_dir/integration_resolver/",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "; the runner owns integration status\nmutation and tentative acceptance after the agent returns. If the agent cannot\nresolve the merge, the conflict remains visible for operator action."
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-boundaries-14": {
-      "id": "b-00-overview-boundaries-14",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Boundaries"
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-server-jobs-are-debuggab-15": {
-      "id": "b-00-overview-server-jobs-are-debuggab-15",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Server jobs are debuggable entrypoints over phase-owned workflow code. They do\nnot own business logic separately from the server app; running work stays under\nthe running phase, PR handoff work stays under the PR phase, shared knowledge\nand validation helpers stay under "
-        },
-        {
-          "insert": "core",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and raw IO adapters stay under\n"
-        },
-        {
-          "insert": "infrastructure",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "."
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-game-resolution-is-a-16": {
-      "id": "b-00-overview-game-resolution-is-a-16",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Game resolution is a core game-registry concern. Jobs consume\n"
-        },
-        {
-          "insert": "globals.repoRoot",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "globals.stateDir",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", optional "
-        },
-        {
-          "insert": "globals.graphDbPath",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and\noptional game metadata from "
-        },
-        {
-          "insert": "runtime-options.ts",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "."
-        }
-      ],
-      "children": []
-    },
-    "b-00-overview-the-run-loop-is-delibera-17": {
-      "id": "b-00-overview-the-run-loop-is-delibera-17",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The run loop is deliberately not a Pi agent. It is a thin evented loop over\ndurable SQLite state: handle unhandled events with deterministic scheduler\nticks, start worker agent sessions for open slots, then rest until state changes. The\nbabysit job wraps the decomp system process, records guardian artifacts, runs\nclaim recovery when appropriate, and restarts the child when policy allows."
+          "insert": " — including every future job: register the command in the dispatcher, implement it in the owning slice."
         }
       ],
       "children": []

@@ -1,13 +1,21 @@
 {
   "schemaVersion": 1,
-  "id": "10-system-design-03-state-and-events-10-durable-state-records-index",
+  "id": "10-system-design-40-harness-state-40-durable-records",
   "title": "Durable State Records",
   "root": "b-index-root-21",
   "blocks": {
     "b-index-root-21": {
       "id": "b-index-root-21",
       "type": "paragraph",
-      "props": {},
+      "props": {
+        "concepts": [
+          "job",
+          "kind",
+          "claim-token",
+          "executor",
+          "jobs-table"
+        ]
+      },
       "children": [
         "b-index-the-board-composes-run-c-1",
         "b-index-runs-a-stable-run-id-i-2",
@@ -39,7 +47,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The board composes run control with the records that explain every dispatch, integration, result, and accepted state revision. These records preserve scheduling, validation, event provenance, knowledge, and artifact evidence beneath the run lifecycle."
+          "insert": "The board composes run control with two distinct durable layers. The jobs table explains dispatch for worker, knowledge_absorption, sync_publication, and integration kinds; worker states, checkpoints, knowledge publications, and integration_outcomes explain domain results. A job's result_ref connects those layers without treating execution status as domain evidence."
         }
       ],
       "children": []
@@ -52,7 +60,13 @@
       },
       "text": [
         {
-          "insert": "Runs: a stable run_id, immutable activation inputs, eight-status control state, the cycle-head mirror, scheduler observability, blockers, and progress."
+          "insert": "Runs",
+          "attributes": {
+            "link": "../10-state-composition/50-run-state"
+          }
+        },
+        {
+          "insert": ": a stable run_id, immutable activation inputs, eight-status control state, the cycle-head mirror, scheduler observability, blockers, and progress."
         }
       ],
       "children": []
@@ -78,7 +92,13 @@
       },
       "text": [
         {
-          "insert": "Epochs: deterministic scheduling waves with fixed target membership, completion counts, refresh counters, and boundary routing summaries."
+          "insert": "Epochs",
+          "attributes": {
+            "link": "../10-state-composition/50-run-state"
+          }
+        },
+        {
+          "insert": ": deterministic scheduling waves with fixed target membership, completion counts, refresh counters, and boundary routing summaries."
         }
       ],
       "children": []
@@ -104,7 +124,13 @@
       },
       "text": [
         {
-          "insert": "Target claims: active or closed worker ownership for one epoch target, including the category-typed write set, widening decisions, and worker workspace."
+          "insert": "Target claims",
+          "attributes": {
+            "link": "../10-state-composition/50-run-state"
+          }
+        },
+        {
+          "insert": ": active or closed worker ownership for one epoch target, including the category-typed write set, widening decisions, and worker workspace."
         }
       ],
       "children": []
@@ -117,7 +143,13 @@
       },
       "text": [
         {
-          "insert": "Worker states: runner-owned lifecycle ledgers for target claims."
+          "insert": "Worker states",
+          "attributes": {
+            "link": "../10-state-composition/50-run-state"
+          }
+        },
+        {
+          "insert": ": runner-owned lifecycle ledgers for target claims."
         }
       ],
       "children": []
@@ -130,7 +162,13 @@
       },
       "text": [
         {
-          "insert": "Worker checkpoints: one row per runner validation attempt, including failed validations, the write set captured with the attempt, and its tentative, confirmed, or regressed validation state."
+          "insert": "Worker checkpoints",
+          "attributes": {
+            "link": "../10-state-composition/50-run-state"
+          }
+        },
+        {
+          "insert": ": one row per runner validation attempt, including failed validations, the write set captured with the attempt, and its tentative, confirmed, or regressed validation state."
         }
       ],
       "children": []
@@ -156,7 +194,13 @@
       },
       "text": [
         {
-          "insert": "Compatibility director-cycle records keep existing state files readable without participating in current scheduling."
+          "insert": "Compatibility director-cycle records",
+          "attributes": {
+            "link": "../10-state-composition/30-cycle-state"
+          }
+        },
+        {
+          "insert": " keep existing state files readable without participating in current scheduling."
         }
       ],
       "children": []
@@ -169,7 +213,7 @@
       },
       "text": [
         {
-          "insert": "Epoch verdicts and integrations: target-centric boundary truth, confirmation results, worker-output dispositions, and score-gate records."
+          "insert": "Jobs: the shared dispatch ledger with kind, dedupe_key, queued/claimed/running/waiting/succeeded/failed/cancelled status, revision CAS, deterministic priority ordering, concurrency_key, execution_class, lease visibility timeout, attempts/backoff, payload, result_ref, and trace lineage. Every transition appends one job.* game event, and BEGIN IMMEDIATE plus CAS prevents double claim. Integration outcomes retain run-domain application, conflict, and resolution evidence consumed by the conflict-resolver lane."
         }
       ],
       "children": []
@@ -182,14 +226,20 @@
       },
       "text": [
         {
-          "insert": "Events: durable "
+          "insert": "Events",
+          "attributes": {
+            "link": "../50-game-events"
+          }
+        },
+        {
+          "insert": ": durable "
         },
         {
           "insert": "scheduler wake requests",
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "docs/10-system-design/40-harness-state/60-event-handshake.mdx",
+              "path": "10-system-design/40-harness-state/60-event-handshake",
               "label": "scheduler wake requests"
             }
           }
@@ -202,7 +252,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "docs/10-system-design/40-harness-state/50-game-events.mdx",
+              "path": "10-system-design/40-harness-state/50-game-events",
               "label": "accepted game facts"
             }
           }
@@ -289,7 +339,13 @@
       "props": {},
       "text": [
         {
-          "insert": "Facts are reusable, provenance-tagged board knowledge. They can describe symbols, types, source shapes, resource findings, duplicate relationships, negative hypotheses, or review constraints. Accepted facts can change future target packets; rejected or uncertain facts stay visible so workers do not repeat low-value guesses."
+          "insert": "Facts",
+          "attributes": {
+            "link": "../10-state-composition/70-knowledge-state"
+          }
+        },
+        {
+          "insert": " are reusable, provenance-tagged board knowledge. They can describe symbols, types, source shapes, resource findings, duplicate relationships, negative hypotheses, or review constraints. Accepted facts can change future target packets; rejected or uncertain facts stay visible so workers do not repeat low-value guesses."
         }
       ],
       "children": []
