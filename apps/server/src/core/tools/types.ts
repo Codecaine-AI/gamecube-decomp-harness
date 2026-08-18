@@ -7,6 +7,7 @@
  * game context.
  */
 import type { RunGameMetadata, RuntimeAgentRole } from "@server/core/shared/types";
+import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import type { ToolPlatform } from "./platform.js";
 
 export interface AgentToolRuntimeContext {
@@ -24,6 +25,8 @@ export interface AgentToolRuntimeContext {
   claimId?: string;
   /** Worker repair-loop attempt index for tool telemetry. */
   attemptIndex?: number;
+  /** Authoritative sandbox handle, present only for sandbox-class worker claims. */
+  sandboxHandle?: SandboxHandle;
 }
 
 export interface PiToolTextContent {

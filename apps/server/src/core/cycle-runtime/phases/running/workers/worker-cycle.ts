@@ -1695,6 +1695,7 @@ async function executeClaimedWorker(params: {
             workerLogDir: outputDir,
             claimId: claimed.claimId,
             attemptIndex,
+            ...(sandboxHandle ? { sandboxHandle } : {}),
           },
           kernelContext: createMeleeKernelSpawnContext({
             kind: "worker",

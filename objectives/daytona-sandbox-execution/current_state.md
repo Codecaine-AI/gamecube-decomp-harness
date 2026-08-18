@@ -31,6 +31,10 @@
 - Phase 2 slice 6: sandbox deletion emits idempotent `sandbox.deleted` events for settlement, reap, and
   reconciliation; reconciliation also requires the current active run dispatch lease and an
   active target claim before retaining a labeled sandbox.
+- Phase 2 slice 5b: m2c_decompile now uses a sandbox-only fetch-first shim. Symbol discovery scans
+  objects in-sandbox, the host mirror downloads only the matched object, corresponding asm, and
+  sandbox-generated build/ctx.c, and sandbox claims reject --write plus path-bearing/unrecognized
+  extra_args. Focused tests, TypeScript/Python checks, and 1,095 non-environmental server tests pass.
 </completed>
 
 <phase0_gate verdict="PASS" date="2026-08-18">
@@ -74,17 +78,13 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
 </phase1_gate>
 
 <in_progress>
-- Phase 2 parallel slices. DONE: slice 1 (provider seam + sandbox.* events + config, commit
-  2a48700b, suite 1,067 pass); slice 5a corpus audit (only m2c_decompile needs a fetch-first
-  shim — examples/phase2/corpus_tool_audit.md); slice 2 (daytona/slice-2, provisioning — MERGED
-  to main); slice 6 (settlement/reap/reconciliation deletion — MERGED to main). IN FLIGHT on
-  worktree branches: slice 3 (daytona/slice-3, bash-ops/file-tools/exec routing).
+- Phase 2 slice 5b is complete on daytona/slice-5 and ready for handoff. Slices 1/2/3/6 are merged
+  into this branch base; slice 4 remains before the phase 3 live claim PoC.
 </in_progress>
 
 <next_actions>
-- Review + merge slice 3, full suite green after merge; then slice 4
-  (validation/evidence download path) and slice 5b (m2c fetch-first shim, discovery scan
-  in-sandbox); then phase 3 live PoC against snapshot melee-sandbox-poc-20260818.
+- Review/merge slice 5b, complete slice 4 (validation/evidence download path), then run the phase 3
+  live PoC against snapshot melee-sandbox-poc-20260818.
 </next_actions>
 
 <risks_or_open_questions>
@@ -92,7 +92,9 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
   runbook step (phase 4) if phase 3 slips.
 - Stop-while-thinking is deliberately out of v1; wake latency measured at ~0.85 s (phase 1) —
   write the follow-up objective seed in phase 4 with that number attached.
-- Slice-2/6 both touch worker-job.ts on parallel branches — expect a small merge conflict.
+- This worktree's full server suite reports the known qa-repair.test.ts 5-second timeout plus an
+  environmental boundary failure because root node_modules/@agent-kernel/kernel is absent; the
+  app-level link exists, and the suite excluding those two tests passes 1,095/1,095.
 </risks_or_open_questions>
 
 <important_paths>
