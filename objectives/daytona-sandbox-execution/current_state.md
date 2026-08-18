@@ -25,12 +25,19 @@
   buildWorkerTask; job-leaseId orphan authority; per-attempt evidence download; always-run v1;
   sandbox.* game events; 2/4/5 sizing (configurable); experiment-then-live-worker PoC;
   fetch-first corpus tools.
+- Phase 2 slice 1: provider/config seam and `sandbox.*` lifecycle events merged.
 - Phase 2 slice 2: game sandbox config now carries baked revision/workspace root; sandbox claims
   create with all lease/workflow labels and TTL backstop, seed by git bundle + report artifacts,
   verify canonical tools in-sandbox, persist sandbox linkage, and clean up failed provisioning.
 - Phase 2 slice 6: sandbox deletion emits idempotent `sandbox.deleted` events for settlement, reap, and
   reconciliation; reconciliation also requires the current active run dispatch lease and an
   active target claim before retaining a labeled sandbox.
+- Phase 2 slice 3: sandbox workspace exec routing and sandbox agent bash/file tools merged.
+- Phase 2 slice 5a: corpus audit found only `m2c_decompile` needs the slice-5b fetch-first shim;
+  report saved at `examples/phase2/corpus_tool_audit.md`.
+- Phase 2 slice 4: sandbox write-set diffs are generated with local-equivalent `git diff`
+  semantics, downloaded immediately to the unchanged host artifact paths, and recorded as the
+  checkpoint `patch_path`/`diff_path`; byte parity and per-attempt ordering have Fake-provider tests.
 </completed>
 
 <phase0_gate verdict="PASS" date="2026-08-18">
@@ -74,17 +81,13 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
 </phase1_gate>
 
 <in_progress>
-- Phase 2 parallel slices. DONE: slice 1 (provider seam + sandbox.* events + config, commit
-  2a48700b, suite 1,067 pass); slice 5a corpus audit (only m2c_decompile needs a fetch-first
-  shim — examples/phase2/corpus_tool_audit.md); slice 2 (daytona/slice-2, provisioning — MERGED
-  to main); slice 6 (settlement/reap/reconciliation deletion — MERGED to main). IN FLIGHT on
-  worktree branches: slice 3 (daytona/slice-3, bash-ops/file-tools/exec routing).
+- Phase 2 slice 4 implementation and validation are complete on `daytona/slice-4`; ready for
+  review and merge. Slices 1/2/3/6 are merged into the branch baseline.
 </in_progress>
 
 <next_actions>
-- Review + merge slice 3, full suite green after merge; then slice 4
-  (validation/evidence download path) and slice 5b (m2c fetch-first shim, discovery scan
-  in-sandbox); then phase 3 live PoC against snapshot melee-sandbox-poc-20260818.
+- Review and merge slice 4, then complete slice 5b (m2c fetch-first shim and in-sandbox discovery
+  scan) before the phase 3 live PoC.
 </next_actions>
 
 <risks_or_open_questions>

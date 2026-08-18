@@ -2,6 +2,7 @@ export { runNinja } from "./ninja.js";
 export { runCommand, runCommandStreaming, type CommandResult } from "./run-command.js";
 export {
   DEFAULT_SANDBOX_WORKSPACE_TIMEOUT_MS,
+  captureWorkspaceGitDiff,
   localWorkspaceExec,
   sandboxWorkspaceExec,
   type SandboxWorkspaceExecOptions,
