@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
-import { GAME_EVENTS_DDL } from "@server/core/orchestrator-state/storage/ddl";
+import { FINAL_SCHEMA_DDL } from "@server/core/orchestrator-state/storage/ddl";
 import {
   MAX_EVENT_QUERY_LIMIT,
   PAYLOAD_SUMMARY_MAX_ENTRIES,
@@ -27,9 +27,19 @@ interface FixtureEvent {
 
 const databases: Database[] = [];
 
+function gameEventsDdl(): string {
+  const table = FINAL_SCHEMA_DDL.match(/CREATE TABLE game_events \([\s\S]*?\n    \);/)?.[0];
+  if (!table) throw new Error("Canonical game_events DDL is missing");
+  const indexes = Array.from(
+    FINAL_SCHEMA_DDL.matchAll(/CREATE INDEX game_events_[\s\S]*?;/g),
+    (match) => match[0],
+  );
+  return [table, ...indexes].join("\n");
+}
+
 function fixtureDatabase(): Database {
   const db = new Database(":memory:");
-  db.exec(GAME_EVENTS_DDL);
+  db.exec(gameEventsDdl());
   databases.push(db);
   return db;
 }

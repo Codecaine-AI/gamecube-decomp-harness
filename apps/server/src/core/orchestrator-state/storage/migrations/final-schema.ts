@@ -22,28 +22,6 @@ CREATE TABLE campaigns (
 
 CREATE TABLE checkpoint_items (id TEXT PRIMARY KEY, checkpoint_id TEXT NOT NULL, run_id TEXT NOT NULL, worker_checkpoint_id TEXT, target_claim_id TEXT, target_key TEXT NOT NULL, unit TEXT, symbol TEXT, source_path TEXT, lifecycle_status TEXT NOT NULL, disposition TEXT NOT NULL, item_status TEXT NOT NULL, exact_match INTEGER NOT NULL DEFAULT 0, pr_candidate INTEGER NOT NULL DEFAULT 0, patch_path TEXT, summary_path TEXT, state_summary TEXT, evidence_json TEXT NOT NULL, created_at TEXT NOT NULL);
 
-CREATE TABLE "checkpoint_items_legacy_20260630T1917" (
-      id TEXT PRIMARY KEY,
-      checkpoint_id TEXT NOT NULL,
-      run_id TEXT NOT NULL,
-      report_id TEXT,
-      lease_id TEXT,
-      target_key TEXT NOT NULL,
-      unit TEXT,
-      symbol TEXT,
-      source_path TEXT,
-      report_type TEXT NOT NULL,
-      disposition TEXT NOT NULL,
-      item_status TEXT NOT NULL,
-      exact_match INTEGER NOT NULL DEFAULT 0,
-      pr_candidate INTEGER NOT NULL DEFAULT 0,
-      patch_path TEXT,
-      summary_path TEXT,
-      report_summary TEXT,
-      evidence_json TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-
 CREATE TABLE cycle_timeline_entries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cycle_uuid TEXT NOT NULL,
@@ -188,13 +166,6 @@ CREATE TABLE facts (
       status TEXT NOT NULL
     );
 
-CREATE TABLE file_locks (
-      path TEXT PRIMARY KEY,
-      lease_id TEXT NOT NULL,
-      lock_mode TEXT NOT NULL,
-      expires_at TEXT
-    );
-
 CREATE TABLE game_events (
       sequence INTEGER PRIMARY KEY AUTOINCREMENT,
       event_id TEXT NOT NULL UNIQUE,
@@ -276,18 +247,6 @@ CREATE TABLE knowledge_revisions (
     caused_by_event_id TEXT NOT NULL,
     created_at TEXT NOT NULL
   );
-
-CREATE TABLE leases (
-      id TEXT PRIMARY KEY,
-      queue_id TEXT,
-      worker_id TEXT,
-      base_rev TEXT,
-      write_set_hash TEXT,
-      worktree_path TEXT,
-      ttl TEXT,
-      heartbeat_at TEXT,
-      status TEXT NOT NULL
-    );
 
 CREATE TABLE pending_integrations (
     epoch_id TEXT PRIMARY KEY,
@@ -396,17 +355,6 @@ CREATE TABLE pr_work_items (
     resolved_at TEXT
   );
 
-CREATE TABLE queue (
-      id TEXT PRIMARY KEY,
-      run_id TEXT NOT NULL,
-      target_id TEXT NOT NULL,
-      priority REAL NOT NULL,
-      reason TEXT,
-      status TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      leased_at TEXT
-    );
-
 CREATE TABLE run_checkpoints (
       id TEXT PRIMARY KEY,
       run_id TEXT NOT NULL,
@@ -485,37 +433,6 @@ CREATE TABLE save_points (
       artifact_dir TEXT,
       payload_json TEXT NOT NULL,
       created_at TEXT NOT NULL
-    );
-
-CREATE TABLE scheduler_epoch_targets (
-      epoch_id TEXT NOT NULL,
-      run_id TEXT NOT NULL,
-      target_id TEXT NOT NULL,
-      admission_index INTEGER NOT NULL,
-      status TEXT NOT NULL,
-      admitted_at TEXT NOT NULL,
-      queued_at TEXT,
-      leased_at TEXT,
-      completed_at TEXT,
-      PRIMARY KEY (epoch_id, target_id)
-    );
-
-CREATE TABLE scheduler_epochs (
-      id TEXT PRIMARY KEY,
-      run_id TEXT NOT NULL,
-      ordinal INTEGER NOT NULL,
-      size_mode TEXT NOT NULL,
-      size_value INTEGER,
-      ready_queue_size INTEGER NOT NULL,
-      candidate_window INTEGER NOT NULL,
-      status TEXT NOT NULL,
-      admitted_count INTEGER NOT NULL DEFAULT 0,
-      completed_count INTEGER NOT NULL DEFAULT 0,
-      fast_refresh_count INTEGER NOT NULL DEFAULT 0,
-      boundary_status TEXT,
-      routing_summary_json TEXT NOT NULL DEFAULT '{}',
-      created_at TEXT NOT NULL,
-      closed_at TEXT
     );
 
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -692,17 +609,6 @@ CREATE TABLE integration_outcomes (
         resolved_at TEXT
       );
 
-CREATE TABLE worker_reports (
-      id TEXT PRIMARY KEY,
-      lease_id TEXT,
-      report_type TEXT NOT NULL,
-      summary_path TEXT,
-      facts_path TEXT,
-      blocker_path TEXT,
-      patch_path TEXT,
-      created_at TEXT NOT NULL
-    );
-
 CREATE TABLE worker_state (
         id TEXT PRIMARY KEY,
         run_id TEXT NOT NULL,
@@ -749,12 +655,6 @@ CREATE TABLE write_set_widenings (
         decided_at TEXT,
         validated_at TEXT
       );
-
-CREATE INDEX checkpoint_items_checkpoint
-      ON "checkpoint_items_legacy_20260630T1917" (checkpoint_id);
-
-CREATE INDEX checkpoint_items_run_disposition
-      ON "checkpoint_items_legacy_20260630T1917" (run_id, disposition, item_status);
 
 CREATE UNIQUE INDEX cycle_timeline_entries_cycle_kind_entry
       ON cycle_timeline_entries (cycle_uuid, entry_kind, entry_id);
@@ -835,12 +735,6 @@ CREATE INDEX run_recovery_journal_run_created
 
 CREATE INDEX save_points_campaign
       ON save_points (campaign_id, created_at);
-
-CREATE INDEX scheduler_epoch_targets_run_status
-      ON scheduler_epoch_targets (run_id, status);
-
-CREATE INDEX scheduler_epochs_run_status
-      ON scheduler_epochs (run_id, status, ordinal);
 
 CREATE INDEX sync_invalidations_game_subject
       ON sync_invalidations (game_id, subject_kind, subject_id);

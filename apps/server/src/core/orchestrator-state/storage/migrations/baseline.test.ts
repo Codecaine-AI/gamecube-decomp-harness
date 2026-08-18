@@ -59,7 +59,6 @@ describe("squashed storage baseline", () => {
       { type: "table", name: "integration_outcomes" },
       { type: "index", name: "integration_outcomes_run_status" },
     ]);
-
     const columns = db
       .query(`
         SELECT m.name AS table_name, p.name AS column_name
