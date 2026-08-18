@@ -594,28 +594,39 @@ export function createMeleeKernelPiAgentRunner(
   };
 }
 
-const buildToolFactories: BuildMeleeKernelToolFactories = (options) => {
+export const buildMeleeKernelToolFactories: BuildMeleeKernelToolFactories = (options) => {
   const toolContext: AgentToolRuntimeContext = {
     role: options.role,
     cwd: options.cwd,
     repoRoot: options.cwd,
     ...(options.toolContext ?? {}),
   };
-  const toolFactories: ReturnType<BuildMeleeKernelToolFactories> = buildAgentTools(toolContext, options.toolProfile).map((tool) => {
+  const toolFactories: ReturnType<BuildMeleeKernelToolFactories> = [
+    ...buildAgentTools(toolContext, options.toolProfile),
+    ...(options.customTools ?? []),
+  ].map((tool) => {
     return (pi) => {
       pi.registerTool(tool as never);
     };
   });
-  if (!childReaperDisabled()) {
+  if (options.bashOperations || !childReaperDisabled()) {
     toolFactories.push((pi) => {
-      pi.registerTool(createBashToolDefinition(options.cwd, { operations: trackedBashOperations() }) as never);
+      pi.registerTool(createBashToolDefinition(options.cwd, {
+        operations: options.bashOperations ?? trackedBashOperations(),
+        ...(options.bashEnvironment
+          ? {
+              exposeSessionEnvironment: false,
+              spawnHook: (context) => ({ ...context, env: { ...options.bashEnvironment } }),
+            }
+          : {}),
+      }) as never);
     });
   }
   return toolFactories;
 };
 
 export const runMeleeKernelPiAgent = createMeleeKernelPiAgentRunner({
-  buildToolFactories,
+  buildToolFactories: buildMeleeKernelToolFactories,
   resolveKernelAgent(role) {
     return meleeKernelAgent(role as KernelAgentId);
   },

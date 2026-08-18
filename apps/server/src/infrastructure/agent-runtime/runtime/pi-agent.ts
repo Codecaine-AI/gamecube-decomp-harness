@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  createBashToolDefinition,
+  type BashOperations,
+} from "@earendil-works/pi-coding-agent";
 import type { PiPromptBundle, PiRunResult, RuntimeAgentRole } from "@server/core/shared/types";
 import { loadLocalEnv } from "@server/infrastructure/env";
 import { buildAgentTools, type AgentToolProfileInput, type AgentToolRuntimeContext } from "@server/core/tools/index.js";
@@ -9,7 +13,10 @@ import { applyProcessEnvPatch } from "./process-env.js";
 
 export interface PiRunOptions {
   role: RuntimeAgentRole;
+  /** Agent-visible cwd. May be a remote sandbox path. */
   cwd: string;
+  /** Existing host cwd used by Pi's local session/resource machinery when cwd is remote. */
+  hostCwd?: string;
   prompt: PiPromptBundle;
   outputDir: string;
   dryRun: boolean;
@@ -23,6 +30,12 @@ export interface PiRunOptions {
   toolContext?: Partial<Omit<AgentToolRuntimeContext, "role" | "cwd">>;
   /** Pi built-in tool names to disable for this session (e.g. ["write"]). */
   excludeBuiltinTools?: string[];
+  /** Same-named custom definitions replace excluded builtins for remote execution. */
+  customTools?: Array<{ name: string }>;
+  /** Injectable bash operations used to replace Pi's built-in bash implementation. */
+  bashOperations?: BashOperations;
+  /** Explicit environment exposed to remote bash; omitting it preserves local Pi behavior. */
+  bashEnvironment?: Record<string, string>;
   /** Custom JSONL entries to append immediately after the Pi session is created. */
   customSessionEntries?: PiCustomSessionEntry[];
   /** Custom type used for Pi lifecycle JSONL entries; omitted disables lifecycle markers. */
@@ -32,6 +45,11 @@ export interface PiRunOptions {
 export interface PiCustomSessionEntry {
   customType: string;
   data?: Record<string, unknown>;
+}
+
+export interface PiToolRegistration {
+  customTools: Array<{ name: string }>;
+  excludedTools: string[];
 }
 
 export const DEFAULT_PI_PROVIDER = "codex-lb";
@@ -108,6 +126,39 @@ function textFromContentPart(part: unknown): string {
   if (record.type === "text" && typeof record.text === "string") return record.text;
   if (record.type === "output_text" && typeof record.text === "string") return record.text;
   return "";
+}
+
+export function buildPiToolRegistration(
+  options: Pick<
+    PiRunOptions,
+    "cwd" | "customTools" | "bashOperations" | "bashEnvironment" | "excludeBuiltinTools"
+  >,
+  baseCustomTools: Array<{ name: string }>,
+): PiToolRegistration {
+  const customTools: Array<{ name: string }> = [
+    ...baseCustomTools,
+    ...(options.customTools ?? []),
+    ...(options.bashOperations
+      ? [createBashToolDefinition(options.cwd, {
+          operations: options.bashOperations,
+          ...(options.bashEnvironment
+            ? {
+                exposeSessionEnvironment: false,
+                spawnHook: (context) => ({ ...context, env: { ...options.bashEnvironment } }),
+              }
+            : {}),
+        })]
+      : []),
+  ];
+  const customToolNames = new Set(customTools.map((tool) => tool.name));
+  return {
+    customTools,
+    // Pi applies excludeTools after custom registration, so excluding a same-named
+    // replacement would remove both the builtin and its sandbox replacement.
+    excludedTools: (options.excludeBuiltinTools ?? []).filter(
+      (name) => !customToolNames.has(name),
+    ),
+  };
 }
 
 function textFromMessage(message: unknown): string {
@@ -201,7 +252,11 @@ export async function runPiAgent(options: PiRunOptions): Promise<PiRunResult> {
     repoRoot: options.cwd,
     ...options.toolContext,
   };
-  const customTools = buildAgentTools(toolContext, options.toolProfile);
+  const toolRegistration = buildPiToolRegistration(
+    options,
+    buildAgentTools(toolContext, options.toolProfile),
+  );
+  const { customTools } = toolRegistration;
   await writeOutput(systemPromptPath, options.prompt.systemPrompt);
   await writeOutput(userPromptPath, options.prompt.userPrompt);
 
@@ -229,15 +284,16 @@ export async function runPiAgent(options: PiRunOptions): Promise<PiRunResult> {
   if (!model) {
     throw new Error(`Pi model not found: ${config.provider}/${config.model}`);
   }
-  const sessionManager = pi.SessionManager?.create?.(options.cwd, sessionDir);
+  const hostCwd = options.hostCwd ?? options.cwd;
+  const sessionManager = pi.SessionManager?.create?.(hostCwd, sessionDir);
   if (!sessionManager) {
     throw new Error("Pi SessionManager.create is unavailable; cannot persist session files");
   }
   let resourceLoader: any;
   if (typeof pi.DefaultResourceLoader === "function") {
     resourceLoader = new pi.DefaultResourceLoader({
-      cwd: options.cwd,
-      agentDir: typeof pi.getAgentDir === "function" ? pi.getAgentDir() : options.cwd,
+      cwd: hostCwd,
+      agentDir: typeof pi.getAgentDir === "function" ? pi.getAgentDir() : hostCwd,
       systemPromptOverride: () => options.prompt.systemPrompt,
       appendSystemPromptOverride: () => [],
     });
@@ -252,9 +308,9 @@ export async function runPiAgent(options: PiRunOptions): Promise<PiRunResult> {
   let unsubscribeLifecycle: (() => void) | undefined;
 
   try {
-    process.chdir(options.cwd);
+    process.chdir(hostCwd);
     const created = await pi.createAgentSession({
-      cwd: options.cwd,
+      cwd: hostCwd,
       authStorage,
       model,
       modelRegistry,
@@ -262,7 +318,9 @@ export async function runPiAgent(options: PiRunOptions): Promise<PiRunResult> {
       sessionManager,
       resourceLoader,
       customTools,
-      ...(options.excludeBuiltinTools?.length ? { excludeTools: options.excludeBuiltinTools } : {}),
+      ...(toolRegistration.excludedTools.length
+        ? { excludeTools: toolRegistration.excludedTools }
+        : {}),
     });
     session = created.session;
     for (const entry of options.customSessionEntries ?? []) {

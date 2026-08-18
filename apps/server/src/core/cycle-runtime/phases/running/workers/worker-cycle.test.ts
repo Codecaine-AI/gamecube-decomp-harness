@@ -372,6 +372,27 @@ describe("worker shell tool environment", () => {
     expect(env.ORCH_WORKER_CANONICAL_TOOL_PATHS).toContain("powerpc-eabi-objdump");
   });
 
+  test("uses only remote tool and standard Linux paths for sandbox workers", () => {
+    const env = workerAgentToolEnvironment({
+      workerRepoRoot: "/workspace/melee",
+      shellBin: "/host/artifacts/worker-shell-bin",
+      executionClass: "sandbox",
+    });
+
+    expect(env.PATH.split(delimiter)).toEqual([
+      "/workspace/melee/build/binutils",
+      "/workspace/melee/build/tools",
+      "/usr/local/sbin",
+      "/usr/local/bin",
+      "/usr/sbin",
+      "/usr/bin",
+      "/sbin",
+      "/bin",
+    ]);
+    expect(env.PATH).not.toContain("/host/artifacts/worker-shell-bin");
+    expect(env.ORCH_REAL_FIND).toBe("/usr/bin/find");
+  });
+
   test("guards broad find sweeps while allowing narrow worker-local find", async () => {
     const root = await mkdtemp(join(tmpdir(), "worker-find-guard-"));
     try {

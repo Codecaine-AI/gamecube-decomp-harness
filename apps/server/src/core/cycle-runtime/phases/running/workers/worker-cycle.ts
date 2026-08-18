@@ -37,7 +37,12 @@ import {
   openKnowledgeGraph,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
-import { runCommand } from "@server/infrastructure/shell";
+import {
+  localWorkspaceExec,
+  runCommand,
+  sandboxWorkspaceExec,
+  type WorkspaceExec,
+} from "@server/infrastructure/shell";
 import { addPiSession } from "@server/core/cycle-runtime/run-state";
 import { getActiveCycle } from "@server/core/cycle";
 import {
@@ -86,6 +91,15 @@ import {
 import { assertSchedulableRun } from "@server/core/cycle-runtime/phases/running/jobs/shared.js";
 import { verifyClaimToken } from "@server/core/job-queue/kernel.js";
 import type { ClaimToken } from "@server/core/job-queue/types.js";
+import {
+  DaytonaSandboxProvider,
+  type SandboxHandle,
+  type SandboxProvider,
+} from "@server/core/job-queue/sandbox.js";
+import {
+  createSandboxFileToolDefinitions,
+  sandboxBashOperations,
+} from "@server/infrastructure/agent-runtime/sandbox-agent-tools.js";
 
 export interface WorkerCycleResult {
   runId: string;
@@ -772,8 +786,8 @@ function renderPostReturnCheckCommand(
   return template.replace(/\{([a-z_]+)\}/g, (match, key: string) => replacements[key] ?? match);
 }
 
-async function captureWriteSetDiff(repoRoot: string, writeSet: string[], outputPath: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-  const result = writeSet.length > 0 ? await runCommand(repoRoot, ["git", "diff", "--", ...writeSet]) : { exitCode: 0, stdout: "", stderr: "" };
+async function captureWriteSetDiff(workspaceExec: WorkspaceExec, writeSet: string[], outputPath: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  const result = writeSet.length > 0 ? await workspaceExec.exec(["git", "diff", "--", ...writeSet]) : { exitCode: 0, stdout: "", stderr: "" };
   await writeFile(outputPath, result.stdout);
   if (result.stderr) await writeFile(`${outputPath}.stderr.txt`, result.stderr);
   return result;
@@ -782,8 +796,8 @@ async function captureWriteSetDiff(repoRoot: string, writeSet: string[], outputP
 // Full-worktree changed-path list (tracked files, matching the `git diff`
 // patch-capture view). Compared against the write set, this is what exposes
 // edits that patch capture would silently drop.
-async function captureWorktreeChangedPaths(repoRoot: string, outputPath: string): Promise<string[]> {
-  const result = await runCommand(repoRoot, ["git", "diff", "--name-only"]);
+async function captureWorktreeChangedPaths(workspaceExec: WorkspaceExec, outputPath: string): Promise<string[]> {
+  const result = await workspaceExec.exec(["git", "diff", "--name-only"]);
   await writeFile(outputPath, result.stdout);
   if (result.stderr) await writeFile(`${outputPath}.stderr.txt`, result.stderr);
   return result.stdout
@@ -804,6 +818,7 @@ async function runPostReturnCheck(params: {
   outputDir: string;
   attemptIndex: number;
   shouldRun: boolean;
+  workspaceExec: WorkspaceExec;
 }): Promise<PostReturnCheckValidation> {
   if (!params.commandTemplate) {
     return { status: "skipped", reasons: ["no --post-return-check-command configured"] };
@@ -821,7 +836,10 @@ async function runPostReturnCheck(params: {
   const stdoutPath = resolve(validationDir, `attempt-${params.attemptIndex}.post_return.stdout.txt`);
   const stderrPath = resolve(validationDir, `attempt-${params.attemptIndex}.post_return.stderr.txt`);
   const summaryPath = resolve(validationDir, `attempt-${params.attemptIndex}.post_return.summary.json`);
-  const result = await runCommand(params.repoRoot, ["/bin/sh", "-lc", command]);
+  const result = await params.workspaceExec.exec(
+    ["/bin/sh", "-lc", command],
+    { compile: params.workspaceExec.executionClass === "sandbox" },
+  );
   await writeFile(stdoutPath, result.stdout);
   await writeFile(stderrPath, result.stderr);
   const validation: WorkerRunnerValidation = {
@@ -980,17 +998,35 @@ function uniquePathEntries(entries: string[]): string[] {
   return result;
 }
 
-export function workerAgentToolEnvironment(params: { workerRepoRoot: string; shellBin?: string | null }): Record<string, string> {
-  const existingPath = process.env.PATH ? process.env.PATH.split(delimiter) : [];
-  const pathEntries = uniquePathEntries([
-    params.shellBin ?? "",
+export function workerAgentToolEnvironment(params: {
+  workerRepoRoot: string;
+  shellBin?: string | null;
+  executionClass?: "local" | "sandbox";
+}): Record<string, string> {
+  const remoteToolPaths = [
     resolve(params.workerRepoRoot, "build/binutils"),
     resolve(params.workerRepoRoot, "build/tools"),
-    ...existingPath,
-  ]);
+  ];
+  const pathEntries = params.executionClass === "sandbox"
+    ? uniquePathEntries([
+        ...remoteToolPaths,
+        "/usr/local/sbin",
+        "/usr/local/bin",
+        "/usr/sbin",
+        "/usr/bin",
+        "/sbin",
+        "/bin",
+      ])
+    : uniquePathEntries([
+        params.shellBin ?? "",
+        ...remoteToolPaths,
+        ...(process.env.PATH ? process.env.PATH.split(delimiter) : []),
+      ]);
   const env: Record<string, string> = {
     PATH: pathEntries.join(delimiter),
-    ORCH_REAL_FIND: process.env.ORCH_REAL_FIND ?? "/usr/bin/find",
+    ORCH_REAL_FIND: params.executionClass === "sandbox"
+      ? "/usr/bin/find"
+      : process.env.ORCH_REAL_FIND ?? "/usr/bin/find",
     ORCH_WORKER_CANONICAL_TOOL_PATHS: JSON.stringify(WORKER_CANONICAL_TOOL_PATHS),
   };
   for (const tool of WORKER_CANONICAL_TOOL_PATHS) {
@@ -1294,7 +1330,7 @@ export function liveConflictResolverConfig(globals: GlobalArgs, sessionId: strin
   };
 }
 
-interface WorkerTaskFile {
+interface WorkerTaskFileBase {
   version: 1;
   run_id: string;
   worker_id: string;
@@ -1303,7 +1339,6 @@ interface WorkerTaskFile {
   target_claim_id: string;
   worker_state_id: string;
   base_rev: string;
-  worktree_path: string;
   artifact_dir: string;
   ttl_seconds: number;
   thinking_level: string;
@@ -1311,8 +1346,20 @@ interface WorkerTaskFile {
   worker_configure_command: string;
   graph_db_path: string;
   write_set_flags: ReturnType<typeof writeSetIntegrationFlags>;
-  execution_class: string;
 }
+
+interface LocalWorkerTaskFile extends WorkerTaskFileBase {
+  execution_class: "local";
+  worktree_path: string;
+}
+
+interface SandboxWorkerTaskFile extends WorkerTaskFileBase {
+  execution_class: "sandbox";
+  sandbox_id: string;
+  workspace_root: string;
+}
+
+type WorkerTaskFile = LocalWorkerTaskFile | SandboxWorkerTaskFile;
 
 function requiredTaskString(value: unknown, field: string): string {
   if (typeof value !== "string" || !value.trim()) throw new Error(`Worker task is missing required string ${field}`);
@@ -1353,8 +1400,8 @@ export async function readWorkerTaskFile(args: Map<string, string | true>): Prom
   if (typeof row.post_return_check_command !== "string" || typeof row.worker_configure_command !== "string") {
     throw new Error("Worker task command fields must be strings");
   }
-  return {
-    ...(row as unknown as WorkerTaskFile),
+  const common: WorkerTaskFileBase = {
+    ...(row as unknown as WorkerTaskFileBase),
     version: 1,
     run_id: requiredTaskString(row.run_id, "run_id"),
     worker_id: requiredTaskString(row.worker_id, "worker_id"),
@@ -1363,12 +1410,22 @@ export async function readWorkerTaskFile(args: Map<string, string | true>): Prom
     target_claim_id: requiredTaskString(row.target_claim_id, "target_claim_id"),
     worker_state_id: requiredTaskString(row.worker_state_id, "worker_state_id"),
     base_rev: requiredTaskString(row.base_rev, "base_rev"),
-    worktree_path: requiredTaskString(row.worktree_path, "worktree_path"),
     artifact_dir: requiredTaskString(row.artifact_dir, "artifact_dir"),
     thinking_level: requiredTaskString(row.thinking_level, "thinking_level"),
     graph_db_path: requiredTaskString(row.graph_db_path, "graph_db_path"),
-    execution_class: executionClass,
   };
+  return executionClass === "local"
+    ? {
+        ...common,
+        execution_class: "local",
+        worktree_path: requiredTaskString(row.worktree_path, "worktree_path"),
+      }
+    : {
+        ...common,
+        execution_class: "sandbox",
+        sandbox_id: requiredTaskString(row.sandbox_id, "sandbox_id"),
+        workspace_root: requiredTaskString(row.workspace_root, "workspace_root"),
+      };
 }
 
 export function reconstructClaimedWorkerTask(store: StateStore, task: WorkerTaskFile): ClaimedTarget & { worktreePath: string } {
@@ -1394,11 +1451,19 @@ export function reconstructClaimedWorkerTask(store: StateStore, task: WorkerTask
     }),
     writeSet: entries.map((entry) => entry.path),
     writeSetEntries: entries,
-    worktreePath: task.worktree_path,
+    worktreePath: task.execution_class === "sandbox" ? task.workspace_root : task.worktree_path,
   };
 }
 
-export async function runWorkerCycleFromTask(globals: GlobalArgs, args: Map<string, string | true>): Promise<WorkerCycleResult> {
+export interface WorkerTaskRuntimeDeps {
+  sandboxProvider?: SandboxProvider;
+}
+
+export async function runWorkerCycleFromTask(
+  globals: GlobalArgs,
+  args: Map<string, string | true>,
+  deps: WorkerTaskRuntimeDeps = {},
+): Promise<WorkerCycleResult> {
   const task = await readWorkerTaskFile(args);
   const store = openState(globals.stateDir);
   try {
@@ -1410,7 +1475,30 @@ export async function runWorkerCycleFromTask(globals: GlobalArgs, args: Map<stri
     const cycleGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId;
     const sessionId = run.cycleUuid ?? (cycleGameId ? getActiveCycle(store.db, cycleGameId)?.cycle_uuid : null) ?? task.run_id;
     const claimed = reconstructClaimedWorkerTask(store, task);
-    if (!existsSync(task.worktree_path)) throw new Error(`Worker task worktree_path does not exist: ${task.worktree_path}`);
+    let sandboxHandle: SandboxHandle | undefined;
+    let workerRepoRoot: string;
+    let workspaceExec: WorkspaceExec;
+    if (task.execution_class === "sandbox") {
+      const provider = deps.sandboxProvider ?? new DaytonaSandboxProvider();
+      sandboxHandle = await provider.get(task.sandbox_id) ?? undefined;
+      if (!sandboxHandle) throw new Error(`Worker task sandbox does not exist: ${task.sandbox_id}`);
+      const workspaceCheck = await sandboxHandle.exec(["test", "-d", "."], {
+        cwd: task.workspace_root,
+        timeoutMs: 30_000,
+      });
+      if (workspaceCheck.exitCode !== 0) {
+        throw new Error(
+          `Worker task sandbox workspace does not exist: ${task.workspace_root}` +
+          (workspaceCheck.stderr.trim() ? `: ${workspaceCheck.stderr.trim()}` : ""),
+        );
+      }
+      workerRepoRoot = task.workspace_root;
+      workspaceExec = sandboxWorkspaceExec(sandboxHandle, workerRepoRoot);
+    } else {
+      if (!existsSync(task.worktree_path)) throw new Error(`Worker task worktree_path does not exist: ${task.worktree_path}`);
+      workerRepoRoot = task.worktree_path;
+      workspaceExec = localWorkspaceExec(workerRepoRoot);
+    }
     return await executeClaimedWorker({
       store,
       globals,
@@ -1418,7 +1506,9 @@ export async function runWorkerCycleFromTask(globals: GlobalArgs, args: Map<stri
       runId: task.run_id,
       sessionId,
       claimed,
-      workerRepoRoot: task.worktree_path,
+      workerRepoRoot,
+      workspaceExec,
+      sandboxHandle,
       outputDir: task.artifact_dir,
       baseRev: task.base_rev,
       ttlSeconds: task.ttl_seconds,
@@ -1441,6 +1531,8 @@ async function executeClaimedWorker(params: {
   sessionId: string;
   claimed: ClaimedTarget & { worktreePath: string };
   workerRepoRoot: string;
+  workspaceExec: WorkspaceExec;
+  sandboxHandle?: SandboxHandle;
   outputDir: string;
   baseRev: string;
   ttlSeconds: number;
@@ -1450,8 +1542,9 @@ async function executeClaimedWorker(params: {
   writeSetFlags: ReturnType<typeof writeSetIntegrationFlags>;
   token: ClaimToken;
 }): Promise<WorkerCycleResult> {
-    const { store, globals, run, runId, sessionId, claimed, workerRepoRoot, outputDir, baseRev,
-      ttlSeconds, thinkingLevel, postReturnCheckCommand, graphDbPath, writeSetFlags, token } = params;
+    const { store, globals, run, runId, sessionId, claimed, workerRepoRoot, workspaceExec,
+      sandboxHandle, outputDir, baseRev, ttlSeconds, thinkingLevel, postReturnCheckCommand,
+      graphDbPath, writeSetFlags, token } = params;
     const writeSetWideningMode = writeSetFlags.writeSetWidening;
     let currentWriteSet = [...claimed.writeSet];
     let currentEntries = [...claimed.writeSetEntries];
@@ -1465,13 +1558,17 @@ async function executeClaimedWorker(params: {
     await mkdir(reportDir, { recursive: true });
     const validationDir = resolve(outputDir, "runner_validation");
     await mkdir(validationDir, { recursive: true });
-    const workerShellBin = await writeWorkerShellGuardBin({ outputDir });
-    const workerAgentEnv = workerAgentToolEnvironment({ workerRepoRoot, shellBin: workerShellBin });
+    const workerShellBin = sandboxHandle ? null : await writeWorkerShellGuardBin({ outputDir });
+    const workerAgentEnv = workerAgentToolEnvironment({
+      workerRepoRoot,
+      shellBin: workerShellBin,
+      executionClass: workspaceExec.executionClass,
+    });
     const summaryPath = resolve(reportDir, "worker_state.json");
     const factsPath = resolve(reportDir, "facts.json");
     let preAttemptDiffPath = resolve(validationDir, "pre_worker_write_set.diff");
-    let preAttemptDiff = await captureWriteSetDiff(workerRepoRoot, currentWriteSet, preAttemptDiffPath);
-    const preAttemptChangedPaths = await captureWorktreeChangedPaths(workerRepoRoot, resolve(validationDir, "pre_worker_changed_paths.txt"));
+    let preAttemptDiff = await captureWriteSetDiff(workspaceExec, currentWriteSet, preAttemptDiffPath);
+    const preAttemptChangedPaths = await captureWorktreeChangedPaths(workspaceExec, resolve(validationDir, "pre_worker_changed_paths.txt"));
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
       outputDir: validationDir,
@@ -1481,6 +1578,7 @@ async function executeClaimedWorker(params: {
       // report artifacts) join the QA snapshot so any worker edit to them is
       // visible to the L1 QA lint diff.
       extraPaths: preAttemptChangedPaths.filter((path) => !currentWriteSet.includes(path)),
+      workspaceExec,
     });
     const measuredBaselineScore = finiteNumber(workerChangeBaseline.snapshot?.targetScore);
     if (measuredBaselineScore !== null) {
@@ -1558,6 +1656,7 @@ async function executeClaimedWorker(params: {
         result = await runMeleeKernelPiAgent({
           role: "worker",
           cwd: workerRepoRoot,
+          ...(sandboxHandle ? { hostCwd: globals.repoRoot } : {}),
           prompt: workerPrompt({
             packet: attemptPacket,
             repoRoot: workerRepoRoot,
@@ -1576,7 +1675,16 @@ async function executeClaimedWorker(params: {
           env: workerAgentEnv,
           // Whole-file writes conflict with the preserve-dirty-work rule and were
           // used in 0% of confirmed exacts (-51pt lift); edit/bash cover the need.
-          excludeBuiltinTools: ["write"],
+          excludeBuiltinTools: sandboxHandle
+            ? ["write", "read", "edit", "grep", "glob", "bash"]
+            : ["write"],
+          ...(sandboxHandle
+            ? {
+                bashOperations: sandboxBashOperations(sandboxHandle, workerRepoRoot),
+                bashEnvironment: workerAgentEnv,
+                customTools: [...createSandboxFileToolDefinitions(sandboxHandle, workerRepoRoot)],
+              }
+            : {}),
           toolContext: {
             repoRoot: workerRepoRoot,
             stateDir: globals.stateDir,
@@ -1674,11 +1782,11 @@ async function executeClaimedWorker(params: {
       const agentNote = parsedAgentNote.note;
       const workerSessionTimedOut = isWorkerSessionTimeoutFailure(result);
       const postAttemptDiffPath = resolve(validationDir, `attempt-${attemptIndex}.write_set.diff`);
-      const postAttemptDiff = await captureWriteSetDiff(workerRepoRoot, currentWriteSet, postAttemptDiffPath);
+      const postAttemptDiff = await captureWriteSetDiff(workspaceExec, currentWriteSet, postAttemptDiffPath);
       const writeSetDiffChanged = postAttemptDiff.stdout !== preAttemptDiff.stdout;
       const reviewLint = lintWorkerReviewDiff(postAttemptDiff.stdout);
       const attemptChangedPathsPath = resolve(validationDir, `attempt-${attemptIndex}.changed_paths.txt`);
-      const attemptChangedPaths = await captureWorktreeChangedPaths(workerRepoRoot, attemptChangedPathsPath);
+      const attemptChangedPaths = await captureWorktreeChangedPaths(workspaceExec, attemptChangedPathsPath);
       // Edits outside the write set are dropped from the banked patch, but must
       // not stay invisible: extend the QA baseline snapshot so worker-level
       // Python QA diffs them, and surface them below as a repair reason plus
@@ -1749,7 +1857,7 @@ async function executeClaimedWorker(params: {
                 extraPaths: newPaths,
               });
               preAttemptDiffPath = resolve(validationDir, `attempt-${attemptIndex}.pre_widening_write_set.diff`);
-              preAttemptDiff = await captureWriteSetDiff(workerRepoRoot, currentWriteSet, preAttemptDiffPath);
+              preAttemptDiff = await captureWriteSetDiff(workspaceExec, currentWriteSet, preAttemptDiffPath);
 
               const continuationReason = `write_set_widened: approved ${newPaths.join(", ")} at rung ${request.rung}; scoped validation tier ${wideningDecision.validationTier} applies`;
               const repairFeedbackPath = resolve(validationDir, `attempt-${attemptIndex}.widening_continuation.json`);
@@ -1988,6 +2096,7 @@ async function executeClaimedWorker(params: {
         dryRun: globals.dryRunAgents,
         shouldRun: shouldRunRunnerValidation,
         claimedExact: true,
+        workspaceExec,
       });
       const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")
         ? await validateWidenedChange({
@@ -1999,6 +2108,7 @@ async function executeClaimedWorker(params: {
             writeSetEntries: currentEntries,
             baseRev,
             runStateDir: resolve(globals.stateDir, "runs", runId),
+            workspaceExec,
           })
         : targetChangeValidation;
       if (changeValidation.scopedChecks?.status !== undefined && changeValidation.scopedChecks.status !== "skipped") {
@@ -2022,6 +2132,7 @@ async function executeClaimedWorker(params: {
         outputDir,
         attemptIndex,
         shouldRun: shouldRunRunnerValidation && changeValidation.status === "passed",
+        workspaceExec,
       });
       const runnerValidation = mergeRunnerValidation(changeValidation, postReturnCheck);
       if (runnerValidation.summaryPath) await writeFile(runnerValidation.summaryPath, JSON.stringify(runnerValidation, null, 2));

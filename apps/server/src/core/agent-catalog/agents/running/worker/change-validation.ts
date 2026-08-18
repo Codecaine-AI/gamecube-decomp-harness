@@ -3,7 +3,11 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import type { WriteSetEntry } from "@server/core/cycle-runtime/run-state/write-set-categories";
 import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
-import { runCommand, type CommandResult } from "@server/infrastructure/shell";
+import {
+  runCommand,
+  type CommandResult,
+  type WorkspaceExec,
+} from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
 import { resolveHeaderConsumers } from "./consumer-map.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
@@ -17,12 +21,31 @@ const EXACT_SCORE = 99.99999;
 // baseline read 100 while the board reads <100, which strands the target in an
 // unwinnable accept loop (nothing can improve over a baseline of 100).
 const objdiffReportConfigCache = new Map<string, string[]>();
-async function objdiffReportConfigArgs(repoRoot: string): Promise<string[]> {
-  const cached = objdiffReportConfigCache.get(repoRoot);
+async function readWorkspaceText(
+  repoRoot: string,
+  path: string,
+  workspaceExec?: WorkspaceExec,
+): Promise<string> {
+  if (!workspaceExec || workspaceExec.executionClass === "local") {
+    return readFile(resolve(repoRoot, path), "utf8");
+  }
+  const result = await workspaceExec.exec(["cat", path]);
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr.trim() || `unable to read sandbox workspace file ${path}`);
+  }
+  return result.stdout;
+}
+
+async function objdiffReportConfigArgs(
+  repoRoot: string,
+  workspaceExec?: WorkspaceExec,
+): Promise<string[]> {
+  const cacheKey = `${workspaceExec?.executionClass ?? "local"}:${repoRoot}`;
+  const cached = objdiffReportConfigCache.get(cacheKey);
   if (cached) return cached;
   let args: string[] = [];
   try {
-    const ninja = await readFile(resolve(repoRoot, "build.ninja"), "utf8");
+    const ninja = await readWorkspaceText(repoRoot, "build.ninja", workspaceExec);
     const line = ninja.match(/^objdiff_report_args\s*=\s*(.+)$/m);
     const tokens = line ? line[1].trim().split(/\s+/).filter(Boolean) : [];
     for (let i = 0; i + 1 < tokens.length; i += 1) {
@@ -31,7 +54,7 @@ async function objdiffReportConfigArgs(repoRoot: string): Promise<string[]> {
   } catch {
     args = [];
   }
-  objdiffReportConfigCache.set(repoRoot, args);
+  objdiffReportConfigCache.set(cacheKey, args);
   return args;
 }
 const DEFAULT_WORKER_NINJA_CONCURRENCY = 12;
@@ -130,6 +153,7 @@ export interface ScopedUnitCheckRunnerOptions {
   sourcePath: string;
   mode: ScopedCheckMode;
   triggerPaths: string[];
+  workspaceExec?: WorkspaceExec;
 }
 
 export type ScopedUnitCheckRunner = (options: ScopedUnitCheckRunnerOptions) => Promise<ScopedUnitCheck>;
@@ -301,12 +325,21 @@ function snapshotFromObjdiffReport(params: {
   };
 }
 
-async function runValidationCommand(repoRoot: string, command: string[], stdoutPath: string, stderrPath: string): Promise<WorkerValidationCommandResult> {
+async function runValidationCommand(
+  repoRoot: string,
+  command: string[],
+  stdoutPath: string,
+  stderrPath: string,
+  workspaceExec?: WorkspaceExec,
+): Promise<WorkerValidationCommandResult> {
   let result: CommandResult;
   try {
-    result = command[0] === "ninja"
-      ? await withWorkerNinjaSlot(repoRoot, () => runCommand(repoRoot, command))
-      : await runCommand(repoRoot, command);
+    const execute = () => workspaceExec
+      ? workspaceExec.exec(command, { compile: command[0] === "ninja" })
+      : runCommand(repoRoot, command);
+    result = command[0] === "ninja" && workspaceExec?.executionClass !== "sandbox"
+      ? await withWorkerNinjaSlot(repoRoot, execute)
+      : await execute();
   } catch (error) {
     const message = error instanceof Error ? error.stack ?? error.message : String(error);
     result = { exitCode: 127, stdout: "", stderr: message };
@@ -314,6 +347,31 @@ async function runValidationCommand(repoRoot: string, command: string[], stdoutP
   await writeFile(stdoutPath, result.stdout);
   await writeFile(stderrPath, result.stderr);
   return { ...result, command, stdoutPath, stderrPath };
+}
+
+async function runObjdiffReportCommand(params: {
+  repoRoot: string;
+  command: string[];
+  reportPath: string;
+  stdoutPath: string;
+  stderrPath: string;
+  workspaceExec?: WorkspaceExec;
+}): Promise<WorkerValidationCommandResult> {
+  const sandbox = params.workspaceExec?.executionClass === "sandbox";
+  const command = [
+    ...params.command,
+    "-o",
+    sandbox ? "/dev/stdout" : params.reportPath,
+  ];
+  const result = await runValidationCommand(
+    params.repoRoot,
+    command,
+    params.stdoutPath,
+    params.stderrPath,
+    params.workspaceExec,
+  );
+  if (sandbox && result.exitCode === 0) await writeFile(params.reportPath, result.stdout);
+  return result;
 }
 
 function workerNinjaConcurrency(): number {
@@ -428,6 +486,7 @@ export async function captureWorkerChangeBaseline(params: {
   dryRun?: boolean;
   /** Additional repo-relative paths to snapshot for the L1 QA lint diff. */
   extraPaths?: string[];
+  workspaceExec?: WorkspaceExec;
 }): Promise<WorkerChangeBaseline> {
   await mkdir(params.outputDir, { recursive: true });
   const unit = stringValue(params.target.unit);
@@ -466,6 +525,7 @@ export async function captureWorkerChangeBaseline(params: {
     ["ninja", objectTarget],
     resolve(params.outputDir, "pre_worker_object_build.stdout.txt"),
     resolve(params.outputDir, "pre_worker_object_build.stderr.txt"),
+    params.workspaceExec,
   );
   if (objectBuild.exitCode !== 0) {
     return {
@@ -480,12 +540,24 @@ export async function captureWorkerChangeBaseline(params: {
   }
 
   const diffPath = resolve(params.outputDir, "pre_worker_unit_diff.json");
-  const unitDiff = await runValidationCommand(
-    params.repoRoot,
-    ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", unit, ...(await objdiffReportConfigArgs(params.repoRoot)), "--format", "json-pretty", "-o", diffPath],
-    resolve(params.outputDir, "pre_worker_unit_diff.stdout.txt"),
-    resolve(params.outputDir, "pre_worker_unit_diff.stderr.txt"),
-  );
+  const unitDiff = await runObjdiffReportCommand({
+    repoRoot: params.repoRoot,
+    command: [
+      "build/tools/objdiff-cli",
+      "diff",
+      "-p",
+      ".",
+      "-u",
+      unit,
+      ...(await objdiffReportConfigArgs(params.repoRoot, params.workspaceExec)),
+      "--format",
+      "json-pretty",
+    ],
+    reportPath: diffPath,
+    stdoutPath: resolve(params.outputDir, "pre_worker_unit_diff.stdout.txt"),
+    stderrPath: resolve(params.outputDir, "pre_worker_unit_diff.stderr.txt"),
+    workspaceExec: params.workspaceExec,
+  });
   if (unitDiff.exitCode !== 0 || !existsSync(diffPath)) {
     return {
       status: "snapshot_unavailable",
@@ -863,8 +935,12 @@ async function resolveConfigUnitsFromHunks(options: {
   repoRoot: string;
   baseRev: string;
   metadataPath: string;
+  workspaceExec?: WorkspaceExec;
 }): Promise<string[]> {
-  const diff = await runCommand(options.repoRoot, ["git", "diff", "--unified=0", options.baseRev, "--", options.metadataPath]);
+  const runWorkspaceCommand = (command: string[]) => options.workspaceExec
+    ? options.workspaceExec.exec(command)
+    : runCommand(options.repoRoot, command);
+  const diff = await runWorkspaceCommand(["git", "diff", "--unified=0", options.baseRev, "--", options.metadataPath]);
   if (diff.exitCode !== 0) return [];
   const addresses = configHunkAddresses(diff.stdout);
   if (addresses.length === 0) return [];
@@ -872,11 +948,11 @@ async function resolveConfigUnitsFromHunks(options: {
   const splitsPath = "config/GALE01/splits.txt";
   let currentSplits = "";
   try {
-    currentSplits = await readFile(resolve(options.repoRoot, splitsPath), "utf8");
+    currentSplits = await readWorkspaceText(options.repoRoot, splitsPath, options.workspaceExec);
   } catch {
     currentSplits = "";
   }
-  const baselineSplits = await runCommand(options.repoRoot, ["git", "show", `${options.baseRev}:${splitsPath}`]);
+  const baselineSplits = await runWorkspaceCommand(["git", "show", `${options.baseRev}:${splitsPath}`]);
   const ranges = [
     ...parseSplitUnitRanges(currentSplits),
     ...(baselineSplits.exitCode === 0 ? parseSplitUnitRanges(baselineSplits.stdout) : []),
@@ -892,9 +968,13 @@ async function resolveConfigUnitsFromHunks(options: {
   return [...units].sort();
 }
 
-async function objdiffUnitNameForSource(repoRoot: string, sourcePath: string): Promise<string | null> {
+async function objdiffUnitNameForSource(
+  repoRoot: string,
+  sourcePath: string,
+  workspaceExec?: WorkspaceExec,
+): Promise<string | null> {
   try {
-    const config = JSON.parse(await readFile(resolve(repoRoot, "objdiff.json"), "utf8")) as unknown;
+    const config = JSON.parse(await readWorkspaceText(repoRoot, "objdiff.json", workspaceExec)) as unknown;
     const units = isRecord(config) && Array.isArray(config.units) ? config.units : [];
     const normalized = normalizeRepoPath(sourcePath);
     for (const value of units) {
@@ -932,6 +1012,7 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
     ["ninja", objectTarget],
     resolve(options.outputDir, `${prefix}.build.stdout.txt`),
     resolve(options.outputDir, `${prefix}.build.stderr.txt`),
+    options.workspaceExec,
   );
   if (objectBuild.exitCode !== 0) {
     return {
@@ -943,7 +1024,7 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
     };
   }
 
-  const unit = await objdiffUnitNameForSource(options.repoRoot, options.sourcePath);
+  const unit = await objdiffUnitNameForSource(options.repoRoot, options.sourcePath, options.workspaceExec);
   if (!unit) {
     return {
       sourcePath: options.sourcePath,
@@ -954,12 +1035,24 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
     };
   }
   const reportPath = resolve(options.outputDir, `${prefix}.objdiff.json`);
-  const unitDiff = await runValidationCommand(
-    options.repoRoot,
-    ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", unit, ...(await objdiffReportConfigArgs(options.repoRoot)), "--format", "json-pretty", "-o", reportPath],
-    resolve(options.outputDir, `${prefix}.objdiff.stdout.txt`),
-    resolve(options.outputDir, `${prefix}.objdiff.stderr.txt`),
-  );
+  const unitDiff = await runObjdiffReportCommand({
+    repoRoot: options.repoRoot,
+    command: [
+      "build/tools/objdiff-cli",
+      "diff",
+      "-p",
+      ".",
+      "-u",
+      unit,
+      ...(await objdiffReportConfigArgs(options.repoRoot, options.workspaceExec)),
+      "--format",
+      "json-pretty",
+    ],
+    reportPath,
+    stdoutPath: resolve(options.outputDir, `${prefix}.objdiff.stdout.txt`),
+    stderrPath: resolve(options.outputDir, `${prefix}.objdiff.stderr.txt`),
+    workspaceExec: options.workspaceExec,
+  });
   if (unitDiff.exitCode !== 0 || !existsSync(reportPath)) {
     return {
       sourcePath: options.sourcePath,
@@ -1036,6 +1129,7 @@ export async function validateWidenedChange(params: {
   maxConsumers?: number;
   headerOwnerByPath?: Record<string, string>;
   runners?: WidenedValidationRunners;
+  workspaceExec?: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const evidencePath = resolve(params.outputDir, `attempt-${params.attemptIndex}.widened_validation.json`);
@@ -1084,6 +1178,9 @@ export async function validateWidenedChange(params: {
           baseRev: params.baseRev,
           headerPath: entry.path,
           ...(params.maxConsumers === undefined ? {} : { maxConsumers: params.maxConsumers }),
+          ...(params.workspaceExec
+            ? { runCommand: (_cwd: string, command: string[]) => params.workspaceExec!.exec(command) }
+            : {}),
         });
       } catch (error) {
         reasons.push(`header consumer resolution failed for ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
@@ -1115,7 +1212,14 @@ export async function validateWidenedChange(params: {
     if (entry.category === "config-metadata") {
       let units: string[] = [];
       try {
-        units = await resolveConfigUnits({ repoRoot: params.repoRoot, baseRev: params.baseRev, metadataPath: entry.path });
+        units = params.runners?.resolveConfigUnits
+          ? await resolveConfigUnits({ repoRoot: params.repoRoot, baseRev: params.baseRev, metadataPath: entry.path })
+          : await resolveConfigUnitsFromHunks({
+              repoRoot: params.repoRoot,
+              baseRev: params.baseRev,
+              metadataPath: entry.path,
+              workspaceExec: params.workspaceExec,
+            });
       } catch (error) {
         reasons.push(`config metadata scope resolution failed for ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -1139,6 +1243,7 @@ export async function validateWidenedChange(params: {
         sourcePath,
         mode: scope.mode,
         triggerPaths,
+        ...(params.workspaceExec ? { workspaceExec: params.workspaceExec } : {}),
       });
     } catch (error) {
       checked = {
@@ -1239,6 +1344,7 @@ export async function validateWorkerChange(params: {
   orchestratorRoot?: string;
   /** Injectable scan_diff runner; defaults to runQaScanDiff. */
   qaScanRunner?: QaScanRunner;
+  workspaceExec?: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const summaryPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.runner_validation.summary.json`);
@@ -1272,6 +1378,7 @@ async function validateWorkerScoreChange(
     baseline: WorkerChangeBaseline;
     target: Record<string, unknown>;
     claimedExact: boolean;
+    workspaceExec?: WorkspaceExec;
   },
   summaryPath: string,
 ): Promise<WorkerRunnerValidation> {
@@ -1303,6 +1410,7 @@ async function validateWorkerScoreChange(
     ["ninja", objectTarget],
     resolve(params.outputDir, `attempt-${params.attemptIndex}.object_build.stdout.txt`),
     resolve(params.outputDir, `attempt-${params.attemptIndex}.object_build.stderr.txt`),
+    params.workspaceExec,
   );
   if (objectBuild.exitCode !== 0) {
     return {
@@ -1318,12 +1426,24 @@ async function validateWorkerScoreChange(
   }
 
   const diffPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.json`);
-  const unitDiff = await runValidationCommand(
-    params.repoRoot,
-    ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", unit, ...(await objdiffReportConfigArgs(params.repoRoot)), "--format", "json-pretty", "-o", diffPath],
-    resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.stdout.txt`),
-    resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.stderr.txt`),
-  );
+  const unitDiff = await runObjdiffReportCommand({
+    repoRoot: params.repoRoot,
+    command: [
+      "build/tools/objdiff-cli",
+      "diff",
+      "-p",
+      ".",
+      "-u",
+      unit,
+      ...(await objdiffReportConfigArgs(params.repoRoot, params.workspaceExec)),
+      "--format",
+      "json-pretty",
+    ],
+    reportPath: diffPath,
+    stdoutPath: resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.stdout.txt`),
+    stderrPath: resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.stderr.txt`),
+    workspaceExec: params.workspaceExec,
+  });
   if (unitDiff.exitCode !== 0 || !existsSync(diffPath)) {
     return {
       status: "snapshot_unavailable",

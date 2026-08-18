@@ -139,9 +139,13 @@ export function parsedAgentForMeleeKernelSpawn(
   const sourceEditingCoreTools = sourceEditingRoles.has(piOptions.role)
     ? ["read", "glob", "grep", "bash", "edit", "write"]
     : [];
+  const customToolNames = new Set([
+    ...(piOptions.customTools ?? []).map((tool) => tool.name),
+    ...(piOptions.bashOperations ? ["bash"] : []),
+  ]);
   const disallowed = [
     ...(parsedAgent.config.disallowedTools ?? []),
-    ...(piOptions.excludeBuiltinTools ?? []),
+    ...(piOptions.excludeBuiltinTools ?? []).filter((name) => !customToolNames.has(name)),
   ];
   const model = modelOverride(piOptions, spawnOptions);
   return {
