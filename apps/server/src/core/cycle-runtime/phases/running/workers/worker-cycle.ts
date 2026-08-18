@@ -38,6 +38,7 @@ import {
   resourceGraphDbPath,
 } from "@server/core/knowledge";
 import {
+  captureWorkspaceGitDiff,
   localWorkspaceExec,
   runCommand,
   sandboxWorkspaceExec,
@@ -787,8 +788,7 @@ function renderPostReturnCheckCommand(
 }
 
 async function captureWriteSetDiff(workspaceExec: WorkspaceExec, writeSet: string[], outputPath: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-  const result = writeSet.length > 0 ? await workspaceExec.exec(["git", "diff", "--", ...writeSet]) : { exitCode: 0, stdout: "", stderr: "" };
-  await writeFile(outputPath, result.stdout);
+  const result = await captureWorkspaceGitDiff(workspaceExec, writeSet, outputPath);
   if (result.stderr) await writeFile(`${outputPath}.stderr.txt`, result.stderr);
   return result;
 }

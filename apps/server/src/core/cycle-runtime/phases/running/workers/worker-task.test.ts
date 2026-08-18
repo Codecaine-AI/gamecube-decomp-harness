@@ -1,10 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { initializeHarnessState, requestDispatch } from "@server/core/harness-state";
 import { cancelJob } from "@server/core/job-queue/kernel.js";
-import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
+import { FakeSandboxProvider, type SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
   admitEpochTargets,
@@ -228,4 +228,102 @@ describe("claimed worker task reconstruction", () => {
       opts: { cwd: "/workspace/melee", env: undefined, timeoutMs: 30_000 },
     }]);
   });
+
+  test("persists sandbox attempt evidence before checkpointing the claim", async () => {
+    const f = fixture();
+    const taskPath = join(f.globals.stateDir, "task_spec.json");
+    const attemptPath = resolve(
+      String(f.task.artifact_dir),
+      "runner_validation",
+      "attempt-0.write_set.diff",
+    );
+    const patch = [
+      "diff --git a/src/a.c b/src/a.c\n",
+      "index 1111111..2222222 100644\n",
+      "--- a/src/a.c\n",
+      "+++ b/src/a.c\n",
+      "@@ -1 +1 @@\n",
+      "-int value = 0;\n",
+      "+int value = 1;\n",
+    ].join("");
+    let handle: SandboxHandle;
+    let observedBeforeClaimEnd = false;
+    const writeRemoteDiff = async (call: { command: string[] }, content: string) => {
+      const remotePath = call.command[2]?.replace("--output=", "");
+      if (!remotePath) throw new Error("missing remote git diff output path");
+      await handle.writeFile(remotePath, content);
+      return { exitCode: 0, stdout: "", stderr: "" };
+    };
+    const provider = new FakeSandboxProvider().scriptExec(
+      { exitCode: 0, stdout: "", stderr: "" },
+      (call) => writeRemoteDiff(call, ""),
+      { exitCode: 0, stdout: "", stderr: "" },
+      { exitCode: 0, stdout: "", stderr: "" },
+      (call) => writeRemoteDiff(call, patch),
+      { exitCode: 0, stdout: "", stderr: "" },
+      () => {
+        expect(readFileSync(attemptPath)).toEqual(Buffer.from(patch));
+        expect(existsSync(resolve(String(f.task.artifact_dir), "state", "worker_state.json"))).toBeFalse();
+        observedBeforeClaimEnd = true;
+        return { exitCode: 0, stdout: "src/a.c\n", stderr: "" };
+      },
+    );
+    handle = await provider.create({
+      snapshot: "test",
+      labels: { job_id: String(f.task.job_id) },
+      resources: { cpu: 2, memoryGiB: 4, diskGiB: 5 },
+      ttlMinutes: 30,
+    });
+    const knowledgeRoot = resolve(f.globals.stateDir, "knowledge");
+    const functionsIndex = resolve(knowledgeRoot, "sources", "code_graph", "indexes", "functions.jsonl");
+    mkdirSync(resolve(functionsIndex, ".."), { recursive: true });
+    writeFileSync(functionsIndex, `${JSON.stringify({
+      unit: "unit",
+      symbol: "fn",
+      sourcePath: "src/a.c",
+      size: 64,
+      fuzzy: 90,
+    })}\n`);
+    const previousKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;
+    try {
+      updateRunStatus(f.store, String(f.task.run_id), "active", "operator");
+      const { worktree_path: _worktreePath, ...task } = f.task;
+      writeFileSync(taskPath, JSON.stringify({
+        ...task,
+        execution_class: "sandbox",
+        sandbox_id: handle.sandboxId,
+        workspace_root: "/workspace/melee",
+      }));
+    } finally {
+      f.store.db.close();
+    }
+
+    try {
+      await runWorkerCycleFromTask(
+        f.globals,
+        new Map([["--task-file", taskPath]]),
+        { sandboxProvider: provider },
+      );
+    } finally {
+      if (previousKnowledgeRoot === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+      else process.env.ORCH_GAME_KNOWLEDGE_ROOT = previousKnowledgeRoot;
+    }
+
+    const reopened = openState(f.globals.stateDir);
+    try {
+      const checkpoint = reopened.db.query(
+        "SELECT patch_path, diff_path FROM worker_checkpoints WHERE worker_state_id = ?",
+      ).get(String(f.task.worker_state_id)) as { patch_path: string; diff_path: string };
+      expect(observedBeforeClaimEnd).toBeTrue();
+      expect(checkpoint).toEqual({ patch_path: attemptPath, diff_path: attemptPath });
+      expect(readFileSync(checkpoint.patch_path)).toEqual(Buffer.from(patch));
+      expect(provider.downloadCalls.map(({ localPath }) => localPath)).toEqual([
+        resolve(String(f.task.artifact_dir), "runner_validation", "pre_worker_write_set.diff"),
+        attemptPath,
+      ]);
+    } finally {
+      reopened.db.close();
+    }
+  }, 15_000);
 });

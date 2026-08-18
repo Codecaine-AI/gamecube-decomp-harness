@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FakeSandboxProvider, type SandboxCreateParams } from "@server/core/job-queue/sandbox";
+import {
+  FakeSandboxProvider,
+  type SandboxCreateParams,
+  type SandboxHandle,
+} from "@server/core/job-queue/sandbox";
 import {
   DEFAULT_SANDBOX_WORKSPACE_TIMEOUT_MS,
+  captureWorkspaceGitDiff,
   localWorkspaceExec,
   sandboxWorkspaceExec,
+  type WorkspaceExec,
 } from "./workspace-exec.js";
 
 const roots: string[] = [];
@@ -108,6 +114,107 @@ describe("WorkspaceExec", () => {
       "sandbox build",
       "slot released",
       "sandbox score",
+    ]);
+  });
+
+  test("downloads sandbox git-diff evidence byte-identically to the local host path", async () => {
+    const artifactDir = mkdtempSync(join(tmpdir(), "workspace-evidence-"));
+    roots.push(artifactDir);
+    const outputPath = join(artifactDir, "runner_validation", "attempt-0.write_set.diff");
+    mkdirSync(join(artifactDir, "runner_validation"));
+    const patch = [
+      "diff --git a/src/a.c b/src/a.c\n",
+      "index 1111111..2222222 100644\n",
+      "--- a/src/a.c\n",
+      "+++ b/src/a.c\n",
+      "@@ -1 +1 @@\n",
+      "-int value = 0;\n",
+      "+int value = 1;\n",
+    ].join("");
+    const localExec: WorkspaceExec = {
+      executionClass: "local",
+      exec: async (command) => {
+        expect(command).toEqual(["git", "diff", "--", "src/a.c"]);
+        return { exitCode: 0, stdout: patch, stderr: "" };
+      },
+    };
+
+    writeFileSync(outputPath, "");
+    const local = await captureWorkspaceGitDiff(localExec, ["src/a.c"], outputPath);
+    const localBytes = readFileSync(outputPath);
+    expect(local.stdout).toBe(patch);
+
+    let handle: SandboxHandle;
+    const provider = new FakeSandboxProvider().scriptExec(
+      async (call) => {
+        const remotePath = call.command[2]?.replace("--output=", "");
+        if (!remotePath) throw new Error("missing remote git diff output path");
+        await handle.writeFile(remotePath, patch);
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      { exitCode: 0, stdout: "", stderr: "" },
+    );
+    handle = await provider.create(createParams);
+    writeFileSync(outputPath, "stale host bytes");
+    const sandbox = await captureWorkspaceGitDiff(
+      sandboxWorkspaceExec(handle, "/workspace/melee"),
+      ["src/a.c"],
+      outputPath,
+    );
+
+    expect(readFileSync(outputPath)).toEqual(localBytes);
+    expect(sandbox).toEqual(local);
+    expect(provider.execCalls[0]?.command).toEqual([
+      "git",
+      "diff",
+      expect.stringMatching(/^--output=\/tmp\/decomp-orchestrator-evidence-.+\.diff$/),
+      "--",
+      "src/a.c",
+    ]);
+    expect(provider.downloadCalls).toEqual([{
+      sandboxId: handle.sandboxId,
+      remotePath: provider.execCalls[0]!.command[2]!.replace("--output=", ""),
+      localPath: outputPath,
+    }]);
+  });
+
+  test("persists each sandbox attempt before the next and survives sandbox loss", async () => {
+    const artifactDir = mkdtempSync(join(tmpdir(), "workspace-attempt-evidence-"));
+    roots.push(artifactDir);
+    const validationDir = join(artifactDir, "runner_validation");
+    mkdirSync(validationDir);
+    const firstPath = join(validationDir, "attempt-0.write_set.diff");
+    const secondPath = join(validationDir, "attempt-1.write_set.diff");
+    const firstPatch = "diff --git a/src/a.c b/src/a.c\n+int first;\n";
+    const secondPatch = "diff --git a/src/a.c b/src/a.c\n+int second;\n";
+    let handle: SandboxHandle;
+    const writeRemoteDiff = async (call: { command: string[] }, content: string) => {
+      const remotePath = call.command[2]?.replace("--output=", "");
+      if (!remotePath) throw new Error("missing remote git diff output path");
+      await handle.writeFile(remotePath, content);
+      return { exitCode: 0, stdout: "", stderr: "" };
+    };
+    const provider = new FakeSandboxProvider().scriptExec(
+      (call) => writeRemoteDiff(call, firstPatch),
+      { exitCode: 0, stdout: "", stderr: "" },
+      (call) => {
+        expect(readFileSync(firstPath)).toEqual(Buffer.from(firstPatch));
+        return writeRemoteDiff(call, secondPatch);
+      },
+      { exitCode: 0, stdout: "", stderr: "" },
+    );
+    handle = await provider.create(createParams);
+    const workspaceExec = sandboxWorkspaceExec(handle, "/workspace/melee");
+
+    await captureWorkspaceGitDiff(workspaceExec, ["src/a.c"], firstPath);
+    await captureWorkspaceGitDiff(workspaceExec, ["src/a.c"], secondPath);
+    await provider.delete(handle.sandboxId, "settlement");
+
+    expect(readFileSync(firstPath)).toEqual(Buffer.from(firstPatch));
+    expect(readFileSync(secondPath)).toEqual(Buffer.from(secondPatch));
+    expect(provider.downloadCalls.map(({ localPath }) => localPath)).toEqual([
+      firstPath,
+      secondPath,
     ]);
   });
 });
