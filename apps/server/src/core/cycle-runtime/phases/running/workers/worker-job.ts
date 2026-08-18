@@ -35,6 +35,7 @@ import {
   requeueJob,
 } from "@server/core/job-queue/kernel.js";
 import { defaultConfigureCommand, LocalProcessExecutor, workerProcessEnv } from "@server/core/job-queue/executor.js";
+import { deleteSandboxForJob } from "@server/core/job-queue/sandbox-lifecycle.js";
 import {
   provisionSandboxWorkspace,
   provisionWorkerWorktree,
@@ -170,6 +171,7 @@ interface WorkerJobDeps {
   provisionSandbox?: typeof provisionSandboxWorkspace;
   sandboxProvider?: SandboxProvider;
   executor?: WorkerExecutor;
+  trackSandboxDeletion?: (deletion: Promise<void>) => void;
 }
 
 export function buildWorkerTask(
@@ -316,17 +318,39 @@ export function buildWorkerTask(
   };
 }
 
-export function onWorkerJobComplete(job: JobRecord, _result: JobResult, ctx: WorkerJobRunContext): void {
+export function onWorkerJobComplete(
+  job: JobRecord,
+  _result: JobResult,
+  ctx: WorkerJobRunContext,
+  deps: { sandboxProvider?: SandboxProvider } = {},
+): Promise<void> | undefined {
   const workerStateId = job.payload.worker_state_id;
   if (typeof workerStateId !== "string" || !workerStateId) return;
-  const state = ctx.store.db.query("SELECT ended_at FROM worker_state WHERE id = ?").get(workerStateId) as { ended_at: string | null } | null;
-  if (state?.ended_at) enqueueBackgroundKnowledgeForWorker(ctx.store, workerStateId);
+  const state = ctx.store.db.query(`SELECT worker_state.ended_at, target_claims.status AS claim_status
+    FROM worker_state
+    LEFT JOIN target_claims ON target_claims.id = worker_state.target_claim_id
+    WHERE worker_state.id = ?`).get(workerStateId) as { ended_at: string | null; claim_status: string | null } | null;
+  let sandboxDeletion: Promise<void> | undefined;
+  if (state?.ended_at) {
+    enqueueBackgroundKnowledgeForWorker(ctx.store, workerStateId);
+    if (state.claim_status === "closed" && deps.sandboxProvider && job.executionClass === "sandbox" && typeof job.payload.sandbox_id === "string" && job.payload.sandbox_id) {
+      // onComplete runs inside the job settlement transaction. Defer provider I/O
+      // until that transaction has committed, and never reject into the host path.
+      sandboxDeletion = Promise.resolve()
+        .then(() => deleteSandboxForJob(ctx.store, job, "settlement", deps))
+        .then(() => undefined)
+        .catch((error) => console.warn(`[sandbox] settlement teardown failed for job ${job.jobId}`, error));
+    }
+  }
   const epochTargetId = job.payload.claimed_epoch_target_id;
-  if (typeof epochTargetId !== "string" || !epochTargetId) return;
-  const target = ctx.store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(epochTargetId) as { status: string } | null;
-  if (target?.status !== "admitted") return;
-  const slot = getJobByDedupeKey(ctx.store, "worker", epochTargetId);
-  if (slot && ["succeeded", "failed", "cancelled"].includes(slot.status)) requeueJob(ctx.store, { kind: "worker", dedupeKey: epochTargetId });
+  if (typeof epochTargetId === "string" && epochTargetId) {
+    const target = ctx.store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(epochTargetId) as { status: string } | null;
+    if (target?.status === "admitted") {
+      const slot = getJobByDedupeKey(ctx.store, "worker", epochTargetId);
+      if (slot && ["succeeded", "failed", "cancelled"].includes(slot.status)) requeueJob(ctx.store, { kind: "worker", dedupeKey: epochTargetId });
+    }
+  }
+  return sandboxDeletion;
 }
 
 export function workerJobDescriptor(
@@ -338,50 +362,61 @@ export function workerJobDescriptor(
     concurrencyLimit: ctx.concurrencyLimit,
     leaseMs: ctx.ttlSeconds * 1000,
     execution: { mode: "dispatched", buildTask: buildWorkerTask(ctx, deps), executor: deps.executor ?? new LocalProcessExecutor() },
-    onComplete: (job, result) => onWorkerJobComplete(job, result, ctx),
+    onComplete: (job, result) => {
+      const deletion = onWorkerJobComplete(job, result, ctx, deps);
+      if (deletion) deps.trackSandboxDeletion?.(deletion);
+    },
   };
 }
 
 export async function reapWorkerJobs(
   store: StateStore,
   ctx: WorkerJobRunContext,
-  deps: { recover?: typeof recoverActiveClaims } = {},
+  deps: { recover?: typeof recoverActiveClaims; sandboxProvider?: SandboxProvider } = {},
 ): Promise<{ reaped: JobRecord[]; recovered: number; expiredClaimsRecovered: number }> {
   const reaped = reapExpiredJobs(store, { kind: "worker" });
+  const sandboxDeletions = reaped.map((job) =>
+    deleteSandboxForJob(store, job, "reap", deps)
+      .catch((error) => console.warn(`[sandbox] reap teardown failed for job ${job.jobId}`, error))
+  );
   let recovered = 0;
-  for (const job of reaped) {
-    const claimId = job.payload.target_claim_id;
-    if (typeof claimId !== "string" || !claimId) continue;
-    const result = await (deps.recover ?? recoverActiveClaims)({
-      globals: ctx.globals,
-      store,
-      runId: ctx.runId,
-      repoRoot: ctx.globals.repoRoot,
-      force: true,
-      claimIdFilter: claimId,
-      leaseId: ctx.dispatchLeaseId,
-      reason: "worker job lease expired (queue reap)",
-      processIntegrations: false,
-    });
-    recovered += result.recoveredClaims;
-  }
   let expiredClaimsRecovered = 0;
-  if (activeClaimsForRun(store, ctx.runId).some((claim) => Date.parse(claim.ttl) < Date.now())) {
-    try {
+  try {
+    for (const job of reaped) {
+      const claimId = job.payload.target_claim_id;
+      if (typeof claimId !== "string" || !claimId) continue;
       const result = await (deps.recover ?? recoverActiveClaims)({
         globals: ctx.globals,
         store,
         runId: ctx.runId,
         repoRoot: ctx.globals.repoRoot,
-        force: false,
+        force: true,
+        claimIdFilter: claimId,
         leaseId: ctx.dispatchLeaseId,
-        reason: "expired worker claim recovery (queue reap lane)",
+        reason: "worker job lease expired (queue reap)",
         processIntegrations: false,
       });
-      expiredClaimsRecovered = result.recoveredClaims;
-    } catch (error) {
-      console.warn("Skipped expired worker claim recovery while run-control recovery owns the journal", error);
+      recovered += result.recoveredClaims;
     }
+    if (activeClaimsForRun(store, ctx.runId).some((claim) => Date.parse(claim.ttl) < Date.now())) {
+      try {
+        const result = await (deps.recover ?? recoverActiveClaims)({
+          globals: ctx.globals,
+          store,
+          runId: ctx.runId,
+          repoRoot: ctx.globals.repoRoot,
+          force: false,
+          leaseId: ctx.dispatchLeaseId,
+          reason: "expired worker claim recovery (queue reap lane)",
+          processIntegrations: false,
+        });
+        expiredClaimsRecovered = result.recoveredClaims;
+      } catch (error) {
+        console.warn("Skipped expired worker claim recovery while run-control recovery owns the journal", error);
+      }
+    }
+  } finally {
+    await Promise.allSettled(sandboxDeletions);
   }
   return { reaped, recovered, expiredClaimsRecovered };
 }

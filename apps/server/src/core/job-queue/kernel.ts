@@ -201,17 +201,25 @@ function transition(
   return getJob(store, fresh.jobId)!;
 }
 
+/** The shared write-fence predicate for a job ClaimToken. */
+export function isCurrentClaimToken(
+  job: JobRecord | null,
+  token: ClaimToken,
+  at: string,
+): job is JobRecord {
+  return job !== null
+    && job.kind === token.kind
+    && job.leaseId === token.leaseId
+    && job.leaseExpiresAt !== null
+    && job.leaseExpiresAt > at;
+}
+
 function owned(store: StateStore, token: ClaimToken, at: string): JobRecord {
-  const j = getJob(store, token.jobId);
-  if (
-    !j ||
-    j.kind !== token.kind ||
-    j.leaseId !== token.leaseId ||
-    !j.leaseExpiresAt ||
-    j.leaseExpiresAt <= at
-  )
+  const job = getJob(store, token.jobId);
+  if (!isCurrentClaimToken(job, token, at)) {
     throw new Error(`stale claim token for ${token.jobId}`);
-  return j;
+  }
+  return job;
 }
 
 /** Verifies that a claim token still owns an unexpired job lease. */

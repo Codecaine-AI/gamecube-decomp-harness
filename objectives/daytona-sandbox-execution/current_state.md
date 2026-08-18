@@ -28,6 +28,9 @@
 - Phase 2 slice 2: game sandbox config now carries baked revision/workspace root; sandbox claims
   create with all lease/workflow labels and TTL backstop, seed by git bundle + report artifacts,
   verify canonical tools in-sandbox, persist sandbox linkage, and clean up failed provisioning.
+- Phase 2 slice 6: sandbox deletion emits idempotent `sandbox.deleted` events for settlement, reap, and
+  reconciliation; reconciliation also requires the current active run dispatch lease and an
+  active target claim before retaining a labeled sandbox.
 </completed>
 
 <phase0_gate verdict="PASS" date="2026-08-18">
@@ -73,13 +76,13 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
 <in_progress>
 - Phase 2 parallel slices. DONE: slice 1 (provider seam + sandbox.* events + config, commit
   2a48700b, suite 1,067 pass); slice 5a corpus audit (only m2c_decompile needs a fetch-first
-  shim — examples/phase2/corpus_tool_audit.md). IN FLIGHT on worktree branches: slice 2
-  (daytona/slice-2, provisioning — MERGED to main), slice 3 (daytona/slice-3, bash-ops/
-  file-tools/exec routing), slice 6 (daytona/slice-6, settlement/reap/reconciliation deletion).
+  shim — examples/phase2/corpus_tool_audit.md); slice 2 (daytona/slice-2, provisioning — MERGED
+  to main); slice 6 (settlement/reap/reconciliation deletion — MERGED to main). IN FLIGHT on
+  worktree branches: slice 3 (daytona/slice-3, bash-ops/file-tools/exec routing).
 </in_progress>
 
 <next_actions>
-- Review + merge slices 2/3/6 (order 2->3->6), full suite green after each merge; then slice 4
+- Review + merge slice 3, full suite green after merge; then slice 4
   (validation/evidence download path) and slice 5b (m2c fetch-first shim, discovery scan
   in-sandbox); then phase 3 live PoC against snapshot melee-sandbox-poc-20260818.
 </next_actions>

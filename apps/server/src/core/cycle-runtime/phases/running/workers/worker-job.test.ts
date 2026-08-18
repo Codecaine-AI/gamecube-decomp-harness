@@ -1,10 +1,10 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { initializeHarnessState, listGameEvents, releaseDispatch, requestDispatch, StaleLeaseError } from "@server/core/harness-state";
-import { getJob, getJobByDedupeKey } from "@server/core/job-queue/kernel.js";
-import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
+import { attachJobPayload, getJob, getJobByDedupeKey } from "@server/core/job-queue/kernel.js";
+import { FakeSandboxProvider, type SandboxProvider } from "@server/core/job-queue/sandbox.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
   admitEpochTargets,
@@ -17,6 +17,7 @@ import {
   buildWorkerTask,
   onWorkerJobComplete,
   reapWorkerJobs,
+  workerJobDescriptor,
   workerKernelOps,
   type WorkerJobRunContext,
 } from "./worker-job.js";
@@ -91,6 +92,30 @@ function configureSandbox(f: ReturnType<typeof fixture>): void {
       workspace_root: "/opt/melee-test",
     },
   } as NonNullable<GlobalArgs["game"]>;
+}
+
+async function sandboxClaim(f: ReturnType<typeof fixture>, provider: FakeSandboxProvider) {
+  f.store.db.query("UPDATE jobs SET execution_class = 'sandbox' WHERE kind = 'worker' AND dedupe_key = ?").run(f.epochTargetId);
+  const result = claim(f);
+  const claimId = String(result.job.payload.target_claim_id);
+  const workerStateId = String(result.job.payload.worker_state_id);
+  const sandbox = await provider.create({
+    snapshot: "test-snapshot",
+    labels: {
+      game_id: result.job.gameId,
+      run_id: f.run.id,
+      claim_id: claimId,
+      job_id: result.job.jobId,
+      job_lease_id: result.token.leaseId,
+      dispatch_lease_id: f.ctx.dispatchLeaseId,
+      worker_state_id: workerStateId,
+      trace_id: result.job.traceId ?? `trace-job-${result.job.jobId}`,
+    },
+    resources: { cpu: 2, memoryGiB: 4, diskGiB: 5 },
+    ttlMinutes: 60,
+  });
+  attachJobPayload(f.store, result.token, { sandbox_id: sandbox.sandboxId });
+  return { ...result, job: getJob(f.store, result.job.jobId)!, sandbox };
 }
 
 describe("worker job kind", () => {
@@ -256,6 +281,73 @@ describe("worker job kind", () => {
     } finally { open.store.db.close(); }
   });
 
+  test("deletes a settled sandbox job exactly once and emits sandbox.deleted", async () => {
+    const f = fixture();
+    try {
+      const provider = new FakeSandboxProvider();
+      const result = await sandboxClaim(f, provider);
+      f.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
+      f.store.db.query("UPDATE target_claims SET status = 'closed' WHERE id = ?").run(String(result.job.payload.target_claim_id));
+      f.store.db.query("UPDATE epoch_targets SET status = 'finished' WHERE id = ?").run(f.epochTargetId);
+      const tracked: Promise<void>[] = [];
+      const descriptor = workerJobDescriptor(f.ctx, {
+        sandboxProvider: provider,
+        trackSandboxDeletion: (deletion) => tracked.push(deletion),
+      });
+
+      workerKernelOps(f.ctx).completeJob(f.store, result.token, {}, { onComplete: descriptor.onComplete });
+      expect(tracked).toHaveLength(1);
+      await tracked[0];
+      expect(provider.deletedSandboxes).toHaveLength(1);
+      expect(provider.deletedSandboxes[0]).toMatchObject({
+        sandboxId: result.sandbox.sandboxId,
+        reason: "settlement",
+      });
+      expect(listGameEvents(f.store.db).filter((event) => event.eventType === "sandbox.deleted").map((event) => event.payload)).toEqual([{
+        sandbox_id: result.sandbox.sandboxId,
+        reason: "settlement",
+        job_id: result.job.jobId,
+        claim_id: result.job.payload.target_claim_id,
+      }]);
+
+      expect(() => workerKernelOps(f.ctx).completeJob(f.store, result.token, {}, { onComplete: descriptor.onComplete })).toThrow("stale claim token");
+      expect(provider.deletedSandboxes).toHaveLength(1);
+    } finally { f.store.db.close(); }
+  });
+
+  test("does not delete a local-class job even when it carries sandbox metadata", async () => {
+    const f = fixture();
+    try {
+      const provider = new FakeSandboxProvider();
+      const result = claim(f);
+      const sandbox = await provider.create({
+        snapshot: "test-snapshot",
+        labels: { game_id: "test" },
+        resources: { cpu: 2, memoryGiB: 4, diskGiB: 5 },
+        ttlMinutes: 60,
+      });
+      attachJobPayload(f.store, result.token, { sandbox_id: sandbox.sandboxId });
+      f.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
+      const job = getJob(f.store, result.job.jobId)!;
+      const deletion = onWorkerJobComplete(job, {}, f.ctx, { sandboxProvider: provider });
+      expect(deletion).toBeUndefined();
+      expect(provider.deletedSandboxes).toHaveLength(0);
+    } finally { f.store.db.close(); }
+  });
+
+  test("does not delete a sandbox until its domain claim is closed", async () => {
+    const f = fixture();
+    try {
+      const provider = new FakeSandboxProvider();
+      const result = await sandboxClaim(f, provider);
+      f.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
+
+      expect(onWorkerJobComplete(result.job, {}, f.ctx, { sandboxProvider: provider })).toBeUndefined();
+      expect(provider.deletedSandboxes).toHaveLength(0);
+      expect(listGameEvents(f.store.db).filter((event) => event.eventType === "sandbox.deleted")).toHaveLength(0);
+    } finally { f.store.db.close(); }
+  });
+
   test("reaps expired worker jobs and recovers their attached claim", async () => {
     const f = fixture();
     try {
@@ -273,6 +365,74 @@ describe("worker job kind", () => {
       expect(calls).toHaveLength(1);
       expect(getJob(f.store, result.job.jobId)?.status).toBe("waiting");
     } finally { f.store.db.close(); }
+  });
+
+  test("reaps a sandbox before returning without delaying claim recovery", async () => {
+    const f = fixture();
+    try {
+      const provider = new FakeSandboxProvider();
+      const result = await sandboxClaim(f, provider);
+      f.store.db.query("UPDATE jobs SET lease_expires_at = '2000-01-01T00:00:00.000Z' WHERE job_id = ?").run(result.job.jobId);
+      let releaseDeletion: (() => void) | undefined;
+      const delayedProvider: SandboxProvider = {
+        create: provider.create.bind(provider),
+        get: provider.get.bind(provider),
+        listByLabels: provider.listByLabels.bind(provider),
+        delete: async (sandboxId, reason) => {
+          await new Promise<void>((resolve) => { releaseDeletion = resolve; });
+          await provider.delete(sandboxId, reason);
+        },
+      };
+      let recoverySawLiveSandbox = false;
+      const outcome = await reapWorkerJobs(f.store, f.ctx, {
+        sandboxProvider: delayedProvider,
+        recover: async () => {
+          recoverySawLiveSandbox = await provider.get(result.sandbox.sandboxId) !== null;
+          releaseDeletion?.();
+          return { runId: f.run.id, force: true, scannedActiveClaims: 1, recoveredClaims: 1, recovered: [], workerOutputIntegration: null, blockers: [], skippedActiveClaims: [] };
+        },
+      });
+      expect(outcome.recovered).toBe(1);
+      expect(recoverySawLiveSandbox).toBeTrue();
+      expect(provider.deletedSandboxes).toHaveLength(1);
+      expect(provider.deletedSandboxes[0]).toMatchObject({ sandboxId: result.sandbox.sandboxId, reason: "reap" });
+      expect(listGameEvents(f.store.db).filter((event) => event.eventType === "sandbox.deleted")).toHaveLength(1);
+
+      const second = await reapWorkerJobs(f.store, f.ctx, { sandboxProvider: provider });
+      expect(second.reaped).toHaveLength(0);
+      expect(provider.deletedSandboxes).toHaveLength(1);
+    } finally { f.store.db.close(); }
+  });
+
+  test("recovers a reaped claim when sandbox deletion fails", async () => {
+    const f = fixture();
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const fake = new FakeSandboxProvider();
+      const result = await sandboxClaim(f, fake);
+      f.store.db.query("UPDATE jobs SET lease_expires_at = '2000-01-01T00:00:00.000Z' WHERE job_id = ?").run(result.job.jobId);
+      const failingProvider: SandboxProvider = {
+        create: fake.create.bind(fake),
+        get: fake.get.bind(fake),
+        listByLabels: fake.listByLabels.bind(fake),
+        delete: async () => { throw new Error("Daytona unavailable"); },
+      };
+      let recoveries = 0;
+      const outcome = await reapWorkerJobs(f.store, f.ctx, {
+        sandboxProvider: failingProvider,
+        recover: async () => {
+          recoveries += 1;
+          return { runId: f.run.id, force: true, scannedActiveClaims: 1, recoveredClaims: 1, recovered: [], workerOutputIntegration: null, blockers: [], skippedActiveClaims: [] };
+        },
+      });
+      expect(outcome.recovered).toBe(1);
+      expect(recoveries).toBe(1);
+      expect(warn.mock.calls.some(([message]) => String(message).includes("failed to delete"))).toBeTrue();
+      expect(listGameEvents(f.store.db).filter((event) => event.eventType === "sandbox.deleted")).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+      f.store.db.close();
+    }
   });
 
   test("sweeps an expired domain claim without a matching claimed job", async () => {

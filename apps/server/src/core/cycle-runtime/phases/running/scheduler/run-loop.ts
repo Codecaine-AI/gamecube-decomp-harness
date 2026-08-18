@@ -55,6 +55,8 @@ import {
 import { liveConflictResolverConfig, resolveBaseRev } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { startJobConsumer } from "@server/core/job-queue/consumer.js";
 import { defaultConfigureCommand } from "@server/core/job-queue/executor.js";
+import { reconcileSandboxes } from "@server/core/job-queue/sandbox-lifecycle.js";
+import { DaytonaSandboxProvider, type SandboxProvider } from "@server/core/job-queue/sandbox.js";
 import type { JobRecord, TaskOutcome } from "@server/core/job-queue/types.js";
 import {
   reapWorkerJobs,
@@ -182,6 +184,10 @@ export interface RunLoopResult {
 }
 
 export type TriggerAgentResult = RunLoopResult;
+
+export interface RunLoopDeps {
+  sandboxProvider?: SandboxProvider;
+}
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
@@ -648,7 +654,11 @@ function schedulerTickArgs(
   ]);
 }
 
-export async function runRunLoop(globals: GlobalArgs, args: Map<string, string | true>): Promise<RunLoopResult> {
+export async function runRunLoop(
+  globals: GlobalArgs,
+  args: Map<string, string | true>,
+  deps: RunLoopDeps = {},
+): Promise<RunLoopResult> {
   const store = openState(globals.stateDir);
   const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(store, async (backgroundJob) => {
     const publication = await kgLibrarianCondense(globals, new Map<string, string | true>([
@@ -707,6 +717,11 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     assertSchedulableRun(run, "run-loop");
     const sessionGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId;
     const sessionId = run.cycleUuid ?? (sessionGameId ? getActiveCycle(store.db, sessionGameId)?.cycle_uuid : null) ?? runId;
+    const sandboxProvider = deps.sandboxProvider
+      ?? (process.env.DAYTONA_API_KEY?.trim() ? new DaytonaSandboxProvider() : undefined);
+    if (sessionGameId) {
+      await reconcileSandboxes(store, { gameId: sessionGameId }, { sandboxProvider });
+    }
     observedRunId = runId;
     setRunSchedulerCondition(store, runId, "idle");
 
@@ -860,7 +875,13 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       workerSettledSinceDrain = true;
       settleWakeResolve?.();
     };
-    const workerDescriptor = workerJobDescriptor(workerCtx);
+    const workerDescriptor = workerJobDescriptor(workerCtx, {
+      sandboxProvider,
+      trackSandboxDeletion: (deletion) => {
+        pendingSettleWork.add(deletion);
+        void deletion.finally(() => pendingSettleWork.delete(deletion));
+      },
+    });
     const workerConsumer = startJobConsumer(store, workerDescriptor, workerKernelOps(workerCtx), {
       intervalMs: 1_000,
       actor: "runner",
@@ -951,7 +972,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       let didWork = false;
       resetSettleWake();
       if (!drainRequested) {
-        const reaped = await reapWorkerJobs(store, workerCtx);
+        const reaped = await reapWorkerJobs(store, workerCtx, { sandboxProvider });
         if (reaped.recovered > 0) {
           console.error(`[run-loop] reaped worker jobs and recovered ${reaped.recovered} active claim(s)`);
           didWork = true;
