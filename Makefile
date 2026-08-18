@@ -77,28 +77,37 @@ ui:
 
 docs:
 	@set -eu; \
-	  (cd ../Core/docs-system/packages/docs-kernel && \
-	    exec env DOCS_KERNEL_PORT="$(DOCS_KERNEL_PORT)" \
-	      DOCS_KERNEL_DOCS_ROOT="$(CURDIR)/docs" \
-	      bun src/server.ts) & \
-	  KERNEL_PID=$$!; \
 	  OPEN_PID=; \
-	  cleanup() { \
-	    if [ -n "$$OPEN_PID" ]; then \
-	      kill "$$OPEN_PID" 2>/dev/null || true; \
-	      wait "$$OPEN_PID" 2>/dev/null || true; \
-	    fi; \
-	    kill -TERM "$$KERNEL_PID" 2>/dev/null || true; \
-	    i=0; \
-	    while kill -0 "$$KERNEL_PID" 2>/dev/null && [ "$$i" -lt 5 ]; do \
-	      sleep 1; \
-	      i=$$((i + 1)); \
-	    done; \
-	    if kill -0 "$$KERNEL_PID" 2>/dev/null; then \
-	      kill -9 "$$KERNEL_PID" 2>/dev/null || true; \
-	    fi; \
-	    wait "$$KERNEL_PID" 2>/dev/null || true; \
-	  }; \
+	  if curl -fsS "http://127.0.0.1:$(DOCS_KERNEL_PORT)/health" >/dev/null 2>&1; then \
+	    echo "docs kernel: already running on :$(DOCS_KERNEL_PORT) — leaving it"; \
+	    cleanup() { \
+	      if [ -n "$$OPEN_PID" ]; then \
+	        kill "$$OPEN_PID" 2>/dev/null || true; \
+	        wait "$$OPEN_PID" 2>/dev/null || true; \
+	      fi; \
+	    }; \
+	  else \
+	    (cd ../Core/docs-system/packages/docs-kernel && \
+	      exec env -u DOCS_KERNEL_DOCS_ROOT -u DOCS_KERNEL_CORPORA_FILE \
+	        DOCS_KERNEL_PORT="$(DOCS_KERNEL_PORT)" bun src/server.ts) & \
+	    KERNEL_PID=$$!; \
+	    cleanup() { \
+	      if [ -n "$$OPEN_PID" ]; then \
+	        kill "$$OPEN_PID" 2>/dev/null || true; \
+	        wait "$$OPEN_PID" 2>/dev/null || true; \
+	      fi; \
+	      kill -TERM "$$KERNEL_PID" 2>/dev/null || true; \
+	      i=0; \
+	      while kill -0 "$$KERNEL_PID" 2>/dev/null && [ "$$i" -lt 5 ]; do \
+	        sleep 1; \
+	        i=$$((i + 1)); \
+	      done; \
+	      if kill -0 "$$KERNEL_PID" 2>/dev/null; then \
+	        kill -9 "$$KERNEL_PID" 2>/dev/null || true; \
+	      fi; \
+	      wait "$$KERNEL_PID" 2>/dev/null || true; \
+	    }; \
+	  fi; \
 	  trap cleanup EXIT; \
 	  trap 'exit 130' INT; \
 	  trap 'exit 143' TERM; \
@@ -112,7 +121,8 @@ docs:
 	    --dev \
 	    --port "$(DOCS_API_PORT)" \
 	    --ui-port "$(DOCS_PORT)" \
-	    --theme-locked
+	    --theme-locked \
+	    --corpus gamecube-decomp-harness
 
 status:
 	bun run server:job -- $(ORCH_GLOBAL_FLAGS) status
