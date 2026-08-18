@@ -57,7 +57,7 @@ OUT="$OUT_DIR/$(basename "$OUT")"
 [ "$OUT" != "$CHECKOUT" ] || die "output cannot be the checkout"
 command -v zstd >/dev/null 2>&1 || die "zstd is required to write .tar.zst"
 
-STATE_TOOLS="$HARNESS_ROOT/projects/melee/state/tools"
+STATE_TOOLS="$HARNESS_ROOT/games/melee/state/tools"
 IMPL="$HARNESS_ROOT/toolpacks/gamecube-decomp/_impl/gamecube"
 WIBO_DIR="$STATE_TOOLS/wibo-1.2.0-opt1"
 OBJDIFF_DIR="$STATE_TOOLS/objdiff-cli-3.6.1-score"

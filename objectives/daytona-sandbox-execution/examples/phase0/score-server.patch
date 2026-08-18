@@ -1,0 +1,173 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index c423d6e..3220685 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3505,6 +3505,7 @@ dependencies = [
+  "rayon",
+  "serde",
+  "serde_json",
++ "sha2",
+  "supports-color",
+  "time",
+  "tracing",
+diff --git a/objdiff-cli/Cargo.toml b/objdiff-cli/Cargo.toml
+index bd27174..1c3eb8c 100644
+--- a/objdiff-cli/Cargo.toml
++++ b/objdiff-cli/Cargo.toml
+@@ -24,6 +24,7 @@ ratatui = "0.29"
+ rayon = "1.11"
+ serde = { version = "1.0", features = ["derive"] }
+ serde_json = "1.0"
++sha2 = "0.10"
+ supports-color = "3.0"
+ time = { version = "0.3", features = ["formatting", "local-offset"] }
+ tracing = "0.1"
+diff --git a/objdiff-cli/src/cmd/mod.rs b/objdiff-cli/src/cmd/mod.rs
+index 95417cb..4c9a838 100644
+--- a/objdiff-cli/src/cmd/mod.rs
++++ b/objdiff-cli/src/cmd/mod.rs
+@@ -1,5 +1,6 @@
+ pub mod diff;
+ pub mod report;
++pub mod score;
+ 
+ use std::str::FromStr;
+ 
+diff --git a/objdiff-cli/src/cmd/score.rs b/objdiff-cli/src/cmd/score.rs
+new file mode 100644
+index 0000000..888ef62
+--- /dev/null
++++ b/objdiff-cli/src/cmd/score.rs
+@@ -0,0 +1,112 @@
++use std::{
++    io::{self, BufRead, Write},
++    path::{Path, PathBuf},
++};
++
++use anyhow::{bail, Context, Result};
++use argp::FromArgs;
++use objdiff_core::{
++    bindings::diff::DiffResult,
++    diff::{self, DiffObjConfig, DiffSide, MappingConfig},
++    obj::{self, Object},
++};
++use serde_json::Value;
++use sha2::{Digest, Sha256};
++
++use crate::cmd::apply_config_args;
++
++#[derive(FromArgs, PartialEq, Debug)]
++/// Persistently score candidate objects against one target function.
++#[argp(subcommand, name = "score")]
++pub struct Args {
++    #[argp(positional)]
++    /// target object file, parsed once at startup
++    target: PathBuf,
++    #[argp(positional)]
++    /// function symbol to score
++    symbol: String,
++}
++
++pub fn run(args: Args) -> Result<()> {
++    let mut diff_config = DiffObjConfig::default();
++    apply_config_args(&mut diff_config, &["functionRelocDiffs=data_value".to_string()])?;
++    let mapping_config = MappingConfig::default();
++    let target = obj::read::read(&args.target, &diff_config, DiffSide::Target)
++        .with_context(|| format!("Loading target {}", args.target.display()))?;
++    if target.symbol_by_name(&args.symbol).is_none() {
++        bail!("Symbol not found in target: {}", args.symbol);
++    }
++
++    let stdin = io::stdin();
++    let mut stdout = io::BufWriter::new(io::stdout().lock());
++    writeln!(stdout, "READY")?;
++    stdout.flush()?;
++
++    for line in stdin.lock().lines() {
++        let path = line?;
++        let result =
++            score_candidate(&target, Path::new(&path), &args.symbol, &diff_config, &mapping_config);
++        match result {
++            Ok((raw, code_hash)) => writeln!(stdout, "{raw} {code_hash}")?,
++            Err(error) => writeln!(stdout, "ERR {}", single_line_error(&error))?,
++        }
++        stdout.flush()?;
++    }
++    Ok(())
++}
++
++fn score_candidate(
++    target: &Object,
++    candidate_path: &Path,
++    symbol_name: &str,
++    diff_config: &DiffObjConfig,
++    mapping_config: &MappingConfig,
++) -> Result<(u64, String)> {
++    if candidate_path.as_os_str().is_empty() {
++        bail!("candidate path is empty");
++    }
++    let candidate = obj::read::read(candidate_path, diff_config, DiffSide::Base)
++        .with_context(|| format!("Loading candidate {}", candidate_path.display()))?;
++    if candidate.symbol_by_name(symbol_name).is_none() {
++        bail!("Symbol not found in candidate: {symbol_name}");
++    }
++    let result =
++        diff::diff_objs(Some(target), Some(&candidate), None, diff_config, mapping_config)?;
++    let left = result.left.as_ref().map(|diff| (target, diff));
++    let right = result.right.as_ref().map(|diff| (&candidate, diff));
++    let diff_result = DiffResult::new(left, right, diff_config)?;
++    let encoded = serde_json::to_vec(&diff_result)?;
++    let payload: Value = serde_json::from_slice(&encoded)?;
++    let symbol = symbol_payload(&payload, symbol_name)
++        .with_context(|| format!("Diff output did not include symbol: {symbol_name}"))?;
++    let match_percent = symbol
++        .get("match_percent")
++        .and_then(Value::as_f64)
++        .with_context(|| format!("Diff output did not include match_percent: {symbol_name}"))?;
++    let raw = ((100.0 - match_percent) * 1_000_000.0).round_ties_even().max(0.0) as u64;
++    let canonical = serde_json::to_vec(symbol)?;
++    let code_hash = format!("{:x}", Sha256::digest(canonical));
++    Ok((raw, code_hash))
++}
++
++fn symbol_payload<'a>(payload: &'a Value, symbol_name: &str) -> Option<&'a Value> {
++    for side_name in ["left", "right"] {
++        let Some(side) = payload.get(side_name).and_then(Value::as_object) else {
++            continue;
++        };
++        let Some(symbols) = side.get("symbols").and_then(Value::as_array) else {
++            continue;
++        };
++        if let Some(symbol) = symbols.iter().find(|symbol| {
++            symbol.as_object().and_then(|symbol| symbol.get("name")).and_then(Value::as_str)
++                == Some(symbol_name)
++        }) {
++            return Some(symbol);
++        }
++    }
++    None
++}
++
++fn single_line_error(error: &anyhow::Error) -> String {
++    format!("{error:#}").replace(['\r', '\n'], " ")
++}
+diff --git a/objdiff-cli/src/main.rs b/objdiff-cli/src/main.rs
+index 065f80d..59a85ac 100644
+--- a/objdiff-cli/src/main.rs
++++ b/objdiff-cli/src/main.rs
+@@ -87,6 +87,7 @@ struct TopLevel {
+ enum SubCommand {
+     Diff(cmd::diff::Args),
+     Report(cmd::report::Args),
++    Score(cmd::score::Args),
+ }
+ 
+ // Duplicated from supports-color so we can check early.
+@@ -142,6 +143,7 @@ fn main() {
+     result = result.and_then(|_| match args.command {
+         SubCommand::Diff(c_args) => cmd::diff::run(c_args),
+         SubCommand::Report(c_args) => cmd::report::run(c_args),
++        SubCommand::Score(c_args) => cmd::score::run(c_args),
+     });
+     if let Err(e) = result {
+         eprintln!("Failed: {e:?}");
