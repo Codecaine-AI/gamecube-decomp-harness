@@ -55,7 +55,7 @@ describe("worker state transaction fencing", () => {
       });
       if (!claim) throw new Error("Expected a worker claim");
 
-      store.db.exec("DROP TABLE background_knowledge_jobs");
+      store.db.exec("DROP TABLE jobs");
       expect(() =>
         closeWorkerState(store, {
           workerStateId: claim.workerStateId,

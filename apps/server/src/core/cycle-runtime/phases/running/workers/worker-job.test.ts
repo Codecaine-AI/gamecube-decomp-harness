@@ -148,12 +148,12 @@ describe("worker job kind", () => {
     try {
       const result = claim(open);
       onWorkerJobComplete(result.job, {}, open.ctx);
-      expect(open.store.db.query("SELECT COUNT(*) count FROM background_knowledge_jobs").get()).toEqual({ count: 0 });
+      expect(open.store.db.query("SELECT COUNT(*) count FROM jobs WHERE kind = 'knowledge_absorption' AND dedupe_key = ?").get(String(result.job.payload.worker_state_id))).toEqual({ count: 0 });
       open.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
       open.store.db.query("UPDATE epoch_targets SET status = 'admitted' WHERE id = ?").run(open.epochTargetId);
       open.store.db.query("UPDATE jobs SET status = 'succeeded', completed_at = datetime('now') WHERE job_id = ?").run(result.job.jobId);
       onWorkerJobComplete(getJob(open.store, result.job.jobId)!, {}, open.ctx);
-      expect(open.store.db.query("SELECT COUNT(*) count FROM background_knowledge_jobs WHERE worker_state_id = ?").get(String(result.job.payload.worker_state_id))).toEqual({ count: 1 });
+      expect(open.store.db.query("SELECT COUNT(*) count FROM jobs WHERE kind = 'knowledge_absorption' AND dedupe_key = ?").get(String(result.job.payload.worker_state_id))).toEqual({ count: 1 });
       expect(getJob(open.store, result.job.jobId)?.status).toBe("queued");
     } finally { open.store.db.close(); }
   });
