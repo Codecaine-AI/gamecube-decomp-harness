@@ -52,7 +52,7 @@ import {
   type SchedulerEpochEnsureResult,
   type SchedulerTickResult,
 } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
-import { liveConflictResolverConfig } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { liveConflictResolverConfig, resolveBaseRev } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { startJobConsumer } from "@server/core/job-queue/consumer.js";
 import { defaultConfigureCommand } from "@server/core/job-queue/executor.js";
 import type { JobRecord, TaskOutcome } from "@server/core/job-queue/types.js";
@@ -725,7 +725,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     const candidateLimit = maxWorkers;
     const admissionTargetSize = maxWorkers;
     const candidateWindow = derivedSchedulerCandidateWindow(globals, args, maxWorkers);
-    const baseRev = stringArg(args, "--base-rev", "unknown");
+    const baseRev = resolveBaseRev(globals.repoRoot, stringArg(args, "--base-rev", "unknown"));
     const ttlSeconds = workerTtlSeconds(globals, args);
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
@@ -1070,6 +1070,8 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
           reportKnowledgeProgress: knowledgeProgressReporter,
         })
           .then((outcome) => {
+            // Workers base new worktrees on the latest epoch boundary commit.
+            workerCtx.baseRev = outcome.boundaryResult?.commitSha ?? workerCtx.baseRev;
             if (globals.dryRunAgents || outcome.boundaryResult || outcome.reconciled) epochCycles += 1;
             if (outcome.boundaryResult) {
               lastEpoch = outcome.boundaryResult;

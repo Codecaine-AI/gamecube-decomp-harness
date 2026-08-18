@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -23,6 +23,7 @@ import {
   selectRunLoopSchedulerCondition,
   selectIntegrationResolverBatch,
 } from "./run-loop.js";
+import { resolveBaseRev } from "../workers/worker-cycle.js";
 
 describe("selectRunLoopSchedulerCondition", () => {
   test("preserves blocked and boundary priority over transient work", () => {
@@ -43,6 +44,26 @@ function tempState(): { dir: string; store: StateStore } {
 
 afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
+
+describe("resolveBaseRev", () => {
+  test("resolves unknown to the concrete HEAD commit", () => {
+    const repo = mkdtempSync(join(tmpdir(), "resolve-base-rev-"));
+    tempDirs.push(repo);
+    const git = (...args: string[]) => {
+      const result = Bun.spawnSync(["git", "-C", repo, ...args], { stdout: "pipe", stderr: "pipe" });
+      expect(result.exitCode, result.stderr.toString()).toBe(0);
+      return result.stdout.toString().trim();
+    };
+    git("init");
+    git("config", "user.email", "test@example.com");
+    git("config", "user.name", "Test User");
+    writeFileSync(join(repo, "tracked.txt"), "tracked\n");
+    git("add", "tracked.txt");
+    git("commit", "-m", "initial");
+
+    expect(resolveBaseRev(repo, "unknown")).toBe(git("rev-parse", "HEAD"));
+  });
 });
 
 describe("evaluateFastKnowledgeMaintenanceDecision", () => {

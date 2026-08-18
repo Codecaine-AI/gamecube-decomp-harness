@@ -541,7 +541,10 @@ export function completeJob(
       eventType: "job.succeeded",
       at,
       actor: actor(input.actor),
-      resultRef: result.resultRef ?? null,
+      error: null,
+      // Dispatched workers use their domain row as the evidence pointer. Other
+      // job kinds are unaffected when their payload has no worker_state_id.
+      resultRef: result.resultRef ?? (typeof j.payload.worker_state_id === "string" ? j.payload.worker_state_id : null),
       completedAt: at,
       extra: { detail: result.detail ?? {} },
     });

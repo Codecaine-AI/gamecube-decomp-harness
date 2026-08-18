@@ -868,6 +868,24 @@ function workerEpochDirectory(epoch: { ordinal?: number } | null): string {
   return Number.isInteger(ordinal) && ordinal > 0 ? String(ordinal).padStart(4, "0") : "legacy";
 }
 
+export function resolveBaseRev(repoRoot: string, requested: string): string {
+  const candidate = requested.trim() && requested.trim() !== "unknown" ? requested.trim() : "HEAD";
+  const resolved = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", `${candidate}^{commit}`], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (resolved.exitCode === 0) return resolved.stdout.toString().trim();
+
+  const fallback = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", "HEAD^{commit}"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (fallback.exitCode !== 0) {
+    throw new Error(`Unable to resolve base revision ${requested || "HEAD"}: ${fallback.stderr.toString().trim()}`);
+  }
+  return fallback.stdout.toString().trim();
+}
+
 export function workerWorktreePath(globals: GlobalArgs, claimId: string, epoch: { ordinal?: number } | null = null): string {
   if (globals.dryRunAgents) return resolve(globals.stateDir, "dry_run_worktrees", claimId, "source");
   const gameDir = globals.game?.gameDir ?? dirname(globals.repoRoot);

@@ -355,7 +355,7 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
     kind: required("string"),
     dedupe_key: required("string"),
     execution_class: required("string"),
-    priority: required("integer"),
+    priority: required("number"),
     requeue: optional("boolean"),
   }),
   "job.claimed": status("job", ["operator", "runner"], { kind: required("string") }),

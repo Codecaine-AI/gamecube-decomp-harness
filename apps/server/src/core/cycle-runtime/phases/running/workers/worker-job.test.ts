@@ -170,8 +170,41 @@ describe("worker job kind", () => {
       } });
       expect(outcome.reaped).toHaveLength(1);
       expect(outcome.recovered).toBe(1);
+      expect(outcome.expiredClaimsRecovered).toBe(0);
       expect(calls[0]).toMatchObject({ claimIdFilter: result.job.payload.target_claim_id, force: true, leaseId: f.ctx.dispatchLeaseId, processIntegrations: false });
+      expect(calls).toHaveLength(1);
       expect(getJob(f.store, result.job.jobId)?.status).toBe("waiting");
+    } finally { f.store.db.close(); }
+  });
+
+  test("sweeps an expired domain claim without a matching claimed job", async () => {
+    const f = fixture();
+    try {
+      const result = claim(f);
+      f.store.db.query("UPDATE jobs SET status = 'waiting', lease_id = NULL, lease_expires_at = NULL WHERE job_id = ?").run(result.job.jobId);
+      f.store.db.query("UPDATE target_claims SET ttl = '2000-01-01T00:00:00.000Z' WHERE id = ?").run(String(result.job.payload.target_claim_id));
+      const calls: unknown[] = [];
+      const outcome = await reapWorkerJobs(f.store, f.ctx, { recover: async (input) => {
+        calls.push(input);
+        return { runId: f.run.id, force: false, scannedActiveClaims: 1, recoveredClaims: 1, recovered: [], workerOutputIntegration: null, blockers: [], skippedActiveClaims: [] };
+      } });
+      expect(outcome).toMatchObject({ reaped: [], recovered: 0, expiredClaimsRecovered: 1 });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toMatchObject({ force: false, leaseId: f.ctx.dispatchLeaseId, processIntegrations: false });
+    } finally { f.store.db.close(); }
+  });
+
+  test("does not sweep domain claims when none are expired", async () => {
+    const f = fixture();
+    try {
+      claim(f);
+      const calls: unknown[] = [];
+      const outcome = await reapWorkerJobs(f.store, f.ctx, { recover: async (input) => {
+        calls.push(input);
+        return { runId: f.run.id, force: false, scannedActiveClaims: 0, recoveredClaims: 0, recovered: [], workerOutputIntegration: null, blockers: [], skippedActiveClaims: [] };
+      } });
+      expect(outcome.expiredClaimsRecovered).toBe(0);
+      expect(calls).toHaveLength(0);
     } finally { f.store.db.close(); }
   });
 });

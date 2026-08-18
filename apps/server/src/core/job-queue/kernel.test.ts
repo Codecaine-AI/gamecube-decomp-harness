@@ -80,6 +80,24 @@ function events(store: StateStore) {
 }
 
 describe("unified job queue kernel", () => {
+  test("enqueue persists a fractional priority in the job.enqueued event", () => {
+    const { store } = fixture();
+
+    const job = enqueueJob(store, {
+      kind: "worker",
+      dedupeKey: "fractional-priority",
+      gameId: "melee",
+      priority: 12.5,
+      payload: { key: "fractional-priority" },
+      traceId: "trace-queue",
+      at: base,
+    });
+
+    expect(job.priority).toBe(12.5);
+    const event = events(store).find((candidate) => candidate.event_type === "job.enqueued");
+    expect(event).toBeDefined();
+    expect(JSON.parse(event!.payload_json)).toMatchObject({ priority: 12.5 });
+  });
   test("verifyClaimToken accepts a current claim", () => {
     const { store } = fixture();
     put(store, "verify-current");
@@ -164,6 +182,22 @@ describe("unified job queue kernel", () => {
         at: base,
       }),
     ).toBeNull();
+  });
+  test("successful retry clears its prior error", () => {
+    const { store } = fixture();
+    put(store, "retry-success");
+    const first = claim(store);
+    failJob(store, first.token, "boom", { at: base, backoffMs: 1 });
+    const retry = claim(store, "2026-08-17T12:00:00.001Z");
+    const succeeded = completeJob(store, retry.token, {}, { at: "2026-08-17T12:00:00.002Z" });
+    expect(succeeded).toMatchObject({ status: "succeeded", error: null });
+  });
+  test("completion defaults result_ref to the worker domain row id", () => {
+    const { store } = fixture();
+    put(store, "worker-evidence", { payload: { worker_state_id: "worker-state-1" } });
+    const c = claim(store);
+    const succeeded = completeJob(store, c.token, { resultRef: null }, { at: "2026-08-17T12:00:01.000Z" });
+    expect(succeeded.resultRef).toBe("worker-state-1");
   });
   test("4. expired leases self-reap and every old token write is rejected", () => {
     const { store } = fixture();

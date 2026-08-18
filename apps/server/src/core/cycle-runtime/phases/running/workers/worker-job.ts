@@ -6,6 +6,7 @@ import { packageRoot } from "@server/core/knowledge";
 import { requireActiveLease } from "@server/core/harness-state";
 import { enqueueBackgroundKnowledgeForWorker } from "@server/core/knowledge/background/index.js";
 import {
+  activeClaimsForRun,
   activeSchedulerEpoch,
   claimNextEpochTarget,
   setClaimWorktreePath,
@@ -250,7 +251,7 @@ export async function reapWorkerJobs(
   store: StateStore,
   ctx: WorkerJobRunContext,
   deps: { recover?: typeof recoverActiveClaims } = {},
-): Promise<{ reaped: JobRecord[]; recovered: number }> {
+): Promise<{ reaped: JobRecord[]; recovered: number; expiredClaimsRecovered: number }> {
   const reaped = reapExpiredJobs(store, { kind: "worker" });
   let recovered = 0;
   for (const job of reaped) {
@@ -269,5 +270,23 @@ export async function reapWorkerJobs(
     });
     recovered += result.recoveredClaims;
   }
-  return { reaped, recovered };
+  let expiredClaimsRecovered = 0;
+  if (activeClaimsForRun(store, ctx.runId).some((claim) => Date.parse(claim.ttl) < Date.now())) {
+    try {
+      const result = await (deps.recover ?? recoverActiveClaims)({
+        globals: ctx.globals,
+        store,
+        runId: ctx.runId,
+        repoRoot: ctx.globals.repoRoot,
+        force: false,
+        leaseId: ctx.dispatchLeaseId,
+        reason: "expired worker claim recovery (queue reap lane)",
+        processIntegrations: false,
+      });
+      expiredClaimsRecovered = result.recoveredClaims;
+    } catch (error) {
+      console.warn("Skipped expired worker claim recovery while run-control recovery owns the journal", error);
+    }
+  }
+  return { reaped, recovered, expiredClaimsRecovered };
 }
