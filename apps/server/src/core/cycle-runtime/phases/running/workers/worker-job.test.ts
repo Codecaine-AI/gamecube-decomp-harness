@@ -2,8 +2,9 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { initializeHarnessState, releaseDispatch, requestDispatch, StaleLeaseError } from "@server/core/harness-state";
+import { initializeHarnessState, listGameEvents, releaseDispatch, requestDispatch, StaleLeaseError } from "@server/core/harness-state";
 import { getJob, getJobByDedupeKey } from "@server/core/job-queue/kernel.js";
+import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
   admitEpochTargets,
@@ -74,6 +75,24 @@ function claim(f: ReturnType<typeof fixture>) {
   return result;
 }
 
+function claimSandboxJob(f: ReturnType<typeof fixture>) {
+  const queued = getJobByDedupeKey(f.store, "worker", f.epochTargetId);
+  if (!queued) throw new Error("Expected queued worker job");
+  f.store.db.query("UPDATE jobs SET execution_class = 'sandbox' WHERE job_id = ?").run(queued.jobId);
+  return claim(f);
+}
+
+function configureSandbox(f: ReturnType<typeof fixture>): void {
+  f.ctx.globals.game = {
+    sandbox: {
+      resource_class: { cpu: 4, memory_gib: 8, disk_gib: 20 },
+      snapshot_name: "melee-snapshot",
+      snapshot_baked_rev: "baked-test",
+      workspace_root: "/opt/melee-test",
+    },
+  } as NonNullable<GlobalArgs["game"]>;
+}
+
 describe("worker job kind", () => {
   test("atomically claims a job and target and attaches linkage", () => {
     const f = fixture();
@@ -140,6 +159,85 @@ describe("worker job kind", () => {
       expect(spec.target_claim_id).toBe(result.job.payload.target_claim_id);
       expect(spec.worker_state_id).toBe(result.job.payload.worker_state_id);
       expect(spec.worktree_path).toBe((calls[0] as { workerRepoRoot: string }).workerRepoRoot);
+      expect(spec.sandbox_id).toBeUndefined();
+    } finally { f.store.db.close(); }
+  });
+
+  test("builds a sandbox task with lease labels and durable sandbox linkage", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      const result = claimSandboxJob(f);
+      const provider = new FakeSandboxProvider();
+      const calls: unknown[] = [];
+      const task = await buildWorkerTask(f.ctx, {
+        provision: async () => { throw new Error("local provisioner must not run"); },
+        sandboxProvider: provider,
+        provisionSandbox: async (input) => {
+          calls.push(input);
+          return { sandboxId: "sandbox-worker-1", workspaceRoot: input.workspaceRoot };
+        },
+      })(result.job, { store: f.store, token: result.token });
+
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toMatchObject({
+        provider,
+        sourceRepoRoot: f.ctx.globals.repoRoot,
+        baseRev: "base-test",
+        snapshotBakedRev: "baked-test",
+        workspaceRoot: "/opt/melee-test",
+        snapshot: "melee-snapshot",
+        resources: { cpu: 4, memoryGiB: 8, diskGiB: 20 },
+        ttlSeconds: 1800,
+        labels: {
+          game_id: "test",
+          run_id: f.run.id,
+          claim_id: result.job.payload.target_claim_id,
+          job_id: result.job.jobId,
+          job_lease_id: result.token.leaseId,
+          dispatch_lease_id: f.ctx.dispatchLeaseId,
+          worker_state_id: result.job.payload.worker_state_id,
+          trace_id: result.job.traceId,
+        },
+        event: {
+          context: {
+            gameId: "test",
+            correlationId: result.job.jobId,
+            causationId: result.job.causedByEventId,
+            traceId: result.job.traceId,
+            jobId: result.job.jobId,
+            claimId: result.job.payload.target_claim_id,
+            workerStateId: result.job.payload.worker_state_id,
+          },
+        },
+      });
+      const taskFile = task.command.at(-1)!;
+      const spec = JSON.parse(readFileSync(taskFile, "utf8"));
+      expect(spec).toMatchObject({
+        worktree_path: "/opt/melee-test",
+        sandbox_id: "sandbox-worker-1",
+        execution_class: "sandbox",
+      });
+      expect(getJob(f.store, result.job.jobId)?.payload.sandbox_id).toBe("sandbox-worker-1");
+      expect(f.store.db.query("SELECT worktree_path FROM target_claims WHERE id = ?").get(String(result.job.payload.target_claim_id))).toEqual({ worktree_path: "/opt/melee-test" });
+      expect(f.store.db.query("SELECT worktree_path FROM worker_state WHERE id = ?").get(String(result.job.payload.worker_state_id))).toEqual({ worktree_path: "/opt/melee-test" });
+    } finally { f.store.db.close(); }
+  });
+
+  test("routes dry-run sandbox jobs through FakeSandboxProvider without SDK access", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      f.ctx.globals.game!.sandbox.snapshot_baked_rev = f.ctx.baseRev;
+      const result = claimSandboxJob(f);
+      const task = await buildWorkerTask(f.ctx)(result.job, { store: f.store, token: result.token });
+      const spec = JSON.parse(readFileSync(task.command.at(-1)!, "utf8"));
+      expect(spec).toMatchObject({
+        execution_class: "sandbox",
+        sandbox_id: "sandbox-1",
+        worktree_path: "/opt/melee-test",
+      });
+      expect(listGameEvents(f.store.db).some((event) => event.eventType === "sandbox.created" && event.subjectId === "sandbox-1")).toBeTrue();
     } finally { f.store.db.close(); }
   });
 

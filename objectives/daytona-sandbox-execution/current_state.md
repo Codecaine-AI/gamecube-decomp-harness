@@ -8,6 +8,10 @@
 - Phase 2 slice 1 foundation implemented and fully test-green: sandbox provider seam,
   Daytona/Fake providers, lifecycle events, and runtime configuration. Provisioning and
   agent-runtime wiring remain out of scope.
+- Phase 2 slice 2 is complete on `daytona/slice-2`: sandbox workspace provisioning, worker-job
+  routing, task-spec/job-payload persistence, and dry-run fake-provider coverage are implemented.
+- Validation is green: focused slice tests pass (20/20), TypeScript passes, and the full
+  apps/server suite passes (1,072/1,072 tests; 7,834 assertions).
 - SDK dependency installation remains blocked: this environment cannot reach the npm registry,
   and the local Daytona mirror documents `@daytona/sdk` rather than requested `@daytonaio/sdk`,
   so no stable `@daytonaio/sdk` version could be verified or added without guessing.
@@ -26,6 +30,9 @@
   buildWorkerTask; job-leaseId orphan authority; per-attempt evidence download; always-run v1;
   sandbox.* game events; 2/4/5 sizing (configurable); experiment-then-live-worker PoC;
   fetch-first corpus tools.
+- Phase 2 slice 2: game sandbox config now carries baked revision/workspace root; sandbox claims
+  create with all lease/workflow labels and TTL backstop, seed by git bundle + report artifacts,
+  verify canonical tools in-sandbox, persist sandbox linkage, and clean up failed provisioning.
 </completed>
 
 <phase0_gate verdict="PASS" date="2026-08-18">
@@ -51,14 +58,12 @@
 </phase0_gate>
 
 <in_progress>
-- Phase 2 slice 1 handoff: install/verify the requested Daytona package once registry access is
-  available, then validate the injected SDK adapter against its installed TypeScript declarations.
+- Phase 2 slice 3 is not started; sandbox command/file routing remains on the phase-2 plan.
 </in_progress>
 
 <next_actions>
-- From apps/server/, run `bun add @daytonaio/sdk` with registry access, inspect the resolved SDK
-  version/API against the current mirror, then rerun `bunx tsc --noEmit -p ../../tsconfig.json`
-  and `bun test`.
+- Start phase 2 slice 3: add `sandboxBashOperations(claim)`, worker-scoped `runCommand` routing,
+  file-tool redirection, and host jobserver wrapping for remote build exec.
 </next_actions>
 
 <risks_or_open_questions>
