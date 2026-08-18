@@ -49,6 +49,8 @@ describe("game registry layout resolution", () => {
     expect(sandboxRuntimeOptions(resolveGame({ orchestratorRoot: root, gameId: "melee" }))).toEqual({
       resource_class: { cpu: 2, memory_gib: 4, disk_gib: 5 },
       snapshot_name: "",
+      snapshot_baked_rev: "",
+      workspace_root: "/opt/melee",
     });
   });
 
@@ -61,15 +63,23 @@ describe("game registry layout resolution", () => {
       sandbox: {
         resource_class: { cpu: 4, memory_gib: 8 },
         snapshot_name: "melee-base",
+        snapshot_baked_rev: "baked-rev",
+        workspace_root: "/workspace/melee",
       },
     });
     writeJson(join(gameDir, "local.game.json"), {
-      sandbox: { resource_class: { disk_gib: 20 }, snapshot_name: "melee-local" },
+      sandbox: {
+        resource_class: { disk_gib: 20 },
+        snapshot_name: "melee-local",
+        snapshot_baked_rev: "local-baked-rev",
+      },
     });
 
     expect(sandboxRuntimeOptions(resolveGame({ orchestratorRoot: root, gameId: "melee" }))).toEqual({
       resource_class: { cpu: 4, memory_gib: 8, disk_gib: 20 },
       snapshot_name: "melee-local",
+      snapshot_baked_rev: "local-baked-rev",
+      workspace_root: "/workspace/melee",
     });
   });
 });

@@ -9,7 +9,7 @@
   strict phase gating; approved 2026-08-18).
 - @daytonaio/sdk 0.205.0 installed in apps/server and verified against the provider's assumed
   API surface (session exec seconds-timeout, stdout/stderr split, delete(timeout,wait),
-  label-filtered async-iterable list). The earlier registry-blocked handoff note is resolved.
+  label-filtered async-iterable list).
 </status>
 
 <completed>
@@ -25,6 +25,9 @@
   buildWorkerTask; job-leaseId orphan authority; per-attempt evidence download; always-run v1;
   sandbox.* game events; 2/4/5 sizing (configurable); experiment-then-live-worker PoC;
   fetch-first corpus tools.
+- Phase 2 slice 2: game sandbox config now carries baked revision/workspace root; sandbox claims
+  create with all lease/workflow labels and TTL backstop, seed by git bundle + report artifacts,
+  verify canonical tools in-sandbox, persist sandbox linkage, and clean up failed provisioning.
 </completed>
 
 <phase0_gate verdict="PASS" date="2026-08-18">
@@ -71,8 +74,8 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
 - Phase 2 parallel slices. DONE: slice 1 (provider seam + sandbox.* events + config, commit
   2a48700b, suite 1,067 pass); slice 5a corpus audit (only m2c_decompile needs a fetch-first
   shim — examples/phase2/corpus_tool_audit.md). IN FLIGHT on worktree branches: slice 2
-  (daytona/slice-2, provisioning), slice 3 (daytona/slice-3, bash-ops/file-tools/exec routing),
-  slice 6 (daytona/slice-6, settlement/reap/reconciliation deletion).
+  (daytona/slice-2, provisioning — MERGED to main), slice 3 (daytona/slice-3, bash-ops/
+  file-tools/exec routing), slice 6 (daytona/slice-6, settlement/reap/reconciliation deletion).
 </in_progress>
 
 <next_actions>

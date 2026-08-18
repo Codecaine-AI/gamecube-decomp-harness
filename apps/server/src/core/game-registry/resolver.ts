@@ -42,11 +42,15 @@ export interface GameSandboxResourceClass {
 export interface GameSandboxConfig {
   resource_class?: GameSandboxResourceClass;
   snapshot_name?: string;
+  snapshot_baked_rev?: string;
+  workspace_root?: string;
 }
 
 export interface SandboxRuntimeOptions {
   resource_class: Required<GameSandboxResourceClass>;
   snapshot_name: string;
+  snapshot_baked_rev: string;
+  workspace_root: string;
 }
 
 export interface GameDescriptor {
@@ -175,6 +179,8 @@ const defaultSandbox: SandboxRuntimeOptions = {
     disk_gib: 5,
   },
   snapshot_name: "",
+  snapshot_baked_rev: "",
+  workspace_root: "/opt/melee",
 };
 
 function repoRootFromModule(): string {
@@ -279,6 +285,10 @@ function sandboxFromObject(value: unknown): GameSandboxConfig | undefined {
   }
   const snapshotName = stringField(value.snapshot_name);
   if (snapshotName !== undefined) config.snapshot_name = snapshotName;
+  const snapshotBakedRev = stringField(value.snapshot_baked_rev);
+  if (snapshotBakedRev !== undefined) config.snapshot_baked_rev = snapshotBakedRev;
+  const workspaceRoot = stringField(value.workspace_root);
+  if (workspaceRoot !== undefined) config.workspace_root = workspaceRoot;
   return config;
 }
 
@@ -408,6 +418,8 @@ function requiredSandbox(value: GameSandboxConfig | undefined): SandboxRuntimeOp
   return {
     resource_class: requiredNested(defaultSandbox.resource_class, value?.resource_class),
     snapshot_name: value?.snapshot_name ?? defaultSandbox.snapshot_name,
+    snapshot_baked_rev: value?.snapshot_baked_rev ?? defaultSandbox.snapshot_baked_rev,
+    workspace_root: value?.workspace_root ?? defaultSandbox.workspace_root,
   };
 }
 
@@ -416,6 +428,8 @@ export function sandboxRuntimeOptions(game?: Pick<ResolvedGame, "sandbox"> | nul
   return {
     resource_class: { ...sandbox.resource_class },
     snapshot_name: sandbox.snapshot_name,
+    snapshot_baked_rev: sandbox.snapshot_baked_rev,
+    workspace_root: sandbox.workspace_root,
   };
 }
 

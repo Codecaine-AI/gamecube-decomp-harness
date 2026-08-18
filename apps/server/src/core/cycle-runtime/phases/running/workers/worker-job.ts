@@ -12,6 +12,7 @@ import {
   setClaimWorktreePath,
 } from "@server/core/cycle-runtime/run-state";
 import { recoverActiveClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
+import { sandboxRuntimeOptions } from "@server/core/game-registry/resolver.js";
 import type { GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
 import {
   isHostToolPlatform,
@@ -35,10 +36,17 @@ import {
 } from "@server/core/job-queue/kernel.js";
 import { defaultConfigureCommand, LocalProcessExecutor, workerProcessEnv } from "@server/core/job-queue/executor.js";
 import {
+  provisionSandboxWorkspace,
   provisionWorkerWorktree,
   type WorkerReportArtifactSource,
   type WorkerToolArtifactSource,
 } from "@server/core/job-queue/provisioning.js";
+import { emitSandboxDeletedEvent } from "@server/core/job-queue/sandbox-events.js";
+import {
+  DaytonaSandboxProvider,
+  FakeSandboxProvider,
+  type SandboxProvider,
+} from "@server/core/job-queue/sandbox.js";
 import type {
   JobKindDescriptor,
   JobQueueKernelOps,
@@ -157,10 +165,18 @@ function payloadString(job: JobRecord, key: string): string {
   return value;
 }
 
+interface WorkerJobDeps {
+  provision?: typeof provisionWorkerWorktree;
+  provisionSandbox?: typeof provisionSandboxWorkspace;
+  sandboxProvider?: SandboxProvider;
+  executor?: WorkerExecutor;
+}
+
 export function buildWorkerTask(
   ctx: WorkerJobRunContext,
-  deps: { provision?: typeof provisionWorkerWorktree } = {},
+  deps: WorkerJobDeps = {},
 ): JobKindDescriptor["execution"] extends never ? never : (job: JobRecord, handlerCtx: { store: StateStore; token: import("@server/core/job-queue/types.js").ClaimToken }) => Promise<TaskSpec> {
+  let defaultSandboxProvider: SandboxProvider | undefined;
   return async (job, handlerCtx) => {
     const workerStateId = payloadString(job, "worker_state_id");
     const targetClaimId = payloadString(job, "target_claim_id");
@@ -168,56 +184,135 @@ export function buildWorkerTask(
     const row = ctx.store.db.query("SELECT artifact_dir FROM worker_state WHERE id = ?").get(workerStateId) as { artifact_dir: string | null } | null;
     if (!row?.artifact_dir) throw new Error(`Worker state ${workerStateId} has no artifact_dir`);
     const artifactDir = row.artifact_dir;
-    const workerRepoRoot = workerWorktreePath(ctx.globals, targetClaimId, activeSchedulerEpoch(ctx.store, ctx.runId));
-    setClaimWorktreePath(ctx.store, targetClaimId, workerStateId, workerRepoRoot, handlerCtx.token);
-    const toolPlatform = resolveToolPlatform();
-    await (deps.provision ?? provisionWorkerWorktree)({
-      sourceRepoRoot: ctx.globals.repoRoot,
-      workerRepoRoot,
-      baseRev: ctx.baseRev,
-      outputDir: artifactDir,
-      configureCommand: ctx.workerConfigureCommand || defaultConfigureCommand(ctx.globals),
-      reportArtifactSources: reportArtifactSources(ctx),
-      toolArtifactSources: toolArtifactSources(ctx.globals, toolPlatform),
-      toolPlatform,
-      dryRun: ctx.globals.dryRunAgents,
-    });
-    await mkdir(artifactDir, { recursive: true });
-    const taskFile = resolve(artifactDir, "task_spec.json");
-    await writeFile(taskFile, JSON.stringify({
-      version: 1,
-      run_id: ctx.runId,
-      worker_id: workerId,
-      job_id: job.jobId,
-      claim_token: { jobId: handlerCtx.token.jobId, kind: handlerCtx.token.kind, leaseId: handlerCtx.token.leaseId },
-      target_claim_id: targetClaimId,
-      worker_state_id: workerStateId,
-      base_rev: ctx.baseRev,
-      worktree_path: workerRepoRoot,
-      artifact_dir: artifactDir,
-      ttl_seconds: ctx.ttlSeconds,
-      thinking_level: ctx.thinkingLevel,
-      post_return_check_command: ctx.postReturnCheckCommand,
-      worker_configure_command: ctx.workerConfigureCommand,
-      graph_db_path: ctx.graphDbPath,
-      write_set_flags: ctx.writeSetFlags,
-      execution_class: job.executionClass,
-    }, null, 2));
-    const command = ["bun", resolve(packageRoot(), "apps/server/src/job-runner.ts")];
-    if (ctx.globals.gameId) command.push("--game", ctx.globals.gameId);
-    command.push("--repo-root", ctx.globals.repoRoot, "--state-dir", ctx.globals.stateDir, "--provider", ctx.globals.provider, "--model", ctx.globals.model, "--thinking-level", ctx.thinkingLevel);
-    if (ctx.globals.dryRunAgents) command.push("--dry-run-agents");
-    if (ctx.globals.agentTimeoutSeconds != null) command.push("--agent-timeout-seconds", String(ctx.globals.agentTimeoutSeconds));
-    command.push("worker-task", "--task-file", taskFile);
-    return {
-      jobId: job.jobId,
-      kind: "worker",
-      executionClass: job.executionClass,
-      command,
-      env: Object.fromEntries(Object.entries(workerProcessEnv(ctx.globals)).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
-      cwd: packageRoot(),
-      timeoutMs: Math.max(60_000, ctx.ttlSeconds * 1000),
-    };
+    let workerRepoRoot = workerWorktreePath(ctx.globals, targetClaimId, activeSchedulerEpoch(ctx.store, ctx.runId));
+    let provisionedSandbox: { provider: SandboxProvider; sandboxId: string } | undefined;
+    try {
+      if (job.executionClass === "sandbox") {
+        const sandbox = sandboxRuntimeOptions(ctx.globals.game);
+        const provider = deps.sandboxProvider
+          ?? (defaultSandboxProvider ??= ctx.globals.dryRunAgents
+            ? new FakeSandboxProvider()
+            : new DaytonaSandboxProvider());
+        // worker_state has no trace_id column; its owning workflow trace is carried by the worker job.
+        const traceId = job.traceId ?? `trace-job-${job.jobId}`;
+        const provisioned = await (deps.provisionSandbox ?? provisionSandboxWorkspace)({
+          provider,
+          sourceRepoRoot: ctx.globals.repoRoot,
+          baseRev: ctx.baseRev,
+          snapshotBakedRev: sandbox.snapshot_baked_rev,
+          workspaceRoot: sandbox.workspace_root,
+          snapshot: sandbox.snapshot_name,
+          resources: {
+            cpu: sandbox.resource_class.cpu,
+            memoryGiB: sandbox.resource_class.memory_gib,
+            diskGiB: sandbox.resource_class.disk_gib,
+          },
+          ttlSeconds: ctx.ttlSeconds,
+          labels: {
+            game_id: job.gameId,
+            run_id: ctx.runId,
+            claim_id: targetClaimId,
+            job_id: job.jobId,
+            job_lease_id: handlerCtx.token.leaseId,
+            dispatch_lease_id: ctx.dispatchLeaseId,
+            worker_state_id: workerStateId,
+            trace_id: traceId,
+          },
+          reportArtifactSources: reportArtifactSources(ctx),
+          event: {
+            store: ctx.store,
+            context: {
+              gameId: job.gameId,
+              correlationId: job.jobId,
+              causationId: job.causedByEventId ?? job.jobId,
+              traceId,
+              jobId: job.jobId,
+              claimId: targetClaimId,
+              workerStateId,
+            },
+          },
+        });
+        provisionedSandbox = { provider, sandboxId: provisioned.sandboxId };
+        workerRepoRoot = provisioned.workspaceRoot;
+        attachJobPayload(ctx.store, handlerCtx.token, { sandbox_id: provisioned.sandboxId });
+        // The job's sandbox_id qualifies this shared in-sandbox path as a durable workspace reference.
+        setClaimWorktreePath(ctx.store, targetClaimId, workerStateId, workerRepoRoot, handlerCtx.token);
+      } else {
+        setClaimWorktreePath(ctx.store, targetClaimId, workerStateId, workerRepoRoot, handlerCtx.token);
+        const toolPlatform = resolveToolPlatform();
+        await (deps.provision ?? provisionWorkerWorktree)({
+          sourceRepoRoot: ctx.globals.repoRoot,
+          workerRepoRoot,
+          baseRev: ctx.baseRev,
+          outputDir: artifactDir,
+          configureCommand: ctx.workerConfigureCommand || defaultConfigureCommand(ctx.globals),
+          reportArtifactSources: reportArtifactSources(ctx),
+          toolArtifactSources: toolArtifactSources(ctx.globals, toolPlatform),
+          toolPlatform,
+          dryRun: ctx.globals.dryRunAgents,
+        });
+      }
+      await mkdir(artifactDir, { recursive: true });
+      const taskFile = resolve(artifactDir, "task_spec.json");
+      await writeFile(taskFile, JSON.stringify({
+        version: 1,
+        run_id: ctx.runId,
+        worker_id: workerId,
+        job_id: job.jobId,
+        claim_token: { jobId: handlerCtx.token.jobId, kind: handlerCtx.token.kind, leaseId: handlerCtx.token.leaseId },
+        target_claim_id: targetClaimId,
+        worker_state_id: workerStateId,
+        base_rev: ctx.baseRev,
+        worktree_path: workerRepoRoot,
+        artifact_dir: artifactDir,
+        ttl_seconds: ctx.ttlSeconds,
+        thinking_level: ctx.thinkingLevel,
+        post_return_check_command: ctx.postReturnCheckCommand,
+        worker_configure_command: ctx.workerConfigureCommand,
+        graph_db_path: ctx.graphDbPath,
+        write_set_flags: ctx.writeSetFlags,
+        execution_class: job.executionClass,
+        ...(provisionedSandbox ? { sandbox_id: provisionedSandbox.sandboxId } : {}),
+      }, null, 2));
+      const command = ["bun", resolve(packageRoot(), "apps/server/src/job-runner.ts")];
+      if (ctx.globals.gameId) command.push("--game", ctx.globals.gameId);
+      command.push("--repo-root", ctx.globals.repoRoot, "--state-dir", ctx.globals.stateDir, "--provider", ctx.globals.provider, "--model", ctx.globals.model, "--thinking-level", ctx.thinkingLevel);
+      if (ctx.globals.dryRunAgents) command.push("--dry-run-agents");
+      if (ctx.globals.agentTimeoutSeconds != null) command.push("--agent-timeout-seconds", String(ctx.globals.agentTimeoutSeconds));
+      command.push("worker-task", "--task-file", taskFile);
+      return {
+        jobId: job.jobId,
+        kind: "worker",
+        executionClass: job.executionClass,
+        command,
+        env: Object.fromEntries(Object.entries(workerProcessEnv(ctx.globals)).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+        cwd: packageRoot(),
+        timeoutMs: Math.max(60_000, ctx.ttlSeconds * 1000),
+      };
+    } catch (error) {
+      if (provisionedSandbox) {
+        let deleted = false;
+        try {
+          await provisionedSandbox.provider.delete(provisionedSandbox.sandboxId, "provision_failure");
+          deleted = true;
+        } catch {}
+        if (deleted) {
+          try {
+            emitSandboxDeletedEvent(ctx.store, {
+              gameId: job.gameId,
+              sandboxId: provisionedSandbox.sandboxId,
+              correlationId: job.jobId,
+              causationId: job.causedByEventId ?? job.jobId,
+              traceId: job.traceId ?? `trace-job-${job.jobId}`,
+              reason: "provision_failure",
+              jobId: job.jobId,
+              claimId: targetClaimId,
+            });
+          } catch {}
+        }
+      }
+      throw error;
+    }
   };
 }
 
@@ -236,7 +331,7 @@ export function onWorkerJobComplete(job: JobRecord, _result: JobResult, ctx: Wor
 
 export function workerJobDescriptor(
   ctx: WorkerJobRunContext,
-  deps: { provision?: typeof provisionWorkerWorktree; executor?: WorkerExecutor } = {},
+  deps: WorkerJobDeps = {},
 ): JobKindDescriptor {
   return {
     kind: "worker",
