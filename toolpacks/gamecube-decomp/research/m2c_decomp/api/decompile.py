@@ -17,6 +17,7 @@ def main() -> None:
     parser.add_argument("--repo-root", help="Target project checkout root.")
     parser.add_argument("--input", required=True, help="Function symbol or translation unit path.")
     parser.add_argument("--no-context", action="store_true", help="Skip m2ctx context generation.")
+    parser.add_argument("--prepared-context", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--format", action="store_true", help="Format m2c output with clang-format if available.")
     parser.add_argument("--extra-arg", action="append", default=[], help="Additional m2c argument; may repeat.")
     parser.add_argument("--timeout-seconds", type=int, default=120, help="Maximum runtime for decompilation.")
@@ -24,7 +25,7 @@ def main() -> None:
     args = parser.parse_args()
 
     command_args: list[str] = ["--no-copy"]
-    if args.no_context:
+    if args.no_context or args.prepared_context:
         command_args.append("--no-context")
     format_applied = bool(args.format and shutil.which("clang-format"))
     format_skip_reason = "clang-format not found" if args.format and not format_applied else None

@@ -7,8 +7,10 @@ import {
   toolpackRoot,
 } from "@server/core/knowledge/paths";
 import type { RunGameMetadata } from "@server/core/shared/types";
+import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import { runCommand } from "@server/infrastructure/shell";
 import { resolveStateToolArtifact, resolveToolPlatform, type ToolPlatform } from "./platform.js";
+import { runSandboxM2cFetchFirst } from "./wrappers/m2c-decompile.js";
 
 export interface ToolRuntimeContext {
   game?: RunGameMetadata;
@@ -18,6 +20,11 @@ export interface ToolRuntimeContext {
   worktreeId?: string;
   claimId?: string;
   packet?: Record<string, unknown>;
+  sandboxHandle?: SandboxHandle;
+}
+
+export interface RegisteredToolApiDependencies {
+  runCommand?: typeof runCommand;
 }
 
 export interface GameToolConfig {
@@ -346,6 +353,7 @@ export async function runRegisteredToolApi(
   toolId: string,
   scriptName: string,
   args: string[],
+  dependencies: RegisteredToolApiDependencies = {},
 ): Promise<Record<string, unknown>> {
   const toolpackId = toolpackIdForContext(context);
   const availableToolIds = [...registeredToolIdsForContext(context)].sort();
@@ -365,8 +373,23 @@ export async function runRegisteredToolApi(
   }
 
   const cwd = packageRoot();
+  const commandRunner = dependencies.runCommand ?? runCommand;
+  if (toolId === "m2c_decomp" && scriptName === "decompile.py" && context.sandboxHandle) {
+    const payload = await runSandboxM2cFetchFirst({
+      sandboxHandle: context.sandboxHandle,
+      workspaceRoot: resolved.gameRepoRoot,
+      args,
+      runHost: async (hostArgs) => {
+        const command = ["python3", scriptPath, ...hostArgs];
+        const result = await commandRunner(cwd, command, { env: resolved.env });
+        return commandPayload({ operation: `tool:${toolId}:${scriptName}`, command, cwd, ...result });
+      },
+    });
+    return { ...payload, resolved_tool: resolvedTool };
+  }
+
   const command = ["python3", scriptPath, ...args];
-  const result = await runCommand(cwd, command, { env: resolved.env });
+  const result = await commandRunner(cwd, command, { env: resolved.env });
   return {
     ...commandPayload({ operation: `tool:${toolId}:${scriptName}`, command, cwd, ...result }),
     resolved_tool: resolvedTool,
