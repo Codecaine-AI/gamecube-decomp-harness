@@ -447,6 +447,63 @@ export function claimNextJob(
   });
 }
 
+/** Claims a specific eligible job without applying queue concurrency limits. */
+export function claimJobByDedupeKey(
+  store: StateStore,
+  input: {
+    kind: JobKind;
+    dedupeKey: string;
+    leaseMs: number;
+    at?: string;
+    actor?: JobActor;
+    runId?: string;
+  },
+): { job: JobRecord; token: ClaimToken } | null {
+  return immediateTransaction(store.db, () => {
+    const at = input.at ?? now();
+    let j = getJobByDedupeKey(store, input.kind, input.dedupeKey);
+    if (!j || (input.runId !== undefined && j.runId !== input.runId))
+      return null;
+    if (j.status === "claimed" || j.status === "running") {
+      if (!j.leaseExpiresAt || j.leaseExpiresAt > at) return null;
+      j = transition(store, j, {
+        to: "waiting",
+        eventType: "job.waiting",
+        at,
+        actor: actor(input.actor),
+        nextAttemptAt: at,
+        extra: { reason: "lease_expired" },
+      });
+    }
+    if (
+      !["queued", "waiting"].includes(j.status) ||
+      (j.nextAttemptAt !== null && j.nextAttemptAt > at)
+    )
+      return null;
+    const leaseId = `lease-${randomUUID()}`;
+    const bumped = store.db
+      .query(
+        `UPDATE jobs SET attempts=attempts+1
+          WHERE job_id=? AND revision=?`,
+      )
+      .run(j.jobId, j.revision);
+    if (bumped.changes !== 1) throw new Error(`Job CAS failed for ${j.jobId}`);
+    j = getJob(store, j.jobId)!;
+    const claimed = transition(store, j, {
+      to: "claimed",
+      eventType: "job.claimed",
+      at,
+      actor: actor(input.actor),
+      leaseId,
+      leaseExpiresAt: isoAdd(at, input.leaseMs),
+    });
+    return {
+      job: claimed,
+      token: { jobId: claimed.jobId, kind: claimed.kind, leaseId },
+    };
+  });
+}
+
 /** Marks a claimed job as running. */
 export function markJobRunning(
   store: StateStore,
@@ -561,7 +618,12 @@ export function failJob(
   store: StateStore,
   token: ClaimToken,
   error: string,
-  input: { backoffMs?: number; at?: string; actor?: JobActor } = {},
+  input: {
+    backoffMs?: number;
+    terminal?: boolean;
+    at?: string;
+    actor?: JobActor;
+  } = {},
 ): JobRecord {
   return immediateTransaction(store.db, () => {
     const at = input.at ?? now(),
@@ -574,8 +636,10 @@ export function failJob(
       at,
       actor: actor(input.actor),
       error,
+      completedAt: input.terminal ? at : null,
       extra: { error },
     });
+    if (input.terminal) return failed;
     const ms =
       input.backoffMs ??
       Math.min(300_000, 1_000 * 2 ** Math.min(j.attempts, 8));
@@ -593,12 +657,22 @@ export function failJob(
 /** Cancels a nonterminal job. */
 export function cancelJob(
   store: StateStore,
-  input: { jobId: string; actor?: JobActor; reason?: string; at?: string },
+  input: {
+    jobId: string;
+    actor?: JobActor;
+    reason?: string;
+    force?: boolean;
+    at?: string;
+  },
 ): JobRecord {
   return immediateTransaction(store.db, () => {
     const j = getJob(store, input.jobId);
     if (!j) throw new Error("Job not found");
-    if (["succeeded", "failed", "cancelled"].includes(j.status)) return j;
+    if (
+      j.status === "cancelled" ||
+      (!input.force && ["succeeded", "failed"].includes(j.status))
+    )
+      return j;
     const at = input.at ?? now();
     return transition(store, j, {
       to: "cancelled",

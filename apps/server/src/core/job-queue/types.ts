@@ -62,8 +62,10 @@ export interface JobKindDescriptor {
 /** Kernel operations the consumer depends on (dependency-injected for testability). */
 export interface JobQueueKernelOps {
   claimNextJob(store: StateStore, input: { kind: JobKind; concurrencyLimit: number; leaseMs: number; runId?: string; at?: string; actor?: JobActor }): { job: JobRecord; token: ClaimToken } | null;
+  claimJobByDedupeKey?(store: StateStore, input: { kind: JobKind; dedupeKey: string; leaseMs: number; at?: string; actor?: JobActor; runId?: string }): { job: JobRecord; token: ClaimToken } | null;
   markJobRunning(store: StateStore, token: ClaimToken, input?: { taskHandle?: TaskHandle; at?: string; actor?: JobActor }): JobRecord;
   heartbeatJob(store: StateStore, token: ClaimToken, input?: { leaseMs?: number; at?: string }): JobRecord;
   completeJob(store: StateStore, token: ClaimToken, result: JobResult, input?: { at?: string; actor?: JobActor; onComplete?: (job: JobRecord, result: JobResult, ctx: JobCompletionContext) => void }): JobRecord;
-  failJob(store: StateStore, token: ClaimToken, error: string, input?: { backoffMs?: number; at?: string; actor?: JobActor }): JobRecord;
+  failJob(store: StateStore, token: ClaimToken, error: string, input?: { backoffMs?: number; terminal?: boolean; at?: string; actor?: JobActor }): JobRecord;
+  cancelJob?(store: StateStore, input: { jobId: string; actor?: JobActor; reason?: string; force?: boolean; at?: string }): JobRecord;
 }

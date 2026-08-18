@@ -539,27 +539,6 @@ CREATE TABLE sync_invalidations (
     UNIQUE(sync_id, subject_kind, subject_id)
   );
 
-CREATE TABLE sync_knowledge_jobs (
-    job_id TEXT PRIMARY KEY,
-    sync_id TEXT NOT NULL,
-    "game_id" TEXT NOT NULL,
-    source_kind TEXT NOT NULL CONSTRAINT sync_knowledge_jobs_source_kind_check CHECK (
-      source_kind IN ('merged_pr', 'corpus')
-    ),
-    source_id TEXT NOT NULL,
-    revision INTEGER NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'queued' CONSTRAINT sync_knowledge_jobs_status_check CHECK (
-      status IN ('queued', 'processing', 'waiting', 'succeeded', 'failed', 'cancelled')
-    ),
-    provenance_json TEXT NOT NULL DEFAULT '{}',
-    staged_artifact_path TEXT,
-    staged_digest TEXT,
-    caused_by_event_id TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    UNIQUE(sync_id, source_kind, source_id)
-  );
-
 CREATE TABLE sync_publication_intents (
     sync_id TEXT PRIMARY KEY,
     "game_id" TEXT NOT NULL,
@@ -867,11 +846,6 @@ CREATE INDEX sync_invalidations_game_subject
       ON sync_invalidations (game_id, subject_kind, subject_id);
 
 CREATE UNIQUE INDEX sync_invalidations_sync_subject ON sync_invalidations (sync_id, subject_kind, subject_id);
-
-CREATE UNIQUE INDEX sync_knowledge_jobs_sync_source ON sync_knowledge_jobs (sync_id, source_kind, source_id);
-
-CREATE INDEX sync_knowledge_jobs_sync_status
-    ON sync_knowledge_jobs (sync_id, status);
 
 CREATE INDEX sync_publication_intents_game
       ON sync_publication_intents (game_id, created_at);

@@ -190,7 +190,8 @@ describe("sync-owned staged knowledge", () => {
       "merged_pr:pr-9",
     ]);
     expect(jobs.every((job) => job.status === "queued" && job.causedByEventId)).toBe(true);
-    const events = listGameEvents(current.store.db, { gameId: "melee" }).slice(before);
+    const events = listGameEvents(current.store.db, { gameId: "melee" }).slice(before)
+      .filter((event) => event.eventType === "knowledge.job_enqueued");
     expect(events).toHaveLength(3);
     expect(events.map((event) => event.eventType)).toEqual([
       "knowledge.job_enqueued",
@@ -211,7 +212,8 @@ describe("sync-owned staged knowledge", () => {
         corpus: { "corpus-b": { source: "discord", corpus_batch_id: "corpus-b" } },
       },
     })).toEqual(jobs);
-    expect(listGameEvents(current.store.db, { gameId: "melee" })).toHaveLength(before + 3);
+    expect(listGameEvents(current.store.db, { gameId: "melee" })
+      .filter((event) => event.eventType === "knowledge.job_enqueued")).toHaveLength(3);
   });
 
   test("emits every sync-stage status with exact durable identity and provenance", async () => {
@@ -330,7 +332,7 @@ describe("sync-owned staged knowledge", () => {
       },
       {
         eventType: "knowledge.job_processing",
-        payload: { ...commonFacts, from_status: "waiting", to_status: "processing" },
+        payload: { ...commonFacts, from_status: "queued", to_status: "processing" },
       },
       {
         eventType: "knowledge.job_succeeded",
@@ -433,7 +435,8 @@ describe("sync-owned staged knowledge", () => {
     const before = listGameEvents(current.store.db, { gameId: "melee" }).length;
     current.store.db.exec(`
       CREATE TRIGGER reject_sync_knowledge_job
-      BEFORE INSERT ON sync_knowledge_jobs
+      BEFORE INSERT ON jobs
+      WHEN NEW.kind = 'sync_publication'
       BEGIN
         SELECT RAISE(ABORT, 'fixture rejected knowledge job');
       END;
@@ -456,8 +459,8 @@ describe("sync-owned staged knowledge", () => {
     const before = listGameEvents(current.store.db, { gameId: "melee" }).length;
     current.store.db.exec(`
       CREATE TRIGGER reject_sync_knowledge_processing
-      BEFORE UPDATE OF status ON sync_knowledge_jobs
-      WHEN NEW.status = 'processing'
+      BEFORE UPDATE OF status ON jobs
+      WHEN NEW.kind = 'sync_publication' AND NEW.status = 'claimed'
       BEGIN
         SELECT RAISE(ABORT, 'fixture rejected processing CAS');
       END;
@@ -510,7 +513,7 @@ describe("sync-owned staged knowledge", () => {
     const succeededJobs = listSyncKnowledgeJobs(current.store.db, current.sync.sync_id);
     expect(succeededJobs.every((job) =>
       job.status === "succeeded" &&
-      job.revision === 2 &&
+      job.revision === 3 &&
       job.stagedArtifactPath?.startsWith(syncKnowledgeRoot(current.stateDir, current.sync.sync_id)),
     )).toBe(true);
     for (const job of succeededJobs) {
@@ -560,7 +563,8 @@ describe("sync-owned staged knowledge", () => {
     expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id)).toEqual([
       expect.objectContaining({ status: "failed", revision: 2, stagedArtifactPath: null, stagedDigest: null }),
     ]);
-    expect(listGameEvents(current.store.db, { gameId: "melee" }).slice(-2).map((event) => event.eventType))
+    expect(listGameEvents(current.store.db, { gameId: "melee" })
+      .filter((event) => event.eventType.startsWith("knowledge.job_")).slice(-2).map((event) => event.eventType))
       .toEqual(["knowledge.job_processing", "knowledge.job_failed"]);
     expect(existsSync(syncKnowledgeManifestPath(current.stateDir, current.sync.sync_id))).toBe(false);
   });
@@ -595,7 +599,8 @@ describe("sync-owned staged knowledge", () => {
     });
     expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id).map((job) => job.status))
       .toEqual(["failed", "queued", "queued"]);
-    expect(listGameEvents(current.store.db, { gameId: "melee" }).slice(-3).map((event) => event.eventType))
+    expect(listGameEvents(current.store.db, { gameId: "melee" })
+      .filter((event) => !event.eventType.startsWith("job.")).slice(-3).map((event) => event.eventType))
       .toEqual(["knowledge.job_processing", "knowledge.job_failed", "sync.blocked"]);
     expect(existsSync(syncKnowledgeManifestPath(current.stateDir, current.sync.sync_id))).toBe(false);
 
@@ -610,7 +615,7 @@ describe("sync-owned staged knowledge", () => {
     });
     expect(recovered).toMatchObject({ status: "ingesting", staging: null, blockers: [] });
     expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id).map((job) => job.status))
-      .toEqual(["waiting", "queued", "queued"]);
+      .toEqual(["queued", "queued", "queued"]);
     const completed = await completeSyncKnowledgeIngest({
       store: current.store,
       stateDir: current.stateDir,
@@ -660,7 +665,7 @@ describe("sync-owned staged knowledge", () => {
       choice: "resume",
       recoveryReason: "operator retries manifest assembly",
     });
-    expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id).every((job) => job.status === "waiting"))
+    expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id).every((job) => job.status === "queued"))
       .toBe(true);
     const completed = await completeSyncKnowledgeIngest({
       store: current.store,
@@ -718,7 +723,7 @@ describe("sync-owned staged knowledge", () => {
       choice: "resume",
       recoveryReason: "operator rebuilds staged artifacts",
     });
-    expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id).every((job) => job.status === "waiting"))
+    expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id).every((job) => job.status === "queued"))
       .toBe(true);
     const completed = await completeSyncKnowledgeIngest({
       store: current.store,
@@ -967,13 +972,14 @@ describe("sync-owned staged knowledge", () => {
     expect(jobs).toEqual([
       expect.objectContaining({
         status: "cancelled",
-        revision: 3,
-        stagedArtifactPath: null,
-        stagedDigest: null,
+        revision: 4,
+        stagedArtifactPath: expect.any(String),
+        stagedDigest: expect.any(String),
       }),
     ]);
     expect(listGameEvents(current.store.db, { gameId: "melee" })
       .filter((event) => event.subjectId === jobs[0]!.jobId)
+      .filter((event) => event.eventType.startsWith("knowledge.job_"))
       .map((event) => event.eventType)).toEqual([
       "knowledge.job_enqueued",
       "knowledge.job_processing",
@@ -1043,7 +1049,7 @@ describe("sync-owned staged knowledge", () => {
     });
     expect(existsSync(syncStagingPaths(current.stateDir, current.sync.sync_id).root)).toBe(false);
     expect(listSyncKnowledgeJobs(current.store.db, current.sync.sync_id)).toEqual([
-      expect.objectContaining({ status: "cancelled", revision: 3, stagedArtifactPath: null, stagedDigest: null }),
+      expect.objectContaining({ status: "cancelled", revision: 4 }),
     ]);
   });
 
@@ -1125,7 +1131,7 @@ describe("sync-owned staged knowledge", () => {
     });
     expect(sync).toMatchObject({ status: "ingesting", staging: null });
     expect(listSyncKnowledgeJobs(current.store.db, sync.sync_id)).toEqual([
-      expect.objectContaining({ status: "waiting", revision: 3 }),
+      expect.objectContaining({ status: "queued", revision: 3 }),
     ]);
     const resumed = await completeSyncKnowledgeIngest({
       store: current.store,
@@ -1138,7 +1144,7 @@ describe("sync-owned staged knowledge", () => {
     });
     expect(resumed.sync).toMatchObject({ status: "validated", staging: null });
     const jobs = listSyncKnowledgeJobs(current.store.db, sync.sync_id);
-    expect(jobs).toEqual([expect.objectContaining({ status: "succeeded", revision: 5 })]);
+    expect(jobs).toEqual([expect.objectContaining({ status: "succeeded", revision: 6 })]);
     expect(listGameEvents(current.store.db, { gameId: "melee" })
       .filter((event) => event.subjectId === jobs[0]!.jobId)
       .map((event) => event.eventType)).toEqual([
@@ -1231,7 +1237,7 @@ describe("sync-owned staged knowledge", () => {
     const sync = recover(() => ({ active: false }));
     expect(sync.status).toBe("ingesting");
     expect(listSyncKnowledgeJobs(reopened.db, sync.sync_id)).toEqual([
-      expect.objectContaining({ status: "waiting", revision: 2 }),
+      expect.objectContaining({ status: "queued", revision: 3 }),
     ]);
     expect(listGameEvents(reopened.db, { gameId: "melee" }).at(-1)).toMatchObject({
       eventType: "sync.recovered",
@@ -1246,7 +1252,7 @@ describe("sync-owned staged knowledge", () => {
     releaseProcessor();
     await expect(staging).rejects.toThrow();
     expect(listSyncKnowledgeJobs(reopened.db, sync.sync_id)).toEqual([
-      expect.objectContaining({ status: "waiting", revision: 2 }),
+      expect.objectContaining({ status: "queued", revision: 3 }),
     ]);
   });
 
@@ -1313,7 +1319,7 @@ describe("sync-owned staged knowledge", () => {
     });
     expect(recovered).toMatchObject({ status: "publishing", staging: null, blockers: [] });
     expect(listSyncKnowledgeJobs(current.store.db, sync.sync_id)).toEqual(jobsBefore);
-    expect(jobsBefore).toEqual([expect.objectContaining({ status: "succeeded", revision: 2 })]);
+    expect(jobsBefore).toEqual([expect.objectContaining({ status: "succeeded", revision: 3 })]);
     expect(listGameEvents(current.store.db, { gameId: "melee" }).at(-1)).toMatchObject({
       eventType: "sync.recovered",
       payload: expect.objectContaining({ resume_stage: "publishing" }),

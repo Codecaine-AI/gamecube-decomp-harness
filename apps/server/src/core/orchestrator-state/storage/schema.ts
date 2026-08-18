@@ -336,37 +336,6 @@ export const knowledgeRevisions = sqliteTable(
   (table) => [index("knowledge_revisions_game_revision").on(table.gameId, table.revision)],
 );
 
-export const syncKnowledgeJobs = sqliteTable(
-  "sync_knowledge_jobs",
-  {
-    jobId: text("job_id").primaryKey(),
-    syncId: text("sync_id").notNull(),
-    gameId: text("game_id").notNull(),
-    sourceKind: text("source_kind").$type<"merged_pr" | "corpus">().notNull(),
-    sourceId: text("source_id").notNull(),
-    revision: integer("revision").notNull().default(0),
-    status: text("status")
-      .$type<"queued" | "processing" | "waiting" | "succeeded" | "failed" | "cancelled">()
-      .notNull()
-      .default("queued"),
-    provenanceJson: text("provenance_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
-    stagedArtifactPath: text("staged_artifact_path"),
-    stagedDigest: text("staged_digest"),
-    causedByEventId: text("caused_by_event_id").notNull(),
-    createdAt: text("created_at").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    uniqueIndex("sync_knowledge_jobs_sync_source").on(table.syncId, table.sourceKind, table.sourceId),
-    index("sync_knowledge_jobs_sync_status").on(table.syncId, table.status),
-    check("sync_knowledge_jobs_source_kind_check", sql`${table.sourceKind} IN ('merged_pr', 'corpus')`),
-    check(
-      "sync_knowledge_jobs_status_check",
-      sql`${table.status} IN ('queued', 'processing', 'waiting', 'succeeded', 'failed', 'cancelled')`,
-    ),
-  ],
-);
-
 export const directorCycles = sqliteTable("director_cycles", {
   id: text("id").primaryKey(),
   runId: text("run_id").notNull(),
@@ -869,7 +838,6 @@ export const orchestratorStateSchema = {
   gameUpstreamAnchors,
   syncState,
   syncInvalidations,
-  syncKnowledgeJobs,
   syncPushRecords,
   runCheckpoints,
   runs,
@@ -890,7 +858,6 @@ export type KnowledgeRevisionRow = typeof knowledgeRevisions.$inferSelect;
 export type NewKnowledgeRevisionRow = typeof knowledgeRevisions.$inferInsert;
 export type GameUpstreamAnchorRow = typeof gameUpstreamAnchors.$inferSelect;
 export type SyncInvalidationRow = typeof syncInvalidations.$inferSelect;
-export type SyncKnowledgeJobRow = typeof syncKnowledgeJobs.$inferSelect;
 export type SyncPushRecordRow = typeof syncPushRecords.$inferSelect;
 export type SyncStateRow = typeof syncState.$inferSelect;
 export type NewSyncStateRow = typeof syncState.$inferInsert;

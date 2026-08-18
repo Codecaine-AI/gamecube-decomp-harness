@@ -10,6 +10,17 @@ import {
 import { relative, resolve } from "node:path";
 import type { Database } from "bun:sqlite";
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
+import {
+  attachJobPayload,
+  cancelJob,
+  claimJobByDedupeKey,
+  completeJob,
+  enqueueJob,
+  failJob,
+  getJobByDedupeKey,
+  requeueJob,
+} from "@server/core/job-queue/kernel.js";
+import type { ClaimToken, JobRecord } from "@server/core/job-queue/types.js";
 import type { EventActor, JsonObject, JsonValue } from "@server/core/harness-state/events.js";
 import { requireLease } from "@server/core/harness-state/lease.js";
 import { runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
@@ -201,22 +212,6 @@ export interface CanonicalSyncKnowledgeSnapshot {
   artifacts: CanonicalSyncKnowledgeArtifact[];
 }
 
-type SyncKnowledgeJobRow = {
-  job_id: string;
-  sync_id: string;
-  game_id: string;
-  source_kind: string;
-  source_id: string;
-  revision: number;
-  status: string;
-  provenance_json: string;
-  staged_artifact_path: string | null;
-  staged_digest: string | null;
-  caused_by_event_id: string;
-  created_at: string;
-  updated_at: string;
-};
-
 type KnowledgeRevisionRow = {
   revision: number;
   game_id: string;
@@ -230,6 +225,10 @@ function requiredText(value: string, label: string): string {
   const normalized = value.trim();
   if (!normalized) throw new Error(`${label} is required`);
   return normalized;
+}
+
+function kernelActor(value: EventActor | undefined): "operator" | "runner" {
+  return value === "operator" ? "operator" : "runner";
 }
 
 function isJobStatus(value: string): value is SyncKnowledgeJobStatus {
@@ -253,27 +252,46 @@ function parsedObject(value: string, label: string): JsonObject {
   return parsed as JsonObject;
 }
 
-function rowToJob(row: SyncKnowledgeJobRow): SyncKnowledgeJob {
-  if (!isSourceKind(row.source_kind)) {
-    throw new Error(`Invalid sync knowledge source kind: ${row.source_kind}`);
+function jobStatus(status: JobRecord["status"]): SyncKnowledgeJobStatus {
+  if (status === "claimed" || status === "running") return "processing";
+  return status;
+}
+
+function latestDomainJobEventId(db: Database, jobId: string): string | null {
+  const row = db.query(
+    `SELECT event_id FROM game_events
+     WHERE subject_kind = 'knowledge_job' AND subject_id = ?
+     ORDER BY sequence DESC LIMIT 1`,
+  ).get(jobId) as { event_id: string } | null;
+  return row?.event_id ?? null;
+}
+
+function kernelJobToSyncJob(db: Database, row: JobRecord): SyncKnowledgeJob {
+  const syncId = row.payload.sync_id;
+  const sourceKind = row.payload.source_kind;
+  const sourceId = row.payload.source_id;
+  const provenance = row.payload.provenance;
+  const stagedArtifactPath = row.payload.staged_artifact_path;
+  if (typeof syncId !== "string" || !isSourceKind(String(sourceKind))) {
+    throw new Error(`Invalid sync knowledge job payload: ${row.dedupeKey}`);
   }
-  if (!isJobStatus(row.status)) {
-    throw new Error(`Invalid sync knowledge job status: ${row.status}`);
+  if (typeof sourceId !== "string" || !provenance || typeof provenance !== "object" || Array.isArray(provenance)) {
+    throw new Error(`Invalid sync knowledge job payload: ${row.dedupeKey}`);
   }
   return {
-    jobId: row.job_id,
-    syncId: row.sync_id,
-    gameId: row.game_id,
-    sourceKind: row.source_kind,
-    sourceId: row.source_id,
-    revision: Number(row.revision),
-    status: row.status,
-    provenance: parsedObject(row.provenance_json, "sync knowledge provenance"),
-    stagedArtifactPath: row.staged_artifact_path,
-    stagedDigest: row.staged_digest,
-    causedByEventId: row.caused_by_event_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    jobId: row.dedupeKey,
+    syncId,
+    gameId: row.gameId,
+    sourceKind: sourceKind as SyncKnowledgeSourceKind,
+    sourceId,
+    revision: row.revision,
+    status: jobStatus(row.status),
+    provenance: provenance as JsonObject,
+    stagedArtifactPath: typeof stagedArtifactPath === "string" ? stagedArtifactPath : null,
+    stagedDigest: row.resultRef,
+    causedByEventId: latestDomainJobEventId(db, row.dedupeKey) ?? row.causedByEventId ?? row.jobId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -347,19 +365,23 @@ function sourceProvenance(
 }
 
 function selectJob(db: Database, jobId: string): SyncKnowledgeJob | null {
-  const row = db.query("SELECT * FROM sync_knowledge_jobs WHERE job_id = ?").get(jobId) as SyncKnowledgeJobRow | null;
-  return row ? rowToJob(row) : null;
+  const row = db.query("SELECT * FROM jobs WHERE kind = 'sync_publication' AND dedupe_key = ?").get(jobId) as Record<string, unknown> | null;
+  if (!row) return null;
+  const store = { db } as StateStore;
+  const job = getJobByDedupeKey(store, "sync_publication", jobId);
+  return job ? kernelJobToSyncJob(db, job) : null;
 }
 
 export function listSyncKnowledgeJobs(db: Database, syncId: string): SyncKnowledgeJob[] {
   const rows = db
     .query(
-      `SELECT * FROM sync_knowledge_jobs
-       WHERE sync_id = ?
-       ORDER BY source_kind, source_id, job_id`,
+      `SELECT dedupe_key FROM jobs
+       WHERE kind = 'sync_publication' AND json_extract(payload_json, '$.sync_id') = ?
+       ORDER BY json_extract(payload_json, '$.source_kind'),
+                json_extract(payload_json, '$.source_id'), dedupe_key`,
     )
-    .all(requiredText(syncId, "syncId")) as SyncKnowledgeJobRow[];
-  return rows.map(rowToJob);
+    .all(requiredText(syncId, "syncId")) as { dedupe_key: string }[];
+  return rows.map((row) => selectJob(db, row.dedupe_key)!);
 }
 
 /**
@@ -403,7 +425,23 @@ export function enqueueSyncKnowledgeJobs(
         }
         continue;
       }
-      const event = appendSyncKnowledgeEventInTransaction(store.db, {
+      enqueueJob(store, {
+        kind: "sync_publication",
+        dedupeKey: jobId,
+        gameId: sync.game_id,
+        priority: 0,
+        payload: {
+          sync_id: sync.sync_id,
+          source_kind: source.sourceKind,
+          source_id: sourceId,
+          provenance,
+          staged_artifact_path: null,
+        },
+        traceId: sync.trace_id,
+        actor: kernelActor(input.actor),
+        at: now,
+      });
+      appendSyncKnowledgeEventInTransaction(store.db, {
         eventType: "knowledge.job_enqueued",
         gameId: sync.game_id,
         subjectId: jobId,
@@ -424,22 +462,6 @@ export function enqueueSyncKnowledgeJobs(
           execution_class: "sync_stage",
         },
       });
-      store.db.query(
-        `INSERT INTO sync_knowledge_jobs (
-           job_id, sync_id, game_id, source_kind, source_id, revision, status,
-           provenance_json, caused_by_event_id, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, 0, 'queued', ?, ?, ?, ?)`,
-      ).run(
-        jobId,
-        sync.sync_id,
-        sync.game_id,
-        source.sourceKind,
-        sourceId,
-        canonicalSyncKnowledgeJson(provenance).trimEnd(),
-        event.eventId,
-        now,
-        now,
-      );
     }
     return listSyncKnowledgeJobs(store.db, syncId);
   });
@@ -473,7 +495,7 @@ function writeAtomically(path: string, content: string): void {
   }
 }
 
-function transitionJob(input: {
+function appendDomainTransition(input: {
   db: Database;
   sync: SyncState;
   job: SyncKnowledgeJob;
@@ -488,7 +510,7 @@ function transitionJob(input: {
   digest?: string | null;
   error?: string;
   reason?: string;
-}): SyncKnowledgeJob {
+}): void {
   const expectedStatuses: SyncKnowledgeJobStatus[] = input.nextStatus === "processing"
     ? ["queued", "waiting"]
     : input.nextStatus === "waiting"
@@ -504,7 +526,7 @@ function transitionJob(input: {
     subjectId: input.job.jobId,
     traceId: input.sync.trace_id,
     actor: input.actor,
-    causationId: input.job.causedByEventId,
+    causationId: latestDomainJobEventId(input.db, input.job.jobId) ?? input.job.causedByEventId,
     correlationId: input.correlationId,
     spanId: input.spanId,
     occurredAt: input.occurredAt,
@@ -517,7 +539,7 @@ function transitionJob(input: {
     source_kind: input.job.sourceKind,
     source_id: input.job.sourceId,
   };
-  const event = input.eventType === "knowledge.job_processing"
+  input.eventType === "knowledge.job_processing"
     ? appendSyncKnowledgeEventInTransaction(input.db, {
         ...context,
         eventType: input.eventType,
@@ -570,29 +592,6 @@ function transitionJob(input: {
             reason: requiredText(input.reason ?? "", "reason"),
           },
         });
-  const result = input.db.query(
-    `UPDATE sync_knowledge_jobs
-     SET revision = revision + 1,
-         status = ?, staged_artifact_path = ?, staged_digest = ?,
-         caused_by_event_id = ?, updated_at = ?
-     WHERE job_id = ? AND revision = ? AND status = ?`,
-  ).run(
-    input.nextStatus,
-    input.artifactPath ?? null,
-    input.digest ?? null,
-    event.eventId,
-    input.occurredAt,
-    input.job.jobId,
-    input.job.revision,
-    input.job.status,
-  );
-  if (result.changes !== 1) {
-    const current = selectJob(input.db, input.job.jobId);
-    throw new Error(
-      `Stale knowledge job revision ${input.job.revision} for ${input.job.jobId}; current revision is ${current?.revision ?? -1}`,
-    );
-  }
-  return selectJob(input.db, input.job.jobId)!;
 }
 
 /** Cancels every still-live job before its staging artifacts are discarded. */
@@ -610,7 +609,14 @@ export function cancelSyncKnowledgeJobs(
     const occurredAt = input.occurredAt ?? new Date().toISOString();
     for (const job of listSyncKnowledgeJobs(store.db, syncId)) {
       if (job.status === "cancelled") continue;
-      transitionJob({
+      cancelJob(store, {
+        jobId: getJobByDedupeKey(store, "sync_publication", job.jobId)!.jobId,
+        actor: kernelActor(input.actor ?? "operator"),
+        at: occurredAt,
+        reason: input.reason,
+        force: true,
+      });
+      appendDomainTransition({
         db: store.db,
         sync,
         job,
@@ -647,7 +653,23 @@ function waitSyncKnowledgeJobsForRecoveryInternal(
         job.status !== "failed" &&
         !(input.requeueSucceeded && job.status === "succeeded")
       ) continue;
-      transitionJob({
+      const kernelJob = getJobByDedupeKey(store, "sync_publication", job.jobId)!;
+      if (job.status === "processing") {
+        cancelJob(store, {
+          jobId: kernelJob.jobId,
+          actor: kernelActor(input.actor ?? "operator"),
+          at: occurredAt,
+          reason: input.reason,
+          force: true,
+        });
+      }
+      requeueJob(store, {
+        kind: "sync_publication",
+        dedupeKey: job.jobId,
+        actor: kernelActor(input.actor ?? "operator"),
+        at: occurredAt,
+      });
+      appendDomainTransition({
         db: store.db,
         sync,
         job,
@@ -966,8 +988,16 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
     const correlationId = sync.sync_id;
     const spanId = input.spanId ?? syncActionSpanId(commandId);
     input.revalidateOwnership();
-    const job = immediateTransaction(input.store.db, () =>
-      transitionJob({
+    const claimed = immediateTransaction(input.store.db, () => {
+      const result = claimJobByDedupeKey(input.store, {
+        kind: "sync_publication",
+        dedupeKey: initial.jobId,
+        leaseMs: 15 * 60_000,
+        at: updatedAt,
+        actor: kernelActor(actor),
+      });
+      if (!result) throw new Error(`Knowledge job ${initial.jobId} is not claimable`);
+      appendDomainTransition({
         db: input.store.db,
         sync,
         job: initial,
@@ -978,7 +1008,11 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
         spanId,
         actor,
         occurredAt: updatedAt,
-      }));
+      });
+      return result;
+    });
+    const token = claimed.token;
+    const job = selectJob(input.store.db, claimed.job.dedupeKey)!;
     const artifactPath = artifactPathForJob(knowledgeRoot, job);
     try {
       const processor = job.sourceKind === "merged_pr"
@@ -1006,7 +1040,15 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
       writeAtomically(artifactPath, bytes);
       const digest = digestBytes(bytes);
       immediateTransaction(input.store.db, () => {
-        transitionJob({
+        attachJobPayload(input.store, token, { staged_artifact_path: artifactPath }, {
+          at: input.now?.() ?? new Date().toISOString(),
+        });
+        const occurredAt = input.now?.() ?? new Date().toISOString();
+        completeJob(input.store, token, { resultRef: digest, detail: { staged_digest: digest } }, {
+          at: occurredAt,
+          actor: kernelActor(actor),
+        });
+        appendDomainTransition({
           db: input.store.db,
           sync,
           job,
@@ -1015,8 +1057,8 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
           commandId,
           correlationId,
           spanId,
-          actor,
-          occurredAt: input.now?.() ?? new Date().toISOString(),
+          actor: kernelActor(actor),
+          occurredAt,
           artifactPath,
           digest,
         });
@@ -1024,7 +1066,13 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
     } catch (error) {
       if (existsSync(artifactPath)) rmSync(artifactPath, { force: true });
       immediateTransaction(input.store.db, () => {
-        transitionJob({
+        const occurredAt = input.now?.() ?? new Date().toISOString();
+        failJob(input.store, token, error instanceof Error ? error.message : String(error), {
+          terminal: true,
+          at: occurredAt,
+          actor: kernelActor(actor),
+        });
+        appendDomainTransition({
           db: input.store.db,
           sync,
           job,
@@ -1034,7 +1082,7 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
           correlationId,
           spanId,
           actor,
-          occurredAt: input.now?.() ?? new Date().toISOString(),
+          occurredAt,
           error: error instanceof Error ? error.message : String(error),
         });
       });
