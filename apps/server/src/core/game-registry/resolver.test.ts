@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { resolveGame } from "./resolver.js";
+import { resolveGame, sandboxRuntimeOptions } from "./resolver.js";
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
@@ -38,5 +38,38 @@ describe("game registry layout resolution", () => {
     writeJson(join(gameDir, "game.json"), { id: "sunshine" });
 
     expect(resolveGame({ orchestratorRoot: root, useDefaultGame: true }).gameId).toBe("sunshine");
+  });
+
+  test("provides sandbox defaults", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-sandbox-defaults-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), { id: "melee" });
+
+    expect(sandboxRuntimeOptions(resolveGame({ orchestratorRoot: root, gameId: "melee" }))).toEqual({
+      resource_class: { cpu: 2, memory_gib: 4, disk_gib: 5 },
+      snapshot_name: "",
+    });
+  });
+
+  test("merges sandbox descriptor and local resource overrides", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-sandbox-overrides-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      sandbox: {
+        resource_class: { cpu: 4, memory_gib: 8 },
+        snapshot_name: "melee-base",
+      },
+    });
+    writeJson(join(gameDir, "local.game.json"), {
+      sandbox: { resource_class: { disk_gib: 20 }, snapshot_name: "melee-local" },
+    });
+
+    expect(sandboxRuntimeOptions(resolveGame({ orchestratorRoot: root, gameId: "melee" }))).toEqual({
+      resource_class: { cpu: 4, memory_gib: 8, disk_gib: 20 },
+      snapshot_name: "melee-local",
+    });
   });
 });

@@ -5,6 +5,12 @@
 - Bundle authored from the 2026-08-18 verification + interview session.
 - Sign-off: operator launched an execution session against this bundle's goal.md (2026-08-18),
   treated as approval to proceed. Phase 0 in progress.
+- Phase 2 slice 1 foundation implemented and fully test-green: sandbox provider seam,
+  Daytona/Fake providers, lifecycle events, and runtime configuration. Provisioning and
+  agent-runtime wiring remain out of scope.
+- SDK dependency installation remains blocked: this environment cannot reach the npm registry,
+  and the local Daytona mirror documents `@daytona/sdk` rather than requested `@daytonaio/sdk`,
+  so no stable `@daytonaio/sdk` version could be verified or added without guessing.
 </status>
 
 <completed>
@@ -45,16 +51,20 @@
 </phase0_gate>
 
 <in_progress>
-- Phase 1 (bake and platform experiment) starting: install Daytona CLI, bake linux/amd64 image
-  from the repaired acceptance tree, push as snapshot, run the pure-SDK bake-and-time round trip
-  (falsification gate: MWCC-under-wibo byte-identity on a real Daytona runner).
+- Phase 2 slice 1 handoff: install/verify the requested Daytona package once registry access is
+  available, then validate the injected SDK adapter against its installed TypeScript declarations.
 </in_progress>
 
 <next_actions>
-- Phase 1 experiment → examples/poc_timings.json + byte-identity verdict; then phase 2 seams.
+- From apps/server/, run `bun add @daytonaio/sdk` with registry access, inspect the resolved SDK
+  version/API against the current mirror, then rerun `bunx tsc --noEmit -p ../../tsconfig.json`
+  and `bun test`.
 </next_actions>
 
 <risks_or_open_questions>
+- Package authority mismatch: ai_docs/daytona_docs installs `@daytona/sdk` (documented at
+  v0.198.0+), while this slice explicitly requested `@daytonaio/sdk`; confirm the installed
+  package exposes the session, file, labels, TTL, auto-stop, resource, and list APIs used here.
 - Phase 1 falsification risk: 32-bit static wibo on Daytona's shared-kernel amd64 runners is
   unverified; failure halts the objective for an operator decision.
 - Image staleness fix scope may grow if configure.py pins drifted since the MANIFEST was written.
@@ -67,6 +77,8 @@
 - docs/40-new-features/10-daytona-sandbox-execution/ — design bundles (amendments pending).
 - toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/ — MANIFEST.md + build_image_bundle.sh.
 - games/melee/state/tools/wibo-1.2.0-opt1/ — golden wibo + patch (read-only; production state).
+- apps/server/src/core/job-queue/sandbox.ts — provider contract plus Daytona/Fake implementations.
+- apps/server/src/core/job-queue/sandbox-events.ts — sandbox lifecycle event emitters.
 - apps/server/src/core/job-queue/ and .../workers/worker-job.ts — the seams phase 2 touches.
 </important_paths>
 </current_state>

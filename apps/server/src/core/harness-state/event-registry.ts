@@ -14,6 +14,7 @@ export const GAME_EVENT_SUBJECT_KINDS = Object.freeze([
   "pr_series",
   "knowledge_job",
   "job",
+  "sandbox",
   "game_knowledge",
 ] as const);
 
@@ -375,6 +376,22 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
   "job.cancelled": status("job", ["operator", "runner"], {
     kind: required("string"),
     reason: required("string"),
+  }),
+  "sandbox.created": v1(["sandbox"], "lifecycle", ["operator", "runner"], {
+    sandbox_id: required("string"),
+    snapshot: required("string"),
+    cpu: required("number"),
+    memory_gib: required("number"),
+    disk_gib: required("number"),
+    job_id: required("string"),
+    claim_id: required("string"),
+    worker_state_id: required("string"),
+  }),
+  "sandbox.deleted": v1(["sandbox"], "lifecycle", ["operator", "runner"], {
+    sandbox_id: required("string"),
+    reason: required("string"),
+    job_id: optional("string"),
+    claim_id: optional("string"),
   }),
   "knowledge.revision_advanced": v1(["game_knowledge"], "coordination", ["operator", "runner"], {
     old_revision: required("string"),

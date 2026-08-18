@@ -33,6 +33,22 @@ export interface GameKnowledgeConfig {
   gameSources?: string[];
 }
 
+export interface GameSandboxResourceClass {
+  cpu?: number;
+  memory_gib?: number;
+  disk_gib?: number;
+}
+
+export interface GameSandboxConfig {
+  resource_class?: GameSandboxResourceClass;
+  snapshot_name?: string;
+}
+
+export interface SandboxRuntimeOptions {
+  resource_class: Required<GameSandboxResourceClass>;
+  snapshot_name: string;
+}
+
 export interface GameDescriptor {
   id: string;
   displayName?: string;
@@ -47,6 +63,7 @@ export interface GameDescriptor {
   dashboard?: GameDashboardDefaults;
   pr?: GamePrDefaults;
   knowledge?: GameKnowledgeConfig;
+  sandbox?: GameSandboxConfig;
 }
 
 export interface GamesConfig {
@@ -65,6 +82,7 @@ export interface GameResolveOverrides {
   validation?: GameValidationDefaults;
   dashboard?: GameDashboardDefaults;
   pr?: GamePrDefaults;
+  sandbox?: GameSandboxConfig;
 }
 
 export interface GameResolveOptions {
@@ -89,6 +107,7 @@ export interface ResolvedGame {
   dashboard: Required<GameDashboardDefaults>;
   pr: Required<GamePrDefaults>;
   knowledge: Required<GameKnowledgeConfig>;
+  sandbox: SandboxRuntimeOptions;
   orchestratorRoot: string;
   gamesRoot: string;
   gameDir: string;
@@ -147,6 +166,15 @@ const defaultKnowledge: Required<GameKnowledgeConfig> = {
     "decomp_standards",
   ],
   gameSources: ["code_graph"],
+};
+
+const defaultSandbox: SandboxRuntimeOptions = {
+  resource_class: {
+    cpu: 2,
+    memory_gib: 4,
+    disk_gib: 5,
+  },
+  snapshot_name: "",
 };
 
 function repoRootFromModule(): string {
@@ -236,6 +264,24 @@ function knowledgeFromObject(value: unknown): GameKnowledgeConfig | undefined {
   };
 }
 
+function sandboxFromObject(value: unknown): GameSandboxConfig | undefined {
+  if (!isObject(value)) return undefined;
+  const config: GameSandboxConfig = {};
+  if (isObject(value.resource_class)) {
+    const resourceClass: GameSandboxResourceClass = {};
+    const cpu = numberField(value.resource_class.cpu);
+    const memoryGiB = numberField(value.resource_class.memory_gib);
+    const diskGiB = numberField(value.resource_class.disk_gib);
+    if (cpu !== undefined) resourceClass.cpu = cpu;
+    if (memoryGiB !== undefined) resourceClass.memory_gib = memoryGiB;
+    if (diskGiB !== undefined) resourceClass.disk_gib = diskGiB;
+    config.resource_class = resourceClass;
+  }
+  const snapshotName = stringField(value.snapshot_name);
+  if (snapshotName !== undefined) config.snapshot_name = snapshotName;
+  return config;
+}
+
 function descriptorFromObject(value: Record<string, unknown>, path: string): GameDescriptor {
   const id = stringField(value.id);
   if (!id) throw new Error(`Game descriptor ${path} is missing id`);
@@ -254,6 +300,7 @@ function descriptorFromObject(value: Record<string, unknown>, path: string): Gam
     dashboard: dashboardFromObject(value.dashboard),
     pr: prFromObject(value.pr),
     knowledge: knowledgeFromObject(value.knowledge),
+    sandbox: sandboxFromObject(value.sandbox),
   };
 }
 
@@ -273,6 +320,7 @@ function overrideFromObject(value: Record<string, unknown>, path: string, expect
     validation: validationFromObject(value.validation),
     dashboard: dashboardFromObject(value.dashboard),
     pr: prFromObject(value.pr),
+    sandbox: sandboxFromObject(value.sandbox),
   };
 }
 
@@ -295,6 +343,10 @@ function mergeDescriptor(base: GameDescriptor, override: GameResolveOverrides & 
   next.dashboard = mergeNested(base.dashboard, override.dashboard);
   next.pr = mergeNested(base.pr, override.pr);
   next.knowledge = base.knowledge;
+  next.sandbox = mergeNested(base.sandbox, override.sandbox);
+  next.sandbox = next.sandbox
+    ? { ...next.sandbox, resource_class: mergeNested(base.sandbox?.resource_class, override.sandbox?.resource_class) }
+    : undefined;
   return next;
 }
 
@@ -352,6 +404,21 @@ function requiredNested<T extends object>(defaults: Required<T>, value: T | unde
   return { ...defaults, ...(value ?? {}) } as Required<T>;
 }
 
+function requiredSandbox(value: GameSandboxConfig | undefined): SandboxRuntimeOptions {
+  return {
+    resource_class: requiredNested(defaultSandbox.resource_class, value?.resource_class),
+    snapshot_name: value?.snapshot_name ?? defaultSandbox.snapshot_name,
+  };
+}
+
+export function sandboxRuntimeOptions(game?: Pick<ResolvedGame, "sandbox"> | null): SandboxRuntimeOptions {
+  const sandbox = game?.sandbox ?? defaultSandbox;
+  return {
+    resource_class: { ...sandbox.resource_class },
+    snapshot_name: sandbox.snapshot_name,
+  };
+}
+
 function gameWarnings(game: Pick<ResolvedGame, "repoRoot" | "graphDbPath" | "localEnvPath">): string[] {
   const warnings: string[] = [];
   if (!existsSync(game.repoRoot)) warnings.push(`Game checkout does not exist: ${game.repoRoot}`);
@@ -403,6 +470,7 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
     dashboard: requiredNested(defaultDashboard, merged.dashboard),
     pr: requiredNested(defaultPr, merged.pr),
     knowledge: requiredNested(defaultKnowledge, merged.knowledge),
+    sandbox: requiredSandbox(merged.sandbox),
     orchestratorRoot: root,
     gamesRoot: gamesRoot(root),
     gameDir,
