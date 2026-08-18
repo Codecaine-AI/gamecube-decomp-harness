@@ -292,6 +292,26 @@ CREATE TABLE integrations (
       integrated_rev TEXT
     );
 
+CREATE TABLE jobs (
+  job_id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,                        -- 'worker' | 'knowledge_absorption' | 'sync_publication' | 'integration'
+  dedupe_key TEXT NOT NULL,                  -- natural key within kind
+  game_id TEXT NOT NULL, run_id TEXT,
+  status TEXT NOT NULL CHECK (status IN ('queued','claimed','running','waiting','succeeded','failed','cancelled')),
+  revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
+  priority INTEGER NOT NULL DEFAULT 0,       -- worker: board priority; others: 0 (FIFO)
+  concurrency_key TEXT,                      -- e.g. 'integration' singleton; NULL = kind-level limit only
+  execution_class TEXT NOT NULL DEFAULT 'local' CHECK (execution_class IN ('local','sandbox')),
+  lease_id TEXT, lease_expires_at TEXT,      -- visibility timeout; renewed by heartbeat for dispatched kinds
+  attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT,
+  payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),   -- small: ids + params only
+  result_ref TEXT,                           -- id into domain tables (worker_state id, publication digest, ...)
+  error_json TEXT, trace_id TEXT,
+  caused_by_event_id TEXT REFERENCES game_events(event_id),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT,
+  UNIQUE (kind, dedupe_key)
+);
+
 CREATE TABLE knowledge_revisions (
     revision INTEGER PRIMARY KEY AUTOINCREMENT,
     "game_id" TEXT NOT NULL,
@@ -860,6 +880,8 @@ CREATE INDEX game_events_type_sequence
       ON game_events (event_type, sequence);
 
 CREATE INDEX game_upstream_anchors_cycle ON game_upstream_anchors (cycle_uuid);
+
+CREATE INDEX jobs_claim ON jobs (kind, status, next_attempt_at, priority DESC, created_at, job_id);
 
 CREATE INDEX knowledge_revisions_game_revision
       ON knowledge_revisions (game_id, revision);

@@ -77,6 +77,37 @@ describe("squashed storage baseline", () => {
     ).toEqual([]);
   });
 
+  test("creates the durable jobs queue with identity and payload constraints", () => {
+    const db = database("storage-baseline-jobs");
+    ensureSchema(db);
+
+    expect(
+      db
+        .query("SELECT type, name FROM sqlite_schema WHERE name IN ('jobs', 'jobs_claim') ORDER BY name")
+        .all(),
+    ).toEqual([
+      { type: "table", name: "jobs" },
+      { type: "index", name: "jobs_claim" },
+    ]);
+
+    const insertJob = db.query(`
+      INSERT INTO jobs (job_id, kind, dedupe_key, game_id, status, payload_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const createdAt = "2026-08-17T00:00:00.000Z";
+    insertJob.run("job-1", "worker", "target-1", "game-1", "queued", "{}", createdAt, createdAt);
+
+    expect(() =>
+      insertJob.run("job-2", "worker", "target-1", "game-1", "queued", "{}", createdAt, createdAt),
+    ).toThrow("UNIQUE constraint failed");
+    expect(() =>
+      insertJob.run("job-3", "worker", "target-2", "game-1", "invalid", "{}", createdAt, createdAt),
+    ).toThrow("CHECK constraint failed");
+    expect(() =>
+      insertJob.run("job-4", "worker", "target-3", "game-1", "queued", "not-json", createdAt, createdAt),
+    ).toThrow("CHECK constraint failed");
+  });
+
   test("resets historical bookkeeping when the schema is already canonical", () => {
     const db = database("storage-baseline-reset");
     db.exec(SCHEMA_MIGRATIONS_DDL);
