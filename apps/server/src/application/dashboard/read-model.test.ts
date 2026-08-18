@@ -706,8 +706,26 @@ describe("dashboard read model", () => {
           workerCheckpointId: `checkpoint-${index}`,
         });
         store.db
-          .query("UPDATE worker_output_integrations SET status = ?, validation_state = ? WHERE id = ?")
-          .run(validationState === "regressed" ? "needs_rework" : "applied", validationState, integration.id);
+          .query(
+            `INSERT INTO integration_outcomes (
+               id, run_id, epoch_id, epoch_target_id, target_claim_id,
+               worker_state_id, worker_checkpoint_id, status, metadata_json,
+               created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            integration.id,
+            active.id,
+            epoch.id,
+            `target-${index}`,
+            `claim-${index}`,
+            `worker-state-${index}`,
+            `checkpoint-${index}`,
+            validationState === "regressed" ? "needs_rework" : "applied",
+            JSON.stringify({ confirmation: { validation_state: validationState } }),
+            new Date().toISOString(),
+            new Date().toISOString(),
+          );
       }
 
       const activeView = buildHarnessStateReadModel(store, "melee", {

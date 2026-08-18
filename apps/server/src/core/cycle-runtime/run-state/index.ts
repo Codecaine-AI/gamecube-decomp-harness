@@ -44,7 +44,6 @@ export {
   type WorkerLifecycleStatus,
 } from "./worker-state.js";
 export {
-  claimNextWorkerOutputIntegration,
   blockingWorkerOutputIntegrationCount,
   enqueueWorkerOutputIntegration,
   getWorkerOutputIntegration,

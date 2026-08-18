@@ -9,8 +9,8 @@ export function statusSnapshot(store: StateStore): Record<string, unknown> {
   if (!run) return { runs: 0 };
   const activeEpoch = activeSchedulerEpoch(store, run.id);
   const schedulerEpoch = activeEpoch ? schedulerEpochProgress(store, activeEpoch.id) : null;
-  const scalar = (sql: string, runId: string) => {
-    const row = withBusyRetry(() => store.db.query(sql).get(runId) as Record<string, unknown>);
+  const scalar = (sql: string, ...params: string[]) => {
+    const row = withBusyRetry(() => store.db.query(sql).get(...params) as Record<string, unknown>);
     return Number(row.count ?? 0);
   };
   return {
@@ -27,7 +27,15 @@ export function statusSnapshot(store: StateStore): Record<string, unknown> {
     activeClaims: activeWorkerCount(store, run.id),
     workerStates: scalar("SELECT COUNT(*) AS count FROM worker_state WHERE run_id = ?", run.id),
     workerCheckpoints: scalar("SELECT COUNT(*) AS count FROM worker_checkpoints WHERE run_id = ?", run.id),
-    workerOutputIntegrations: scalar("SELECT COUNT(*) AS count FROM worker_output_integrations WHERE run_id = ?", run.id),
-    workerOutputIntegrationConflicts: scalar("SELECT COUNT(*) AS count FROM worker_output_integrations WHERE run_id = ? AND status IN ('conflict', 'needs_rework', 'blocked', 'resolver_failed')", run.id),
+    workerOutputIntegrations: scalar(
+      `SELECT COUNT(*) AS count FROM (
+         SELECT dedupe_key FROM jobs WHERE run_id = ? AND kind = 'integration'
+         UNION
+         SELECT worker_checkpoint_id FROM integration_outcomes WHERE run_id = ?
+       )`,
+      run.id,
+      run.id,
+    ),
+    workerOutputIntegrationConflicts: scalar("SELECT COUNT(*) AS count FROM integration_outcomes WHERE run_id = ? AND status IN ('conflict', 'needs_rework', 'blocked', 'resolver_failed')", run.id),
   };
 }

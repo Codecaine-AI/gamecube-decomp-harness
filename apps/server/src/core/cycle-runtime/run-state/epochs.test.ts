@@ -943,7 +943,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
       expect(result.processed[0]?.id).toBe(item.id);
       expect(result.processed[0]?.status).toBe("applied");
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 1;\n");
-      expect(count(store, "SELECT COUNT(*) AS count FROM worker_output_integrations WHERE id = ? AND status = 'applied'", item.id)).toBe(1);
+      expect(count(store, "SELECT COUNT(*) AS count FROM integration_outcomes WHERE id = ? AND status = 'applied'", item.id)).toBe(1);
       expect(count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'worker_integration_applied'", run.id)).toBe(1);
     } finally {
       store.db.close();
@@ -993,7 +993,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
       expect(result.processed).toHaveLength(1);
       expect(result.processed[0]?.status).toBe("conflict");
       expect(result.processed[0]?.conflictPaths).toContain("src/a.c");
-      const row = store.db.query("SELECT item_path FROM worker_output_integrations WHERE id = ?").get(item.id) as Record<string, unknown>;
+      const row = store.db.query("SELECT item_path FROM integration_outcomes WHERE id = ?").get(item.id) as Record<string, unknown>;
       expect(typeof row.item_path).toBe("string");
       expect(existsSync(String(row.item_path))).toBe(true);
       expect(readFileSync(String(row.item_path), "utf8")).toContain("\"schema_version\": \"integration_conflict_item_v1\"");

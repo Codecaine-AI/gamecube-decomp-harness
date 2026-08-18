@@ -10,6 +10,7 @@ import {
 import { artifactTimestamp, parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import { addEvent, addPiSession, getWorkerOutputIntegration, updateWorkerOutputIntegration } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/cycle-runtime/run-state";
+import { requeueJob } from "@server/core/job-queue/kernel.js";
 import { gameMetadata, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
 function readJsonFile(path: string): unknown {
@@ -91,6 +92,12 @@ function persistIntegrationResolverResult(params: {
       summary_path: params.summaryPath,
       parsed_output_path: params.parsedOutputPath,
     });
+    if (status === "resolved" && updated.workerCheckpointId) {
+      requeueJob(store, {
+        kind: "integration",
+        dedupeKey: updated.workerCheckpointId,
+      });
+    }
   } finally {
     store.db.close();
   }

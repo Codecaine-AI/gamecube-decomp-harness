@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
-import { GAME_EVENTS_DDL } from "@server/core/orchestrator-state/storage/ddl";
+import { FINAL_SCHEMA_DDL } from "@server/core/orchestrator-state/storage/ddl";
 import { drizzle } from "drizzle-orm/postgres-js";
 
 import {
@@ -322,7 +322,9 @@ describe("kernel trace game-event projection", () => {
 
   test("scopes SQLite event and cause resolution by game id", () => {
     const db = new Database(":memory:");
-    db.exec(GAME_EVENTS_DDL);
+    const gameEventsTable = FINAL_SCHEMA_DDL.match(/CREATE TABLE game_events \([\s\S]*?\n    \);/)?.[0];
+    if (!gameEventsTable) throw new Error("Canonical game_events DDL is missing");
+    db.exec(gameEventsTable);
     const insert = (
       eventId: string,
       gameId: string,

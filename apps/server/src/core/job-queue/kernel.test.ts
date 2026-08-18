@@ -6,6 +6,7 @@ import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
   attachJobPayload,
   cancelJob,
+  claimJobByDedupeKey,
   claimNextJob,
   completeJob,
   enqueueJob,
@@ -183,6 +184,69 @@ describe("unified job queue kernel", () => {
       }),
     ).toBeNull();
   });
+  test("specific claim selects only the dedupe key and skips concurrency scans", () => {
+    const { store } = fixture();
+    put(store, "active", { concurrencyKey: "shared", priority: 10 });
+    put(store, "target", {
+      concurrencyKey: "shared",
+      priority: 1,
+      at: "2026-08-17T12:00:01.000Z",
+    });
+    claim(store);
+
+    const claimed = claimJobByDedupeKey(store, {
+      kind: "worker",
+      dedupeKey: "target",
+      leaseMs: 15_000,
+      at: "2026-08-17T12:00:02.000Z",
+    });
+
+    expect(claimed?.job).toMatchObject({
+      dedupeKey: "target",
+      status: "claimed",
+      attempts: 1,
+      leaseExpiresAt: "2026-08-17T12:00:17.000Z",
+    });
+    expect(
+      claimJobByDedupeKey(store, {
+        kind: "worker",
+        dedupeKey: "target",
+        leaseMs: 15_000,
+        at: "2026-08-17T12:00:03.000Z",
+      }),
+    ).toBeNull();
+  });
+  test("specific claim self-reaps an expired active lease and respects run eligibility", () => {
+    const { store } = fixture();
+    put(store, "expired-specific", { runId: "run-a" });
+    const old = claim(store);
+
+    expect(
+      claimJobByDedupeKey(store, {
+        kind: "worker",
+        dedupeKey: "expired-specific",
+        leaseMs: 20_000,
+        runId: "run-b",
+        at: "2026-08-17T12:00:11.000Z",
+      }),
+    ).toBeNull();
+    const fresh = claimJobByDedupeKey(store, {
+      kind: "worker",
+      dedupeKey: "expired-specific",
+      leaseMs: 20_000,
+      runId: "run-a",
+      at: "2026-08-17T12:00:11.000Z",
+    });
+
+    expect(fresh?.job).toMatchObject({ status: "claimed", attempts: 2 });
+    expect(events(store).slice(-2).map((event) => event.event_type)).toEqual([
+      "job.waiting",
+      "job.claimed",
+    ]);
+    expect(() =>
+      verifyClaimToken(store, old.token, "2026-08-17T12:00:11.001Z"),
+    ).toThrow("stale claim token");
+  });
   test("successful retry clears its prior error", () => {
     const { store } = fixture();
     put(store, "retry-success");
@@ -332,6 +396,58 @@ describe("unified job queue kernel", () => {
     ).toBeNull();
     expect(claim(store, "2026-08-17T12:00:00.003Z", 3).job.dedupeKey).toBe("c");
   });
+  test("claim run filter only selects jobs from that run", () => {
+    const { store } = fixture();
+    put(store, "integration-a", { kind: "integration", runId: "run-a" });
+    put(store, "integration-b", {
+      kind: "integration",
+      runId: "run-b",
+      at: "2026-08-17T12:00:00.001Z",
+    });
+
+    expect(
+      claimNextJob(store, {
+        kind: "integration",
+        concurrencyLimit: 1,
+        leaseMs: 10_000,
+        runId: "run-b",
+        at: base,
+      })?.job.dedupeKey,
+    ).toBe("integration-b");
+  });
+  test("claim run filter scopes kind and concurrency-key limits per run", () => {
+    const { store } = fixture();
+    put(store, "integration-a", {
+      kind: "integration",
+      runId: "run-a",
+      concurrencyKey: "integration-singleton",
+    });
+    put(store, "integration-b", {
+      kind: "integration",
+      runId: "run-b",
+      concurrencyKey: "integration-singleton",
+      at: "2026-08-17T12:00:00.001Z",
+    });
+    expect(
+      claimNextJob(store, {
+        kind: "integration",
+        concurrencyLimit: 1,
+        leaseMs: 10_000,
+        runId: "run-a",
+        at: base,
+      })?.job.dedupeKey,
+    ).toBe("integration-a");
+
+    expect(
+      claimNextJob(store, {
+        kind: "integration",
+        concurrencyLimit: 1,
+        leaseMs: 10_000,
+        runId: "run-b",
+        at: base,
+      })?.job.dedupeKey,
+    ).toBe("integration-b");
+  });
   test("6. failure enters waiting with exponential default backoff", () => {
     const { store } = fixture();
     put(store, "retry");
@@ -348,6 +464,29 @@ describe("unified job queue kernel", () => {
         .slice(-2)
         .map((e) => e.event_type),
     ).toEqual(["job.failed", "job.waiting"]);
+  });
+  test("terminal failure stops at failed without scheduling a retry", () => {
+    const { store } = fixture();
+    put(store, "terminal-failure");
+    const c = claim(store);
+    const eventCount = events(store).length;
+
+    const failed = failJob(store, c.token, "not retryable", {
+      terminal: true,
+      at: "2026-08-17T12:00:01.000Z",
+    });
+
+    expect(failed).toMatchObject({
+      status: "failed",
+      nextAttemptAt: null,
+      leaseId: null,
+      leaseExpiresAt: null,
+      completedAt: "2026-08-17T12:00:01.000Z",
+      error: "not retryable",
+    });
+    expect(events(store).slice(eventCount).map((event) => event.event_type)).toEqual([
+      "job.failed",
+    ]);
   });
   test("7. transitions append one event with lineage and rollback leaves no revision or event", () => {
     const { store } = fixture();
@@ -438,5 +577,42 @@ describe("unified job queue kernel", () => {
       activeLeaseCount: 0,
       oldestPendingAt: "2026-08-17T12:00:01.000Z",
     });
+  });
+  test("force cancellation transitions succeeded and failed jobs", () => {
+    const { store } = fixture();
+    put(store, "succeeded-cancel");
+    put(store, "failed-cancel", { at: "2026-08-17T12:00:00.001Z" });
+    const succeededClaim = claim(store);
+    const succeeded = completeJob(store, succeededClaim.token, {}, {
+      at: "2026-08-17T12:00:01.000Z",
+    });
+    expect(
+      cancelJob(store, {
+        jobId: succeeded.jobId,
+        at: "2026-08-17T12:00:02.000Z",
+      }),
+    ).toEqual(succeeded);
+    expect(
+      cancelJob(store, {
+        jobId: succeeded.jobId,
+        force: true,
+        reason: "discarded",
+        at: "2026-08-17T12:00:02.000Z",
+      }).status,
+    ).toBe("cancelled");
+
+    const failedClaim = claim(store, "2026-08-17T12:00:02.001Z");
+    const failed = failJob(store, failedClaim.token, "terminal", {
+      terminal: true,
+      at: "2026-08-17T12:00:03.000Z",
+    });
+    expect(
+      cancelJob(store, {
+        jobId: failed.jobId,
+        force: true,
+        at: "2026-08-17T12:00:04.000Z",
+      }).status,
+    ).toBe("cancelled");
+    expect(events(store).slice(-1)[0]?.event_type).toBe("job.cancelled");
   });
 });

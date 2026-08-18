@@ -9,6 +9,7 @@ import { recordSavePointAnchor } from "@server/core/cycle/timeline.js";
 import { openPrCampaign } from "@server/core/cycle-runtime/phases/pr/campaign";
 import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import { createRun } from "@server/core/cycle-runtime/run-state";
+import { enqueueWorkerOutputIntegration } from "@server/core/cycle-runtime/run-state/worker-output-integration.js";
 import { processWorkerOutputIntegrationQueue, processWorkerOutputOnFinish } from "./worker-output-queue.js";
 
 const tempDirs: string[] = [];
@@ -58,7 +59,7 @@ function patchFile(dir: string): string {
   return path;
 }
 
-function insertQueued(store: StateStore, patchPath: string, runId: string, id = "integration-1"): void {
+function insertQueued(store: StateStore, patchPath: string, runId: string, id = "integration-1"): string {
   const checkpointId = `checkpoint-${id}`;
   store.db
     .query(
@@ -72,24 +73,22 @@ function insertQueued(store: StateStore, patchPath: string, runId: string, id = 
       `,
     )
     .run(checkpointId, runId, patchPath, patchPath);
-  store.db
-    .query(
-      `
-        INSERT INTO worker_output_integrations (
-          id, run_id, epoch_id, epoch_target_id, target_claim_id,
-          worker_state_id, worker_checkpoint_id, status, target_key,
-          patch_path, diff_path, write_set_json, validation_state, metadata_json,
-          created_at, updated_at
-        ) VALUES (?, ?, 'epoch-1', 'target-1', 'claim-1', 'worker-1', ?,
-                  'queued', 'unit::symbol', ?, ?, '["src/a.c"]', 'tentative',
-                  '{"scoped_checks_passed":true}', '2026-08-11T00:00:00.000Z', '2026-08-11T00:00:00.000Z')
-      `,
-    )
-    .run(id, runId, checkpointId, patchPath, patchPath);
+  return enqueueWorkerOutputIntegration(store, {
+    runId,
+    epochId: "epoch-1",
+    epochTargetId: "target-1",
+    targetClaimId: "claim-1",
+    workerStateId: "worker-1",
+    workerCheckpointId: checkpointId,
+    targetKey: "unit::symbol",
+    metadata: { scoped_checks_passed: true },
+  }).id;
 }
 
 function integration(store: StateStore, id = "integration-1"): Record<string, unknown> {
-  return store.db.query("SELECT * FROM worker_output_integrations WHERE id = ?").get(id) as Record<string, unknown>;
+  const checkpointId = `checkpoint-${id}`;
+  return (store.db.query("SELECT * FROM integration_outcomes WHERE worker_checkpoint_id = ?").get(checkpointId)
+    ?? store.db.query("SELECT status FROM jobs WHERE kind = 'integration' AND dedupe_key = ?").get(checkpointId)) as Record<string, unknown>;
 }
 
 function acquireLease(store: StateStore, kind: "pr" | "run", workflowId: string): string {
@@ -169,7 +168,6 @@ describe("merge-on-finish worker output integration", () => {
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 1;\n");
       expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(2);
       const row = integration(store);
-      expect(row.validation_state).toBe("tentative");
       expect(String(row.metadata_json)).toContain("integrated_rev");
       expect(
         (store.db.query("SELECT validation_state FROM worker_checkpoints WHERE id = 'checkpoint-integration-1'").get() as Record<string, unknown>)
@@ -234,7 +232,7 @@ describe("merge-on-finish worker output integration", () => {
       git(repo, ["add", "src/a.c"]);
       git(repo, ["commit", "-m", "current side"]);
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
-      insertQueued(store, patchPath, run.id);
+      const integrationId = insertQueued(store, patchPath, run.id);
       const leaseId = acquireLease(store, "run", run.id);
       const resolvedPatch = [
         "diff --git a/src/a.c b/src/a.c",
@@ -258,8 +256,8 @@ describe("merge-on-finish worker output integration", () => {
           runner: async () => ({
             rawText: JSON.stringify({
               schema_version: "melee_conflict_resolver_result_v1",
-              integration_item_id: "integration-1",
-              conflict_group_id: "worker-output:integration-1",
+              integration_item_id: integrationId,
+              conflict_group_id: `worker-output:${integrationId}`,
               outcome: "resolved",
               summary: "kept the accepted incoming value on top of current",
               applied_in_isolated_worktree: true,
@@ -276,7 +274,7 @@ describe("merge-on-finish worker output integration", () => {
       expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "conflict_resolved" });
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 1;\n");
       expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(3);
-      expect(integration(store)).toMatchObject({ status: "applied", validation_state: "tentative" });
+      expect(integration(store)).toMatchObject({ status: "applied" });
     } finally {
       store.db.close();
     }
