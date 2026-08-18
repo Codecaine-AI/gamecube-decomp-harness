@@ -19,6 +19,7 @@ import {
   type WorkerUnitScoreSnapshot,
 } from "./change-validation.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
+import type { WorkspaceExec, WorkspaceExecOptions } from "@server/infrastructure/shell";
 
 function finding(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
   return {
@@ -322,6 +323,52 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
     // No build system in the temp repo, so the objdiff baseline itself fails —
     // the source snapshot must survive that.
     expect(baseline.snapshot).toBeNull();
+  });
+
+  test("routes sandbox build and objdiff through WorkspaceExec without worker ninja slots", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "sandbox-change-baseline-"));
+    const calls: Array<{ command: string[]; options?: WorkspaceExecOptions }> = [];
+    const report = JSON.stringify({
+      left: {
+        sections: [],
+        symbols: [{ name: "ftCo_800C8E5C", match_percent: 75, size: 16, instructions: [] }],
+      },
+    });
+    const workspaceExec: WorkspaceExec = {
+      executionClass: "sandbox",
+      async exec(command, options) {
+        calls.push({ command, options });
+        if (command[0] === "cat") {
+          return { exitCode: 0, stdout: "objdiff_report_args = --config functionRelocDiffs=data_value\n", stderr: "" };
+        }
+        if (command[0] === "build/tools/objdiff-cli") {
+          return { exitCode: 0, stdout: report, stderr: "" };
+        }
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+    };
+
+    const baseline = await captureWorkerChangeBaseline({
+      repoRoot: "/workspace/melee",
+      outputDir,
+      target: {
+        unit: "melee/ft/ftcoll.c",
+        symbol: "ftCo_800C8E5C",
+        source_path: "src/melee/ft/ftcoll.c",
+      },
+      workspaceExec,
+    });
+
+    expect(baseline.status).toBe("available");
+    expect(baseline.snapshot?.targetScore).toBe(75);
+    expect(calls[0]).toEqual({
+      command: ["ninja", "build/GALE01/src/melee/ft/ftcoll.o"],
+      options: { compile: true },
+    });
+    expect(calls[1]?.command).toEqual(["cat", "build.ninja"]);
+    expect(calls[2]?.command).toContain("/dev/stdout");
+    expect(calls[2]?.options).toEqual({ compile: false });
+    expect(await readFile(resolve(outputDir, "pre_worker_unit_diff.json"), "utf8")).toBe(report);
   });
 });
 

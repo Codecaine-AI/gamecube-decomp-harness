@@ -4,8 +4,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { initializeHarnessState, requestDispatch } from "@server/core/harness-state";
 import { cancelJob } from "@server/core/job-queue/kernel.js";
+import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
-import { admitEpochTargets, createRun, startSchedulerEpoch } from "@server/core/cycle-runtime/run-state";
+import {
+  admitEpochTargets,
+  createRun,
+  startSchedulerEpoch,
+  updateRunStatus,
+} from "@server/core/cycle-runtime/run-state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { workerKernelOps, type WorkerJobRunContext } from "./worker-job.js";
 import {
@@ -112,6 +118,40 @@ describe("worker task file", () => {
     writeFileSync(path, JSON.stringify({ version: 1 }));
     await expect(readWorkerTaskFile(new Map([["--task-file", path]]))).rejects.toThrow("Worker task is missing claim_token");
   });
+
+  test("accepts sandbox_id and workspace_root without a host worktree_path", async () => {
+    const f = fixture();
+    const path = join(f.globals.stateDir, "sandbox_task_spec.json");
+    try {
+      const { worktree_path: _worktreePath, ...task } = f.task;
+      writeFileSync(path, JSON.stringify({
+        ...task,
+        execution_class: "sandbox",
+        sandbox_id: "sandbox-1",
+        workspace_root: "/workspace/melee",
+      }));
+      await expect(readWorkerTaskFile(new Map([["--task-file", path]]))).resolves.toMatchObject({
+        execution_class: "sandbox",
+        sandbox_id: "sandbox-1",
+        workspace_root: "/workspace/melee",
+      });
+    } finally {
+      f.store.db.close();
+    }
+  });
+
+  test("requires sandbox execution fields instead of worktree_path", async () => {
+    const f = fixture();
+    const path = join(f.globals.stateDir, "invalid_sandbox_task_spec.json");
+    try {
+      writeFileSync(path, JSON.stringify({ ...f.task, execution_class: "sandbox" }));
+      await expect(readWorkerTaskFile(new Map([["--task-file", path]]))).rejects.toThrow(
+        "Worker task is missing required string sandbox_id",
+      );
+    } finally {
+      f.store.db.close();
+    }
+  });
 });
 
 describe("claimed worker task reconstruction", () => {
@@ -142,5 +182,50 @@ describe("claimed worker task reconstruction", () => {
       f.store.db.close();
     }
     await expect(runWorkerCycleFromTask(f.globals, new Map([["--task-file", taskPath]]))).rejects.toThrow("stale claim token");
+  });
+
+  test("resolves a sandbox handle once and checks remote workspace liveness", async () => {
+    const f = fixture();
+    const taskPath = join(f.globals.stateDir, "task_spec.json");
+    const provider = new FakeSandboxProvider();
+    const handle = await provider.create({
+      snapshot: "test",
+      labels: { job_id: String(f.task.job_id) },
+      resources: { cpu: 2, memoryGiB: 4, diskGiB: 5 },
+      ttlMinutes: 30,
+    });
+    provider.scriptExec({ exitCode: 1, stdout: "", stderr: "missing workspace" });
+    let getCalls = 0;
+    const get = provider.get.bind(provider);
+    provider.get = async (sandboxId) => {
+      getCalls += 1;
+      return get(sandboxId);
+    };
+    try {
+      updateRunStatus(f.store, String(f.task.run_id), "active", "operator");
+      const { worktree_path: _worktreePath, ...task } = f.task;
+      writeFileSync(taskPath, JSON.stringify({
+        ...task,
+        execution_class: "sandbox",
+        sandbox_id: handle.sandboxId,
+        workspace_root: "/workspace/melee",
+      }));
+    } finally {
+      f.store.db.close();
+    }
+
+    await expect(
+      runWorkerCycleFromTask(
+        f.globals,
+        new Map([["--task-file", taskPath]]),
+        { sandboxProvider: provider },
+      ),
+    ).rejects.toThrow("Worker task sandbox workspace does not exist: /workspace/melee: missing workspace");
+    expect(getCalls).toBe(1);
+    expect(provider.execCalls).toEqual([{
+      sandboxId: handle.sandboxId,
+      command: ["test", "-d", "."],
+      opts: { cwd: "/workspace/melee", env: undefined, timeoutMs: 30_000 },
+    }]);
   });
 });
