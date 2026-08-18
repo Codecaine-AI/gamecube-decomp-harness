@@ -8,6 +8,9 @@
 - Phase 2 slice 1 foundation implemented and fully test-green: sandbox provider seam,
   Daytona/Fake providers, lifecycle events, and runtime configuration. Provisioning and
   agent-runtime wiring remain out of scope.
+- Phase 2 slice 6 sandbox lifecycle teardown implemented and test-green: settled-claim deletion,
+  reap deletion that cannot block claim recovery, and startup reconciliation under the shared
+  current-job-lease write-fence predicate.
 - SDK dependency installation remains blocked: this environment cannot reach the npm registry,
   and the local Daytona mirror documents `@daytona/sdk` rather than requested `@daytonaio/sdk`,
   so no stable `@daytonaio/sdk` version could be verified or added without guessing.
@@ -26,6 +29,9 @@
   buildWorkerTask; job-leaseId orphan authority; per-attempt evidence download; always-run v1;
   sandbox.* game events; 2/4/5 sizing (configurable); experiment-then-live-worker PoC;
   fetch-first corpus tools.
+- Sandbox deletion now emits idempotent `sandbox.deleted` events for settlement, reap, and
+  reconciliation; reconciliation also requires the current active run dispatch lease and an
+  active target claim before retaining a labeled sandbox.
 </completed>
 
 <phase0_gate verdict="PASS" date="2026-08-18">
@@ -51,14 +57,13 @@
 </phase0_gate>
 
 <in_progress>
-- Phase 2 slice 1 handoff: install/verify the requested Daytona package once registry access is
-  available, then validate the injected SDK adapter against its installed TypeScript declarations.
+- Phase 2 provisioning and sandbox execution routing remain in parallel slices; slice 6 is ready
+  to integrate with their `sandbox_id` payload attachment and label stamping.
 </in_progress>
 
 <next_actions>
-- From apps/server/, run `bun add @daytonaio/sdk` with registry access, inspect the resolved SDK
-  version/API against the current mirror, then rerun `bunx tsc --noEmit -p ../../tsconfig.json`
-  and `bun test`.
+- Merge slice 6 with the provisioning/exec-routing slices, then exercise one sandbox worker claim
+  end to end so settlement, reap, and restart reconciliation see real Daytona labels.
 </next_actions>
 
 <risks_or_open_questions>
