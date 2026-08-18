@@ -13,6 +13,7 @@ export const GAME_EVENT_SUBJECT_KINDS = Object.freeze([
   "pr_campaign",
   "pr_series",
   "knowledge_job",
+  "job",
   "game_knowledge",
 ] as const);
 
@@ -348,6 +349,31 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
   }),
   "knowledge.job_cancelled": status("knowledge_job", ["operator", "runner"], {
     ...knowledgeJobExecutionFields,
+    reason: required("string"),
+  }),
+  "job.enqueued": v1(["job"], "lifecycle", ["operator", "runner"], {
+    kind: required("string"),
+    dedupe_key: required("string"),
+    execution_class: required("string"),
+    priority: required("number"),
+    requeue: optional("boolean"),
+  }),
+  "job.claimed": status("job", ["operator", "runner"], { kind: required("string") }),
+  "job.started": status("job", ["operator", "runner"], { kind: required("string") }),
+  "job.waiting": status("job", ["operator", "runner"], {
+    kind: required("string"),
+    reason: required("string"),
+  }),
+  "job.succeeded": status("job", ["operator", "runner"], {
+    kind: required("string"),
+    detail: optional("object"),
+  }),
+  "job.failed": status("job", ["operator", "runner"], {
+    kind: required("string"),
+    error: required("string"),
+  }),
+  "job.cancelled": status("job", ["operator", "runner"], {
+    kind: required("string"),
     reason: required("string"),
   }),
   "knowledge.revision_advanced": v1(["game_knowledge"], "coordination", ["operator", "runner"], {

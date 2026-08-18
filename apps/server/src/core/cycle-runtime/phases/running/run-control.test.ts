@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import {
-  DispatchLeaseNotActiveError,
   eventsForSubject,
   getHarnessState,
   initializeHarnessState,
@@ -23,7 +22,6 @@ import {
   createRun,
   getRun,
   openState,
-  recordWorkerCheckpoint,
   startSchedulerEpoch,
   updateRunStatus,
   type StateStore,
@@ -240,26 +238,10 @@ describe("run recovery controls", () => {
     expect(getHarnessState(store, "melee")?.active_workflow).toBeNull();
   });
 
-  test("recovery without the lease persists a blocker naming queued checkpoint work", async () => {
+  test("recovery fails closed when its dispatch request remains queued", async () => {
     const { dir, store } = tempState();
     const active = activeRun(store, dir);
     const claim = orphanedClaim(store, active.run.id);
-    recordWorkerCheckpoint(store, {
-      attemptIndex: 0,
-      diffPath: join(dir, "orphaned.patch"),
-      epochId: claim.epochId,
-      epochTargetId: claim.epochTargetId,
-      exactMatch: true,
-      hardGatesPassed: true,
-      newScore: 100,
-      oldScore: 99,
-      patchPath: join(dir, "orphaned.patch"),
-      runId: active.run.id,
-      targetClaimId: claim.claimId,
-      validationStatus: "passed",
-      workerStateId: claim.workerStateId,
-      writeSet: ["src/a.c"],
-    });
     const failed = updateRunStatus(store, active.run.id, "failed", "runner");
     releaseDispatch(store, {
       actor: "operator",
@@ -287,24 +269,24 @@ describe("run recovery controls", () => {
     });
     if (competingDispatch.queued) throw new Error("test competing run lease was unexpectedly queued");
 
-    const recovered = await recoverRun({
-      confirmed: true,
-      globals: globalsFor(dir),
-      reason: "recover evidence without checkout authority",
-      runId: failed.id,
-      store,
+    await expect(
+      recoverRun({
+        confirmed: true,
+        globals: globalsFor(dir),
+        reason: "recover evidence without checkout authority",
+        runId: failed.id,
+        store,
+      }),
+    ).rejects.toMatchObject({
+      blockerCodes: ["dispatch_authority_unavailable"],
+      name: "RunControlBlockedError",
     });
 
-    const integrationId = String(recovered.run.blockers[0]?.source_id ?? "");
-    expect(recovered).toMatchObject({ dispatchLeaseRecovered: false, run: { status: "paused" } });
-    expect(recovered.run.blockers).toEqual([
-      expect.objectContaining({
-        code: "worker_output_integration_lease_unavailable",
-        message: expect.stringContaining(integrationId),
-        source_id: integrationId,
-      }),
-    ]);
-    expect(integrationId).not.toBe("");
+    expect(getRun(store, failed.id)).toMatchObject({ revision: failed.revision, status: "failed" });
+    expect(activeClaimsForRun(store, failed.id).map(({ claimId }) => claimId)).toEqual([claim.claimId]);
+    expect(
+      store.db.query("SELECT COUNT(*) AS count FROM run_recovery_journal WHERE run_id = ?").get(failed.id),
+    ).toEqual({ count: 0 });
     expect(getHarnessState(store, "melee")).toMatchObject({
       active_workflow: { kind: "run", workflow_id: competingRun.id },
       queued_dispatch_requests: [expect.objectContaining({ kind: "run", workflow_id: failed.id })],
@@ -345,7 +327,7 @@ describe("run recovery controls", () => {
     expect(stopped.run.causedByEventId).toBe(event?.eventId ?? null);
   });
 
-  test("pause records draining before settlement and refuses new claims until the supervisor pauses", () => {
+  test("pause records draining before settlement until the supervisor pauses", () => {
     const { dir, store } = tempState();
     const active = activeRun(store, dir);
     const claim = orphanedClaim(store, active.run.id);
@@ -357,18 +339,8 @@ describe("run recovery controls", () => {
       lease_id: active.leaseId,
       status: "draining",
     });
-    expect(() =>
-      claimNextEpochTarget({
-        baseRev: "base-test",
-        leaseId: active.leaseId,
-        runId: active.run.id,
-        store,
-        ttlSeconds: 1800,
-        workerId: "worker-refused-while-draining",
-      }),
-    ).toThrow(DispatchLeaseNotActiveError);
-
     closeWorkerState(store, {
+      authority: { host: "run-control-test-settle" },
       epochTargetStatus: "finished",
       lifecycleStatus: "finished",
       summary: { settled_for_pause: true },

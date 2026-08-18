@@ -301,6 +301,7 @@ export function settlePreparedRunClaimRecovery(
     }
     closeWorkerState(params.store, {
       workerStateId: item.claim.workerStateId,
+      authority: { host: "claim-recovery" },
       lifecycleStatus: "error",
       epochTargetStatus: item.requeued ? "admitted" : "finished",
       errorSummary: `Recovered interrupted active worker: ${journal.recoveryReason}`,
@@ -471,6 +472,7 @@ export async function recoverActiveClaims(params: RecoverActiveClaimsParams): Pr
     const summaryPath = await writeRecoverySummary({ claim, globals: params.globals, requeued, reason: params.reason, runId: params.runId });
     closeWorkerState(params.store, {
       workerStateId: claim.workerStateId,
+      authority: { host: "claim-recovery" },
       lifecycleStatus: "error",
       epochTargetStatus: requeued ? "admitted" : "finished",
       errorSummary: `Recovered interrupted active worker: ${params.reason}`,

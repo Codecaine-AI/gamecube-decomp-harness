@@ -117,7 +117,7 @@ export function runStorageMigrations(db: Database): void {
     if (!schemaMatchesBaseline(db)) {
       throw new Error(
         `Storage schema is not the squashed baseline (bookkeeping: ${JSON.stringify(applied)}). ` +
-          "Run: bun /tmp/purge-compat-apply.js /absolute/path/to/orchestrator.sqlite",
+          "No compat migration path exists: recreate the state directory, or align the schema with the squashed baseline manually. Live orchestrator databases are product state - recreating one is an operator decision.",
       );
     }
 

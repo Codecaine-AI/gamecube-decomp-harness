@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -22,8 +22,8 @@ import {
   integrationResolverLockPaths,
   selectRunLoopSchedulerCondition,
   selectIntegrationResolverBatch,
-  workerCommand,
 } from "./run-loop.js";
+import { resolveBaseRev } from "../workers/worker-cycle.js";
 
 describe("selectRunLoopSchedulerCondition", () => {
   test("preserves blocked and boundary priority over transient work", () => {
@@ -44,6 +44,26 @@ function tempState(): { dir: string; store: StateStore } {
 
 afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
+
+describe("resolveBaseRev", () => {
+  test("resolves unknown to the concrete HEAD commit", () => {
+    const repo = mkdtempSync(join(tmpdir(), "resolve-base-rev-"));
+    tempDirs.push(repo);
+    const git = (...args: string[]) => {
+      const result = Bun.spawnSync(["git", "-C", repo, ...args], { stdout: "pipe", stderr: "pipe" });
+      expect(result.exitCode, result.stderr.toString()).toBe(0);
+      return result.stdout.toString().trim();
+    };
+    git("init");
+    git("config", "user.email", "test@example.com");
+    git("config", "user.name", "Test User");
+    writeFileSync(join(repo, "tracked.txt"), "tracked\n");
+    git("add", "tracked.txt");
+    git("commit", "-m", "initial");
+
+    expect(resolveBaseRev(repo, "unknown")).toBe(git("rev-parse", "HEAD"));
+  });
 });
 
 describe("evaluateFastKnowledgeMaintenanceDecision", () => {
@@ -100,55 +120,6 @@ describe("evaluateFastKnowledgeMaintenanceDecision", () => {
   });
 });
 
-describe("workerCommand write-set feature forwarding", () => {
-  const globals = {
-    repoRoot: "/repo",
-    stateDir: "/state",
-    dryRunAgents: false,
-    provider: "provider",
-    model: "model",
-    thinkingLevel: "medium",
-  };
-  const params = {
-    runId: "run-1",
-    workerId: "worker-1",
-    baseRev: "base",
-    ttlSeconds: 1_800,
-    thinkingLevel: "medium",
-    postReturnCheckCommand: "",
-    workerConfigureCommand: "",
-    graphDbPath: "/state/knowledge.sqlite",
-    leaseId: "lease-run-1",
-  };
-
-  test("adds neither flag on the legacy path", () => {
-    const command = workerCommand(globals, {
-      ...params,
-      writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false },
-    });
-    expect(command).not.toContain("--merge-on-finish");
-    expect(command).not.toContain("--write-set-widening");
-  });
-
-  test("forwards widening mode and merge-on-finish to the worker child", () => {
-    const command = workerCommand(globals, {
-      ...params,
-      writeSetFlags: { mergeOnFinish: true, writeSetWidening: "header", confirmationPass: true },
-    });
-    expect(command.slice(command.indexOf("--write-set-widening"))).toContain("header");
-    expect(command).toContain("--merge-on-finish");
-  });
-
-  test("forwards the scheduler dispatch lease to the worker child", () => {
-    const command = workerCommand(globals, {
-      ...params,
-      leaseId: "lease-run-1",
-      writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false },
-    });
-    expect(command.slice(command.indexOf("--lease-id"), command.indexOf("--lease-id") + 2)).toEqual(["--lease-id", "lease-run-1"]);
-  });
-});
-
 describe("epochBoundaryWorkPending", () => {
   test("treats a drained active epoch as boundary work that outranks KG maintenance", () => {
     const { store } = tempState();
@@ -170,6 +141,7 @@ describe("epochBoundaryWorkPending", () => {
       expect(epochBoundaryWorkPending(store, run.id)).toBe(false);
 
       closeWorkerState(store, {
+        authority: { host: "run-loop-test" },
         workerStateId: claim?.workerStateId ?? "",
         lifecycleStatus: "timeout",
         epochTargetStatus: "finished",
@@ -201,6 +173,7 @@ describe("epochBoundaryWorkPending", () => {
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
       closeWorkerState(store, {
+        authority: { host: "run-loop-test" },
         workerStateId: claim?.workerStateId ?? "",
         lifecycleStatus: "timeout",
         epochTargetStatus: "finished",

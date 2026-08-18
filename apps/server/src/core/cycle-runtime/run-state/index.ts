@@ -60,7 +60,6 @@ export {
 export { addPiSession } from "./pi-sessions.js";
 export {
   admittedTargetCount,
-  blockedAdmittedTargetCount,
   schedulableTargetCount,
   targetPressureSnapshot,
   unhandledEventCount,

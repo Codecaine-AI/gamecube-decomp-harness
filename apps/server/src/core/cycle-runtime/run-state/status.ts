@@ -1,7 +1,7 @@
 import { withBusyRetry, type StateStore } from "@server/core/orchestrator-state";
 import { activeSchedulerEpoch, schedulerEpochProgress } from "./epochs.js";
 import { activeWorkerCount } from "./worker-state.js";
-import { blockedAdmittedTargetCount, schedulableTargetCount } from "./target-pressure.js";
+import { schedulableTargetCount } from "./target-pressure.js";
 import { getLatestRun } from "./runs.js";
 
 export function statusSnapshot(store: StateStore): Record<string, unknown> {
@@ -18,7 +18,6 @@ export function statusSnapshot(store: StateStore): Record<string, unknown> {
     epochTargets: scalar("SELECT COUNT(*) AS count FROM epoch_targets WHERE run_id = ?", run.id),
     admittedTargets: scalar("SELECT COUNT(*) AS count FROM epoch_targets WHERE run_id = ? AND status = 'admitted'", run.id),
     schedulableTargets: schedulableTargetCount(store, run.id),
-    blockedAdmittedTargets: blockedAdmittedTargetCount(store, run.id),
     unhandledEvents: scalar("SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", run.id),
     schedulerEpoch,
     epochs: scalar("SELECT COUNT(*) AS count FROM epochs WHERE run_id = ?", run.id),

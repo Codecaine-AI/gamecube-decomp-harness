@@ -47,7 +47,6 @@ export interface SchedulerTickResult {
   targetPressure?: {
     activeWorkers: number;
     admittedTargets: number;
-    blockedAdmittedTargets: number;
     admissionTargetSize: number;
     candidateLimit: number;
     candidateRerank: CandidateRerankMode;
@@ -292,7 +291,6 @@ export async function runSchedulerTick(
       targetPressure: {
         activeWorkers: activeWorkerCount(store, runId),
         admittedTargets: targetPressure.admittedTargets,
-        blockedAdmittedTargets: targetPressure.blockedAdmittedTargets,
         admissionTargetSize,
         candidateLimit,
         candidateRerank: schedulerCandidateRerankFromArgs(globals, args),

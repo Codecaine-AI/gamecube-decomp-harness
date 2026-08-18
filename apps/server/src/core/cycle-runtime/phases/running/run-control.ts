@@ -567,7 +567,12 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
     });
     if (!decision.queued) lease = decision.state.active_workflow;
   }
-  if (lease) requireLease(input.store, lease.lease_id, gameId);
+  if (!lease) {
+    throw new RunControlBlockedError(`Run ${original.id} recovery dispatch authority is unavailable`, [
+      "dispatch_authority_unavailable",
+    ]);
+  }
+  requireLease(input.store, lease.lease_id, gameId);
   reconcilePendingIntegrations(input.store, { runId: original.id });
   const preparedRun = requireRun(input.store, original.id);
   const prepared = await prepareSettlingRunClaims(input, preparedRun, "run.recover", operationCommandId);

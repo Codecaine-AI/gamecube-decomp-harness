@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { requireActiveLease } from "@server/core/harness-state";
+import { resolve } from "node:path";
 import { immediateTransaction, now, withBusyRetry, writeSetHash, type StateStore } from "@server/core/orchestrator-state";
 import type { WriteSetEntry } from "./write-set-categories.js";
 import { enqueueBackgroundKnowledgeForWorker } from "@server/core/knowledge/background/index.js";
+import { verifyClaimToken } from "@server/core/job-queue/kernel.js";
+import type { ClaimToken } from "@server/core/job-queue/types.js";
 
 export type EpochTargetStatus = "admitted" | "claimed" | "finished";
 export type TargetClaimStatus = "active" | "closed";
 export type WorkerLifecycleStatus = "running" | "exact" | "timeout" | "error" | "cancelled" | "finished";
+export type WorkerWriteAuthority = ClaimToken | { host: string };
 
 export interface ClaimedTarget {
   claimId: string;
@@ -51,9 +54,10 @@ export interface WorkerCheckpointInput {
   validationState?: "tentative" | "confirmed" | "regressed";
   failureReasons?: string[];
   metadata?: Record<string, unknown>;
+  authority: WorkerWriteAuthority;
 }
 
-export interface WorkerCheckpointRecord extends WorkerCheckpointInput {
+export interface WorkerCheckpointRecord extends Omit<WorkerCheckpointInput, "authority"> {
   id: string;
   validationTime: string;
   delta: number | null;
@@ -71,6 +75,12 @@ export interface WorkerStateCloseInput {
   summary?: Record<string, unknown>;
   timeoutSummary?: string | null;
   errorSummary?: string | null;
+  authority: WorkerWriteAuthority;
+}
+
+function verifyWorkerWriteAuthority(store: StateStore, authority: WorkerWriteAuthority): void {
+  if ("host" in authority) return;
+  verifyClaimToken(store, authority);
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -155,7 +165,7 @@ function targetKey(unit: string, symbol: string): string {
   return `${unit}::${symbol}`;
 }
 
-function epochTargetToClaim(row: Record<string, unknown>, params: { claimId: string; workerStateId: string; workerId: string; ttl: string }): ClaimedTarget {
+export function epochTargetToClaim(row: Record<string, unknown>, params: { claimId: string; workerStateId: string; workerId: string; ttl: string }): ClaimedTarget {
   const sourcePath = String(row.source_path ?? "");
   const writeSetEntries: WriteSetEntry[] = [{ path: sourcePath, category: "target-source", rung: 1, addedBy: "claim" }];
   return {
@@ -291,13 +301,12 @@ export function claimNextEpochTarget(params: {
   baseRev?: string;
   ttlSeconds: number;
   artifactDir?: string | null;
-  leaseId?: string;
+  artifactDirRoot?: string;
 }): ClaimedTarget | null {
   if (!Number.isFinite(params.ttlSeconds) || params.ttlSeconds <= 0) {
     throw new Error("claimNextEpochTarget requires a positive ttlSeconds value");
   }
   return immediateTransaction(params.store.db, () => {
-    if (params.leaseId) requireActiveLease(params.store, params.leaseId);
     const target = params.store.db
       .query(
         `
@@ -419,7 +428,9 @@ export function claimNextEpochTarget(params: {
           params.workerId,
           jsonArray(writeSet),
           jsonWriteSetEntries(writeSetEntries),
-          params.artifactDir ?? null,
+          params.artifactDirRoot !== undefined
+            ? resolve(params.artifactDirRoot, reusableWorkerStateId)
+            : (params.artifactDir ?? null),
           claimedAt,
           finiteOrNull(Number(target.baseline_score)),
           reusableWorkerStateId,
@@ -476,7 +487,9 @@ export function claimNextEpochTarget(params: {
         key,
         jsonArray(writeSet),
         jsonWriteSetEntries(writeSetEntries),
-        params.artifactDir ?? null,
+        params.artifactDirRoot !== undefined
+          ? resolve(params.artifactDirRoot, workerStateId)
+          : (params.artifactDir ?? null),
         claimedAt,
         finiteOrNull(Number(target.baseline_score)),
         finiteOrNull(Number(target.baseline_score)),
@@ -491,8 +504,10 @@ export function widenClaimWriteSet(
   store: StateStore,
   claimId: string,
   entries: WriteSetEntry[],
+  authority: WorkerWriteAuthority,
 ): { writeSet: string[]; entries: WriteSetEntry[] } {
   return immediateTransaction(store.db, () => {
+    verifyWorkerWriteAuthority(store, authority);
     const row = store.db
       .query(
         `
@@ -538,15 +553,28 @@ export function widenClaimWriteSet(
   });
 }
 
-export function setClaimWorktreePath(store: StateStore, claimId: string, workerStateId: string, worktreePath: string): void {
-  withBusyRetry(() => {
+export function setClaimWorktreePath(
+  store: StateStore,
+  claimId: string,
+  workerStateId: string,
+  worktreePath: string,
+  authority: WorkerWriteAuthority,
+): void {
+  immediateTransaction(store.db, () => {
+    verifyWorkerWriteAuthority(store, authority);
     store.db.query("UPDATE target_claims SET worktree_path = ? WHERE id = ?").run(worktreePath, claimId);
     store.db.query("UPDATE worker_state SET worktree_path = ? WHERE id = ?").run(worktreePath, workerStateId);
   });
 }
 
-export function appendWorkerSessionId(store: StateStore, workerStateId: string, sessionId: string): void {
+export function appendWorkerSessionId(
+  store: StateStore,
+  workerStateId: string,
+  sessionId: string,
+  authority: WorkerWriteAuthority,
+): void {
   immediateTransaction(store.db, () => {
+    verifyWorkerWriteAuthority(store, authority);
     const row = store.db.query("SELECT worker_session_ids_json FROM worker_state WHERE id = ?").get(workerStateId) as
       | Record<string, unknown>
       | undefined;
@@ -556,10 +584,16 @@ export function appendWorkerSessionId(store: StateStore, workerStateId: string, 
   });
 }
 
-export function updateWorkerStateBaselineScore(store: StateStore, workerStateId: string, score: number | null): void {
+export function updateWorkerStateBaselineScore(
+  store: StateStore,
+  workerStateId: string,
+  score: number | null,
+  authority: WorkerWriteAuthority,
+): void {
   const baseline = finiteOrNull(score);
   if (baseline === null) return;
-  withBusyRetry(() => {
+  immediateTransaction(store.db, () => {
+    verifyWorkerWriteAuthority(store, authority);
     store.db
       .query(
         `
@@ -644,6 +678,7 @@ export function workerCheckpointsForWorkerState(store: StateStore, workerStateId
 }
 
 export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpointInput): WorkerCheckpointRecord {
+  const { authority, ...recordInput } = input;
   const id = randomUUID();
   const validationTime = now();
   const oldScore = finiteOrNull(input.oldScore);
@@ -657,6 +692,7 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
   const selectable = input.hardGatesPassed && improvedOverBaseline;
 
   immediateTransaction(store.db, () => {
+    verifyWorkerWriteAuthority(store, authority);
     store.db
       .query(
         `
@@ -707,7 +743,7 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
   });
 
   return {
-    ...input,
+    ...recordInput,
     id,
     validationTime,
     oldScore,
@@ -725,6 +761,7 @@ export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput
   const endedAt = now();
   const epochTargetStatus = input.epochTargetStatus ?? "finished";
   immediateTransaction(store.db, () => {
+    verifyWorkerWriteAuthority(store, input.authority);
     const row = store.db
       .query(
         `

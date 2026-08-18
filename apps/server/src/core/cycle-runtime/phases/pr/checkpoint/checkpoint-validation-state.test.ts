@@ -61,6 +61,7 @@ function exactCheckpoint(store: StateStore, validationState: "tentative" | "conf
   if (!claim) throw new Error("expected test claim");
   recordWorkerCheckpoint(store, {
     workerStateId: claim.workerStateId,
+    authority: { host: "checkpoint-validation-state-test" },
     runId: run.id,
     epochId: claim.epochId,
     epochTargetId: claim.epochTargetId,
@@ -76,7 +77,11 @@ function exactCheckpoint(store: StateStore, validationState: "tentative" | "conf
     diffPath: "/tmp/exact.patch",
     writeSet: ["src/exact.c"],
   });
-  closeWorkerState(store, { workerStateId: claim.workerStateId, lifecycleStatus: "exact" });
+  closeWorkerState(store, {
+    workerStateId: claim.workerStateId,
+    authority: { host: "checkpoint-validation-state-test" },
+    lifecycleStatus: "exact",
+  });
   return run;
 }
 

@@ -12,7 +12,6 @@ import {
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import { parse } from "../src/core/game-registry/runtime-options.js";
 import { buildPrSplitPlanFromChanges } from "../src/core/cycle-runtime/phases/pr/jobs/pr-split-plan.js";
-import { workerOpenSlots } from "../src/core/cycle-runtime/phases/running/scheduler/run-loop.js";
 import { agentNoteSignalsToolError, workerAttemptRepairReasons } from "../src/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { loadKnowledgeBoardSnapshot, openKnowledgeGraph } from "@server/core/knowledge";
 import { planRegressionRepair } from "@server/core/cycle-runtime/phases/running/epochs";
@@ -23,13 +22,14 @@ import {
   admitEpochTargets,
   createRun,
   claimNextEpochTarget as claimNextEpochTargetRaw,
-  closeWorkerState,
+  closeWorkerState as closeWorkerStateRaw,
   openState,
   admittedTargetCount,
-  recordWorkerCheckpoint,
+  recordWorkerCheckpoint as recordWorkerCheckpointRaw,
   schedulableTargetCount,
   startSchedulerEpoch,
   updateRunStatus,
+  type StateStore,
 } from "@server/core/cycle-runtime/run-state";
 import { listGames, resolveGame } from "@server/core/game-registry";
 import { scoreOrPercent, scorePairLooksPercent } from "../../frontend/src/lib/format.js";
@@ -59,6 +59,14 @@ const assertions: AssertionRecord[] = [];
 
 function claimNextEpochTarget(params: Omit<Parameters<typeof claimNextEpochTargetRaw>[0], "ttlSeconds"> & { ttlSeconds?: number }) {
   return claimNextEpochTargetRaw({ ...params, ttlSeconds: params.ttlSeconds ?? TEST_WORKER_TIMEOUT_SECONDS });
+}
+
+function closeWorkerState(store: StateStore, input: Omit<Parameters<typeof closeWorkerStateRaw>[1], "authority">): void {
+  closeWorkerStateRaw(store, { ...input, authority: { host: "server-smoke" } });
+}
+
+function recordWorkerCheckpoint(store: StateStore, input: Omit<Parameters<typeof recordWorkerCheckpointRaw>[1], "authority">) {
+  return recordWorkerCheckpointRaw(store, { ...input, authority: { host: "server-smoke" } });
 }
 
 function assertSmoke(name: string, condition: unknown): void {
@@ -495,18 +503,6 @@ async function main(): Promise<void> {
     }).some((reason) => reason.includes("review lint")),
   );
 
-  assertSmoke(
-    "worker slot math refills one completed local worker",
-    workerOpenSlots({ maxWorkers: 32, activeWorkers: 31, runningWorkers: 31, activeLocalWorkers: 31 }) === 1,
-  );
-  assertSmoke(
-    "worker slot math guards pending local startups",
-    workerOpenSlots({ maxWorkers: 32, activeWorkers: 0, runningWorkers: 32, activeLocalWorkers: 0 }) === 0,
-  );
-  assertSmoke(
-    "worker slot math accounts for external active workers plus local pending workers",
-    workerOpenSlots({ maxWorkers: 32, activeWorkers: 20, runningWorkers: 5, activeLocalWorkers: 0 }) === 7,
-  );
   const repairEntry = (unitName: string, itemName: string, fromPercent: number, toPercent: number) => ({
     unitName,
     itemName,

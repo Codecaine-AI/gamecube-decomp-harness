@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readdirSync, statSync, symlinkSync } from "node:fs";
-import { chmod, copyFile, cp, mkdir, readFile, readdir, rm, utimes, writeFile } from "node:fs/promises";
-import { basename, delimiter, dirname, isAbsolute, relative, resolve } from "node:path";
+import { existsSync, lstatSync, statSync, symlinkSync } from "node:fs";
+import { chmod, cp, mkdir, readFile, readdir, rm, utimes, writeFile } from "node:fs/promises";
+import { delimiter, dirname, isAbsolute, relative, resolve } from "node:path";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import {
   appendWorkerActivityEvent,
@@ -27,10 +27,6 @@ import {
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import {
   isHostToolPlatform,
-  requiredStateToolArtifactError,
-  resolveStateToolArtifact,
-  resolveToolPlatform,
-  TOOL_PLATFORMS,
   type ToolPlatform,
 } from "@server/core/tools/platform.js";
 import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
@@ -45,24 +41,21 @@ import { runCommand } from "@server/infrastructure/shell";
 import { addPiSession } from "@server/core/cycle-runtime/run-state";
 import { getActiveCycle } from "@server/core/cycle";
 import {
-  activeSchedulerEpoch,
   addEvent,
   appendWorkerSessionId,
   bestCheckpointForWorkerState,
-  claimNextEpochTarget,
   closeWorkerState,
   enqueueWorkerOutputIntegration,
-  getLatestRun,
   getRun,
   openState,
   recordWorkerCheckpoint,
-  setClaimWorktreePath,
   updateWorkerStateBaselineScore,
   workerCheckpointsForWorkerState,
+  type ClaimedTarget,
   type StateStore,
   type WorkerCheckpointRecord,
 } from "@server/core/cycle-runtime/run-state";
-import { widenClaimWriteSet } from "@server/core/cycle-runtime/run-state/worker-state.js";
+import { epochTargetToClaim, normalizeWriteSetEntries, widenClaimWriteSet } from "@server/core/cycle-runtime/run-state/worker-state.js";
 import {
   categorizePath,
   type WideningDecision,
@@ -78,10 +71,9 @@ import {
   recordWriteSetWideningDecision,
   recordWriteSetWideningValidation,
 } from "@server/core/cycle-runtime/run-state/write-set-widening.js";
-import {
-  processWorkerOutputIntegrationQueue,
-  type WorkerOutputConflictResolverConfig,
-  type WorkerOutputIntegrationApplyResult,
+import type {
+  WorkerOutputConflictResolverConfig,
+  WorkerOutputIntegrationApplyResult,
 } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import type { PiRunResult } from "@server/core/shared/types";
 import {
@@ -92,7 +84,8 @@ import {
   type WriteSetWideningMode,
 } from "@server/core/game-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/cycle-runtime/phases/running/jobs/shared.js";
-import { workerTtlSeconds } from "@server/core/cycle-runtime/phases/running/worker-ttl.js";
+import { verifyClaimToken } from "@server/core/job-queue/kernel.js";
+import type { ClaimToken } from "@server/core/job-queue/types.js";
 
 export interface WorkerCycleResult {
   runId: string;
@@ -860,18 +853,6 @@ function outputTail(text: string, maxChars = 2000): string {
   return text.length <= maxChars ? text : text.slice(-maxChars);
 }
 
-async function runGit(cwd: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string; exitCode: number }> {
-  const result = await runCommand(cwd, ["git", ...args]);
-  return { ok: result.exitCode === 0, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
-}
-
-async function resolveBaseRev(repoRoot: string, requested: string): Promise<string> {
-  if (requested && requested !== "unknown") return requested;
-  const head = await runGit(repoRoot, ["rev-parse", "--verify", "HEAD"]);
-  if (!head.ok) throw new Error(`Unable to resolve worker base revision from ${repoRoot}: ${outputTail(head.stderr || head.stdout)}`);
-  return head.stdout.trim();
-}
-
 function cycleRootFromRepoRoot(globals: GlobalArgs): string | null {
   const gameDir = globals.game?.gameDir ?? dirname(globals.repoRoot);
   const cyclesRoot = resolve(gameDir, "worktrees", "cycles");
@@ -887,6 +868,24 @@ function workerEpochDirectory(epoch: { ordinal?: number } | null): string {
   return Number.isInteger(ordinal) && ordinal > 0 ? String(ordinal).padStart(4, "0") : "legacy";
 }
 
+export function resolveBaseRev(repoRoot: string, requested: string): string {
+  const candidate = requested.trim() && requested.trim() !== "unknown" ? requested.trim() : "HEAD";
+  const resolved = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", `${candidate}^{commit}`], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (resolved.exitCode === 0) return resolved.stdout.toString().trim();
+
+  const fallback = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", "HEAD^{commit}"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (fallback.exitCode !== 0) {
+    throw new Error(`Unable to resolve base revision ${requested || "HEAD"}: ${fallback.stderr.toString().trim()}`);
+  }
+  return fallback.stdout.toString().trim();
+}
+
 export function workerWorktreePath(globals: GlobalArgs, claimId: string, epoch: { ordinal?: number } | null = null): string {
   if (globals.dryRunAgents) return resolve(globals.stateDir, "dry_run_worktrees", claimId, "source");
   const gameDir = globals.game?.gameDir ?? dirname(globals.repoRoot);
@@ -897,44 +896,12 @@ export function workerWorktreePath(globals: GlobalArgs, claimId: string, epoch: 
   return resolve(gameDir, "worktrees", claimId, "source");
 }
 
-function linkMissingTree(sourceDir: string, targetDir: string): number {
-  let linked = 0;
-  mkdirSync(targetDir, { recursive: true });
-  for (const entry of readdirSync(sourceDir)) {
-    const sourcePath = resolve(sourceDir, entry);
-    const targetPath = resolve(targetDir, entry);
-    if (statSync(sourcePath).isDirectory()) {
-      linked += linkMissingTree(sourcePath, targetPath);
-    } else if (existsSync(targetPath)) {
-      continue;
-    } else {
-      symlinkSync(sourcePath, targetPath);
-      linked += 1;
-    }
-  }
-  return linked;
-}
-
-interface WorkerReportArtifactSource {
-  relativePath: string;
-  sourcePath: string;
-}
-
-const WORKER_REPORT_ARTIFACT_RELATIVE_PATHS = [
-  "build/GALE01/report.json",
-  "build/GALE01/report_changes.json",
-  "build/GALE01/baseline.json",
-];
-
 const WORKER_TOOL_ARTIFACTS = [
   { name: "tools", relativePath: "build/tools", mode: "copy" },
   { name: "compilers", relativePath: "build/compilers", mode: "link" },
   { name: "binutils", relativePath: "build/binutils", mode: "link" },
 ] as const;
 const WORKER_TOOL_ARTIFACT_RELATIVE_PATHS = WORKER_TOOL_ARTIFACTS.map((artifact) => artifact.relativePath);
-const WORKER_WORKTREE_LOCK_STALE_MS = 10 * 60 * 1000;
-const WORKER_WORKTREE_LOCK_MISSING_OWNER_STALE_MS = 30 * 1000;
-const WORKER_SETUP_COMMAND_TIMEOUT_MS = 20 * 60 * 1000;
 const WORKER_SHELL_BIN_DIRNAME = "worker_shell_bin";
 
 const WORKER_FIND_GUARD_SCRIPT = `#!/bin/sh
@@ -996,10 +963,6 @@ interface WorkerConfigureToolPaths {
   dtk?: string;
   objdiff?: string;
   sjiswrap?: string;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
 
 function envKeyForToolPath(id: string): string {
@@ -1073,164 +1036,10 @@ export function workerWorktreeLockDir(workerRepoRoot: string): string {
   return resolve(dirname(dirname(workerRepoRoot)), ".git-worktree-add.lock");
 }
 
-async function lockLooksStale(lockDir: string): Promise<boolean> {
-  const ageMs = (() => {
-    try {
-      return Date.now() - statSync(lockDir).mtimeMs;
-    } catch {
-      return WORKER_WORKTREE_LOCK_STALE_MS + 1;
-    }
-  })();
-
-  try {
-    const owner = JSON.parse(await readFile(resolve(lockDir, "owner.json"), "utf8")) as { pid?: unknown };
-    const pid = typeof owner.pid === "number" ? owner.pid : 0;
-    if (pid > 0) {
-      try {
-        process.kill(pid, 0);
-        return false;
-      } catch {
-        return true;
-      }
-    }
-  } catch {
-    return ageMs > WORKER_WORKTREE_LOCK_MISSING_OWNER_STALE_MS;
-  }
-
-  return ageMs > WORKER_WORKTREE_LOCK_STALE_MS;
-}
-
-async function acquireWorkerWorktreeLock(lockDir: string, owner: Record<string, unknown>): Promise<() => Promise<void>> {
-  const startedAt = Date.now();
-  for (;;) {
-    try {
-      await mkdir(lockDir);
-      await writeFile(
-        resolve(lockDir, "owner.json"),
-        JSON.stringify({ ...owner, pid: process.pid, acquiredAt: new Date().toISOString() }, null, 2),
-      );
-      return async () => {
-        await rm(lockDir, { recursive: true, force: true });
-      };
-    } catch (error) {
-      if ((error as { code?: string }).code !== "EEXIST") throw error;
-      if (await lockLooksStale(lockDir)) {
-        await rm(lockDir, { recursive: true, force: true });
-        continue;
-      }
-      if (Date.now() - startedAt > WORKER_WORKTREE_LOCK_STALE_MS) {
-        throw new Error(`Timed out waiting for worker git worktree lock at ${lockDir}`);
-      }
-      await sleep(200 + Math.floor(Math.random() * 300));
-    }
-  }
-}
-
 export function workerToolArtifactSourceRoots(globals: Pick<GlobalArgs, "repoRoot" | "game">): string[] {
   const roots = [globals.repoRoot];
   if (globals.game?.gameDir) roots.push(resolve(globals.game.gameDir, "worktrees", "upstream-current"));
   return Array.from(new Set(roots));
-}
-
-function toolArtifactSourcesForWorker(
-  globals: Pick<GlobalArgs, "repoRoot" | "stateDir" | "game">,
-  toolPlatform: ToolPlatform,
-): WorkerToolArtifactSource[] {
-  return WORKER_TOOL_ARTIFACTS.flatMap((artifact) => {
-    const stateSource = resolveStateToolArtifact({
-      stateDir: globals.stateDir,
-      name: artifact.name,
-      platform: toolPlatform,
-    });
-    if (stateSource) return [{ platform: toolPlatform, relativePath: artifact.relativePath, sourcePath: stateSource }];
-    if (!isHostToolPlatform(toolPlatform)) {
-      throw requiredStateToolArtifactError({ stateDir: globals.stateDir, name: artifact.name, platform: toolPlatform });
-    }
-    const sourcePath = workerToolArtifactSourceRoots(globals)
-      .map((root) => resolve(root, artifact.relativePath))
-      .find((candidate) => existsSync(candidate));
-    return sourcePath ? [{ platform: toolPlatform, relativePath: artifact.relativePath, sourcePath }] : [];
-  });
-}
-
-function latestArtifactSourcePath(store: StateStore, runId: string, artifactType: string, artifactKey: string): string | null {
-  const row = store.db
-    .query(
-      `
-        SELECT source_path
-        FROM dashboard_artifacts
-        WHERE run_id = ? AND artifact_type = ? AND artifact_key = ?
-        ORDER BY created_at DESC, id DESC
-        LIMIT 1
-      `,
-    )
-    .get(runId, artifactType, artifactKey) as { source_path?: unknown } | undefined;
-  return typeof row?.source_path === "string" && row.source_path ? row.source_path : null;
-}
-
-function reportArtifactSourcesForWorker(params: { store: StateStore; runId: string; globals: GlobalArgs }): WorkerReportArtifactSource[] {
-  const gameDir = params.globals.game?.gameDir ?? dirname(params.globals.repoRoot);
-  const fallbackRoots = [
-    params.globals.repoRoot,
-    resolve(gameDir, "worktrees", "upstream-current"),
-  ];
-  const dashboardSources: Record<string, Array<string | null>> = {
-    "build/GALE01/report.json": [
-      latestArtifactSourcePath(params.store, params.runId, "board_snapshot", "current"),
-      latestArtifactSourcePath(params.store, params.runId, "board_snapshot", "initial"),
-    ],
-    "build/GALE01/report_changes.json": [
-      latestArtifactSourcePath(params.store, params.runId, "trusted_report", "current"),
-      latestArtifactSourcePath(params.store, params.runId, "trusted_report", "baseline"),
-    ],
-    "build/GALE01/baseline.json": [],
-  };
-  const sources: WorkerReportArtifactSource[] = [];
-  for (const relativePath of WORKER_REPORT_ARTIFACT_RELATIVE_PATHS) {
-    const candidates = [
-      ...(dashboardSources[relativePath] ?? []),
-      ...fallbackRoots.map((root) => resolve(root, relativePath)),
-    ];
-    const sourcePath = candidates.find((candidate) => typeof candidate === "string" && candidate && existsSync(candidate));
-    if (sourcePath) sources.push({ relativePath, sourcePath });
-  }
-  return sources;
-}
-
-async function seedWorkerReportArtifacts(params: {
-  workerRepoRoot: string;
-  outputDir: string;
-  sources: WorkerReportArtifactSource[];
-}): Promise<void> {
-  const seeded: Array<Record<string, string>> = [];
-  const existing: string[] = [];
-  const sourceByRelativePath = new Map(params.sources.map((source) => [source.relativePath, source.sourcePath]));
-  for (const relativePath of WORKER_REPORT_ARTIFACT_RELATIVE_PATHS) {
-    const targetPath = resolve(params.workerRepoRoot, relativePath);
-    if (existsSync(targetPath)) {
-      existing.push(relativePath);
-      continue;
-    }
-    const sourcePath = sourceByRelativePath.get(relativePath);
-    if (!sourcePath || !existsSync(sourcePath)) continue;
-    await mkdir(dirname(targetPath), { recursive: true });
-    await copyFile(sourcePath, targetPath);
-    seeded.push({ relativePath, sourcePath, targetPath });
-  }
-  await writeFile(
-    resolve(params.outputDir, "worker_worktree_report_artifacts.json"),
-    JSON.stringify(
-      {
-        seeded,
-        existing,
-        missing: WORKER_REPORT_ARTIFACT_RELATIVE_PATHS.filter(
-          (relativePath) => !existing.includes(relativePath) && !seeded.some((item) => item.relativePath === relativePath),
-        ),
-      },
-      null,
-      2,
-    ),
-  );
 }
 
 export async function seedWorkerToolArtifacts(params: {
@@ -1322,23 +1131,6 @@ export async function seedWorkerToolArtifacts(params: {
   );
 }
 
-function localWorkerConfigureToolPaths(workerRepoRoot: string, toolPlatform: ToolPlatform): WorkerConfigureToolPaths {
-  const relativePaths: Required<WorkerConfigureToolPaths> = {
-    wrapper: "build/tools/wibo",
-    binutils: "build/binutils",
-    compilers: "build/compilers",
-    dtk: "build/tools/dtk",
-    objdiff: "build/tools/objdiff-cli",
-    sjiswrap: "build/tools/sjiswrap.exe",
-  };
-  const toolPaths: WorkerConfigureToolPaths = {};
-  for (const [key, relativePath] of Object.entries(relativePaths) as Array<[keyof WorkerConfigureToolPaths, string]>) {
-    if (key === "wrapper" && !TOOL_PLATFORMS.includes(toolPlatform)) continue;
-    if (existsSync(resolve(workerRepoRoot, relativePath))) toolPaths[key] = relativePath;
-  }
-  return toolPaths;
-}
-
 function hasShellFlag(command: string, flag: string): boolean {
   const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(?:^|\\s)${escaped}(?:\\s|=|$)`).test(command);
@@ -1386,175 +1178,6 @@ export function workerBuildNinjaNeedsToolReconfigure(buildNinjaText: string, too
     const escapedOutput = output.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`(?:^|\\n)build\\s+${escapedOutput}:\\s+download_tool(?:\\s|$)`).test(buildNinjaText);
   });
-}
-
-async function runLoggedWorkerSetupCommand(params: { workerRepoRoot: string; outputDir: string; logPrefix: string; command: string[]; label: string }): Promise<void> {
-  const stdoutPath = resolve(params.outputDir, `${params.logPrefix}.stdout.txt`);
-  const stderrPath = resolve(params.outputDir, `${params.logPrefix}.stderr.txt`);
-  const result = await runCommand(params.workerRepoRoot, params.command, { timeoutMs: WORKER_SETUP_COMMAND_TIMEOUT_MS });
-  await writeFile(stdoutPath, result.stdout);
-  await writeFile(stderrPath, result.stderr);
-  if (result.exitCode !== 0) {
-    throw new Error(`${params.label} failed (${result.exitCode}): ${outputTail(result.stderr || result.stdout)}`);
-  }
-}
-
-async function runWorkerConfigure(params: { workerRepoRoot: string; outputDir: string; command: string; toolPaths?: WorkerConfigureToolPaths }): Promise<void> {
-  const buildNinjaPath = resolve(params.workerRepoRoot, "build.ninja");
-  const objdiffCliPath = resolve(params.workerRepoRoot, "build/tools/objdiff-cli");
-  const toolPaths = params.toolPaths ?? {};
-  let needsToolReconfigure = false;
-  if (existsSync(buildNinjaPath) && params.command.trim()) {
-    const buildNinjaText = await readFile(buildNinjaPath, "utf8");
-    const commandRequestsWrapper = hasShellFlag(params.command, "--wrapper");
-    needsToolReconfigure =
-      workerBuildNinjaNeedsToolReconfigure(buildNinjaText, toolPaths) ||
-      (commandRequestsWrapper && /(?:^|\n)\s*command\s*=\s*wine(?:\s|$)/.test(buildNinjaText));
-  }
-  if (existsSync(buildNinjaPath) && existsSync(objdiffCliPath) && !needsToolReconfigure) return;
-  if ((!existsSync(buildNinjaPath) || needsToolReconfigure) && params.command.trim()) {
-    await runLoggedWorkerSetupCommand({
-      workerRepoRoot: params.workerRepoRoot,
-      outputDir: params.outputDir,
-      logPrefix: "worker_worktree_configure",
-      command: ["/bin/sh", "-c", configureCommandWithWorkerToolPaths(params.command, toolPaths)],
-      label: "worker worktree configure",
-    });
-  }
-  if (!existsSync(objdiffCliPath)) {
-    await runLoggedWorkerSetupCommand({
-      workerRepoRoot: params.workerRepoRoot,
-      outputDir: params.outputDir,
-      logPrefix: "worker_worktree_tools",
-      command: ["ninja", "build/tools/objdiff-cli"],
-      label: "worker worktree objdiff-cli bootstrap",
-    });
-  }
-  if (!existsSync(objdiffCliPath)) {
-    throw new Error(`worker worktree tools bootstrap did not create ${objdiffCliPath}`);
-  }
-}
-
-async function resetDisposableWorkerWorktree(params: { workerRepoRoot: string; outputDir: string; baseRev: string }): Promise<void> {
-  if (!existsSync(resolve(params.workerRepoRoot, ".git"))) return;
-  if (!isDisposableWorkerScratchPath(params.workerRepoRoot)) return;
-
-  await runLoggedWorkerSetupCommand({
-    workerRepoRoot: params.workerRepoRoot,
-    outputDir: params.outputDir,
-    logPrefix: "worker_worktree_reset",
-    command: ["git", "reset", "--hard", params.baseRev],
-    label: "worker worktree reset",
-  });
-  await runLoggedWorkerSetupCommand({
-    workerRepoRoot: params.workerRepoRoot,
-    outputDir: params.outputDir,
-    logPrefix: "worker_worktree_clean",
-    command: ["git", "clean", "-fd"],
-    label: "worker worktree clean",
-  });
-}
-
-function linkWorkerLogs(workerRepoRoot: string, outputDir: string): void {
-  const logsPath = resolve(dirname(workerRepoRoot), "logs");
-  if (existsSync(logsPath)) return;
-  try {
-    symlinkSync(outputDir, logsPath);
-  } catch {
-    if (!existsSync(logsPath)) throw new Error(`Unable to link worker logs at ${logsPath}`);
-  }
-}
-
-function isDisposableWorkerScratchPath(path: string): boolean {
-  const resolved = resolve(path);
-  const parts = resolved.split(/[\\/]+/);
-  return (
-    basename(resolved) === "source" &&
-    parts.includes("worktrees") &&
-    parts.includes("cycles") &&
-    parts.includes("epochs") &&
-    parts.includes("workers")
-  );
-}
-
-async function ensureWorkerWorktree(params: {
-  sourceRepoRoot: string;
-  workerRepoRoot: string;
-  baseRev: string;
-  outputDir: string;
-  configureCommand: string;
-  reportArtifactSources: WorkerReportArtifactSource[];
-  toolArtifactSources: WorkerToolArtifactSource[];
-  toolPlatform: ToolPlatform;
-  dryRun: boolean;
-}): Promise<void> {
-  await mkdir(params.outputDir, { recursive: true });
-  if (params.dryRun) {
-    await mkdir(params.workerRepoRoot, { recursive: true });
-    linkMissingTree(params.sourceRepoRoot, params.workerRepoRoot);
-    linkWorkerLogs(params.workerRepoRoot, params.outputDir);
-    await seedWorkerReportArtifacts({
-      workerRepoRoot: params.workerRepoRoot,
-      outputDir: params.outputDir,
-      sources: params.reportArtifactSources,
-    });
-    await seedWorkerToolArtifacts({
-      workerRepoRoot: params.workerRepoRoot,
-      outputDir: params.outputDir,
-      sources: params.toolArtifactSources,
-      toolPlatform: params.toolPlatform,
-    });
-    return;
-  }
-  if (!existsSync(resolve(params.workerRepoRoot, ".git"))) {
-    if (existsSync(params.workerRepoRoot)) {
-      if (!isDisposableWorkerScratchPath(params.workerRepoRoot)) {
-        throw new Error(`Worker worktree path exists but is not a Git worktree: ${params.workerRepoRoot}`);
-      }
-      await rm(params.workerRepoRoot, { recursive: true, force: true });
-    }
-    await mkdir(dirname(params.workerRepoRoot), { recursive: true });
-    const releaseWorktreeLock = await acquireWorkerWorktreeLock(workerWorktreeLockDir(params.workerRepoRoot), {
-      workerRepoRoot: params.workerRepoRoot,
-      sourceRepoRoot: params.sourceRepoRoot,
-      baseRev: params.baseRev,
-    });
-    try {
-      await runGit(params.sourceRepoRoot, ["worktree", "prune"]);
-      const add = await runGit(params.sourceRepoRoot, ["worktree", "add", "--detach", params.workerRepoRoot, params.baseRev]);
-      if (!add.ok) throw new Error(`git worktree add failed for worker checkout: ${outputTail(add.stderr || add.stdout)}`);
-    } finally {
-      await releaseWorktreeLock();
-    }
-  }
-  await resetDisposableWorkerWorktree({
-    workerRepoRoot: params.workerRepoRoot,
-    outputDir: params.outputDir,
-    baseRev: params.baseRev,
-  });
-
-  const origSource = resolve(params.sourceRepoRoot, "orig");
-  const origTarget = resolve(params.workerRepoRoot, "orig");
-  if (existsSync(origSource)) linkMissingTree(origSource, origTarget);
-  await seedWorkerToolArtifacts({
-    workerRepoRoot: params.workerRepoRoot,
-    outputDir: params.outputDir,
-    sources: params.toolArtifactSources,
-    toolPlatform: params.toolPlatform,
-  });
-  const configureToolPaths = localWorkerConfigureToolPaths(params.workerRepoRoot, params.toolPlatform);
-  await runWorkerConfigure({
-    workerRepoRoot: params.workerRepoRoot,
-    outputDir: params.outputDir,
-    command: params.configureCommand,
-    toolPaths: configureToolPaths,
-  });
-  await seedWorkerReportArtifacts({
-    workerRepoRoot: params.workerRepoRoot,
-    outputDir: params.outputDir,
-    sources: params.reportArtifactSources,
-  });
-  linkWorkerLogs(params.workerRepoRoot, params.outputDir);
 }
 
 async function integrateWorkerDiff(params: {
@@ -1641,7 +1264,7 @@ function clampSummary(text: string, maxChars = 400): string {
   return trimmed.length <= maxChars ? trimmed : `${trimmed.slice(0, maxChars)}…`;
 }
 
-function liveConflictResolverConfig(globals: GlobalArgs, sessionId: string, runId: string): WorkerOutputConflictResolverConfig {
+export function liveConflictResolverConfig(globals: GlobalArgs, sessionId: string, runId: string): WorkerOutputConflictResolverConfig {
   return {
     dryRun: globals.dryRunAgents,
     game: gameMetadata(globals),
@@ -1671,58 +1294,168 @@ function liveConflictResolverConfig(globals: GlobalArgs, sessionId: string, runI
   };
 }
 
-export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, string | true>): Promise<WorkerCycleResult> {
-  const toolPlatform = resolveToolPlatform();
+interface WorkerTaskFile {
+  version: 1;
+  run_id: string;
+  worker_id: string;
+  job_id: string;
+  claim_token: ClaimToken;
+  target_claim_id: string;
+  worker_state_id: string;
+  base_rev: string;
+  worktree_path: string;
+  artifact_dir: string;
+  ttl_seconds: number;
+  thinking_level: string;
+  post_return_check_command: string;
+  worker_configure_command: string;
+  graph_db_path: string;
+  write_set_flags: ReturnType<typeof writeSetIntegrationFlags>;
+  execution_class: string;
+}
+
+function requiredTaskString(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value.trim()) throw new Error(`Worker task is missing required string ${field}`);
+  return value;
+}
+
+export async function readWorkerTaskFile(args: Map<string, string | true>): Promise<WorkerTaskFile> {
+  const taskFile = stringArg(args, "--task-file", "").trim();
+  if (!taskFile) throw new Error("worker-task requires --task-file");
+  let value: unknown;
+  try {
+    value = JSON.parse(await readFile(taskFile, "utf8"));
+  } catch (error) {
+    throw new Error(`Unable to read worker task file ${taskFile}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Worker task file must contain a JSON object");
+  const row = value as Record<string, unknown>;
+  if (row.version !== 1) throw new Error(`Unsupported worker task version: ${String(row.version)}`);
+  const rawToken = row.claim_token;
+  if (!rawToken || typeof rawToken !== "object" || Array.isArray(rawToken)) throw new Error("Worker task is missing claim_token");
+  const tokenRow = rawToken as Record<string, unknown>;
+  const claimToken: ClaimToken = {
+    jobId: requiredTaskString(tokenRow.jobId, "claim_token.jobId"),
+    kind: requiredTaskString(tokenRow.kind, "claim_token.kind") as ClaimToken["kind"],
+    leaseId: requiredTaskString(tokenRow.leaseId, "claim_token.leaseId"),
+  };
+  if (claimToken.kind !== "worker") throw new Error(`Worker task claim_token has invalid kind: ${claimToken.kind}`);
+  const executionClass = requiredTaskString(row.execution_class, "execution_class");
+  if (executionClass !== "local" && executionClass !== "sandbox") {
+    throw new Error(`Worker task has invalid execution_class: ${executionClass}`);
+  }
+  if (typeof row.ttl_seconds !== "number" || !Number.isFinite(row.ttl_seconds) || row.ttl_seconds <= 0) {
+    throw new Error("Worker task requires a positive ttl_seconds");
+  }
+  if (!row.write_set_flags || typeof row.write_set_flags !== "object" || Array.isArray(row.write_set_flags)) {
+    throw new Error("Worker task is missing write_set_flags");
+  }
+  if (typeof row.post_return_check_command !== "string" || typeof row.worker_configure_command !== "string") {
+    throw new Error("Worker task command fields must be strings");
+  }
+  return {
+    ...(row as unknown as WorkerTaskFile),
+    version: 1,
+    run_id: requiredTaskString(row.run_id, "run_id"),
+    worker_id: requiredTaskString(row.worker_id, "worker_id"),
+    job_id: requiredTaskString(row.job_id, "job_id"),
+    claim_token: claimToken,
+    target_claim_id: requiredTaskString(row.target_claim_id, "target_claim_id"),
+    worker_state_id: requiredTaskString(row.worker_state_id, "worker_state_id"),
+    base_rev: requiredTaskString(row.base_rev, "base_rev"),
+    worktree_path: requiredTaskString(row.worktree_path, "worktree_path"),
+    artifact_dir: requiredTaskString(row.artifact_dir, "artifact_dir"),
+    thinking_level: requiredTaskString(row.thinking_level, "thinking_level"),
+    graph_db_path: requiredTaskString(row.graph_db_path, "graph_db_path"),
+    execution_class: executionClass,
+  };
+}
+
+export function reconstructClaimedWorkerTask(store: StateStore, task: WorkerTaskFile): ClaimedTarget & { worktreePath: string } {
+  const row = store.db.query(`
+    SELECT epoch_targets.*, target_claims.worker_id AS claim_worker_id,
+      target_claims.ttl AS claim_ttl, target_claims.write_set_json,
+      target_claims.write_set_entries_json, target_claims.worktree_path,
+      worker_state.id AS joined_worker_state_id
+    FROM target_claims
+    JOIN epoch_targets ON epoch_targets.id = target_claims.epoch_target_id
+    JOIN worker_state ON worker_state.target_claim_id = target_claims.id
+    WHERE target_claims.id = ? AND target_claims.status = 'active' AND worker_state.id = ?
+  `).get(task.target_claim_id, task.worker_state_id) as Record<string, unknown> | null;
+  if (!row) throw new Error(`Active target claim not found for worker task: ${task.target_claim_id}`);
+  if (String(row.claim_worker_id) !== task.worker_id) throw new Error(`Worker task worker_id does not match target claim ${task.target_claim_id}`);
+  const entries = normalizeWriteSetEntries(row.write_set_entries_json, row.write_set_json);
+  return {
+    ...epochTargetToClaim(row, {
+      claimId: task.target_claim_id,
+      workerStateId: task.worker_state_id,
+      workerId: task.worker_id,
+      ttl: String(row.claim_ttl),
+    }),
+    writeSet: entries.map((entry) => entry.path),
+    writeSetEntries: entries,
+    worktreePath: task.worktree_path,
+  };
+}
+
+export async function runWorkerCycleFromTask(globals: GlobalArgs, args: Map<string, string | true>): Promise<WorkerCycleResult> {
+  const task = await readWorkerTaskFile(args);
   const store = openState(globals.stateDir);
   try {
-    const leaseId = stringArg(args, "--lease-id", "").trim();
-    if (!leaseId) throw new Error("worker requires --lease-id");
-    const runId = stringArg(args, "--run-id", getLatestRun(store)?.id ?? "");
-    if (!runId) throw new Error("No run found. Run init-run first.");
-    const run = getRun(store, runId);
-    if (!run) throw new Error(`Run not found: ${runId}`);
-    assertSchedulableRun(run, "worker");
+    if (task.claim_token.jobId !== task.job_id) throw new Error("Worker task job_id does not match claim_token.jobId");
+    verifyClaimToken(store, task.claim_token);
+    const run = getRun(store, task.run_id);
+    if (!run) throw new Error(`Run not found: ${task.run_id}`);
+    assertSchedulableRun(run, "worker-task");
     const cycleGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId;
-    const sessionId = run.cycleUuid ?? (cycleGameId ? getActiveCycle(store.db, cycleGameId)?.cycle_uuid : null) ?? runId;
-
-    const workerId = stringArg(args, "--worker-id", `worker-${process.pid}-${Date.now()}-${randomUUID().slice(0, 8)}`);
-    const baseRev = await resolveBaseRev(globals.repoRoot, stringArg(args, "--base-rev", "unknown"));
-    const ttlSeconds = workerTtlSeconds(globals, args);
-    const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
-    const workerConfigureCommand = stringArg(args, "--worker-configure-command", "python3 configure.py --require-protos");
-    const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
-    const writeSetFlags = writeSetIntegrationFlags(args);
-    const writeSetWideningMode = writeSetFlags.writeSetWidening;
-    const schedulerEpoch = activeSchedulerEpoch(store, runId);
-    if (!schedulerEpoch) throw new Error(`No active epoch with admitted targets for cycle ${runId}`);
-    const claimed = claimNextEpochTarget({
+    const sessionId = run.cycleUuid ?? (cycleGameId ? getActiveCycle(store.db, cycleGameId)?.cycle_uuid : null) ?? task.run_id;
+    const claimed = reconstructClaimedWorkerTask(store, task);
+    if (!existsSync(task.worktree_path)) throw new Error(`Worker task worktree_path does not exist: ${task.worktree_path}`);
+    return await executeClaimedWorker({
       store,
-      runId,
-      workerId,
-      baseRev,
-      ttlSeconds,
-      leaseId,
+      globals,
+      run,
+      runId: task.run_id,
+      sessionId,
+      claimed,
+      workerRepoRoot: task.worktree_path,
+      outputDir: task.artifact_dir,
+      baseRev: task.base_rev,
+      ttlSeconds: task.ttl_seconds,
+      thinkingLevel: task.thinking_level,
+      postReturnCheckCommand: task.post_return_check_command,
+      graphDbPath: task.graph_db_path,
+      writeSetFlags: task.write_set_flags,
+      token: task.claim_token,
     });
-    if (!claimed) throw new Error(`No admitted epoch targets available for cycle ${runId}`);
+  } finally {
+    store.db.close();
+  }
+}
+
+async function executeClaimedWorker(params: {
+  store: StateStore;
+  globals: GlobalArgs;
+  run: NonNullable<ReturnType<typeof getRun>>;
+  runId: string;
+  sessionId: string;
+  claimed: ClaimedTarget & { worktreePath: string };
+  workerRepoRoot: string;
+  outputDir: string;
+  baseRev: string;
+  ttlSeconds: number;
+  thinkingLevel: string;
+  postReturnCheckCommand: string;
+  graphDbPath: string;
+  writeSetFlags: ReturnType<typeof writeSetIntegrationFlags>;
+  token: ClaimToken;
+}): Promise<WorkerCycleResult> {
+    const { store, globals, run, runId, sessionId, claimed, workerRepoRoot, outputDir, baseRev,
+      ttlSeconds, thinkingLevel, postReturnCheckCommand, graphDbPath, writeSetFlags, token } = params;
+    const writeSetWideningMode = writeSetFlags.writeSetWidening;
     let currentWriteSet = [...claimed.writeSet];
     let currentEntries = [...claimed.writeSetEntries];
     const wideningIds: string[] = [];
-    const outputDir = resolve(globals.stateDir, "runs", runId, "worker_state", claimed.workerStateId);
-    store.db.query("UPDATE worker_state SET artifact_dir = ? WHERE id = ?").run(outputDir, claimed.workerStateId);
-    const workerRepoRoot = workerWorktreePath(globals, claimed.claimId, schedulerEpoch);
-    setClaimWorktreePath(store, claimed.claimId, claimed.workerStateId, workerRepoRoot);
-    await ensureWorkerWorktree({
-      sourceRepoRoot: globals.repoRoot,
-      workerRepoRoot,
-      baseRev,
-      outputDir,
-      configureCommand: workerConfigureCommand,
-      reportArtifactSources: reportArtifactSourcesForWorker({ store, runId, globals }),
-      toolArtifactSources: toolArtifactSourcesForWorker(globals, toolPlatform),
-      toolPlatform,
-      dryRun: globals.dryRunAgents,
-    });
-    const claimWithWorktree = { ...claimed, worktreePath: workerRepoRoot };
     const game = gameMetadata(globals, { graphDbPath, repoRoot: workerRepoRoot });
     const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, 12, { graphDbPath });
     const target = targetPacketTarget(claimed.target);
@@ -1751,12 +1484,12 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     });
     const measuredBaselineScore = finiteNumber(workerChangeBaseline.snapshot?.targetScore);
     if (measuredBaselineScore !== null) {
-      updateWorkerStateBaselineScore(store, claimed.workerStateId, measuredBaselineScore);
+      updateWorkerStateBaselineScore(store, claimed.workerStateId, measuredBaselineScore, token);
       target.fuzzy_match_percent = measuredBaselineScore;
     }
     const packet = workerPacket({
       run,
-      claim: claimWithWorktree,
+      claim: claimed,
       target,
       baselineMeasures: snapshot.measures,
       knowledgeContext,
@@ -1838,7 +1571,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
           dryRun: globals.dryRunAgents,
           provider: globals.provider,
           model: globals.model,
-          thinkingLevel: globals.thinkingLevel,
+          thinkingLevel,
           timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
           env: workerAgentEnv,
           // Whole-file writes conflict with the preserve-dirty-work rule and were
@@ -1860,13 +1593,13 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
             gameId: game?.gameId ?? globals.gameId,
             sessionId: runId,
             runId,
-            epochId: schedulerEpoch?.id ?? "active",
+            epochId: claimed.epochId,
             claimId: claimed.claimId,
             targetId: claimed.targetId,
             phase: "worker",
             workingDir: workerRepoRoot,
             metadata: {
-              workerId,
+              workerId: claimed.workerId,
               attemptIndex,
               cycleRetryIndex,
               contextRetryIndex,
@@ -1910,11 +1643,11 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
         sessionFile: result.sessionFile,
         provider: globals.provider,
         model: globals.model,
-        thinkingLevel: globals.thinkingLevel,
+        thinkingLevel,
         status: result.failed || result.providerError ? "failed" : result.dryRun ? "dry_run" : "succeeded",
         outputPath: result.outputPath,
       });
-      appendWorkerSessionId(store, claimed.workerStateId, result.sessionId);
+      appendWorkerSessionId(store, claimed.workerStateId, result.sessionId, token);
       appendWorkerActivityEvent(outputDir, {
         claim_id: claimed.claimId,
         session_id: result.sessionId,
@@ -2002,7 +1735,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
                 addedBy: "widening",
                 wideningId,
               }));
-              const widened = widenClaimWriteSet(store, claimed.claimId, entries);
+              const widened = widenClaimWriteSet(store, claimed.claimId, entries, token);
               currentWriteSet = widened.writeSet;
               currentEntries = widened.entries;
               wideningIds.push(wideningId);
@@ -2293,6 +2026,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       const runnerValidation = mergeRunnerValidation(changeValidation, postReturnCheck);
       if (runnerValidation.summaryPath) await writeFile(runnerValidation.summaryPath, JSON.stringify(runnerValidation, null, 2));
       recordWorkerCheckpoint(store, {
+        authority: token,
         workerStateId: claimed.workerStateId,
         runId,
         epochId: claimed.epochId,
@@ -2591,6 +2325,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
     }
 
     closeWorkerState(store, {
+        authority: token,
       workerStateId: claimed.workerStateId,
       lifecycleStatus,
       timeoutSummary: lifecycleStatus === "timeout" ? summaryText : null,
@@ -2629,17 +2364,7 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
           target,
         },
       });
-      const queue = await processWorkerOutputIntegrationQueue({
-        conflictResolver: writeSetFlags.mergeOnFinish ? liveConflictResolverConfig(globals, sessionId, runId) : undefined,
-        dryRun: globals.dryRunAgents,
-        leaseId,
-        mergeOnFinish: writeSetFlags.mergeOnFinish,
-        repoRoot: globals.repoRoot,
-        runId,
-        stateDir: globals.stateDir,
-        store,
-      });
-      workerOutputIntegration = { itemId: item.id, processed: queue.processed };
+      workerOutputIntegration = { itemId: item.id, processed: [] };
     }
     appendWorkerActivityEvent(outputDir, {
       claim_id: claimed.claimId,
@@ -2681,9 +2406,6 @@ export async function runWorkerCycle(globals: GlobalArgs, args: Map<string, stri
       error: errorClassification?.summary,
       workerOutputIntegration,
     };
-  } finally {
-    store.db.close();
-  }
 }
 
 export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resourceGraphDbPath()): Record<string, unknown> {
@@ -2723,6 +2445,6 @@ export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resour
   }
 }
 
-export async function worker(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
-  console.log(JSON.stringify(await runWorkerCycle(globals, args), null, 2));
+export async function workerTask(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
+  console.log(JSON.stringify(await runWorkerCycleFromTask(globals, args), null, 2));
 }

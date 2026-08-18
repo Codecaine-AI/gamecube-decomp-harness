@@ -6,7 +6,7 @@ import {
   admitEpochTargets,
   claimNextEpochTarget as claimNextEpochTargetRaw,
   closeSchedulerEpoch,
-  closeWorkerState,
+  closeWorkerState as closeWorkerStateRaw,
   createRun,
   enqueueWorkerOutputIntegration,
   openState,
@@ -46,6 +46,10 @@ function tempState(): { dir: string; store: StateStore } {
 
 function claimNextEpochTarget(params: Omit<Parameters<typeof claimNextEpochTargetRaw>[0], "ttlSeconds"> & { ttlSeconds?: number }) {
   return claimNextEpochTargetRaw({ ...params, ttlSeconds: params.ttlSeconds ?? TEST_WORKER_TIMEOUT_SECONDS });
+}
+
+function closeWorkerState(store: StateStore, input: Omit<Parameters<typeof closeWorkerStateRaw>[1], "authority">): void {
+  closeWorkerStateRaw(store, { ...input, authority: { host: "dashboard-read-model-test" } });
 }
 
 function writeActivityLog(path: string, events: Record<string, unknown>[]): void {

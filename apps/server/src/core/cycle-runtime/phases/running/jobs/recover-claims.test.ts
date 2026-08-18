@@ -150,6 +150,7 @@ describe("recoverActiveClaims", () => {
       if (!claim) throw new Error("expected worker claim");
       recordWorkerCheckpoint(store, {
         workerStateId: claim.workerStateId,
+        authority: { host: "recover-claims-test" },
         runId: run.id,
         epochId: claim.epochId,
         epochTargetId: claim.epochTargetId,
