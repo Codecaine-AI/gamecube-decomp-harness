@@ -685,15 +685,15 @@ CREATE TABLE worker_checkpoints (
         metadata_json TEXT NOT NULL DEFAULT '{}'
       );
 
-CREATE TABLE worker_output_integrations (
+CREATE TABLE integration_outcomes (
         id TEXT PRIMARY KEY,
         run_id TEXT NOT NULL,
         epoch_id TEXT NOT NULL,
         epoch_target_id TEXT NOT NULL,
         target_claim_id TEXT NOT NULL,
         worker_state_id TEXT NOT NULL,
-        worker_checkpoint_id TEXT,
-        status TEXT NOT NULL,
+        worker_checkpoint_id TEXT UNIQUE NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('applied', 'conflict', 'skipped', 'failed', 'resolved', 'needs_rework', 'blocked', 'rejected', 'resolver_failed')),
         disposition TEXT,
         target_key TEXT,
         patch_path TEXT,
@@ -705,14 +705,12 @@ CREATE TABLE worker_output_integrations (
         apply_stdout_path TEXT,
         apply_stderr_path TEXT,
         write_set_json TEXT NOT NULL DEFAULT '[]',
-        validation_state TEXT NOT NULL DEFAULT 'tentative',
         conflict_paths_json TEXT NOT NULL DEFAULT '[]',
         failure_reasons_json TEXT NOT NULL DEFAULT '[]',
         metadata_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        resolved_at TEXT,
-        UNIQUE(worker_checkpoint_id)
+        resolved_at TEXT
       );
 
 CREATE TABLE worker_reports (
@@ -898,10 +896,8 @@ CREATE INDEX worker_checkpoints_epoch_target
 CREATE INDEX worker_checkpoints_state_selectable
         ON worker_checkpoints (worker_state_id, selectable, exact_match, new_score, validation_time);
 
-CREATE UNIQUE INDEX worker_output_integrations_checkpoint ON worker_output_integrations (worker_checkpoint_id);
-
-CREATE INDEX worker_output_integrations_run_status
-        ON worker_output_integrations (run_id, status, created_at);
+CREATE INDEX integration_outcomes_run_status
+        ON integration_outcomes (run_id, status);
 
 CREATE INDEX worker_state_run_status
         ON worker_state (run_id, lifecycle_status);

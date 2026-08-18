@@ -16,13 +16,14 @@ import {
 } from "@server/core/agent-catalog/agents/running/conflict-resolver/context.js";
 import {
   addEvent,
-  claimNextWorkerOutputIntegration,
+  getWorkerOutputIntegration,
   updateWorkerOutputIntegration,
   workerOutputIntegrationQueueSummary,
   type StateStore,
   type WorkerOutputIntegrationRecord,
   type WorkerOutputIntegrationStatus,
 } from "@server/core/cycle-runtime/run-state";
+import { claimNextJob, completeJob, failJob } from "@server/core/job-queue/kernel.js";
 import { requireLease } from "@server/core/harness-state";
 import type { RunGameMetadata } from "@server/core/shared/types";
 import { processWriteSetIntegrationFlags } from "./write-set-options.js";
@@ -181,9 +182,9 @@ function incumbentClaimSnapshots(store: StateStore, record: WorkerOutputIntegrat
     .query(
       `
         SELECT id, target_claim_id, worker_state_id, worker_checkpoint_id,
-               target_key, write_set_json, validation_state, metadata_json,
+               target_key, write_set_json, metadata_json,
                created_at, updated_at
-        FROM worker_output_integrations
+        FROM integration_outcomes
         WHERE run_id = ?
           AND id != ?
           AND status IN ('applied', 'resolved')
@@ -200,7 +201,7 @@ function incumbentClaimSnapshots(store: StateStore, record: WorkerOutputIntegrat
       checkpoint_id: row.worker_checkpoint_id == null ? null : String(row.worker_checkpoint_id),
       target_key: row.target_key == null ? null : String(row.target_key),
       write_set: stringArray(row.write_set_json),
-      validation_state: row.validation_state == null ? null : String(row.validation_state),
+      validation_state: jsonObject(row.metadata_json).validation_state ?? null,
       metadata: jsonObject(row.metadata_json),
       created_at: String(row.created_at),
       updated_at: String(row.updated_at),
@@ -450,7 +451,6 @@ async function updateAndSummarize(
 }
 
 function markTentative(store: StateStore, record: WorkerOutputIntegrationRecord): void {
-  store.db.query("UPDATE worker_output_integrations SET validation_state = 'tentative' WHERE id = ?").run(record.id);
   if (record.workerCheckpointId) {
     store.db.query("UPDATE worker_checkpoints SET validation_state = 'tentative' WHERE id = ?").run(record.workerCheckpointId);
   }
@@ -906,17 +906,22 @@ export async function processWorkerOutputIntegrationQueue(params: {
 
   while (processed.length < limit) {
     revalidateIntegrationLease(params.store, params.leaseId);
-    const record = claimNextWorkerOutputIntegration(params.store, params.runId);
-    if (!record) {
+    const claimed = claimNextJob(params.store, {
+      kind: "integration",
+      concurrencyLimit: 1,
+      leaseMs: 15 * 60_000,
+      runId: params.runId,
+    });
+    if (!claimed) {
       if (mergeOnFinish && Date.now() < waitDeadline) {
         const pending = params.store.db
           .query(
             `
               SELECT
-                SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END) AS queued,
-                SUM(CASE WHEN status = 'applying' THEN 1 ELSE 0 END) AS applying
-              FROM worker_output_integrations
-              WHERE run_id = ?
+                SUM(CASE WHEN status IN ('queued', 'waiting') THEN 1 ELSE 0 END) AS queued,
+                SUM(CASE WHEN status IN ('claimed', 'running') THEN 1 ELSE 0 END) AS applying
+              FROM jobs
+              WHERE kind = 'integration' AND run_id = ?
             `,
           )
           .get(params.runId) as Record<string, unknown>;
@@ -927,9 +932,13 @@ export async function processWorkerOutputIntegrationQueue(params: {
       }
       break;
     }
+    const record = getWorkerOutputIntegration(params.store, claimed.job.jobId);
+    if (!record) {
+      failJob(params.store, claimed.token, `integration job ${claimed.job.jobId} has no record view`);
+      continue;
+    }
     try {
-      processed.push(
-        await applyClaimedWorkerOutput({
+      const result = await applyClaimedWorkerOutput({
           commandRunner,
           conflictResolver: params.conflictResolver,
           dryRun: params.dryRun,
@@ -939,19 +948,11 @@ export async function processWorkerOutputIntegrationQueue(params: {
           stateDir: params.stateDir,
           store: params.store,
           record,
-        }),
-      );
-    } catch (error) {
-      const artifacts = integrationArtifacts(params.stateDir, record.runId, record.id);
-      await mkdir(artifacts.artifactDir, { recursive: true });
-      const result = await updateAndSummarize(params.store, record, {
-        status: "failed",
-        disposition: "processor_error",
-        artifacts,
-        failureReasons: [error instanceof Error ? error.message : String(error)],
       });
-      addEvent(params.store, record.runId, "worker_integration_conflict", "worker-output-integration", result);
+      completeJob(params.store, claimed.token, { resultRef: result.id });
       processed.push(result);
+    } catch (error) {
+      failJob(params.store, claimed.token, error instanceof Error ? error.message : String(error));
     }
   }
 

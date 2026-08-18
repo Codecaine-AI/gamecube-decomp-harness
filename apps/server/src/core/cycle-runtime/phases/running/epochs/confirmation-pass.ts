@@ -84,10 +84,10 @@ function loadTentativeWindow(store: StateStore, runId: string): ConfirmationCand
       `
         SELECT id, worker_checkpoint_id, target_claim_id, patch_path,
                write_set_json, metadata_json, created_at
-        FROM worker_output_integrations
+        FROM integration_outcomes
         WHERE run_id = ?
           AND status IN ('applied', 'resolved')
-          AND validation_state = 'tentative'
+          AND COALESCE(json_extract(metadata_json, '$.confirmation.validation_state'), 'tentative') = 'tentative'
         ORDER BY created_at ASC, id ASC
       `,
     )
@@ -177,16 +177,15 @@ function writeValidationState(params: {
     params.store.db
       .query(
         `
-          UPDATE worker_output_integrations
-          SET validation_state = ?,
-              status = COALESCE(?, status),
+          UPDATE integration_outcomes
+          SET status = COALESCE(?, status),
               disposition = ?,
               metadata_json = ?,
               updated_at = ?
           WHERE id = ?
         `,
       )
-      .run(params.state, params.status ?? null, params.disposition, JSON.stringify(metadata), String(params.confirmation.finished_at), candidate.integrationId);
+      .run(params.status ?? null, params.disposition, JSON.stringify(metadata), String(params.confirmation.finished_at), candidate.integrationId);
     if (candidate.checkpointId) {
       const checkpoint = params.store.db
         .query("SELECT metadata_json FROM worker_checkpoints WHERE id = ?")

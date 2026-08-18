@@ -231,7 +231,7 @@ describe("recoverActiveClaims", () => {
         }),
       ]);
       expect(
-        (store.db.query("SELECT status FROM worker_output_integrations WHERE id = ?").get(itemId) as Record<string, unknown>).status,
+        (store.db.query("SELECT status FROM jobs WHERE job_id = ?").get(itemId) as Record<string, unknown>).status,
       ).toBe("queued");
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 0;\n");
       expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(1);

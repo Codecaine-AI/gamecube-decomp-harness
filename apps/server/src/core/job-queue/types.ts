@@ -61,7 +61,7 @@ export interface JobKindDescriptor {
 
 /** Kernel operations the consumer depends on (dependency-injected for testability). */
 export interface JobQueueKernelOps {
-  claimNextJob(store: StateStore, input: { kind: JobKind; concurrencyLimit: number; leaseMs: number; at?: string; actor?: JobActor }): { job: JobRecord; token: ClaimToken } | null;
+  claimNextJob(store: StateStore, input: { kind: JobKind; concurrencyLimit: number; leaseMs: number; runId?: string; at?: string; actor?: JobActor }): { job: JobRecord; token: ClaimToken } | null;
   markJobRunning(store: StateStore, token: ClaimToken, input?: { taskHandle?: TaskHandle; at?: string; actor?: JobActor }): JobRecord;
   heartbeatJob(store: StateStore, token: ClaimToken, input?: { leaseMs?: number; at?: string }): JobRecord;
   completeJob(store: StateStore, token: ClaimToken, result: JobResult, input?: { at?: string; actor?: JobActor; onComplete?: (job: JobRecord, result: JobResult, ctx: JobCompletionContext) => void }): JobRecord;

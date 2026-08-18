@@ -370,39 +370,43 @@ export function claimNextJob(
     kind: JobKind;
     concurrencyLimit: number;
     leaseMs: number;
+    runId?: string;
     at?: string;
     actor?: JobActor;
   },
 ): { job: JobRecord; token: ClaimToken } | null {
   return immediateTransaction(store.db, () => {
     const at = input.at ?? now();
+    const runFilter = input.runId === undefined ? "" : " AND run_id=?";
+    const runArgs = input.runId === undefined ? [] : [input.runId];
     const active = Number(
       (
         store.db
           .query(
             `SELECT COUNT(*) n FROM jobs
-              WHERE kind=? AND status IN ('claimed','running')`,
+              WHERE kind=? AND status IN ('claimed','running')${runFilter}`,
           )
-          .get(input.kind) as { n: number }
+          .get(input.kind, ...runArgs) as { n: number }
       ).n,
     );
     const rows = store.db
       .query(
         `SELECT * FROM jobs WHERE kind=?
+          ${runFilter}
           AND ((status IN ('queued','waiting') AND (next_attempt_at IS NULL OR next_attempt_at<=?))
             OR (status IN ('claimed','running') AND lease_expires_at<=?))
           ORDER BY priority DESC,created_at ASC,job_id ASC`,
       )
-      .all(input.kind, at, at) as JobRow[];
+      .all(input.kind, ...runArgs, at, at) as JobRow[];
     let j = rows.map(record).find(
       (c) =>
         !c.concurrencyKey ||
         !store.db
           .query(
             `SELECT 1 FROM jobs WHERE concurrency_key=? AND status IN ('claimed','running')
-                AND job_id<>? AND lease_expires_at>? LIMIT 1`,
+                AND job_id<>? AND lease_expires_at>?${runFilter} LIMIT 1`,
           )
-          .get(c.concurrencyKey, c.jobId, at),
+          .get(c.concurrencyKey, c.jobId, at, ...runArgs),
     );
     if (
       !j ||

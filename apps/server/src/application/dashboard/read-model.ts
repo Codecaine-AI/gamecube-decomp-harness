@@ -661,11 +661,18 @@ function runProgress(store: ReturnType<typeof openState>, run: RunRecord): Dashb
   const confirmedScore = scoreFromBoardArtifact(current, run.goalKind) ?? baselineScore;
   const validationRows = store.db
     .query(
-      `SELECT validation_state, COUNT(*) AS count
-       FROM worker_output_integrations
+      `SELECT COALESCE(
+                json_extract(metadata_json, '$.confirmation.validation_state'),
+                'tentative'
+              ) AS validation_state,
+              COUNT(*) AS count
+       FROM integration_outcomes
        WHERE run_id = ?
          AND status IN ('applied', 'resolved', 'needs_rework')
-       GROUP BY validation_state`,
+       GROUP BY COALESCE(
+         json_extract(metadata_json, '$.confirmation.validation_state'),
+         'tentative'
+       )`,
     )
     .all(run.id) as Array<{ validation_state: string; count: number }>;
   const counts = new Map(validationRows.map((row) => [String(row.validation_state), Number(row.count)]));

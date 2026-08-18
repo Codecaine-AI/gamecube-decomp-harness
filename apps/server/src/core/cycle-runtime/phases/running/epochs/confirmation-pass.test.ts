@@ -39,12 +39,12 @@ function insertTentative(
   store.db
     .query(
       `
-        INSERT INTO worker_output_integrations (
+        INSERT INTO integration_outcomes (
           id, run_id, epoch_id, epoch_target_id, target_claim_id,
           worker_state_id, worker_checkpoint_id, status, disposition,
-          patch_path, write_set_json, validation_state, metadata_json,
+          patch_path, write_set_json, metadata_json,
           created_at, updated_at
-        ) VALUES (?, 'run-1', 'epoch-1', ?, ?, ?, ?, 'applied', 'merge_on_finish_clean', ?, ?, 'tentative', ?, ?, ?)
+        ) VALUES (?, 'run-1', 'epoch-1', ?, ?, ?, ?, 'applied', 'merge_on_finish_clean', ?, ?, ?, ?, ?)
       `,
     )
     .run(
@@ -55,7 +55,10 @@ function insertTentative(
       checkpointId,
       `/patches/${id}.patch`,
       JSON.stringify(params.writeSet ?? [`src/${id}.c`]),
-      JSON.stringify(params.widened ? { widening_ids: [`widening-${id}`] } : {}),
+      JSON.stringify({
+        ...(params.widened ? { widening_ids: [`widening-${id}`] } : {}),
+        confirmation: { validation_state: "tentative" },
+      }),
       createdAt,
       createdAt,
     );
@@ -63,6 +66,11 @@ function insertTentative(
 
 function state(store: StateStore, table: string, id: string): Record<string, unknown> {
   return store.db.query(`SELECT * FROM ${table} WHERE id = ?`).get(id) as Record<string, unknown>;
+}
+
+function outcomeValidationState(store: StateStore, id: string): unknown {
+  const row = state(store, "integration_outcomes", id);
+  return JSON.parse(String(row.metadata_json)).confirmation?.validation_state;
 }
 
 describe("runConfirmationPass", () => {
@@ -94,10 +102,10 @@ describe("runConfirmationPass", () => {
 
       expect(result).toMatchObject({ status: "confirmed", regressedId: null, remainingTentativeIds: [] });
       expect(result.confirmedIds.sort()).toEqual(["plain-2", "wide-1"]);
-      expect(state(store, "worker_output_integrations", "wide-1").validation_state).toBe("confirmed");
-      expect(state(store, "worker_output_integrations", "plain-2").validation_state).toBe("confirmed");
+      expect(outcomeValidationState(store, "wide-1")).toBe("confirmed");
+      expect(outcomeValidationState(store, "plain-2")).toBe("confirmed");
       expect(state(store, "worker_checkpoints", "checkpoint-wide-1").validation_state).toBe("confirmed");
-      expect(String(state(store, "worker_output_integrations", "wide-1").metadata_json)).toContain("epoch-build-1");
+      expect(String(state(store, "integration_outcomes", "wide-1").metadata_json)).toContain("epoch-build-1");
     } finally {
       store.db.close();
     }
@@ -144,14 +152,14 @@ describe("runConfirmationPass", () => {
       });
       expect(probes.at(-1)).toEqual(["wide-b"]);
       expect(reverted).toEqual(["wide-b"]);
-      expect(state(store, "worker_output_integrations", "wide-b")).toMatchObject({
+      expect(state(store, "integration_outcomes", "wide-b")).toMatchObject({
         status: "rejected",
         disposition: "confirmation_regressed_reverted",
-        validation_state: "regressed",
       });
+      expect(outcomeValidationState(store, "wide-b")).toBe("regressed");
       expect(state(store, "worker_checkpoints", "checkpoint-wide-b").validation_state).toBe("regressed");
-      expect(state(store, "worker_output_integrations", "wide-a").validation_state).toBe("confirmed");
-      expect(state(store, "worker_output_integrations", "plain-c").validation_state).toBe("tentative");
+      expect(outcomeValidationState(store, "wide-a")).toBe("confirmed");
+      expect(outcomeValidationState(store, "plain-c")).toBe("tentative");
     } finally {
       store.db.close();
     }
@@ -161,7 +169,7 @@ describe("runConfirmationPass", () => {
     const store = tempState();
     try {
       insertTentative(store, "wide-off", { widened: true });
-      const before = state(store, "worker_output_integrations", "wide-off");
+      const before = state(store, "integration_outcomes", "wide-off");
       const result = await runConfirmationPass({
         enabled: false,
         store,
@@ -172,7 +180,7 @@ describe("runConfirmationPass", () => {
           revertLive: async () => ({ ok: false }),
         },
       });
-      const after = state(store, "worker_output_integrations", "wide-off");
+      const after = state(store, "integration_outcomes", "wide-off");
       expect(result.status).toBe("disabled");
       expect(after).toEqual(before);
       expect(state(store, "worker_checkpoints", "checkpoint-wide-off").validation_state).toBe("tentative");

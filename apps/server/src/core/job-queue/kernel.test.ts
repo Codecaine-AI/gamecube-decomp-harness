@@ -332,6 +332,58 @@ describe("unified job queue kernel", () => {
     ).toBeNull();
     expect(claim(store, "2026-08-17T12:00:00.003Z", 3).job.dedupeKey).toBe("c");
   });
+  test("claim run filter only selects jobs from that run", () => {
+    const { store } = fixture();
+    put(store, "integration-a", { kind: "integration", runId: "run-a" });
+    put(store, "integration-b", {
+      kind: "integration",
+      runId: "run-b",
+      at: "2026-08-17T12:00:00.001Z",
+    });
+
+    expect(
+      claimNextJob(store, {
+        kind: "integration",
+        concurrencyLimit: 1,
+        leaseMs: 10_000,
+        runId: "run-b",
+        at: base,
+      })?.job.dedupeKey,
+    ).toBe("integration-b");
+  });
+  test("claim run filter scopes kind and concurrency-key limits per run", () => {
+    const { store } = fixture();
+    put(store, "integration-a", {
+      kind: "integration",
+      runId: "run-a",
+      concurrencyKey: "integration-singleton",
+    });
+    put(store, "integration-b", {
+      kind: "integration",
+      runId: "run-b",
+      concurrencyKey: "integration-singleton",
+      at: "2026-08-17T12:00:00.001Z",
+    });
+    expect(
+      claimNextJob(store, {
+        kind: "integration",
+        concurrencyLimit: 1,
+        leaseMs: 10_000,
+        runId: "run-a",
+        at: base,
+      })?.job.dedupeKey,
+    ).toBe("integration-a");
+
+    expect(
+      claimNextJob(store, {
+        kind: "integration",
+        concurrencyLimit: 1,
+        leaseMs: 10_000,
+        runId: "run-b",
+        at: base,
+      })?.job.dedupeKey,
+    ).toBe("integration-b");
+  });
   test("6. failure enters waiting with exponential default backoff", () => {
     const { store } = fixture();
     put(store, "retry");

@@ -55,6 +55,10 @@ describe("squashed storage baseline", () => {
       .all() as Array<{ type: string; name: string }>;
     expect(names.filter(({ name }) => /project/i.test(name))).toEqual([]);
     expect(names.filter(({ name }) => /session/i.test(name) && name !== "pi_sessions")).toEqual([]);
+    expect(names.filter(({ name }) => name.startsWith("integration_outcomes"))).toEqual([
+      { type: "table", name: "integration_outcomes" },
+      { type: "index", name: "integration_outcomes_run_status" },
+    ]);
 
     const columns = db
       .query(`

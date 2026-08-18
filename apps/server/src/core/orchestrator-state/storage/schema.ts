@@ -633,8 +633,8 @@ export const integrations = sqliteTable("integrations", {
   integratedRev: text("integrated_rev"),
 });
 
-export const workerOutputIntegrations = sqliteTable(
-  "worker_output_integrations",
+export const integrationOutcomes = sqliteTable(
+  "integration_outcomes",
   {
     id: text("id").primaryKey(),
     runId: text("run_id").notNull(),
@@ -642,7 +642,7 @@ export const workerOutputIntegrations = sqliteTable(
     epochTargetId: text("epoch_target_id").notNull(),
     targetClaimId: text("target_claim_id").notNull(),
     workerStateId: text("worker_state_id").notNull(),
-    workerCheckpointId: text("worker_checkpoint_id"),
+    workerCheckpointId: text("worker_checkpoint_id").notNull().unique(),
     status: text("status").notNull(),
     disposition: text("disposition"),
     targetKey: text("target_key"),
@@ -655,7 +655,6 @@ export const workerOutputIntegrations = sqliteTable(
     applyStdoutPath: text("apply_stdout_path"),
     applyStderrPath: text("apply_stderr_path"),
     writeSetJson: text("write_set_json", { mode: "json" }).$type<string[]>().notNull(),
-    validationState: text("validation_state").$type<"tentative" | "confirmed" | "regressed">().notNull().default("tentative"),
     conflictPathsJson: text("conflict_paths_json", { mode: "json" }).$type<string[]>().notNull(),
     failureReasonsJson: text("failure_reasons_json", { mode: "json" }).$type<string[]>().notNull(),
     metadataJson: text("metadata_json", { mode: "json" }).$type<JsonObject>().notNull(),
@@ -664,8 +663,7 @@ export const workerOutputIntegrations = sqliteTable(
     resolvedAt: text("resolved_at"),
   },
   (table) => [
-    uniqueIndex("worker_output_integrations_checkpoint").on(table.workerCheckpointId),
-    index("worker_output_integrations_run_status").on(table.runId, table.status, table.createdAt),
+    index("integration_outcomes_run_status").on(table.runId, table.status),
   ],
 );
 
@@ -881,7 +879,7 @@ export const orchestratorStateSchema = {
   targetClaims,
   targets,
   workerCheckpoints,
-  workerOutputIntegrations,
+  integrationOutcomes,
   workerState,
   writeSetWidenings,
 };
@@ -910,7 +908,7 @@ export type FactRow = typeof facts.$inferSelect;
 export type EventRow = typeof events.$inferSelect;
 export type NewEventRow = typeof events.$inferInsert;
 export type IntegrationRow = typeof integrations.$inferSelect;
-export type WorkerOutputIntegrationRow = typeof workerOutputIntegrations.$inferSelect;
+export type IntegrationOutcomeRow = typeof integrationOutcomes.$inferSelect;
 export type RunCheckpointRow = typeof runCheckpoints.$inferSelect;
 export type CheckpointItemRow = typeof checkpointItems.$inferSelect;
 export type CampaignRow = typeof campaigns.$inferSelect;

@@ -604,9 +604,9 @@ function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, for
         .query(
           `
             SELECT 1
-            FROM worker_output_integrations
+            FROM integration_outcomes
             WHERE run_id = ?
-              AND validation_state IN ('confirmed', 'regressed')
+              AND json_extract(metadata_json, '$.confirmation.validation_state') IN ('confirmed', 'regressed')
             LIMIT 1
           `,
         )
@@ -623,7 +623,7 @@ function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, for
         .query(
           `
             SELECT 1
-            FROM worker_output_integrations
+            FROM integration_outcomes
             WHERE run_id = ?
               AND disposition IN ('merge_on_finish_clean', 'conflict_resolved')
             LIMIT 1
