@@ -1,14 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { packageRoot, sourceRoot } from "@server/core/knowledge";
-import { getLatestRun, getRun, openState, statusSnapshot } from "@server/core/cycle-runtime/run-state";
-import { settlePausedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
-import { createSyncRuntime } from "@server/core/cycle-runtime/phases/sync/runtime.js";
-import { getHarnessState } from "@server/core/harness-state";
-import { resolveGame } from "@server/core/game-registry";
+import { packageRoot } from "@server/core/knowledge";
+import { getLatestRun, openState, statusSnapshot } from "@server/core/cycle-runtime/run-state";
+import { settleSupervisedRun } from "@server/core/cycle-runtime/phases/running/jobs/settle-supervised-run.js";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { runCommand } from "@server/infrastructure/shell/run-command.js";
 
 interface TriggerWorkerError {
   workerId: string;
@@ -66,75 +62,6 @@ export interface BabysitResult {
   finalStatus: Record<string, unknown>;
 }
 
-const GUARDIAN_ONLY_ARGS = new Set([
-  "--force-recover-claims",
-  "--max-restarts",
-  "--max-system-runs",
-  "--no-recover-claims",
-  "--restart-delay-ms",
-  "--restart-on-clean-exit",
-  "--system-command",
-]);
-
-const SYSTEM_ARG_ALLOWLIST = new Set([
-  "--active-low-watermark",
-  "--agent-state-enrichment",
-  "--base-rev",
-  "--candidate-limit",
-  "--candidate-rerank",
-  "--candidate-window",
-  "--curator-agent-record-limit",
-  "--epoch-configure-command",
-  "--epoch-link-paths",
-  "--epoch-ready-queue-size",
-  "--epoch-regression-pause-threshold",
-  "--epoch-regression-requeue-limit",
-  "--epoch-retry-ms",
-  "--exit-on-worker-error",
-  "--epoch-size",
-  "--epoch-worktree",
-  "--fast-kg-maintenance-interval-ms",
-  "--fast-kg-maintenance-report-count",
-  "--full-kg-maintenance-mode",
-  "--graph-db",
-  "--idle-sleep-ms",
-  "--knowledge-curator-enrichment",
-  "--knowledge-maintenance-interval-ms",
-  "--lease-id",
-  "--long-tail-replan-ms",
-  "--max-idle-iterations",
-  "--max-iterations",
-  "--max-workers",
-  "--no-blocked-queue-replan",
-  "--no-epoch-cycle",
-  "--no-fast-kg-maintenance",
-  "--no-knowledge-maintenance",
-  "--no-pr-index",
-  "--no-rebuild",
-  "--no-run-pr-agent",
-  "--no-tool-index",
-  "--no-tool-runners",
-  "--once",
-  "--post-return-check-command",
-  "--pr-jobs",
-  "--pr-limit",
-  "--progress-only",
-  "--queue-low-watermark",
-  "--queue-refresh-interval-ms",
-  "--queue-target-size",
-  "--replan-cooldown-ms",
-  "--replan-interval-ms",
-  "--rerun-existing-prs",
-  "--run-id",
-  "--run-curator-agent",
-  "--run-pr-agent",
-  "--schedulable-low-watermark",
-  "--sources",
-  "--worker-limit",
-  "--worker-configure-command",
-  "--worker-thinking-level",
-]);
-
 type SystemCommand = "run-loop";
 
 function sleep(ms: number): Promise<void> {
@@ -191,7 +118,6 @@ function systemCommandArg(args: Map<string, string | true>): SystemCommand {
 function systemArgs(args: Map<string, string | true>): string[] {
   const out: string[] = [];
   for (const [key, value] of args.entries()) {
-    if (GUARDIAN_ONLY_ARGS.has(key) || !SYSTEM_ARG_ALLOWLIST.has(key)) continue;
     out.push(key);
     if (typeof value === "string") out.push(value);
   }
@@ -472,61 +398,7 @@ export async function runBabysit(globals: GlobalArgs, args: Map<string, string |
   } finally {
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
-    let acquiredSyncId: string | null = null;
-    if (leaseId) {
-      const store = openState(globals.stateDir);
-      try {
-        const runId = stringArg(args, "--run-id", "") || getLatestRun(store)?.id;
-        const run = runId ? getRun(store, runId) : null;
-        if (run?.status === "active" || run?.status === "draining" || run?.status === "paused") {
-          settlePausedRun({
-            actor: "guardian",
-            commandId: `command-run-supervisor-settled-${randomUUID()}`,
-            leaseId,
-            reason: `supervisor settled after ${stoppedReason}`,
-            runId: run.id,
-            store,
-          });
-          const active = run.gameId ? getHarnessState(store, run.gameId)?.active_workflow : null;
-          if (active?.kind === "sync" && active.status === "active") {
-            acquiredSyncId = active.workflow_id;
-          }
-        }
-      } finally {
-        store.db.close();
-      }
-    }
-    if (acquiredSyncId) {
-      const gameId = globals.game?.gameId ?? globals.gameId;
-      if (!gameId) throw new Error(`Acquired sync ${acquiredSyncId} without a game id`);
-      const controlGame = globals.game
-        ? resolveGame({
-            orchestratorRoot: globals.game.orchestratorRoot,
-            gameId: globals.game.gameId,
-          })
-        : null;
-      const paths = {
-        graphDbPath: controlGame?.graphDbPath ?? globals.graphDbPath ?? resolve(globals.stateDir, "knowledge-graph.sqlite"),
-        game: controlGame,
-        repoRoot: controlGame?.repoRoot ?? globals.repoRoot,
-        stateDir: globals.stateDir,
-      };
-      const syncRuntime = createSyncRuntime({
-        packageRoot: packageRoot(),
-        resolveDashboardGame: () => paths,
-        runCli: async (command, cwd = packageRoot()) => runCommand(cwd, command),
-        runGit: async (repoRoot, args, options = {}) => {
-          const result = await runCommand(repoRoot, ["git", ...args]);
-          if (options.check !== false && result.exitCode !== 0) {
-            throw new Error(`${options.failureHint ?? `git ${args.join(" ")} failed`}: ${result.stderr || result.stdout}`);
-          }
-          return result;
-        },
-        serverJobPath: packageBin(),
-        sourceRoot,
-      });
-      await syncRuntime.advance(paths, {}, acquiredSyncId);
-    }
+    await settleSupervisedRun({ globals, args, leaseId, stoppedReason });
   }
 }
 

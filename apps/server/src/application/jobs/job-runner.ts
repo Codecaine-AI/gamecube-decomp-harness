@@ -31,14 +31,13 @@ import {
 import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
 import { kgLibrarianCorroborate } from "@server/core/knowledge/jobs/librarian-corroborate.js";
 import { kgLibrarianBackfill } from "@server/core/knowledge/jobs/librarian-backfill.js";
-import { epochRun } from "@server/core/cycle-runtime/phases/running/epochs/epoch-run.js";
 import { integrationResolve } from "@server/core/cycle-runtime/phases/running/integration/index.js";
 import { recoverClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { tick } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
 import { runLoop } from "@server/core/cycle-runtime/phases/running/scheduler/run-loop.js";
 import { initRun } from "@server/core/cycle-runtime/phases/running/service/init-run.js";
 import { status } from "@server/core/cycle-runtime/phases/running/service/status.js";
-import { worker } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { workerTask } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { regressionCheck } from "@server/core/validation/jobs/regression-check.js";
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
 
@@ -56,12 +55,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   try {
     if (command === "init-run") await initRun(globals, args);
     else if (command === "tick") await tick(globals, args);
-    else if (command === "worker") await worker(globals, args);
+    else if (command === "worker-task") await workerTask(globals, args);
     else if (command === "run-loop") await runLoop(globals, args);
     else if (command === "babysit") await babysit(globals, args);
     else if (command === "checkpoint-run") await checkpointRun(globals, args);
     else if (command === "recover-claims") await recoverClaims(globals, args);
-    else if (command === "epoch-run") await epochRun(globals, args);
     else if (command === "integration-resolve") await integrationResolve(globals, args);
     else if (command === "report-run") await reportRun(globals, args);
     else if (command === "save-point") await savePoint(globals, args);

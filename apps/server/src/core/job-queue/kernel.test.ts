@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
+  attachJobPayload,
   cancelJob,
   claimNextJob,
   completeJob,
@@ -14,7 +15,9 @@ import {
   jobQueueSummary,
   markJobRunning,
   reapExpiredJobs,
+  reprioritizeJob,
   requeueJob,
+  verifyClaimToken,
 } from "./kernel.js";
 
 const roots: string[] = [];
@@ -77,6 +80,41 @@ function events(store: StateStore) {
 }
 
 describe("unified job queue kernel", () => {
+  test("verifyClaimToken accepts a current claim", () => {
+    const { store } = fixture();
+    put(store, "verify-current");
+    const claimed = claim(store);
+
+    expect(verifyClaimToken(store, claimed.token, base)).toEqual(claimed.job);
+  });
+  test("verifyClaimToken rejects cancelled and reaped claims", () => {
+    const { store } = fixture();
+    put(store, "verify-cancelled");
+    put(store, "verify-reaped", { at: "2026-08-17T12:00:01.000Z" });
+    const cancelled = claim(store);
+    cancelJob(store, {
+      jobId: cancelled.job.jobId,
+      at: "2026-08-17T12:00:01.000Z",
+    });
+    expect(() =>
+      verifyClaimToken(store, cancelled.token, "2026-08-17T12:00:01.001Z"),
+    ).toThrow("stale claim token");
+
+    const reaped = claim(store, "2026-08-17T12:00:01.001Z");
+    reapExpiredJobs(store, { at: "2026-08-17T12:00:12.000Z" });
+    expect(() =>
+      verifyClaimToken(store, reaped.token, "2026-08-17T12:00:12.001Z"),
+    ).toThrow("stale claim token");
+  });
+  test("verifyClaimToken rejects an expired lease before reaping", () => {
+    const { store } = fixture();
+    put(store, "verify-expired");
+    const claimed = claim(store);
+
+    expect(() =>
+      verifyClaimToken(store, claimed.token, "2026-08-17T12:00:10.001Z"),
+    ).toThrow("stale claim token");
+  });
   test("1. deterministic claim order: priority DESC, created_at ASC, job_id ASC", () => {
     const { store } = fixture();
     put(store, "low", { priority: 1 });
@@ -157,6 +195,86 @@ describe("unified job queue kernel", () => {
     expect(heartbeat.leaseExpiresAt).toBe("2026-08-17T12:00:21.000Z");
     expect(heartbeat.revision).toBe(claimed.job.revision + 1);
     expect(events(store)).toHaveLength(eventCount);
+  });
+  test("payload attachment shallow-merges, bumps revision, and appends no game event", () => {
+    const { store } = fixture();
+    put(store, "payload");
+    const claimed = claim(store);
+    const eventCount = events(store).length;
+
+    const attached = attachJobPayload(
+      store,
+      claimed.token,
+      { linked_id: "claim-1", key: "updated" },
+      { at: "2026-08-17T12:00:01.000Z" },
+    );
+
+    expect(attached.payload).toEqual({ key: "updated", linked_id: "claim-1" });
+    expect(attached.revision).toBe(claimed.job.revision + 1);
+    expect(attached.updatedAt).toBe("2026-08-17T12:00:01.000Z");
+    expect(events(store)).toHaveLength(eventCount);
+  });
+  test("payload attachment rejects a stale claim token", () => {
+    const { store } = fixture();
+    put(store, "stale-payload");
+    const stale = claim(store);
+    claim(store, "2026-08-17T12:00:11.000Z");
+
+    expect(() =>
+      attachJobPayload(
+        store,
+        stale.token,
+        { linked_id: "claim-1" },
+        { at: "2026-08-17T12:00:11.001Z" },
+      ),
+    ).toThrow("stale claim token");
+  });
+  test("queued job reprioritization bumps revision without appending a game event", () => {
+    const { store } = fixture();
+    const queued = put(store, "reprioritize", { priority: 1 });
+    const eventCount = events(store).length;
+
+    const reprioritized = reprioritizeJob(store, {
+      kind: "worker",
+      dedupeKey: "reprioritize",
+      priority: 9,
+      at: "2026-08-17T12:00:01.000Z",
+    });
+
+    expect(reprioritized).toMatchObject({
+      priority: 9,
+      revision: queued.revision + 1,
+      updatedAt: "2026-08-17T12:00:01.000Z",
+    });
+    expect(events(store)).toHaveLength(eventCount);
+  });
+  test("running job reprioritization is a no-op", () => {
+    const { store } = fixture();
+    put(store, "running-priority", { priority: 1 });
+    const claimed = claim(store);
+    const running = markJobRunning(store, claimed.token, {
+      at: "2026-08-17T12:00:01.000Z",
+    });
+
+    expect(
+      reprioritizeJob(store, {
+        kind: "worker",
+        dedupeKey: "running-priority",
+        priority: 9,
+        at: "2026-08-17T12:00:02.000Z",
+      }),
+    ).toEqual(running);
+  });
+  test("reprioritization returns null for a missing job", () => {
+    const { store } = fixture();
+
+    expect(
+      reprioritizeJob(store, {
+        kind: "worker",
+        dedupeKey: "missing",
+        priority: 9,
+      }),
+    ).toBeNull();
   });
   test("5. kind concurrency limit and concurrency_key singleton are enforced", () => {
     const { store } = fixture();

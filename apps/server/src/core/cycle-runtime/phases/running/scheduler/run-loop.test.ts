@@ -22,7 +22,6 @@ import {
   integrationResolverLockPaths,
   selectRunLoopSchedulerCondition,
   selectIntegrationResolverBatch,
-  workerCommand,
 } from "./run-loop.js";
 
 describe("selectRunLoopSchedulerCondition", () => {
@@ -100,55 +99,6 @@ describe("evaluateFastKnowledgeMaintenanceDecision", () => {
   });
 });
 
-describe("workerCommand write-set feature forwarding", () => {
-  const globals = {
-    repoRoot: "/repo",
-    stateDir: "/state",
-    dryRunAgents: false,
-    provider: "provider",
-    model: "model",
-    thinkingLevel: "medium",
-  };
-  const params = {
-    runId: "run-1",
-    workerId: "worker-1",
-    baseRev: "base",
-    ttlSeconds: 1_800,
-    thinkingLevel: "medium",
-    postReturnCheckCommand: "",
-    workerConfigureCommand: "",
-    graphDbPath: "/state/knowledge.sqlite",
-    leaseId: "lease-run-1",
-  };
-
-  test("adds neither flag on the legacy path", () => {
-    const command = workerCommand(globals, {
-      ...params,
-      writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false },
-    });
-    expect(command).not.toContain("--merge-on-finish");
-    expect(command).not.toContain("--write-set-widening");
-  });
-
-  test("forwards widening mode and merge-on-finish to the worker child", () => {
-    const command = workerCommand(globals, {
-      ...params,
-      writeSetFlags: { mergeOnFinish: true, writeSetWidening: "header", confirmationPass: true },
-    });
-    expect(command.slice(command.indexOf("--write-set-widening"))).toContain("header");
-    expect(command).toContain("--merge-on-finish");
-  });
-
-  test("forwards the scheduler dispatch lease to the worker child", () => {
-    const command = workerCommand(globals, {
-      ...params,
-      leaseId: "lease-run-1",
-      writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false },
-    });
-    expect(command.slice(command.indexOf("--lease-id"), command.indexOf("--lease-id") + 2)).toEqual(["--lease-id", "lease-run-1"]);
-  });
-});
-
 describe("epochBoundaryWorkPending", () => {
   test("treats a drained active epoch as boundary work that outranks KG maintenance", () => {
     const { store } = tempState();
@@ -170,6 +120,7 @@ describe("epochBoundaryWorkPending", () => {
       expect(epochBoundaryWorkPending(store, run.id)).toBe(false);
 
       closeWorkerState(store, {
+        authority: { host: "run-loop-test" },
         workerStateId: claim?.workerStateId ?? "",
         lifecycleStatus: "timeout",
         epochTargetStatus: "finished",
@@ -201,6 +152,7 @@ describe("epochBoundaryWorkPending", () => {
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
       closeWorkerState(store, {
+        authority: { host: "run-loop-test" },
         workerStateId: claim?.workerStateId ?? "",
         lifecycleStatus: "timeout",
         epochTargetStatus: "finished",

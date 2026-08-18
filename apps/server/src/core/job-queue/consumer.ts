@@ -7,12 +7,24 @@ import type {
   JobRecord,
   JobResult,
   TaskHandle,
+  TaskOutcome,
 } from "./types.js";
 
 export interface JobConsumerOptions {
   intervalMs?: number;
   actor?: JobActor;
   now?: () => string;
+  shouldClaim?: () => boolean;
+  onJobSettled?: (
+    job: JobRecord,
+    settle: { status: "succeeded" | "failed"; error?: string; outcome?: TaskOutcome },
+  ) => void;
+}
+
+export interface JobConsumerHandle {
+  stop(): Promise<void>;
+  inFlight(): number;
+  cancelAll(): Promise<void>;
 }
 
 function errorMessage(cause: unknown): string {
@@ -29,37 +41,54 @@ export function startJobConsumer(
   descriptor: JobKindDescriptor,
   kernel: JobQueueKernelOps,
   options: JobConsumerOptions = {},
-): () => Promise<void> {
+): JobConsumerHandle {
   const intervalMs = options.intervalMs ?? 1_000;
   const actor = options.actor ?? "runner";
   const inFlight = new Set<Promise<void>>();
+  const dispatchedHandles = new Map<string, { handle: TaskHandle; cancel: (handle: TaskHandle) => Promise<void> }>();
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let activeTick: Promise<void> | null = null;
 
   const at = (): string => (options.now ?? (() => new Date().toISOString()))();
 
-  const fail = (job: JobRecord, token: ClaimToken, cause: unknown): void => {
+  const settled = (
+    job: JobRecord,
+    settle: { status: "succeeded" | "failed"; error?: string; outcome?: TaskOutcome },
+  ): void => {
+    if (!options.onJobSettled) return;
     try {
-      kernel.failJob(store, token, errorMessage(cause), {
+      options.onJobSettled(job, settle);
+    } catch (cause) {
+      console.warn(`Job consumer ${descriptor.kind} settlement hook failed: ${errorMessage(cause)}`);
+    }
+  };
+
+  const fail = (job: JobRecord, token: ClaimToken, cause: unknown): void => {
+    const error = errorMessage(cause);
+    try {
+      kernel.failJob(store, token, error, {
         backoffMs: descriptor.backoff?.(job.attempts),
         at: at(),
         actor,
       });
+      settled(job, { status: "failed", error });
     } catch (writeCause) {
       warnStaleWrite(job, "fail", writeCause);
     }
   };
 
-  const complete = (job: JobRecord, token: ClaimToken, result: JobResult): void => {
+  const complete = (job: JobRecord, token: ClaimToken, result: JobResult, outcome?: TaskOutcome): void => {
     try {
       kernel.completeJob(store, token, result, {
         at: at(),
         actor,
         onComplete: descriptor.onComplete,
       });
+      settled(job, { status: "succeeded", ...(outcome ? { outcome } : {}) });
     } catch (cause) {
       warnStaleWrite(job, "completion", cause);
+      settled(job, { status: "failed", error: errorMessage(cause), ...(outcome ? { outcome } : {}) });
     }
   };
 
@@ -78,8 +107,9 @@ export function startJobConsumer(
     const execution = descriptor.execution;
     let handle: TaskHandle;
     try {
-      const task = execution.buildTask(job, { store, token });
+      const task = await execution.buildTask(job, { store, token });
       handle = await execution.executor.submit(task);
+      dispatchedHandles.set(job.jobId, { handle, cancel: execution.executor.cancel.bind(execution.executor) });
     } catch (cause) {
       fail(job, token, cause);
       return;
@@ -89,6 +119,7 @@ export function startJobConsumer(
       kernel.markJobRunning(store, token, { taskHandle: handle, at: at(), actor });
     } catch (cause) {
       warnStaleWrite(job, "mark-running", cause);
+      dispatchedHandles.delete(job.jobId);
       return;
     }
 
@@ -106,7 +137,7 @@ export function startJobConsumer(
       }
       const outcome = await execution.executor.collect(handle);
       if (outcome.exitCode === 0 && !outcome.timedOut) {
-        complete(job, token, { resultRef: null });
+        complete(job, token, { resultRef: null }, outcome);
       } else {
         fail(
           job,
@@ -118,6 +149,8 @@ export function startJobConsumer(
       }
     } catch (cause) {
       fail(job, token, cause);
+    } finally {
+      dispatchedHandles.delete(job.jobId);
     }
   };
 
@@ -130,6 +163,7 @@ export function startJobConsumer(
     if (stopped || activeTick) return;
     activeTick = Promise.resolve()
       .then(() => {
+        if (options.shouldClaim && !options.shouldClaim()) return;
         while (!stopped && inFlight.size < descriptor.concurrencyLimit) {
           const claimed = kernel.claimNextJob(store, {
             kind: descriptor.kind,
@@ -152,10 +186,20 @@ export function startJobConsumer(
   };
 
   tick();
-  return async () => {
+  const stop = async (): Promise<void> => {
     stopped = true;
     if (timer) clearTimeout(timer);
     if (activeTick) await activeTick;
     await Promise.allSettled([...inFlight]);
+  };
+  return {
+    stop,
+    inFlight: () => inFlight.size,
+    cancelAll: async () => {
+      await Promise.allSettled(
+        [...dispatchedHandles.values()].map(({ handle, cancel }) => cancel(handle)),
+      );
+      await Promise.allSettled([...inFlight]);
+    },
   };
 }

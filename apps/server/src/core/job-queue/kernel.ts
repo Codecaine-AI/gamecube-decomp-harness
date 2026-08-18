@@ -214,6 +214,15 @@ function owned(store: StateStore, token: ClaimToken, at: string): JobRecord {
   return j;
 }
 
+/** Verifies that a claim token still owns an unexpired job lease. */
+export function verifyClaimToken(
+  store: StateStore,
+  token: ClaimToken,
+  at: string = now(),
+): JobRecord {
+  return owned(store, token, at);
+}
+
 /** Enqueues a job idempotently by kind and deduplication key. */
 export function enqueueJob(
   store: StateStore,
@@ -290,6 +299,37 @@ export function enqueueJob(
         at,
       );
     return getJob(store, id)!;
+  });
+}
+
+/** Updates queued dispatch priority without changing job lifecycle state. */
+export function reprioritizeJob(
+  store: StateStore,
+  input: {
+    kind: JobKind;
+    dedupeKey: string;
+    priority: number;
+    at?: string;
+  },
+): JobRecord | null {
+  return immediateTransaction(store.db, () => {
+    const j = getJobByDedupeKey(store, input.kind, input.dedupeKey);
+    if (
+      !j ||
+      !["queued", "waiting"].includes(j.status) ||
+      j.priority === input.priority
+    )
+      return j;
+    const at = input.at ?? now();
+    const r = store.db
+      .query(
+        `UPDATE jobs SET priority=?,revision=revision+1,updated_at=?
+          WHERE job_id=? AND revision=?`,
+      )
+      .run(input.priority, at, j.jobId, j.revision);
+    if (r.changes !== 1) throw new Error(`Job CAS failed for ${j.jobId}`);
+    /* Priority is dispatch metadata, not a status transition, so no game_event is appended. */
+    return getJob(store, j.jobId)!;
   });
 }
 
@@ -452,6 +492,28 @@ export function heartbeatJob(
       store,
       j.jobId,
     )!;
+  });
+}
+
+/** Attaches host-side dispatch metadata without appending a lifecycle event. */
+export function attachJobPayload(
+  store: StateStore,
+  token: ClaimToken,
+  patch: JsonObject,
+  input: { at?: string } = {},
+): JobRecord {
+  return immediateTransaction(store.db, () => {
+    const at = input.at ?? now();
+    const j = owned(store, token, at);
+    const r = store.db
+      .query(
+        `UPDATE jobs SET payload_json=?,revision=revision+1,updated_at=?
+          WHERE job_id=? AND revision=?`,
+      )
+      .run(JSON.stringify({ ...j.payload, ...patch }), at, j.jobId, j.revision);
+    if (r.changes !== 1) throw new Error(`Job CAS failed for ${j.jobId}`);
+    /* Payload linkage is dispatch metadata, like heartbeat, so no game_event is appended. */
+    return getJob(store, j.jobId)!;
   });
 }
 /** Completes an active job and runs its completion callback atomically. */

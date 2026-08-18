@@ -48,7 +48,7 @@ export interface JobCompletionContext { store: StateStore; }
 
 export type JobKindExecution =
   | { mode: "inline"; handler: (job: JobRecord, ctx: JobHandlerContext) => Promise<JobResult> }
-  | { mode: "dispatched"; buildTask: (job: JobRecord, ctx: JobHandlerContext) => TaskSpec; executor: WorkerExecutor };
+  | { mode: "dispatched"; buildTask: (job: JobRecord, ctx: JobHandlerContext) => TaskSpec | Promise<TaskSpec>; executor: WorkerExecutor };
 
 export interface JobKindDescriptor {
   kind: JobKind;

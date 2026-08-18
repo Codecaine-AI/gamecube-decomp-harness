@@ -1,10 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { loadKnowledgeBoardSnapshot, packageRoot, resourceGraphDbPath } from "@server/core/knowledge";
+import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
 import { heartbeatDispatch } from "@server/core/harness-state";
 import { getActiveCycle } from "@server/core/cycle";
-import { reconcilePendingIntegrationAttempt } from "@server/core/cycle";
 import { refreshBoardRerankMode } from "@server/core/cycle-runtime/phases/running/board";
 import { loadExactTargetKeys } from "@server/core/cycle-runtime/phases/running/board/snapshot.js";
 import {
@@ -13,10 +11,8 @@ import {
   activeSchedulerEpoch,
   addEvent,
   blockingWorkerOutputIntegrationCount,
-  blockedAdmittedTargetCount,
   closeWorkerState,
   closeSchedulerEpoch,
-  closeSchedulerEpochWithEvidence,
   getLatestRun,
   getRun,
   markEventHandled,
@@ -36,9 +32,8 @@ import {
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
 import { immediateTransaction, withBusyRetry } from "@server/core/orchestrator-state";
-import { runEpochCycle, type EpochCycleResult } from "@server/core/cycle-runtime/phases/running/epochs";
-import { publishCycleDraftPr } from "@server/core/cycle-runtime/phases/running/epochs/cycle-draft-pr.js";
-import { integrationResolve } from "@server/core/cycle-runtime/phases/running/integration";
+import type { EpochCycleResult } from "@server/core/cycle-runtime/phases/running/epochs";
+import { integrationResolve, processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import {
@@ -47,7 +42,6 @@ import {
   stringArg,
   writeSetIntegrationFlags,
   type GlobalArgs,
-  type WriteSetIntegrationFlags,
 } from "@server/core/game-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/cycle-runtime/phases/running/jobs/shared.js";
 import {
@@ -58,18 +52,31 @@ import {
   type SchedulerEpochEnsureResult,
   type SchedulerTickResult,
 } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
-import type { WorkerCycleResult } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { liveConflictResolverConfig } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { startJobConsumer } from "@server/core/job-queue/consumer.js";
+import { defaultConfigureCommand } from "@server/core/job-queue/executor.js";
+import type { JobRecord, TaskOutcome } from "@server/core/job-queue/types.js";
+import {
+  reapWorkerJobs,
+  workerJobDescriptor,
+  workerKernelOps,
+  type WorkerJobRunContext,
+} from "@server/core/cycle-runtime/phases/running/workers/worker-job.js";
 import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
 import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
 import { startBackgroundKnowledgeProcessor } from "@server/core/knowledge/background/index.js";
 import { recoverActiveClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { workerTtlSeconds } from "@server/core/cycle-runtime/phases/running/worker-ttl.js";
-import {
-  isHostToolPlatform,
-  requiredStateToolArtifactError,
-  resolveStateToolArtifact,
-  resolveToolPlatform,
-} from "@server/core/tools/platform.js";
+import { runEpochBoundary } from "./epoch-boundary.js";
+
+interface WorkerResultSummary {
+  workerStateId: string;
+  lifecycleStatus: string;
+  bestCheckpointId: string | null;
+  exact: boolean;
+  error?: string;
+  errorKind?: string;
+}
 
 interface WorkerError {
   workerId: string;
@@ -93,7 +100,6 @@ interface TargetPressureSnapshot {
   admittedTargets: number;
   activeWorkers: number;
   admissionTargetSize: number;
-  blockedAdmittedTargets: number;
   candidateLimit: number;
   candidateWindow: number;
   maxWorkers: number;
@@ -154,7 +160,7 @@ export interface RunLoopResult {
   epochPriorityRefreshes: number;
   epochTargetsMadeAvailable: number;
   workersStarted: number;
-  workerResults: WorkerCycleResult[];
+  workerResults: WorkerResultSummary[];
   workerErrors: WorkerError[];
   providerPauses: number;
   providerPaused: boolean;
@@ -165,11 +171,11 @@ export interface RunLoopResult {
   fastKnowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
   integrationResolverRuns: Record<string, unknown>[];
   integrationResolverErrors: IntegrationResolverError[];
+  integrationDrains: number;
   dryRun: boolean;
   finalStatus: {
     activeWorkers: number;
     admittedTargets: number;
-    blockedAdmittedTargets: number;
     schedulableTargets: number;
     unhandledEvents: number;
   };
@@ -229,36 +235,6 @@ async function probeProvider(globals: GlobalArgs, outputDir: string, sessionId: 
   }
 }
 
-function orchestratorRoot(): string {
-  return packageRoot();
-}
-
-function activeLocalWorkerCount(store: StateStore, runId: string, workerIds: Set<string>): number {
-  if (workerIds.size === 0) return 0;
-  const ids = [...workerIds];
-  const placeholders = ids.map(() => "?").join(", ");
-  const row = withBusyRetry(
-    () =>
-      store.db
-        .query(
-          `
-            SELECT COUNT(*) AS count
-            FROM target_claims
-            WHERE run_id = ?
-              AND status = 'active'
-              AND worker_id IN (${placeholders})
-          `,
-        )
-        .get(runId, ...ids) as Record<string, unknown>,
-  );
-  return Number(row.count ?? 0);
-}
-
-export function workerOpenSlots(params: { maxWorkers: number; activeWorkers: number; runningWorkers: number; activeLocalWorkers: number }): number {
-  const pendingLocalWorkers = Math.max(0, params.runningWorkers - params.activeLocalWorkers);
-  return Math.max(0, params.maxWorkers - params.activeWorkers - pendingLocalWorkers);
-}
-
 function nonNegativeInt(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value));
@@ -269,29 +245,21 @@ function targetPressureSnapshotForRunLoop(params: {
   candidateLimit: number;
   candidateWindow: number;
   maxWorkers: number;
-  runningWorkers: Set<Promise<void>>;
-  runningWorkerIds: Set<string>;
+  inFlightWorkers: number;
   runId: string;
   store: StateStore;
 }): TargetPressureSnapshot {
   const activeWorkers = activeWorkerCount(params.store, params.runId);
-  const activeLocalWorkers = activeLocalWorkerCount(params.store, params.runId, params.runningWorkerIds);
-  const openSlots = workerOpenSlots({
-    maxWorkers: params.maxWorkers,
-    activeWorkers,
-    runningWorkers: params.runningWorkers.size,
-    activeLocalWorkers,
-  });
+  const openSlots = Math.max(0, params.maxWorkers - params.inFlightWorkers);
   return {
     admittedTargets: admittedTargetCount(params.store, params.runId),
     activeWorkers,
     admissionTargetSize: params.admissionTargetSize,
-    blockedAdmittedTargets: blockedAdmittedTargetCount(params.store, params.runId),
     candidateLimit: params.candidateLimit,
     candidateWindow: params.candidateWindow,
     maxWorkers: params.maxWorkers,
     openSlots,
-    runningWorkers: params.runningWorkers.size,
+    runningWorkers: params.inFlightWorkers,
     schedulableTargets: schedulableTargetCount(params.store, params.runId),
   };
 }
@@ -504,6 +472,7 @@ export function forceFinishActiveEpoch(store: StateStore, runId: string, event: 
   const activeClaims = activeClaimsForRun(store, runId).filter((claim) => claim.epochId === epoch.id);
   for (const claim of activeClaims) {
     closeWorkerState(store, {
+      authority: { host: "run-loop-settle" },
       workerStateId: claim.workerStateId,
       lifecycleStatus: "cancelled",
       epochTargetStatus: "finished",
@@ -594,13 +563,6 @@ function fastKnowledgeMaintenanceArgs(args: Map<string, string | true>, runId: s
   return next;
 }
 
-function fullBoundaryKnowledgeMaintenanceArgs(args: Map<string, string | true>, runId: string, mode: string): Map<string, string | true> {
-  const next = knowledgeMaintenanceArgs(args, runId, false);
-  if (!next.has("--run-pr-agent")) next.set("--no-run-pr-agent", true);
-  if (mode === "no-tool-runners") next.set("--no-tool-runners", true);
-  return next;
-}
-
 function knowledgeMaintenanceIntervalMs(globals: GlobalArgs, args: Map<string, string | true>): number {
   if (booleanArg(args, "--no-knowledge-maintenance")) return 0;
   const fallback = globals.dryRunAgents ? 0 : 5 * 60_000;
@@ -655,8 +617,8 @@ function latestFastRefreshFinishedAt(store: StateStore, runId: string, fallbackI
   return row?.created_at == null ? fallbackIso : String(row.created_at);
 }
 
-async function waitForRestingTrigger(runningWorkers: Set<Promise<void>>, idleSleepMs: number, extras: Array<Promise<void> | null> = []): Promise<void> {
-  const live = [...runningWorkers, ...extras.filter((task): task is Promise<void> => task != null)];
+async function waitForRestingTrigger(idleSleepMs: number, extras: Array<Promise<void> | null> = []): Promise<void> {
+  const live = extras.filter((task): task is Promise<void> => task != null);
   if (live.length === 0) {
     await sleep(idleSleepMs);
     return;
@@ -686,140 +648,6 @@ function schedulerTickArgs(
   ]);
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function defaultConfigureCommand(globals: Pick<GlobalArgs, "repoRoot" | "stateDir">): string {
-  const toolPlatform = resolveToolPlatform();
-  const localWibo = resolve(globals.repoRoot, "build", "tools", "wibo");
-  if (isHostToolPlatform(toolPlatform) && existsSync(localWibo)) {
-    return "python3 configure.py --require-protos --wrapper build/tools/wibo";
-  }
-  const wibo = resolveStateToolArtifact({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
-  if (wibo) {
-    return `python3 configure.py --require-protos --wrapper ${shellQuote(wibo)}`;
-  }
-  if (!isHostToolPlatform(toolPlatform)) {
-    throw requiredStateToolArtifactError({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
-  }
-  return "python3 configure.py --require-protos";
-}
-
-function workerProcessEnv(globals: Pick<GlobalArgs, "stateDir">): Record<string, string | undefined> {
-  const env: Record<string, string | undefined> = { ...Bun.env };
-  const toolPlatform = resolveToolPlatform();
-  const wibo = resolveStateToolArtifact({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
-  if (wibo) {
-    env.MWCC_WIBO = wibo;
-  } else if (!isHostToolPlatform(toolPlatform)) {
-    throw requiredStateToolArtifactError({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
-  }
-  return env;
-}
-
-export function workerCommand(
-  globals: GlobalArgs,
-  params: {
-    runId: string;
-    workerId: string;
-    baseRev: string;
-    ttlSeconds: number;
-    thinkingLevel: string;
-    postReturnCheckCommand: string;
-    workerConfigureCommand: string;
-    graphDbPath: string;
-    leaseId: string;
-    writeSetFlags: WriteSetIntegrationFlags;
-  },
-): string[] {
-  const bin = resolve(orchestratorRoot(), "apps/server/src/job-runner.ts");
-  const command = [
-    "bun",
-    bin,
-    "--repo-root",
-    globals.repoRoot,
-    "--state-dir",
-    globals.stateDir,
-    "--provider",
-    globals.provider,
-    "--model",
-    globals.model,
-    "--thinking-level",
-    params.thinkingLevel,
-  ];
-  if (globals.gameId) command.splice(2, 0, "--game", globals.gameId);
-  if (globals.dryRunAgents) command.push("--dry-run-agents");
-  if (globals.agentTimeoutSeconds != null) command.push("--agent-timeout-seconds", String(globals.agentTimeoutSeconds));
-  command.push(
-    "worker",
-    "--run-id",
-    params.runId,
-    "--worker-id",
-    params.workerId,
-    "--base-rev",
-    params.baseRev,
-  );
-  if (params.postReturnCheckCommand) command.push("--post-return-check-command", params.postReturnCheckCommand);
-  if (params.workerConfigureCommand) command.push("--worker-configure-command", params.workerConfigureCommand);
-  if (!params.leaseId.trim()) throw new Error("workerCommand requires a dispatch lease id");
-  command.push("--lease-id", params.leaseId);
-  command.push("--graph-db", params.graphDbPath);
-  if (params.writeSetFlags.writeSetWidening !== "off") {
-    command.push("--write-set-widening", params.writeSetFlags.writeSetWidening);
-  }
-  if (params.writeSetFlags.mergeOnFinish) command.push("--merge-on-finish");
-  return command;
-}
-
-async function runWorkerProcess(
-  globals: GlobalArgs,
-  params: {
-    runId: string;
-    workerId: string;
-    baseRev: string;
-    ttlSeconds: number;
-    thinkingLevel: string;
-    postReturnCheckCommand: string;
-    workerConfigureCommand: string;
-    graphDbPath: string;
-    leaseId: string;
-    writeSetFlags: WriteSetIntegrationFlags;
-  },
-  procRegistry?: Set<{ kill: (signal?: number) => void; exited: Promise<number> }>,
-): Promise<WorkerCycleResult> {
-  const command = workerCommand(globals, params);
-  let timedOut = false;
-  const proc = Bun.spawn(command, {
-    cwd: orchestratorRoot(),
-    env: workerProcessEnv(globals),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  procRegistry?.add(proc);
-  void proc.exited.finally(() => procRegistry?.delete(proc));
-  const timeoutMs = Math.max(60_000, Math.floor(params.ttlSeconds * 1000));
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    proc.kill(9);
-  }, timeoutMs);
-  const stdoutPromise = new Response(proc.stdout).text();
-  const stderrPromise = new Response(proc.stderr).text();
-  const [stdout, stderr, exitCode] = await Promise.all([stdoutPromise, stderrPromise, proc.exited]).finally(() => clearTimeout(timeout));
-  if (timedOut) {
-    throw new Error(`Worker process timed out after ${Math.round(timeoutMs / 1000)}s: ${command.join(" ")}\n${stderr || stdout}`);
-  }
-  if (exitCode !== 0) {
-    throw new Error(`Worker process failed (${exitCode}): ${command.join(" ")}\n${stderr || stdout}`);
-  }
-  try {
-    return JSON.parse(stdout) as WorkerCycleResult;
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`Worker process returned non-JSON output: ${detail}\n${stdout}\n${stderr}`);
-  }
-}
-
 export async function runRunLoop(globals: GlobalArgs, args: Map<string, string | true>): Promise<RunLoopResult> {
   const store = openState(globals.stateDir);
   const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(store, async (backgroundJob) => {
@@ -830,7 +658,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     return publication;
   });
   let observedRunId = "";
-  const workerResults: WorkerCycleResult[] = [];
+  const workerResults: WorkerResultSummary[] = [];
   const workerErrors: WorkerError[] = [];
   const schedulerResults: SchedulerTickResult[] = [];
   const knowledgeMaintenanceRuns: Record<string, unknown>[] = [];
@@ -839,9 +667,6 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
   const fastKnowledgeMaintenanceErrors: KnowledgeMaintenanceError[] = [];
   const integrationResolverRuns: Record<string, unknown>[] = [];
   const integrationResolverErrors: IntegrationResolverError[] = [];
-  const runningWorkers = new Set<Promise<void>>();
-  const runningWorkerIds = new Set<string>();
-  const runningWorkerProcs = new Set<{ kill: (signal?: number) => void; exited: Promise<number> }>();
   const runningIntegrationResolvers = new Map<string, Promise<void>>();
   const runningIntegrationResolverPaths = new Map<string, string[]>();
   let runningScheduler: Promise<void> | null = null;
@@ -852,7 +677,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
   let iterations = 0;
   let idleIterations = 0;
   let workersStarted = 0;
-  let workerOrdinal = 0;
+  let integrationDrains = 0;
   let providerPausedSinceMs: number | null = null;
   let providerPauses = 0;
   let lastProviderError: string | undefined;
@@ -952,6 +777,97 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
     let runningFastKnowledgeMaintenance: Promise<void> | null = null;
     let pendingFastKnowledgeMaintenance = false;
     let schedulerBlocked = false;
+    let runningIntegrationDrain: Promise<void> | null = null;
+    let workerSettledSinceDrain = false;
+    const pendingSettleWork = new Set<Promise<void>>();
+    let settleWakeResolve: (() => void) | null = null;
+    let settleWake = new Promise<void>((resolveWake) => { settleWakeResolve = resolveWake; });
+    const resetSettleWake = (): void => {
+      settleWake = new Promise<void>((resolveWake) => { settleWakeResolve = resolveWake; });
+    };
+    const workerCtx: WorkerJobRunContext = {
+      store,
+      globals,
+      runId,
+      dispatchLeaseId: leaseId,
+      baseRev,
+      ttlSeconds,
+      concurrencyLimit: maxWorkers,
+      thinkingLevel: workerThinkingLevel,
+      postReturnCheckCommand,
+      workerConfigureCommand,
+      graphDbPath,
+      writeSetFlags,
+      workerIdPrefix: "runloop",
+    };
+    const handleWorkerJobSettled = (
+      job: JobRecord,
+      settle: { status: "succeeded" | "failed"; error?: string; outcome?: TaskOutcome },
+    ): void => {
+      const workerStateId = typeof job.payload.worker_state_id === "string" ? job.payload.worker_state_id : "";
+      const workerId = typeof job.payload.worker_id === "string" ? job.payload.worker_id : workerStateId || job.jobId;
+      const row = workerStateId
+        ? store.db.query(`SELECT lifecycle_status, summary_json, best_checkpoint_id, exact, error_summary
+            FROM worker_state WHERE id = ?`).get(workerStateId) as Record<string, unknown> | undefined
+        : undefined;
+      let summary: Record<string, unknown> = {};
+      try { summary = JSON.parse(String(row?.summary_json ?? "{}")) as Record<string, unknown>; } catch { /* malformed summaries are reported from error_summary */ }
+      const summaryError = summary.error && typeof summary.error === "object" ? summary.error as Record<string, unknown> : undefined;
+      const errorKind = typeof summaryError?.kind === "string" ? summaryError.kind : undefined;
+      const error = settle.error ?? (typeof row?.error_summary === "string" ? row.error_summary : undefined);
+      workerResults.push({
+        workerStateId,
+        lifecycleStatus: String(row?.lifecycle_status ?? (settle.status === "failed" ? "error" : "unknown")),
+        bestCheckpointId: typeof row?.best_checkpoint_id === "string" ? row.best_checkpoint_id : null,
+        exact: Boolean(row?.exact),
+        error,
+        errorKind,
+      });
+      workersStarted += 1;
+      const providerFailure = errorKind === "provider_error" || /provider[_ -]?error/i.test(settle.error ?? "");
+      if (providerFailure) {
+        lastProviderError = error ?? "provider error";
+        if (providerPausedSinceMs == null) {
+          providerPausedSinceMs = Date.now();
+          providerPauses += 1;
+          providerProbeBackoffMs = PROVIDER_PROBE_INITIAL_BACKOFF_MS;
+          nextProviderProbeMs = Date.now() + providerProbeBackoffMs;
+          console.error(`[run-loop] provider failure from ${workerId}: ${lastProviderError}; pausing worker dispatch until a provider probe succeeds`);
+        }
+      } else if (settle.status === "failed") {
+        let recoveryTask: Promise<void>;
+        recoveryTask = recoverActiveClaims({
+          globals,
+          leaseId,
+          store,
+          runId,
+          repoRoot: run.game?.repoRoot ?? globals.repoRoot,
+          force: true,
+          claimIdFilter: typeof job.payload.target_claim_id === "string" ? job.payload.target_claim_id : undefined,
+          reason: `run-loop recovered failed worker job ${job.jobId}: ${(error ?? "unknown failure").slice(0, 500)}`,
+          processIntegrations: false,
+        }).then((recovery) => {
+          workerErrors.push({ workerId, error: recovery.recoveredClaims > 0 ? `${error ?? "worker job failed"} (recovered ${recovery.recoveredClaims} active claim(s))` : error ?? "worker job failed" });
+        }).catch((recoveryError) => {
+          workerErrors.push({ workerId, error: `${error ?? "worker job failed"}; claim recovery failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}` });
+        }).finally(() => pendingSettleWork.delete(recoveryTask));
+        pendingSettleWork.add(recoveryTask);
+        if (exitOnWorkerError) { stopRequested = true; stoppedReason = "worker_error"; }
+      } else if (String(row?.lifecycle_status ?? "") === "error") {
+        workerErrors.push({ workerId, error: error ?? `Worker state closed as ${String(row?.lifecycle_status)}` });
+        if (exitOnWorkerError) { stopRequested = true; stoppedReason = "worker_error"; }
+      }
+      workerSettledSinceDrain = true;
+      settleWakeResolve?.();
+    };
+    const workerDescriptor = workerJobDescriptor(workerCtx);
+    const workerConsumer = startJobConsumer(store, workerDescriptor, workerKernelOps(workerCtx), {
+      intervalMs: 1_000,
+      actor: "runner",
+      shouldClaim: () => !drainRequested && providerPausedSinceMs == null
+        && !(maxIterations > 0 && iterations >= maxIterations) && !schedulerBlocked && !epochPaused,
+      onJobSettled: handleWorkerJobSettled,
+    });
     const syncSchedulerCondition = (fallback: "planning" | "dispatching" | "waiting"): void => {
       setRunSchedulerCondition(
         store,
@@ -962,6 +878,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             runningEpoch ||
               runningFastKnowledgeMaintenance ||
               runningKnowledgeMaintenance ||
+              runningIntegrationDrain ||
               runningIntegrationResolvers.size > 0,
           ),
           planning: Boolean(runningScheduler),
@@ -1032,6 +949,32 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       }
       syncSchedulerCondition("planning");
       let didWork = false;
+      resetSettleWake();
+      if (!drainRequested) {
+        const reaped = await reapWorkerJobs(store, workerCtx);
+        if (reaped.recovered > 0) {
+          console.error(`[run-loop] reaped worker jobs and recovered ${reaped.recovered} active claim(s)`);
+          didWork = true;
+        }
+      }
+      if (workerSettledSinceDrain && !runningIntegrationDrain) {
+        workerSettledSinceDrain = false;
+        let task: Promise<void>;
+        task = processWorkerOutputIntegrationQueue({
+          conflictResolver: writeSetFlags.mergeOnFinish ? liveConflictResolverConfig(globals, sessionId, runId) : undefined,
+          dryRun: globals.dryRunAgents,
+          leaseId,
+          mergeOnFinish: writeSetFlags.mergeOnFinish,
+          repoRoot: globals.repoRoot,
+          runId,
+          stateDir: globals.stateDir,
+          store,
+        }).then(() => { integrationDrains += 1; })
+          .catch((error) => console.error(`[run-loop] worker output integration drain failed: ${error instanceof Error ? error.message : String(error)}`))
+          .finally(() => { if (runningIntegrationDrain === task) runningIntegrationDrain = null; });
+        runningIntegrationDrain = task;
+        didWork = true;
+      }
       const boundaryWorkPendingBeforeMaintenance = epochBoundaryWorkPending(store, runId);
       const blockingIntegrationsBeforeMaintenance = blockingWorkerOutputIntegrationCount(store, runId);
 
@@ -1041,7 +984,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         !runningEpoch &&
         runningIntegrationResolvers.size < integrationResolverConcurrency &&
         activeWorkerCount(store, runId) === 0 &&
-        runningWorkers.size === 0
+        workerConsumer.inFlight() === 0
       ) {
         const activeLockPaths = new Set([...runningIntegrationResolverPaths.values()].flat());
         const resolverItems = workerOutputIntegrationConflictsForResolver(store, runId, {
@@ -1093,8 +1036,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         candidateLimit,
         candidateWindow,
         maxWorkers,
-        runningWorkers,
-        runningWorkerIds,
+        inFlightWorkers: workerConsumer.inFlight(),
         runId,
         store,
       });
@@ -1103,247 +1045,57 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         syncSchedulerCondition("planning");
         const epochOrdinal = epochCycles + 1;
         let task: Promise<void>;
-        task = (async () => {
-            try {
-              let boundaryResult: EpochCycleResult | undefined;
-              if (globals.dryRunAgents) {
-                // Dry runs skip the snapshot/build but still close/start
-                // scheduler epochs so tests exercise deterministic admission.
-                epochCycles += 1;
-              } else {
-                console.error(`[run-loop] epoch ${epochOrdinal}: ${trigger}; snapshotting and rebuilding report`);
-                const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
-                  baseRef: globals.game?.baseRef,
-                  confirmationPass: writeSetFlags.confirmationPass,
-                  configureCommand: epochConfigureCommand,
-                  epochId: schedulerEpochId,
-                  label: `epoch-${epochOrdinal}`,
-                  leaseId,
-                  linkPaths: epochLinkPaths,
-                  mergeOnFinish: writeSetFlags.mergeOnFinish,
-                  gameId: globals.game?.gameId ?? globals.gameId ?? null,
-                  qaScan: { orchestratorRoot: packageRoot() },
-                  regressionPauseThreshold: epochPauseThreshold,
-                  regressionRequeueLimit: epochRequeueLimit,
-                  reportRelPath: globals.game?.validation.reportPath,
-                  reportChangesRelPath: globals.game?.validation.reportChangesPath,
-                  worktreeDir: epochWorktreeDir,
-                });
-                boundaryResult = result;
-                epochCycles += 1;
-                lastEpoch = result;
-                epochPaused = result.repair.paused;
-                if (cycleDraftPrEnabled) {
-                  const publish = await publishCycleDraftPr({
-                    baseRef: globals.game?.baseRef,
-                    commitSha: result.commitSha,
-                    epochLabel: result.label,
-                    matchedCodePercent: result.matchedCodePercent,
-                    gameId: globals.game?.gameId ?? globals.gameId ?? null,
-                    qaGate: result.qaGate as unknown as Record<string, unknown> | null,
-                    regressions: result.regressions as unknown as Record<string, unknown>,
-                    repoRoot: globals.repoRoot,
-                    runId,
-                    savePointId: result.savePointId,
-                    stateDir: globals.stateDir,
-                    store,
-                  });
-                  console.error(
-                    `[run-loop] epoch ${epochOrdinal}: cycle draft PR ${publish.status}` +
-                      `${publish.url ? ` ${publish.url}` : publish.reason ? ` (${publish.reason})` : publish.error ? ` (${publish.error})` : ""}`,
-                  );
-                }
-                console.error(
-                  `[run-loop] epoch ${epochOrdinal}: matched_code ${result.matchedCodePercent ?? "?"}%, ` +
-                    `${result.regressions.regressedFunctions} regressed functions, ${result.repair.requeued} repairs readmitted, ` +
-                    `qa gate ${result.qaGate === null ? "not run" : `${result.qaGate.status} (${result.qaGate.errors} errors, ${result.qaGate.warnings} warnings)`} ` +
-                    `(${Math.round(result.durationMs / 1000)}s)`,
-                );
-                if (result.repair.paused) {
-                  addEvent(store, runId, "epoch_regression_pause", "run-loop", {
-                    epoch: epochOrdinal,
-                    qa_gate: result.qaGate,
-                    reasons: result.repair.reasons,
-                    regressions: result.regressions,
-                    save_point_id: result.savePointId,
-                    created_by: "run-loop",
-                  });
-                  console.error(`[run-loop] epoch ${epochOrdinal}: paused on regressions; retrying in ${Math.round(epochRetryMs / 1000)}s`);
-                  if (schedulerEpochId) {
-                    closeSchedulerEpochWithEvidence(store, schedulerEpochId, {
-                      status: "paused",
-                      boundaryStatus: "regression_pause",
-                      routingSummary: {
-                        trigger,
-                        save_point_id: result.savePointId,
-                        regressions: result.regressions,
-                        repair: result.repair,
-                        qa_gate: result.qaGate,
-                      },
-                      integration: {
-                        gameId: globals.game?.gameId ?? globals.gameId,
-                        runId,
-                        integrationCommit: result.commitSha!,
-                        scoreDelta: result.scoreDelta,
-                        commandId: `command-epoch-integrated-${randomUUID()}`,
-                        correlationId: runId,
-                        payload: {
-                          ordinal: epochOrdinal,
-                          boundary_status: "regression_pause",
-                          save_point_id: result.savePointId,
-                        },
-                      },
-                      savePointEvidence: result.savePointEvidence,
-                    });
-                  }
-                  nextEpochAllowedMs = Date.now() + epochRetryMs;
-                  return;
-                }
-              }
-
-              if (!globals.dryRunAgents && fullKgMaintenanceMode !== "skip" && fullKgMaintenanceMode !== "none" && fullKgMaintenanceMode !== "off") {
-                const maintenanceGlobals = boundaryResult?.worktreeDir ? { ...globals, repoRoot: boundaryResult.worktreeDir } : globals;
-                console.error(`[run-loop] epoch ${epochOrdinal}: full knowledge refresh started (${fullKgMaintenanceMode})`);
-                addEvent(store, runId, "epoch_full_refresh_started", "run-loop", {
-                  epoch: epochOrdinal,
-                  lane: "full_boundary",
-                  mode: fullKgMaintenanceMode,
-                  repo_root: maintenanceGlobals.repoRoot,
-                  created_by: "run-loop",
-                });
-                const maintenance = await runKnowledgeMaintenance(maintenanceGlobals, fullBoundaryKnowledgeMaintenanceArgs(args, runId, fullKgMaintenanceMode), {
-                  progress: knowledgeProgressReporter(store, runId, {
-                    lane: "full_boundary",
-                    mode: fullKgMaintenanceMode,
-                    epochId: schedulerEpochId,
-                    epochOrdinal,
-                    repoRoot: maintenanceGlobals.repoRoot,
-                  }),
-                });
-                knowledgeMaintenanceRuns.push({ ...maintenance, lane: "full_boundary", mode: fullKgMaintenanceMode, repo_root: maintenanceGlobals.repoRoot });
-                console.error(`[run-loop] epoch ${epochOrdinal}: full knowledge refresh finished`);
-                addEvent(store, runId, "epoch_full_refresh_finished", "run-loop", {
-                  epoch: epochOrdinal,
-                  lane: "full_boundary",
-                  mode: fullKgMaintenanceMode,
-                  repo_root: maintenanceGlobals.repoRoot,
-                  created_by: "run-loop",
-                });
-              }
-
-              if (schedulerEpochId) {
-                const routingSummary = {
-                  trigger,
-                  dry_run: globals.dryRunAgents,
-                  save_point_id: boundaryResult?.savePointId ?? null,
-                  matched_code_percent: boundaryResult?.matchedCodePercent ?? null,
-                  regressions: boundaryResult?.regressions ?? null,
-                  repair: boundaryResult?.repair ?? null,
-                  qa_gate: boundaryResult?.qaGate ?? null,
-                };
-                if (boundaryResult?.commitSha) {
-                  closeSchedulerEpochWithEvidence(store, schedulerEpochId, {
-                    status: "completed",
-                    boundaryStatus: "success",
-                    routingSummary,
-                    integration: {
-                      gameId: globals.game?.gameId ?? globals.gameId,
-                      runId,
-                      integrationCommit: boundaryResult.commitSha,
-                      scoreDelta: boundaryResult.scoreDelta,
-                      commandId: `command-epoch-integrated-${randomUUID()}`,
-                      correlationId: runId,
-                      payload: {
-                        ordinal: epochOrdinal,
-                        boundary_status: "success",
-                        save_point_id: boundaryResult.savePointId,
-                      },
-                    },
-                    savePointEvidence: boundaryResult.savePointEvidence,
-                  });
-                } else {
-                  closeSchedulerEpoch(store, schedulerEpochId, {
-                    status: "completed",
-                    boundaryStatus: "dry_run",
-                    routingSummary,
-                  });
-                }
-              }
-
-              const nextEpoch = ensureSchedulerEpochFromBoard({
-                config: schedulerEpochConfig,
-                globals,
-                graphDbPath,
-                runId,
-                store,
-              });
-              console.error(
-                `[run-loop] epoch ${nextEpoch.progress.ordinal}: admitted ${nextEpoch.progress.admitted}/${nextEpoch.progress.size.mode === "full" ? "full" : nextEpoch.progress.size.value} ` +
-                  `targets from candidate window ${schedulerEpochConfig.candidateWindow} (${schedulerEpochConfig.candidateRerank ?? "priority"}), ` +
-                  `${nextEpoch.progress.available} available, ${nextEpoch.priorityRefreshes} refreshed` +
-                  (nextEpoch.admissionCap
-                    ? `, capped ${nextEpoch.admissionCap.candidateCount} -> ${nextEpoch.admissionCap.cap} (${nextEpoch.admissionCap.mode})`
-                    : ""),
-              );
+        task = runEpochBoundary({
+          store,
+          globals,
+          args,
+          runId,
+          leaseId,
+          trigger,
+          schedulerEpochId,
+          epochOrdinal,
+          config: {
+            epochConfigureCommand,
+            epochLinkPaths,
+            epochPauseThreshold,
+            epochRequeueLimit,
+            epochRetryMs,
+            cycleDraftPrEnabled,
+            fullKgMaintenanceMode,
+            writeSetFlags,
+            schedulerEpochConfig,
+            graphDbPath,
+            epochWorktreeDir,
+          },
+          reportKnowledgeProgress: knowledgeProgressReporter,
+        })
+          .then((outcome) => {
+            if (globals.dryRunAgents || outcome.boundaryResult || outcome.reconciled) epochCycles += 1;
+            if (outcome.boundaryResult) {
+              lastEpoch = outcome.boundaryResult;
+              epochPaused = outcome.boundaryResult.repair.paused;
+            }
+            if (outcome.error) epochErrors.push({ error: outcome.error });
+            if (outcome.retryAtMs !== null) nextEpochAllowedMs = outcome.retryAtMs;
+            if (outcome.knowledgeMaintenanceRun) knowledgeMaintenanceRuns.push(outcome.knowledgeMaintenanceRun);
+            if (outcome.nextEpoch) {
+              const nextEpoch = outcome.nextEpoch;
               lastSchedulerEpoch = nextEpoch.progress;
               epochAdmissions += (nextEpoch.admission?.admitted ?? 0) + (nextEpoch.existingAdmission?.admitted ?? 0);
               epochAvailabilityRefreshes += nextEpoch.availabilityRefresh.inserted > 0 ? 1 : 0;
               epochTargetsAdmitted += (nextEpoch.admission?.admitted ?? 0) + (nextEpoch.existingAdmission?.admitted ?? 0);
               epochTargetsMadeAvailable += (nextEpoch.admission?.admitted ?? 0) + nextEpoch.availabilityRefresh.inserted;
               epochPriorityRefreshes += nextEpoch.priorityRefreshes;
-              if ((nextEpoch.progress.admitted === 0 || nextEpoch.progress.remaining === 0) && nextEpoch.progress.available === 0 && nextEpoch.progress.claimed === 0) {
-                closeSchedulerEpoch(store, nextEpoch.epoch.id, {
-                  status: "exhausted",
-                  boundaryStatus: "board_exhausted",
-                  routingSummary: { trigger: "post_boundary_admission", board_exhausted: nextEpoch.boardExhausted },
-                });
-                addEvent(store, runId, "epoch_exhausted", "run-loop", {
-                  epoch_id: nextEpoch.epoch.id,
-                  ordinal: nextEpoch.progress.ordinal,
-                  size: nextEpoch.progress.size,
-                  created_by: "run-loop",
-                });
-                nextEpochAllowedMs = Date.now() + epochRetryMs;
-              } else {
-                addEvent(store, runId, "epoch_admitted", "run-loop", {
-                  epoch_id: nextEpoch.epoch.id,
-                  ordinal: nextEpoch.progress.ordinal,
-                  admitted: nextEpoch.progress.admitted,
-                  available: nextEpoch.progress.available,
-                  candidate_rerank: schedulerEpochConfig.candidateRerank ?? "priority",
-                  candidate_window: schedulerEpochConfig.candidateWindow,
-                  admission_cap: nextEpoch.admissionCap,
-                  size: nextEpoch.progress.size,
-                  created_by: "run-loop",
-                });
-                if (nextEpoch.availabilityRefresh.inserted > 0 || (nextEpoch.admission?.admitted ?? 0) > 0) {
-                  didWork = true;
-                }
+              if (!outcome.exhausted && (nextEpoch.availabilityRefresh.inserted > 0 || (nextEpoch.admission?.admitted ?? 0) > 0)) {
+                didWork = true;
               }
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
-              epochErrors.push({ error: message });
-              console.error(`[run-loop] epoch ${epochOrdinal} failed: ${message}`);
-              addEvent(store, runId, "epoch_cycle_error", "run-loop", {
-                epoch: epochOrdinal,
-                error: message.slice(0, 2000),
-                created_by: "run-loop",
-              });
-              if (schedulerEpochId) {
-                closeSchedulerEpoch(store, schedulerEpochId, {
-                  status: "error",
-                  boundaryStatus: "error",
-                  routingSummary: { trigger, error: message.slice(0, 2000) },
-                });
-              }
-              nextEpochAllowedMs = Date.now() + epochRetryMs;
             }
-        })().finally(() => {
-          if (runningEpoch === task) runningEpoch = null;
-        });
+          })
+          .finally(() => {
+            if (runningEpoch === task) runningEpoch = null;
+          });
         runningEpoch = task;
       };
-
       const forceFinishEvent = nextForceFinishEpochEvent(store, runId);
       if (forceFinishEvent) {
         syncSchedulerCondition("planning");
@@ -1354,10 +1106,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
               `closed ${result.activeClaimsClosed} active claim(s), marked ${result.openTargetsFinished} open target(s) finished`,
           );
         }
-        if (runningWorkerProcs.size > 0) {
-          for (const proc of runningWorkerProcs) proc.kill(9);
-          await Promise.allSettled([...runningWorkers]);
-        }
+        if (workerConsumer.inFlight() > 0) await workerConsumer.cancelAll();
         if (result.after) lastSchedulerEpoch = result.after;
         didWork = true;
       }
@@ -1489,17 +1238,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
           const boundaryError = boundaryErrorEpoch(store, runId);
           if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
             didWork = true;
-            const reconciliation = reconcilePendingIntegrationAttempt(store, {
-              runId,
-              epochId: boundaryError.id,
-            });
-            if (reconciliation.status === "completed") {
-              console.error(
-                `[run-loop] epoch ${boundaryError.ordinal}: reconciled retained integration commit ${reconciliation.completed.commitSha}`,
-              );
-            } else {
-              launchEpochCycle(`retry scheduler epoch ${boundaryError.ordinal} boundary`, boundaryError.id);
-            }
+            launchEpochCycle(`retry scheduler epoch ${boundaryError.ordinal} boundary`, boundaryError.id);
           } else if (boundaryError) {
             didWork = true;
             schedulerBlocked = true;
@@ -1571,7 +1310,7 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
                 created_by: "run-loop",
               });
               nextEpochAllowedMs = Date.now() + epochRetryMs;
-            } else if (epochResult.progress.admitted > 0 && epochResult.progress.remaining === 0 && epochResult.progress.claimed === 0 && runningWorkers.size === 0) {
+            } else if (epochResult.progress.admitted > 0 && epochResult.progress.remaining === 0 && epochResult.progress.claimed === 0 && workerConsumer.inFlight() === 0) {
               didWork = true;
               launchEpochCycle(`scheduler epoch ${epochResult.progress.ordinal} completed`, epochResult.epoch.id);
             }
@@ -1602,112 +1341,6 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
             if (runningProviderProbe === probeTask) runningProviderProbe = null;
           });
         runningProviderProbe = probeTask;
-      }
-
-      const activeWorkers = activeWorkerCount(store, runId);
-      const activeLocalWorkers = activeLocalWorkerCount(store, runId, runningWorkerIds);
-      const schedulableTargets = schedulableTargetCount(store, runId);
-      const openSlots = workerOpenSlots({
-        maxWorkers,
-        activeWorkers,
-        runningWorkers: runningWorkers.size,
-        activeLocalWorkers,
-      });
-      const iterationBudgetExhausted = maxIterations > 0 && iterations >= maxIterations;
-      const workersToStart = drainRequested || providerPausedSinceMs != null || iterationBudgetExhausted ? 0 : Math.min(openSlots, schedulableTargets);
-      if (workersToStart > 0) syncSchedulerCondition("dispatching");
-      for (let index = 0; index < workersToStart; index += 1) {
-        workerOrdinal += 1;
-        workersStarted += 1;
-        didWork = true;
-        const workerId = `runloop-${process.pid}-${workerOrdinal}-${randomUUID().slice(0, 8)}`;
-        let task: Promise<void>;
-        task = runWorkerProcess(
-          globals,
-          {
-            runId,
-            workerId,
-            baseRev,
-            ttlSeconds,
-            thinkingLevel: workerThinkingLevel,
-            postReturnCheckCommand,
-            workerConfigureCommand,
-            graphDbPath,
-            leaseId,
-            writeSetFlags,
-          },
-          runningWorkerProcs,
-        )
-          .then((result) => {
-            workerResults.push(result);
-            // Provider failures return the target to admitted and pause spawning until a probe
-            // succeeds — the provider being down is not the pool's fault, so it never
-            // trips exit-on-worker-error.
-            if (result.providerFailure) {
-              lastProviderError = result.error ?? "provider error";
-              if (providerPausedSinceMs == null) {
-                providerPausedSinceMs = Date.now();
-                providerPauses += 1;
-                providerProbeBackoffMs = PROVIDER_PROBE_INITIAL_BACKOFF_MS;
-                nextProviderProbeMs = Date.now() + providerProbeBackoffMs;
-                console.error(
-                  `[run-loop] provider failure from ${workerId}: ${lastProviderError}; pausing worker spawns until a provider probe succeeds`,
-                );
-              }
-              return;
-            }
-            // failed is set only for explicit tool_error (infrastructure) results;
-            // needs_rework gate rejections and heuristic tool_error guesses are normal
-            // completions and never trip exit-on-worker-error.
-            if (result.failed) {
-              workerErrors.push({
-                workerId,
-                error: result.error ?? `Worker state closed as ${result.lifecycleStatus}`,
-              });
-              if (exitOnWorkerError) {
-                stopRequested = true;
-                stoppedReason = "worker_error";
-              }
-            }
-          })
-          .catch(async (error) => {
-            const message = error instanceof Error ? error.message : String(error);
-            try {
-              const recovery = await recoverActiveClaims({
-                globals,
-                leaseId,
-                store,
-                runId,
-                repoRoot: run.game?.repoRoot ?? globals.repoRoot,
-                force: true,
-                workerIdFilter: workerId,
-                reason: `run-loop recovered failed worker process ${workerId}: ${message.slice(0, 500)}`,
-              });
-              if (recovery.recoveredClaims > 0) {
-                console.error(`[run-loop] recovered ${recovery.recoveredClaims} active claim(s) for failed worker ${workerId}`);
-              }
-              workerErrors.push({
-                workerId,
-                error: recovery.recoveredClaims > 0 ? `${message} (recovered ${recovery.recoveredClaims} active claim(s))` : message,
-              });
-            } catch (recoveryError) {
-              const recoveryMessage = recoveryError instanceof Error ? recoveryError.message : String(recoveryError);
-              workerErrors.push({
-                workerId,
-                error: `${message}; claim recovery failed: ${recoveryMessage}`,
-              });
-            }
-            if (exitOnWorkerError) {
-              stopRequested = true;
-              stoppedReason = "worker_error";
-            }
-          })
-          .finally(() => {
-            runningWorkers.delete(task);
-            runningWorkerIds.delete(workerId);
-          });
-        runningWorkers.add(task);
-        runningWorkerIds.add(workerId);
       }
 
       const schedulerEvent = nextUnhandledEvent(store, runId);
@@ -1743,23 +1376,26 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
         didWork = true;
       }
 
-      if (didWork || runningWorkers.size === 0) iterations += 1;
-      if (didWork || runningWorkers.size > 0 || runningEpoch || runningFastKnowledgeMaintenance || runningIntegrationResolvers.size > 0) idleIterations = 0;
+      if (didWork || workerConsumer.inFlight() === 0) iterations += 1;
+      if (didWork || workerConsumer.inFlight() > 0 || runningEpoch || runningFastKnowledgeMaintenance || runningIntegrationDrain || runningIntegrationResolvers.size > 0) idleIterations = 0;
       else idleIterations += 1;
 
       if (maxIdleIterations > 0 && idleIterations >= maxIdleIterations && unhandledEventCount(store, runId) === 0) {
         stoppedReason = "idle";
         break;
       }
-      if (maxIterations > 0 && iterations >= maxIterations && runningWorkers.size === 0 && !runningEpoch && runningIntegrationResolvers.size === 0) {
+      if (maxIterations > 0 && iterations >= maxIterations && workerConsumer.inFlight() === 0 && !runningEpoch && !runningIntegrationDrain && pendingSettleWork.size === 0 && runningIntegrationResolvers.size === 0) {
         stoppedReason = "max_iterations";
         break;
       }
       if (
         drainRequested &&
-        runningWorkers.size === 0 &&
+        workerConsumer.inFlight() === 0 &&
         !runningEpoch &&
         !runningScheduler &&
+        !runningIntegrationDrain &&
+        !workerSettledSinceDrain &&
+        pendingSettleWork.size === 0 &&
         runningIntegrationResolvers.size === 0 &&
         !runningFastKnowledgeMaintenance &&
         !runningKnowledgeMaintenance &&
@@ -1770,8 +1406,10 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       }
 
       syncSchedulerCondition("waiting");
-      await waitForRestingTrigger(runningWorkers, idleSleepMs, [
+      await waitForRestingTrigger(idleSleepMs, [
+        settleWake,
         runningEpoch,
+        runningIntegrationDrain,
         runningFastKnowledgeMaintenance,
         runningKnowledgeMaintenance,
         runningScheduler,
@@ -1780,19 +1418,38 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       ]);
     }
 
-    if (runningWorkers.size > 0) {
+    if (workerConsumer.inFlight() > 0) {
       // A stopped pool must not wedge for hours awaiting worker TTLs (workers
       // ignore SIGTERM). Give in-flight workers a short grace, then kill them;
       // claim recovery returns any interrupted active targets to admitted state.
       addEvent(store, runId, "pool_stopping", "run-loop", {
         reason: stoppedReason,
-        running_workers: runningWorkers.size,
+        running_workers: workerConsumer.inFlight(),
         created_by: "run-loop",
       });
       const grace = new Promise<void>((resolveGrace) => setTimeout(resolveGrace, 30_000));
-      await Promise.race([Promise.allSettled([...runningWorkers]).then(() => undefined), grace]);
-      for (const proc of runningWorkerProcs) proc.kill(9);
-      await Promise.allSettled([...runningWorkers]);
+      const stopPromise = workerConsumer.stop();
+      await Promise.race([stopPromise, grace]);
+      if (workerConsumer.inFlight() > 0) await workerConsumer.cancelAll();
+      await stopPromise;
+    } else {
+      await workerConsumer.stop();
+    }
+    if (pendingSettleWork.size > 0) await Promise.allSettled([...pendingSettleWork]);
+    if (runningIntegrationDrain) await runningIntegrationDrain;
+    if (workerSettledSinceDrain) {
+      await processWorkerOutputIntegrationQueue({
+        conflictResolver: writeSetFlags.mergeOnFinish ? liveConflictResolverConfig(globals, sessionId, runId) : undefined,
+        dryRun: globals.dryRunAgents,
+        leaseId,
+        mergeOnFinish: writeSetFlags.mergeOnFinish,
+        repoRoot: globals.repoRoot,
+        runId,
+        stateDir: globals.stateDir,
+        store,
+      });
+      integrationDrains += 1;
+      workerSettledSinceDrain = false;
     }
     if (runningEpoch) await runningEpoch;
     if (runningScheduler) await runningScheduler;
@@ -1836,11 +1493,11 @@ export async function runRunLoop(globals: GlobalArgs, args: Map<string, string |
       fastKnowledgeMaintenanceErrors,
       integrationResolverRuns,
       integrationResolverErrors,
+      integrationDrains,
       dryRun: globals.dryRunAgents,
       finalStatus: {
         activeWorkers: activeWorkerCount(store, runId),
         admittedTargets: admittedTargetCount(store, runId),
-        blockedAdmittedTargets: blockedAdmittedTargetCount(store, runId),
         schedulableTargets: schedulableTargetCount(store, runId),
         unhandledEvents: unhandledEventCount(store, runId),
       },

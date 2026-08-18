@@ -16,7 +16,6 @@ import {
   isRetryableWorkerPiSessionFailure,
   isWorkerPiContextLengthFailure,
   isWorkerSessionTimeoutFailure,
-  runWorkerCycle,
   seedWorkerToolArtifacts,
   shouldRequestWorkerRepairAfterAttempt,
   shouldRunRunnerValidationForWorkerSession,
@@ -39,29 +38,6 @@ import {
 import { runCommand } from "@server/infrastructure/shell";
 
 const hostToolPlatform = resolveToolPlatform({ override: null });
-
-describe("worker dispatch lease", () => {
-  test("refuses worker-cycle dispatch without --lease-id", async () => {
-    const stateDir = await mkdtemp(join(tmpdir(), "worker-cycle-lease-"));
-    try {
-      await expect(
-        runWorkerCycle(
-          {
-            repoRoot: stateDir,
-            stateDir,
-            dryRunAgents: true,
-            provider: "test",
-            model: "test",
-            thinkingLevel: "medium",
-          },
-          new Map(),
-        ),
-      ).rejects.toThrow("worker requires --lease-id");
-    } finally {
-      await rm(stateDir, { recursive: true, force: true });
-    }
-  });
-});
 
 function finding(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
   return {

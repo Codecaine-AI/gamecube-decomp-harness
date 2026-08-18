@@ -1,6 +1,6 @@
 import { describe, expect, mock, spyOn, test } from "bun:test";
 import type { StateStore } from "@server/core/orchestrator-state";
-import { startJobConsumer } from "./consumer.js";
+import { startJobConsumer, type JobConsumerOptions } from "./consumer.js";
 import type {
   ClaimToken,
   JobKindDescriptor,
@@ -12,6 +12,7 @@ import type {
 } from "./types.js";
 
 const store = {} as StateStore;
+type OnJobSettled = NonNullable<JobConsumerOptions["onJobSettled"]>;
 
 function job(id: string, attempts = 1): JobRecord {
   return {
@@ -84,7 +85,7 @@ describe("startJobConsumer", () => {
     releases.splice(0).forEach((release) => release());
     await until(() => handler.mock.calls.length === 3);
     releases.splice(0).forEach((release) => release());
-    await stop();
+    await stop.stop();
   });
 
   test("completes inline work and threads onComplete through", async () => {
@@ -96,7 +97,7 @@ describe("startJobConsumer", () => {
     const call = kernel.completeJob.mock.calls[0]!;
     expect(call[2]).toEqual({ resultRef: "result" });
     expect(call[3]?.onComplete).toBe(onComplete);
-    await stop();
+    await stop.stop();
   });
 
   test("fails thrown inline work with descriptor backoff", async () => {
@@ -108,7 +109,7 @@ describe("startJobConsumer", () => {
     expect(kernel.failJob.mock.calls[0]?.[2]).toBe("broken");
     expect(kernel.failJob.mock.calls[0]?.[3]?.backoffMs).toBe(42);
     expect(descriptor.backoff).toHaveBeenCalledWith(4);
-    await stop();
+    await stop.stop();
   });
 
   test("drives a dispatched task through heartbeat, collect, and completion", async () => {
@@ -123,7 +124,7 @@ describe("startJobConsumer", () => {
     };
     const descriptor: JobKindDescriptor = {
       kind: "worker", concurrencyLimit: 1, leaseMs: 900,
-      execution: { mode: "dispatched", buildTask: (value) => ({
+      execution: { mode: "dispatched", buildTask: async (value) => ({
         jobId: value.jobId, kind: value.kind, executionClass: value.executionClass,
         command: ["true"], env: {}, cwd: "/tmp", timeoutMs: null,
       }), executor },
@@ -135,7 +136,7 @@ describe("startJobConsumer", () => {
     expect(kernel.heartbeatJob).toHaveBeenCalled();
     expect(executor.collect).toHaveBeenCalledWith(handle);
     expect(kernel.completeJob.mock.calls[0]?.[2]).toEqual({ resultRef: null });
-    await stop();
+    await stop.stop();
   });
 
   test("fails a dispatched task with a nonzero exit", async () => {
@@ -154,17 +155,25 @@ describe("startJobConsumer", () => {
     const stop = startJobConsumer(store, descriptor, kernel, { intervalMs: 1 });
     await until(() => kernel.failJob.mock.calls.length === 1);
     expect(kernel.failJob.mock.calls[0]?.[2]).toContain("exitCode=7");
-    await stop();
+    await stop.stop();
   });
 
   test("swallows a stale-token write and continues claiming", async () => {
     const kernel = kernelFor([job("stale"), job("next")]);
     kernel.completeJob.mockImplementationOnce(() => { throw new Error("stale lease"); });
     const warning = spyOn(console, "warn").mockImplementation(() => undefined);
-    const stop = startJobConsumer(store, inlineDescriptor(async () => ({})), kernel, { intervalMs: 1 });
+    const onJobSettled = mock((..._args: Parameters<OnJobSettled>) => undefined);
+    const stop = startJobConsumer(store, inlineDescriptor(async () => ({})), kernel, {
+      intervalMs: 1,
+      onJobSettled,
+    });
     await until(() => kernel.completeJob.mock.calls.length === 2);
     expect(warning).toHaveBeenCalled();
-    await stop();
+    expect(onJobSettled.mock.calls[0]).toEqual([
+      expect.objectContaining({ jobId: "stale" }),
+      { status: "failed", error: "stale lease" },
+    ]);
+    await stop.stop();
     warning.mockRestore();
   });
 
@@ -178,11 +187,72 @@ describe("startJobConsumer", () => {
     const stop = startJobConsumer(store, inlineDescriptor(handler), kernel, { intervalMs: 1 });
     await until(() => handler.mock.calls.length === 1);
     let stopped = false;
-    const stopping = stop().then(() => { stopped = true; });
+    const stopping = stop.stop().then(() => { stopped = true; });
     await Bun.sleep(2);
     expect(stopped).toBe(false);
     release();
     await stopping;
     expect(kernel.claimNextJob).toHaveBeenCalledTimes(1);
+  });
+
+  test("shouldClaim false skips claim calls until a later tick", async () => {
+    const kernel = kernelFor([job("one")]);
+    let allowed = false;
+    const handler = mock(async () => ({}));
+    const consumer = startJobConsumer(store, inlineDescriptor(handler), kernel, {
+      intervalMs: 1,
+      shouldClaim: () => allowed,
+    });
+    await Bun.sleep(5);
+    expect(kernel.claimNextJob).not.toHaveBeenCalled();
+    allowed = true;
+    await until(() => handler.mock.calls.length === 1);
+    await consumer.stop();
+  });
+
+  test("onJobSettled reports succeeded and failed jobs", async () => {
+    const kernel = kernelFor([job("ok"), job("bad")]);
+    const onJobSettled = mock((..._args: Parameters<OnJobSettled>) => undefined);
+    const descriptor = inlineDescriptor(async (value) => {
+      if (value.jobId === "bad") throw new Error("broken");
+      return {};
+    });
+    const consumer = startJobConsumer(store, descriptor, kernel, {
+      intervalMs: 1,
+      onJobSettled,
+    });
+    await until(() => onJobSettled.mock.calls.length === 2);
+    expect(onJobSettled.mock.calls).toEqual([
+      [expect.objectContaining({ jobId: "ok" }), { status: "succeeded" }],
+      [expect.objectContaining({ jobId: "bad" }), { status: "failed", error: "broken" }],
+    ]);
+    await consumer.stop();
+  });
+
+  test("cancelAll cancels known dispatched handles and waits for settlement", async () => {
+    const kernel = kernelFor([job("one")]);
+    const handle = { executorId: "memory", handleId: "one" } as TaskHandle;
+    let cancelled = false;
+    const executor: WorkerExecutor = {
+      submit: mock(async () => handle),
+      poll: mock(async () => ({ state: cancelled ? "exited" as const : "running" as const })),
+      collect: mock(async () => outcome(137)),
+      cancel: mock(async () => { cancelled = true; }),
+    };
+    const descriptor: JobKindDescriptor = {
+      kind: "worker", concurrencyLimit: 1, leaseMs: 900,
+      execution: { mode: "dispatched", buildTask: (value) => ({
+        jobId: value.jobId, kind: value.kind, executionClass: value.executionClass,
+        command: ["sleep", "10"], env: {}, cwd: "/tmp", timeoutMs: null,
+      }), executor },
+    };
+    const consumer = startJobConsumer(store, descriptor, kernel, { intervalMs: 1 });
+    await until(() => kernel.markJobRunning.mock.calls.length === 1);
+    expect(consumer.inFlight()).toBe(1);
+    await consumer.cancelAll();
+    expect(executor.cancel).toHaveBeenCalledWith(handle);
+    expect(kernel.failJob).toHaveBeenCalled();
+    expect(consumer.inFlight()).toBe(0);
+    await consumer.stop();
   });
 });

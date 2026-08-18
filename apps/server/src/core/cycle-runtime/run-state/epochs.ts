@@ -7,6 +7,12 @@ import {
   type DeferredSavePointEvidence,
 } from "@server/core/cycle";
 import { newSpanId, type JsonObject } from "@server/core/harness-state";
+import {
+  cancelJob,
+  enqueueJob,
+  getJobByDedupeKey,
+  reprioritizeJob,
+} from "@server/core/job-queue/kernel.js";
 
 export type EpochSizeMode = "fixed" | "full";
 export type EpochStatus = "active" | "completed" | "error" | "exhausted" | "paused";
@@ -335,6 +341,21 @@ export function closeSchedulerEpoch(
         `,
       )
       .run(params.status, params.boundaryStatus ?? params.status, JSON.stringify(params.routingSummary ?? {}), closedAt, epochId);
+    const pendingWorkerJobs = store.db
+      .query(
+        `
+          SELECT jobs.job_id
+          FROM jobs
+          JOIN epoch_targets ON epoch_targets.id = jobs.dedupe_key
+          WHERE epoch_targets.epoch_id = ?
+            AND jobs.kind = 'worker'
+            AND jobs.status IN ('queued', 'waiting')
+        `,
+      )
+      .all(epochId) as Array<{ job_id: string }>;
+    for (const job of pendingWorkerJobs) {
+      cancelJob(store, { jobId: job.job_id, reason: "epoch_closed", actor: "runner" });
+    }
     let integrationEventId: string | null = null;
     if (params.integration) {
       const integrationEntry = recordEpochCompletedInTransaction(store.db, {
@@ -428,6 +449,10 @@ export function admitEpochTargets(
     const epoch = store.db.query("SELECT run_id FROM epochs WHERE id = ?").get(params.epochId) as Record<string, unknown> | undefined;
     if (!epoch) throw new Error(`Epoch not found: ${params.epochId}`);
     const runId = String(epoch.run_id);
+    const run = store.db
+      .query("SELECT COALESCE(game_id, 'melee') AS game_id, trace_id FROM runs WHERE id = ?")
+      .get(runId) as Record<string, unknown> | undefined;
+    if (!run) throw new Error(`Run not found: ${runId}`);
     const startIndexRow = store.db
       .query("SELECT COALESCE(MAX(admission_index), -1) + 1 AS start_index FROM epoch_targets WHERE epoch_id = ?")
       .get(params.epochId) as Record<string, unknown> | undefined;
@@ -444,8 +469,9 @@ export function admitEpochTargets(
     const admittedAt = now();
     selected.selected.forEach((candidate, index) => {
       const key = targetKey(candidate.unit, candidate.symbol);
+      const epochTargetId = randomUUID();
       insertTarget.run(
-        randomUUID(),
+        epochTargetId,
         params.epochId,
         runId,
         key,
@@ -459,6 +485,20 @@ export function admitEpochTargets(
         startIndex + index,
         admittedAt,
       );
+      enqueueJob(store, {
+        kind: "worker",
+        dedupeKey: epochTargetId,
+        gameId: String(run.game_id),
+        runId,
+        priority: candidate.priority,
+        payload: {
+          epoch_target_id: epochTargetId,
+          epoch_id: params.epochId,
+          target_key: key,
+        },
+        traceId: run.trace_id == null ? undefined : String(run.trace_id),
+        executionClass: "local",
+      });
     });
     store.db.query("UPDATE epochs SET admitted_count = admitted_count + ? WHERE id = ?").run(selected.selected.length, params.epochId);
     return {
@@ -508,6 +548,13 @@ export function refreshEpochTargetPriorities(
         String(row.reason ?? "") === candidate.reason;
       if (same) continue;
       updateTarget.run(candidate.sourcePath, candidate.size, candidate.fuzzy, candidate.priority, candidate.reason, String(row.id));
+      if (Number(row.priority) !== candidate.priority) {
+        reprioritizeJob(store, {
+          kind: "worker",
+          dedupeKey: String(row.id),
+          priority: candidate.priority,
+        });
+      }
       refreshed += 1;
     }
     return { epochId: params.epochId, candidateCount: params.candidates.length, refreshed };
@@ -555,6 +602,10 @@ export function refreshEpochTargetAvailability(
       for (const row of rows) {
         if (!exactTargetKeys.has(String(row.target_key))) continue;
         retireTarget.run(retiredAt, String(row.id));
+        const job = getJobByDedupeKey(store, "worker", String(row.id));
+        if (job && ["queued", "waiting"].includes(job.status)) {
+          cancelJob(store, { jobId: job.jobId, reason: "target_retired", actor: "runner" });
+        }
         retiredExact += 1;
       }
       if (retiredExact > 0) refreshEpochFinishedCount(store, epochId);

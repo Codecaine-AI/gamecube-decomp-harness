@@ -80,7 +80,7 @@ describe("write-set-aware worker state", () => {
           addedBy: "widening",
           wideningId: "widening-1",
         },
-      ]);
+      ], { host: "worker-state-widening-test" });
       expect(widened.writeSet).toEqual(["src/melee/ft/target.c", "src/melee/ft/target.h"]);
       expect(activeClaimsForRun(store, run.id)[0]?.writeSetEntries).toEqual(widened.entries);
 
@@ -106,7 +106,7 @@ describe("write-set-aware worker state", () => {
       const { run, claim } = setupClaim(store);
       widenClaimWriteSet(store, claim.claimId, [
         { path: "config/GALE01/symbols.txt", category: "config-metadata", rung: 2, addedBy: "widening", wideningId: "widening-1" },
-      ]);
+      ], { host: "worker-state-widening-test" });
       store.db
         .query(
           `
@@ -119,7 +119,12 @@ describe("write-set-aware worker state", () => {
         )
         .run("widening-1", run.id, claim.epochId, claim.claimId, claim.workerStateId, new Date().toISOString());
 
-      closeWorkerState(store, { workerStateId: claim.workerStateId, lifecycleStatus: "error", epochTargetStatus: "admitted" });
+      closeWorkerState(store, {
+        workerStateId: claim.workerStateId,
+        authority: { host: "worker-state-widening-test" },
+        lifecycleStatus: "error",
+        epochTargetStatus: "admitted",
+      });
       const recycled = claimNextEpochTarget({
         store,
         runId: run.id,
@@ -155,6 +160,7 @@ describe("write-set-aware worker state", () => {
       const writeSet = ["src/melee/ft/target.c", "config/GALE01/symbols.txt"];
       recordWorkerCheckpoint(store, {
         workerStateId: claim.workerStateId,
+        authority: { host: "worker-state-widening-test" },
         runId: run.id,
         epochId: claim.epochId,
         epochTargetId: claim.epochTargetId,

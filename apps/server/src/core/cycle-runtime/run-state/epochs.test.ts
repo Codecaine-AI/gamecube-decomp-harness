@@ -11,20 +11,27 @@ import {
   bestCheckpointForWorkerState,
   claimNextEpochTarget as claimNextEpochTargetRaw,
   closeSchedulerEpoch,
-  closeWorkerState,
+  closeWorkerState as closeWorkerStateRaw,
   enqueueWorkerOutputIntegration,
   nextWorkerOutputIntegrationConflictForResolver,
   parseEpochSize,
-  recordWorkerCheckpoint,
+  recordWorkerCheckpoint as recordWorkerCheckpointRaw,
   refreshEpochTargetAvailability,
+  refreshEpochTargetPriorities,
   schedulerEpochProgress,
   selectEpochAdmissionCandidates,
   startSchedulerEpoch,
-  updateWorkerStateBaselineScore,
+  updateWorkerStateBaselineScore as updateWorkerStateBaselineScoreRaw,
 } from "./index.js";
 import { createRun } from "./runs.js";
 import { processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import { initializeHarnessState, requestDispatch } from "@server/core/harness-state";
+import {
+  cancelJob,
+  claimNextJob,
+  completeJob,
+  getJobByDedupeKey,
+} from "@server/core/job-queue/kernel.js";
 
 const tempDirs: string[] = [];
 const TEST_WORKER_TIMEOUT_SECONDS = 1800;
@@ -37,6 +44,18 @@ function tempState(): { dir: string; store: StateStore } {
 
 function claimNextEpochTarget(params: Omit<Parameters<typeof claimNextEpochTargetRaw>[0], "ttlSeconds"> & { ttlSeconds?: number }) {
   return claimNextEpochTargetRaw({ ...params, ttlSeconds: params.ttlSeconds ?? TEST_WORKER_TIMEOUT_SECONDS });
+}
+
+function closeWorkerState(store: StateStore, input: Omit<Parameters<typeof closeWorkerStateRaw>[1], "authority">): void {
+  closeWorkerStateRaw(store, { ...input, authority: { host: "epochs-test" } });
+}
+
+function recordWorkerCheckpoint(store: StateStore, input: Omit<Parameters<typeof recordWorkerCheckpointRaw>[1], "authority">) {
+  return recordWorkerCheckpointRaw(store, { ...input, authority: { host: "epochs-test" } });
+}
+
+function updateWorkerStateBaselineScore(store: StateStore, workerStateId: string, score: number | null): void {
+  updateWorkerStateBaselineScoreRaw(store, workerStateId, score, { host: "epochs-test" });
 }
 
 afterAll(() => {
@@ -201,6 +220,81 @@ describe("epoch admission selection", () => {
 });
 
 describe("scheduler epoch and worker state lifecycle", () => {
+  test("admission enqueues one durable worker job per target without duplicates", () => {
+    const { store } = tempState();
+    try {
+      const candidates = [candidate(1, "src/a.c", 501), candidate(2, "src/b.c", 302)];
+      const { run, epoch } = setupEpoch(store, candidates);
+      const rows = store.db
+        .query(
+          `
+            SELECT jobs.*, epoch_targets.target_key
+            FROM jobs
+            JOIN epoch_targets ON epoch_targets.id = jobs.dedupe_key
+            WHERE epoch_targets.epoch_id = ?
+            ORDER BY epoch_targets.admission_index
+          `,
+        )
+        .all(epoch.id) as Array<Record<string, unknown>>;
+
+      expect(rows).toHaveLength(2);
+      for (const [index, row] of rows.entries()) {
+        const payload = JSON.parse(String(row.payload_json)) as Record<string, unknown>;
+        expect(row.kind).toBe("worker");
+        expect(row.status).toBe("queued");
+        expect(row.dedupe_key).toBe(payload.epoch_target_id);
+        expect(Number(row.priority)).toBe(candidates[index]!.priority);
+        expect(row.run_id).toBe(run.id);
+        expect(row.game_id).toBe("test");
+        expect(payload).toEqual({
+          epoch_target_id: row.dedupe_key,
+          epoch_id: epoch.id,
+          target_key: row.target_key,
+        });
+      }
+
+      const duplicate = admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates,
+        size: { mode: "fixed", value: candidates.length },
+        workerPoolSize: 2,
+      });
+      expect(duplicate).toMatchObject({ admitted: 0, skippedExisting: 2 });
+      expect(count(store, "SELECT COUNT(*) AS count FROM jobs WHERE kind = 'worker'")).toBe(2);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("priority refresh updates queued worker jobs but leaves claimed jobs untouched", () => {
+    const { store } = tempState();
+    try {
+      const initial = [candidate(1, "src/a.c", 500), candidate(2, "src/b.c", 400)];
+      const { run, epoch } = setupEpoch(store, initial);
+      const claimed = claimNextJob(store, { kind: "worker", concurrencyLimit: 2, leaseMs: 60_000 });
+      expect(claimed?.job.priority).toBe(500);
+
+      const refreshedCandidates = [candidate(1, "src/a.c", 100), candidate(2, "src/b.c", 450)];
+      const refreshed = refreshEpochTargetPriorities(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: refreshedCandidates,
+      });
+      const targets = store.db
+        .query("SELECT id, target_key FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index")
+        .all(epoch.id) as Array<{ id: string; target_key: string }>;
+      const claimedJob = getJobByDedupeKey(store, "worker", targets[0]!.id);
+      const queuedJob = getJobByDedupeKey(store, "worker", targets[1]!.id);
+
+      expect(refreshed.refreshed).toBe(2);
+      expect(claimedJob).toMatchObject({ status: "claimed", priority: 500 });
+      expect(queuedJob).toMatchObject({ status: "queued", priority: 450 });
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("caps persisted full-mode admissions", () => {
     const { store } = tempState();
     try {
@@ -253,18 +347,29 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
-  test("availability refresh retires admitted targets that are already exact in the fresh board", () => {
+  test("availability refresh retires exact targets, cancelling queued jobs but preserving claimed jobs", () => {
     const { store } = tempState();
     try {
-      const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c"), candidate(2, "src/b.c")]);
+      const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c"), candidate(2, "src/b.c"), candidate(3, "src/c.c")]);
+      const claimed = claimNextJob(store, { kind: "worker", concurrencyLimit: 2, leaseMs: 60_000 });
+      expect(claimed?.job.dedupeKey).toBeDefined();
 
-      const refresh = refreshEpochTargetAvailability(store, epoch.id, { exactTargetKeys: new Set(["unit_1::fn_1"]) });
+      const refresh = refreshEpochTargetAvailability(store, epoch.id, {
+        exactTargetKeys: new Set(["unit_1::fn_1", "unit_2::fn_2"]),
+      });
 
-      expect(refresh).toMatchObject({ retiredExact: 1, availableBefore: 2, availableAfter: 1 });
-      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 2, available: 1, finished: 1, remaining: 1 });
+      expect(refresh).toMatchObject({ retiredExact: 2, availableBefore: 3, availableAfter: 1 });
+      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 3, available: 1, finished: 2, remaining: 1 });
+      const retiredTargets = store.db
+        .query("SELECT id, target_key FROM epoch_targets WHERE epoch_id = ? AND target_key IN ('unit_1::fn_1', 'unit_2::fn_2')")
+        .all(epoch.id) as Array<{ id: string; target_key: string }>;
+      const jobsByTarget = Object.fromEntries(
+        retiredTargets.map((target) => [target.target_key, getJobByDedupeKey(store, "worker", target.id)?.status]),
+      );
+      expect(jobsByTarget).toEqual({ "unit_1::fn_1": "claimed", "unit_2::fn_2": "cancelled" });
 
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
-      expect(claim?.target.symbol).toBe("fn_2");
+      expect(claim?.target.symbol).toBe("fn_3");
     } finally {
       store.db.close();
     }
@@ -750,6 +855,46 @@ describe("scheduler epoch and worker state lifecycle", () => {
       const { epoch } = setupEpoch(store, [candidate(1, "src/a.c")]);
       const closed = closeSchedulerEpoch(store, epoch.id, { status: "completed", boundaryStatus: "dry_run" });
       expect(closed).toMatchObject({ epochId: epoch.id, status: "completed" });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("closing an epoch cancels queued worker jobs and preserves terminal jobs", () => {
+    const { store } = tempState();
+    try {
+      const { epoch } = setupEpoch(
+        store,
+        [candidate(1, "src/a.c", 500), candidate(2, "src/b.c", 400), candidate(3, "src/c.c", 300)],
+        3,
+      );
+      const first = claimNextJob(store, { kind: "worker", concurrencyLimit: 3, leaseMs: 60_000 });
+      expect(first).not.toBeNull();
+      completeJob(store, first!.token, {});
+      const cancelledTarget = store.db
+        .query("SELECT id FROM epoch_targets WHERE epoch_id = ? AND target_key = 'unit_2::fn_2'")
+        .get(epoch.id) as { id: string };
+      const cancelled = getJobByDedupeKey(store, "worker", cancelledTarget.id);
+      cancelJob(store, { jobId: cancelled!.jobId, actor: "runner", reason: "test_terminal" });
+
+      closeSchedulerEpoch(store, epoch.id, { status: "completed" });
+
+      const statuses = store.db
+        .query(
+          `
+            SELECT epoch_targets.target_key, jobs.status
+            FROM epoch_targets
+            JOIN jobs ON jobs.kind = 'worker' AND jobs.dedupe_key = epoch_targets.id
+            WHERE epoch_targets.epoch_id = ?
+            ORDER BY epoch_targets.admission_index
+          `,
+        )
+        .all(epoch.id) as Array<{ target_key: string; status: string }>;
+      expect(statuses).toEqual([
+        { target_key: "unit_1::fn_1", status: "succeeded" },
+        { target_key: "unit_2::fn_2", status: "cancelled" },
+        { target_key: "unit_3::fn_3", status: "cancelled" },
+      ]);
     } finally {
       store.db.close();
     }
