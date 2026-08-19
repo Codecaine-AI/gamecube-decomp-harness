@@ -11,6 +11,7 @@ import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import { runCommand } from "@server/infrastructure/shell";
 import { resolveStateToolArtifact, resolveToolPlatform, type ToolPlatform } from "./platform.js";
 import { runSandboxM2cFetchFirst } from "./wrappers/m2c-decompile.js";
+import { runSandboxMwccAllocCompare, runSandboxMwccAllocSnapshot } from "./wrappers/mwcc-alloc.js";
 
 export interface ToolRuntimeContext {
   game?: RunGameMetadata;
@@ -386,6 +387,24 @@ export async function runRegisteredToolApi(
       },
     });
     return { ...payload, resolved_tool: resolvedTool };
+  }
+  if (toolId === "mwcc_alloc" && context.sandboxHandle) {
+    if (scriptName === "snapshot.py") {
+      const payload = await runSandboxMwccAllocSnapshot({
+        sandboxHandle: context.sandboxHandle,
+        workspaceRoot: resolved.gameRepoRoot,
+        args,
+      });
+      return { ...payload, resolved_tool: resolvedTool };
+    }
+    if (scriptName === "compare.py") {
+      const payload = await runSandboxMwccAllocCompare({
+        sandboxHandle: context.sandboxHandle,
+        workspaceRoot: resolved.gameRepoRoot,
+        args,
+      });
+      return { ...payload, resolved_tool: resolvedTool };
+    }
   }
 
   const command = ["python3", scriptPath, ...args];

@@ -1,0 +1,45 @@
+{
+  "id": "mwcc_alloc",
+  "title": "MWCC allocator snapshots",
+  "trust_tier": "tool_evidence",
+  "description": "Capture and compare stock MWCC register-allocator state for a specific function.",
+  "operation_mode": "live_runner_v1",
+  "runner_status": "live_smoke_required",
+  "status_message": "Live runner v1: allocator captures use the stock hash-gated MWCC compiler under qemu-i386 with a synchronous gdb-multiarch driver.",
+  "limitations": [
+    "Capture uses the stock compiler and does not require an instrumented build.",
+    "Capture is sandbox-only; the host entry point returns sandbox_required when the Linux debugging tools are unavailable.",
+    "Qemu-emulated compiler runs are slow and can take minutes.",
+    "Allocator addresses are valid only for the hash-gated GC/1.2.5 and GC/1.2.5n compiler binaries.",
+    "Function-index mapping uses a symbol-table-order heuristic and should be checked against neighboring captures when results look wrong."
+  ],
+  "commands": {
+    "snapshot": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py --repo-root <repo_root> --unit <unit> --function <symbol> --capture <pcode|coloring|pair> --json",
+    "compare": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/compare.py --before <path> --after <path> --json"
+  },
+  "capabilities": [
+    "mwcc_alloc",
+    "register_allocator_snapshot",
+    "interference_graph",
+    "coloring_diff"
+  ],
+  "category": "compiler",
+  "path": "compiler/mwcc_alloc",
+  "process_role": "compiler_diagnosis",
+  "usage": {
+    "invocation_mode": "conditional_attempt_feedback",
+    "mutates_source": false,
+    "blocks_on_failure": false,
+    "triggers": [
+      "register_flow_mismatch",
+      "register_coloring_evidence_needed",
+      "spill_choice_unclear"
+    ],
+    "outputs": [
+      "allocator_snapshot",
+      "coloring_snapshot",
+      "coloring_diff"
+    ],
+    "agent_guidance": "Use when register allocation, interference edges, coloring order, or spill choices need evidence from the stock compiler."
+  }
+}

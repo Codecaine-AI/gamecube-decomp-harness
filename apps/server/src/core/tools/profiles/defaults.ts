@@ -29,6 +29,8 @@ export const defaultWorkerToolProfile = [
   "mwcc_debug_diagnose_stack",
   "mwcc_debug_diagnose_regflow",
   "mwcc_debug_diagnose_inlines",
+  "mwcc_alloc_snapshot",
+  "mwcc_alloc_compare",
   "source_permuter_run",
   "source_permuter_replay",
   "source_mutation_preview",

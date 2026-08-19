@@ -7,6 +7,16 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
     type: "compiler_analysis",
     useWhen: "Search cached MWCC compiler-shape notes after lighter evidence stops explaining a mismatch.",
   },
+  mwcc_alloc_snapshot: {
+    provider: "mwcc_alloc",
+    type: "compiler_analysis",
+    useWhen: "Capture slow, expensive live allocator evidence only after checkdiff, cached MWCC debug evidence, and source-shape analysis stall on a register-allocation-only mismatch.",
+  },
+  mwcc_alloc_compare: {
+    provider: "mwcc_alloc",
+    type: "compiler_analysis",
+    useWhen: "Cheaply compare the before/after coloring snapshot paths returned by mwcc_alloc_snapshot.",
+  },
   checkdiff_run: {
     provider: "checkdiff",
     type: "verification",

@@ -65,6 +65,7 @@ WIBO="$WIBO_DIR/wibo-linux-i686"
 LINUX_OBJDIFF="$OBJDIFF_DIR/objdiff-cli-linux-x86_64"
 CACHE_SHIM="$IMPL/tools/mwcc_objcache.py"
 CACHE_INSTALLER="$IMPL/tools/install_mwcc_cache.py"
+MWCC_ALLOC_DIR="$HARNESS_ROOT/toolpacks/gamecube-decomp/compiler/mwcc_alloc/sandbox"
 
 require_file "$WIBO"
 require_file "$WIBO_DIR/README.md"
@@ -72,6 +73,10 @@ require_file "$WIBO_DIR/wibo-opt-vs-upstream-e8f4795.patch"
 require_file "$OBJDIFF_DIR/README.md"
 require_file "$CACHE_SHIM"
 require_file "$CACHE_INSTALLER"
+require_file "$MWCC_ALLOC_DIR/allocator_snapshot.py"
+require_file "$MWCC_ALLOC_DIR/gdb_allocator_snapshot.py"
+require_file "$MWCC_ALLOC_DIR/compare_coloring_snapshots.py"
+require_file "$MWCC_ALLOC_DIR/mwcc_alloc_capture.py"
 require_file "$CHECKOUT/configure.py"
 require_file "$CHECKOUT/tools/download_tool.py"
 require_file "$CHECKOUT/build.ninja"
@@ -92,7 +97,8 @@ trap 'rm -rf "$TMP_ROOT"' EXIT INT TERM
 PAYLOAD="$TMP_ROOT/daytona-melee-image"
 SHALLOW_REPO="$TMP_ROOT/shallow"
 mkdir -p "$PAYLOAD/melee" "$PAYLOAD/provenance/wibo-1.2.0-opt1" \
-  "$PAYLOAD/provenance/objdiff-cli-3.6.1-score" "$PAYLOAD/image-tools"
+  "$PAYLOAD/provenance/objdiff-cli-3.6.1-score" "$PAYLOAD/image-tools" \
+  "$PAYLOAD/melee/build/tools/mwcc-alloc"
 
 echo "Copying configured Melee checkout..." >&2
 # Exclude measured local-development dead weight, including AI corpora that policy
@@ -120,6 +126,11 @@ cp -a "$WIBO_DIR/README.md" "$WIBO_DIR/wibo-opt-vs-upstream-e8f4795.patch" \
   "$PAYLOAD/provenance/wibo-1.2.0-opt1/"
 cp -a "$OBJDIFF_DIR/README.md" "$PAYLOAD/provenance/objdiff-cli-3.6.1-score/"
 cp -a "$CACHE_SHIM" "$CACHE_INSTALLER" "$PAYLOAD/image-tools/"
+cp -a "$MWCC_ALLOC_DIR/allocator_snapshot.py" \
+  "$MWCC_ALLOC_DIR/gdb_allocator_snapshot.py" \
+  "$MWCC_ALLOC_DIR/compare_coloring_snapshots.py" \
+  "$MWCC_ALLOC_DIR/mwcc_alloc_capture.py" \
+  "$PAYLOAD/melee/build/tools/mwcc-alloc/"
 
 # The optimized Linux wibo is the real executable. The image-side cache
 # installer will rename it to wibo-real and install the shim at this path.
@@ -134,6 +145,10 @@ for artifact in \
   "$PAYLOAD/melee/build/tools/wibo" \
   "$PAYLOAD/melee/build/tools/sjiswrap.exe" \
   "$PAYLOAD/melee/build/GALE01/report.json" \
+  "$PAYLOAD/melee/build/tools/mwcc-alloc/allocator_snapshot.py" \
+  "$PAYLOAD/melee/build/tools/mwcc-alloc/gdb_allocator_snapshot.py" \
+  "$PAYLOAD/melee/build/tools/mwcc-alloc/compare_coloring_snapshots.py" \
+  "$PAYLOAD/melee/build/tools/mwcc-alloc/mwcc_alloc_capture.py" \
   "$PAYLOAD/image-tools/mwcc_objcache.py" \
   "$PAYLOAD/image-tools/install_mwcc_cache.py"; do
   printf '%s  %s\n' "$(sha256_file "$artifact")" "${artifact#"$PAYLOAD"/}"
