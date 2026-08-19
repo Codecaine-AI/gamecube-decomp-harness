@@ -611,7 +611,7 @@ export const buildMeleeKernelToolFactories: BuildMeleeKernelToolFactories = (opt
   });
   if (options.bashOperations || !childReaperDisabled()) {
     toolFactories.push((pi) => {
-      pi.registerTool(createBashToolDefinition(options.cwd, {
+      pi.registerTool(createBashToolDefinition(toolContext.cwd, {
         operations: options.bashOperations ?? trackedBashOperations(),
         ...(options.bashEnvironment
           ? {

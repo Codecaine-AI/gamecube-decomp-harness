@@ -82,6 +82,7 @@ import type {
   WorkerOutputIntegrationApplyResult,
 } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import type { PiRunResult } from "@server/core/shared/types";
+import type { MeleeKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner.js";
 import {
   gameMetadata,
   stringArg,
@@ -1463,6 +1464,7 @@ export function reconstructClaimedWorkerTask(store: StateStore, task: WorkerTask
 
 export interface WorkerTaskRuntimeDeps {
   sandboxProvider?: SandboxProvider;
+  runAgent?: (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
 }
 
 export async function runWorkerCycleFromTask(
@@ -1515,6 +1517,7 @@ export async function runWorkerCycleFromTask(
       workerRepoRoot,
       workspaceExec,
       sandboxHandle,
+      runAgent: deps.runAgent,
       outputDir: task.artifact_dir,
       baseRev: task.base_rev,
       ttlSeconds: task.ttl_seconds,
@@ -1539,6 +1542,7 @@ async function executeClaimedWorker(params: {
   workerRepoRoot: string;
   workspaceExec: WorkspaceExec;
   sandboxHandle?: SandboxHandle;
+  runAgent?: (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
   outputDir: string;
   baseRev: string;
   ttlSeconds: number;
@@ -1549,7 +1553,7 @@ async function executeClaimedWorker(params: {
   token: ClaimToken;
 }): Promise<WorkerCycleResult> {
     const { store, globals, run, runId, sessionId, claimed, workerRepoRoot, workspaceExec,
-      sandboxHandle, outputDir, baseRev, ttlSeconds, thinkingLevel, postReturnCheckCommand,
+      sandboxHandle, runAgent, outputDir, baseRev, ttlSeconds, thinkingLevel, postReturnCheckCommand,
       graphDbPath, writeSetFlags, token } = params;
     const writeSetWideningMode = writeSetFlags.writeSetWidening;
     let currentWriteSet = [...claimed.writeSet];
@@ -1564,6 +1568,8 @@ async function executeClaimedWorker(params: {
     await mkdir(reportDir, { recursive: true });
     const validationDir = resolve(outputDir, "runner_validation");
     await mkdir(validationDir, { recursive: true });
+    const runnerCwd = sandboxHandle ? resolve(outputDir, "host-cwd") : workerRepoRoot;
+    if (sandboxHandle) await mkdir(runnerCwd, { recursive: true });
     const workerShellBin = sandboxHandle ? null : await writeWorkerShellGuardBin({ outputDir });
     const workerAgentEnv = workerAgentToolEnvironment({
       workerRepoRoot,
@@ -1658,7 +1664,7 @@ async function executeClaimedWorker(params: {
       });
       let result: PiRunResult;
       try {
-        const { runMeleeKernelPiAgent } = await import("@server/infrastructure/agent-runtime/kernel-pi-runner");
+        const runWorkerAgent = runAgent ?? (await import("@server/infrastructure/agent-runtime/kernel-pi-runner")).runMeleeKernelPiAgent;
         let targetSourceText: string | null | undefined;
         if (sandboxHandle) {
           const targetSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
@@ -1672,10 +1678,9 @@ async function executeClaimedWorker(params: {
             }
           }
         }
-        result = await runMeleeKernelPiAgent({
+        result = await runWorkerAgent({
           role: "worker",
-          cwd: workerRepoRoot,
-          ...(sandboxHandle ? { hostCwd: globals.repoRoot } : {}),
+          cwd: runnerCwd,
           prompt: workerPrompt({
             packet: attemptPacket,
             repoRoot: workerRepoRoot,
@@ -1706,6 +1711,7 @@ async function executeClaimedWorker(params: {
               }
             : {}),
           toolContext: {
+            ...(sandboxHandle ? { cwd: workerRepoRoot } : {}),
             repoRoot: workerRepoRoot,
             stateDir: globals.stateDir,
             game,
@@ -1726,7 +1732,7 @@ async function executeClaimedWorker(params: {
             claimId: claimed.claimId,
             targetId: claimed.targetId,
             phase: "worker",
-            workingDir: workerRepoRoot,
+            workingDir: runnerCwd,
             metadata: {
               workerId: claimed.workerId,
               attemptIndex,

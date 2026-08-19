@@ -18,6 +18,7 @@ import {
   readWorkerTaskFile,
   reconstructClaimedWorkerTask,
   runWorkerCycleFromTask,
+  type WorkerTaskRuntimeDeps,
 } from "./worker-cycle.js";
 
 const tempDirs: string[] = [];
@@ -229,7 +230,7 @@ describe("claimed worker task reconstruction", () => {
     }]);
   });
 
-  test("persists sandbox attempt evidence before checkpointing the claim", async () => {
+  test("uses a host-safe sandbox runner cwd while preserving remote tool roots and attempt evidence", async () => {
     const f = fixture();
     const taskPath = join(f.globals.stateDir, "task_spec.json");
     const attemptPath = resolve(
@@ -247,6 +248,7 @@ describe("claimed worker task reconstruction", () => {
       "+int value = 1;\n",
     ].join("");
     let handle: SandboxHandle;
+    let capturedRunnerOptions: Parameters<NonNullable<WorkerTaskRuntimeDeps["runAgent"]>>[0] | undefined;
     let observedBeforeClaimEnd = false;
     const writeRemoteDiff = async (call: { command: string[] }, content: string) => {
       const remotePath = call.command[2]?.replace("--output=", "");
@@ -303,7 +305,14 @@ describe("claimed worker task reconstruction", () => {
       await runWorkerCycleFromTask(
         f.globals,
         new Map([["--task-file", taskPath]]),
-        { sandboxProvider: provider },
+        {
+          sandboxProvider: provider,
+          runAgent: async (options) => {
+            capturedRunnerOptions = options;
+            const { runMeleeKernelPiAgent } = await import("@server/infrastructure/agent-runtime/kernel-pi-runner");
+            return runMeleeKernelPiAgent(options);
+          },
+        },
       );
     } finally {
       if (previousKnowledgeRoot === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
@@ -312,6 +321,16 @@ describe("claimed worker task reconstruction", () => {
 
     const reopened = openState(f.globals.stateDir);
     try {
+      const hostCwd = resolve(String(f.task.artifact_dir), "host-cwd");
+      expect(existsSync(hostCwd)).toBeTrue();
+      expect(capturedRunnerOptions?.cwd).toBe(hostCwd);
+      expect(capturedRunnerOptions?.hostCwd).toBeUndefined();
+      expect(capturedRunnerOptions?.kernelContext?.workingDir).toBe(hostCwd);
+      expect(capturedRunnerOptions?.toolContext).toMatchObject({
+        cwd: "/workspace/melee",
+        repoRoot: "/workspace/melee",
+        sandboxHandle: handle,
+      });
       const checkpoint = reopened.db.query(
         "SELECT patch_path, diff_path FROM worker_checkpoints WHERE worker_state_id = ?",
       ).get(String(f.task.worker_state_id)) as { patch_path: string; diff_path: string };

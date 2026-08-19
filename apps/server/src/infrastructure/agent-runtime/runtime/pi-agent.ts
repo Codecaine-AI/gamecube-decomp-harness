@@ -13,9 +13,9 @@ import { applyProcessEnvPatch } from "./process-env.js";
 
 export interface PiRunOptions {
   role: RuntimeAgentRole;
-  /** Agent-visible cwd. May be a remote sandbox path. */
+  /** Existing host cwd used by Pi and Agent Kernel session/resource machinery. */
   cwd: string;
-  /** Existing host cwd used by Pi's local session/resource machinery when cwd is remote. */
+  /** Legacy host override for direct Pi callers whose cwd is still agent-visible. */
   hostCwd?: string;
   prompt: PiPromptBundle;
   outputDir: string;
@@ -27,7 +27,8 @@ export interface PiRunOptions {
   sessionDir?: string;
   env?: Record<string, string | undefined>;
   toolProfile?: AgentToolProfileInput;
-  toolContext?: Partial<Omit<AgentToolRuntimeContext, "role" | "cwd">>;
+  /** Agent/tool-visible context. Remote claims override cwd/repoRoot with the sandbox workspace. */
+  toolContext?: Partial<Omit<AgentToolRuntimeContext, "role">>;
   /** Pi built-in tool names to disable for this session (e.g. ["write"]). */
   excludeBuiltinTools?: string[];
   /** Same-named custom definitions replace excluded builtins for remote execution. */
@@ -131,15 +132,16 @@ function textFromContentPart(part: unknown): string {
 export function buildPiToolRegistration(
   options: Pick<
     PiRunOptions,
-    "cwd" | "customTools" | "bashOperations" | "bashEnvironment" | "excludeBuiltinTools"
+    "cwd" | "toolContext" | "customTools" | "bashOperations" | "bashEnvironment" | "excludeBuiltinTools"
   >,
   baseCustomTools: Array<{ name: string }>,
 ): PiToolRegistration {
+  const toolCwd = options.toolContext?.cwd ?? options.cwd;
   const customTools: Array<{ name: string }> = [
     ...baseCustomTools,
     ...(options.customTools ?? []),
     ...(options.bashOperations
-      ? [createBashToolDefinition(options.cwd, {
+      ? [createBashToolDefinition(toolCwd, {
           operations: options.bashOperations,
           ...(options.bashEnvironment
             ? {

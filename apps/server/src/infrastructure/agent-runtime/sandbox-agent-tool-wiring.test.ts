@@ -58,7 +58,8 @@ describe("sandbox same-name agent tool wiring", () => {
     const { hostRoot, provider, handle, workspaceRoot, fileTools } = await fixture();
     provider.scriptExec({ exitCode: 0, stdout: "direct", stderr: "" });
     const registration = buildPiToolRegistration({
-      cwd: workspaceRoot,
+      cwd: hostRoot,
+      toolContext: { cwd: workspaceRoot },
       customTools: fileTools,
       bashOperations: sandboxBashOperations(handle, workspaceRoot),
       bashEnvironment: { SANDBOX_PATH: "direct" },
@@ -96,8 +97,7 @@ describe("sandbox same-name agent tool wiring", () => {
     provider.scriptExec({ exitCode: 0, stdout: "kernel", stderr: "" });
     const extensionFactories = buildMeleeKernelToolFactories({
       role: "worker",
-      cwd: workspaceRoot,
-      hostCwd: hostRoot,
+      cwd: hostRoot,
       prompt: {
         systemPrompt: "test",
         userPrompt: "test",
@@ -106,6 +106,7 @@ describe("sandbox same-name agent tool wiring", () => {
       },
       outputDir: hostRoot,
       dryRun: true,
+      toolContext: { cwd: workspaceRoot, repoRoot: workspaceRoot },
       customTools: fileTools,
       bashOperations: sandboxBashOperations(handle, workspaceRoot),
       bashEnvironment: { SANDBOX_PATH: "kernel" },
