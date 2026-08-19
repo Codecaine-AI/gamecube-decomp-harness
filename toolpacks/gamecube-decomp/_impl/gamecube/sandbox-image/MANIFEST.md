@@ -35,6 +35,10 @@ tools or performing a cold build.
 | `$MELEE_ROOT/build/tools/dtk` | Linux x86_64 dtk `v1.8.3` | Generates and checks decompilation artifacts. A macOS checkout contains a Mach-O binary here; replace it with the Linux release. |
 | `$MELEE_ROOT/build/binutils` | Linux x86_64 gc-wii-binutils `2.42-2` | Supplies the `powerpc-eabi-*` assembler, linker, and inspection tools used by Ninja. A macOS build directory is not reusable. |
 | `PATH` | Ninja `>=1.3`, Python `>=3.8`, and Git | Ninja executes `build.ninja`; Python runs configure and harness/cache tools; Git applies worker revisions. The checkout declares `ninja_required_version = 1.3`, and its Python tools contain a Python 3.8+ requirement. The upstream files do not pin exact Ninja, Python, or Git releases, so the base-image digest or package lock must pin the selected Linux packages. |
+| `PATH` | Apt package `gdb-multiarch` with GDB Python support | Runs the stock Windows MWCC under a qemu gdbstub for register-allocator snapshots in `toolpacks/gamecube-decomp/compiler/mwcc_alloc`; the stock Debian/Ubuntu package includes Python support. |
+| `PATH` | Apt package `qemu-user` | Provides `qemu-i386`, which runs the stock Windows MWCC under a qemu gdbstub for register-allocator snapshots in `toolpacks/gamecube-decomp/compiler/mwcc_alloc`. |
+| `PATH` | Apt package `python3` | Runs the register-allocator snapshot scripts in `toolpacks/gamecube-decomp/compiler/mwcc_alloc`; this is the Python requirement already listed above. |
+| `$MELEE_ROOT/build/tools/mwcc-alloc/` | `allocator_snapshot.py`, `gdb_allocator_snapshot.py`, `compare_coloring_snapshots.py`, and `mwcc_alloc_capture.py` | `build_image_bundle.sh` copies these from `toolpacks/gamecube-decomp/compiler/mwcc_alloc/sandbox/`. Run the capture CLI from `$MELEE_ROOT`; it requires the real ELF at `build/tools/wibo-real` and refuses the Python cache shim by design. |
 
 The authoritative Melee pins are in `games/melee/checkout/configure.py`:
 binutils `2.42-2`, compilers `20251118`, dtk `v1.8.3`, objdiff `v3.6.1`,
@@ -88,6 +92,20 @@ allocation and the per-VM slot count are therefore the compile admission limit.
    `READY` and scores that object.
 5. A no-op `ninja build/GALE01/report.json` succeeds, and a representative one-TU edit,
    rebuild, and score completes on the incremental path.
+6. `gdb-multiarch --version` succeeds.
+7. `qemu-i386 --version` succeeds.
+8. `gdb-multiarch --batch -ex "python print(1)"` prints `1`.
+9. With networking disabled, run the following from `$MELEE_ROOT`, substituting
+   a small matched translation unit and its smallest function. Require
+   `"status": "ok"` and at least one coloring snapshot file that validates.
+
+   ```sh
+   python3 build/tools/mwcc-alloc/mwcc_alloc_capture.py --unit <small matched TU> --function <its smallest function> --capture coloring --timeout-seconds 900 --json
+   ```
+
+Sandboxes created from snapshots that predate these requirements return
+`{"status": "debug_tools_not_provisioned"}` from the tool instead of erroring;
+operators must rebake the snapshot rather than patch a live sandbox.
 
 `build_image_bundle.sh` packages the current checkout plus the required local
 overlays for transfer into an image build context. It does not make macOS native

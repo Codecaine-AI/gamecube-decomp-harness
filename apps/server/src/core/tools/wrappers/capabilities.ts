@@ -840,6 +840,63 @@ export const reviewLintSdata2OrderHelperToolRegistration = knowledgeApiTool({
   },
 });
 
+/** Tool for capturing live MWCC register-allocator state for one function. */
+export const mwccAllocSnapshotToolRegistration = knowledgeApiTool({
+  id: "mwcc_alloc_snapshot",
+  toolId: "mwcc_alloc",
+  scriptName: "snapshot.py",
+  label: "MWCC Allocator Snapshot",
+  purpose: "Capture live MWCC register-allocator/coloring state for one function.",
+  description: "Capture PCode blocks, the interference graph, and simplify order by running the stock MWCC under qemu+gdb in the sandbox.",
+  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures before/after coloring snapshots you can feed to mwcc_alloc_compare.",
+  parameters: {
+    type: "object",
+    properties: {
+      unit: { type: "string", description: "Workspace-relative translation unit path." },
+      function: { type: "string", description: "Function symbol to capture." },
+      capture: { type: "string", enum: ["pcode", "coloring", "pair"], description: "Allocator state to capture. Defaults to pair." },
+      timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
+    },
+    required: ["unit", "function"],
+    additionalProperties: false,
+  },
+  executionMode: "sequential",
+  args(params, context) {
+    const unit = stringParam(params, "unit");
+    const fn = stringParam(params, "function");
+    if (!unit || !fn) return { status: "missing_unit_or_function" };
+    const capture = stringParam(params, "capture") || "pair";
+    return ["--repo-root", context.repoRoot, "--unit", unit, "--function", fn, "--capture", capture, "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 900, 60, 1800))];
+  },
+});
+
+/** Tool for comparing two MWCC coloring snapshots. */
+export const mwccAllocCompareToolRegistration = knowledgeApiTool({
+  id: "mwcc_alloc_compare",
+  toolId: "mwcc_alloc",
+  scriptName: "compare.py",
+  label: "MWCC Coloring Compare",
+  purpose: "Diff two MWCC coloring snapshots per virtual register.",
+  description: "Compare two allocator coloring snapshots and report changes for each virtual register.",
+  guidance: "Feed it the before/after paths returned by mwcc_alloc_snapshot. Deltas show interference, physical-register, and simplify-order movement.",
+  parameters: {
+    type: "object",
+    properties: {
+      before: { type: "string", description: "Workspace-relative path to the before snapshot JSON." },
+      after: { type: "string", description: "Workspace-relative path to the after snapshot JSON." },
+    },
+    required: ["before", "after"],
+    additionalProperties: false,
+  },
+  executionMode: "parallel",
+  args(params, context) {
+    const before = stringParam(params, "before");
+    const after = stringParam(params, "after");
+    if (!before || !after) return { status: "missing_before_or_after" };
+    return ["--repo-root", context.repoRoot, "--before", before, "--after", after];
+  },
+});
+
 /** All callable decomp capability wrappers, reusable across profiles. */
 export const capabilityToolRegistrations = [
   mwccDebugLookupToolRegistration,
@@ -864,4 +921,6 @@ export const capabilityToolRegistrations = [
   itemStateTablePreviewToolRegistration,
   reviewLintScanToolRegistration,
   reviewLintSdata2OrderHelperToolRegistration,
+  mwccAllocSnapshotToolRegistration,
+  mwccAllocCompareToolRegistration,
 ] as const;
