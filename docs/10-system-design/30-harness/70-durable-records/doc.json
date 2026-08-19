@@ -1,0 +1,226 @@
+{
+	"id": "10-system-design-40-harness-state-40-durable-records",
+	"title": "Durable Records",
+	"schemaVersion": 1,
+	"root": "b-index-root-21",
+	"blocks": {
+		"b-index-root-21": {
+			"id": "b-index-root-21",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-index-the-board-composes-run-c-1",
+				"b-durable-jobs-heading",
+				"b-index-epoch-verdicts-and-integ-11",
+				"b-durable-jobs-ordering",
+				"b-e5-state-envelope-heading",
+				"b-e5-state-envelope-contract",
+				"b-index-facts-15",
+				"b-index-fact-type-meaning-18"
+			]
+		},
+		"b-index-the-board-composes-run-c-1": {
+			"id": "b-index-the-board-composes-run-c-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The harness-wide durable remainder is deliberately small. The jobs table owns execution, lease, retry, and result-reference truth; accepted state revisions obey one causation rule, while domain records live with the workflow, knowledge, or tracing contract that interprets them."
+				}
+			],
+			"children": []
+		},
+		"b-durable-jobs-heading": {
+			"id": "b-durable-jobs-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Jobs Table"
+				}
+			],
+			"children": []
+		},
+		"b-index-epoch-verdicts-and-integ-11": {
+			"id": "b-index-epoch-verdicts-and-integ-11",
+			"type": "structured-table",
+			"props": {
+				"title": "Global jobs-table contract",
+				"columns": [
+					"Field Group",
+					"Fields",
+					"Contract"
+				],
+				"rows": [
+					[
+						"Identity and dedupe",
+						"job_id, kind, dedupe_key",
+						"One durable executable request selects a registered descriptor and idempotency policy."
+					],
+					[
+						"Status",
+						"status",
+						"Exactly queued, waiting, claimed, running, succeeded, failed, or cancelled."
+					],
+					[
+						"Ordering and CAS",
+						"revision, priority, created_at",
+						"Deterministic ordering chooses eligible work; expected revision rejects stale transitions."
+					],
+					[
+						"Concurrency and execution",
+						"concurrency_key, execution_class",
+						"Consumer policy limits incompatible or capacity-bound work."
+					],
+					[
+						"Lease",
+						"lease_id, claimed_by, visibility_timeout",
+						"A current fenced claim prevents two consumers from owning the same execution."
+					],
+					[
+						"Retry",
+						"attempts, max_attempts, next_attempt_at, backoff",
+						"Retryable failures enter waiting until their durable retry time."
+					],
+					[
+						"Input and result",
+						"payload, result_ref",
+						"Payload requests work; result_ref points to domain evidence and never embeds it in queue state."
+					],
+					[
+						"Tracing",
+						"trace_id, operation_id, caused_by_event_id",
+						"Every accepted transition joins execution to its trace and causing event."
+					]
+				]
+			},
+			"children": []
+		},
+		"b-durable-jobs-ordering": {
+			"id": "b-durable-jobs-ordering",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "BEGIN IMMEDIATE plus revision CAS prevents double claim. Every accepted job transition appends one registered job.* game event; a terminal status records execution outcome, while result_ref identifies the domain record that explains what the work produced."
+				}
+			],
+			"children": []
+		},
+		"b-e5-state-envelope-heading": {
+			"id": "b-e5-state-envelope-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "One Revision, One Causing Event"
+				}
+			],
+			"children": []
+		},
+		"b-e5-state-envelope-contract": {
+			"id": "b-e5-state-envelope-contract",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Every accepted durable-state transition increments its state revision exactly once and records the one game event that caused it. Creation follows the same rule. The state write, event append, and outgoing spool records commit together under the expected revision; rejection commits none of them. "
+				},
+				{
+					"insert": "Envelope and Lineage",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/60-tracing/10-envelope-and-lineage"
+						}
+					}
+				},
+				{
+					"insert": " owns the StateEnvelope and provenance contract around this invariant."
+				}
+			],
+			"children": []
+		},
+		"b-index-facts-15": {
+			"id": "b-index-facts-15",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Record Destinations"
+				}
+			],
+			"children": []
+		},
+		"b-index-fact-type-meaning-18": {
+			"id": "b-index-fact-type-meaning-18",
+			"type": "structured-table",
+			"props": {
+				"columns": [
+					"Record Family",
+					"Authority",
+					"Destination"
+				],
+				"rows": [
+					[
+						"Jobs",
+						"Dispatch, lease, retry, and result-reference truth.",
+						"This page"
+					],
+					[
+						"Runs, targets, epochs, claims, worker states, checkpoints, integration outcomes",
+						"Run-domain state and evidence.",
+						[
+							{
+								"insert": "Run State",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "10-system-design/50-workflows/20-run/10-run-state"
+									}
+								}
+							}
+						]
+					],
+					[
+						"Facts",
+						"Accepted reusable knowledge and its reconciled taxonomy.",
+						[
+							{
+								"insert": "Knowledge Ledger",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "10-system-design/40-knowledge/20-knowledge-stores/10-knowledge-ledger"
+									}
+								}
+							}
+						]
+					],
+					[
+						"StateEnvelope and provenance",
+						"Snapshot identity, causing-event lineage, and reconstruction.",
+						[
+							{
+								"insert": "Envelope and Lineage",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "10-system-design/60-tracing/10-envelope-and-lineage"
+									}
+								}
+							}
+						]
+					]
+				]
+			},
+			"children": []
+		}
+	}
+}

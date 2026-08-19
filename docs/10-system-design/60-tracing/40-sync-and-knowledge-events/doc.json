@@ -1,0 +1,318 @@
+{
+	"id": "10-system-design-40-harness-state-50-game-events-40-sync-and-knowledge-events",
+	"title": "Sync and Knowledge Events",
+	"schemaVersion": 1,
+	"root": "b-index-root-18",
+	"blocks": {
+		"b-index-root-18": {
+			"id": "b-index-root-18",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-index-sync-and-knowledge-event-1",
+				"b-index-sync-events-distinguish-2",
+				"b-index-ingestion-authority-3",
+				"b-sync-ingestion-sequence",
+				"b-index-observation-and-staged-p-5",
+				"b-sync-ingestion-sequence-diagram",
+				"b-sync-observation-shape",
+				"b-sync-progress-events",
+				"b-index-blocking-recovery-and-10",
+				"b-sync-blocking-events",
+				"b-index-knowledge-jobs-15",
+				"b-knowledge-events",
+				"b-sync-state-owner-link"
+			]
+		},
+		"b-index-sync-and-knowledge-event-1": {
+			"id": "b-index-sync-and-knowledge-event-1",
+			"type": "heading",
+			"props": {
+				"level": 1
+			},
+			"text": [
+				{
+					"insert": "Sync and Knowledge Events"
+				}
+			],
+			"children": []
+		},
+		"b-index-sync-events-distinguish-2": {
+			"id": "b-index-sync-events-distinguish-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Sync and knowledge events reconstruct observed inputs, staged work, blocking evidence, recovery, cancellation proof, and publication. The "
+				},
+				{
+					"insert": "Sync Workflow",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/10-sync"
+						}
+					}
+				},
+				{
+					"insert": " worker owns its staged state copy; this page owns only the accepted facts needed to replay and explain that work."
+				}
+			],
+			"children": []
+		},
+		"b-index-ingestion-authority-3": {
+			"id": "b-index-ingestion-authority-3",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Ingestion Authority"
+				}
+			],
+			"children": []
+		},
+		"b-sync-ingestion-sequence": {
+			"id": "b-sync-ingestion-sequence",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Guardian settles the outgoing lease",
+						"steps": [
+							{
+								"text": "Append game.dispatch_released and run.paused under settlement lineage."
+							}
+						]
+					},
+					{
+						"text": "Successor acquires the lease",
+						"steps": [
+							{
+								"text": "Append game.dispatch_acquired under the queued workflow lineage."
+							}
+						]
+					},
+					{
+						"text": "Operator or runner begins ingestion",
+						"steps": [
+							{
+								"text": "Append sync.ingesting; guardian is not an allowed actor."
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		},
+		"b-index-observation-and-staged-p-5": {
+			"id": "b-index-observation-and-staged-p-5",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Observation and Staged Progress"
+				}
+			],
+			"children": []
+		},
+		"b-sync-observation-shape": {
+			"id": "b-sync-observation-shape",
+			"type": "state-shape",
+			"props": {
+				"name": "sync.observation_refreshed payload",
+				"description": "A closed progress fact that refreshes the reconstructable upstream observation.",
+				"fields": [
+					{
+						"name": "prior_upstream_revision",
+						"type": "string"
+					},
+					{
+						"name": "observed_upstream_revision",
+						"type": "string"
+					},
+					{
+						"name": "merged_pr_ids",
+						"type": "string[]"
+					},
+					{
+						"name": "corpus_batch_ids",
+						"type": "string[]"
+					},
+					{
+						"name": "knowledge_only",
+						"type": "boolean"
+					},
+					{
+						"name": "observation_source_identity",
+						"type": "string"
+					},
+					{
+						"name": "state_revision",
+						"type": "integer"
+					}
+				]
+			},
+			"children": []
+		},
+		"b-sync-progress-events": {
+			"id": "b-sync-progress-events",
+			"type": "structured-table",
+			"props": {
+				"title": "Progress facts",
+				"columns": [
+					"Event",
+					"Reconstruction evidence",
+					"Allowed actors"
+				],
+				"rows": [
+					[
+						"sync.observation_refreshed",
+						"Complete observed revisions plus PR and corpus identity sets.",
+						"operator, runner, external_observer"
+					],
+					[
+						"sync.staging_progressed",
+						"Workspace, durable stage, epoch/conflict counts, PR reconciliation summary, revision, and progress kind.",
+						"operator, runner"
+					],
+					[
+						"sync.boundary_published",
+						"Upstream and knowledge revisions, validation evidence, and invalidated identities.",
+						"operator, runner"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-index-blocking-recovery-and-10": {
+			"id": "b-index-blocking-recovery-and-10",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Blocking, Recovery, and Cancellation"
+				}
+			],
+			"children": []
+		},
+		"b-sync-blocking-events": {
+			"id": "b-sync-blocking-events",
+			"type": "structured-table",
+			"props": {
+				"title": "Reconstruction outcomes",
+				"columns": [
+					"Event",
+					"Evidence",
+					"Authority"
+				],
+				"rows": [
+					[
+						"sync.reconciliation_blocked",
+						"Conflict identities and conflicts awaiting operator.",
+						"operator, runner, guardian"
+					],
+					[
+						"sync.blocked",
+						"Blocker codes, deduplicated source identities, and recovery choices.",
+						"operator, runner, guardian"
+					],
+					[
+						"sync.recovered",
+						"From/to status, staging preservation or discard, resume stage, and reason.",
+						"operator"
+					],
+					[
+						"sync.cancelled",
+						"Discarded staging identity and proof that canonical heads were untouched.",
+						"operator"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-index-knowledge-jobs-15": {
+			"id": "b-index-knowledge-jobs-15",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Knowledge Jobs"
+				}
+			],
+			"children": []
+		},
+		"b-knowledge-events": {
+			"id": "b-knowledge-events",
+			"type": "structured-table",
+			"props": {
+				"title": "Knowledge event reconstruction",
+				"columns": [
+					"Event family",
+					"Evidence",
+					"Authority"
+				],
+				"rows": [
+					[
+						"knowledge.job_enqueued",
+						"Source class, provenance, and execution class.",
+						"operator, runner"
+					],
+					[
+						"knowledge job transitions",
+						"Status change, sync binding, execution/source class, provenance, source identity, and outcome-specific reason, digest, or error.",
+						"operator, runner"
+					],
+					[
+						"knowledge.revision_advanced",
+						"Old/new knowledge revisions and the complete accepted job-id set.",
+						"operator, runner"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-sync-state-owner-link": {
+			"id": "b-sync-state-owner-link",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The staged workflow shape and status meanings live in "
+				},
+				{
+					"insert": "Sync state",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/10-sync/10-sync-state"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		},
+		"b-sync-ingestion-sequence-diagram": {
+			"id": "b-sync-ingestion-sequence-diagram",
+			"type": "sequence",
+			"props": {
+				"sequenceId": "b-sync-ingestion-sequence-diagram",
+				"title": "Sync ingestion authority"
+			},
+			"children": []
+		}
+	}
+}

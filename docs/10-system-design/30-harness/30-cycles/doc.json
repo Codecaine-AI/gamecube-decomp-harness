@@ -1,0 +1,556 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-30-games-30-cycles",
+  "title": "Cycles",
+  "root": "b-20-cycles-root-56",
+  "blocks": {
+    "b-20-cycles-root-56": {
+      "id": "b-20-cycles-root-56",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "pm-mt0fn8wi-2-fvmock",
+        "b-30-cycle-state-structure-4",
+        "b-30-cycle-state-base-class-2",
+        "b-restored-cycle-state-shape-20260814",
+        "b-10-game-model-baseline-and-head-20",
+        "b-10-game-model-each-cycle-captures-an-21",
+        "b-10-game-model-the-baseline-records-the-22",
+        "b-20-registration-cycle-open-heading",
+        "b-20-registration-cycle-open-intro",
+        "b-20-registration-precondition-prior-cycle",
+        "b-20-registration-bootstrap",
+        "b-20-cycles-single-active-cycle-ru-13",
+        "b-20-cycles-a-game-has-at-most-on-14",
+        "b-20-cycles-ordered-timeline-24",
+        "b-20-cycles-the-cycle-timeline-rec-25",
+        "b-save-points-timeline-table",
+        "b-20-cycles-workflow-authority-33",
+        "b-20-cycles-the-cycle-can-retain-r-34",
+        "b-cycles-workflow-authority-table",
+        "b-30-cycle-state-flows-17",
+        "b-30-cycle-state-close-explicitly-28"
+      ]
+    },
+    "pm-mt0fn8wi-2-fvmock": {
+      "id": "pm-mt0fn8wi-2-fvmock",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A cycle is the durable container for one bounded period of work on a game. It fixes the opening baseline, owns the mutable head lineage and ordered workflow evidence, and remains inspectable after an explicit operator close."
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-structure-4": {
+      "id": "b-30-cycle-state-structure-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "CycleState"
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-base-class-2": {
+      "id": "b-30-cycle-state-base-class-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "CycleState extends the "
+        },
+        {
+          "insert": "StateEnvelope",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness/20-harness-state"
+            }
+          }
+        },
+        {
+          "insert": " with cycle-owned lineage, timeline, child workflow identities, and close state. It never holds the game dispatch lease itself."
+        }
+      ],
+      "children": []
+    },
+    "b-restored-cycle-state-shape-20260814": {
+      "id": "b-restored-cycle-state-shape-20260814",
+      "type": "state-shape",
+      "props": {
+        "description": "Durable container owning the worktree, head lineage, timeline, and child workflows of one cycle.",
+        "example": "{\n  \"cycle_id\": \"cycle-7\",\n  \"game_id\": \"melee\",\n  \"revision\": 3104,\n  \"status\": \"active\",\n  \"original_baseline_revision\": \"upstream-9ac4\",\n  \"head_revision\": \"upstream-9ba1\",\n  \"timeline\": [\n    {\n      \"entry_kind\": \"epoch_completed\",\n      \"entry_id\": \"epoch-19\",\n      \"occurred_at\": \"2026-08-11T17:55:00Z\"\n    },\n    {\n      \"entry_kind\": \"remote_application\",\n      \"entry_id\": \"remote-application-3\",\n      \"occurred_at\": \"2026-08-11T19:10:00Z\"\n    }\n  ],\n  \"workflow_ids\": [\n    \"run-2026-08-11-01\",\n    \"sync-2026-08-11-02\"\n  ],\n  \"created_at\": \"2026-08-01T09:00:00Z\",\n  \"trace_id\": \"trace-cycle-7\",\n  \"blockers\": []\n}",
+        "fields": [
+          {
+            "name": "cycle_id",
+            "type": "CycleId"
+          },
+          {
+            "name": "game_id",
+            "type": "GameId"
+          },
+          {
+            "name": "revision",
+            "type": "integer"
+          },
+          {
+            "name": "status",
+            "type": "\"active\" | \"closing\" | \"closed\"",
+            "description": "Only one cycle may be active per game; closing is an explicit operator action."
+          },
+          {
+            "name": "original_baseline_revision",
+            "type": "SourceRevision",
+            "description": "Source revision captured at cycle opening. Immutable."
+          },
+          {
+            "name": "head_revision",
+            "type": "SourceRevision",
+            "description": "Canonical cycle head. Only epoch integrations and remote-application boundaries advance it."
+          },
+          {
+            "name": "timeline",
+            "type": "TimelineEntry[]",
+            "description": "Ordered head-lineage record. Head-advancing entries are transactional with their commits; save points are evidence anchors pinned to existing commits. See the timeline entry-kind table below.",
+            "fields": [
+              {
+                "name": "entry_kind",
+                "type": "\"epoch_completed\" | \"remote_application\" | \"pr_phase\" | \"save_point\""
+              },
+              {
+                "name": "entry_id",
+                "type": "string"
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp"
+              }
+            ]
+          },
+          {
+            "name": "workflow_ids",
+            "type": "WorkflowId[]",
+            "description": "Child run, PR, and sync workflows in creation order."
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "closed_at",
+            "type": "timestamp",
+            "required": false
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId"
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]"
+          }
+        ],
+        "name": "CycleState"
+      },
+      "children": []
+    },
+    "b-10-game-model-baseline-and-head-20": {
+      "id": "b-10-game-model-baseline-and-head-20",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Baseline and Head"
+        }
+      ],
+      "children": []
+    },
+    "b-10-game-model-each-cycle-captures-an-21": {
+      "id": "b-10-game-model-each-cycle-captures-an-21",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each cycle captures one immutable baseline and advances one head_revision. Recovery reads those durable fields instead of inferring current source truth from workflow logs or dashboard history."
+        }
+      ],
+      "children": []
+    },
+    "b-10-game-model-the-baseline-records-the-22": {
+      "id": "b-10-game-model-the-baseline-records-the-22",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Concern",
+          "Contract",
+          "Why"
+        ],
+        "rows": [
+          [
+            "Opening baseline",
+            "The source revision and game policy captured at open never change.",
+            "Later configuration edits cannot rewrite the meaning of existing work."
+          ],
+          [
+            "head_revision",
+            "The canonical commit currently owned by the active cycle.",
+            "The canonical worktree must agree with it at durable boundaries."
+          ],
+          [
+            "Head lineage",
+            "Only accepted Run integration and source-changing sync publication advance head.",
+            "PR phases and save points add evidence without pretending source moved."
+          ],
+          [
+            "Successor baseline",
+            "A new cycle captures a fresh baseline only after its predecessor closes.",
+            "Two cycles never compete for future head lineage."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-20-registration-cycle-open-heading": {
+      "id": "b-20-registration-cycle-open-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Open a Cycle"
+        }
+      ],
+      "children": []
+    },
+    "b-20-registration-cycle-open-intro": {
+      "id": "b-20-registration-cycle-open-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Opening turns the worktree prepared by "
+        },
+        {
+          "insert": "Registration and Setup",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-game/20-registration-and-setup"
+            }
+          }
+        },
+        {
+          "insert": " into an active cycle only after its source boundary is complete and verified. The "
+        },
+        {
+          "insert": "Sync Workflow",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/10-sync"
+            }
+          }
+        },
+        {
+          "insert": " performs Baseline Preparation when source reconciliation is required."
+        }
+      ],
+      "children": []
+    },
+    "b-20-registration-precondition-prior-cycle": {
+      "id": "b-20-registration-precondition-prior-cycle",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Open a cycle",
+            "steps": [
+              {
+                "text": "Require every prior cycle for the game to be closed"
+              },
+              {
+                "text": "Allocate the envelope and capture baseline preparation outside the active slot"
+              },
+              {
+                "text": "Provision or identify the canonical worktree"
+              },
+              {
+                "text": "Run opening sync when source preparation is required"
+              },
+              {
+                "text": "Verify the worktree, baseline, and opening head name the same source boundary"
+              },
+              {
+                "text": "Install active CycleState and append `cycle.opened` in one durable boundary"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-20-registration-bootstrap": {
+      "id": "b-20-registration-bootstrap",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The first cycle has no predecessor head. Provisioning plus opening sync establishes its baseline; bootstrap may omit opening_sync_id only when provisioning itself supplies the validated source boundary. No active CycleState is exposed with an incomplete baseline or missing worktree identity."
+        }
+      ],
+      "children": []
+    },
+    "b-20-cycles-single-active-cycle-ru-13": {
+      "id": "b-20-cycles-single-active-cycle-ru-13",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Single Active Cycle"
+        }
+      ],
+      "children": []
+    },
+    "b-20-cycles-a-game-has-at-most-on-14": {
+      "id": "b-20-cycles-a-game-has-at-most-on-14",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A game has at most one cycle in active or closing ownership. Historical closed cycles remain readable, an active cycle persists while dispatch authority is free, and no workflow transition opens or closes a cycle automatically."
+        }
+      ],
+      "children": []
+    },
+    "b-20-cycles-ordered-timeline-24": {
+      "id": "b-20-cycles-ordered-timeline-24",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Ordered Timeline"
+        }
+      ],
+      "children": []
+    },
+    "b-20-cycles-the-cycle-timeline-rec-25": {
+      "id": "b-20-cycles-the-cycle-timeline-rec-25",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The timeline records head lineage and workflow evidence in one durable order. Each entry kind has one writer, one head effect, and a failure rule that keeps recovery deterministic."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-timeline-table": {
+      "id": "b-save-points-timeline-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Entry",
+          "Writer",
+          "Purpose",
+          "Head Effect",
+          "Failure Rule"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "epoch_completed",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Run integrator",
+            "Record one confirmed epoch integration commit.",
+            "Advances head_revision.",
+            "The entry exists if and only if the integration commit exists."
+          ],
+          [
+            [
+              {
+                "insert": "remote_application",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Sync publisher",
+            "Record confirmed source reconciliation and its prior/new heads.",
+            "Advances head_revision for source-changing sync only.",
+            "The entry, repoint, invalidations, and accepted publication commit as one recoverable boundary."
+          ],
+          [
+            [
+              {
+                "insert": "pr_phase",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "PR campaign",
+            "Record campaign activation and release evidence.",
+            "No head change.",
+            "Lease-bound campaign evidence must settle before authority releases."
+          ],
+          [
+            [
+              {
+                "insert": "save_point",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Save-point capture",
+            "Pin reports, board state, and score evidence to an existing commit.",
+            "No head change.",
+            "Capture failure marks evidence stale and blocks the cycle without inventing or reverting a commit."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-20-cycles-workflow-authority-33": {
+      "id": "b-20-cycles-workflow-authority-33",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Workflow Authority"
+        }
+      ],
+      "children": []
+    },
+    "b-20-cycles-the-cycle-can-retain-r-34": {
+      "id": "b-20-cycles-the-cycle-can-retain-r-34",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A cycle retains sync, run, and PR state at the same time, while "
+        },
+        {
+          "insert": "Harness State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness/20-harness-state"
+            }
+          }
+        },
+        {
+          "insert": " owns the one-active-workflow-slot invariant. Moving authority changes which child may act; it does not replace the cycle or discard inactive state."
+        }
+      ],
+      "children": []
+    },
+    "b-cycles-workflow-authority-table": {
+      "id": "b-cycles-workflow-authority-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Work",
+          "Authority Boundary",
+          "Cycle Effect",
+          "Release Condition"
+        ],
+        "rows": [
+          [
+            "Run",
+            "Acquires dispatch authority for scheduling, workers, and integration.",
+            "Confirmed epoch integration appends epoch_completed and advances head.",
+            "Stop or drain settles active work before release."
+          ],
+          [
+            "PR",
+            "Acquires authority for bounded campaign preparation, review, and repair.",
+            "pr_phase evidence is appended without changing head.",
+            "Campaign activation settles and releases without closing the cycle."
+          ],
+          [
+            "Sync",
+            "An observed request waits until the current owner drains; staging remains isolated.",
+            "Confirmed source publication appends remote_application and may advance head.",
+            "Publication, cancellation, or recovery settles staging before release."
+          ],
+          [
+            "Knowledge",
+            "Uses jobs-table leases, never the game dispatch lease.",
+            "Accepted knowledge may advance its own revision but never cycle head.",
+            "Job lease settlement is independent of workflow handoff."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-30-cycle-state-flows-17": {
+      "id": "b-30-cycle-state-flows-17",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Close Explicitly"
+        }
+      ],
+      "children": []
+    },
+    "b-30-cycle-state-close-explicitly-28": {
+      "id": "b-30-cycle-state-close-explicitly-28",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Close a cycle",
+            "steps": [
+              {
+                "text": "Require the game dispatch lease to be free"
+              },
+              {
+                "text": "Verify the canonical worktree contains no changes beyond `head_revision`"
+              },
+              {
+                "text": "Require fresh evidence and a named save point whose commit equals head"
+              },
+              {
+                "text": "Transition CycleState from `active` to `closing`"
+              },
+              {
+                "text": "Record the final evidence boundary and transition to `closed`"
+              },
+              {
+                "text": "Clear the current HarnessState cycle slot"
+              },
+              {
+                "text": "No workflow transition closes the cycle automatically",
+                "kind": "note"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

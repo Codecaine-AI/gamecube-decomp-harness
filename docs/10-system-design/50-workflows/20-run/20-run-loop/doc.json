@@ -1,0 +1,468 @@
+{
+	"id": "10-system-design-10-run-director-loop",
+	"title": "Run Loop",
+	"schemaVersion": 1,
+	"root": "b-10-run-director-loop-root-58",
+	"blocks": {
+		"b-10-run-director-loop-root-58": {
+			"id": "b-10-run-director-loop-root-58",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-10-run-director-loop-deterministic-run-schedu-2",
+				"b-10-run-director-loop-the-run-scheduler-is-the-3",
+				"b-10-run-director-loop-behavior-4",
+				"b-10-run-director-loop-text-18",
+				"b-10-run-director-loop-the-run-loop-is-the-non-19",
+				"b-10-run-director-loop-epoch-cycle-21",
+				"b-10-run-director-loop-an-epoch-is-a-bounded-sc-22",
+				"b-10-run-director-loop-concept-purpose-35",
+				"b-10-run-director-loop-wake-events-39",
+				"b-10-run-director-loop-wake-events-are-durable-40",
+				"b-index-in-the-default-epoch-cyc-19",
+				"b-10-run-director-loop-worker-delegation-48",
+				"b-10-run-director-loop-an-epoch-target-plus-tar-49",
+				"b-10-run-director-loop-worker-delegation-sequence-20260818",
+				"b-10-run-director-loop-worker-checkpoint-contra-51",
+				"b-10-run-director-loop-the-runner-records-worke-52",
+				"b-10-run-director-loop-validation-status-score-53",
+				"b-10-run-director-loop-only-hard-gate-passing-i-57"
+			]
+		},
+		"b-10-run-director-loop-deterministic-run-schedu-2": {
+			"id": "b-10-run-director-loop-deterministic-run-schedu-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The Run Loop is the deterministic host loop for board admission, durable worker consumption, settlement, serial integration, lease recovery, and epoch boundaries. It reads one durable control surface and writes reproducible decisions; target-local research and source edits stay with workers."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-the-run-scheduler-is-the-3": {
+			"id": "b-10-run-director-loop-the-run-scheduler-is-the-3",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The loop ranks through "
+				},
+				{
+					"insert": "Board Prioritization",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/20-run/30-board-prioritization"
+						}
+					}
+				},
+				{
+					"insert": ", realizes admitted targets as "
+				},
+				{
+					"insert": "worker",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " jobs, and settles them from durable worker-state evidence. Every decision and worker packet records the knowledge revision it consumed, so replay binds an outcome to the same evidence snapshot."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-behavior-4": {
+			"id": "b-10-run-director-loop-behavior-4",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Canonical Loop"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-text-18": {
+			"id": "b-10-run-director-loop-text-18",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Run Loop",
+						"steps": [
+							{
+								"text": "Wake for the highest-priority relevant unhandled signal or maintenance cadence"
+							},
+							{
+								"text": "Read RunState, dispatch authority, active claims, epoch targets, worker states, checkpoints, and the ranked board"
+							},
+							{
+								"text": "Reconcile pending integration and reap expired job leases and target claims before admitting or claiming work"
+							},
+							{
+								"text": "Maintain the active epoch",
+								"steps": [
+									{
+										"text": "Refresh priorities only for admitted-but-unclaimed targets"
+									},
+									{
+										"text": "When capacity or exhaustion policy requires it, admit a fixed target set from the candidate window"
+									},
+									{
+										"text": "Create one deduplicated worker job per epoch target with stable board priority"
+									}
+								]
+							},
+							{
+								"text": "Let the hosted consumer claim a worker job and its epoch target atomically while run status and dispatch lease permit work"
+							},
+							{
+								"text": "Heartbeat valid leases while child executors run; classify settled jobs from closed worker-state rows"
+							},
+							{
+								"text": "Coalesce fast in-epoch evidence refreshes that update learning and rank inputs without rebuilding report truth"
+							},
+							{
+								"text": "Queue knowledge processing for every closed worker state, including errors and non-improvements"
+							},
+							{
+								"text": "Drain run-scoped integration in single flight and preserve conflict or resolver outcomes"
+							},
+							{
+								"text": "At an epoch boundary",
+								"steps": [
+									{
+										"text": "Pause intake and rebuild authoritative report truth"
+									},
+									{
+										"text": "Run full knowledge maintenance"
+									},
+									{
+										"text": "Confirm the clean tentative window or attribute, revert, and route regressions"
+									},
+									{
+										"text": "Record progress and admit the next epoch from the refreshed board"
+									}
+								]
+							},
+							{
+								"text": "Store the scheduler result, mark handled signals, expose the condition, and sleep"
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		},
+		"b-10-run-director-loop-the-run-loop-is-the-non-19": {
+			"id": "b-10-run-director-loop-the-run-loop-is-the-non-19",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "A closed worker state always produces the handoff to "
+				},
+				{
+					"insert": "Knowledge Processing",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/40-processing"
+						}
+					}
+				},
+				{
+					"insert": ", whether the attempt succeeded, timed out, failed, or was cancelled. Knowledge processing owns classification and publication; the Run Loop owns the durable enqueue trigger."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-epoch-cycle-21": {
+			"id": "b-10-run-director-loop-epoch-cycle-21",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Capacity Inputs"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-an-epoch-is-a-bounded-sc-22": {
+			"id": "b-10-run-director-loop-an-epoch-is-a-bounded-sc-22",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "An epoch is a bounded wave with fixed target membership. "
+				},
+				{
+					"insert": "Board Prioritization",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/20-run/30-board-prioritization"
+						}
+					}
+				},
+				{
+					"insert": " is the canonical home for every capacity definition; the loop only consumes the values below."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-concept-purpose-35": {
+			"id": "b-10-run-director-loop-concept-purpose-35",
+			"type": "structured-table",
+			"props": {
+				"columns": [
+					"Input",
+					"Run Loop action"
+				],
+				"rows": [
+					[
+						"Epoch size",
+						"Stop admission when the fixed epoch reaches the configured target count."
+					],
+					[
+						"Worker pool size",
+						"Claim eligible worker jobs until the desired active count is reached."
+					],
+					[
+						"Candidate window",
+						"Request enough ranked candidates to satisfy deterministic admission or prove exhaustion."
+					],
+					[
+						"Tool/build slots",
+						"Wait for the appropriate slot before compile-heavy validation or a Pi tool operation."
+					]
+				]
+			},
+			"children": []
+		},
+		"b-10-run-director-loop-wake-events-39": {
+			"id": "b-10-run-director-loop-wake-events-39",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Run-Owned Wake and Refresh Policy"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-wake-events-are-durable-40": {
+			"id": "b-10-run-director-loop-wake-events-are-durable-40",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Wake requests are durable queue signals rather than accepted game facts. The tracing event catalog owns their cross-domain envelope; the Run Loop owns the selection and refresh policy below."
+				}
+			],
+			"children": []
+		},
+		"b-index-in-the-default-epoch-cyc-19": {
+			"id": "b-index-in-the-default-epoch-cyc-19",
+			"type": "structured-table",
+			"props": {
+				"title": "Run-owned signal policy",
+				"columns": [
+					"Signal",
+					"Run meaning",
+					"Queue or refresh policy"
+				],
+				"rows": [
+					[
+						[
+							{
+								"insert": "pool_below_target",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Admitted-but-unclaimed work or active workers fell below the configured pressure threshold.",
+						"Select ahead of ordinary worker-completion backlog so capacity-preserving admission is not delayed."
+					],
+					[
+						[
+							{
+								"insert": "epoch_fast_refresh_started / finished",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"In-epoch maintenance ingests closed states, checkpoints, facts, blockers, and deterministic curator output.",
+						"Update learning and ranking inputs only; do not rebuild report truth."
+					],
+					[
+						[
+							{
+								"insert": "epoch_fast_refresh_deferred / skipped",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"A fast refresh was coalesced, already active, or unnecessary.",
+						"Preserve one useful refresh and suppress duplicate maintenance work."
+					],
+					[
+						[
+							{
+								"insert": "epoch_full_refresh_started / finished",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Boundary maintenance runs after authoritative report truth is rebuilt.",
+						"Keep full refresh at the boundary; it never substitutes for a fast in-epoch rank refresh."
+					]
+				]
+			},
+			"children": []
+		},
+		"b-10-run-director-loop-worker-delegation-48": {
+			"id": "b-10-run-director-loop-worker-delegation-48",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Worker Delegation"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-an-epoch-target-plus-tar-49": {
+			"id": "b-10-run-director-loop-an-epoch-target-plus-tar-49",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "A worker job, its atomically acquired epoch target, and the resulting target claim form one bounded delegation contract. The child receives a target-local TaskSpec and ClaimToken; it never claims queue work or receives the dispatch lease."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-worker-delegation-sequence-20260818": {
+			"id": "b-10-run-director-loop-worker-delegation-sequence-20260818",
+			"type": "sequence",
+			"props": {
+				"src": "./assets/sequences/worker-delegation.sequence.json",
+				"title": "Worker delegation"
+			},
+			"children": []
+		},
+		"b-10-run-director-loop-worker-checkpoint-contra-51": {
+			"id": "b-10-run-director-loop-worker-checkpoint-contra-51",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Checkpoint Settlement View"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-the-runner-records-worke-52": {
+			"id": "b-10-run-director-loop-the-runner-records-worke-52",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The loop consumes a compact checkpoint projection for deterministic selection and boundary routing. "
+				},
+				{
+					"insert": "Worker Lifecycle",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/20-run/40-workers/10-lifecycle"
+						}
+					}
+				},
+				{
+					"insert": " owns the complete validation checkpoint."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-validation-status-score-53": {
+			"id": "b-10-run-director-loop-validation-status-score-53",
+			"type": "state-shape",
+			"props": {
+				"name": "CheckpointSettlementView",
+				"fields": [
+					{
+						"name": "checkpoint_id",
+						"type": "CheckpointId",
+						"description": "Validated attempt identity."
+					},
+					{
+						"name": "worker_state_id",
+						"type": "WorkerStateId",
+						"description": "Worker ledger that owns the checkpoint."
+					},
+					{
+						"name": "validation_state",
+						"type": "\"tentative\" | \"confirmed\" | \"regressed\"",
+						"description": "Boundary classification."
+					},
+					{
+						"name": "selectable",
+						"type": "boolean",
+						"description": "True only for a hard-gate-passing improvement."
+					},
+					{
+						"name": "exact_match",
+						"type": "boolean",
+						"description": "Whether target comparison is exact."
+					},
+					{
+						"name": "score_after",
+						"type": "number",
+						"description": "Validated target score."
+					},
+					{
+						"name": "validated_at",
+						"type": "Timestamp",
+						"description": "Tie-break timestamp; earlier wins after exactness and score."
+					},
+					{
+						"name": "integration_outcome_id",
+						"type": "IntegrationOutcomeId",
+						"required": false,
+						"description": "Serial-application evidence when selected."
+					}
+				],
+				"example": "{\"checkpoint_id\":\"checkpoint-88\",\"worker_state_id\":\"worker-state-501\",\"validation_state\":\"tentative\",\"selectable\":true,\"exact_match\":false,\"score_after\":99.73,\"validated_at\":\"2026-08-18T15:42:00Z\",\"integration_outcome_id\":\"integration-outcome-88\"}"
+			},
+			"children": []
+		},
+		"b-10-run-director-loop-only-hard-gate-passing-i-57": {
+			"id": "b-10-run-director-loop-only-hard-gate-passing-i-57",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Selection is deterministic: exact checkpoints win over non-exact checkpoints, then higher score wins, then earlier validation time. Only confirmed integrations can enter PR preparation; failed and neutral checkpoints remain durable evidence for later ranking and knowledge processing."
+				}
+			],
+			"children": []
+		}
+	}
+}

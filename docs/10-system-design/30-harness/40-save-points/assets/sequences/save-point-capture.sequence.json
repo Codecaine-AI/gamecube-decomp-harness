@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "id": "save-point-capture",
+  "title": "Sync publication and save-point capture",
+  "participants": [
+    {
+      "id": "operator",
+      "name": "operator",
+      "kind": "actor",
+      "label": "Operator"
+    },
+    {
+      "id": "staging",
+      "name": "staging",
+      "kind": "participant",
+      "label": "Sync staging"
+    },
+    {
+      "id": "publication",
+      "name": "publication",
+      "kind": "participant",
+      "label": "Durable publication"
+    },
+    {
+      "id": "capture",
+      "name": "capture",
+      "kind": "participant",
+      "label": "Save-point capture"
+    },
+    {
+      "id": "cycle",
+      "name": "cycle",
+      "kind": "participant",
+      "label": "CycleState"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "capture-m1",
+      "from": "operator",
+      "to": "staging",
+      "line": "sync",
+      "text": "confirm validated publication"
+    },
+    {
+      "kind": "message",
+      "id": "capture-m2",
+      "from": "staging",
+      "to": "publication",
+      "line": "sync",
+      "text": "publish reconciled source and knowledge"
+    },
+    {
+      "kind": "message",
+      "id": "capture-m3",
+      "from": "publication",
+      "to": "cycle",
+      "line": "sync",
+      "text": "commit repoint and remote_application"
+    },
+    {
+      "kind": "message",
+      "id": "capture-m4",
+      "from": "publication",
+      "to": "capture",
+      "line": "sync",
+      "text": "capture evidence at published HEAD"
+    },
+    {
+      "kind": "fragment",
+      "id": "capture-f1",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "capture succeeds",
+          "items": [
+            {
+              "kind": "message",
+              "id": "capture-m5",
+              "from": "capture",
+              "to": "cycle",
+              "line": "sync",
+              "text": "append save_point evidence"
+            }
+          ]
+        },
+        {
+          "guard": "capture fails",
+          "items": [
+            {
+              "kind": "message",
+              "id": "capture-m6",
+              "from": "capture",
+              "to": "cycle",
+              "line": "sync",
+              "text": "mark evidence stale and add blocker"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "style": {
+    "accent": "#5B7FBD",
+    "fragmentAccent": "#B87835"
+  }
+}

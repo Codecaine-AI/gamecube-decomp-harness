@@ -1,603 +1,598 @@
 {
-  "schemaVersion": 1,
-  "id": "20-implementation-30-knowledge-00-overview",
-  "title": "Knowledge: Overview",
-  "root": "knowledge-root",
-  "blocks": {
-    "knowledge-root": {
-      "id": "knowledge-root",
-      "type": "paragraph",
-      "props": {
-        "concepts": [
-          "knowledge-graph",
-          "graph-builders",
-          "background-processing",
-          "background-jobs",
-          "leasing",
-          "idempotency"
-        ]
-      },
-      "children": [
-        "role",
-        "governed-heading",
-        "governed-design",
-        "governed-stores",
-        "governed-surfaces",
-        "governed-jobs",
-        "decisions-heading",
-        "decision-boundary-heading",
-        "decision-boundary-decision",
-        "decision-boundary-why",
-        "decision-boundary-applies",
-        "background-heading",
-        "decision-storage-heading",
-        "decision-storage-decision",
-        "decision-storage-why",
-        "decision-storage-applies",
-        "decision-queue-heading",
-        "decision-queue-decision",
-        "decision-queue-why",
-        "decision-queue-applies",
-        "decision-materialize-heading",
-        "decision-materialize-decision",
-        "decision-materialize-why",
-        "decision-materialize-applies",
-        "decision-trigger-heading",
-        "decision-trigger-decision",
-        "decision-trigger-why",
-        "decision-trigger-applies"
-      ]
-    },
-    "role": {
-      "id": "role",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Implementation of the knowledge subsystem: game-owned corpora and graph storage, ingestion builders, search and structured queries, and background processing. Source: "
-        },
-        {
-          "insert": "apps/server/src/core/knowledge",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " (graph, jobs, background core), "
-        },
-        {
-          "insert": "games/melee/knowledge",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " (game corpus), "
-        },
-        {
-          "insert": "toolpacks/gamecube-decomp",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " (callable tools)."
-        }
-      ],
-      "children": []
-    },
-    "governed-heading": {
-      "id": "governed-heading",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Governed By"
-        }
-      ],
-      "children": []
-    },
-    "governed-design": {
-      "id": "governed-design",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Knowledge System",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/60-knowledge",
-              "label": "Knowledge System"
-            }
-          }
-        },
-        {
-          "insert": " — ownership, access, and lifecycle contracts for all knowledge."
-        }
-      ],
-      "children": []
-    },
-    "governed-stores": {
-      "id": "governed-stores",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Knowledge stores — searched directly",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/60-knowledge/40-knowledge-stores",
-              "label": "Knowledge stores — searched directly"
-            }
-          }
-        },
-        {
-          "insert": " — which stores exist and how they are searched."
-        }
-      ],
-      "children": []
-    },
-    "governed-surfaces": {
-      "id": "governed-surfaces",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Worker surfaces",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/60-knowledge/60-worker-surfaces",
-              "label": "Worker surfaces"
-            }
-          }
-        },
-        {
-          "insert": " — what workers may query and inject."
-        }
-      ],
-      "children": []
-    },
-    "governed-jobs": {
-      "id": "governed-jobs",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Execution Classes and Jobs",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/60-knowledge/70-background-jobs",
-              "label": "Execution Classes and Jobs"
-            }
-          }
-        },
-        {
-          "insert": " — source classes, job lifecycle, leasing, and publication behavior for background knowledge work."
-        }
-      ],
-      "children": []
-    },
-    "decisions-heading": {
-      "id": "decisions-heading",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Decisions"
-        }
-      ],
-      "children": []
-    },
-    "decision-boundary-heading": {
-      "id": "decision-boundary-heading",
-      "type": "heading",
-      "props": {
-        "level": 3
-      },
-      "text": [
-        {
-          "insert": "Knowledge/tool ownership boundary"
-        }
-      ],
-      "children": []
-    },
-    "decision-boundary-decision": {
-      "id": "decision-boundary-decision",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Decision: Game-owned knowledge (source descriptors, corpora, the graph database) lives under the game directory; reusable callable capabilities live in the toolpack; server code that builds and queries the graph lives in the server knowledge core. A tool is a callable operation, never a parallel knowledge store."
-        }
-      ],
-      "children": []
-    },
-    "decision-boundary-why": {
-      "id": "decision-boundary-why",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Why: Tool-local knowledge stores were rejected — tool runners produce evidence that graph builders ingest, so durable knowledge stays queryable in one graph instead of fragmenting per tool."
-        }
-      ],
-      "children": []
-    },
-    "decision-boundary-applies": {
-      "id": "decision-boundary-applies",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Applies to: "
-        },
-        {
-          "insert": "games/*/knowledge",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "toolpacks/gamecube-decomp",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "apps/server/src/core/knowledge",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " — including future sources, games, and tool runners."
-        }
-      ],
-      "children": []
-    },
-    "background-heading": {
-      "id": "background-heading",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Background processing"
-        }
-      ],
-      "children": []
-    },
-    "decision-storage-heading": {
-      "id": "decision-storage-heading",
-      "type": "heading",
-      "props": {
-        "level": 3
-      },
-      "text": [
-        {
-          "insert": "Job storage rides orchestrator-state migrations"
-        }
-      ],
-      "children": []
-    },
-    "decision-storage-decision": {
-      "id": "decision-storage-decision",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Decision: Background knowledge jobs persist as durable "
-        },
-        {
-          "insert": "background_knowledge_jobs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " rows (typed "
-        },
-        {
-          "insert": "BackgroundKnowledgeJob",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ") installed by the orchestrator-state storage schema, holding one current job row plus durable attempt counts and evidence/publication provenance."
-        }
-      ],
-      "children": []
-    },
-    "decision-storage-why": {
-      "id": "decision-storage-why",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Why: A separate job database was rejected — jobs ride the same ordered migration path as the rest of orchestrator state, so existing state directories advance together and terminal attempts remain inspectable."
-        }
-      ],
-      "children": []
-    },
-    "decision-storage-applies": {
-      "id": "decision-storage-applies",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Applies to: "
-        },
-        {
-          "insert": "apps/server/src/core/orchestrator-state/storage/migrations",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "apps/server/src/core/knowledge/background",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " — future job kinds extend this schema through new ordered migrations, not new stores."
-        }
-      ],
-      "children": []
-    },
-    "decision-queue-heading": {
-      "id": "decision-queue-heading",
-      "type": "heading",
-      "props": {
-        "level": 3
-      },
-      "text": [
-        {
-          "insert": "Stable-identity enqueue with fenced claims"
-        }
-      ],
-      "children": []
-    },
-    "decision-queue-decision": {
-      "id": "decision-queue-decision",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Decision: Work enqueues under a stable source identity (from "
-        },
-        {
-          "insert": "closeWorkerState",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " and each source class's sync boundary) and is claimed atomically with a fenced, expiring lease; completion and failure updates must present the current lease, and retryable failures back off through a waiting state."
-        }
-      ],
-      "children": []
-    },
-    "decision-queue-why": {
-      "id": "decision-queue-why",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Why: Unfenced claims and duplicate-tolerant enqueueing were rejected — repeated close or recovery paths must not create duplicate logical work, and a crashed processor must be reclaimable after lease expiry without accepting its partial result."
-        }
-      ],
-      "children": []
-    },
-    "decision-queue-applies": {
-      "id": "decision-queue-applies",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Applies to: "
-        },
-        {
-          "insert": "apps/server/src/core/knowledge/background",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "apps/server/src/core/cycle-runtime/run-state/worker-state.ts",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " — any future enqueue seam must reuse the stable-identity and lease contract."
-        }
-      ],
-      "children": []
-    },
-    "decision-materialize-heading": {
-      "id": "decision-materialize-heading",
-      "type": "heading",
-      "props": {
-        "level": 3
-      },
-      "text": [
-        {
-          "insert": "One serialized, idempotent materializer"
-        }
-      ],
-      "children": []
-    },
-    "decision-materialize-decision": {
-      "id": "decision-materialize-decision",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Decision: A single serialized materializer converts claimed evidence into the knowledge stores and graph publication path, keyed for idempotency on stable source evidence and accepted output identity, recording full provenance lineage (job, attempt, source, revisions, event, operation, trace) before a job is marked succeeded."
-        }
-      ],
-      "children": []
-    },
-    "decision-materialize-why": {
-      "id": "decision-materialize-why",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Why: Parallel materialization paths were rejected — recovery must be able to replay a claim without publishing the same fact twice, which one serialized acceptance point guarantees."
-        }
-      ],
-      "children": []
-    },
-    "decision-materialize-applies": {
-      "id": "decision-materialize-applies",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Applies to: "
-        },
-        {
-          "insert": "apps/server/src/core/knowledge/background",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " — future evidence kinds publish through this materializer, never a second acceptance path."
-        }
-      ],
-      "children": []
-    },
-    "decision-trigger-heading": {
-      "id": "decision-trigger-heading",
-      "type": "heading",
-      "props": {
-        "level": 3
-      },
-      "text": [
-        {
-          "insert": "Operator trigger reuses the processor"
-        }
-      ],
-      "children": []
-    },
-    "decision-trigger-decision": {
-      "id": "decision-trigger-decision",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Decision: The manual "
-        },
-        {
-          "insert": "knowledge.process",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " route drains the same background processor; it is an acceleration and recovery seam, not a second materialization path."
-        }
-      ],
-      "children": []
-    },
-    "decision-trigger-why": {
-      "id": "decision-trigger-why",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Why: A dedicated manual pipeline was rejected — it would duplicate lease and idempotency machinery and let manual runs bypass the serialized acceptance point."
-        }
-      ],
-      "children": []
-    },
-    "decision-trigger-applies": {
-      "id": "decision-trigger-applies",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Applies to: "
-        },
-        {
-          "insert": "apps/server/src/core/knowledge/background",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " and its server route — gating and operator-visible behavior live at design "
-        },
-        {
-          "insert": "Execution Classes and Jobs",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/60-knowledge/70-background-jobs",
-              "label": "Execution Classes and Jobs"
-            }
-          }
-        },
-        {
-          "insert": "."
-        }
-      ],
-      "children": []
-    }
-  }
+	"schemaVersion": 1,
+	"id": "20-implementation-30-knowledge-00-overview",
+	"title": "Knowledge: Overview",
+	"root": "knowledge-root",
+	"blocks": {
+		"knowledge-root": {
+			"id": "knowledge-root",
+			"type": "paragraph",
+			"props": {
+				"concepts": [
+					"knowledge-graph",
+					"graph-builders",
+					"background-processing",
+					"background-jobs",
+					"leasing",
+					"idempotency"
+				]
+			},
+			"children": [
+				"role",
+				"governed-heading",
+				"governed-design",
+				"governed-stores",
+				"governed-surfaces",
+				"governed-jobs",
+				"decisions-heading",
+				"decision-boundary-heading",
+				"decision-boundary-decision",
+				"decision-boundary-why",
+				"decision-boundary-applies",
+				"background-heading",
+				"decision-storage-heading",
+				"decision-storage-decision",
+				"decision-storage-why",
+				"decision-storage-applies",
+				"decision-queue-heading",
+				"decision-queue-decision",
+				"decision-queue-why",
+				"decision-queue-applies",
+				"decision-materialize-heading",
+				"decision-materialize-decision",
+				"decision-materialize-why",
+				"decision-materialize-applies",
+				"decision-trigger-heading",
+				"decision-trigger-decision",
+				"decision-trigger-why",
+				"decision-trigger-applies"
+			]
+		},
+		"role": {
+			"id": "role",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Implementation of the knowledge subsystem: game-owned corpora and graph storage, ingestion builders, search and structured queries, and background processing. Source: "
+				},
+				{
+					"insert": "apps/server/src/core/knowledge",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " (graph, jobs, background core), "
+				},
+				{
+					"insert": "games/melee/knowledge",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " (game corpus), "
+				},
+				{
+					"insert": "toolpacks/gamecube-decomp",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " (callable tools)."
+				}
+			],
+			"children": []
+		},
+		"governed-heading": {
+			"id": "governed-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Governed By"
+				}
+			],
+			"children": []
+		},
+		"governed-design": {
+			"id": "governed-design",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Knowledge System",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge"
+						}
+					}
+				},
+				{
+					"insert": " — ownership, access, and lifecycle contracts for all knowledge."
+				}
+			],
+			"children": []
+		},
+		"governed-stores": {
+			"id": "governed-stores",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Knowledge stores — searched directly",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/20-knowledge-stores"
+						}
+					}
+				},
+				{
+					"insert": " — which stores exist and how they are searched."
+				}
+			],
+			"children": []
+		},
+		"governed-surfaces": {
+			"id": "governed-surfaces",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Worker Knowledge Surfaces",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/50-worker-surfaces"
+						}
+					}
+				},
+				{
+					"insert": " — what workers may query and inject."
+				}
+			],
+			"children": []
+		},
+		"governed-jobs": {
+			"id": "governed-jobs",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Execution Classes and Jobs",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/40-processing"
+						}
+					}
+				},
+				{
+					"insert": " — source classes, job lifecycle, leasing, and publication behavior for background knowledge work."
+				}
+			],
+			"children": []
+		},
+		"decisions-heading": {
+			"id": "decisions-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Decisions"
+				}
+			],
+			"children": []
+		},
+		"decision-boundary-heading": {
+			"id": "decision-boundary-heading",
+			"type": "heading",
+			"props": {
+				"level": 3
+			},
+			"text": [
+				{
+					"insert": "Knowledge/tool ownership boundary"
+				}
+			],
+			"children": []
+		},
+		"decision-boundary-decision": {
+			"id": "decision-boundary-decision",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Decision: Game-owned knowledge (source descriptors, corpora, the graph database) lives under the game directory; reusable callable capabilities live in the toolpack; server code that builds and queries the graph lives in the server knowledge core. A tool is a callable operation, never a parallel knowledge store."
+				}
+			],
+			"children": []
+		},
+		"decision-boundary-why": {
+			"id": "decision-boundary-why",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Why: Tool-local knowledge stores were rejected — tool runners produce evidence that graph builders ingest, so durable knowledge stays queryable in one graph instead of fragmenting per tool."
+				}
+			],
+			"children": []
+		},
+		"decision-boundary-applies": {
+			"id": "decision-boundary-applies",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Applies to: "
+				},
+				{
+					"insert": "games/*/knowledge",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "toolpacks/gamecube-decomp",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "apps/server/src/core/knowledge",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " — including future sources, games, and tool runners."
+				}
+			],
+			"children": []
+		},
+		"background-heading": {
+			"id": "background-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Background processing"
+				}
+			],
+			"children": []
+		},
+		"decision-storage-heading": {
+			"id": "decision-storage-heading",
+			"type": "heading",
+			"props": {
+				"level": 3
+			},
+			"text": [
+				{
+					"insert": "Job storage rides orchestrator-state migrations"
+				}
+			],
+			"children": []
+		},
+		"decision-storage-decision": {
+			"id": "decision-storage-decision",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Decision: Background knowledge jobs persist as durable "
+				},
+				{
+					"insert": "background_knowledge_jobs",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " rows (typed "
+				},
+				{
+					"insert": "BackgroundKnowledgeJob",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ") installed by the orchestrator-state storage schema, holding one current job row plus durable attempt counts and evidence/publication provenance."
+				}
+			],
+			"children": []
+		},
+		"decision-storage-why": {
+			"id": "decision-storage-why",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Why: A separate job database was rejected — jobs ride the same ordered migration path as the rest of orchestrator state, so existing state directories advance together and terminal attempts remain inspectable."
+				}
+			],
+			"children": []
+		},
+		"decision-storage-applies": {
+			"id": "decision-storage-applies",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Applies to: "
+				},
+				{
+					"insert": "apps/server/src/core/orchestrator-state/storage/migrations",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "apps/server/src/core/knowledge/background",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " — future job kinds extend this schema through new ordered migrations, not new stores."
+				}
+			],
+			"children": []
+		},
+		"decision-queue-heading": {
+			"id": "decision-queue-heading",
+			"type": "heading",
+			"props": {
+				"level": 3
+			},
+			"text": [
+				{
+					"insert": "Stable-identity enqueue with fenced claims"
+				}
+			],
+			"children": []
+		},
+		"decision-queue-decision": {
+			"id": "decision-queue-decision",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Decision: Work enqueues under a stable source identity (from "
+				},
+				{
+					"insert": "closeWorkerState",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " and each source class's sync boundary) and is claimed atomically with a fenced, expiring lease; completion and failure updates must present the current lease, and retryable failures back off through a waiting state."
+				}
+			],
+			"children": []
+		},
+		"decision-queue-why": {
+			"id": "decision-queue-why",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Why: Unfenced claims and duplicate-tolerant enqueueing were rejected — repeated close or recovery paths must not create duplicate logical work, and a crashed processor must be reclaimable after lease expiry without accepting its partial result."
+				}
+			],
+			"children": []
+		},
+		"decision-queue-applies": {
+			"id": "decision-queue-applies",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Applies to: "
+				},
+				{
+					"insert": "apps/server/src/core/knowledge/background",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "apps/server/src/core/cycle-runtime/run-state/worker-state.ts",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " — any future enqueue seam must reuse the stable-identity and lease contract."
+				}
+			],
+			"children": []
+		},
+		"decision-materialize-heading": {
+			"id": "decision-materialize-heading",
+			"type": "heading",
+			"props": {
+				"level": 3
+			},
+			"text": [
+				{
+					"insert": "One serialized, idempotent materializer"
+				}
+			],
+			"children": []
+		},
+		"decision-materialize-decision": {
+			"id": "decision-materialize-decision",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Decision: A single serialized materializer converts claimed evidence into the knowledge stores and graph publication path, keyed for idempotency on stable source evidence and accepted output identity, recording full provenance lineage (job, attempt, source, revisions, event, operation, trace) before a job is marked succeeded."
+				}
+			],
+			"children": []
+		},
+		"decision-materialize-why": {
+			"id": "decision-materialize-why",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Why: Parallel materialization paths were rejected — recovery must be able to replay a claim without publishing the same fact twice, which one serialized acceptance point guarantees."
+				}
+			],
+			"children": []
+		},
+		"decision-materialize-applies": {
+			"id": "decision-materialize-applies",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Applies to: "
+				},
+				{
+					"insert": "apps/server/src/core/knowledge/background",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " — future evidence kinds publish through this materializer, never a second acceptance path."
+				}
+			],
+			"children": []
+		},
+		"decision-trigger-heading": {
+			"id": "decision-trigger-heading",
+			"type": "heading",
+			"props": {
+				"level": 3
+			},
+			"text": [
+				{
+					"insert": "Operator trigger reuses the processor"
+				}
+			],
+			"children": []
+		},
+		"decision-trigger-decision": {
+			"id": "decision-trigger-decision",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Decision: The manual "
+				},
+				{
+					"insert": "knowledge.process",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " route drains the same background processor; it is an acceleration and recovery seam, not a second materialization path."
+				}
+			],
+			"children": []
+		},
+		"decision-trigger-why": {
+			"id": "decision-trigger-why",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Why: A dedicated manual pipeline was rejected — it would duplicate lease and idempotency machinery and let manual runs bypass the serialized acceptance point."
+				}
+			],
+			"children": []
+		},
+		"decision-trigger-applies": {
+			"id": "decision-trigger-applies",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Applies to: "
+				},
+				{
+					"insert": "apps/server/src/core/knowledge/background",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " and its server route — gating and operator-visible behavior live at design "
+				},
+				{
+					"insert": "Execution Classes and Jobs",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/40-processing"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		}
+	}
 }

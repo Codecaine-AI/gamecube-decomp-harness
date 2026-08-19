@@ -1,595 +1,899 @@
 {
-  "schemaVersion": 1,
-  "id": "10-system-design-50-workflows-20-run-10-run-state",
-  "title": "Run State",
-  "root": "b-10-run-state-root-41",
-  "blocks": {
-    "b-10-run-state-root-41": {
-      "id": "b-10-run-state-root-41",
-      "type": "paragraph",
-      "props": {},
-      "text": [],
-      "children": [
-        "b-10-run-state-control-page-42",
-        "b-10-run-state-run-identity-and-inputs-2",
-        "b-10-run-state-a-run-is-one-autonomous-3",
-        "b-10-run-state-frozen-inputs-43",
-        "b-10-run-state-mutable-head-44",
-        "b-10-run-state-control-status-16",
-        "b-10-run-state-control-status-is-the-so-17",
-        "b-10-run-state-status-meaning-sta-18",
-        "b-10-run-state-scheduler-condition-is-19",
-        "b-10-run-state-condition-observed-a-20",
-        "b-10-run-state-progress-events-record-a-21",
-        "b-10-run-state-pause-recovery-summary-45",
-        "b-10-run-state-sync-summary-46",
-        "b-10-run-state-pending-integration-34",
-        "b-10-run-state-epoch-publication-crosse-35",
-        "b-10-run-state-before-the-git-integrati-36",
-        "b-10-run-state-the-integration-commit-c-37",
-        "b-10-run-state-the-epoch-close-transact-38",
-        "b-10-run-state-reconciliation-searches-40"
-      ]
-    },
-    "b-10-run-state-control-page-42": {
-      "id": "b-10-run-state-control-page-42",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "This page defines the run-phase control model: lifecycle status, the scheduler activity mirror, and crash evidence for pending integration. "
-        },
-        {
-          "insert": "Run Workflow State",
-          "attributes": {
-            "link": "../../../40-harness-state/10-state-composition/50-run-state"
-          }
-        },
-        {
-          "insert": " is the canonical source for RunState shape, composition, and flows."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-run-identity-and-inputs-2": {
-      "id": "b-10-run-state-run-identity-and-inputs-2",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Run Identity and Inputs"
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-a-run-is-one-autonomous-3": {
-      "id": "b-10-run-state-a-run-is-one-autonomous-3",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "A run is one autonomous scheduling effort inside a cycle. Every run-scoped epoch, target, claim, worker state, checkpoint, output integration, and event is addressed by "
-        },
-        {
-          "insert": "run_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": "; "
-        },
-        {
-          "insert": "cycle_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " names the containing cycle rather than standing in for the run. The run identity survives pause, recovery, and sync so all evidence remains on one timeline."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-frozen-inputs-43": {
-      "id": "b-10-run-state-frozen-inputs-43",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Activation freezes "
-        },
-        {
-          "insert": "inputs",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " (RunInputs): "
-        },
-        {
-          "insert": "base_revision",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "policy_revision",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "starting_knowledge_revision",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and the "
-        },
-        {
-          "insert": "configuration_snapshot",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ". These fields remain the immutable starting conditions; see "
-        },
-        {
-          "insert": "Run Workflow State",
-          "attributes": {
-            "link": "../../../40-harness-state/10-state-composition/50-run-state"
-          }
-        },
-        {
-          "insert": " for the field-by-field shape."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-mutable-head-44": {
-      "id": "b-10-run-state-mutable-head-44",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "head_revision",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " is not part of frozen RunInputs. It is a top-level mutable RunState field that mirrors the owning cycle's head for subsequent planning."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-control-status-16": {
-      "id": "b-10-run-state-control-status-16",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Control Status"
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-control-status-is-the-so-17": {
-      "id": "b-10-run-state-control-status-is-the-so-17",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Control status is the sole run lifecycle vocabulary. Scheduler activity, process liveness, and progress events never substitute for it."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-status-meaning-sta-18": {
-      "id": "b-10-run-state-status-meaning-sta-18",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "| Status | Meaning | Stable invariant |\n| --- | --- | --- |\n| "
-        },
-        {
-          "insert": "draft",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Required inputs or configuration are incomplete. | No scheduler or worker may start. |\n| "
-        },
-        {
-          "insert": "ready",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Readiness gates pass and activation may be requested. | Activation cannot alter RunInputs. |\n| "
-        },
-        {
-          "insert": "active",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Autonomous scheduling authority is enabled. | The run occupies the HarnessState workflow slot and holds the game dispatch lease. |\n| "
-        },
-        {
-          "insert": "draining",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | New admission is disabled while existing work settles. | No new claims are created. |\n| "
-        },
-        {
-          "insert": "paused",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Scheduling is disabled and the run remains resumable. | Work has settled or recovery recorded its cancellations. |\n| "
-        },
-        {
-          "insert": "completed",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Autonomous work closed normally. | The run is terminal. |\n| "
-        },
-        {
-          "insert": "failed",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | The runner cannot continue safely. | Recovery returns the same run to "
-        },
-        {
-          "insert": "paused",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ". |\n| "
-        },
-        {
-          "insert": "cancelled",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | The operator abandoned the effort. | The run is terminal and its evidence remains readable. |"
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-scheduler-condition-is-19": {
-      "id": "b-10-run-state-scheduler-condition-is-19",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "scheduler_condition",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " is an observability mirror of scheduler activity inside the control state. It does not grant dispatch authority, replace status, or create another lifecycle; it mirrors the condition introduced by the "
-        },
-        {
-          "insert": "director loop",
-          "attributes": {
-            "link": "../20-director-loop"
-          }
-        },
-        {
-          "insert": "."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-condition-observed-a-20": {
-      "id": "b-10-run-state-condition-observed-a-20",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "| Condition | Observed activity |\n| --- | --- |\n| "
-        },
-        {
-          "insert": "idle",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | No scheduler operation is executing. |\n| "
-        },
-        {
-          "insert": "planning",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Candidate evidence is becoming an admission decision. |\n| "
-        },
-        {
-          "insert": "dispatching",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Admitted work is being assigned to queue capacity. |\n| "
-        },
-        {
-          "insert": "waiting",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | The active run is sleeping for a durable wake event. |\n| "
-        },
-        {
-          "insert": "boundary",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Confirmation, integration, report refresh, or save-point work is executing. |\n| "
-        },
-        {
-          "insert": "blocked",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " | Progress requires recovery or operator action. |"
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-progress-events-record-a-21": {
-      "id": "b-10-run-state-progress-events-record-a-21",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Progress events record accepted facts without pretending that the run crossed a status edge. If a progress fact revises durable state, that revision receives exactly one event and one revision increment."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-pause-recovery-summary-45": {
-      "id": "b-10-run-state-pause-recovery-summary-45",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Pause is drain-based, and recovery returns the same "
-        },
-        {
-          "insert": "run_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " to "
-        },
-        {
-          "insert": "paused",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ". "
-        },
-        {
-          "insert": "Run Workflow State",
-          "attributes": {
-            "link": "../../../40-harness-state/10-state-composition/50-run-state"
-          }
-        },
-        {
-          "insert": " and its workflow-slot and dispatch-lease path own the detailed recovery flow."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-sync-summary-46": {
-      "id": "b-10-run-state-sync-summary-46",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Sync applies upstream revisions through its own boundary while "
-        },
-        {
-          "insert": "run_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " and the original "
-        },
-        {
-          "insert": "base_revision",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " stay fixed; RunState only updates its "
-        },
-        {
-          "insert": "head_revision",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " mirror, as detailed by "
-        },
-        {
-          "insert": "Run Workflow State",
-          "attributes": {
-            "link": "../../../40-harness-state/10-state-composition/50-run-state"
-          }
-        },
-        {
-          "insert": "."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-pending-integration-34": {
-      "id": "b-10-run-state-pending-integration-34",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Pending Integration"
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-epoch-publication-crosse-35": {
-      "id": "b-10-run-state-epoch-publication-crosse-35",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The pending-integration protocol preserves evidence across the Git-commit and durable-state crash window. "
-        },
-        {
-          "insert": "Durable State Records",
-          "attributes": {
-            "link": "../../../40-harness-state/40-durable-records"
-          }
-        },
-        {
-          "insert": " defines the subordinate records."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-before-the-git-integrati-36": {
-      "id": "b-10-run-state-before-the-git-integrati-36",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Before the Git integration commit, the runner writes a "
-        },
-        {
-          "insert": "pending_integrations",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " row keyed by "
-        },
-        {
-          "insert": "run_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " and "
-        },
-        {
-          "insert": "epoch_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", recording the branch, parent revision, and expected message marker."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-the-integration-commit-c-37": {
-      "id": "b-10-run-state-the-integration-commit-c-37",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The integration commit carries the stable "
-        },
-        {
-          "insert": "Epoch-Integration: <epoch_id>",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " trailer, which identifies the boundary independently of process memory."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-the-epoch-close-transact-38": {
-      "id": "b-10-run-state-the-epoch-close-transact-38",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The epoch-close transaction records epoch completion, advances the cycle and run head mirrors, and deletes the pending row in the same commit."
-        }
-      ],
-      "children": []
-    },
-    "b-10-run-state-reconciliation-searches-40": {
-      "id": "b-10-run-state-reconciliation-searches-40",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "At process startup and during run recovery, reconciliation searches the recorded parent-to-branch history for the trailer before dispatch authority is acquired or claims are settled. A found commit completes the epoch-close transaction; a missing commit closes the epoch as an integration error and removes the stale row."
-        }
-      ],
-      "children": []
-    }
-  }
+	"id": "10-system-design-50-workflows-20-run-10-run-state",
+	"title": "Run State",
+	"schemaVersion": 1,
+	"root": "b-10-run-state-root-41",
+	"blocks": {
+		"b-10-run-state-root-41": {
+			"id": "b-10-run-state-root-41",
+			"type": "paragraph",
+			"props": {},
+			"text": [],
+			"children": [
+				"b-10-run-state-control-page-42",
+				"b-10-run-state-run-identity-and-inputs-2",
+				"b-restored-run-state-shape-20260814",
+				"b-10-run-state-a-run-is-one-autonomous-3",
+				"b-10-run-state-control-status-16",
+				"b-10-run-state-control-status-is-the-so-17",
+				"b-10-run-state-status-meaning-sta-18",
+				"b-10-run-state-scheduler-condition-is-19",
+				"b-10-run-state-scheduler-condition-intro-20260818",
+				"b-10-run-state-condition-observed-a-20",
+				"b-50-run-state-what-it-does-7",
+				"b-50-run-state-the-run-owns-the-composi-6",
+				"b-index-runs-a-stable-run-id-i-2",
+				"b-50-run-state-flows-23",
+				"b-50-run-state-harnessstate-activates-a-25",
+				"b-index-claims-and-checkpoints-13",
+				"b-10-run-state-claims-intro-20260818",
+				"b-index-a-worker-may-only-retain-14",
+				"b-10-run-state-pending-integration-34",
+				"b-10-run-state-epoch-publication-crosse-35",
+				"b-10-run-state-before-the-git-integrati-36"
+			]
+		},
+		"b-10-run-state-control-page-42": {
+			"id": "b-10-run-state-control-page-42",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "RunState",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " is the durable control object for one autonomous scheduling effort. It lives in "
+				},
+				{
+					"insert": "Harness State",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness/20-harness-state"
+						}
+					}
+				},
+				{
+					"insert": " and keeps immutable activation inputs, the moving cycle-head mirror, scheduler position, progress, and subordinate run records under one "
+				},
+				{
+					"insert": "run_id",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ". Pause, recovery, and upstream application preserve that identity and its evidence timeline."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-run-identity-and-inputs-2": {
+			"id": "b-10-run-state-run-identity-and-inputs-2",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Run Shape"
+				}
+			],
+			"children": []
+		},
+		"b-restored-run-state-shape-20260814": {
+			"id": "b-restored-run-state-shape-20260814",
+			"type": "state-shape",
+			"props": {
+				"description": "Run control, scheduling position, progress, queue summaries, references, and tracing.",
+				"example": "{\n  \"run_id\": \"run-2026-08-11-01\",\n  \"game_id\": \"melee\",\n  \"cycle_id\": \"cycle-7\",\n  \"revision\": 288,\n  \"inputs\": {\n    \"base_revision\": \"upstream-9ac4\",\n    \"policy_revision\": \"policy-42\",\n    \"starting_knowledge_revision\": \"knowledge-375\",\n    \"configuration_snapshot\": {\n      \"desired_workers\": 64,\n      \"epoch_size\": 64\n    }\n  },\n  \"head_revision\": \"upstream-9ba1\",\n  \"control\": {\n    \"status\": \"draining\",\n    \"stop_request\": {\n      \"target\": \"sync\",\n      \"mode\": \"finish_epoch\"\n    }\n  },\n  \"scheduling\": {\n    \"active_epoch_id\": \"epoch-19\",\n    \"desired_workers\": 64,\n    \"scheduler_condition\": \"boundary\",\n    \"admitted\": 64,\n    \"claimed\": 64,\n    \"running\": 2\n  },\n  \"progress\": {\n    \"baseline_score\": 72.642,\n    \"confirmed_score\": 73.147,\n    \"tentative_changes\": 2,\n    \"confirmed_changes\": 31,\n    \"regressed_changes\": 1\n  },\n  \"job_ids\": [\n    \"job-worker-501\",\n    \"job-integration-88\"\n  ],\n  \"integration_outcome_ids\": [\n    \"integration-outcome-88\"\n  ],\n  \"epoch_ids\": [\n    \"epoch-18\",\n    \"epoch-19\"\n  ],\n  \"remote_application_ids\": [\n    \"remote-application-3\"\n  ],\n  \"worker_state_ids\": [\n    \"worker-state-501\",\n    \"worker-state-502\"\n  ],\n  \"checkpoint_ids\": [\n    \"checkpoint-88\"\n  ],\n  \"active_operation_ids\": [\n    \"operation-run-drain-44\"\n  ],\n  \"latest_event_sequence\": 92811,\n  \"blockers\": []\n}",
+				"fields": [
+					{
+						"name": "run_id",
+						"type": "RunId"
+					},
+					{
+						"name": "game_id",
+						"type": "GameId"
+					},
+					{
+						"name": "cycle_id",
+						"type": "CycleId",
+						"description": "Owning cycle container."
+					},
+					{
+						"name": "revision",
+						"type": "integer"
+					},
+					{
+						"name": "inputs",
+						"type": "RunInputs",
+						"fields": [
+							{
+								"name": "base_revision",
+								"type": "SourceRevision",
+								"description": "Original baseline. Immutable — upstream arrives as remote-application boundaries, never by rewriting this."
+							},
+							{
+								"name": "policy_revision",
+								"type": "PolicyRevision",
+								"description": "Immutable after activation."
+							},
+							{
+								"name": "starting_knowledge_revision",
+								"type": "KnowledgeRevision"
+							},
+							{
+								"name": "configuration_snapshot",
+								"type": "RunConfiguration"
+							}
+						]
+					},
+					{
+						"name": "head_revision",
+						"type": "SourceRevision",
+						"description": "Mirror of the owning cycle's head, which the scheduler plans against. The cycle owns head lineage; equals base_revision until a remote-application boundary advances it."
+					},
+					{
+						"name": "control",
+						"type": "RunControl",
+						"fields": [
+							{
+								"name": "status",
+								"type": "\"draft\" | \"ready\" | \"active\" | \"draining\" | \"paused\" | \"completed\" | \"failed\" | \"cancelled\""
+							},
+							{
+								"name": "stop_request",
+								"type": "StopRequest",
+								"required": false
+							},
+							{
+								"name": "terminal_reason",
+								"type": "string",
+								"required": false
+							}
+						]
+					},
+					{
+						"name": "scheduling",
+						"type": "RunScheduling",
+						"fields": [
+							{
+								"name": "active_epoch_id",
+								"type": "EpochId | null"
+							},
+							{
+								"name": "desired_workers",
+								"type": "integer"
+							},
+							{
+								"name": "scheduler_condition",
+								"type": "\"idle\" | \"planning\" | \"dispatching\" | \"waiting\" | \"boundary\" | \"blocked\""
+							},
+							{
+								"name": "admitted",
+								"type": "integer"
+							},
+							{
+								"name": "claimed",
+								"type": "integer"
+							},
+							{
+								"name": "running",
+								"type": "integer"
+							}
+						]
+					},
+					{
+						"name": "progress",
+						"type": "RunProgress",
+						"fields": [
+							{
+								"name": "baseline_score",
+								"type": "number"
+							},
+							{
+								"name": "confirmed_score",
+								"type": "number"
+							},
+							{
+								"name": "tentative_changes",
+								"type": "integer"
+							},
+							{
+								"name": "confirmed_changes",
+								"type": "integer"
+							},
+							{
+								"name": "regressed_changes",
+								"type": "integer"
+							}
+						]
+					},
+					{
+						"name": "job_ids",
+						"type": "JobId[]",
+						"description": "Worker and integration dispatch records associated with this run."
+					},
+					{
+						"name": "integration_outcome_ids",
+						"type": "IntegrationOutcomeId[]",
+						"description": "Domain outcomes referenced by settled integration jobs."
+					},
+					{
+						"name": "epoch_ids",
+						"type": "EpochId[]"
+					},
+					{
+						"name": "remote_application_ids",
+						"type": "RemoteApplicationId[]",
+						"description": "Remote-application boundaries in timeline order, each recording prior head, applied upstream revision, resolved conflicts, and score delta."
+					},
+					{
+						"name": "worker_state_ids",
+						"type": "WorkerStateId[]"
+					},
+					{
+						"name": "checkpoint_ids",
+						"type": "CheckpointId[]"
+					},
+					{
+						"name": "active_operation_ids",
+						"type": "OperationId[]"
+					},
+					{
+						"name": "latest_event_sequence",
+						"type": "integer"
+					},
+					{
+						"name": "blockers",
+						"type": "Blocker[]"
+					}
+				],
+				"name": "RunState"
+			},
+			"children": []
+		},
+		"b-10-run-state-a-run-is-one-autonomous-3": {
+			"id": "b-10-run-state-a-run-is-one-autonomous-3",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Activation freezes "
+				},
+				{
+					"insert": "base_revision",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "policy_revision",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "starting_knowledge_revision",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", and the configuration snapshot. "
+				},
+				{
+					"insert": "head_revision",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " remains mutable because it mirrors the owning cycle head used for later planning; applying upstream work advances that mirror without rewriting the original baseline."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-control-status-16": {
+			"id": "b-10-run-state-control-status-16",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Control Status"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-control-status-is-the-so-17": {
+			"id": "b-10-run-state-control-status-is-the-so-17",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Control status is the only run lifecycle vocabulary. Scheduler activity, process liveness, validation state, and progress events describe different concerns and never substitute for a status edge."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-status-meaning-sta-18": {
+			"id": "b-10-run-state-status-meaning-sta-18",
+			"type": "structured-table",
+			"props": {
+				"columns": [
+					"Status",
+					"Meaning",
+					"Stable invariant"
+				],
+				"rows": [
+					[
+						[
+							{
+								"insert": "draft",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Required inputs or configuration are incomplete.",
+						"No scheduler or worker starts."
+					],
+					[
+						[
+							{
+								"insert": "ready",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Readiness gates pass and activation may be requested.",
+						"Activation does not alter frozen inputs."
+					],
+					[
+						[
+							{
+								"insert": "active",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Autonomous scheduling authority is enabled.",
+						"The run occupies the workflow slot and holds the dispatch lease."
+					],
+					[
+						[
+							{
+								"insert": "draining",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"New admission is disabled while existing work settles.",
+						"No new target claims are created."
+					],
+					[
+						[
+							{
+								"insert": "paused",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Scheduling is disabled and the run remains resumable.",
+						"Work has settled or recovery recorded cancellations."
+					],
+					[
+						[
+							{
+								"insert": "completed",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Autonomous work closed normally.",
+						"The run is terminal."
+					],
+					[
+						[
+							{
+								"insert": "failed",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"The runner cannot continue safely.",
+						"Recovery returns the same run to paused."
+					],
+					[
+						[
+							{
+								"insert": "cancelled",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"The operator abandoned the effort.",
+						"The run is terminal and its evidence remains readable."
+					]
+				]
+			},
+			"children": []
+		},
+		"b-10-run-state-scheduler-condition-is-19": {
+			"id": "b-10-run-state-scheduler-condition-is-19",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Scheduler Condition"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-scheduler-condition-intro-20260818": {
+			"id": "b-10-run-state-scheduler-condition-intro-20260818",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "scheduler_condition",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " is an observability mirror inside control state. It reports what the "
+				},
+				{
+					"insert": "Run Loop",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/20-run/20-run-loop"
+						}
+					}
+				},
+				{
+					"insert": " is doing without granting dispatch authority or creating another lifecycle."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-condition-observed-a-20": {
+			"id": "b-10-run-state-condition-observed-a-20",
+			"type": "structured-table",
+			"props": {
+				"columns": [
+					"Condition",
+					"Observed activity"
+				],
+				"rows": [
+					[
+						[
+							{
+								"insert": "idle",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"No scheduler operation is executing."
+					],
+					[
+						[
+							{
+								"insert": "planning",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Candidate evidence is becoming an admission decision."
+					],
+					[
+						[
+							{
+								"insert": "dispatching",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Admitted work is being assigned to queue capacity."
+					],
+					[
+						[
+							{
+								"insert": "waiting",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"The active run is sleeping for a durable wake signal."
+					],
+					[
+						[
+							{
+								"insert": "boundary",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Confirmation, integration, report refresh, or save-point work is executing."
+					],
+					[
+						[
+							{
+								"insert": "blocked",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Progress requires recovery or operator action."
+					]
+				]
+			},
+			"children": []
+		},
+		"b-50-run-state-what-it-does-7": {
+			"id": "b-50-run-state-what-it-does-7",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Run Record Families"
+				}
+			],
+			"children": []
+		},
+		"b-50-run-state-the-run-owns-the-composi-6": {
+			"id": "b-50-run-state-the-run-owns-the-composi-6",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "RunState indexes durable evidence instead of embedding every subordinate row. Dispatch status answers whether queued work can execute; the record families below answer what was admitted, attempted, validated, integrated, or recovered."
+				}
+			],
+			"children": []
+		},
+		"b-index-runs-a-stable-run-id-i-2": {
+			"id": "b-index-runs-a-stable-run-id-i-2",
+			"type": "structured-table",
+			"props": {
+				"title": "Run-domain records",
+				"columns": [
+					"Family",
+					"Scope",
+					"Authority and evidence"
+				],
+				"rows": [
+					[
+						[
+							{
+								"insert": "runs",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"One autonomous effort keyed by run_id.",
+						"Frozen inputs, eight-status control, cycle-head mirror, scheduler observability, blockers, and progress."
+					],
+					[
+						[
+							{
+								"insert": "targets",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Candidate functions or units.",
+						"Priority, rationale, and durable target identity independent of any one epoch."
+					],
+					[
+						[
+							{
+								"insert": "epochs",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"One deterministic scheduling wave.",
+						"Fixed membership, completion counts, refresh counters, and boundary-routing summary."
+					],
+					[
+						[
+							{
+								"insert": "epoch_targets",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"A target admitted to one epoch.",
+						"Position such as admitted, claimed, or finished plus the priority consumed by queue realization."
+					],
+					[
+						[
+							{
+								"insert": "target_claims",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Worker ownership of one epoch target.",
+						"Lease fence, category-typed write set, widening decisions, worktree, and open or closed ownership."
+					],
+					[
+						[
+							{
+								"insert": "worker_states",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Runner-owned lifecycle ledger for one claim.",
+						"Attempt outcome, session lineage, facts, blockers, and best validated result."
+					],
+					[
+						[
+							{
+								"insert": "worker_checkpoints",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"One runner validation attempt.",
+						"Failed and passing validations, write-set snapshot, artifacts, and tentative, confirmed, or regressed state."
+					],
+					[
+						[
+							{
+								"insert": "integration_outcomes",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Application or conflict result for one selected checkpoint.",
+						"Patch, conflict, resolver, scoped-check, validation, and result_ref evidence for the serial integration lane."
+					]
+				]
+			},
+			"children": []
+		},
+		"b-50-run-state-flows-23": {
+			"id": "b-50-run-state-flows-23",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Run Lifecycle"
+				}
+			],
+			"children": []
+		},
+		"b-50-run-state-harnessstate-activates-a-25": {
+			"id": "b-50-run-state-harnessstate-activates-a-25",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Run lifecycle",
+						"steps": [
+							{
+								"text": "Admit work",
+								"steps": [
+									{
+										"text": "Activate a `ready` run under the expected aggregate revision and dispatch lease"
+									},
+									{
+										"text": "Plan against `head_revision` and record the knowledge revision consumed"
+									},
+									{
+										"text": "Create the fixed epoch inventory and one deduplicated worker job per target"
+									}
+								]
+							},
+							{
+								"text": "Execute epochs",
+								"steps": [
+									{
+										"text": "Claim jobs and epoch targets atomically, composing target claims and worker states"
+									},
+									{
+										"text": "Append runner-owned checkpoints under ClaimToken authority"
+									},
+									{
+										"text": "Integrate selectable work tentatively and classify it at the boundary"
+									},
+									{
+										"text": "Close the epoch and advance cycle and run head mirrors together after integration"
+									}
+								]
+							},
+							{
+								"text": "Pause and recover",
+								"steps": [
+									{
+										"text": "Stop admission and drain active claims, integration, and boundary work"
+									},
+									{
+										"text": "Reconcile leases and crash evidence without changing `run_id`"
+									},
+									{
+										"text": "Return the same run to `paused` before any later resume"
+									}
+								]
+							},
+							{
+								"text": "Reconcile pending integration",
+								"steps": [
+									{
+										"text": "Inspect pending rows before dispatch acquisition or new admission"
+									},
+									{
+										"text": "Finish or reject the interrupted Git/state boundary from durable evidence"
+									}
+								]
+							},
+							{
+								"text": "Close the run",
+								"steps": [
+									{
+										"text": "Settle the active epoch, jobs, claims, operations, and integration lane"
+									},
+									{
+										"text": "Run required boundary confirmation and capture the save point"
+									},
+									{
+										"text": "Commit terminal status and release dispatch authority"
+									},
+									{
+										"text": "Retain terminal RunState for lineage after the active workflow slot clears"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		},
+		"b-index-claims-and-checkpoints-13": {
+			"id": "b-index-claims-and-checkpoints-13",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Claims and Checkpoints"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-claims-intro-20260818": {
+			"id": "b-10-run-state-claims-intro-20260818",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "A target claim is the ownership boundary for one worker state. "
+				},
+				{
+					"insert": "Write Safety",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/20-run/40-workers/30-write-safety"
+						}
+					}
+				},
+				{
+					"insert": " owns the widening, fencing, and reset rules; this procedure shows how those records compose and settle."
+				}
+			],
+			"children": []
+		},
+		"b-index-a-worker-may-only-retain-14": {
+			"id": "b-index-a-worker-may-only-retain-14",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Claim and checkpoint procedure",
+						"steps": [
+							{
+								"text": "Claim one worker job and epoch target atomically"
+							},
+							{
+								"text": "Create one target claim, one worker state, a lease, and a target-source write set"
+							},
+							{
+								"text": "Record each runner validation attempt as a ClaimToken-fenced checkpoint"
+							},
+							{
+								"text": "Keep failed and neutral checkpoints as evidence; bank only hard-gate-passing improvements as tentative"
+							},
+							{
+								"text": "At the epoch boundary, confirm clean items or attribute, revert, and mark the guilty item regressed"
+							},
+							{
+								"text": "Close the target claim and settle the worker job from the closed worker-state row"
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		},
+		"b-10-run-state-pending-integration-34": {
+			"id": "b-10-run-state-pending-integration-34",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Pending Integration"
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-epoch-publication-crosse-35": {
+			"id": "b-10-run-state-epoch-publication-crosse-35",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Pending integration closes the crash window between Git history and the durable epoch-close transaction. The exchange below is the sole commit-and-reconciliation protocol, and recovery completes it before dispatch authority is acquired or new work is admitted."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-state-before-the-git-integrati-36": {
+			"id": "b-10-run-state-before-the-git-integrati-36",
+			"type": "sequence",
+			"props": {
+				"src": "./assets/sequences/pending-integration.sequence.json",
+				"title": "Pending integration and recovery"
+			},
+			"children": []
+		}
+	}
 }

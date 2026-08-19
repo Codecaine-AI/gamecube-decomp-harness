@@ -1,0 +1,274 @@
+{
+	"schemaVersion": 1,
+	"id": "10-system-design-40-knowledge-50-worker-surfaces",
+	"title": "Worker Knowledge Surfaces",
+	"root": "b-60-worker-surfaces-root-3",
+	"blocks": {
+		"b-60-worker-surfaces-root-3": {
+			"id": "b-60-worker-surfaces-root-3",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-60-worker-surfaces-worker-surfaces-expose-k-1",
+				"b-worker-surfaces-boot-heading",
+				"b-worker-surfaces-boot-prose",
+				"b-60-worker-surfaces-structured-table-block-2",
+				"b-worker-surfaces-ops-heading",
+				"b-worker-surfaces-ops-prose",
+				"b-worker-surfaces-ops",
+				"b-worker-surfaces-gate-heading",
+				"b-worker-surfaces-gate-prose",
+				"b-worker-surfaces-ship-sequence",
+				"b-worker-surfaces-payoff-heading",
+				"b-worker-surfaces-payoff"
+			]
+		},
+		"b-60-worker-surfaces-worker-surfaces-expose-k-1": {
+			"id": "b-60-worker-surfaces-worker-surfaces-expose-k-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Workers receive a bounded projection of the knowledge system at boot, then query deeper evidence only when the task requires it. The ship gate closes the loop by turning QA outcomes into durable attempts, standards evidence, and reviewed learnings."
+				}
+			],
+			"children": []
+		},
+		"b-worker-surfaces-boot-heading": {
+			"id": "b-worker-surfaces-boot-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Boot Context"
+				}
+			],
+			"children": []
+		},
+		"b-worker-surfaces-boot-prose": {
+			"id": "b-worker-surfaces-boot-prose",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Boot context is a compact working set for one target. It supplies enough local structure and evidence pointers to begin work without copying raw PR archives, wiki pages, or full ledger records into the prompt."
+				}
+			],
+			"children": []
+		},
+		"b-60-worker-surfaces-structured-table-block-2": {
+			"id": "b-60-worker-surfaces-structured-table-block-2",
+			"type": "state-shape",
+			"props": {
+				"name": "WorkerBootContext",
+				"description": "The bounded target projection assembled before a worker starts.",
+				"fields": [
+					{
+						"name": "target",
+						"type": "TargetFileCard",
+						"required": true,
+						"description": "Target path, functions, current match state, and editability."
+					},
+					{
+						"name": "neighbors",
+						"type": "CodeGraphDigest",
+						"required": true,
+						"description": "One-hop call and data-reference neighborhood around the target."
+					},
+					{
+						"name": "analogs",
+						"type": "TargetPeer[]",
+						"required": true,
+						"description": "Ranked analog and sibling targets with their current match status."
+					},
+					{
+						"name": "attempts",
+						"type": "AttemptDigest",
+						"required": true,
+						"description": "Recent attempts for the target and its immediate neighbors, with pointers to deep evidence."
+					},
+					{
+						"name": "learnings",
+						"type": "LearningDigest",
+						"required": true,
+						"description": "Relevant statements with confidence, review status, and evidence pointers."
+					},
+					{
+						"name": "corpus",
+						"type": "CorpusPointers",
+						"required": true,
+						"description": "Resolved wiki page titles and the commands used to search or fetch sections."
+					},
+					{
+						"name": "standards",
+						"type": "Standard[]",
+						"required": true,
+						"description": "The global authored rules enforced again at the ship gate."
+					}
+				],
+				"example": "{\n  \"target\": {\n    \"path\": \"src/melee/ft/chara/ftKirby/ftKirby_SpecialHi.c\",\n    \"functions\": 6,\n    \"match\": \"92.4%\",\n    \"editable\": true\n  },\n  \"neighbors\": {\n    \"one_hop\": 14\n  },\n  \"analogs\": [\n    {\n      \"target\": \"ftFox_SpecialHi\",\n      \"match\": \"100%\"\n    }\n  ],\n  \"attempts\": {\n    \"relevant\": 5\n  },\n  \"learnings\": {\n    \"relevant\": 3\n  },\n  \"corpus\": {\n    \"pages\": [\n      \"Kirby (SSBM)/Up special\"\n    ]\n  },\n  \"standards\": {\n    \"injected\": 18\n  }\n}"
+			},
+			"children": []
+		},
+		"b-worker-surfaces-ops-heading": {
+			"id": "b-worker-surfaces-ops-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Worker Operations"
+				}
+			],
+			"children": []
+		},
+		"b-worker-surfaces-ops-prose": {
+			"id": "b-worker-surfaces-ops-prose",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Queries expand one evidence slice at a time. Symptom lookup starts from a concrete failure signature; on-demand operations retrieve the source material behind a boot pointer or walk beyond the one-hop graph digest."
+				}
+			],
+			"children": []
+		},
+		"b-worker-surfaces-ops": {
+			"id": "b-worker-surfaces-ops",
+			"type": "interaction-surface",
+			"props": {
+				"title": "Knowledge queries available to a worker",
+				"operations": [
+					{
+						"name": "tacticLookup",
+						"kind": "query",
+						"params": [
+							{
+								"name": "failureClass",
+								"type": "string"
+							},
+							{
+								"name": "signature",
+								"type": "string"
+							}
+						],
+						"returns": "Tactic[] ranked by relevant evidence and observed efficacy"
+					},
+					{
+						"name": "fetchSection",
+						"kind": "query",
+						"params": [
+							{
+								"name": "page",
+								"type": "string"
+							},
+							{
+								"name": "section",
+								"type": "string"
+							}
+						],
+						"returns": "CorpusSection with stable source metadata"
+					},
+					{
+						"name": "deepAttemptEvidence",
+						"kind": "query",
+						"params": [
+							{
+								"name": "attemptId",
+								"type": "AttemptId"
+							}
+						],
+						"returns": "PR descriptions, comments, transcripts, and diffs referenced by the attempt"
+					},
+					{
+						"name": "learningEvidence",
+						"kind": "query",
+						"params": [
+							{
+								"name": "learningId",
+								"type": "LearningId"
+							}
+						],
+						"returns": "Evidence chain and review history for one learning"
+					},
+					{
+						"name": "walkTargetGraph",
+						"kind": "query",
+						"params": [
+							{
+								"name": "targetId",
+								"type": "TargetId"
+							},
+							{
+								"name": "depth",
+								"type": "integer"
+							}
+						],
+						"returns": "Related targets and typed edges beyond the boot digest"
+					}
+				]
+			},
+			"children": []
+		},
+		"b-worker-surfaces-gate-heading": {
+			"id": "b-worker-surfaces-gate-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Ship Gate"
+				}
+			],
+			"children": []
+		},
+		"b-worker-surfaces-gate-prose": {
+			"id": "b-worker-surfaces-gate-prose",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "A worker submits its candidate change to QA before shipment. Acceptance permits the change to ship; rejection records the failed attempt and attaches a VIOLATES example to the applicable authored standard. Learning candidates enter the knowledge ledger through review, so neither a successful patch nor a recurring tactic publishes a new standard automatically."
+				}
+			],
+			"children": []
+		},
+		"b-worker-surfaces-ship-sequence": {
+			"id": "b-worker-surfaces-ship-sequence",
+			"type": "sequence",
+			"props": {
+				"src": "./assets/sequences/worker-ship-gate.sequence.json",
+				"title": "Worker ship gate and ledger feedback"
+			},
+			"children": []
+		},
+		"b-worker-surfaces-payoff-heading": {
+			"id": "b-worker-surfaces-payoff-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Layer Payoff"
+				}
+			],
+			"children": []
+		},
+		"b-worker-surfaces-payoff": {
+			"id": "b-worker-surfaces-payoff",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The surfaces keep each knowledge layer in its proper role: derived graph and index data orient the worker, ledgers supply evidence and reviewed beliefs, the corpus supplies source text on demand, and authored standards govern shipment. The worker gets a small prompt, can trace every claim to deeper evidence, and leaves durable feedback for the next worker."
+				}
+			],
+			"children": []
+		}
+	}
+}

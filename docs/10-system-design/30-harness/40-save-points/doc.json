@@ -1,0 +1,492 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-30-games-40-save-points",
+  "title": "Campaign and Save Points",
+  "root": "b-70-save-points-root-27",
+  "blocks": {
+    "b-70-save-points-root-27": {
+      "id": "b-70-save-points-root-27",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "pm-mt0fnfdf-3-b8q1rs",
+        "b-save-points-sync-pointer",
+        "b-save-points-structure-heading",
+        "b-save-points-structure-lead",
+        "b-save-points-structure-table",
+        "b-save-points-trigger-heading",
+        "b-save-points-trigger-table",
+        "b-save-points-capture-heading",
+        "b-save-points-capture-lead",
+        "b-save-points-capture-sequence",
+        "b-save-points-failure-list-2",
+        "b-save-points-failure-list-3",
+        "b-save-points-failure-list-4",
+        "h-cycle-close-gate",
+        "p-cycle-close-gate",
+        "b-save-points-position-heading",
+        "b-save-points-position-lead",
+        "b-save-points-position-list-1",
+        "b-save-points-runs-heading",
+        "b-save-points-runs-body",
+        "b-save-points-ledger-body"
+      ]
+    },
+    "pm-mt0fnfdf-3-b8q1rs": {
+      "id": "pm-mt0fnfdf-3-b8q1rs",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Save points are the harness's persistent progress anchors. They pin reports, board state, and score evidence to an existing cycle-head commit without staging work or creating a new commit."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-sync-pointer": {
+      "id": "b-save-points-sync-pointer",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The "
+        },
+        {
+          "insert": "Cycles",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness/30-cycles"
+            }
+          }
+        },
+        {
+          "insert": " timeline owns the ordered save_point entry. Source-changing "
+        },
+        {
+          "insert": "Sync Process",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/10-sync/20-process"
+            }
+          }
+        },
+        {
+          "insert": " invokes capture after durable publication; knowledge-only processing creates no source-boundary anchor."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-structure-heading": {
+      "id": "b-save-points-structure-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Save-Point Structure"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-structure-lead": {
+      "id": "b-save-points-structure-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A save point records enough evidence to reproduce what the game looked like at one existing commit and to tell whether that evidence still describes the live head."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-structure-table": {
+      "id": "b-save-points-structure-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Field",
+          "Meaning"
+        ],
+        "density": "normal",
+        "rows": [
+          [
+            "commit_sha / branch",
+            "The exact existing checkout position that the evidence describes; recording the save point never creates this commit."
+          ],
+          [
+            "base_ref / base_sha",
+            "The upstream anchor, defaulting to origin/master, against which the position is measured."
+          ],
+          [
+            "trigger_kind",
+            "The registered boundary that requested capture; the trigger table below defines all nine values."
+          ],
+          [
+            "Score and artifacts",
+            "matched_code_percent is the headline measure; report copies live under state_dir/save_points/<timestamp>/, and board_snapshot_path identifies the board evidence beside them."
+          ],
+          [
+            "Worktree and payload",
+            "worktree_dirty records remaining uncommitted work; payload carries ahead-of-base count, dirty paths, evidence warnings, and full measures."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-save-points-trigger-heading": {
+      "id": "b-save-points-trigger-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Capture Triggers"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-trigger-table": {
+      "id": "b-save-points-trigger-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Trigger Kind",
+          "Boundary"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "manual",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "An operator requests evidence at the current commit."
+          ],
+          [
+            [
+              {
+                "insert": "init",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The harness captures the initial operable position."
+          ],
+          [
+            [
+              {
+                "insert": "pause",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A run settles into a resumable pause."
+          ],
+          [
+            [
+              {
+                "insert": "checkpoint",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A named operational checkpoint requests durable evidence."
+          ],
+          [
+            [
+              {
+                "insert": "epoch",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A confirmed epoch boundary publishes a new cycle head."
+          ],
+          [
+            [
+              {
+                "insert": "qa",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "QA records the source position behind its gate evidence."
+          ],
+          [
+            [
+              {
+                "insert": "ship",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A shipping boundary pins its release evidence."
+          ],
+          [
+            [
+              {
+                "insert": "sync",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Source-changing sync captures the published head after its durable transaction."
+          ],
+          [
+            [
+              {
+                "insert": "fresh",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A fresh-run boundary captures the position before new autonomous work."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-save-points-capture-heading": {
+      "id": "b-save-points-capture-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Capture and Failure Semantics"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-capture-lead": {
+      "id": "b-save-points-capture-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Manual and automatic hooks enter the same save-point job. The sync path is ordered deliberately: the operator confirms validated staging, durable source and knowledge publication completes, and capture then reads the published HEAD."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-capture-sequence": {
+      "id": "b-save-points-capture-sequence",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/save-point-capture.sequence.json",
+        "title": "Sync publication and save-point capture"
+      },
+      "children": []
+    },
+    "b-save-points-failure-list-2": {
+      "id": "b-save-points-failure-list-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A capture failure raises a durable cycle blocker and marks evidence stale. The failure remains visible instead of becoming an untracked log message."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-failure-list-3": {
+      "id": "b-save-points-failure-list-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Because sync capture follows durable publication, capture failure does not revert the cycle repoint, remote_application entry, invalidations, knowledge revision, or completed PR-branch pushes."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-failure-list-4": {
+      "id": "b-save-points-failure-list-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A staging conflict blocks before publication. No source boundary or sync save point exists until the conflict is resolved, staging validates again, and the operator confirms publication."
+        }
+      ],
+      "children": []
+    },
+    "h-cycle-close-gate": {
+      "id": "h-cycle-close-gate",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Cycle Close Gate"
+        }
+      ],
+      "children": []
+    },
+    "p-cycle-close-gate": {
+      "id": "p-cycle-close-gate",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Cycle close requires fresh named evidence at "
+        },
+        {
+          "insert": "head_revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", a free dispatch lease, and a canonical worktree with no changes beyond head. "
+        },
+        {
+          "insert": "Cycles",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness/30-cycles"
+            }
+          }
+        },
+        {
+          "insert": " owns the full close procedure."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-heading": {
+      "id": "b-save-points-position-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Where-We-Are Contract"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-lead": {
+      "id": "b-save-points-position-lead",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The dashboard answers where the game stands from durable cycle state and the most recent evidence anchor. It never triggers a build merely to render the projection."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-position-list-1": {
+      "id": "b-save-points-position-list-1",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Projection",
+          "Source",
+          "Meaning",
+          "Stale Rule"
+        ],
+        "rows": [
+          [
+            "Latest save point",
+            "commit, trigger, matched percent, artifacts",
+            "Names the exact source position described by the evidence.",
+            "Stale when the cycle head moves or capture fails."
+          ],
+          [
+            "Current head",
+            "head_revision, branch, dirty paths",
+            "Names the live canonical source position.",
+            "Dirty paths make the evidence stale."
+          ],
+          [
+            "aheadOfBase",
+            "Commits between base_sha and current head",
+            "Counts durable work not merged into the base reference.",
+            "The count remains valid only for its named base and head."
+          ],
+          [
+            "stale",
+            "Comparison of head, worktree, and capture outcome",
+            "Prevents old evidence from being presented as current.",
+            "True when head moved, uncommitted changes exist, or capture failed."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-save-points-runs-heading": {
+      "id": "b-save-points-runs-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Runs and the Knowledge Ledger"
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-runs-body": {
+      "id": "b-save-points-runs-body",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/10-run-state"
+            }
+          }
+        },
+        {
+          "insert": " owns run, epoch, claim, worker-state, and checkpoint identities. A save point records which run was active at capture without absorbing those records into the cycle."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-ledger-body": {
+      "id": "b-save-points-ledger-body",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Knowledge Ledger",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-knowledge-stores/10-knowledge-ledger"
+            }
+          }
+        },
+        {
+          "insert": " owns reusable facts and lessons across save points and cycles. A save point pins evidence to source; it is not a second fact store."
+        }
+      ],
+      "children": []
+    }
+  }
+}

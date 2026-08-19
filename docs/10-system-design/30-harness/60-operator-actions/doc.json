@@ -1,0 +1,660 @@
+{
+	"id": "10-system-design-40-harness-state-30-operator-actions",
+	"title": "Operator Actions",
+	"schemaVersion": 1,
+	"root": "b-30-operator-actions-root-54",
+	"blocks": {
+		"b-30-operator-actions-root-54": {
+			"id": "b-30-operator-actions-root-54",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-30-operator-actions-harnessstateview-is-the-1",
+				"b-30-operator-actions-state-2",
+				"b-30-operator-actions-text-3",
+				"b-operator-action-projection-shape",
+				"b-30-operator-actions-projection-rules-8",
+				"b-30-operator-actions-the-builder-reads-canoni-9",
+				"b-30-operator-actions-operations-10",
+				"b-30-operator-actions-each-action-projection-n-11",
+				"b-30-operator-actions-open-decision-55",
+				"b-30-operator-actions-run-start-13",
+				"b-30-operator-actions-confirmation-rule-37",
+				"b-30-operator-actions-confirmation-required-38",
+				"b-30-operator-actions-all-other-canonical-acti-53"
+			]
+		},
+		"b-30-operator-actions-harnessstateview-is-the-1": {
+			"id": "b-30-operator-actions-harnessstateview-is-the-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Harness State",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness/20-harness-state"
+						}
+					}
+				},
+				{
+					"insert": " exposes HarnessStateView as the server-owned projection of current coordination and operator authority. Clients render its summaries, blockers, expected transitions, and confirmation policy without recomputing whether an action is safe."
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-state-2": {
+			"id": "b-30-operator-actions-state-2",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Projection State"
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-text-3": {
+			"id": "b-30-operator-actions-text-3",
+			"type": "state-shape",
+			"props": {
+				"name": "HarnessStateView",
+				"fields": [
+					{
+						"name": "game_id",
+						"type": "GameId",
+						"description": "Stable game identity."
+					},
+					{
+						"name": "game_revision",
+						"type": "integer",
+						"description": "Aggregate revision used for every projected field and guard."
+					},
+					{
+						"name": "cycle",
+						"type": "CycleSummary | null",
+						"description": "Current cycle identity, head, timeline evidence, and blockers."
+					},
+					{
+						"name": "active_workflow",
+						"type": "ActiveWorkflowSummary | null",
+						"description": "Current dispatch-lease holder and headline."
+					},
+					{
+						"name": "queued_dispatch_requests",
+						"type": "DispatchRequest[]",
+						"description": "Ordered successors waiting for authority."
+					},
+					{
+						"name": "run",
+						"type": "RunSummary | null"
+					},
+					{
+						"name": "pr_work",
+						"type": "PrWorkflowSummary[]"
+					},
+					{
+						"name": "sync",
+						"type": "SyncSummary | null"
+					},
+					{
+						"name": "knowledge",
+						"type": "KnowledgeFreshnessSummary"
+					},
+					{
+						"name": "active_operations",
+						"type": "OperationSummary[]"
+					},
+					{
+						"name": "recent_events",
+						"type": "EventSummary[]",
+						"description": "Bounded history; never current-state authority."
+					},
+					{
+						"name": "available_actions",
+						"type": "ActionProjection[21]",
+						"description": "Complete canonical action inventory."
+					},
+					{
+						"name": "compatibility_actions",
+						"type": "ActionProjection[]",
+						"description": "Noncanonical compatibility operations."
+					}
+				],
+				"example": "{\n  \"game_id\": \"melee\",\n  \"game_revision\": 1842,\n  \"cycle\": {\n    \"cycle_id\": \"cycle-7\",\n    \"head_revision\": \"upstream-9ba1\"\n  },\n  \"active_workflow\": {\n    \"kind\": \"run\",\n    \"workflow_id\": \"run-01\",\n    \"status\": \"draining\",\n    \"headline\": \"Settling two claims\"\n  },\n  \"queued_dispatch_requests\": [\n    {\n      \"target_kind\": \"sync\",\n      \"target_workflow_id\": \"sync-02\"\n    }\n  ],\n  \"run\": {\n    \"run_id\": \"run-01\",\n    \"status\": \"draining\"\n  },\n  \"pr_work\": [],\n  \"sync\": {\n    \"sync_id\": \"sync-02\",\n    \"status\": \"requested\"\n  },\n  \"knowledge\": {\n    \"published_revision\": \"knowledge-381\",\n    \"queued\": 6,\n    \"claimed\": 0,\n    \"running\": 1,\n    \"waiting\": 1,\n    \"failed\": 0\n  },\n  \"active_operations\": [],\n  \"recent_events\": [],\n  \"available_actions\": [\n    {\n      \"action_id\": \"run.pause\",\n      \"enabled\": false\n    }\n  ],\n  \"compatibility_actions\": []\n}"
+			},
+			"children": []
+		},
+		"b-operator-action-projection-shape": {
+			"id": "b-operator-action-projection-shape",
+			"type": "state-shape",
+			"props": {
+				"name": "ActionProjection",
+				"fields": [
+					{
+						"name": "action_id",
+						"type": "ActionId"
+					},
+					{
+						"name": "subject_kind",
+						"type": "SubjectKind"
+					},
+					{
+						"name": "subject_id",
+						"type": "string"
+					},
+					{
+						"name": "enabled",
+						"type": "boolean"
+					},
+					{
+						"name": "blocked_by",
+						"type": "Blocker[]"
+					},
+					{
+						"name": "expected_transition",
+						"type": "string"
+					},
+					{
+						"name": "confirmation_required",
+						"type": "boolean"
+					}
+				],
+				"example": "{\n  \"action_id\": \"sync.publish\",\n  \"subject_kind\": \"sync\",\n  \"subject_id\": \"sync-02\",\n  \"enabled\": true,\n  \"blocked_by\": [],\n  \"expected_transition\": \"validated → publishing → published\",\n  \"confirmation_required\": true\n}"
+			},
+			"children": []
+		},
+		"b-30-operator-actions-projection-rules-8": {
+			"id": "b-30-operator-actions-projection-rules-8",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Projection Rules"
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-the-builder-reads-canoni-9": {
+			"id": "b-30-operator-actions-the-builder-reads-canoni-9",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The builder reads canonical state once and projects summaries, dispatch queue order, knowledge freshness, active operations, bounded recent history, and action guards at the same game revision. Disabled actions remain present with explicit blockers, and command routes re-derive availability before accepting a request."
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-operations-10": {
+			"id": "b-30-operator-actions-operations-10",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Canonical Actions"
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-each-action-projection-n-11": {
+			"id": "b-30-operator-actions-each-action-projection-n-11",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The 21 actions are owned by the "
+				},
+				{
+					"insert": "Run",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/20-run"
+						}
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "PR",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/30-pr"
+						}
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "Sync",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/10-sync"
+						}
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "Cycles",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness/30-cycles"
+						}
+					}
+				},
+				{
+					"insert": ", save-point, and "
+				},
+				{
+					"insert": "Knowledge Processing",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/40-processing"
+						}
+					}
+				},
+				{
+					"insert": " contracts. The projection collects their current guards; it does not become a second transition authority."
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-open-decision-55": {
+			"id": "b-30-operator-actions-open-decision-55",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Game registration and cycle opening are lifecycle entry operations outside this 21-action projection. "
+				},
+				{
+					"insert": "Registration and Setup",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/20-game/20-registration-and-setup"
+						}
+					}
+				},
+				{
+					"insert": " prepares the game, and "
+				},
+				{
+					"insert": "Cycles",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness/30-cycles"
+						}
+					}
+				},
+				{
+					"insert": " installs the active cycle before this surface begins workflow control."
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-run-start-13": {
+			"id": "b-30-operator-actions-run-start-13",
+			"type": "structured-table",
+			"props": {
+				"title": "Canonical operator action inventory",
+				"columns": [
+					"Action",
+					"Subject",
+					"Expected Transition",
+					"Confirmation",
+					"Owner"
+				],
+				"rows": [
+					[
+						[
+							{
+								"insert": "run.start",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Run",
+						"ready → active",
+						"single click",
+						"Run workflow"
+					],
+					[
+						[
+							{
+								"insert": "run.pause",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Run",
+						"active → draining → paused",
+						"single click",
+						"Run workflow"
+					],
+					[
+						[
+							{
+								"insert": "run.resume",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Run",
+						"paused → active",
+						"single click",
+						"Run workflow"
+					],
+					[
+						[
+							{
+								"insert": "run.hard_stop",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Run",
+						"active/draining → paused with cancellations",
+						"required",
+						"Run workflow"
+					],
+					[
+						[
+							{
+								"insert": "run.cancel",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Run",
+						"nonterminal → cancelled",
+						"required",
+						"Run workflow"
+					],
+					[
+						[
+							{
+								"insert": "run.recover",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Run",
+						"failed → paused after reconciliation",
+						"required",
+						"Run workflow"
+					],
+					[
+						[
+							{
+								"insert": "pr.open_campaign",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"PR campaign",
+						"absent → preparing",
+						"single click",
+						"PR workflow"
+					],
+					[
+						[
+							{
+								"insert": "pr.activate",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"PR campaign",
+						"preparing/in_review → working",
+						"single click",
+						"PR workflow"
+					],
+					[
+						[
+							{
+								"insert": "pr.publish_batch",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"PR series",
+						"prepared → published; campaign returns to in_review",
+						"required",
+						"PR workflow"
+					],
+					[
+						[
+							{
+								"insert": "pr.release",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"PR campaign",
+						"working → preparing/in_review",
+						"single click",
+						"PR workflow"
+					],
+					[
+						[
+							{
+								"insert": "pr.close_campaign",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"PR campaign",
+						"nonterminal → completed",
+						"required",
+						"PR workflow"
+					],
+					[
+						[
+							{
+								"insert": "pr.abandon_campaign",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"PR campaign",
+						"nonterminal → abandoned",
+						"required",
+						"PR workflow"
+					],
+					[
+						[
+							{
+								"insert": "pr.campaign_recover",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"PR campaign",
+						"stale working → safe preparing/in_review",
+						"required",
+						"PR workflow"
+					],
+					[
+						[
+							{
+								"insert": "sync.start",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Sync",
+						"requested → ingesting",
+						"single click",
+						"Sync workflow"
+					],
+					[
+						[
+							{
+								"insert": "sync.resolve_conflict",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Sync",
+						"blocked → reconciling/validating",
+						"single click",
+						"Sync workflow"
+					],
+					[
+						[
+							{
+								"insert": "sync.publish",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Sync",
+						"validated → publishing → published",
+						"required",
+						"Sync workflow"
+					],
+					[
+						[
+							{
+								"insert": "sync.cancel",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Sync",
+						"pre-publication → cancelled",
+						"required",
+						"Sync workflow"
+					],
+					[
+						[
+							{
+								"insert": "sync.recover",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Sync",
+						"blocked/publishing → safe forward state",
+						"required",
+						"Sync workflow"
+					],
+					[
+						[
+							{
+								"insert": "cycle.save_point",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Cycle",
+						"append evidence; lifecycle unchanged",
+						"single click",
+						"Save points"
+					],
+					[
+						[
+							{
+								"insert": "cycle.close",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Cycle",
+						"active → closing → closed",
+						"required",
+						"Cycles"
+					],
+					[
+						[
+							{
+								"insert": "knowledge.process",
+								"attributes": {
+									"code": true
+								}
+							}
+						],
+						"Knowledge job",
+						"queued/waiting → claimed → running → succeeded/failed/cancelled",
+						"single click",
+						"Knowledge processing"
+					]
+				]
+			},
+			"children": []
+		},
+		"b-30-operator-actions-confirmation-rule-37": {
+			"id": "b-30-operator-actions-confirmation-rule-37",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Confirmation Rule"
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-confirmation-required-38": {
+			"id": "b-30-operator-actions-confirmation-required-38",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "confirmation_required is true exactly when an action is outward-facing, work-discarding, or terminal. The table carries the rule per action so clients display one consistent confirmation boundary."
+				}
+			],
+			"children": []
+		},
+		"b-30-operator-actions-all-other-canonical-acti-53": {
+			"id": "b-30-operator-actions-all-other-canonical-acti-53",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Sync remains validated until the operator confirms sync.publish. Later upstream movement adds a staleness blocker and requires validation again before publication can be projected as enabled."
+				}
+			],
+			"children": []
+		}
+	}
+}

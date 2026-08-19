@@ -1,0 +1,39 @@
+{
+  "id": "10-system-design-50-workflows-20-run-50-process-lifecycle",
+  "title": "Process Lifecycle",
+  "schemaVersion": 1,
+  "root": "b-50-process-lifecycle-root",
+  "blocks": {
+    "b-50-process-lifecycle-root": {
+      "id": "b-50-process-lifecycle-root",
+      "type": "paragraph",
+      "props": {},
+      "children": ["b-50-process-lifecycle-direct-spawn", "b-50-process-lifecycle-observation-heading", "b-50-process-lifecycle-observation", "b-50-process-lifecycle-settlement-heading", "b-50-process-lifecycle-settlement", "b-50-process-lifecycle-operator-heading", "b-50-process-lifecycle-operator"]
+    },
+    "b-50-process-lifecycle-direct-spawn": {
+      "id": "b-50-process-lifecycle-direct-spawn", "type": "paragraph", "props": {},
+      "text": [{"insert":"The managed-process controller starts "},{"insert":"run-loop","attributes":{"code":true}},{"insert":" directly for a run that holds the dispatch lease. The command carries the required "},{"insert":"--lease-id","attributes":{"code":true}},{"insert":", so process execution remains bound to the authority acquired for that run without an intermediate supervisor."}], "children": []
+    },
+    "b-50-process-lifecycle-observation-heading": {
+      "id": "b-50-process-lifecycle-observation-heading", "type": "heading", "props": {"level":2}, "text": [{"insert":"Observation and Signals"}], "children": []
+    },
+    "b-50-process-lifecycle-observation": {
+      "id": "b-50-process-lifecycle-observation", "type": "paragraph", "props": {},
+      "text": [{"insert":"The controller tees the process streams into append-only files at "},{"insert":"<stateDir>/ui-processes/<name>.stdout.log","attributes":{"code":true}},{"insert":" and "},{"insert":"<stateDir>/ui-processes/<name>.stderr.log","attributes":{"code":true}},{"insert":". Process status exposes both paths. On "},{"insert":"SIGINT","attributes":{"code":true}},{"insert":" or "},{"insert":"SIGTERM","attributes":{"code":true}},{"insert":", the run loop requests a graceful stop and reaches its normal exit path."}], "children": []
+    },
+    "b-50-process-lifecycle-settlement-heading": {
+      "id": "b-50-process-lifecycle-settlement-heading", "type": "heading", "props": {"level":2}, "text": [{"insert":"Exit Settlement"}], "children": []
+    },
+    "b-50-process-lifecycle-settlement": {
+      "id": "b-50-process-lifecycle-settlement", "type": "paragraph", "props": {},
+      "text": [{"insert":"The run loop's top-level "},{"insert":"finally","attributes":{"code":true}},{"insert":" calls "},{"insert":"settleRunOnExit","attributes":{"code":true}},{"insert":". Settlement pauses the run through "},{"insert":"settlePausedRun","attributes":{"code":true}},{"insert":", releases the dispatch lease, and advances an acquired sync workflow. Settlement events retain the actor string "},{"insert":"guardian","attributes":{"code":true}},{"insert":" as a compatibility contract even though the run loop emits them itself."}], "children": []
+    },
+    "b-50-process-lifecycle-operator-heading": {
+      "id": "b-50-process-lifecycle-operator-heading", "type": "heading", "props": {"level":2}, "text": [{"insert":"Operator Recovery"}], "children": []
+    },
+    "b-50-process-lifecycle-operator": {
+      "id": "b-50-process-lifecycle-operator", "type": "paragraph", "props": {},
+      "text": [{"insert":"The operator watches process status and the exposed stream logs. The controller does not restart a failed process, create incident files, or recover claims automatically. After "},{"insert":"SIGKILL","attributes":{"code":true}},{"insert":" or a crash that bypasses the top-level "},{"insert":"finally","attributes":{"code":true}},{"insert":", the operator runs the manual "},{"insert":"recover-claims","attributes":{"code":true}},{"insert":" job before resuming work."}], "children": []
+    }
+  }
+}

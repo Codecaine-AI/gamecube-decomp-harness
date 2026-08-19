@@ -1,0 +1,268 @@
+{
+	"schemaVersion": 1,
+	"id": "10-system-design-40-knowledge-70-execution-classes-and-jobs-doc-json",
+	"title": "Execution Classes and Jobs",
+	"root": "b-doc-root-9",
+	"blocks": {
+		"b-doc-root-9": {
+			"id": "b-doc-root-9",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-doc-knowledge-work-is-classi-1",
+				"b-processing-spine",
+				"b-processing-state-heading",
+				"b-processing-state-lead",
+				"b-processing-knowledge-state",
+				"b-processing-handoff-heading",
+				"b-processing-handoff-sequence",
+				"b-processing-child-links",
+				"b-processing-live-backfill-heading",
+				"b-processing-live-backfill-lead",
+				"b-processing-backfill-canvas"
+			]
+		},
+		"b-doc-knowledge-work-is-classi-1": {
+			"id": "b-doc-knowledge-work-is-classi-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Knowledge processing is one standing pipeline from durable input through classification, leased execution, validation, and accepted publication. Queue rows carry dispatch and retry truth; domain records carry accepted evidence, so a succeeded dispatch points to publication evidence instead of becoming that evidence."
+				}
+			],
+			"children": []
+		},
+		"b-processing-spine": {
+			"id": "b-processing-spine",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Knowledge processing",
+						"steps": [
+							{
+								"text": "Enqueue a typed source artifact with stable source identity"
+							},
+							{
+								"text": "Classify the authority required to process and publish it"
+							},
+							{
+								"text": "Claim the durable job under a fenced lease",
+								"steps": [
+									{
+										"text": "Move from `claimed` to `running` when execution begins"
+									},
+									{
+										"text": "Return retryable failures to `waiting` with durable backoff"
+									}
+								]
+							},
+							{
+								"text": "Materialize learnings, attempts, or source records into staging"
+							},
+							{
+								"text": "Validate evidence, anchors, and idempotency keys"
+							},
+							{
+								"text": "Accept at the governing authority boundary and advance the knowledge revision"
+							},
+							{
+								"text": "Expose the coherent revision to subsequent workers"
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		},
+		"b-processing-state-heading": {
+			"id": "b-processing-state-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Operator Projection"
+				}
+			],
+			"children": []
+		},
+		"b-processing-state-lead": {
+			"id": "b-processing-state-lead",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The game view composes the queue backlog with the latest accepted revision. It is an operator read model, not a separate workflow slot or durable knowledge aggregate."
+				}
+			],
+			"children": []
+		},
+		"b-processing-knowledge-state": {
+			"id": "b-processing-knowledge-state",
+			"type": "state-shape",
+			"props": {
+				"name": "KnowledgeState",
+				"fields": [
+					{
+						"name": "jobs",
+						"type": "JobRecord[]",
+						"description": "Knowledge-kind dispatch rows projected from the shared jobs table."
+					},
+					{
+						"name": "published_revision",
+						"type": "KnowledgeRevision | null",
+						"description": "Latest coherently accepted knowledge revision."
+					},
+					{
+						"name": "queued",
+						"type": "integer",
+						"description": "Jobs eligible for a future claim."
+					},
+					{
+						"name": "claimed",
+						"type": "integer",
+						"description": "Jobs owned by a lease but not yet executing."
+					},
+					{
+						"name": "running",
+						"type": "integer",
+						"description": "Jobs executing under a fenced lease."
+					},
+					{
+						"name": "waiting",
+						"type": "integer",
+						"description": "Jobs blocked by a dependency or retry time."
+					},
+					{
+						"name": "failed",
+						"type": "integer",
+						"description": "Jobs whose latest terminal outcome failed."
+					},
+					{
+						"name": "oldest_pending_at",
+						"type": "timestamp | null",
+						"description": "Age anchor for the visible backlog."
+					},
+					{
+						"name": "active_lease",
+						"type": "{ id, expires_at } | null",
+						"description": "Current claim fencing projected from claimed or running rows."
+					},
+					{
+						"name": "retry",
+						"type": "{ next_attempt_at, attempts } | null",
+						"description": "Earliest durable retry window."
+					},
+					{
+						"name": "recent_failures",
+						"type": "KnowledgeFailureSummary[]",
+						"description": "Bounded failure evidence without mutation of accepted knowledge."
+					}
+				]
+			},
+			"children": []
+		},
+		"b-processing-handoff-heading": {
+			"id": "b-processing-handoff-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Handoffs"
+				}
+			],
+			"children": []
+		},
+		"b-processing-handoff-sequence": {
+			"id": "b-processing-handoff-sequence",
+			"type": "sequence",
+			"props": {
+				"src": "./assets/sequences/knowledge-processing.sequence.json",
+				"title": "Worker evidence to accepted knowledge"
+			},
+			"children": []
+		},
+		"b-processing-child-links": {
+			"id": "b-processing-child-links",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Source classification",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/40-processing/10-source-classification"
+						}
+					}
+				},
+				{
+					"insert": " defines the authority class. "
+				},
+				{
+					"insert": "Job lifecycle and leasing",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/40-processing/20-job-lifecycle-and-leasing"
+						}
+					}
+				},
+				{
+					"insert": " owns dispatch transitions and recovery. "
+				},
+				{
+					"insert": "Publication and provenance",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/40-processing/30-publication-and-provenance"
+						}
+					}
+				},
+				{
+					"insert": " owns acceptance and lineage."
+				}
+			],
+			"children": []
+		},
+		"b-processing-live-backfill-heading": {
+			"id": "b-processing-live-backfill-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Live and Historical Intake"
+				}
+			],
+			"children": []
+		},
+		"b-processing-live-backfill-lead": {
+			"id": "b-processing-live-backfill-lead",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Live intake processes one newly available packet; historical backfill executes a finite manifest of the same typed batches. Both use current-checkout anchoring, evidence validation, and the same acceptance boundaries. The worker-finished enqueue hook is implemented but disabled unless a run enables `--librarian-on-worker-finish`."
+				}
+			],
+			"children": []
+		},
+		"b-processing-backfill-canvas": {
+			"id": "b-processing-backfill-canvas",
+			"type": "canvas",
+			"props": {
+				"src": "./assets/canvases/backfill-process.canvas.json",
+				"title": "Knowledge intake — backfill and live flow"
+			},
+			"children": []
+		}
+	}
+}

@@ -1,0 +1,256 @@
+{
+	"id": "10-system-design-40-harness-state-50-game-events-60-kernel-trace-linkage",
+	"title": "Kernel Trace Linkage",
+	"schemaVersion": 1,
+	"root": "b-index-root-15",
+	"blocks": {
+		"b-index-root-15": {
+			"id": "b-index-root-15",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-index-kernel-trace-linkage-a-1",
+				"b-index-kernel-trace-linkage-2",
+				"b-index-validated-submission-3",
+				"b-kernel-submission-sequence",
+				"b-kernel-submission-outline",
+				"b-index-persisted-cursor-and-fa-6",
+				"b-linkage-cursor-shape",
+				"b-linkage-failures",
+				"b-index-both-direction-joins-10",
+				"b-join-keys",
+				"b-trace-link-shape",
+				"b-index-no-kernel-table-or-col-13"
+			]
+		},
+		"b-index-kernel-trace-linkage-a-1": {
+			"id": "b-index-kernel-trace-linkage-a-1",
+			"type": "heading",
+			"props": {
+				"level": 1
+			},
+			"text": [
+				{
+					"insert": "Kernel Trace Linkage"
+				}
+			],
+			"children": []
+		},
+		"b-index-kernel-trace-linkage-2": {
+			"id": "b-index-kernel-trace-linkage-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Kernel trace linkage joins accepted game events to runtime spans through protected metadata and a persisted cycle cursor. Optional telemetry may be absent, but a runtime event that was emitted must receive its durable join."
+				}
+			],
+			"children": []
+		},
+		"b-index-validated-submission-3": {
+			"id": "b-index-validated-submission-3",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Validated Submission"
+				}
+			],
+			"children": []
+		},
+		"b-kernel-submission-sequence": {
+			"id": "b-kernel-submission-sequence",
+			"type": "sequence",
+			"props": {
+				"sequenceId": "b-kernel-submission-sequence",
+				"title": "Event-to-kernel validated submission"
+			},
+			"children": []
+		},
+		"b-kernel-submission-outline": {
+			"id": "b-kernel-submission-outline",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Load the durable game event by game and event identity"
+					},
+					{
+						"text": "Validate correlation and the resolved same-game cause"
+					},
+					{
+						"text": "Overwrite caller-supplied protected metadata"
+					},
+					{
+						"text": "Upsert deterministic container lineage"
+					},
+					{
+						"text": "Emit the deterministic kernel event"
+					},
+					{
+						"text": "Persist the game-cycle linkage cursor"
+					}
+				]
+			},
+			"children": []
+		},
+		"b-index-persisted-cursor-and-fa-6": {
+			"id": "b-index-persisted-cursor-and-fa-6",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Persisted Cursor and Failures"
+				}
+			],
+			"children": []
+		},
+		"b-linkage-cursor-shape": {
+			"id": "b-linkage-cursor-shape",
+			"type": "state-shape",
+			"props": {
+				"name": "last_linkage_cursor",
+				"description": "The durable cycle-side cursor for the latest completed join.",
+				"fields": [
+					{
+						"name": "game_event_id",
+						"type": "EventId"
+					},
+					{
+						"name": "kernel_event_id",
+						"type": "KernelEventId"
+					},
+					{
+						"name": "correlation_id",
+						"type": "CorrelationId"
+					},
+					{
+						"name": "caused_by_event_id",
+						"type": "EventId | null"
+					},
+					{
+						"name": "linked_at",
+						"type": "timestamp"
+					}
+				]
+			},
+			"children": []
+		},
+		"b-linkage-failures": {
+			"id": "b-linkage-failures",
+			"type": "structured-table",
+			"props": {
+				"title": "Failure modes",
+				"columns": [
+					"Condition",
+					"Disposition"
+				],
+				"rows": [
+					[
+						"Optional runtime absent",
+						"Return no trace result."
+					],
+					[
+						"Optional submission fails before kernel emission",
+						"Return no trace result."
+					],
+					[
+						"Required runtime fails",
+						"Surface the failure."
+					],
+					[
+						"Cursor persistence fails after kernel emission",
+						"Fail in every mode; retry the deterministic kernel event identity."
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-index-both-direction-joins-10": {
+			"id": "b-index-both-direction-joins-10",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Both-Direction Joins"
+				}
+			],
+			"children": []
+		},
+		"b-join-keys": {
+			"id": "b-join-keys",
+			"type": "structured-table",
+			"props": {
+				"title": "Join keys",
+				"columns": [
+					"Direction",
+					"Required keys",
+					"Exclusions"
+				],
+				"rows": [
+					[
+						"Game to kernel",
+						"Assigned application session, protected game, game_event_id.",
+						"Cross-game collisions and unrequested identities."
+					],
+					[
+						"Kernel to game",
+						"game_event_id, game, correlation, cause metadata, and last_linkage_cursor.",
+						"Incomplete or mismatched protected metadata."
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-trace-link-shape": {
+			"id": "b-trace-link-shape",
+			"type": "state-shape",
+			"props": {
+				"name": "KernelTraceLink",
+				"description": "A server-projected navigation link for one reconstructed event.",
+				"fields": [
+					{
+						"name": "event_id",
+						"type": "EventId"
+					},
+					{
+						"name": "app_session_id",
+						"type": "AppSessionId"
+					},
+					{
+						"name": "container_id",
+						"type": "ContainerId"
+					},
+					{
+						"name": "kernel_event_id",
+						"type": "KernelEventId"
+					},
+					{
+						"name": "href",
+						"type": "string"
+					}
+				]
+			},
+			"children": []
+		},
+		"b-index-no-kernel-table-or-col-13": {
+			"id": "b-index-no-kernel-table-or-col-13",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The join uses protected JSON metadata already stored on kernel trace events and the cycle trace cursor; it adds no kernel table or column."
+				}
+			],
+			"children": []
+		}
+	}
+}

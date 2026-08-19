@@ -1,0 +1,299 @@
+{
+	"id": "10-system-design-40-harness-state-60-event-handshake",
+	"title": "Signal-to-Trace Event Handshake",
+	"schemaVersion": 1,
+	"root": "b-index-root-21",
+	"blocks": {
+		"b-index-root-21": {
+			"id": "b-index-root-21",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-handshake-title",
+				"b-index-events-are-the-handshake-1",
+				"b-signal-trace-boundary",
+				"b-signal-trace-table",
+				"b-index-accepted-run-transitions-2",
+				"b-handshake-sequence-diagram",
+				"b-index-wake-events-3",
+				"b-wake-events-table",
+				"b-handshake-exchange-heading",
+				"b-handshake-exchange",
+				"b-e5-dispatch-handoff-heading",
+				"b-e5-dispatch-handoff-contract"
+			]
+		},
+		"b-handshake-title": {
+			"id": "b-handshake-title",
+			"type": "heading",
+			"props": {
+				"level": 1
+			},
+			"text": [
+				{
+					"insert": "Signal-to-Trace Event Handshake"
+				}
+			],
+			"children": []
+		},
+		"b-index-events-are-the-handshake-1": {
+			"id": "b-index-events-are-the-handshake-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Scheduler wake events are durable work-queue signals between workers, the runner, and a sleeping scheduler. They become traceable game history only when the runner accepts a state transition and appends its registered game event."
+				}
+			],
+			"children": []
+		},
+		"b-signal-trace-boundary": {
+			"id": "b-signal-trace-boundary",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Signal-to-Trace Boundary"
+				}
+			],
+			"children": []
+		},
+		"b-signal-trace-table": {
+			"id": "b-signal-trace-table",
+			"type": "structured-table",
+			"props": {
+				"title": "Signal and fact boundary",
+				"columns": [
+					"Record",
+					"Purpose",
+					"Durable meaning"
+				],
+				"rows": [
+					[
+						"Wake event",
+						"Prompt the runner to reconsider work.",
+						"A handled queue signal; not an accepted game fact."
+					],
+					[
+						"Game event",
+						"Explain an accepted durable transition.",
+						"Immutable registered fact joined to one state revision."
+					],
+					[
+						"Scheduler condition",
+						"Expose current scheduling observations.",
+						"Observability only; outside the accepted-fact transaction."
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-index-accepted-run-transitions-2": {
+			"id": "b-index-accepted-run-transitions-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "When a signal causes an accepted run transition, the game event and state revision commit atomically under the expected revision. Run workflow policy, including epoch refresh and queue priority, lives in "
+				},
+				{
+					"insert": "Run state",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/20-run/10-run-state"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		},
+		"b-index-wake-events-3": {
+			"id": "b-index-wake-events-3",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Wake Event Vocabulary"
+				}
+			],
+			"children": []
+		},
+		"b-wake-events-table": {
+			"id": "b-wake-events-table",
+			"type": "structured-table",
+			"props": {
+				"title": "Structured wake events",
+				"columns": [
+					"Event",
+					"Producer",
+					"Consumer",
+					"Policy owner"
+				],
+				"rows": [
+					[
+						"run_started",
+						"run controller",
+						"runner",
+						"run workflow"
+					],
+					[
+						"worker_finished",
+						"worker",
+						"runner",
+						"run workflow"
+					],
+					[
+						"worker_error",
+						"worker",
+						"runner",
+						"run workflow"
+					],
+					[
+						"pool_below_target",
+						"scheduler observation",
+						"runner",
+						"run workflow"
+					],
+					[
+						"epoch_admitted",
+						"epoch controller",
+						"runner",
+						"run workflow"
+					],
+					[
+						"epoch_exhausted",
+						"epoch controller",
+						"runner",
+						"run workflow"
+					],
+					[
+						"epoch_fast_refresh_started / finished / deferred / skipped",
+						"knowledge refresh worker",
+						"runner",
+						"run workflow"
+					],
+					[
+						"epoch_full_refresh_started / finished",
+						"knowledge refresh worker",
+						"runner",
+						"run workflow"
+					],
+					[
+						"epoch_regression_pause",
+						"epoch validator",
+						"runner",
+						"run workflow"
+					],
+					[
+						"epoch_cycle_error",
+						"epoch controller",
+						"runner",
+						"run workflow"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-handshake-exchange-heading": {
+			"id": "b-handshake-exchange-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Handshake Exchange"
+				}
+			],
+			"children": []
+		},
+		"b-handshake-exchange": {
+			"id": "b-handshake-exchange",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Producer stores a wake request",
+						"steps": [
+							{
+								"text": "Include payload and provenance."
+							}
+						]
+					},
+					{
+						"text": "Runner claims an unhandled relevant signal",
+						"steps": [
+							{
+								"text": "Ask the scheduler for a decision."
+							}
+						]
+					},
+					{
+						"text": "Runner stores the result",
+						"steps": [
+							{
+								"text": "Commit any accepted transition and game event before marking the wake request handled."
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		},
+		"b-e5-dispatch-handoff-heading": {
+			"id": "b-e5-dispatch-handoff-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Dispatch and Replay"
+				}
+			],
+			"children": []
+		},
+		"b-e5-dispatch-handoff-contract": {
+			"id": "b-e5-dispatch-handoff-contract",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Dispatch snapshots, accepted-event spooling, acknowledgement, and replay identities are specified once in "
+				},
+				{
+					"insert": "Dispatch, cycle, and replay events",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/60-tracing/30-dispatch-cycle-and-replay"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		},
+		"b-handshake-sequence-diagram": {
+			"id": "b-handshake-sequence-diagram",
+			"type": "sequence",
+			"props": {
+				"sequenceId": "b-handshake-sequence-diagram",
+				"title": "Worker, runner, and scheduler handshake"
+			},
+			"children": []
+		}
+	}
+}

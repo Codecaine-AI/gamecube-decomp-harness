@@ -1,0 +1,242 @@
+{
+	"schemaVersion": 1,
+	"id": "10-system-design-40-knowledge-70-execution-classes-and-jobs-20-job-lifecycle-and-leasing-doc-json",
+	"title": "Knowledge Job Lifecycle and Leasing",
+	"root": "b-doc-root-5",
+	"blocks": {
+		"b-doc-root-5": {
+			"id": "b-doc-root-5",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-doc-every-knowledge-executio-1",
+				"b-doc-status-vocabulary-2",
+				"b-doc-queued-means-durable-wor-3",
+				"b-jobs-lifecycle-heading",
+				"b-jobs-lifecycle-outline",
+				"b-jobs-leasing-heading",
+				"b-doc-a-claim-is-fenced-to-one-4",
+				"b-jobs-record-shape"
+			]
+		},
+		"b-doc-every-knowledge-executio-1": {
+			"id": "b-doc-every-knowledge-executio-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Every knowledge execution class uses one durable lifecycle for queueing, ownership, retry, and terminal outcomes. Claims and execution are distinct: `claimed` records lease ownership, while `running` records active processing under that lease."
+				}
+			],
+			"children": []
+		},
+		"b-doc-status-vocabulary-2": {
+			"id": "b-doc-status-vocabulary-2",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Status Vocabulary"
+				}
+			],
+			"children": []
+		},
+		"b-doc-queued-means-durable-wor-3": {
+			"id": "b-doc-queued-means-durable-wor-3",
+			"type": "structured-table",
+			"props": {
+				"title": "Knowledge job status values",
+				"columns": [
+					"Status",
+					"Meaning",
+					"Terminal"
+				],
+				"rows": [
+					[
+						"queued",
+						"Durable work exists and is eligible for a claim.",
+						"no"
+					],
+					[
+						"waiting",
+						"A dependency or retry time prevents a claim.",
+						"no"
+					],
+					[
+						"claimed",
+						"One processor owns the fenced lease; execution has not begun.",
+						"no"
+					],
+					[
+						"running",
+						"The current lease owner is processing the attempt.",
+						"no"
+					],
+					[
+						"succeeded",
+						"Outputs were accepted and provenance was recorded.",
+						"yes"
+					],
+					[
+						"failed",
+						"Retry policy is exhausted or the failure is nonretryable.",
+						"yes"
+					],
+					[
+						"cancelled",
+						"The job was intentionally stopped without deleting earlier accepted knowledge.",
+						"yes"
+					]
+				]
+			},
+			"children": []
+		},
+		"b-jobs-lifecycle-heading": {
+			"id": "b-jobs-lifecycle-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Lifecycle"
+				}
+			],
+			"children": []
+		},
+		"b-jobs-lifecycle-outline": {
+			"id": "b-jobs-lifecycle-outline",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Durable knowledge job",
+						"steps": [
+							{
+								"text": "Enter `queued` with a stable dedupe key"
+							},
+							{
+								"text": "Move to `waiting` while a dependency or retry deadline blocks eligibility"
+							},
+							{
+								"text": "Atomically enter `claimed` with a new lease id and expiry"
+							},
+							{
+								"text": "Enter `running` when the lease owner begins execution"
+							},
+							{
+								"text": "Finish",
+								"steps": [
+									{
+										"text": "Enter `succeeded` only after accepted publication and provenance"
+									},
+									{
+										"text": "Return retryable work to `waiting` with `next_attempt_at`"
+									},
+									{
+										"text": "Enter `failed` when retry policy ends"
+									},
+									{
+										"text": "Enter `cancelled` on intentional termination"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		},
+		"b-jobs-leasing-heading": {
+			"id": "b-jobs-leasing-heading",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Leases, Retries, and Fencing"
+				}
+			],
+			"children": []
+		},
+		"b-doc-a-claim-is-fenced-to-one-4": {
+			"id": "b-doc-a-claim-is-fenced-to-one-4",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "A claim creates a lease id and expiry that fence every completion or failure write. Expired `claimed` or `running` ownership becomes reclaimable; the previous processor cannot publish after a new lease is issued. Retryable failures preserve attempt history, record the error, and enter `waiting` until `next_attempt_at`; partial output never becomes accepted knowledge."
+				}
+			],
+			"children": []
+		},
+		"b-jobs-record-shape": {
+			"id": "b-jobs-record-shape",
+			"type": "state-shape",
+			"props": {
+				"name": "Knowledge Job Dispatch",
+				"fields": [
+					{
+						"name": "job_id",
+						"type": "JobId",
+						"description": "Stable durable identity."
+					},
+					{
+						"name": "kind",
+						"type": "knowledge_absorption | sync_publication",
+						"description": "Inline handler selector."
+					},
+					{
+						"name": "dedupe_key",
+						"type": "string",
+						"description": "Stable source identity for idempotent enqueue."
+					},
+					{
+						"name": "status",
+						"type": "queued | waiting | claimed | running | succeeded | failed | cancelled",
+						"description": "Canonical lifecycle position."
+					},
+					{
+						"name": "attempts",
+						"type": "integer",
+						"description": "Accepted attempt count."
+					},
+					{
+						"name": "next_attempt_at",
+						"type": "timestamp | null",
+						"description": "Earliest retry eligibility."
+					},
+					{
+						"name": "lease_id",
+						"type": "LeaseId | null",
+						"description": "Current fencing token."
+					},
+					{
+						"name": "lease_expires_at",
+						"type": "timestamp | null",
+						"description": "Visibility timeout for reclamation."
+					},
+					{
+						"name": "result_ref",
+						"type": "string | null",
+						"description": "Pointer to accepted domain evidence, never the evidence itself."
+					},
+					{
+						"name": "trace_id",
+						"type": "TraceId",
+						"description": "End-to-end cause lineage."
+					},
+					{
+						"name": "error",
+						"type": "JSON | null",
+						"description": "Latest unsuccessful attempt evidence."
+					}
+				]
+			},
+			"children": []
+		}
+	}
+}

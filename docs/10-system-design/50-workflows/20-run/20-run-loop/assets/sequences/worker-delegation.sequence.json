@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "id": "run-worker-delegation",
+  "title": "Worker delegation",
+  "participants": [
+    { "id": "p1", "name": "run_loop", "kind": "actor", "label": "Run loop" },
+    { "id": "p2", "name": "queue", "kind": "participant", "label": "Jobs and run records" },
+    { "id": "p3", "name": "host", "kind": "participant", "label": "Worker host" },
+    { "id": "p4", "name": "executor", "kind": "participant", "label": "WorkerExecutor" },
+    { "id": "p5", "name": "worker", "kind": "actor", "label": "Worker" }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "enqueue one deduplicated worker job per epoch target"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p3",
+      "to": "p2",
+      "line": "sync",
+      "text": "claim job and epoch target atomically; create claim, state, lease, and token"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p3",
+      "to": "p3",
+      "line": "sync",
+      "text": "provision isolated worktree and write task_spec.json"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p3",
+      "to": "p4",
+      "line": "sync",
+      "text": "submit job-runner worker-task with TaskSpec and ClaimToken"
+    },
+    {
+      "kind": "message",
+      "id": "m5",
+      "from": "p4",
+      "to": "p5",
+      "line": "sync",
+      "text": "execute bounded target attempt"
+    },
+    {
+      "kind": "message",
+      "id": "m6",
+      "from": "p5",
+      "to": "p2",
+      "line": "sync",
+      "text": "record checkpoints and close worker state under ClaimToken fence"
+    },
+    {
+      "kind": "message",
+      "id": "m7",
+      "from": "p2",
+      "to": "p1",
+      "line": "return",
+      "text": "settled worker-state evidence"
+    },
+    {
+      "kind": "message",
+      "id": "m8",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "settle job and emit durable wake signal"
+    }
+  ],
+  "style": { "accent": "#4C78A8" }
+}

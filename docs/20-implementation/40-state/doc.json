@@ -1,408 +1,430 @@
 {
-  "schemaVersion": 1,
-  "id": "20-implementation-40-state-00-overview",
-  "title": "State",
-  "root": "b-state-root-1",
-  "blocks": {
-    "b-state-root-1": {
-      "id": "b-state-root-1",
-      "type": "paragraph",
-      "props": {
-        "concepts": [
-          "state",
-          "harness-state",
-          "persistence",
-          "sqlite",
-          "harness-state-view",
-          "action-projection",
-          "guards",
-          "dispatch-authority",
-          "lease-fencing"
-        ]
-      },
-      "children": [
-        "b-state-role-2",
-        "b-state-sources-3",
-        "b-state-governed-by-4",
-        "b-state-gov-harness-state-5",
-        "b-authority-decisions-7",
-        "b-authority-role-2",
-        "b-authority-view-decision-8",
-        "b-authority-view-why-9",
-        "b-authority-view-applies-10",
-        "b-authority-guards-decision-11",
-        "b-authority-guards-why-12",
-        "b-authority-guards-applies-13",
-        "b-authority-dispatch-decision-14",
-        "b-authority-dispatch-why-15",
-        "b-authority-dispatch-applies-16"
-      ]
-    },
-    "b-state-role-2": {
-      "id": "b-state-role-2",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "State persistence code for the harness. The state model — composition, authority, records, events — is owned outright by design; this area records only structural decisions about where state code lives and who may write it."
-        }
-      ],
-      "children": []
-    },
-    "b-state-sources-3": {
-      "id": "b-state-sources-3",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Sources: "
-        },
-        {
-          "insert": "apps/server/src/core/harness-state",
-          "attributes": {
-            "reference": {
-              "kind": "source",
-              "path": "apps/server/src/core/harness-state",
-              "label": "apps/server/src/core/harness-state"
-            }
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "apps/server/src/core/orchestrator-state",
-          "attributes": {
-            "reference": {
-              "kind": "source",
-              "path": "apps/server/src/core/orchestrator-state",
-              "label": "apps/server/src/core/orchestrator-state"
-            }
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "apps/server/src/infrastructure/persistence",
-          "attributes": {
-            "reference": {
-              "kind": "source",
-              "path": "apps/server/src/infrastructure/persistence",
-              "label": "apps/server/src/infrastructure/persistence"
-            }
-          }
-        },
-        {
-          "insert": "."
-        }
-      ],
-      "children": []
-    },
-    "b-state-governed-by-4": {
-      "id": "b-state-governed-by-4",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Governed by"
-        }
-      ],
-      "children": []
-    },
-    "b-state-gov-harness-state-5": {
-      "id": "b-state-gov-harness-state-5",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "State and Events",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/40-harness-state",
-              "label": "State and Events"
-            }
-          }
-        },
-        {
-          "insert": " — owns the state model: composition, dispatch authority, operator actions, durable records, game events, and the event handshake."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-decisions-7": {
-      "id": "b-authority-decisions-7",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Decisions"
-        }
-      ],
-      "children": []
-    },
-    "b-authority-role-2": {
-      "id": "b-authority-role-2",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "One authority path governs state writes: canonical orchestrator state and server-owned action authority project into one "
-        },
-        {
-          "insert": "HarnessStateView",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and nothing outside that authority path may write state."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-view-decision-8": {
-      "id": "b-authority-view-decision-8",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Decision",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": "
-        },
-        {
-          "insert": "HarnessStateView",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " is assembled in one server-side builder from the canonical stores at one coherent game revision, returning summaries rather than storage rows; API routes return that DTO without composing state themselves."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-view-why-9": {
-      "id": "b-authority-view-why-9",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Why",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": the rejected alternative was routes or clients assembling views from raw tables, which would spread the read model across handlers and let authority drift into route code."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-view-applies-10": {
-      "id": "b-authority-view-applies-10",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Applies to",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": "
-        },
-        {
-          "insert": "apps/server/src/application/dashboard/read-model.ts",
-          "attributes": {
-            "reference": {
-              "kind": "source",
-              "path": "apps/server/src/application/dashboard/read-model.ts",
-              "label": "apps/server/src/application/dashboard/read-model.ts"
-            }
-          }
-        },
-        {
-          "insert": " — including every future state surface: new state joins the builder, not a route handler."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-guards-decision-11": {
-      "id": "b-authority-guards-decision-11",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Decision",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": every operator action is projected server-side against the design "
-        },
-        {
-          "insert": "ActionProjection",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " contract, and routes re-evaluate guards against current state at execution time — a stale client projection can never authorize a transition."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-guards-why-12": {
-      "id": "b-authority-guards-why-12",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Why",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": the rejected alternative was trusting the projection the client last fetched, which turns a read-model snapshot into write authority."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-guards-applies-13": {
-      "id": "b-authority-guards-applies-13",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Applies to",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": "
-        },
-        {
-          "insert": "apps/server/src/application/dashboard",
-          "attributes": {
-            "reference": {
-              "kind": "source",
-              "path": "apps/server/src/application/dashboard",
-              "label": "apps/server/src/application/dashboard"
-            }
-          }
-        },
-        {
-          "insert": " and every route that executes an action — including every future action added to the contract."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-dispatch-decision-14": {
-      "id": "b-authority-dispatch-decision-14",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Decision",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": cycle and knowledge routes implement the design dispatch-authority contract instead of creating parallel authority — guarded dispatch and checkout-mutation commands carry the current lease fencing token, and state plus accepted events persist before the view changes. Background-safe worker evidence through the knowledge sink is the one exempt path because it neither dispatches a worker nor mutates checkout state."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-dispatch-why-15": {
-      "id": "b-authority-dispatch-why-15",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Why",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": the rejected alternative was route-local dispatch checks, which would fork authority per route and let two workflows mutate the same checkout."
-        }
-      ],
-      "children": []
-    },
-    "b-authority-dispatch-applies-16": {
-      "id": "b-authority-dispatch-applies-16",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Applies to",
-          "attributes": {
-            "bold": true
-          }
-        },
-        {
-          "insert": ": "
-        },
-        {
-          "insert": "apps/server/src/core/cycle-runtime/dispatch-guard.ts",
-          "attributes": {
-            "reference": {
-              "kind": "source",
-              "path": "apps/server/src/core/cycle-runtime/dispatch-guard.ts",
-              "label": "apps/server/src/core/cycle-runtime/dispatch-guard.ts"
-            }
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
-          "insert": "apps/server/src/core/harness-state",
-          "attributes": {
-            "reference": {
-              "kind": "source",
-              "path": "apps/server/src/core/harness-state",
-              "label": "apps/server/src/core/harness-state"
-            }
-          }
-        },
-        {
-          "insert": " — including every future execution class, which follows its sync or PR authority boundary as defined by "
-        },
-        {
-          "insert": "Execution Classes and Jobs",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/60-knowledge/70-background-jobs",
-              "label": "Execution Classes and Jobs"
-            }
-          }
-        },
-        {
-          "insert": "."
-        }
-      ],
-      "children": []
-    }
-  }
+	"schemaVersion": 1,
+	"id": "20-implementation-40-state-00-overview",
+	"title": "State",
+	"root": "b-state-root-1",
+	"blocks": {
+		"b-state-root-1": {
+			"id": "b-state-root-1",
+			"type": "paragraph",
+			"props": {
+				"concepts": [
+					"state",
+					"harness-state",
+					"persistence",
+					"sqlite",
+					"harness-state-view",
+					"action-projection",
+					"guards",
+					"dispatch-authority",
+					"lease-fencing"
+				]
+			},
+			"children": [
+				"b-state-role-2",
+				"b-state-sources-3",
+				"b-state-governed-by-4",
+				"b-state-gov-harness-state-5",
+				"b-authority-decisions-7",
+				"b-authority-role-2",
+				"b-authority-view-decision-8",
+				"b-authority-view-why-9",
+				"b-authority-view-applies-10",
+				"b-authority-guards-decision-11",
+				"b-authority-guards-why-12",
+				"b-authority-guards-applies-13",
+				"b-authority-dispatch-decision-14",
+				"b-authority-dispatch-why-15",
+				"b-authority-dispatch-applies-16"
+			]
+		},
+		"b-state-role-2": {
+			"id": "b-state-role-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "State persistence code for the harness. The state model — composition, authority, records, events — is owned outright by design; this area records only structural decisions about where state code lives and who may write it."
+				}
+			],
+			"children": []
+		},
+		"b-state-sources-3": {
+			"id": "b-state-sources-3",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Sources: "
+				},
+				{
+					"insert": "apps/server/src/core/harness-state",
+					"attributes": {
+						"reference": {
+							"kind": "source",
+							"path": "apps/server/src/core/harness-state",
+							"label": "apps/server/src/core/harness-state"
+						}
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "apps/server/src/core/orchestrator-state",
+					"attributes": {
+						"reference": {
+							"kind": "source",
+							"path": "apps/server/src/core/orchestrator-state",
+							"label": "apps/server/src/core/orchestrator-state"
+						}
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "apps/server/src/infrastructure/persistence",
+					"attributes": {
+						"reference": {
+							"kind": "source",
+							"path": "apps/server/src/infrastructure/persistence",
+							"label": "apps/server/src/infrastructure/persistence"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		},
+		"b-state-governed-by-4": {
+			"id": "b-state-governed-by-4",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Governed by"
+				}
+			],
+			"children": []
+		},
+		"b-state-gov-harness-state-5": {
+			"id": "b-state-gov-harness-state-5",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Harness",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness"
+						}
+					}
+				},
+				{
+					"insert": " — owns the state model: composition, dispatch authority, "
+				},
+				{
+					"insert": "Operator Actions",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness/60-operator-actions"
+						}
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "Durable Records",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness/70-durable-records"
+						}
+					}
+				},
+				{
+					"insert": ", game events, and the event handshake."
+				}
+			],
+			"children": []
+		},
+		"b-authority-decisions-7": {
+			"id": "b-authority-decisions-7",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Decisions"
+				}
+			],
+			"children": []
+		},
+		"b-authority-role-2": {
+			"id": "b-authority-role-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "One authority path governs state writes: canonical orchestrator state and server-owned action authority project into one "
+				},
+				{
+					"insert": "HarnessStateView",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", and nothing outside that authority path may write state."
+				}
+			],
+			"children": []
+		},
+		"b-authority-view-decision-8": {
+			"id": "b-authority-view-decision-8",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Decision",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": "
+				},
+				{
+					"insert": "HarnessStateView",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " is assembled in one server-side builder from the canonical stores at one coherent game revision, returning summaries rather than storage rows; API routes return that DTO without composing state themselves."
+				}
+			],
+			"children": []
+		},
+		"b-authority-view-why-9": {
+			"id": "b-authority-view-why-9",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Why",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": the rejected alternative was routes or clients assembling views from raw tables, which would spread the read model across handlers and let authority drift into route code."
+				}
+			],
+			"children": []
+		},
+		"b-authority-view-applies-10": {
+			"id": "b-authority-view-applies-10",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Applies to",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": "
+				},
+				{
+					"insert": "apps/server/src/application/dashboard/read-model.ts",
+					"attributes": {
+						"reference": {
+							"kind": "source",
+							"path": "apps/server/src/application/dashboard/read-model.ts",
+							"label": "apps/server/src/application/dashboard/read-model.ts"
+						}
+					}
+				},
+				{
+					"insert": " — including every future state surface: new state joins the builder, not a route handler."
+				}
+			],
+			"children": []
+		},
+		"b-authority-guards-decision-11": {
+			"id": "b-authority-guards-decision-11",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Decision",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": every operator action is projected server-side against the design "
+				},
+				{
+					"insert": "ActionProjection",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " contract, and routes re-evaluate guards against current state at execution time — a stale client projection can never authorize a transition."
+				}
+			],
+			"children": []
+		},
+		"b-authority-guards-why-12": {
+			"id": "b-authority-guards-why-12",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Why",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": the rejected alternative was trusting the projection the client last fetched, which turns a read-model snapshot into write authority."
+				}
+			],
+			"children": []
+		},
+		"b-authority-guards-applies-13": {
+			"id": "b-authority-guards-applies-13",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Applies to",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": "
+				},
+				{
+					"insert": "apps/server/src/application/dashboard",
+					"attributes": {
+						"reference": {
+							"kind": "source",
+							"path": "apps/server/src/application/dashboard",
+							"label": "apps/server/src/application/dashboard"
+						}
+					}
+				},
+				{
+					"insert": " and every route that executes an action — including every future action added to the contract."
+				}
+			],
+			"children": []
+		},
+		"b-authority-dispatch-decision-14": {
+			"id": "b-authority-dispatch-decision-14",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Decision",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": cycle and knowledge routes implement the design dispatch-authority contract instead of creating parallel authority — guarded dispatch and checkout-mutation commands carry the current lease fencing token, and state plus accepted events persist before the view changes. Background-safe worker evidence through the knowledge sink is the one exempt path because it neither dispatches a worker nor mutates checkout state."
+				}
+			],
+			"children": []
+		},
+		"b-authority-dispatch-why-15": {
+			"id": "b-authority-dispatch-why-15",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Why",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": the rejected alternative was route-local dispatch checks, which would fork authority per route and let two workflows mutate the same checkout."
+				}
+			],
+			"children": []
+		},
+		"b-authority-dispatch-applies-16": {
+			"id": "b-authority-dispatch-applies-16",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Applies to",
+					"attributes": {
+						"bold": true
+					}
+				},
+				{
+					"insert": ": "
+				},
+				{
+					"insert": "apps/server/src/core/cycle-runtime/dispatch-guard.ts",
+					"attributes": {
+						"reference": {
+							"kind": "source",
+							"path": "apps/server/src/core/cycle-runtime/dispatch-guard.ts",
+							"label": "apps/server/src/core/cycle-runtime/dispatch-guard.ts"
+						}
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "apps/server/src/core/harness-state",
+					"attributes": {
+						"reference": {
+							"kind": "source",
+							"path": "apps/server/src/core/harness-state",
+							"label": "apps/server/src/core/harness-state"
+						}
+					}
+				},
+				{
+					"insert": " — including every future execution class, which follows its sync or PR authority boundary as defined by "
+				},
+				{
+					"insert": "Execution Classes and Jobs",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/40-knowledge/40-processing"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		}
+	}
 }

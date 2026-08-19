@@ -1,215 +1,506 @@
 {
-  "schemaVersion": 1,
-  "id": "10-system-design-50-workflows-30-pr-10-pr-state",
-  "title": "PR State",
-  "root": "b-pr-state-root",
-  "blocks": {
-    "b-pr-state-root": {
-      "id": "b-pr-state-root",
-      "type": "paragraph",
-      "props": {
-        "concepts": [
-          "pr-state",
-          "campaign-progress",
-          "series-progress",
-          "feedback-work"
-        ]
-      },
-      "text": [],
-      "children": [
-        "b-pr-state-framing",
-        "b-pr-state-canonical-shapes",
-        "b-pr-state-campaign-progress",
-        "b-pr-state-campaign-intro",
-        "b-pr-state-campaign-table",
-        "b-pr-state-series-progress",
-        "b-pr-state-series-intro",
-        "b-pr-state-series-table",
-        "b-pr-state-work-item-outcomes",
-        "b-pr-state-work-item-intro",
-        "b-pr-state-work-item-table",
-        "b-pr-state-related"
-      ]
-    },
-    "b-pr-state-framing": {
-      "id": "b-pr-state-framing",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "This page owns the workflow-local status and progress semantics of PR work: how campaigns, series, and feedback work items report where they stand as review work moves from preparation through execution and terminal outcomes."
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-canonical-shapes": {
-      "id": "b-pr-state-canonical-shapes",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The durable fields and nesting of "
-        },
-        {
-          "insert": "PrCampaignState and PrSeriesState",
-          "attributes": {
-            "link": "../../../40-harness-state/10-state-composition/60-pr-state"
-          }
-        },
-        {
-          "insert": " are defined once at the harness-state tier. This workflow page explains what their statuses mean without duplicating those canonical object shapes."
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-campaign-progress": {
-      "id": "b-pr-state-campaign-progress",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Campaign Progress"
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-campaign-intro": {
-      "id": "b-pr-state-campaign-intro",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Campaign state names whether the durable review cycle is waiting, executing, or terminal:"
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-campaign-table": {
-      "id": "b-pr-state-campaign-table",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "| State | Meaning | Dispatch Authority |\n| --- | --- | --- |\n| `preparing` | The campaign exists at its stable source anchor while prepared series and their validation evidence are assembled; nothing is open upstream. | No campaign lease is implied. |\n| `working` | An operator-entered activation is publishing, fixing, or validating series. | The campaign holds the dispatch lease. |\n| `in_review` | At least one series is open upstream and no activation holds the lease. | Only background remote observation and feedback ingestion may advance series. |\n| `completed` | Every series is merged or closed and the operator confirmed closure. | Terminal; the campaign cannot reacquire dispatch. |\n| `abandoned` | The operator ended the campaign without requiring every series to complete. | Terminal; unpublished evidence remains readable. |"
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-series-progress": {
-      "id": "b-pr-state-series-progress",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Series Progress"
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-series-intro": {
-      "id": "b-pr-state-series-intro",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Series state separates local readiness, remote review, and terminal outcome so each source of evidence has one place to advance it:"
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-series-table": {
-      "id": "b-pr-state-series-table",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "| State | Meaning | Advanced By |\n| --- | --- | --- |\n| `prepared` | The series is locally cut and gate-validated but is not open upstream. | A lease-holding activation |\n| `published` | The series is open upstream and waiting for review. | An operator-confirmed publication batch |\n| `changes_requested` | Review feedback exists as pending work. | Background observation or feedback ingestion |\n| `revising` | Fixers own feedback work and may mutate the series workspace. | A lease-holding activation |\n| `approved` | Remote review approved the series and merge is pending. | Background observation |\n| `merged` | Upstream merged the series. Terminal. | Background observation |\n| `closed` | The series was withdrawn or rejected without merging. Terminal. | Background observation or an explicit operator close |"
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-work-item-outcomes": {
-      "id": "b-pr-state-work-item-outcomes",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Work Item Outcomes"
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-work-item-intro": {
-      "id": "b-pr-state-work-item-intro",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Feedback work items resolve to one of two terminal outcomes. The table below defines whether the feedback was addressed or deliberately declined."
-        }
-      ],
-      "children": []
-    },
-    "b-pr-state-work-item-table": {
-      "id": "b-pr-state-work-item-table",
-      "type": "structured-table",
-      "props": {
-        "columns": [
-          "Status",
-          "Meaning",
-          "Terminal"
-        ],
-        "rows": [
-          [
-            "resolved",
-            "The feedback was addressed by a pushed revision or answered in the review thread.",
-            "yes"
-          ],
-          [
-            "declined",
-            "The feedback was deliberately not actioned and carries a reason.",
-            "yes"
-          ]
-        ],
-        "title": "PR work-item terminal outcomes"
-      },
-      "text": [],
-      "children": []
-    },
-    "b-pr-state-related": {
-      "id": "b-pr-state-related",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The "
-        },
-        {
-          "insert": "score gate and handoff",
-          "attributes": {
-            "link": "../20-score-gate-and-handoff"
-          }
-        },
-        {
-          "insert": " page decides the ship set and promotion gate, while "
-        },
-        {
-          "insert": "Campaign and Tracking",
-          "attributes": {
-            "link": "../40-campaign-and-tracking"
-          }
-        },
-        {
-          "insert": " defines the detailed campaign lifecycle that these statuses report on."
-        }
-      ],
-      "children": []
-    }
-  }
+	"id": "10-pr-state",
+	"title": "PR State",
+	"schemaVersion": 1,
+	"root": "b-pr-state-root",
+	"blocks": {
+		"b-pr-state-root": {
+			"id": "b-pr-state-root",
+			"type": "paragraph",
+			"props": {
+				"covers": "The durable campaign and series shapes, status semantics, and review-work transition rules.",
+				"concepts": [
+					"pr-state",
+					"campaign-progress",
+					"series-progress",
+					"feedback-work"
+				]
+			},
+			"children": [
+				"b-pr-state-framing",
+				"b-60-pr-state-structure-4",
+				"b-restored-pr-campaign-state-shape-20260814",
+				"b-restored-pr-series-state-shape-20260814",
+				"b-pr-state-canonical-shapes",
+				"b-pr-state-campaign-progress",
+				"b-pr-state-campaign-table",
+				"b-pr-state-series-progress",
+				"b-pr-state-series-table",
+				"b-pr-state-work-item-outcomes",
+				"b-pr-state-work-item-table",
+				"b-60-pr-state-flows-18",
+				"b-pr-state-flow-outline",
+				"b-60-pr-state-pr-adopt-legacy-is-the-36"
+			]
+		},
+		"b-pr-state-framing": {
+			"id": "b-pr-state-framing",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "PrCampaignState is the durable HarnessState slice for one review campaign cut from an immutable source anchor. PrSeriesState carries each local branch, upstream identity, validation result, blockers, and deduplicated feedback work."
+				}
+			],
+			"children": []
+		},
+		"b-60-pr-state-structure-4": {
+			"id": "b-60-pr-state-structure-4",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "State Shapes"
+				}
+			],
+			"children": []
+		},
+		"b-restored-pr-campaign-state-shape-20260814": {
+			"id": "b-restored-pr-campaign-state-shape-20260814",
+			"type": "state-shape",
+			"props": {
+				"description": "Durable campaign owning the series split from one stable point and the activations that work them.",
+				"example": "{\n  \"campaign_id\": \"pr-campaign-4\",\n  \"game_id\": \"melee\",\n  \"cycle_id\": \"cycle-7\",\n  \"revision\": 57,\n  \"status\": \"in_review\",\n  \"source_anchor\": {\n    \"save_point_id\": \"save-point-12\",\n    \"source_revision\": \"upstream-9ba1\"\n  },\n  \"publication_policy\": {\n    \"batch_size\": 4\n  },\n  \"series_ids\": [\n    \"series-18\",\n    \"series-19\",\n    \"series-20\",\n    \"series-21\",\n    \"series-22\"\n  ],\n  \"activation_ids\": [\n    \"pr-phase-9\",\n    \"pr-phase-10\"\n  ],\n  \"latest_event_sequence\": 93544,\n  \"created_at\": \"2026-08-12T09:00:00Z\",\n  \"trace_id\": \"trace-pr-campaign-4\",\n  \"blockers\": []\n}",
+				"fields": [
+					{
+						"name": "campaign_id",
+						"type": "PrCampaignId"
+					},
+					{
+						"name": "game_id",
+						"type": "GameId"
+					},
+					{
+						"name": "cycle_id",
+						"type": "CycleId",
+						"description": "Owning cycle container."
+					},
+					{
+						"name": "revision",
+						"type": "integer"
+					},
+					{
+						"name": "status",
+						"type": "\"preparing\" | \"in_review\" | \"working\" | \"completed\" | \"abandoned\""
+					},
+					{
+						"name": "source_anchor",
+						"type": "SourceAnchor",
+						"description": "The stable point the campaign was split from. Immutable — sync invalidations arrive as blockers, never by rewriting the anchor.",
+						"fields": [
+							{
+								"name": "save_point_id",
+								"type": "SavePointId"
+							},
+							{
+								"name": "source_revision",
+								"type": "SourceRevision",
+								"description": "Cycle head at the split."
+							}
+						]
+					},
+					{
+						"name": "publication_policy",
+						"type": "PublicationPolicy",
+						"description": "Publication is operator-gated per batch; preparing more series never opens them.",
+						"fields": [
+							{
+								"name": "batch_size",
+								"type": "integer",
+								"description": "Series opened per operator-approved batch so reviewers are not swamped."
+							}
+						]
+					},
+					{
+						"name": "series_ids",
+						"type": "PrSeriesId[]",
+						"description": "Every series in the campaign, published or not, in batch order."
+					},
+					{
+						"name": "activation_ids",
+						"type": "PrPhaseId[]",
+						"description": "Lease-holding activations; each is mirrored as a pr_phase entry in the cycle timeline."
+					},
+					{
+						"name": "latest_event_sequence",
+						"type": "integer"
+					},
+					{
+						"name": "created_at",
+						"type": "timestamp"
+					},
+					{
+						"name": "closed_at",
+						"type": "timestamp",
+						"required": false,
+						"description": "Absent while the campaign remains open and present only after completed or abandoned becomes terminal."
+					},
+					{
+						"name": "trace_id",
+						"type": "TraceId"
+					},
+					{
+						"name": "blockers",
+						"type": "Blocker[]"
+					}
+				],
+				"name": "PrCampaignState"
+			},
+			"children": []
+		},
+		"b-restored-pr-series-state-shape-20260814": {
+			"id": "b-restored-pr-series-state-shape-20260814",
+			"type": "state-shape",
+			"props": {
+				"description": "One reviewable PR: branch, upstream identity, feedback work items, and validation evidence.",
+				"example": "{\n  \"series_id\": \"series-20\",\n  \"campaign_id\": \"pr-campaign-4\",\n  \"revision\": 12,\n  \"batch_index\": 0,\n  \"status\": \"changes_requested\",\n  \"branch\": \"pr/cycle-7-lbvector\",\n  \"upstream_pr_number\": 2850,\n  \"target_units\": [\n    \"melee/lb/lbvector.c\"\n  ],\n  \"work_items\": [\n    {\n      \"item_id\": \"work-item-77\",\n      \"source_kind\": \"review_comment\",\n      \"source_id\": \"review-comment-19442\",\n      \"status\": \"pending\",\n      \"summary\": \"Declaration style rejected by upstream lint\"\n    }\n  ],\n  \"last_validation\": {\n    \"validated_at\": \"2026-08-10T21:14:00Z\",\n    \"source_revision\": \"upstream-9ba1\",\n    \"result\": \"clean\"\n  },\n  \"updated_at\": \"2026-08-12T15:02:11Z\",\n  \"trace_id\": \"trace-series-20\",\n  \"blockers\": []\n}",
+				"fields": [
+					{
+						"name": "series_id",
+						"type": "PrSeriesId"
+					},
+					{
+						"name": "campaign_id",
+						"type": "PrCampaignId",
+						"description": "Links the series to its containing campaign."
+					},
+					{
+						"name": "revision",
+						"type": "integer"
+					},
+					{
+						"name": "batch_index",
+						"type": "integer",
+						"description": "Publication batch this series belongs to; batches open in order, each on explicit operator go."
+					},
+					{
+						"name": "status",
+						"type": "\"prepared\" | \"published\" | \"changes_requested\" | \"revising\" | \"approved\" | \"merged\" | \"closed\""
+					},
+					{
+						"name": "branch",
+						"type": "BranchRef"
+					},
+					{
+						"name": "upstream_pr_number",
+						"type": "integer",
+						"required": false,
+						"description": "Absent until the series is published."
+					},
+					{
+						"name": "target_units",
+						"type": "string[]",
+						"description": "Primary translation units motivating the series; cross-module edits are allowed when they serve these targets."
+					},
+					{
+						"name": "work_items",
+						"type": "PrWorkItem[]",
+						"description": "Durable feedback items; ingestion is background-safe and never waits for the lease.",
+						"fields": [
+							{
+								"name": "item_id",
+								"type": "PrWorkItemId"
+							},
+							{
+								"name": "source_kind",
+								"type": "string",
+								"description": "Identifies the kind of feedback origin mapped by this durable work item."
+							},
+							{
+								"name": "source_id",
+								"type": "string",
+								"description": "Identifies the feedback origin within source_kind."
+							},
+							{
+								"name": "status",
+								"type": "\"pending\" | \"in_progress\" | \"resolved\" | \"declined\"",
+								"description": "The exact work-item status vocabulary. declined is terminal and means deliberately not actioned with a recorded reason."
+							},
+							{
+								"name": "summary",
+								"type": "string"
+							}
+						]
+					},
+					{
+						"name": "last_validation",
+						"type": "ValidationRecord",
+						"required": false,
+						"description": "Most recent gate validation of the series branch.",
+						"fields": [
+							{
+								"name": "validated_at",
+								"type": "timestamp"
+							},
+							{
+								"name": "source_revision",
+								"type": "SourceRevision"
+							},
+							{
+								"name": "result",
+								"type": "string"
+							}
+						]
+					},
+					{
+						"name": "updated_at",
+						"type": "timestamp"
+					},
+					{
+						"name": "trace_id",
+						"type": "TraceId"
+					},
+					{
+						"name": "blockers",
+						"type": "Blocker[]"
+					}
+				],
+				"name": "PrSeriesState"
+			},
+			"children": []
+		},
+		"b-pr-state-canonical-shapes": {
+			"id": "b-pr-state-canonical-shapes",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The campaign source_anchor never moves; later upstream movement adds invalidation evidence or blockers. upstream_pr_number is absent before publication, and closed_at is present only for completed or abandoned campaigns."
+				}
+			],
+			"children": []
+		},
+		"b-pr-state-campaign-progress": {
+			"id": "b-pr-state-campaign-progress",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Campaign Statuses"
+				}
+			],
+			"children": []
+		},
+		"b-pr-state-campaign-table": {
+			"id": "b-pr-state-campaign-table",
+			"type": "structured-table",
+			"props": {
+				"title": "Campaign status semantics",
+				"columns": [
+					"Status",
+					"Meaning",
+					"Dispatch authority"
+				],
+				"rows": [
+					[
+						"preparing",
+						"The anchored campaign and prepared series are assembled locally.",
+						"No campaign lease is implied."
+					],
+					[
+						"working",
+						"An activation is publishing, fixing, or validating series.",
+						"The campaign holds the dispatch lease."
+					],
+					[
+						"in_review",
+						"At least one series is open and no activation holds the lease.",
+						"Only observation and feedback ingestion advance state."
+					],
+					[
+						"completed",
+						"Every series is terminal and closure is confirmed.",
+						"Terminal"
+					],
+					[
+						"abandoned",
+						"The operator ends the campaign with remaining work.",
+						"Terminal"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-pr-state-series-progress": {
+			"id": "b-pr-state-series-progress",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Series Statuses"
+				}
+			],
+			"children": []
+		},
+		"b-pr-state-series-table": {
+			"id": "b-pr-state-series-table",
+			"type": "structured-table",
+			"props": {
+				"title": "Series status semantics",
+				"columns": [
+					"Status",
+					"Meaning",
+					"Advanced by"
+				],
+				"rows": [
+					[
+						"prepared",
+						"Locally cut and gate-validated; not open upstream.",
+						"Lease-holding activation"
+					],
+					[
+						"published",
+						"Open upstream and waiting for review.",
+						"Confirmed publication batch"
+					],
+					[
+						"changes_requested",
+						"Remote feedback exists as pending work.",
+						"Background observation"
+					],
+					[
+						"revising",
+						"Fixers own feedback work and may mutate the branch.",
+						"Lease-holding activation"
+					],
+					[
+						"approved",
+						"Remote review approved; merge is pending.",
+						"Background observation"
+					],
+					[
+						"merged",
+						"Upstream merged the series.",
+						"Background observation; terminal"
+					],
+					[
+						"closed",
+						"Withdrawn or rejected without merge.",
+						"Observation or operator close; terminal"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-pr-state-work-item-outcomes": {
+			"id": "b-pr-state-work-item-outcomes",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Work-Item Statuses"
+				}
+			],
+			"children": []
+		},
+		"b-pr-state-work-item-table": {
+			"id": "b-pr-state-work-item-table",
+			"type": "structured-table",
+			"props": {
+				"title": "PR work-item status semantics",
+				"columns": [
+					"Status",
+					"Meaning",
+					"Terminal"
+				],
+				"rows": [
+					[
+						"pending",
+						"Ingested feedback awaits a claim.",
+						"no"
+					],
+					[
+						"in_progress",
+						"A lease-fenced fixer owns the item.",
+						"no"
+					],
+					[
+						"resolved",
+						"Addressed by a pushed revision or review-thread answer.",
+						"yes"
+					],
+					[
+						"declined",
+						"Deliberately not actioned with a recorded reason.",
+						"yes"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-60-pr-state-flows-18": {
+			"id": "b-60-pr-state-flows-18",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "State Flow"
+				}
+			],
+			"children": []
+		},
+		"b-pr-state-flow-outline": {
+			"id": "b-pr-state-flow-outline",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Cut the anchored campaign and prepare ordered series"
+					},
+					{
+						"text": "Activate under the dispatch lease",
+						"steps": [
+							{
+								"text": "Publish an approved batch, repair feedback, or validate series"
+							}
+						]
+					},
+					{
+						"text": "Release into dormant review",
+						"steps": [
+							{
+								"text": "Background observation advances remote state and creates pending work items"
+							}
+						]
+					},
+					{
+						"text": "Reactivate for claimed repair work",
+						"steps": [
+							{
+								"text": "Resolve or decline every in-progress item before release"
+							}
+						]
+					},
+					{
+						"text": "Record merged or closed series and confirm campaign completion or abandonment"
+					}
+				]
+			},
+			"children": []
+		},
+		"b-60-pr-state-pr-adopt-legacy-is-the-36": {
+			"id": "b-60-pr-state-pr-adopt-legacy-is-the-36",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Compatibility: pr.adopt_legacy deterministically creates the anchored campaign and imports pre-campaign branch order, upstream identities, validation, outcomes, and feedback. Retrying returns the same campaign instead of duplicating state."
+				}
+			],
+			"children": []
+		}
+	}
 }

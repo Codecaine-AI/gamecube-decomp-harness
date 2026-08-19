@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "id": "harness-workflow-handoffs",
+  "title": "Sync, run, PR, and recovery handoffs",
+  "participants": [
+    {
+      "id": "operator",
+      "name": "operator",
+      "kind": "actor",
+      "label": "Operator"
+    },
+    {
+      "id": "sync",
+      "name": "sync",
+      "kind": "participant",
+      "label": "Sync"
+    },
+    {
+      "id": "harness",
+      "name": "harness",
+      "kind": "participant",
+      "label": "HarnessState"
+    },
+    {
+      "id": "run",
+      "name": "run",
+      "kind": "participant",
+      "label": "Run"
+    },
+    {
+      "id": "pr",
+      "name": "pr",
+      "kind": "participant",
+      "label": "PR"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "handoff-m1",
+      "from": "operator",
+      "to": "sync",
+      "line": "sync",
+      "text": "start opening sync"
+    },
+    {
+      "kind": "message",
+      "id": "handoff-m2",
+      "from": "sync",
+      "to": "harness",
+      "line": "sync",
+      "text": "publish baseline and release authority"
+    },
+    {
+      "kind": "message",
+      "id": "handoff-m3",
+      "from": "harness",
+      "to": "run",
+      "line": "sync",
+      "text": "grant fresh dispatch lease"
+    },
+    {
+      "kind": "fragment",
+      "id": "handoff-f1",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "run is interrupted",
+          "items": [
+            {
+              "kind": "message",
+              "id": "handoff-m4",
+              "from": "run",
+              "to": "harness",
+              "line": "sync",
+              "text": "report interruption"
+            },
+            {
+              "kind": "message",
+              "id": "handoff-m5",
+              "from": "harness",
+              "to": "run",
+              "line": "sync",
+              "text": "drain, cancel, or recover stale work"
+            },
+            {
+              "kind": "message",
+              "id": "handoff-m6",
+              "from": "run",
+              "to": "harness",
+              "line": "return",
+              "text": "settlement and recovery evidence"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "handoff-m7",
+      "from": "run",
+      "to": "harness",
+      "line": "sync",
+      "text": "settle workers and release authority"
+    },
+    {
+      "kind": "message",
+      "id": "handoff-m8",
+      "from": "harness",
+      "to": "pr",
+      "line": "sync",
+      "text": "grant fresh dispatch lease"
+    },
+    {
+      "kind": "message",
+      "id": "handoff-m9",
+      "from": "pr",
+      "to": "harness",
+      "line": "sync",
+      "text": "preserve campaign and release authority"
+    },
+    {
+      "kind": "message",
+      "id": "handoff-m10",
+      "from": "harness",
+      "to": "sync",
+      "line": "async",
+      "text": "queue post-merge reconciliation"
+    }
+  ],
+  "style": {
+    "accent": "#5B7FBD",
+    "fragmentAccent": "#7A6AA8"
+  }
+}

@@ -1,0 +1,739 @@
+{
+	"id": "10-system-design-40-harness-state-50-game-events-20-registry-and-catalog",
+	"title": "Game Event Registry and Catalog",
+	"schemaVersion": 1,
+	"root": "b-index-root-10",
+	"blocks": {
+		"b-index-root-10": {
+			"id": "b-index-root-10",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-index-game-event-registry-a-1",
+				"b-index-the-registry-is-the-inse-2",
+				"b-index-registry-invariants-3",
+				"b-index-every-live-entry-has-sc-4",
+				"b-index-status-transition-entr-5",
+				"b-index-live-v1-catalog-7",
+				"b-index-the-payload-column-is-ex-8",
+				"b-catalog-dispatch-run",
+				"b-catalog-sync-knowledge",
+				"b-catalog-pr",
+				"b-catalog-cycle"
+			]
+		},
+		"b-index-game-event-registry-a-1": {
+			"id": "b-index-game-event-registry-a-1",
+			"type": "heading",
+			"props": {
+				"level": 1
+			},
+			"text": [
+				{
+					"insert": "Game Event Registry and Catalog"
+				}
+			],
+			"children": []
+		},
+		"b-index-the-registry-is-the-inse-2": {
+			"id": "b-index-the-registry-is-the-inse-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The registry is the only insertion authority for accepted game events. Its closed vocabulary makes reconstruction deterministic: a stored event has a known version, classification, subject, actor set, and exhaustive payload contract."
+				}
+			],
+			"children": []
+		},
+		"b-index-registry-invariants-3": {
+			"id": "b-index-registry-invariants-3",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Registry Invariants"
+				}
+			],
+			"children": []
+		},
+		"b-index-every-live-entry-has-sc-4": {
+			"id": "b-index-every-live-entry-has-sc-4",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Every live entry has schema_version = 1, at least one subject kind and allowed actor, one classification, and extras = forbid. Unknown events, versions, subject combinations, actors, fields, and value types are rejected; any contract change requires a new immutable schema version."
+				}
+			],
+			"children": []
+		},
+		"b-index-status-transition-entr-5": {
+			"id": "b-index-status-transition-entr-5",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "status_transition payloads contain distinct, required from_status and to_status strings. progress records accepted work without claiming that the subject entered a new status."
+				}
+			],
+			"children": []
+		},
+		"b-index-live-v1-catalog-7": {
+			"id": "b-index-live-v1-catalog-7",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Live v1 Catalog"
+				}
+			],
+			"children": []
+		},
+		"b-index-the-payload-column-is-ex-8": {
+			"id": "b-index-the-payload-column-is-ex-8",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The payload column is exhaustive. Sync observation belongs with the reconstruction rules in "
+				},
+				{
+					"insert": "Sync and knowledge events",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/60-tracing/40-sync-and-knowledge-events"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		},
+		"b-catalog-dispatch-run": {
+			"id": "b-catalog-dispatch-run",
+			"type": "structured-table",
+			"props": {
+				"title": "Dispatch and run",
+				"columns": [
+					"Event",
+					"Classification",
+					"Subject kinds",
+					"Allowed actors",
+					"Closed payload fields"
+				],
+				"rows": [
+					[
+						"game.dispatch_requested",
+						"coordination",
+						"game",
+						"operator, runner",
+						"requested_kind: string — required, non-null\nworkflow_id: string — required, non-null\ncurrent_lease_holder: object — required, nullable\nreason: string — required, non-null"
+					],
+					[
+						"game.dispatch_acquired",
+						"coordination",
+						"game",
+						"operator, runner, guardian",
+						"kind: string — required, non-null\nworkflow_id: string — required, non-null\nlease_id: string — required, non-null\nhandoff_snapshot_id: string — optional, nullable\nhandoff_snapshot_content_hash: string — optional, nullable\nstate_revision: integer — required, non-null\nhandoff_from_lease_id: string — optional, non-null\nhandoff_release_event_id: string — optional, non-null"
+					],
+					[
+						"game.dispatch_drain_started",
+						"coordination",
+						"run, sync_workflow, pr_campaign",
+						"operator, runner, guardian",
+						"lease_id: string — required, non-null\ntarget_kind: string — required, non-null\nopen_obligations: array — required, non-null"
+					],
+					[
+						"game.dispatch_blocked",
+						"coordination",
+						"run, sync_workflow, pr_campaign",
+						"operator, runner, guardian",
+						"lease_id: string — optional, non-null\nblocker_codes: string[] — required, non-null\nsource_identities: object[] — required, non-null\nrecovery_choices: string[] — required, non-null"
+					],
+					[
+						"game.dispatch_released",
+						"coordination",
+						"game",
+						"operator, runner, guardian",
+						"old_lease_holder: object — required, non-null\nhandoff_snapshot_id: string — required, nullable\nhandoff_snapshot_content_hash: string — required, nullable\nterminal_revision: integer — required, non-null\nrequested_handoff: object — optional, nullable\nhandoff_result: string — optional, non-null\nrecovery: boolean — optional, non-null\nrecovery_reason: string — optional, non-null\ncancelled_subject_ids: string[] — optional, non-null"
+					],
+					[
+						"game.dispatch_request_cancelled",
+						"coordination",
+						"run, sync_workflow, pr_campaign",
+						"operator",
+						"kind: string — required, non-null\nworkflow_id: string — required, non-null\nreason: string — required, non-null\ncleared_handoff: boolean — required, non-null"
+					],
+					[
+						"run.drafted",
+						"lifecycle",
+						"run",
+						"operator, runner",
+						"desired_workers: integer — required, non-null\ngoal_kind: string — required, non-null\ngoal_value: number — required, non-null"
+					],
+					[
+						"run.readied",
+						"status_transition",
+						"run",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nbase_revision: string — required, non-null\npolicy_revision: string — required, non-null\nstarting_knowledge_revision: string — required, non-null"
+					],
+					[
+						"run.activated",
+						"status_transition",
+						"run",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nlease_id: string — required, non-null"
+					],
+					[
+						"run.draining",
+						"status_transition",
+						"run",
+						"operator, runner, guardian",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nlease_id: string — required, non-null\nreason: string — required, non-null"
+					],
+					[
+						"run.paused",
+						"status_transition",
+						"run",
+						"operator, runner, guardian",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nrecovery_id: string — optional, non-null\nrecovery_reason: string — optional, non-null\ncancelled_claim_ids: string[] — optional, non-null\ncancelled_operation_ids: string[] — optional, non-null\nqueued_work: array — optional, non-null"
+					],
+					[
+						"run.completed",
+						"status_transition",
+						"run",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"run.failed",
+						"status_transition",
+						"run",
+						"operator, runner, guardian",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nterminal_reason: string — optional, non-null"
+					],
+					[
+						"run.cancelled",
+						"status_transition",
+						"run",
+						"operator",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\ncancellation_reason: string — required, non-null"
+					],
+					[
+						"run.recovered",
+						"recovery",
+						"run",
+						"operator",
+						"recovery_id: string — optional, non-null\nrecovery_reason: string — required, non-null\ncancelled_claim_ids: string[] — required, non-null\ncancelled_operation_ids: string[] — required, non-null\nqueued_work: array — optional, non-null\nresulting_status: string — required, non-null"
+					],
+					[
+						"run.epoch_integrated",
+						"progress",
+						"run",
+						"runner, agent",
+						"epoch_id: string — required, non-null\nintegration_commit: string — required, non-null\nscore_delta: number — required, nullable\nnew_head: string — required, non-null"
+					],
+					[
+						"run.remote_applied",
+						"progress",
+						"run",
+						"operator, runner",
+						"remote_application_id: string — required, non-null\nprior_head: string — required, non-null\nnew_head: string — required, non-null\nresolved_conflicts: string[] — required, non-null\nscore_delta: number — required, nullable"
+					],
+					[
+						"run.desired_workers_changed",
+						"progress",
+						"run",
+						"operator, runner",
+						"previous_desired_workers: integer — required, non-null\ndesired_workers: integer — required, non-null"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-catalog-sync-knowledge": {
+			"id": "b-catalog-sync-knowledge",
+			"type": "structured-table",
+			"props": {
+				"title": "Sync and knowledge",
+				"columns": [
+					"Event",
+					"Classification",
+					"Subject kinds",
+					"Allowed actors",
+					"Closed payload fields"
+				],
+				"rows": [
+					[
+						"sync.requested",
+						"lifecycle",
+						"sync_workflow",
+						"operator, runner, external_observer",
+						"upstream_from: string — required, non-null\nupstream_to: string — required, non-null\nmerged_pr_ids: string[] — required, non-null\ncorpus_batch_ids: string[] — required, non-null\nknowledge_only: boolean — required, non-null"
+					],
+					[
+						"sync.ingesting",
+						"status_transition",
+						"sync_workflow",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"sync.reconciling",
+						"status_transition",
+						"sync_workflow",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"sync.validating",
+						"status_transition",
+						"sync_workflow",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"sync.validated",
+						"status_transition",
+						"sync_workflow",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nvalidation_evidence: object — required, non-null"
+					],
+					[
+						"sync.publishing",
+						"status_transition",
+						"sync_workflow",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"sync.published",
+						"status_transition",
+						"sync_workflow",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"sync.blocked",
+						"status_transition",
+						"sync_workflow",
+						"operator, runner, guardian",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nblocker_codes: string[] — required, non-null\nsource_identities: object[] — required, non-null\nrecovery_choices: string[] — required, non-null"
+					],
+					[
+						"sync.staging_progressed",
+						"progress",
+						"sync_workflow",
+						"operator, runner",
+						"staging_workspace_id: string — required, non-null\ndurable_stage: string — required, non-null\nepochs_total: integer — required, non-null\nepochs_applied: integer — required, non-null\nminor_conflicts_resolved: integer — required, non-null\nconflicts_awaiting_operator: integer — required, non-null\npr_series_reconciliation_summary: object — required, non-null\nstate_revision: integer — required, non-null\nprogress_kind: string — required, non-null"
+					],
+					[
+						"sync.reconciliation_blocked",
+						"status_transition",
+						"sync_workflow",
+						"operator, runner, guardian",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nconflict_identities: string[] — required, non-null\nconflicts_awaiting_operator: integer — required, non-null"
+					],
+					[
+						"sync.recovered",
+						"recovery",
+						"sync_workflow",
+						"operator",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nstaging_preserved: boolean — required, non-null\nstaging_discarded: boolean — required, non-null\nresume_stage: string — required, nullable\nrecovery_reason: string — required, non-null"
+					],
+					[
+						"sync.cancelled",
+						"status_transition",
+						"sync_workflow",
+						"operator",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\ndiscarded_staging_workspace_id: string — required, nullable\nuntouched_session_head: string — required, non-null\nuntouched_submodule_heads: object[] — required, non-null"
+					],
+					[
+						"sync.boundary_published",
+						"coordination",
+						"sync_workflow",
+						"operator, runner",
+						"upstream_revision: string — required, non-null\nknowledge_revision: string — required, non-null\ninvalidations: string[] — required, non-null\nvalidation_evidence: object — required, non-null"
+					],
+					[
+						"sync.pr_push_started",
+						"status_transition",
+						"sync_push",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nseries_id: string — required, non-null\nbranch: string — required, non-null\nremote_name: string — required, non-null\nnew_head: string — required, non-null\nattempt: integer — required, non-null"
+					],
+					[
+						"sync.pr_push_succeeded",
+						"status_transition",
+						"sync_push",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nseries_id: string — required, non-null\nbranch: string — required, non-null\nremote_name: string — required, non-null\nnew_head: string — required, non-null\nattempt: integer — required, non-null"
+					],
+					[
+						"sync.pr_push_failed",
+						"status_transition",
+						"sync_push",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nseries_id: string — required, non-null\nbranch: string — required, non-null\nremote_name: string — required, non-null\nnew_head: string — required, non-null\nattempt: integer — required, non-null\nerror: string — required, non-null"
+					],
+					[
+						"knowledge.job_enqueued",
+						"lifecycle",
+						"knowledge_job",
+						"operator, runner",
+						"source_class: string — required, non-null\nprovenance: object — required, non-null\nexecution_class: string — required, non-null"
+					],
+					[
+						"knowledge.job_processing",
+						"status_transition",
+						"knowledge_job",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nsync_id: string — required, nullable\nexecution_class: string — required, non-null\nsource_class: string — required, non-null\nprovenance: object — required, non-null\nsource_kind: string — required, non-null\nsource_id: string — required, non-null"
+					],
+					[
+						"knowledge.job_waiting",
+						"status_transition",
+						"knowledge_job",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nsync_id: string — required, nullable\nexecution_class: string — required, non-null\nsource_class: string — required, non-null\nprovenance: object — required, non-null\nsource_kind: string — required, non-null\nsource_id: string — required, non-null\nreason: string — required, non-null"
+					],
+					[
+						"knowledge.job_succeeded",
+						"status_transition",
+						"knowledge_job",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nsync_id: string — required, nullable\nexecution_class: string — required, non-null\nsource_class: string — required, non-null\nprovenance: object — required, non-null\nsource_kind: string — required, non-null\nsource_id: string — required, non-null\nstaged_digest: string — required, non-null"
+					],
+					[
+						"knowledge.job_failed",
+						"status_transition",
+						"knowledge_job",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nsync_id: string — required, nullable\nexecution_class: string — required, non-null\nsource_class: string — required, non-null\nprovenance: object — required, non-null\nsource_kind: string — required, non-null\nsource_id: string — required, non-null\nerror: string — required, non-null"
+					],
+					[
+						"knowledge.job_cancelled",
+						"status_transition",
+						"knowledge_job",
+						"operator, runner",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nsync_id: string — required, nullable\nexecution_class: string — required, non-null\nsource_class: string — required, non-null\nprovenance: object — required, non-null\nsource_kind: string — required, non-null\nsource_id: string — required, non-null\nreason: string — required, non-null"
+					],
+					[
+						"knowledge.revision_advanced",
+						"coordination",
+						"game_knowledge",
+						"operator, runner",
+						"old_revision: string — required, non-null\nnew_revision: string — required, non-null\naccepted_job_ids: string[] — required, non-null"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-catalog-pr": {
+			"id": "b-catalog-pr",
+			"type": "structured-table",
+			"props": {
+				"title": "PR",
+				"columns": [
+					"Event",
+					"Classification",
+					"Subject kinds",
+					"Allowed actors",
+					"Closed payload fields"
+				],
+				"rows": [
+					[
+						"pr.campaign_opened",
+						"lifecycle",
+						"pr_campaign",
+						"operator",
+						"source_anchor: object — required, non-null\nseries_count: integer — required, non-null\npublication_batch_size: integer — required, non-null\nfrom_status: string — required, nullable\nto_status: string — required, non-null"
+					],
+					[
+						"pr.campaign_in_review",
+						"status_transition",
+						"pr_campaign",
+						"operator",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.campaign_working",
+						"status_transition",
+						"pr_campaign",
+						"operator",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.batch_published",
+						"progress",
+						"pr_campaign",
+						"operator",
+						"batch_index: integer — required, non-null\nseries_ids: string[] — required, non-null\noperator: string — required, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.campaign_recovered",
+						"recovery",
+						"pr_campaign",
+						"operator",
+						"recovery_reason: string — required, non-null\ncancelled_subject_ids: string[] — required, non-null\nresulting_status: string — required, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.campaign_closed",
+						"lifecycle",
+						"pr_campaign",
+						"operator",
+						"outcome: string — required, non-null\nper_series_terminal_summary: object — required, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.series_prepared",
+						"lifecycle",
+						"pr_series",
+						"operator",
+						"from_status: string — required, nullable\nto_status: string — required, non-null\nbranch: string — required, non-null\nbatch_index: integer — required, non-null\nadoption: string — optional, non-null"
+					],
+					[
+						"pr.series_published",
+						"status_transition",
+						"pr_series",
+						"operator",
+						"upstream_pr_number: integer — required, non-null\nbranch: string — required, non-null\nbatch_index: integer — required, non-null\nadoption: string — optional, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.series_changes_requested",
+						"status_transition",
+						"pr_series",
+						"operator, external_observer",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\napproval_source_identity: string — optional, non-null\nreview_decision: string — optional, non-null\nupstream_pr_number: integer — optional, non-null\nadoption: string — optional, non-null\nbranch: string — optional, non-null\nbatch_index: integer — optional, non-null"
+					],
+					[
+						"pr.series_revising",
+						"status_transition",
+						"pr_series",
+						"operator, runner, agent",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.series_approved",
+						"status_transition",
+						"pr_series",
+						"operator, external_observer",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\napproval_source_identity: string — required, non-null\napproved_revision: string — required, non-null\napproving_actor: string — required, non-null\nadoption: string — optional, non-null\nbranch: string — optional, non-null\nbatch_index: integer — optional, non-null\nupstream_pr_number: integer — optional, non-null"
+					],
+					[
+						"pr.series_merged",
+						"lifecycle",
+						"pr_series",
+						"operator, external_observer",
+						"upstream_pr_number: integer — required, non-null\nmerged_upstream_revision: string — required, non-null\nadoption: string — optional, non-null\nbranch: string — optional, non-null\nbatch_index: integer — optional, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.series_closed",
+						"lifecycle",
+						"pr_series",
+						"operator, external_observer",
+						"close_reason: string — required, non-null\nclosing_actor: string — required, non-null\nadoption: string — optional, non-null\nbranch: string — optional, non-null\nbatch_index: integer — optional, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.feedback_ingested",
+						"progress",
+						"pr_series",
+						"external_observer",
+						"work_item_ids: string[] — required, non-null\nreview_source_identities: string[] — required, non-null\ningesting_actor: string — required, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.series_revised",
+						"status_transition",
+						"pr_series",
+						"operator, runner, agent",
+						"resolved_work_item_ids: string[] — required, non-null\npushed_revision: string — required, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.work_items_claimed",
+						"progress",
+						"pr_series",
+						"operator, runner, agent",
+						"claimed_work_item_ids: string[] — required, non-null\nlease_id: string — required, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.work_items_resolved",
+						"progress",
+						"pr_series",
+						"operator, runner, agent",
+						"resolved_work_item_ids: string[] — required, non-null\nlease_id: string — required, non-null\nresolution: string — required, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"pr.work_items_declined",
+						"progress",
+						"pr_series",
+						"operator, runner, agent",
+						"declined_work_item_ids: string[] — required, non-null\ndecline_reason: string — required, non-null\nlease_id: string — required, non-null\nfrom_status: string — required, non-null\nto_status: string — required, non-null"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		},
+		"b-catalog-cycle": {
+			"id": "b-catalog-cycle",
+			"type": "structured-table",
+			"props": {
+				"title": "Cycle",
+				"columns": [
+					"Event",
+					"Classification",
+					"Subject kinds",
+					"Allowed actors",
+					"Closed payload fields"
+				],
+				"rows": [
+					[
+						"cycle.opened",
+						"lifecycle",
+						"cycle",
+						"operator, runner",
+						"baseline_revision: string — required, nullable\ninitial_head_revision: string — required, nullable\nworktree_identity: string — required, non-null\nopening_sync_id: string — required, nullable\nstate_revision: integer — required, non-null"
+					],
+					[
+						"cycle.updated",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"prior_head: string — required, nullable\nnew_head: string — required, nullable\ntimeline_entry_kind: string — required, non-null\ntimeline_entry_id: string — required, non-null\nworkflow_ids_added: string[] — required, non-null\nworkflow_ids_removed: string[] — required, non-null\ncurrent_status: string — required, non-null\nstate_revision: integer — required, non-null"
+					],
+					[
+						"cycle.closing",
+						"status_transition",
+						"cycle",
+						"operator",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"cycle.blocked",
+						"status_transition",
+						"cycle",
+						"operator, runner, guardian",
+						"from_status: string — required, non-null\nto_status: string — required, non-null\nprior_status: string — required, non-null\nblocker_codes: string[] — required, non-null\nsource_identities: object[] — required, non-null\nrecovery_choices: string[] — required, non-null\nstate_revision: integer — required, non-null"
+					],
+					[
+						"cycle.blockers_updated",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"added_blocker_codes: string[] — required, non-null\nremoved_blocker_codes: string[] — required, non-null\nblocker_codes: string[] — required, non-null\nsource_identities: object[] — required, non-null\nrecovery_choices: string[] — required, non-null\nstate_revision: integer — required, non-null"
+					],
+					[
+						"cycle.complete",
+						"status_transition",
+						"cycle",
+						"operator, runner, guardian",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"cycle.closed",
+						"lifecycle",
+						"cycle",
+						"operator",
+						"final_head: string — required, nullable\nshipped_and_unshipped_work_summary: object — required, non-null\nfinal_save_point_id: string — required, nullable\nclosing_operator: string — required, non-null\nstate_revision: integer — required, non-null"
+					],
+					[
+						"cycle.save_point_recorded",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"anchored_commit: string — required, non-null\ntrigger_kind: string — required, non-null\nheadline_score: number — required, nullable\nartifact_paths: string[] — required, non-null\nreplay_key: string — required, non-null\nreplayed_failure_event_id: string — required, nullable"
+					],
+					[
+						"cycle.save_point_failed",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"anchored_commit: string — required, non-null\ntrigger_kind: string — required, non-null\nfailed_or_missing_artifact_classes: string[] — required, non-null\nblocker_code: string — required, non-null\nstaleness_flag_raised: boolean — required, non-null\nreplay_key: string — required, non-null\nreplayed_from_spool: boolean — optional, non-null"
+					],
+					[
+						"cycle.preparing_subphase_updated",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null\nsubphase: string — required, non-null"
+					],
+					[
+						"cycle.preparing_completed",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null"
+					],
+					[
+						"cycle.running_started",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null"
+					],
+					[
+						"cycle.running_subphase_updated",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null\nsubphase: string — required, non-null"
+					],
+					[
+						"cycle.running_stopped",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null\nstop_reason: string — required, non-null"
+					],
+					[
+						"cycle.running_unblocked",
+						"status_transition",
+						"cycle",
+						"operator, runner, guardian",
+						"from_status: string — required, non-null\nto_status: string — required, non-null"
+					],
+					[
+						"cycle.pr_entered",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null\nforced: boolean — required, non-null"
+					],
+					[
+						"cycle.pr_final_build_completed",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null"
+					],
+					[
+						"cycle.pr_subphase_updated",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null\nsubphase: string — required, non-null"
+					],
+					[
+						"cycle.pr_completed",
+						"progress",
+						"cycle",
+						"operator, runner, guardian",
+						"previous_phase: string — required, non-null\nprevious_status: string — required, non-null\nphase: string — required, non-null\nstatus: string — required, non-null"
+					]
+				],
+				"density": "compact"
+			},
+			"children": []
+		}
+	}
+}

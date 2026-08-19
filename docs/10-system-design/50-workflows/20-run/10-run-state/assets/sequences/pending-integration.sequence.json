@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "id": "run-pending-integration",
+  "title": "Pending integration and recovery",
+  "participants": [
+    { "id": "p1", "name": "runner", "kind": "actor", "label": "Runner" },
+    { "id": "p2", "name": "run_store", "kind": "participant", "label": "Run state store" },
+    { "id": "p3", "name": "git", "kind": "participant", "label": "Git history" },
+    { "id": "p4", "name": "recovery", "kind": "actor", "label": "Recovery" }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "insert pending row with run, epoch, branch, parent, and marker"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p1",
+      "to": "p3",
+      "line": "sync",
+      "text": "commit integration with Epoch-Integration: <epoch_id> trailer"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "close epoch, advance both head mirrors, and delete pending row atomically"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p4",
+      "to": "p2",
+      "line": "sync",
+      "text": "load pending integration before dispatch acquisition or admission"
+    },
+    {
+      "kind": "message",
+      "id": "m5",
+      "from": "p4",
+      "to": "p3",
+      "line": "sync",
+      "text": "search recorded parent-to-branch history for the trailer"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "commit found",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m6",
+              "from": "p4",
+              "to": "p2",
+              "line": "sync",
+              "text": "complete epoch-close transaction and delete pending row"
+            }
+          ]
+        },
+        {
+          "guard": "commit missing",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m7",
+              "from": "p4",
+              "to": "p2",
+              "line": "sync",
+              "text": "close epoch as integration error and delete stale row"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "style": { "accent": "#C77D2E" }
+}
