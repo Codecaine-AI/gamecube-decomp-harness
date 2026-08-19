@@ -94,6 +94,29 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
   exclusion + shallow .git at baked rev; shallow bundle-fetch validated host-side.
 </phase2_gate>
 
+<phase3_progress date="2026-08-18">
+- LIVE SANDBOX CLAIM COMPLETED END-TO-END (run 0b662f7a, job 3cd82994, sandbox fc08e157,
+  target grBigBlue_801E93D8): real two-cycle agent session (initial + runner-requested repair),
+  score 99.65522 -> 99.72665, banked-improvement checkpoint b8517a4c with patch/diff evidence
+  downloaded to host artifact_dir, integration outcome APPLIED (working-tree change verified),
+  2x knowledge_absorption jobs succeeded, sandbox.deleted(settlement), remote orphan sweep = 0.
+  All exec/file surface remote (remote pre-worker baseline build + objdiff scoring verified).
+- Teardown paths exercised live: settlement (run 2), reconciliation (run 1's orphan swept at
+  run-loop startup).
+- Live-only defects found and FIXED (committed): (1) Daytona rejects 'resources' on
+  snapshot-based creates; (2) host Pi session used in-sandbox workspace path as host cwd
+  (EACCES mkdir /opt/melee) — host bookkeeping now uses artifact_dir/host-cwd.
+- Known minor follow-up: checkdiff tool-slot path '/opt/.worker-tool-slots' derives a host path
+  from the remote workspace root (tool degraded gracefully); fix alongside the deferred host-FS
+  read items from phase 2.
+- PoC environment notes: disposable state dir /tmp/melee-sandbox-poc-state; repo-root is the
+  disposable /tmp/melee-acceptance/melee tree (now wine/macOS-configured; wine one-TU rebuild
+  verified byte-identical: runtime.o df6bb9cb... matches shipped + container + Daytona builds).
+  Knowledge librarian references the PRODUCTION ledger path even under state-dir override
+  (0 appends observed) — isolation gap to note in phase 4.
+- Parity run in flight: run 23b77d33, same target, execution_class local, wine host builds.
+</phase3_progress>
+
 <in_progress>
 - Phase 2 slice 5b is complete on daytona/slice-5 and ready for handoff. Slices 1/2/3/6 are merged
   into this branch base; slice 4 remains before the phase 3 live claim PoC.
