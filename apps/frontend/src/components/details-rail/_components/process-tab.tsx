@@ -4,7 +4,7 @@ import { Archive, Hammer, Pause, Play, RefreshCw } from "@/icons";
 import { Button, EmptyState, Field, InfoRows, Pill, SelectField } from "@/components/primitives";
 import { asArray, asObject, clock, numberValue, shortId, text, type JsonObject } from "@/lib/format";
 import { processView } from "@/lib/processView";
-import { normalizeToolConcurrency, suggestedToolConcurrency, toolConcurrencyRows, workerTimeoutMinutes, workerTimeoutSecondsFromMinutes } from "@/lib/workerConfig";
+import { workerTimeoutMinutes, workerTimeoutSecondsFromMinutes } from "@/lib/workerConfig";
 import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 import {
   candidateRerankOptions,
@@ -129,16 +129,6 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
   const hasActiveEpoch = Boolean(text(schedulerEpoch.epochId));
   const checkpointBuilding = checkpoint.building === true;
   const timeoutMinutes = workerTimeoutMinutes(form.agentTimeoutSeconds);
-  const toolConcurrency = normalizeToolConcurrency(form.toolConcurrency);
-  const setToolConcurrency = (key: keyof typeof toolConcurrency, value: unknown, max: number) => {
-    const parsed = Math.trunc(Number(value));
-    setForm({
-      toolConcurrency: {
-        ...toolConcurrency,
-        [key]: Math.max(1, Math.min(max, Number.isFinite(parsed) ? parsed : toolConcurrency[key])),
-      },
-    });
-  };
 
   useEffect(() => {
     if (!running) return;
@@ -205,29 +195,6 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
           <Field className="mb-0" label="Provider" onChange={(event) => setForm({ provider: event.currentTarget.value })} spellCheck={false} value={form.provider} />
           <Field className="mb-0" label="Model" onChange={(event) => setForm({ model: event.currentTarget.value })} spellCheck={false} value={form.model} />
         </div>
-        <details className="control-disclosure mt-3">
-          <summary>Tool slots</summary>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {toolConcurrencyRows.map((row) => (
-              <Field
-                className="mb-0"
-                key={row.key}
-                label={row.label}
-                max={row.max}
-                min={1}
-                onChange={(event) => setToolConcurrency(row.key, event.currentTarget.value, row.max)}
-                step={1}
-                type="number"
-                value={toolConcurrency[row.key]}
-              />
-            ))}
-          </div>
-          <div className="mt-2">
-            <Button icon={<RefreshCw size={13} />} onClick={() => setForm({ toolConcurrency: suggestedToolConcurrency(form.maxWorkers) })} title="Fit tool slots to the selected worker count." type="button">
-              Fit Tools
-            </Button>
-          </div>
-        </details>
       </div>
 
       {command ? (

@@ -219,7 +219,6 @@ function workerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefine
     candidateWindow: stringValue(body.candidateWindow, dashboard?.candidateWindow == null ? "128" : String(dashboard.candidateWindow)),
     candidateRerank: stringValue(body.candidateRerank, dashboard?.candidateRerank == null ? "priority" : String(dashboard.candidateRerank)),
     agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 1800)),
-    toolConcurrency: body.toolConcurrency && typeof body.toolConcurrency === "object" ? body.toolConcurrency : undefined,
   };
 }
 

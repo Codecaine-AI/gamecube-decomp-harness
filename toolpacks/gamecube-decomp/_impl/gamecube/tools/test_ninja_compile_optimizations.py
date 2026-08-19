@@ -265,10 +265,9 @@ def legacy_batch_fallback(
             fail("legacy batch could not resolve MWCC")
         command = [*prefix, *shlex.split(block.cflags)]
         command += ["-o", module._root_rel(Path(outdir.name)), "-c", *source_args]
-        with module.worker_compile_slot():
-            module.subprocess.run(
-                command, cwd=module.ROOT, capture_output=True, text=True
-            )
+        module.subprocess.run(
+            command, cwd=module.ROOT, capture_output=True, text=True
+        )
 
         objects: List[Optional[Path]] = []
         for cfile in cfiles:

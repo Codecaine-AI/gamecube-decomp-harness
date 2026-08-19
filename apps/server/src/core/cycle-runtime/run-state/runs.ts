@@ -372,7 +372,6 @@ function actorForProducer(producer: string): EventActor {
     case "ui":
       return "operator";
     case "guardian":
-    case "babysit":
       return "guardian";
     case "agent":
       return "agent";
@@ -381,7 +380,6 @@ function actorForProducer(producer: string): EventActor {
     case "dashboard":
     case "runner":
     case "scheduler":
-    case "supervisor":
     case "test":
       return "runner";
     default:

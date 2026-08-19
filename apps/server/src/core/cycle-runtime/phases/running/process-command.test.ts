@@ -57,7 +57,7 @@ describe("running process command", () => {
     expect(runningProcessConfigurationConflicts({ epochSize: "64" }, runInputs(), "run-1")).toEqual([]);
   });
 
-  test("builds the babysit command owned by the running phase", () => {
+  test("builds the run-loop command owned by the running phase", () => {
     const plan = buildRunningProcessCommand({
       body: {
         maxWorkers: 4,
@@ -84,7 +84,9 @@ describe("running process command", () => {
 
     expect(plan.name).toBe("melee-live");
     expect(plan.maxWorkers).toBe(4);
-    expect(plan.command).toContain("babysit");
+    expect(plan.command).toContain("run-loop");
+    expect(plan.command).not.toContain("babysit");
+    expect(plan.command).not.toContain("--force-recover-claims");
     expect(plan.command).toContain("--dry-run-agents");
     expect(plan.command).toContain("--run-id");
     expect(plan.command).toContain("run-1");
@@ -108,7 +110,7 @@ describe("running process command", () => {
     expect(plan.command).not.toContain("--fast-kg-maintenance-interval-ms");
   });
 
-  test("passes configured worker timeout to babysit", () => {
+  test("passes configured worker timeout to run-loop", () => {
     const plan = buildRunningProcessCommand({
       body: {
         agentTimeoutSeconds: 3000,
@@ -148,7 +150,7 @@ describe("running process command", () => {
     expect(plan.command.slice(thinkingFlag, thinkingFlag + 2)).toEqual(["--thinking-level", "xhigh"]);
   });
 
-  test("forwards configure command overrides to babysit", () => {
+  test("forwards configure command overrides to run-loop", () => {
     const plan = buildRunningProcessCommand({
       body: {
         epochConfigureCommand: "python3 configure.py --require-protos --wrapper /state/tools/wibo",
@@ -231,7 +233,7 @@ describe("running process command", () => {
     expect(plan.command).not.toContain("--ttl-seconds");
   });
 
-  test("forwards configured integration resolver concurrency to babysit", () => {
+  test("forwards configured integration resolver concurrency to run-loop", () => {
     const plan = buildRunningProcessCommand({
       body: {
         integrationResolverConcurrency: 8,

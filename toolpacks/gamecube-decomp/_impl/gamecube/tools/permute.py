@@ -376,14 +376,13 @@ class FixedBatchCompiler:
             cmd += ["-o", ninja_compile._root_rel(self.output_dir), "-c", *source_args]
 
             try:
-                with ninja_compile.worker_compile_slot():
-                    result = subprocess.run(
-                        cmd,
-                        cwd=ROOT,
-                        capture_output=True,
-                        text=True,
-                        timeout=remaining,
-                    )
+                result = subprocess.run(
+                    cmd,
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    timeout=remaining,
+                )
             except subprocess.TimeoutExpired:
                 return BatchCompileResult(objects, timed_out=True,
                                           invocations=invocations + 1)

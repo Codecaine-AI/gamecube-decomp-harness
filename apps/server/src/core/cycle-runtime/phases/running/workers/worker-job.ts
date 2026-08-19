@@ -7,20 +7,12 @@ import { requireActiveLease } from "@server/core/harness-state";
 import { enqueueBackgroundKnowledgeForWorker } from "@server/core/knowledge/background/index.js";
 import {
   activeClaimsForRun,
-  activeSchedulerEpoch,
   claimNextEpochTarget,
   setClaimWorktreePath,
 } from "@server/core/cycle-runtime/run-state";
 import { recoverActiveClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { sandboxRuntimeOptions } from "@server/core/game-registry/resolver.js";
 import type { GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
-import {
-  isHostToolPlatform,
-  requiredStateToolArtifactError,
-  resolveStateToolArtifact,
-  resolveToolPlatform,
-  type ToolPlatform,
-} from "@server/core/tools/platform.js";
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
 import {
   attachJobPayload,
@@ -34,13 +26,11 @@ import {
   reapExpiredJobs,
   requeueJob,
 } from "@server/core/job-queue/kernel.js";
-import { defaultConfigureCommand, LocalProcessExecutor, workerProcessEnv } from "@server/core/job-queue/executor.js";
+import { LocalProcessExecutor, workerProcessEnv } from "@server/core/job-queue/executor.js";
 import { deleteSandboxForJob } from "@server/core/job-queue/sandbox-lifecycle.js";
 import {
   provisionSandboxWorkspace,
-  provisionWorkerWorktree,
   type WorkerReportArtifactSource,
-  type WorkerToolArtifactSource,
 } from "@server/core/job-queue/provisioning.js";
 import { emitSandboxDeletedEvent } from "@server/core/job-queue/sandbox-events.js";
 import {
@@ -56,7 +46,6 @@ import type {
   TaskSpec,
   WorkerExecutor,
 } from "@server/core/job-queue/types.js";
-import { workerWorktreePath } from "./worker-cycle.js";
 
 export interface WorkerJobRunContext {
   store: StateStore;
@@ -65,6 +54,8 @@ export interface WorkerJobRunContext {
   dispatchLeaseId: string;
   baseRev: string;
   ttlSeconds: number;
+  sandboxSleep: boolean;
+  sandboxSleepDebounceMs: number;
   concurrencyLimit: number;
   thinkingLevel: string;
   postReturnCheckCommand: string;
@@ -73,6 +64,8 @@ export interface WorkerJobRunContext {
   writeSetFlags: WriteSetIntegrationFlags;
   workerIdPrefix?: string;
 }
+
+export const DEFAULT_SANDBOX_SLEEP_DEBOUNCE_MS = 250;
 
 class NoClaimableTargetError extends Error {}
 
@@ -120,12 +113,6 @@ const REPORT_PATHS = [
   "build/GALE01/report_changes.json",
   "build/GALE01/baseline.json",
 ];
-const TOOL_ARTIFACTS = [
-  { name: "tools", relativePath: "build/tools" },
-  { name: "compilers", relativePath: "build/compilers" },
-  { name: "binutils", relativePath: "build/binutils" },
-] as const;
-
 function latestArtifactSourcePath(store: StateStore, runId: string, artifactType: string, artifactKey: string): string | null {
   const row = store.db.query(`SELECT source_path FROM dashboard_artifacts
     WHERE run_id = ? AND artifact_type = ? AND artifact_key = ?
@@ -133,7 +120,7 @@ function latestArtifactSourcePath(store: StateStore, runId: string, artifactType
   return typeof row?.source_path === "string" && row.source_path ? row.source_path : null;
 }
 
-/* Duplicates worker-cycle.ts's private report/tool source lookup so today's spawn path stays unchanged. */
+/* Duplicates worker-cycle.ts's private report source lookup so today's spawn path stays unchanged. */
 function reportArtifactSources(ctx: WorkerJobRunContext): WorkerReportArtifactSource[] {
   const gameDir = ctx.globals.game?.gameDir ?? dirname(ctx.globals.repoRoot);
   const fallbackRoots = [ctx.globals.repoRoot, resolve(gameDir, "worktrees", "upstream-current")];
@@ -149,17 +136,6 @@ function reportArtifactSources(ctx: WorkerJobRunContext): WorkerReportArtifactSo
   });
 }
 
-function toolArtifactSources(globals: GlobalArgs, platform: ToolPlatform): WorkerToolArtifactSource[] {
-  const roots = Array.from(new Set([globals.repoRoot, ...(globals.game?.gameDir ? [resolve(globals.game.gameDir, "worktrees", "upstream-current")] : [])]));
-  return TOOL_ARTIFACTS.flatMap((artifact) => {
-    const stateSource = resolveStateToolArtifact({ stateDir: globals.stateDir, name: artifact.name, platform });
-    if (stateSource) return [{ platform, relativePath: artifact.relativePath, sourcePath: stateSource }];
-    if (!isHostToolPlatform(platform)) throw requiredStateToolArtifactError({ stateDir: globals.stateDir, name: artifact.name, platform });
-    const sourcePath = roots.map((root) => resolve(root, artifact.relativePath)).find(existsSync);
-    return sourcePath ? [{ platform, relativePath: artifact.relativePath, sourcePath }] : [];
-  });
-}
-
 function payloadString(job: JobRecord, key: string): string {
   const value = job.payload[key];
   if (typeof value !== "string" || !value) throw new Error(`Worker job ${job.jobId} is missing ${key}`);
@@ -167,7 +143,6 @@ function payloadString(job: JobRecord, key: string): string {
 }
 
 interface WorkerJobDeps {
-  provision?: typeof provisionWorkerWorktree;
   provisionSandbox?: typeof provisionSandboxWorkspace;
   sandboxProvider?: SandboxProvider;
   executor?: WorkerExecutor;
@@ -186,74 +161,57 @@ export function buildWorkerTask(
     const row = ctx.store.db.query("SELECT artifact_dir FROM worker_state WHERE id = ?").get(workerStateId) as { artifact_dir: string | null } | null;
     if (!row?.artifact_dir) throw new Error(`Worker state ${workerStateId} has no artifact_dir`);
     const artifactDir = row.artifact_dir;
-    let workerRepoRoot = workerWorktreePath(ctx.globals, targetClaimId, activeSchedulerEpoch(ctx.store, ctx.runId));
     let provisionedSandbox: { provider: SandboxProvider; sandboxId: string } | undefined;
     try {
-      if (job.executionClass === "sandbox") {
-        const sandbox = sandboxRuntimeOptions(ctx.globals.game);
-        const provider = deps.sandboxProvider
-          ?? (defaultSandboxProvider ??= ctx.globals.dryRunAgents
-            ? new FakeSandboxProvider()
-            : new DaytonaSandboxProvider());
-        // worker_state has no trace_id column; its owning workflow trace is carried by the worker job.
-        const traceId = job.traceId ?? `trace-job-${job.jobId}`;
-        const provisioned = await (deps.provisionSandbox ?? provisionSandboxWorkspace)({
-          provider,
-          sourceRepoRoot: ctx.globals.repoRoot,
-          baseRev: ctx.baseRev,
-          snapshotBakedRev: sandbox.snapshot_baked_rev,
-          workspaceRoot: sandbox.workspace_root,
-          snapshot: sandbox.snapshot_name,
-          resources: {
-            cpu: sandbox.resource_class.cpu,
-            memoryGiB: sandbox.resource_class.memory_gib,
-            diskGiB: sandbox.resource_class.disk_gib,
+      const sandbox = sandboxRuntimeOptions(ctx.globals.game);
+      const provider = deps.sandboxProvider
+        ?? (defaultSandboxProvider ??= ctx.globals.dryRunAgents
+          ? new FakeSandboxProvider()
+          : new DaytonaSandboxProvider());
+      // worker_state has no trace_id column; its owning workflow trace is carried by the worker job.
+      const traceId = job.traceId ?? `trace-job-${job.jobId}`;
+      const provisioned = await (deps.provisionSandbox ?? provisionSandboxWorkspace)({
+        provider,
+        sourceRepoRoot: ctx.globals.repoRoot,
+        baseRev: ctx.baseRev,
+        snapshotBakedRev: sandbox.snapshot_baked_rev,
+        workspaceRoot: sandbox.workspace_root,
+        snapshot: sandbox.snapshot_name,
+        resources: {
+          cpu: sandbox.resource_class.cpu,
+          memoryGiB: sandbox.resource_class.memory_gib,
+          diskGiB: sandbox.resource_class.disk_gib,
+        },
+        ttlSeconds: ctx.ttlSeconds,
+        labels: {
+          game_id: job.gameId,
+          run_id: ctx.runId,
+          claim_id: targetClaimId,
+          job_id: job.jobId,
+          job_lease_id: handlerCtx.token.leaseId,
+          dispatch_lease_id: ctx.dispatchLeaseId,
+          worker_state_id: workerStateId,
+          trace_id: traceId,
+        },
+        reportArtifactSources: reportArtifactSources(ctx),
+        event: {
+          store: ctx.store,
+          context: {
+            gameId: job.gameId,
+            correlationId: job.jobId,
+            causationId: job.causedByEventId ?? job.jobId,
+            traceId,
+            jobId: job.jobId,
+            claimId: targetClaimId,
+            workerStateId,
           },
-          ttlSeconds: ctx.ttlSeconds,
-          labels: {
-            game_id: job.gameId,
-            run_id: ctx.runId,
-            claim_id: targetClaimId,
-            job_id: job.jobId,
-            job_lease_id: handlerCtx.token.leaseId,
-            dispatch_lease_id: ctx.dispatchLeaseId,
-            worker_state_id: workerStateId,
-            trace_id: traceId,
-          },
-          reportArtifactSources: reportArtifactSources(ctx),
-          event: {
-            store: ctx.store,
-            context: {
-              gameId: job.gameId,
-              correlationId: job.jobId,
-              causationId: job.causedByEventId ?? job.jobId,
-              traceId,
-              jobId: job.jobId,
-              claimId: targetClaimId,
-              workerStateId,
-            },
-          },
-        });
-        provisionedSandbox = { provider, sandboxId: provisioned.sandboxId };
-        workerRepoRoot = provisioned.workspaceRoot;
-        attachJobPayload(ctx.store, handlerCtx.token, { sandbox_id: provisioned.sandboxId });
-        // The job's sandbox_id qualifies this shared in-sandbox path as a durable workspace reference.
-        setClaimWorktreePath(ctx.store, targetClaimId, workerStateId, workerRepoRoot, handlerCtx.token);
-      } else {
-        setClaimWorktreePath(ctx.store, targetClaimId, workerStateId, workerRepoRoot, handlerCtx.token);
-        const toolPlatform = resolveToolPlatform();
-        await (deps.provision ?? provisionWorkerWorktree)({
-          sourceRepoRoot: ctx.globals.repoRoot,
-          workerRepoRoot,
-          baseRev: ctx.baseRev,
-          outputDir: artifactDir,
-          configureCommand: ctx.workerConfigureCommand || defaultConfigureCommand(ctx.globals),
-          reportArtifactSources: reportArtifactSources(ctx),
-          toolArtifactSources: toolArtifactSources(ctx.globals, toolPlatform),
-          toolPlatform,
-          dryRun: ctx.globals.dryRunAgents,
-        });
-      }
+        },
+      });
+      provisionedSandbox = { provider, sandboxId: provisioned.sandboxId };
+      const workerRepoRoot = provisioned.workspaceRoot;
+      attachJobPayload(ctx.store, handlerCtx.token, { sandbox_id: provisioned.sandboxId });
+      // The job's sandbox_id qualifies this shared in-sandbox path as a durable workspace reference.
+      setClaimWorktreePath(ctx.store, targetClaimId, workerStateId, workerRepoRoot, handlerCtx.token);
       await mkdir(artifactDir, { recursive: true });
       const taskFile = resolve(artifactDir, "task_spec.json");
       await writeFile(taskFile, JSON.stringify({
@@ -265,18 +223,18 @@ export function buildWorkerTask(
         target_claim_id: targetClaimId,
         worker_state_id: workerStateId,
         base_rev: ctx.baseRev,
-        ...(provisionedSandbox ? {} : { worktree_path: workerRepoRoot }),
         artifact_dir: artifactDir,
         ttl_seconds: ctx.ttlSeconds,
+        sandbox_sleep: ctx.sandboxSleep,
+        sandbox_sleep_debounce_ms: ctx.sandboxSleepDebounceMs,
         thinking_level: ctx.thinkingLevel,
         post_return_check_command: ctx.postReturnCheckCommand,
         worker_configure_command: ctx.workerConfigureCommand,
         graph_db_path: ctx.graphDbPath,
         write_set_flags: ctx.writeSetFlags,
-        execution_class: job.executionClass,
-        ...(provisionedSandbox
-          ? { sandbox_id: provisionedSandbox.sandboxId, workspace_root: workerRepoRoot }
-          : {}),
+        execution_class: "sandbox",
+        sandbox_id: provisionedSandbox.sandboxId,
+        workspace_root: workerRepoRoot,
       }, null, 2));
       const command = ["bun", resolve(packageRoot(), "apps/server/src/job-runner.ts")];
       if (ctx.globals.gameId) command.push("--game", ctx.globals.gameId);
@@ -287,7 +245,7 @@ export function buildWorkerTask(
       return {
         jobId: job.jobId,
         kind: "worker",
-        executionClass: job.executionClass,
+        executionClass: "sandbox",
         command,
         env: Object.fromEntries(Object.entries(workerProcessEnv(ctx.globals)).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
         cwd: packageRoot(),
@@ -335,7 +293,7 @@ export function onWorkerJobComplete(
   let sandboxDeletion: Promise<void> | undefined;
   if (state?.ended_at) {
     enqueueBackgroundKnowledgeForWorker(ctx.store, workerStateId);
-    if (state.claim_status === "closed" && deps.sandboxProvider && job.executionClass === "sandbox" && typeof job.payload.sandbox_id === "string" && job.payload.sandbox_id) {
+    if (state.claim_status === "closed" && deps.sandboxProvider && typeof job.payload.sandbox_id === "string" && job.payload.sandbox_id) {
       // onComplete runs inside the job settlement transaction. Defer provider I/O
       // until that transaction has committed, and never reject into the host path.
       sandboxDeletion = Promise.resolve()
@@ -359,11 +317,32 @@ export function workerJobDescriptor(
   ctx: WorkerJobRunContext,
   deps: WorkerJobDeps = {},
 ): JobKindDescriptor {
+  const sandboxDeletionFired = new Set<string>();
   return {
     kind: "worker",
     concurrencyLimit: ctx.concurrencyLimit,
     leaseMs: ctx.ttlSeconds * 1000,
     execution: { mode: "dispatched", buildTask: buildWorkerTask(ctx, deps), executor: deps.executor ?? new LocalProcessExecutor() },
+    onPoll: (job) => {
+      if (sandboxDeletionFired.has(job.jobId) || !deps.sandboxProvider) return;
+      const freshJob = typeof job.payload.sandbox_id === "string" && job.payload.sandbox_id
+        ? job
+        : getJob(ctx.store, job.jobId);
+      if (!freshJob || typeof freshJob.payload.sandbox_id !== "string" || !freshJob.payload.sandbox_id) return;
+      const workerStateId = freshJob.payload.worker_state_id;
+      if (typeof workerStateId !== "string" || !workerStateId) return;
+      const state = ctx.store.db.query(`SELECT worker_state.ended_at, target_claims.status AS claim_status
+        FROM worker_state
+        LEFT JOIN target_claims ON target_claims.id = worker_state.target_claim_id
+        WHERE worker_state.id = ?`).get(workerStateId) as { ended_at: string | null; claim_status: string | null } | null;
+      if (!state?.ended_at || state.claim_status !== "closed") return;
+      sandboxDeletionFired.add(job.jobId);
+      const deletion = Promise.resolve()
+        .then(() => deleteSandboxForJob(ctx.store, freshJob, "settlement", deps))
+        .then(() => undefined)
+        .catch((error) => console.warn(`[sandbox] settlement teardown failed for job ${job.jobId}`, error));
+      deps.trackSandboxDeletion?.(deletion);
+    },
     onComplete: (job, result) => {
       const deletion = onWorkerJobComplete(job, result, ctx, deps);
       if (deletion) deps.trackSandboxDeletion?.(deletion);

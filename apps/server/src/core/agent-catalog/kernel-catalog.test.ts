@@ -53,6 +53,7 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         stateDir: sampleStateDir,
         initialBoardPath: resolve(sampleStateDir, "board.json"),
         workerLogDir: resolve(sampleStateDir, "workers"),
+        existingCanonicalToolPaths: new Set(),
       });
     case "conflict-resolver": {
       const claim = {

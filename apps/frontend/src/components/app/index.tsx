@@ -8,7 +8,6 @@ import { harnessStateAction, harnessStateCompatibilityAction, harnessStateReadMo
 import { type ImprovedMode, type WorkMode } from "@/pages/workspace/cycles/active/subphases/run/components/work-tables";
 import { type AppRoute, routeFromUrl, saveRoute } from "@/routing";
 import { loadGrainSettings, normalizeGrainSettings, saveGrainSettings, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
-import { normalizeToolConcurrency } from "@/lib/workerConfig";
 import { DashboardPage } from "@/pages/dashboard";
 import { GrainOverlay } from "@/components/app/_components/GrainOverlay";
 import { clampDetailsWidth, loadDetailsCollapsed, loadDetailsWidth, loadSidebarCollapsed, saveDetailsCollapsed, saveDetailsWidth, saveSidebarCollapsed } from "@/components/app/_lib/railState";
@@ -80,7 +79,6 @@ function workerConfigBody(body: JsonObject): JsonObject {
     provider: body.provider,
     model: body.model,
     thinkingLevel: body.thinkingLevel,
-    toolConcurrency: body.toolConcurrency,
   };
 }
 
@@ -132,10 +130,6 @@ function cycleRunConfigPatch(cycle: JsonObject): Partial<FormState> | null {
   const thinkingLevel = stringConfigValue(workerConfig.thinkingLevel);
   if (thinkingLevel !== null) {
     patch.thinkingLevel = thinkingLevel === "medium" && Number(workerConfig.configVersion) !== PROCESS_CONFIG_VERSION ? DEFAULT_THINKING_LEVEL : thinkingLevel;
-  }
-
-  if (Object.keys(asObject(workerConfig.toolConcurrency)).length > 0) {
-    patch.toolConcurrency = normalizeToolConcurrency(workerConfig.toolConcurrency);
   }
 
   return patch;
@@ -255,7 +249,6 @@ export function App() {
       .then((loaded) => {
         const gameDefaults = asObject(loaded.gameDefaults);
         const dashboardDefaults = asObject(gameDefaults.dashboard);
-        const toolConcurrencyDefaults = asObject(gameDefaults.toolConcurrency);
         setConfig(loaded);
         setFormState((current) => ({
           ...current,
@@ -272,7 +265,6 @@ export function App() {
           candidateRerank: String(dashboardDefaults.candidateRerank || current.candidateRerank),
           integrationResolverConcurrency: numberValue(dashboardDefaults.integrationResolverConcurrency, current.integrationResolverConcurrency),
           agentTimeoutSeconds: numberValue(dashboardDefaults.agentTimeoutSeconds, current.agentTimeoutSeconds),
-          toolConcurrency: normalizeToolConcurrency(toolConcurrencyDefaults.configured, current.toolConcurrency),
         }));
       })
       .catch(showError);

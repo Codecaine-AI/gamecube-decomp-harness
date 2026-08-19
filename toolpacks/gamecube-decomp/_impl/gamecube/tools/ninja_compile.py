@@ -22,7 +22,6 @@ to the real build, then compiles that file with the TU's real flags.
 from __future__ import annotations
 
 import atexit
-import contextlib
 import hashlib
 import json
 import os
@@ -34,10 +33,9 @@ import stat
 import subprocess
 import sys
 import tempfile
-import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
@@ -48,8 +46,6 @@ REPORT_PATH = ROOT / "build/GALE01/report.json"
 SRC_ROOT = ROOT / "src"
 
 MWCC_RULES = {"mwcc", "mwcc_sjis", "mwcc_extab", "mwcc_sjis_extab"}
-WORKER_COMPILE_SLOT_STALE_SECONDS = 60 * 60
-WORKER_COMPILE_SLOT_MISSING_OWNER_STALE_SECONDS = 30
 _CACHE_DIR = ROOT / "build/.ninja_compile_cache"
 _METADATA_CACHE_VERSION = 1
 _SJIS_VERDICT_CACHE_VERSION = 1
@@ -500,70 +496,6 @@ def _root_rel(p: Path) -> str:
         return str(p)
 
 
-def _worker_compile_concurrency() -> int:
-    value = os.environ.get("ORCH_WORKER_COMPILE_CONCURRENCY") or os.environ.get("ORCH_WORKER_NINJA_CONCURRENCY")
-    try:
-        parsed = int(value) if value else 12
-    except ValueError:
-        parsed = 12
-    return max(1, min(64, parsed))
-
-
-def _worker_compile_queue_dir() -> Path:
-    worktree_dir = ROOT.parent
-    workers_dir = worktree_dir.parent
-    if workers_dir.name == "workers":
-        return workers_dir.parent / ".worker-ninja-slots"
-    return worktree_dir / ".worker-ninja-slots"
-
-
-def _slot_is_stale(slot_dir: Path) -> bool:
-    try:
-        age = time.time() - slot_dir.stat().st_mtime
-    except OSError:
-        return True
-    try:
-        owner = json.loads((slot_dir / "owner.json").read_text())
-        pid = int(owner.get("pid") or 0)
-        if pid > 0:
-            try:
-                os.kill(pid, 0)
-                return age > WORKER_COMPILE_SLOT_STALE_SECONDS
-            except OSError:
-                return True
-    except Exception:
-        return age > WORKER_COMPILE_SLOT_MISSING_OWNER_STALE_SECONDS
-    return age > WORKER_COMPILE_SLOT_STALE_SECONDS
-
-
-@contextlib.contextmanager
-def worker_compile_slot() -> Iterator[None]:
-    queue_dir = _worker_compile_queue_dir()
-    queue_dir.mkdir(parents=True, exist_ok=True)
-    limit = _worker_compile_concurrency()
-    while True:
-        for index in range(limit):
-            slot_dir = queue_dir / f"slot-{index}"
-            try:
-                slot_dir.mkdir()
-                (slot_dir / "owner.json").write_text(json.dumps({
-                    "pid": os.getpid(),
-                    "repoRoot": str(ROOT),
-                    "acquiredAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                    "kind": "toolpack_mwcc",
-                }, indent=2))
-            except FileExistsError:
-                if _slot_is_stale(slot_dir):
-                    shutil.rmtree(slot_dir, ignore_errors=True)
-                continue
-            try:
-                yield
-            finally:
-                shutil.rmtree(slot_dir, ignore_errors=True)
-            return
-        time.sleep(0.25 + (os.getpid() % 10) * 0.03)
-
-
 def _runner_command() -> tuple[str, Path | str] | None:
     """Resolve the MWCC runner.
 
@@ -1010,8 +942,7 @@ def direct_compile(
         cmd += ["-prefix", prefix]
     cmd += ["-c", src, "-o", str(tmp_obj)]
 
-    with worker_compile_slot():
-        result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     if result.returncode != 0:
         if not quiet:
             print("direct compile failed:", file=sys.stderr)
@@ -1167,10 +1098,9 @@ def compile_batch(
 
     def compile_indexes(indexes: List[int]) -> subprocess.CompletedProcess:
         batch_cmd = cmd + [_root_rel(active_cfiles[index]) for index in indexes]
-        with worker_compile_slot():
-            return subprocess.run(
-                batch_cmd, cwd=ROOT, capture_output=True, text=True
-            )
+        return subprocess.run(
+            batch_cmd, cwd=ROOT, capture_output=True, text=True
+        )
 
     def diagnostic_failure_index(
         result: subprocess.CompletedProcess, indexes: List[int]
@@ -1294,8 +1224,7 @@ def build_pch(
             + shlex.split(block.cflags)
             + ["-precompile", _root_rel(mch_path), "-c", _root_rel(pch_c_path)]
         )
-        with worker_compile_slot():
-            result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+        result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
         if not mch_path.exists():
             if not quiet:
                 print("PCH precompile failed:", file=sys.stderr)

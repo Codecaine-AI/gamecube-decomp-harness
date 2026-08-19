@@ -242,6 +242,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
         const payload = JSON.parse(String(row.payload_json)) as Record<string, unknown>;
         expect(row.kind).toBe("worker");
         expect(row.status).toBe("queued");
+        expect(row.execution_class).toBe("sandbox");
         expect(row.dedupe_key).toBe(payload.epoch_target_id);
         expect(Number(row.priority)).toBe(candidates[index]!.priority);
         expect(row.run_id).toBe(run.id);

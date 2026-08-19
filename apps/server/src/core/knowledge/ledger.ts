@@ -66,6 +66,7 @@ export interface LedgerLearningSearchResult {
 }
 
 export function defaultLedgerPath(gameId = "melee"): string {
+  // ORCH_GAME_KNOWLEDGE_ROOT overrides this root; --state-dir does not, so disposable runs must set the env to avoid the production ledger.
   return resolve(gameKnowledgeRoot(gameId), "ledger", "learnings.jsonl");
 }
 

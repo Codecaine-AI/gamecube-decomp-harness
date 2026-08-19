@@ -327,7 +327,7 @@ describe("run recovery controls", () => {
     expect(stopped.run.causedByEventId).toBe(event?.eventId ?? null);
   });
 
-  test("pause records draining before settlement until the supervisor pauses", () => {
+  test("pause records draining before settlement until run-loop exit pauses", () => {
     const { dir, store } = tempState();
     const active = activeRun(store, dir);
     const claim = orphanedClaim(store, active.run.id);
@@ -352,9 +352,9 @@ describe("run recovery controls", () => {
     )!;
     const settlementRoot = newSpanId();
     const paused = settlePausedRun({
-      commandId: "command-supervisor-settled-test",
+      commandId: "command-run-loop-settled-test",
       leaseId: active.leaseId,
-      reason: "supervisor drained",
+      reason: "run-loop drained",
       runId: active.run.id,
       spanId: settlementRoot,
       store,
@@ -408,14 +408,14 @@ describe("run recovery controls", () => {
     expect(eventsForSubject(store.db, "run", active.run.id)).toHaveLength(beforeEvents);
   });
 
-  test("hard stop is event-free after supervisor settlement already paused the run", async () => {
+  test("hard stop is event-free after run-loop exit settlement already paused the run", async () => {
     const { dir, store } = tempState();
     const active = activeRun(store, dir);
     pauseRun({ reason: "operator pause", runId: active.run.id, store });
     const settled = settlePausedRun({
       actor: "guardian",
       leaseId: active.leaseId,
-      reason: "babysit reported settlement",
+      reason: "run-loop reported settlement",
       runId: active.run.id,
       store,
     });
@@ -425,7 +425,7 @@ describe("run recovery controls", () => {
       confirmed: true,
       globals: globalsFor(dir),
       processIntegrations: false,
-      reason: "operator hard stop raced with babysit",
+      reason: "operator hard stop raced with run-loop exit",
       runId: active.run.id,
       store,
     });

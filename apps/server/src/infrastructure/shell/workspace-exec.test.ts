@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -10,9 +10,7 @@ import {
 import {
   DEFAULT_SANDBOX_WORKSPACE_TIMEOUT_MS,
   captureWorkspaceGitDiff,
-  localWorkspaceExec,
   sandboxWorkspaceExec,
-  type WorkspaceExec,
 } from "./workspace-exec.js";
 
 const roots: string[] = [];
@@ -29,20 +27,6 @@ const createParams: SandboxCreateParams = {
 };
 
 describe("WorkspaceExec", () => {
-  test("keeps local commands rooted in the repo with runCommand env behavior", async () => {
-    const repoRoot = mkdtempSync(join(tmpdir(), "local-workspace-exec-"));
-    roots.push(repoRoot);
-    const workspaceExec = localWorkspaceExec(repoRoot);
-
-    const result = await workspaceExec.exec(
-      ["/bin/sh", "-lc", 'printf "%s|%s" "$PWD" "$WORKSPACE_EXEC_VALUE"'],
-      { env: { WORKSPACE_EXEC_VALUE: "visible" }, compile: true },
-    );
-
-    expect(workspaceExec.executionClass).toBe("local");
-    expect(result).toEqual({ exitCode: 0, stdout: `${realpathSync(repoRoot)}|visible`, stderr: "" });
-  });
-
   test("maps sandbox cwd, env, and explicit or default timeouts", async () => {
     const provider = new FakeSandboxProvider().scriptExec(
       { exitCode: 0, stdout: "first", stderr: "" },
@@ -62,7 +46,6 @@ describe("WorkspaceExec", () => {
     });
     await workspaceExec.exec(["git", "diff"], { timeoutMs: 0 });
 
-    expect(workspaceExec.executionClass).toBe("sandbox");
     expect(provider.execCalls.map((call) => call.opts)).toEqual([
       {
         cwd: "/workspace/melee",
@@ -82,42 +65,7 @@ describe("WorkspaceExec", () => {
     ]);
   });
 
-  test("holds host compile admission around sandbox build exec only", async () => {
-    const order: string[] = [];
-    const provider = new FakeSandboxProvider().scriptExec(
-      () => {
-        order.push("sandbox build");
-        return { exitCode: 0, stdout: "built", stderr: "" };
-      },
-      () => {
-        order.push("sandbox score");
-        return { exitCode: 0, stdout: "scored", stderr: "" };
-      },
-    );
-    const handle = await provider.create(createParams);
-    const workspaceExec = sandboxWorkspaceExec(handle, "/workspace/melee", {
-      withCompileSlot: async (run) => {
-        order.push("slot acquired");
-        try {
-          return await run();
-        } finally {
-          order.push("slot released");
-        }
-      },
-    });
-
-    await workspaceExec.exec(["ninja", "build/src/foo.o"], { compile: true });
-    await workspaceExec.exec(["objdiff-cli", "report"]);
-
-    expect(order).toEqual([
-      "slot acquired",
-      "sandbox build",
-      "slot released",
-      "sandbox score",
-    ]);
-  });
-
-  test("downloads sandbox git-diff evidence byte-identically to the local host path", async () => {
+  test("downloads sandbox git-diff evidence byte-identically to the host artifact path", async () => {
     const artifactDir = mkdtempSync(join(tmpdir(), "workspace-evidence-"));
     roots.push(artifactDir);
     const outputPath = join(artifactDir, "runner_validation", "attempt-0.write_set.diff");
@@ -131,19 +79,7 @@ describe("WorkspaceExec", () => {
       "-int value = 0;\n",
       "+int value = 1;\n",
     ].join("");
-    const localExec: WorkspaceExec = {
-      executionClass: "local",
-      exec: async (command) => {
-        expect(command).toEqual(["git", "diff", "--", "src/a.c"]);
-        return { exitCode: 0, stdout: patch, stderr: "" };
-      },
-    };
-
     writeFileSync(outputPath, "");
-    const local = await captureWorkspaceGitDiff(localExec, ["src/a.c"], outputPath);
-    const localBytes = readFileSync(outputPath);
-    expect(local.stdout).toBe(patch);
-
     let handle: SandboxHandle;
     const provider = new FakeSandboxProvider().scriptExec(
       async (call) => {
@@ -162,8 +98,8 @@ describe("WorkspaceExec", () => {
       outputPath,
     );
 
-    expect(readFileSync(outputPath)).toEqual(localBytes);
-    expect(sandbox).toEqual(local);
+    expect(readFileSync(outputPath)).toEqual(Buffer.from(patch));
+    expect(sandbox).toEqual({ exitCode: 0, stdout: patch, stderr: "" });
     expect(provider.execCalls[0]?.command).toEqual([
       "git",
       "diff",

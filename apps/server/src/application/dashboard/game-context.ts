@@ -1,6 +1,5 @@
 import { resolve } from "node:path";
 import { listGames, gameToSummary, resolveGame, type GameRuntimeContext, type GameSummary, type ResolvedGame } from "@server/core/game-registry";
-import { gameToolConcurrencyDefaults } from "@server/core/tools/concurrency-config";
 
 type JsonObject = Record<string, unknown>;
 
@@ -36,7 +35,6 @@ export function createDashboardGameContextService(deps: DashboardGameContextServ
       graphDbPath: game.graphDbPath,
       validation: game.validation,
       dashboard: game.dashboard,
-      toolConcurrency: gameToolConcurrencyDefaults(game.localEnvPath),
       pr: game.pr,
       knowledge: game.knowledge,
     };

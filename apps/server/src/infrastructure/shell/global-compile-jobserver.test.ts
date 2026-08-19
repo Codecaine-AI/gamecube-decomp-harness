@@ -2,13 +2,11 @@ import { describe, expect, test } from "bun:test";
 import {
   configureGlobalCompileJobserver,
   fifoTokenCount,
-  GLOBAL_COMPILE_SLOTS_ENV,
   globalCompileEnvironment,
   globalCompileJobserverPaths,
   ninjaSupportsFifoJobserver,
   normalizeNinjaArgsForJobserver,
   parseGlobalCompileSlots,
-  withGlobalCompileJobserverSlot,
 } from "./global-compile-jobserver.js";
 
 describe("global compile jobserver configuration", () => {
@@ -63,49 +61,5 @@ describe("global compile jobserver configuration", () => {
     expect(normalizeNinjaArgsForJobserver(["--jobs", "8", "all"])).toEqual(["all"]);
     expect(normalizeNinjaArgsForJobserver(["-j", "1", "one.o"])).toEqual(["-j", "1", "one.o"]);
     expect(normalizeNinjaArgsForJobserver(["-j", "not-a-count"])).toEqual(["-j", "not-a-count"]);
-  });
-
-  test("holds and releases a host slot around remote compile work", async () => {
-    const order: string[] = [];
-    const compile = withGlobalCompileJobserverSlot(
-      async () => {
-        order.push("compile");
-        throw new Error("remote build failed");
-      },
-      {
-        env: { [GLOBAL_COMPILE_SLOTS_ENV]: "2" },
-        acquire: async () => {
-          order.push("acquire");
-          return () => {
-            order.push("release");
-          };
-        },
-      },
-    );
-
-    await expect(compile).rejects.toThrow("remote build failed");
-    expect(order).toEqual(["acquire", "compile", "release"]);
-  });
-
-  test("does not reserve a slot when global compile admission is disabled", async () => {
-    const order: string[] = [];
-    const result = await withGlobalCompileJobserverSlot(
-      async () => {
-        order.push("compile");
-        return "done";
-      },
-      {
-        env: {},
-        acquire: async () => {
-          order.push("acquire");
-          return () => {
-            order.push("release");
-          };
-        },
-      },
-    );
-
-    expect(result).toBe("done");
-    expect(order).toEqual(["compile"]);
   });
 });

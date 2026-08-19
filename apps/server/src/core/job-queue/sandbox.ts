@@ -22,6 +22,8 @@ export interface SandboxCreateParams {
 
 export interface SandboxHandle {
   readonly sandboxId: string;
+  stop(): Promise<void>;
+  start(): Promise<void>;
   exec(
     command: string[],
     opts: { cwd?: string; env?: Record<string, string>; timeoutMs: number },
@@ -70,6 +72,8 @@ interface DaytonaSandbox {
   labels?: Record<string, string>;
   process: DaytonaProcess;
   fs: DaytonaFileSystem;
+  stop(timeoutSeconds?: number): Promise<void>;
+  start(timeoutSeconds?: number): Promise<void>;
   delete?(timeoutSeconds?: number, wait?: boolean): Promise<void>;
 }
 
@@ -141,6 +145,14 @@ class DaytonaSandboxHandle implements SandboxHandle {
 
   constructor(private readonly sandbox: DaytonaSandbox) {
     this.sandboxId = sandbox.id;
+  }
+
+  async stop(): Promise<void> {
+    await this.sandbox.stop(60);
+  }
+
+  async start(): Promise<void> {
+    await this.sandbox.start(60);
   }
 
   async exec(
@@ -292,6 +304,22 @@ export interface FakeSandboxRecord {
   params: SandboxCreateParams;
 }
 
+export type FakeSandboxRuntimeState = "started" | "stopped";
+
+export type FakeSandboxOperation =
+  | "stop"
+  | "start"
+  | "exec"
+  | "uploadFile"
+  | "downloadFile"
+  | "readFile"
+  | "writeFile";
+
+export interface FakeSandboxOperationCall {
+  sandboxId: string;
+  operation: FakeSandboxOperation;
+}
+
 export interface FakeSandboxDeletion extends FakeSandboxRecord {
   reason: SandboxDeleteReason;
 }
@@ -301,9 +329,12 @@ type FakeExecScript =
   | Error
   | ((call: FakeSandboxExecCall) => SandboxExecResult | Promise<SandboxExecResult>);
 
+type FakeTransitionScript = Error | (() => void | Promise<void>);
+
 interface FakeSandboxState extends FakeSandboxRecord {
   files: Map<string, Buffer>;
   deleted: boolean;
+  state: FakeSandboxRuntimeState;
 }
 
 function cloneCreateParams(params: SandboxCreateParams): SandboxCreateParams {
@@ -321,13 +352,33 @@ export class FakeSandboxProvider implements SandboxProvider {
   readonly execCalls: FakeSandboxExecCall[] = [];
   readonly uploadCalls: Array<{ sandboxId: string; localPath: string; remotePath: string }> = [];
   readonly downloadCalls: Array<{ sandboxId: string; remotePath: string; localPath: string }> = [];
+  readonly stopCalls: Array<{ sandboxId: string }> = [];
+  readonly startCalls: Array<{ sandboxId: string }> = [];
+  readonly operationCalls: FakeSandboxOperationCall[] = [];
   private readonly sandboxes = new Map<string, FakeSandboxState>();
   private readonly execScripts: FakeExecScript[] = [];
+  private readonly stopScripts: FakeTransitionScript[] = [];
+  private readonly startScripts: FakeTransitionScript[] = [];
   private nextSandboxId = 1;
 
   scriptExec(...scripts: FakeExecScript[]): this {
     this.execScripts.push(...scripts);
     return this;
+  }
+
+  scriptStop(...scripts: FakeTransitionScript[]): this {
+    this.stopScripts.push(...scripts);
+    return this;
+  }
+
+  scriptStart(...scripts: FakeTransitionScript[]): this {
+    this.startScripts.push(...scripts);
+    return this;
+  }
+
+  sandboxState(sandboxId: string): FakeSandboxRuntimeState | null {
+    const state = this.sandboxes.get(sandboxId);
+    return state && !state.deleted ? state.state : null;
   }
 
   async create(params: SandboxCreateParams): Promise<SandboxHandle> {
@@ -339,6 +390,7 @@ export class FakeSandboxProvider implements SandboxProvider {
       params: saved,
       files: new Map(),
       deleted: false,
+      state: "started",
     };
     this.sandboxes.set(sandboxId, state);
     this.createdSandboxes.push({ sandboxId, labels: { ...state.labels }, params: cloneCreateParams(saved) });
@@ -375,11 +427,41 @@ export class FakeSandboxProvider implements SandboxProvider {
     if (state.deleted) throw new Error(`sandbox ${state.sandboxId} is deleted`);
   }
 
+  private assertStarted(state: FakeSandboxState): void {
+    this.assertLive(state);
+    if (state.state === "stopped") {
+      throw new Error(`sandbox ${state.sandboxId} is stopped`);
+    }
+  }
+
+  private async runTransitionScript(script: FakeTransitionScript | undefined): Promise<void> {
+    if (!script) return;
+    if (script instanceof Error) throw script;
+    await script();
+  }
+
   private fakeHandle(state: FakeSandboxState): SandboxHandle {
     return {
       sandboxId: state.sandboxId,
-      exec: async (command, opts) => {
+      stop: async () => {
         this.assertLive(state);
+        this.stopCalls.push({ sandboxId: state.sandboxId });
+        this.operationCalls.push({ sandboxId: state.sandboxId, operation: "stop" });
+        await this.runTransitionScript(this.stopScripts.shift());
+        this.assertLive(state);
+        state.state = "stopped";
+      },
+      start: async () => {
+        this.assertLive(state);
+        this.startCalls.push({ sandboxId: state.sandboxId });
+        this.operationCalls.push({ sandboxId: state.sandboxId, operation: "start" });
+        await this.runTransitionScript(this.startScripts.shift());
+        this.assertLive(state);
+        state.state = "started";
+      },
+      exec: async (command, opts) => {
+        this.assertStarted(state);
+        this.operationCalls.push({ sandboxId: state.sandboxId, operation: "exec" });
         const call: FakeSandboxExecCall = {
           sandboxId: state.sandboxId,
           command: [...command],
@@ -392,25 +474,29 @@ export class FakeSandboxProvider implements SandboxProvider {
         return { ...result };
       },
       uploadFile: async (localPath, remotePath) => {
-        this.assertLive(state);
+        this.assertStarted(state);
+        this.operationCalls.push({ sandboxId: state.sandboxId, operation: "uploadFile" });
         this.uploadCalls.push({ sandboxId: state.sandboxId, localPath, remotePath });
         state.files.set(remotePath, await readFile(localPath));
       },
       downloadFile: async (remotePath, localPath) => {
-        this.assertLive(state);
+        this.assertStarted(state);
+        this.operationCalls.push({ sandboxId: state.sandboxId, operation: "downloadFile" });
         this.downloadCalls.push({ sandboxId: state.sandboxId, remotePath, localPath });
         const content = state.files.get(remotePath);
         if (!content) throw new Error(`sandbox file not found: ${remotePath}`);
         await writeFile(localPath, content);
       },
       readFile: async (remotePath) => {
-        this.assertLive(state);
+        this.assertStarted(state);
+        this.operationCalls.push({ sandboxId: state.sandboxId, operation: "readFile" });
         const content = state.files.get(remotePath);
         if (!content) throw new Error(`sandbox file not found: ${remotePath}`);
         return content.toString("utf8");
       },
       writeFile: async (remotePath, content) => {
-        this.assertLive(state);
+        this.assertStarted(state);
+        this.operationCalls.push({ sandboxId: state.sandboxId, operation: "writeFile" });
         state.files.set(remotePath, Buffer.from(content, "utf8"));
       },
     };

@@ -85,6 +85,8 @@ export interface WorkerPromptOptions {
   contextBudget?: WorkerPromptContextBudget;
   /** Sandbox-prefetched target source; undefined keeps local rendering unchanged. */
   targetSourceText?: string | null;
+  /** Sandbox-prefetched canonical paths that exist in the worker checkout. */
+  existingCanonicalToolPaths: ReadonlySet<string>;
 }
 
 export interface WorkerPromptInputXmlOptions {
@@ -720,7 +722,9 @@ export function buildWorkerKernelContext(
   const values = {
     AVAILABLE_TOOLS_XML: availableToolsBudgetXml(contextBudget, toolContext),
     BASELINE_XML: inputXml.baselineXml,
-    CANONICAL_TOOL_PATHS_XML: workerCanonicalToolPathsXml(options.repoRoot),
+    CANONICAL_TOOL_PATHS_XML: workerCanonicalToolPathsXml(
+      options.existingCanonicalToolPaths,
+    ),
     CONTEXT_BUDGET_XML: contextBudgetXml(contextBudget),
     DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget),
     REPAIR_REQUEST_XML: repairRequestXml(options.packet),

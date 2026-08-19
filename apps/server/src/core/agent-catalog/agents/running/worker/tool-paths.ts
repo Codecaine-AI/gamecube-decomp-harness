@@ -1,6 +1,3 @@
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-
 export interface WorkerCanonicalToolPath {
   id: string;
   label: string;
@@ -86,16 +83,17 @@ function xmlAttribute(value: unknown): string {
     .replace(/>/g, "&gt;");
 }
 
-export function workerCanonicalToolPathsXml(repoRoot: string): string {
+export function workerCanonicalToolPathsXml(
+  existingRelativePaths: ReadonlySet<string>,
+): string {
   const lines = ["    <canonical_tool_paths>"];
   lines.push(
     '        <policy>Use these worker-local paths or PATH commands instead of filesystem-wide search. build/binutils and build/tools are on PATH for worker shells. Broad find roots such as /, /Users, /opt, /Applications, and upward ../../ sweeps are blocked; use narrow find only inside this worker checkout when local source discovery is needed.</policy>',
   );
   for (const tool of WORKER_CANONICAL_TOOL_PATHS) {
-    const absPath = resolve(repoRoot, tool.relativePath);
     const command = "command" in tool ? tool.command : "";
     lines.push(
-      `        <tool id="${xmlAttribute(tool.id)}" label="${xmlAttribute(tool.label)}" relative_path="${xmlAttribute(tool.relativePath)}" command="${xmlAttribute(command)}" exists="${existsSync(absPath) ? "true" : "false"}" purpose="${xmlAttribute(tool.purpose)}" />`,
+      `        <tool id="${xmlAttribute(tool.id)}" label="${xmlAttribute(tool.label)}" relative_path="${xmlAttribute(tool.relativePath)}" command="${xmlAttribute(command)}" exists="${existingRelativePaths.has(tool.relativePath) ? "true" : "false"}" purpose="${xmlAttribute(tool.purpose)}" />`,
     );
   }
   lines.push("    </canonical_tool_paths>");

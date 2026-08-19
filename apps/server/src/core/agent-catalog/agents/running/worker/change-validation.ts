@@ -1,6 +1,6 @@
-import { existsSync, statSync } from "node:fs";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, resolve } from "node:path";
 import type { WriteSetEntry } from "@server/core/cycle-runtime/run-state/write-set-categories";
 import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
 import {
@@ -22,13 +22,10 @@ const EXACT_SCORE = 99.99999;
 // unwinnable accept loop (nothing can improve over a baseline of 100).
 const objdiffReportConfigCache = new Map<string, string[]>();
 async function readWorkspaceText(
-  repoRoot: string,
+  _repoRoot: string,
   path: string,
-  workspaceExec?: WorkspaceExec,
+  workspaceExec: WorkspaceExec,
 ): Promise<string> {
-  if (!workspaceExec || workspaceExec.executionClass === "local") {
-    return readFile(resolve(repoRoot, path), "utf8");
-  }
   const result = await workspaceExec.exec(["cat", path]);
   if (result.exitCode !== 0) {
     throw new Error(result.stderr.trim() || `unable to read sandbox workspace file ${path}`);
@@ -38,9 +35,9 @@ async function readWorkspaceText(
 
 async function objdiffReportConfigArgs(
   repoRoot: string,
-  workspaceExec?: WorkspaceExec,
+  workspaceExec: WorkspaceExec,
 ): Promise<string[]> {
-  const cacheKey = `${workspaceExec?.executionClass ?? "local"}:${repoRoot}`;
+  const cacheKey = repoRoot;
   const cached = objdiffReportConfigCache.get(cacheKey);
   if (cached) return cached;
   let args: string[] = [];
@@ -57,9 +54,6 @@ async function objdiffReportConfigArgs(
   objdiffReportConfigCache.set(cacheKey, args);
   return args;
 }
-const DEFAULT_WORKER_NINJA_CONCURRENCY = 12;
-const WORKER_NINJA_SLOT_STALE_MS = 60 * 60 * 1000;
-const WORKER_NINJA_SLOT_MISSING_OWNER_STALE_MS = 30 * 1000;
 
 export interface WorkerUnitScore {
   name: string;
@@ -153,7 +147,7 @@ export interface ScopedUnitCheckRunnerOptions {
   sourcePath: string;
   mode: ScopedCheckMode;
   triggerPaths: string[];
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }
 
 export type ScopedUnitCheckRunner = (options: ScopedUnitCheckRunnerOptions) => Promise<ScopedUnitCheck>;
@@ -326,20 +320,15 @@ function snapshotFromObjdiffReport(params: {
 }
 
 async function runValidationCommand(
-  repoRoot: string,
+  _repoRoot: string,
   command: string[],
   stdoutPath: string,
   stderrPath: string,
-  workspaceExec?: WorkspaceExec,
+  workspaceExec: WorkspaceExec,
 ): Promise<WorkerValidationCommandResult> {
   let result: CommandResult;
   try {
-    const execute = () => workspaceExec
-      ? workspaceExec.exec(command, { compile: command[0] === "ninja" })
-      : runCommand(repoRoot, command);
-    result = command[0] === "ninja" && workspaceExec?.executionClass !== "sandbox"
-      ? await withWorkerNinjaSlot(repoRoot, execute)
-      : await execute();
+    result = await workspaceExec.exec(command, { compile: command[0] === "ninja" });
   } catch (error) {
     const message = error instanceof Error ? error.stack ?? error.message : String(error);
     result = { exitCode: 127, stdout: "", stderr: message };
@@ -355,13 +344,12 @@ async function runObjdiffReportCommand(params: {
   reportPath: string;
   stdoutPath: string;
   stderrPath: string;
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }): Promise<WorkerValidationCommandResult> {
-  const sandbox = params.workspaceExec?.executionClass === "sandbox";
   const command = [
     ...params.command,
     "-o",
-    sandbox ? "/dev/stdout" : params.reportPath,
+    "/dev/stdout",
   ];
   const result = await runValidationCommand(
     params.repoRoot,
@@ -370,89 +358,8 @@ async function runObjdiffReportCommand(params: {
     params.stderrPath,
     params.workspaceExec,
   );
-  if (sandbox && result.exitCode === 0) await writeFile(params.reportPath, result.stdout);
+  if (result.exitCode === 0) await writeFile(params.reportPath, result.stdout);
   return result;
-}
-
-function workerNinjaConcurrency(): number {
-  const parsed = Number(process.env.ORCH_WORKER_COMPILE_CONCURRENCY ?? process.env.ORCH_WORKER_NINJA_CONCURRENCY);
-  if (!Number.isFinite(parsed)) return DEFAULT_WORKER_NINJA_CONCURRENCY;
-  return Math.max(1, Math.min(64, Math.floor(parsed)));
-}
-
-function workerNinjaQueueDir(repoRoot: string): string {
-  const worktreeDir = dirname(repoRoot);
-  const workersDir = dirname(worktreeDir);
-  if (basename(workersDir) === "workers") return resolve(dirname(workersDir), ".worker-ninja-slots");
-  return resolve(dirname(worktreeDir), ".worker-ninja-slots");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
-}
-
-async function workerNinjaSlotIsStale(slotDir: string): Promise<boolean> {
-  const ageMs = (() => {
-    try {
-      return Date.now() - statSync(slotDir).mtimeMs;
-    } catch {
-      return WORKER_NINJA_SLOT_STALE_MS + 1;
-    }
-  })();
-
-  try {
-    const owner = JSON.parse(await readFile(resolve(slotDir, "owner.json"), "utf8")) as { pid?: unknown };
-    const pid = typeof owner.pid === "number" ? owner.pid : 0;
-    if (pid > 0) {
-      try {
-        process.kill(pid, 0);
-        return ageMs > WORKER_NINJA_SLOT_STALE_MS;
-      } catch {
-        return true;
-      }
-    }
-  } catch {
-    return ageMs > WORKER_NINJA_SLOT_MISSING_OWNER_STALE_MS;
-  }
-
-  return ageMs > WORKER_NINJA_SLOT_STALE_MS;
-}
-
-async function acquireWorkerNinjaSlot(repoRoot: string): Promise<() => Promise<void>> {
-  const queueDir = workerNinjaQueueDir(repoRoot);
-  const limit = workerNinjaConcurrency();
-  await mkdir(queueDir, { recursive: true });
-  for (;;) {
-    for (let index = 0; index < limit; index += 1) {
-      const slotDir = resolve(queueDir, `slot-${index}`);
-      try {
-        await mkdir(slotDir);
-        await writeFile(
-          resolve(slotDir, "owner.json"),
-          JSON.stringify({ pid: process.pid, repoRoot, acquiredAt: new Date().toISOString() }, null, 2),
-        );
-        return async () => {
-          await rm(slotDir, { recursive: true, force: true });
-        };
-      } catch (error) {
-        if ((error as { code?: string }).code !== "EEXIST") throw error;
-        if (await workerNinjaSlotIsStale(slotDir)) {
-          await rm(slotDir, { recursive: true, force: true });
-          continue;
-        }
-      }
-    }
-    await sleep(250 + Math.floor(Math.random() * 500));
-  }
-}
-
-async function withWorkerNinjaSlot<T>(repoRoot: string, run: () => Promise<T>): Promise<T> {
-  const release = await acquireWorkerNinjaSlot(repoRoot);
-  try {
-    return await run();
-  } finally {
-    await release();
-  }
 }
 
 function isSafeRepoRelativePath(path: string): boolean {
@@ -463,26 +370,17 @@ async function snapshotPreWorkerSources(params: {
   repoRoot: string;
   outputDir: string;
   paths: string[];
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }): Promise<{ dir: string; copied: string[] }> {
   const dir = resolve(params.outputDir, "pre_worker_source");
   const copied: string[] = [];
   for (const relPath of new Set(params.paths)) {
     if (!isSafeRepoRelativePath(relPath)) continue;
-    const source = resolve(params.repoRoot, relPath);
     const destination = resolve(dir, relPath);
     try {
-      if (params.workspaceExec?.executionClass === "sandbox") {
-        const contents = await readWorkspaceText(params.repoRoot, relPath, params.workspaceExec);
-        await mkdir(dirname(destination), { recursive: true });
-        await writeFile(destination, contents);
-      } else {
-        // Keep the local path byte-identical: missing sources are skipped before
-        // creating any snapshot directories.
-        if (!existsSync(source)) continue;
-        await mkdir(dirname(destination), { recursive: true });
-        await copyFile(source, destination);
-      }
+      const contents = await readWorkspaceText(params.repoRoot, relPath, params.workspaceExec);
+      await mkdir(dirname(destination), { recursive: true });
+      await writeFile(destination, contents);
       copied.push(relPath);
     } catch {
       // A failed copy only degrades the QA lint scan to "skipped" later;
@@ -499,7 +397,7 @@ export async function captureWorkerChangeBaseline(params: {
   dryRun?: boolean;
   /** Additional repo-relative paths to snapshot for the L1 QA lint diff. */
   extraPaths?: string[];
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeBaseline> {
   await mkdir(params.outputDir, { recursive: true });
   const unit = stringValue(params.target.unit);
@@ -637,7 +535,7 @@ export async function extendWorkerChangeBaselineSourceSnapshot(params: {
   repoRoot: string;
   baseline: WorkerChangeBaseline;
   extraPaths: string[];
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }): Promise<string[]> {
   const dir = params.baseline.sourceSnapshotDir;
   if (!dir) return [];
@@ -647,9 +545,7 @@ export async function extendWorkerChangeBaselineSourceSnapshot(params: {
     if (!isSafeRepoRelativePath(relPath) || existing.has(relPath)) continue;
     let show: CommandResult;
     try {
-      show = params.workspaceExec?.executionClass === "sandbox"
-        ? await params.workspaceExec.exec(["git", "show", `HEAD:${relPath}`])
-        : await runCommand(params.repoRoot, ["git", "show", `HEAD:${relPath}`]);
+      show = await params.workspaceExec.exec(["git", "show", `HEAD:${relPath}`]);
     } catch {
       continue;
     }
@@ -952,11 +848,9 @@ async function resolveConfigUnitsFromHunks(options: {
   repoRoot: string;
   baseRev: string;
   metadataPath: string;
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }): Promise<string[]> {
-  const runWorkspaceCommand = (command: string[]) => options.workspaceExec
-    ? options.workspaceExec.exec(command)
-    : runCommand(options.repoRoot, command);
+  const runWorkspaceCommand = (command: string[]) => options.workspaceExec.exec(command);
   const diff = await runWorkspaceCommand(["git", "diff", "--unified=0", options.baseRev, "--", options.metadataPath]);
   if (diff.exitCode !== 0) return [];
   const addresses = configHunkAddresses(diff.stdout);
@@ -988,7 +882,7 @@ async function resolveConfigUnitsFromHunks(options: {
 async function objdiffUnitNameForSource(
   repoRoot: string,
   sourcePath: string,
-  workspaceExec?: WorkspaceExec,
+  workspaceExec: WorkspaceExec,
 ): Promise<string | null> {
   try {
     const config = JSON.parse(await readWorkspaceText(repoRoot, "objdiff.json", workspaceExec)) as unknown;
@@ -1122,17 +1016,14 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
 }
 
 async function inferredHeaderOwner(
-  repoRoot: string,
+  _repoRoot: string,
   headerPath: string,
-  workspaceExec?: WorkspaceExec,
+  workspaceExec: WorkspaceExec,
 ): Promise<string | null> {
   const normalized = normalizeRepoPath(headerPath);
   const candidates = normalized.startsWith("include/")
     ? [`src/${normalized.slice("include/".length).replace(/\.h$/i, ".c")}`]
     : [normalized.replace(/\.h$/i, ".c")];
-  if (workspaceExec?.executionClass !== "sandbox") {
-    return candidates.find((candidate) => existsSync(resolve(repoRoot, candidate))) ?? null;
-  }
   for (const candidate of candidates) {
     const result = await workspaceExec.exec(["test", "-f", candidate]);
     if (result.exitCode === 0) return candidate;
@@ -1157,7 +1048,7 @@ export async function validateWidenedChange(params: {
   maxConsumers?: number;
   headerOwnerByPath?: Record<string, string>;
   runners?: WidenedValidationRunners;
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const evidencePath = resolve(params.outputDir, `attempt-${params.attemptIndex}.widened_validation.json`);
@@ -1206,9 +1097,7 @@ export async function validateWidenedChange(params: {
           baseRev: params.baseRev,
           headerPath: entry.path,
           ...(params.maxConsumers === undefined ? {} : { maxConsumers: params.maxConsumers }),
-          ...(params.workspaceExec
-            ? { runCommand: (_cwd: string, command: string[]) => params.workspaceExec!.exec(command) }
-            : {}),
+          runCommand: (_cwd: string, command: string[]) => params.workspaceExec.exec(command),
         });
       } catch (error) {
         reasons.push(`header consumer resolution failed for ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
@@ -1271,7 +1160,7 @@ export async function validateWidenedChange(params: {
         sourcePath,
         mode: scope.mode,
         triggerPaths,
-        ...(params.workspaceExec ? { workspaceExec: params.workspaceExec } : {}),
+        workspaceExec: params.workspaceExec,
       });
     } catch (error) {
       checked = {
@@ -1302,12 +1191,13 @@ export async function validateWidenedChange(params: {
 
 async function runWorkerQaLintScan(params: {
   repoRoot: string;
+  hostRepoRoot: string;
   outputDir: string;
   attemptIndex: number;
   baseline: WorkerChangeBaseline;
   orchestratorRoot: string;
   qaScanRunner: QaScanRunner;
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }): Promise<WorkerQaLint> {
   const unavailable = (toolError: string): WorkerQaLint => ({ status: "tool_unavailable", exitCode: null, findings: [], scanPath: null, toolError });
   const snapshotDir = params.baseline.sourceSnapshotDir;
@@ -1322,25 +1212,20 @@ async function runWorkerQaLintScan(params: {
   const rawDiffPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.qa_diff.raw.patch`);
   for (const relPath of snapshotPaths) {
     const preWorkerCopy = resolve(snapshotDir, relPath);
-    let currentPath = resolve(params.repoRoot, relPath);
+    const currentPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.qa_current`, relPath);
     // A file the worker deleted (or a copy that vanished) has no post-edit
     // content to scan; the score validation owns judging that situation.
     if (!existsSync(preWorkerCopy)) continue;
-    if (params.workspaceExec?.executionClass === "sandbox") {
-      currentPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.qa_current`, relPath);
-      try {
-        await mkdir(dirname(currentPath), { recursive: true });
-        await writeFile(currentPath, await readWorkspaceText(params.repoRoot, relPath, params.workspaceExec));
-      } catch {
-        continue;
-      }
-    } else if (!existsSync(currentPath)) {
+    try {
+      await mkdir(dirname(currentPath), { recursive: true });
+      await writeFile(currentPath, await readWorkspaceText(params.repoRoot, relPath, params.workspaceExec));
+    } catch {
       continue;
     }
     let diff: CommandResult;
     try {
       diff = await runCommand(
-        params.workspaceExec?.executionClass === "sandbox" ? params.outputDir : params.repoRoot,
+        params.outputDir,
         ["git", "diff", "--no-index", `--output=${rawDiffPath}`, preWorkerCopy, currentPath],
       );
     } catch (error) {
@@ -1365,8 +1250,10 @@ async function runWorkerQaLintScan(params: {
 
   const scanPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.qa_diff.patch`);
   await writeFile(scanPath, `${sections.join("\n")}\n`);
+  // Lint policy files come from the host checkout, which may lag the claim
+  // revision; that is acceptable for worker lint policy resolution.
   const invocation = await params.qaScanRunner({
-    repoRoot: params.repoRoot,
+    repoRoot: params.hostRepoRoot,
     orchestratorRoot: params.orchestratorRoot,
     diffFile: scanPath,
     surface: "worker",
@@ -1376,6 +1263,7 @@ async function runWorkerQaLintScan(params: {
 
 export async function validateWorkerChange(params: {
   repoRoot: string;
+  hostRepoRoot: string;
   outputDir: string;
   attemptIndex: number;
   baseline: WorkerChangeBaseline;
@@ -1387,7 +1275,7 @@ export async function validateWorkerChange(params: {
   orchestratorRoot?: string;
   /** Injectable scan_diff runner; defaults to runQaScanDiff. */
   qaScanRunner?: QaScanRunner;
-  workspaceExec?: WorkspaceExec;
+  workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const summaryPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.runner_validation.summary.json`);
@@ -1401,6 +1289,7 @@ export async function validateWorkerChange(params: {
   // whether the attempt's score evidence is usable.
   const qaLint = await runWorkerQaLintScan({
     repoRoot: params.repoRoot,
+    hostRepoRoot: params.hostRepoRoot,
     outputDir: params.outputDir,
     attemptIndex: params.attemptIndex,
     baseline: params.baseline,
@@ -1422,7 +1311,7 @@ async function validateWorkerScoreChange(
     baseline: WorkerChangeBaseline;
     target: Record<string, unknown>;
     claimedExact: boolean;
-    workspaceExec?: WorkspaceExec;
+    workspaceExec: WorkspaceExec;
   },
   summaryPath: string,
 ): Promise<WorkerRunnerValidation> {

@@ -53,6 +53,10 @@ function sampleWorkerPrompt() {
     stateDir: "/state",
     initialBoardPath: "/state/board.json",
     workerLogDir: "/state/workers",
+    existingCanonicalToolPaths: new Set([
+      "build/binutils/powerpc-eabi-objdump",
+      "build/tools/dtk",
+    ]),
   });
 }
 
@@ -79,6 +83,8 @@ describe("workerPrompt", () => {
     expect(renderedContext).toContain("<target_file");
     expect(renderedContext).toContain("<canonical_tool_paths>");
     expect(renderedContext).toContain('relative_path="build/binutils/powerpc-eabi-objdump"');
+    expect(renderedContext).toContain('relative_path="build/binutils/powerpc-eabi-objdump" command="powerpc-eabi-objdump" exists="true"');
+    expect(renderedContext).toContain('relative_path="build/binutils/powerpc-eabi-nm" command="powerpc-eabi-nm" exists="false"');
     expect(renderedContext).toContain("Broad find roots");
     expect(renderedContext).toContain("<target_graph_file_card");
     expect(renderedContext).toContain('"top_opseq_analog"');
@@ -123,6 +129,7 @@ describe("workerPrompt", () => {
         stateDir: "/state",
         initialBoardPath: "/state/board.json",
         workerLogDir: "/state/workers",
+        existingCanonicalToolPaths: new Set(),
       });
       const renderedContext = bundle.kernelContext?.renderedContext ?? "";
 
@@ -164,6 +171,7 @@ describe("workerPrompt", () => {
         stateDir: "/state",
         initialBoardPath: "/state/board.json",
         workerLogDir: "/state/workers",
+        existingCanonicalToolPaths: new Set(),
       };
       const fullContext = workerPrompt(baseOptions).kernelContext?.renderedContext ?? "";
       const compactContext = workerPrompt({ ...baseOptions, contextBudget: "compact" }).kernelContext?.renderedContext ?? "";
@@ -195,6 +203,7 @@ describe("workerPrompt", () => {
       stateDir: "/state",
       initialBoardPath: "/state/board.json",
       workerLogDir: "/state/workers",
+      existingCanonicalToolPaths: new Set(),
       targetSourceText: "int sandbox_prefetched_marker;\n",
     });
 

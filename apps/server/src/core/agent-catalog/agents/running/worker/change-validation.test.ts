@@ -21,6 +21,10 @@ import {
 import type { WorkerRunnerValidation } from "./runner-validation.js";
 import type { WorkspaceExec, WorkspaceExecOptions } from "@server/infrastructure/shell";
 
+function fakeWorkspaceExec(exec: WorkspaceExec["exec"] = async () => ({ exitCode: 0, stdout: "", stderr: "" })): WorkspaceExec {
+  return { exec } as WorkspaceExec;
+}
+
 function finding(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
   return {
     rule_id: "extern_in_c",
@@ -300,31 +304,6 @@ describe("qaLintRepairReasons", () => {
 });
 
 describe("captureWorkerChangeBaseline source snapshot", () => {
-  test("copies the target source file and extraPaths into pre_worker_source", async () => {
-    const root = await mkdtemp(join(tmpdir(), "qa-l1-baseline-"));
-    const repoRoot = join(root, "repo");
-    const outputDir = join(root, "validation");
-    await mkdir(join(repoRoot, "src/melee/ft"), { recursive: true });
-    await mkdir(join(repoRoot, "src/melee/gr"), { recursive: true });
-    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.c"), "int a;\n");
-    await writeFile(join(repoRoot, "src/melee/gr/ground.c"), "int b;\n");
-
-    const baseline = await captureWorkerChangeBaseline({
-      repoRoot,
-      outputDir,
-      target: { unit: "melee/ft/ftcoll.c", symbol: "ftCo_800C8E5C", source_path: "src/melee/ft/ftcoll.c" },
-      extraPaths: ["src/melee/gr/ground.c", "src/missing.c", "../escape.c"],
-    });
-
-    expect(baseline.sourceSnapshotDir).toBe(resolve(outputDir, "pre_worker_source"));
-    expect(baseline.sourceSnapshotPaths?.sort()).toEqual(["src/melee/ft/ftcoll.c", "src/melee/gr/ground.c"]);
-    expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/ft/ftcoll.c"), "utf8")).toBe("int a;\n");
-    expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/gr/ground.c"), "utf8")).toBe("int b;\n");
-    // No build system in the temp repo, so the objdiff baseline itself fails —
-    // the source snapshot must survive that.
-    expect(baseline.snapshot).toBeNull();
-  });
-
   test("routes sandbox build and objdiff through WorkspaceExec without worker ninja slots", async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "sandbox-change-baseline-"));
     const calls: Array<{ command: string[]; options?: WorkspaceExecOptions }> = [];
@@ -334,13 +313,18 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
         symbols: [{ name: "ftCo_800C8E5C", match_percent: 75, size: 16, instructions: [] }],
       },
     });
-    const workspaceExec: WorkspaceExec = {
-      executionClass: "sandbox",
-      async exec(command, options) {
+    const workspaceExec = fakeWorkspaceExec(
+      async (command, options) => {
         calls.push({ command, options });
         if (command[0] === "cat") {
           if (command[1] === "src/melee/ft/ftcoll.c") {
             return { exitCode: 0, stdout: "int sandbox_source;\n", stderr: "" };
+          }
+          if (command[1] === "src/melee/gr/ground.c") {
+            return { exitCode: 0, stdout: "int sandbox_extra;\n", stderr: "" };
+          }
+          if (command[1] === "src/missing.c") {
+            return { exitCode: 1, stdout: "", stderr: "missing" };
           }
           return { exitCode: 0, stdout: "objdiff_report_args = --config functionRelocDiffs=data_value\n", stderr: "" };
         }
@@ -349,7 +333,7 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
         }
         return { exitCode: 0, stdout: "", stderr: "" };
       },
-    };
+    );
 
     const baseline = await captureWorkerChangeBaseline({
       repoRoot: "/workspace/melee",
@@ -359,72 +343,36 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
         symbol: "ftCo_800C8E5C",
         source_path: "src/melee/ft/ftcoll.c",
       },
+      extraPaths: ["src/melee/gr/ground.c", "src/missing.c", "../escape.c"],
       workspaceExec,
     });
 
     expect(baseline.status).toBe("available");
     expect(baseline.snapshot?.targetScore).toBe(75);
     expect(calls[0]?.command).toEqual(["cat", "src/melee/ft/ftcoll.c"]);
-    expect(calls[1]).toEqual({
+    expect(baseline.sourceSnapshotPaths?.sort()).toEqual(["src/melee/ft/ftcoll.c", "src/melee/gr/ground.c"]);
+    expect(calls[3]).toEqual({
       command: ["ninja", "build/GALE01/src/melee/ft/ftcoll.o"],
       options: { compile: true },
     });
-    expect(calls[2]?.command).toEqual(["cat", "build.ninja"]);
-    expect(calls[3]?.command).toContain("/dev/stdout");
-    expect(calls[3]?.options).toEqual({ compile: false });
+    expect(calls[4]?.command).toEqual(["cat", "build.ninja"]);
+    expect(calls[5]?.command).toContain("/dev/stdout");
+    expect(calls[5]?.options).toEqual({ compile: false });
     expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/ft/ftcoll.c"), "utf8")).toBe("int sandbox_source;\n");
+    expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/gr/ground.c"), "utf8")).toBe("int sandbox_extra;\n");
     expect(await readFile(resolve(outputDir, "pre_worker_unit_diff.json"), "utf8")).toBe(report);
   });
 });
 
 describe("extendWorkerChangeBaselineSourceSnapshot", () => {
-  async function setupGitRepo(): Promise<{ repoRoot: string; outputDir: string; baseline: WorkerChangeBaseline }> {
-    const root = await mkdtemp(join(tmpdir(), "qa-l1-extend-"));
-    const repoRoot = join(root, "repo");
-    const outputDir = join(root, "validation");
-    const sourceSnapshotDir = join(outputDir, "pre_worker_source");
-    await mkdir(join(repoRoot, "src/melee/ft"), { recursive: true });
-    await mkdir(sourceSnapshotDir, { recursive: true });
-    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.c"), "int a;\n");
-    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.h"), "void ftCo_800C8E5C(void);\n");
-    const { runCommand } = await import("@server/infrastructure/shell");
-    for (const command of [
-      ["git", "init"],
-      ["git", "add", "-A"],
-      ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "base"],
-    ]) {
-      const result = await runCommand(repoRoot, command);
-      if (result.exitCode !== 0) throw new Error(`${command.join(" ")} failed: ${result.stderr}`);
-    }
-    // The worker edits the header AFTER the pre-worker snapshot was captured.
-    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.h"), "void ftCo_800C8E5C(void);\nvoid ftCo_NewProto(void);\n");
-    const baseline: WorkerChangeBaseline = {
-      status: "snapshot_unavailable",
-      reasons: [],
-      snapshot: null,
-      sourceSnapshotDir,
-      sourceSnapshotPaths: ["src/melee/ft/ftcoll.c"],
-    };
-    return { repoRoot, outputDir, baseline };
-  }
-
-  test("adds pre-worker HEAD content for out-of-write-set paths and appends them to the snapshot list", async () => {
-    const { outputDir, repoRoot, baseline } = await setupGitRepo();
-    const added = await extendWorkerChangeBaselineSourceSnapshot({
-      repoRoot,
-      baseline,
-      extraPaths: ["src/melee/ft/ftcoll.h", "src/melee/ft/ftcoll.c", "src/missing.c", "../escape.c"],
-    });
-    // ftcoll.c is already snapshotted; missing/escape paths are skipped.
-    expect(added).toEqual(["src/melee/ft/ftcoll.h"]);
-    expect(baseline.sourceSnapshotPaths).toEqual(["src/melee/ft/ftcoll.c", "src/melee/ft/ftcoll.h"]);
-    // The snapshot holds the PRE-worker (HEAD) content, not the edited worktree content.
-    expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/ft/ftcoll.h"), "utf8")).toBe("void ftCo_800C8E5C(void);\n");
-  });
-
   test("a baseline without a snapshot dir (dry run) is a no-op", async () => {
     const baseline: WorkerChangeBaseline = { status: "snapshot_unavailable", reasons: [], snapshot: null };
-    expect(await extendWorkerChangeBaselineSourceSnapshot({ repoRoot: "/tmp/nowhere", baseline, extraPaths: ["src/a.h"] })).toEqual([]);
+    expect(await extendWorkerChangeBaselineSourceSnapshot({
+      repoRoot: "/workspace/melee",
+      baseline,
+      extraPaths: ["src/a.h"],
+      workspaceExec: fakeWorkspaceExec(),
+    })).toEqual([]);
     expect(baseline.sourceSnapshotPaths).toBeUndefined();
   });
 
@@ -440,13 +388,12 @@ describe("extendWorkerChangeBaselineSourceSnapshot", () => {
       sourceSnapshotPaths: [],
     };
     const calls: string[][] = [];
-    const workspaceExec: WorkspaceExec = {
-      executionClass: "sandbox",
-      exec: async (command) => {
+    const workspaceExec = fakeWorkspaceExec(
+      async (command) => {
         calls.push(command);
         return { exitCode: 0, stdout: "void SandboxHeader(void);\n", stderr: "" };
       },
-    };
+    );
 
     expect(await extendWorkerChangeBaselineSourceSnapshot({
       repoRoot: "/workspace/melee",
@@ -459,11 +406,39 @@ describe("extendWorkerChangeBaselineSourceSnapshot", () => {
   });
 
   test("the extended snapshot feeds the QA lint diff with the out-of-write-set edit", async () => {
-    const { outputDir, repoRoot, baseline } = await setupGitRepo();
-    await extendWorkerChangeBaselineSourceSnapshot({ repoRoot, baseline, extraPaths: ["src/melee/ft/ftcoll.h"] });
+    const outputDir = await mkdtemp(join(tmpdir(), "qa-l1-extend-sandbox-diff-"));
+    const sourceSnapshotDir = join(outputDir, "pre_worker_source");
+    await mkdir(join(sourceSnapshotDir, "src/melee/ft"), { recursive: true });
+    await writeFile(join(sourceSnapshotDir, "src/melee/ft/ftcoll.c"), "int unchanged;\n");
+    const baseline: WorkerChangeBaseline = {
+      status: "snapshot_unavailable",
+      reasons: [],
+      snapshot: null,
+      sourceSnapshotDir,
+      sourceSnapshotPaths: ["src/melee/ft/ftcoll.c"],
+    };
+    const workspaceExec = fakeWorkspaceExec(async (command) => {
+      if (command.join(" ") === "git show HEAD:src/melee/ft/ftcoll.h") {
+        return { exitCode: 0, stdout: "void ftCo_800C8E5C(void);\n", stderr: "" };
+      }
+      if (command.join(" ") === "cat src/melee/ft/ftcoll.h") {
+        return { exitCode: 0, stdout: "void ftCo_800C8E5C(void);\nvoid ftCo_NewProto(void);\n", stderr: "" };
+      }
+      if (command.join(" ") === "cat src/melee/ft/ftcoll.c") {
+        return { exitCode: 0, stdout: "int unchanged;\n", stderr: "" };
+      }
+      return { exitCode: 1, stdout: "", stderr: "unexpected command" };
+    });
+    await extendWorkerChangeBaselineSourceSnapshot({
+      repoRoot: "/workspace/melee",
+      baseline,
+      extraPaths: ["src/melee/ft/ftcoll.h"],
+      workspaceExec,
+    });
     const seenOptions: RunQaScanDiffOptions[] = [];
     const validation = await validateWorkerChange({
-      repoRoot,
+      repoRoot: "/workspace/melee",
+      hostRepoRoot: "/host/checkout/melee",
       outputDir,
       attemptIndex: 0,
       baseline,
@@ -472,6 +447,7 @@ describe("extendWorkerChangeBaselineSourceSnapshot", () => {
       shouldRun: true,
       claimedExact: false,
       orchestratorRoot: "/tmp/orchestrator",
+      workspaceExec,
       qaScanRunner: async (options: RunQaScanDiffOptions): Promise<QaScanInvocation> => {
         seenOptions.push(options);
         return invocation();
@@ -486,19 +462,19 @@ describe("extendWorkerChangeBaselineSourceSnapshot", () => {
 });
 
 describe("validateWorkerChange QA lint integration", () => {
-  async function setupAttempt(): Promise<{
+  const hostRepoRoot = "/host/checkout/melee";
+
+  async function setupAttempt(currentSource = "int a;\nextern const f32 lbl_804DA60C;\nint b;\n"): Promise<{
     repoRoot: string;
     outputDir: string;
     baseline: WorkerChangeBaseline;
+    workspaceExec: WorkspaceExec;
   }> {
-    const root = await mkdtemp(join(tmpdir(), "qa-l1-validate-"));
-    const repoRoot = join(root, "repo");
-    const outputDir = join(root, "validation");
+    const repoRoot = "/workspace/melee";
+    const outputDir = await mkdtemp(join(tmpdir(), "qa-l1-validate-sandbox-"));
     const sourceSnapshotDir = join(outputDir, "pre_worker_source");
-    await mkdir(join(repoRoot, "src/melee/ft"), { recursive: true });
     await mkdir(join(sourceSnapshotDir, "src/melee/ft"), { recursive: true });
     await writeFile(join(sourceSnapshotDir, "src/melee/ft/ftcoll.c"), "int a;\nint b;\n");
-    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.c"), "int a;\nextern const f32 lbl_804DA60C;\nint b;\n");
     const baseline: WorkerChangeBaseline = {
       status: "snapshot_unavailable",
       reasons: ["pre-worker unit diff exited 1"],
@@ -507,11 +483,14 @@ describe("validateWorkerChange QA lint integration", () => {
       sourceSnapshotDir,
       sourceSnapshotPaths: ["src/melee/ft/ftcoll.c"],
     };
-    return { repoRoot, outputDir, baseline };
+    const workspaceExec = fakeWorkspaceExec(async (command) => command.join(" ") === "cat src/melee/ft/ftcoll.c"
+      ? { exitCode: 0, stdout: currentSource, stderr: "" }
+      : { exitCode: 1, stdout: "", stderr: "unexpected command" });
+    return { repoRoot, outputDir, baseline, workspaceExec };
   }
 
-  test("a violating attempt is rejected: qaLint violations, status not passed, patch handed to the scanner", async () => {
-    const { repoRoot, outputDir, baseline } = await setupAttempt();
+  test("uses the host checkout for QA lint policy while scanning the sandbox diff", async () => {
+    const { repoRoot, outputDir, baseline, workspaceExec } = await setupAttempt();
     const seenOptions: RunQaScanDiffOptions[] = [];
     const fakeRunner = async (options: RunQaScanDiffOptions): Promise<QaScanInvocation> => {
       seenOptions.push(options);
@@ -520,6 +499,7 @@ describe("validateWorkerChange QA lint integration", () => {
 
     const validation = await validateWorkerChange({
       repoRoot,
+      hostRepoRoot,
       outputDir,
       attemptIndex: 0,
       baseline,
@@ -528,6 +508,7 @@ describe("validateWorkerChange QA lint integration", () => {
       shouldRun: true,
       claimedExact: false,
       orchestratorRoot: "/tmp/orchestrator",
+      workspaceExec,
       qaScanRunner: fakeRunner,
     });
 
@@ -536,7 +517,8 @@ describe("validateWorkerChange QA lint integration", () => {
     expect(validation.reasons.some((reason) => reason.includes("QA finding(s) requiring repair"))).toBe(true);
 
     expect(seenOptions).toHaveLength(1);
-    expect(seenOptions[0].repoRoot).toBe(repoRoot);
+    expect(seenOptions[0].repoRoot).toBe(hostRepoRoot);
+    expect(seenOptions[0].repoRoot).not.toBe(repoRoot);
     expect(seenOptions[0].orchestratorRoot).toBe("/tmp/orchestrator");
     expect(seenOptions[0].surface).toBe("worker");
     const scanPath = seenOptions[0].diffFile ?? "";
@@ -567,17 +549,17 @@ describe("validateWorkerChange QA lint integration", () => {
       sourceSnapshotPaths: ["src/melee/ft/ftcoll.c"],
     };
     const commands: string[][] = [];
-    const workspaceExec: WorkspaceExec = {
-      executionClass: "sandbox",
-      exec: async (command) => {
+    const workspaceExec = fakeWorkspaceExec(
+      async (command) => {
         commands.push(command);
         return { exitCode: 0, stdout: "int before;\nextern int sandbox_edit;\n", stderr: "" };
       },
-    };
+    );
     const seenOptions: RunQaScanDiffOptions[] = [];
 
     const validation = await validateWorkerChange({
       repoRoot: "/workspace/melee",
+      hostRepoRoot,
       outputDir,
       attemptIndex: 0,
       baseline,
@@ -600,11 +582,11 @@ describe("validateWorkerChange QA lint integration", () => {
   });
 
   test("an unchanged source file skips the scanner and reports clean", async () => {
-    const { repoRoot, outputDir, baseline } = await setupAttempt();
-    await writeFile(join(repoRoot, "src/melee/ft/ftcoll.c"), "int a;\nint b;\n");
+    const { repoRoot, outputDir, baseline, workspaceExec } = await setupAttempt("int a;\nint b;\n");
     let calls = 0;
     const validation = await validateWorkerChange({
       repoRoot,
+      hostRepoRoot,
       outputDir,
       attemptIndex: 0,
       baseline,
@@ -613,6 +595,7 @@ describe("validateWorkerChange QA lint integration", () => {
       shouldRun: true,
       claimedExact: false,
       orchestratorRoot: "/tmp/orchestrator",
+      workspaceExec,
       qaScanRunner: async () => {
         calls += 1;
         return invocation();
@@ -624,9 +607,10 @@ describe("validateWorkerChange QA lint integration", () => {
   });
 
   test("a scanner tool failure records tool_unavailable without inventing violations", async () => {
-    const { repoRoot, outputDir, baseline } = await setupAttempt();
+    const { repoRoot, outputDir, baseline, workspaceExec } = await setupAttempt();
     const validation = await validateWorkerChange({
       repoRoot,
+      hostRepoRoot,
       outputDir,
       attemptIndex: 1,
       baseline,
@@ -635,6 +619,7 @@ describe("validateWorkerChange QA lint integration", () => {
       shouldRun: true,
       claimedExact: false,
       orchestratorRoot: "/tmp/orchestrator",
+      workspaceExec,
       qaScanRunner: async () => invocation({ exitCode: -1, result: null, stdout: "", toolError: "scan_diff.py not found" }),
     });
     expect(validation.qaLint?.status).toBe("tool_unavailable");
@@ -643,7 +628,7 @@ describe("validateWorkerChange QA lint integration", () => {
   });
 
   test("dry-run and gate-skipped attempts never invoke the scanner", async () => {
-    const { repoRoot, outputDir, baseline } = await setupAttempt();
+    const { repoRoot, outputDir, baseline, workspaceExec } = await setupAttempt();
     let calls = 0;
     const runner = async (): Promise<QaScanInvocation> => {
       calls += 1;
@@ -652,6 +637,7 @@ describe("validateWorkerChange QA lint integration", () => {
     const target = { unit: "melee/ft/ftcoll.c", symbol: "ftCo_800C8E5C", source_path: "src/melee/ft/ftcoll.c" };
     const dryRun = await validateWorkerChange({
       repoRoot,
+      hostRepoRoot,
       outputDir,
       attemptIndex: 0,
       baseline,
@@ -659,10 +645,12 @@ describe("validateWorkerChange QA lint integration", () => {
       dryRun: true,
       shouldRun: true,
       claimedExact: false,
+      workspaceExec,
       qaScanRunner: runner,
     });
     const gateSkipped = await validateWorkerChange({
       repoRoot,
+      hostRepoRoot,
       outputDir,
       attemptIndex: 0,
       baseline,
@@ -670,6 +658,7 @@ describe("validateWorkerChange QA lint integration", () => {
       dryRun: false,
       shouldRun: false,
       claimedExact: false,
+      workspaceExec,
       qaScanRunner: runner,
     });
     expect(calls).toBe(0);

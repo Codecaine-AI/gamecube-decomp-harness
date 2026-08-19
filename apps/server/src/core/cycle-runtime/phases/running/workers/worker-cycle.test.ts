@@ -1,22 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { delimiter, join, resolve } from "node:path";
+import { delimiter } from "node:path";
 import { QA_LINT_REPAIR_INSTRUCTION, type WorkerChangeValidation, type WorkerQaLint } from "@server/core/agent-catalog/agents/running/worker/change-validation";
 import type { QaScanFinding } from "@server/core/validation/qa";
 import type { PiRunResult } from "@server/core/shared/types";
-import { resolveToolPlatform, type ToolPlatform } from "@server/core/tools/platform.js";
+import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
 import {
   classifyOutOfWriteSetPath,
   classifyWorkerError,
   collectOutOfWriteSetChanges,
-  configureCommandWithWorkerToolPaths,
   isReworkErrorKind,
   isRetryableWorkerPiSessionFailure,
   isWorkerPiContextLengthFailure,
   isWorkerSessionTimeoutFailure,
-  seedWorkerToolArtifacts,
   shouldRequestWorkerRepairAfterAttempt,
   shouldRunRunnerValidationForWorkerSession,
   WORKER_ATTEMPT_TAIL_POLICY,
@@ -24,20 +19,14 @@ import {
   WORKER_PI_SESSION_RETRY_POLICY,
   workerContinuationDecision,
   workerAgentToolEnvironment,
-  workerBuildNinjaNeedsToolReconfigure,
   outOfWriteSetCategoryCounts,
   outOfWriteSetRepairReason,
   workerAttemptRepairReasons,
   workerPiContextRetryDecision,
   workerPiSessionRetryDecision,
-  writeWorkerShellGuardBin,
-  workerToolArtifactSourceRoots,
-  workerWorktreeLockDir,
-  workerWorktreePath,
+  probeExistingWorkerCanonicalToolPaths,
+  WORKER_CANONICAL_TOOL_PATH_PROBE_TIMEOUT_MS,
 } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
-import { runCommand } from "@server/infrastructure/shell";
-
-const hostToolPlatform = resolveToolPlatform({ override: null });
 
 function finding(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
   return {
@@ -104,280 +93,9 @@ function passedValidation(qaLint: WorkerQaLint | null): WorkerChangeValidation {
   };
 }
 
-describe("workerWorktreePath", () => {
-  test("places worker worktrees under the active cycle epoch", () => {
-    expect(
-      workerWorktreePath(
-        {
-          repoRoot: "/game/worktrees/cycles/cycle-uuid/current",
-          stateDir: "/state",
-          game: { gameDir: "/game" },
-        } as never,
-        "claim-1",
-        { ordinal: 2 },
-      ),
-    ).toBe("/game/worktrees/cycles/cycle-uuid/epochs/0002/workers/claim-1/source");
-  });
-
-  test("keeps legacy placement for non-cycle runs", () => {
-    expect(
-      workerWorktreePath(
-        {
-          repoRoot: "/game/checkout",
-          stateDir: "/state",
-          game: { gameDir: "/game" },
-        } as never,
-        "claim-1",
-        { ordinal: 2 },
-      ),
-    ).toBe("/game/worktrees/claim-1/source");
-  });
-
-  test("places dry-run worker worktrees under the state directory", () => {
-    expect(
-      workerWorktreePath(
-        {
-          dryRunAgents: true,
-          repoRoot: "/game/checkout",
-          stateDir: "/state",
-          game: { gameDir: "/game" },
-        } as never,
-        "claim-1",
-        { ordinal: 2 },
-      ),
-    ).toBe("/state/dry_run_worktrees/claim-1/source");
-  });
-});
-
-describe("workerWorktreeLockDir", () => {
-  test("serializes git worktree mutations through one epoch-level lock", () => {
-    const first = workerWorktreeLockDir("/game/worktrees/cycles/cycle-uuid/epochs/0012/workers/claim-1/source");
-    const second = workerWorktreeLockDir("/game/worktrees/cycles/cycle-uuid/epochs/0012/workers/claim-2/source");
-
-    expect(first).toBe("/game/worktrees/cycles/cycle-uuid/epochs/0012/workers/.git-worktree-add.lock");
-    expect(second).toBe(first);
-  });
-});
-
-describe("workerToolArtifactSourceRoots", () => {
-  test("uses the active repo then upstream-current as tool artifact sources", () => {
-    expect(
-      workerToolArtifactSourceRoots({
-        repoRoot: "/game/worktrees/cycles/cycle-uuid/current",
-        game: { gameDir: "/game" },
-      } as never),
-    ).toEqual(["/game/worktrees/cycles/cycle-uuid/current", "/game/worktrees/upstream-current"]);
-  });
-
-  test("copies mutable build tools and links large shared tool bundles into worker worktrees", async () => {
-    const root = await mkdtemp(join(tmpdir(), "worker-tool-artifacts-"));
-    try {
-      const source = resolve(root, "source");
-      const worker = resolve(root, "worker");
-      const outputDir = resolve(root, "out");
-      mkdirSync(resolve(source, "build/tools"), { recursive: true });
-      mkdirSync(resolve(source, "build/compilers"), { recursive: true });
-      mkdirSync(resolve(source, "build/binutils"), { recursive: true });
-      writeFileSync(resolve(source, "build/tools/sjiswrap.exe"), "tool-v2");
-      writeFileSync(resolve(source, "build/compilers/mwcceppc.exe"), "compiler");
-      writeFileSync(resolve(source, "build/binutils/powerpc-eabi-ld"), "ld");
-
-      mkdirSync(resolve(worker, "build"), { recursive: true });
-      symlinkSync(resolve(source, "build/tools"), resolve(worker, "build/tools"), "dir");
-      mkdirSync(resolve(worker, "build/compilers"), { recursive: true });
-      writeFileSync(resolve(worker, "build/compilers/old-local-copy"), "old");
-
-      await seedWorkerToolArtifacts({
-        workerRepoRoot: worker,
-        outputDir,
-        sources: [
-          { platform: hostToolPlatform, relativePath: "build/tools", sourcePath: resolve(source, "build/tools") },
-          { platform: hostToolPlatform, relativePath: "build/compilers", sourcePath: resolve(source, "build/compilers") },
-          { platform: hostToolPlatform, relativePath: "build/binutils", sourcePath: resolve(source, "build/binutils") },
-        ],
-        toolPlatform: hostToolPlatform,
-      });
-
-      expect(lstatSync(resolve(worker, "build/tools")).isSymbolicLink()).toBe(false);
-      expect(readFileSync(resolve(worker, "build/tools/sjiswrap.exe"), "utf8")).toBe("tool-v2");
-      expect(lstatSync(resolve(worker, "build/compilers")).isSymbolicLink()).toBe(true);
-      expect(readFileSync(resolve(worker, "build/compilers/mwcceppc.exe"), "utf8")).toBe("compiler");
-      expect(lstatSync(resolve(worker, "build/binutils")).isSymbolicLink()).toBe(true);
-      expect(readFileSync(resolve(worker, "build/binutils/powerpc-eabi-ld"), "utf8")).toBe("ld");
-      expect(existsSync(resolve(outputDir, "worker_worktree_tool_artifacts.json"))).toBe(true);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  test("refreshes existing mutable build tool directories", async () => {
-    const root = await mkdtemp(join(tmpdir(), "worker-tool-refresh-"));
-    try {
-      const source = resolve(root, "source");
-      const worker = resolve(root, "worker");
-      const outputDir = resolve(root, "out");
-      mkdirSync(resolve(source, "build/tools"), { recursive: true });
-      writeFileSync(resolve(source, "build/tools/wibo"), "wibo");
-      writeFileSync(resolve(source, "build/tools/sjiswrap.exe"), "sjiswrap-v2");
-      mkdirSync(resolve(worker, "build/tools"), { recursive: true });
-      writeFileSync(resolve(worker, "build/tools/sjiswrap.exe"), "sjiswrap-v1");
-
-      await seedWorkerToolArtifacts({
-        workerRepoRoot: worker,
-        outputDir,
-        sources: [{ platform: hostToolPlatform, relativePath: "build/tools", sourcePath: resolve(source, "build/tools") }],
-        toolPlatform: hostToolPlatform,
-      });
-
-      expect(readFileSync(resolve(worker, "build/tools/wibo"), "utf8")).toBe("wibo");
-      expect(readFileSync(resolve(worker, "build/tools/sjiswrap.exe"), "utf8")).toBe("sjiswrap-v2");
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  test("rejects host worker artifacts for a different execution target", async () => {
-    const root = await mkdtemp(join(tmpdir(), "worker-tool-platform-mismatch-"));
-    try {
-      const source = resolve(root, "source");
-      const worker = resolve(root, "worker");
-      const outputDir = resolve(root, "out");
-      mkdirSync(resolve(source, "build/tools"), { recursive: true });
-      writeFileSync(resolve(source, "build/tools/wibo"), "host executable");
-      const crossPlatform: ToolPlatform = hostToolPlatform === "darwin-x86_64" ? "linux-x86_64" : "darwin-x86_64";
-
-      await expect(
-        seedWorkerToolArtifacts({
-          workerRepoRoot: worker,
-          outputDir,
-          sources: [{ platform: hostToolPlatform, relativePath: "build/tools", sourcePath: resolve(source, "build/tools") }],
-          toolPlatform: crossPlatform,
-        }),
-      ).rejects.toThrow(`Required worker tool artifact source(s) for execution target ${crossPlatform} are missing`);
-      expect(existsSync(resolve(worker, "build/tools/wibo"))).toBe(false);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  test("replaces existing host artifacts when seeding a cross-platform target", async () => {
-    const root = await mkdtemp(join(tmpdir(), "worker-tool-platform-replace-"));
-    try {
-      const source = resolve(root, "source");
-      const worker = resolve(root, "worker");
-      const outputDir = resolve(root, "out");
-      const crossPlatform: ToolPlatform = hostToolPlatform === "darwin-x86_64" ? "linux-x86_64" : "darwin-x86_64";
-      mkdirSync(resolve(source, "build/tools"), { recursive: true });
-      mkdirSync(resolve(source, "build/compilers"), { recursive: true });
-      mkdirSync(resolve(source, "build/binutils"), { recursive: true });
-      writeFileSync(resolve(source, "build/tools/wibo"), "target wrapper");
-      writeFileSync(resolve(source, "build/compilers/mwcceppc.exe"), "compiler");
-      writeFileSync(resolve(source, "build/binutils/powerpc-eabi-ld"), "target linker");
-      mkdirSync(resolve(worker, "build/tools"), { recursive: true });
-      writeFileSync(resolve(worker, "build/tools/host-only"), "host executable");
-
-      await seedWorkerToolArtifacts({
-        workerRepoRoot: worker,
-        outputDir,
-        sources: [
-          { platform: crossPlatform, relativePath: "build/tools", sourcePath: resolve(source, "build/tools") },
-          { platform: crossPlatform, relativePath: "build/compilers", sourcePath: resolve(source, "build/compilers") },
-          { platform: crossPlatform, relativePath: "build/binutils", sourcePath: resolve(source, "build/binutils") },
-        ],
-        toolPlatform: crossPlatform,
-      });
-
-      expect(existsSync(resolve(worker, "build/tools/host-only"))).toBe(false);
-      expect(readFileSync(resolve(worker, "build/tools/wibo"), "utf8")).toBe("target wrapper");
-      expect(readFileSync(resolve(worker, "build/binutils/powerpc-eabi-ld"), "utf8")).toBe("target linker");
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  test("passes worker-local seeded tools to configure.py", () => {
-    expect(
-      configureCommandWithWorkerToolPaths("python3 configure.py --require-protos", {
-        binutils: "build/binutils",
-        compilers: "build/compilers",
-        dtk: "build/tools/dtk",
-        objdiff: "build/tools/objdiff-cli",
-        sjiswrap: "build/tools/sjiswrap.exe",
-      }),
-    ).toBe(
-      "python3 configure.py --require-protos --binutils 'build/binutils' --compilers 'build/compilers' --dtk 'build/tools/dtk' --objdiff 'build/tools/objdiff-cli' --sjiswrap 'build/tools/sjiswrap.exe'",
-    );
-  });
-
-  test("does not override explicit configure.py tool paths", () => {
-    expect(
-      configureCommandWithWorkerToolPaths("python3 configure.py --require-protos --compilers /shared/compilers", {
-        compilers: "build/compilers",
-        objdiff: "build/tools/objdiff-cli",
-      }),
-    ).toBe("python3 configure.py --require-protos --compilers /shared/compilers --objdiff 'build/tools/objdiff-cli'");
-  });
-
-  test("prefers worker-local wibo over an absolute wrapper path with spaces", () => {
-    expect(
-      configureCommandWithWorkerToolPaths("python3 configure.py --require-protos --wrapper '/Users/Ford/Github Repos/game/state/tools/wibo'", {
-        wrapper: "build/tools/wibo",
-        objdiff: "build/tools/objdiff-cli",
-      }),
-    ).toBe("python3 configure.py --require-protos --wrapper 'build/tools/wibo' --objdiff 'build/tools/objdiff-cli'");
-  });
-
-  test("detects stale build.ninja tool download edges when local tools are seeded", () => {
-    expect(
-      workerBuildNinjaNeedsToolReconfigure("rule download_tool\n  command = $python tools/download_tool.py $tool $out --tag $tag\nbuild build/compilers: download_tool | tools/download_tool.py\n  tool = compilers", {
-        compilers: "build/compilers",
-      }),
-    ).toBe(true);
-    expect(
-      workerBuildNinjaNeedsToolReconfigure("build build/compilers: phony\n", {
-        compilers: "build/compilers",
-      }),
-    ).toBe(false);
-    expect(
-      workerBuildNinjaNeedsToolReconfigure("command = python3 tools/download_tool.py compilers build/compilers --tag 20251118", {}),
-    ).toBe(false);
-  });
-
-  test("detects stale build.ninja wrapper paths when worker-local wibo is available", () => {
-    expect(
-      workerBuildNinjaNeedsToolReconfigure("configure_args = --require-protos --wrapper /Users/Ford/Github $\\n  Repos/game/state/tools/wibo\\n", {
-        wrapper: "build/tools/wibo",
-      }),
-    ).toBe(true);
-    expect(
-      workerBuildNinjaNeedsToolReconfigure("configure_args = --require-protos --wrapper build/tools/wibo\\n", {
-        wrapper: "build/tools/wibo",
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("worker shell tool environment", () => {
-  test("puts the worker guard and canonical tool directories first on PATH", () => {
-    const env = workerAgentToolEnvironment({ workerRepoRoot: "/game/workers/claim/source", shellBin: "/state/worker/bin" });
-    const pathEntries = env.PATH.split(delimiter);
-
-    expect(pathEntries.slice(0, 3)).toEqual([
-      "/state/worker/bin",
-      "/game/workers/claim/source/build/binutils",
-      "/game/workers/claim/source/build/tools",
-    ]);
-    expect(env.ORCH_WORKER_TOOL_POWERPC_EABI_OBJDUMP).toBe("build/binutils/powerpc-eabi-objdump");
-    expect(env.ORCH_WORKER_TOOL_DTK).toBe("build/tools/dtk");
-    expect(env.ORCH_WORKER_CANONICAL_TOOL_PATHS).toContain("powerpc-eabi-objdump");
-  });
-
-  test("uses only remote tool and standard Linux paths for sandbox workers", () => {
-    const env = workerAgentToolEnvironment({
-      workerRepoRoot: "/workspace/melee",
-      shellBin: "/host/artifacts/worker-shell-bin",
-      executionClass: "sandbox",
-    });
+  test("uses only sandbox tool and standard Linux paths", () => {
+    const env = workerAgentToolEnvironment({ workerRepoRoot: "/workspace/melee" });
 
     expect(env.PATH.split(delimiter)).toEqual([
       "/workspace/melee/build/binutils",
@@ -389,30 +107,62 @@ describe("worker shell tool environment", () => {
       "/sbin",
       "/bin",
     ]);
-    expect(env.PATH).not.toContain("/host/artifacts/worker-shell-bin");
     expect(env.ORCH_REAL_FIND).toBe("/usr/bin/find");
+    expect(env.ORCH_WORKER_TOOL_POWERPC_EABI_OBJDUMP).toBe("build/binutils/powerpc-eabi-objdump");
+    expect(env.ORCH_WORKER_TOOL_DTK).toBe("build/tools/dtk");
+    expect(env.ORCH_WORKER_CANONICAL_TOOL_PATHS).toContain("powerpc-eabi-objdump");
   });
+});
 
-  test("guards broad find sweeps while allowing narrow worker-local find", async () => {
-    const root = await mkdtemp(join(tmpdir(), "worker-find-guard-"));
-    try {
-      const worker = resolve(root, "worker");
-      const outputDir = resolve(root, "out");
-      mkdirSync(resolve(worker, "src"), { recursive: true });
-      const shellBin = await writeWorkerShellGuardBin({ outputDir });
-      const env = workerAgentToolEnvironment({ workerRepoRoot: worker, shellBin });
+describe("canonical worker tool path probe", () => {
+  test("issues one batched sandbox exec and parses the existing relative paths", async () => {
+    const provider = new FakeSandboxProvider().scriptExec({
+      exitCode: 0,
+      stdout: [
+        "build/binutils/powerpc-eabi-objdump",
+        "build/tools/dtk",
+        "not-a-canonical-path",
+        "",
+      ].join("\n"),
+      stderr: "",
+    });
+    const sandbox = await provider.create({
+      snapshot: "worker-test",
+      labels: {},
+      resources: { cpu: 1, memoryGiB: 1, diskGiB: 1 },
+      ttlMinutes: 5,
+    });
 
-      const localFind = await runCommand(worker, ["find", ".", "-maxdepth", "1", "-type", "d"], { env });
-      expect(localFind.exitCode).toBe(0);
-      expect(localFind.stdout).toContain(".");
+    const existing = await probeExistingWorkerCanonicalToolPaths(sandbox, "/opt/melee");
 
-      const broadFind = await runCommand(worker, ["find", root, "-name", "*objdump*"], { env });
-      expect(broadFind.exitCode).toBe(2);
-      expect(broadFind.stderr).toContain("blocked broad worker find sweep");
-      expect(broadFind.stderr).toContain("build/binutils/powerpc-eabi-objdump");
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
+    expect([...existing]).toEqual([
+      "build/binutils/powerpc-eabi-objdump",
+      "build/tools/dtk",
+    ]);
+    expect(provider.execCalls).toHaveLength(1);
+    expect(provider.execCalls[0].command.slice(0, 4)).toEqual([
+      "bash",
+      "-lc",
+      'for path in "$@"; do if test -e "$path"; then printf \'%s\\n\' "$path"; fi; done',
+      "--",
+    ]);
+    expect(provider.execCalls[0].command.slice(4)).toEqual([
+      "build/binutils/powerpc-eabi-objdump",
+      "build/binutils/powerpc-eabi-nm",
+      "build/binutils/powerpc-eabi-readelf",
+      "build/tools/dtk",
+      "build/tools/objdiff-cli",
+      "build/tools/sjiswrap.exe",
+      "build/tools/wibo",
+      "build/binutils",
+      "build/tools",
+      "build/compilers",
+    ]);
+    expect(provider.execCalls[0].opts).toEqual({
+      cwd: "/opt/melee",
+      env: undefined,
+      timeoutMs: WORKER_CANONICAL_TOOL_PATH_PROBE_TIMEOUT_MS,
+    });
   });
 });
 

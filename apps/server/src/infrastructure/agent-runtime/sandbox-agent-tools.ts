@@ -11,7 +11,6 @@ import {
   type BashOperations,
 } from "@earendil-works/pi-coding-agent";
 import type { SandboxExecResult, SandboxHandle } from "@server/core/job-queue/sandbox.js";
-import { withGlobalCompileJobserverSlot } from "@server/infrastructure/shell/global-compile-jobserver.js";
 
 export const DEFAULT_SANDBOX_BASH_TIMEOUT_MS = 30 * 60 * 1_000;
 export const DEFAULT_SANDBOX_FILE_TOOL_TIMEOUT_MS = 60 * 1_000;
@@ -52,10 +51,6 @@ if [ "$head_status" -ne 0 ]; then exit "$head_status"; fi
 if [ "$find_status" -ne 0 ] && [ "$find_status" -ne 141 ]; then exit "$find_status"; fi
 exit 0
 `.trim();
-
-export interface SandboxBashOperationsOptions {
-  withCompileSlot?: <T>(run: () => Promise<T>) => Promise<T>;
-}
 
 function normalizedWorkspaceRoot(workspaceRoot: string): string {
   return path.resolve(workspaceRoot);
@@ -117,12 +112,10 @@ async function execWithAbort(
 export function sandboxBashOperations(
   handle: SandboxHandle,
   workspaceRoot: string,
-  options: SandboxBashOperationsOptions = {},
 ): BashOperations {
-  const withCompileSlot = options.withCompileSlot ?? withGlobalCompileJobserverSlot;
   return {
     async exec(command, cwd, { onData, signal, timeout, env }) {
-      const run = () => execWithAbort(
+      const result = await execWithAbort(
         handle,
         ["/bin/bash", "-lc", command],
         {
@@ -133,8 +126,6 @@ export function sandboxBashOperations(
         signal,
         "aborted",
       );
-      const invokesNinja = /(?:^|[\s;&|()])(?:[^\s;&|()]*\/)?ninja(?=$|[\s;&|()])/.test(command);
-      const result = invokesNinja ? await withCompileSlot(run) : await run();
       if (signal?.aborted) throw new Error("aborted");
       if (result.stdout) onData(Buffer.from(result.stdout));
       if (result.stderr) onData(Buffer.from(result.stderr));

@@ -8,6 +8,7 @@ import {
   prSplitterPrompt,
   qaRepairPrompt,
   reconcilePrompt,
+  WORKER_CANONICAL_TOOL_PATHS,
   workerPrompt,
 } from "@server/core/agent-catalog";
 import {
@@ -121,6 +122,9 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         game,
         initialBoardPath: resolve(paths.stateDir, "runs/kernel-viewer/snapshots/initial_board.json"),
         workerLogDir: resolve(paths.stateDir, "runs/kernel-viewer/worker_logs/sample"),
+        existingCanonicalToolPaths: new Set(
+          WORKER_CANONICAL_TOOL_PATHS.map((tool) => tool.relativePath),
+        ),
         targetSourceText: [
           "void ftDemo_KernelViewerSample(void)",
           "{",

@@ -148,7 +148,7 @@
       "props": {},
       "text": [
         {
-          "insert": "One serialized state controller owns the started, stopping, stopped, and starting transitions until worker-state close. Rapid tool chains cancel the pending stop during the debounce window, so short model turns do not bounce the sandbox; a tool that arrives after stopping begins waits for that transition and shares the single subsequent start. Close is terminal: it transitions the controller to deleting/deleted, rejects later remote operations, and cannot race an active exec, upload, download, or workspace-file operation."
+          "insert": "One serialized state controller owns the started, stopping, stopped, and starting transitions until worker-state close. The implementation wraps the five-method SandboxHandle in a serialized idle-debounce controller at its single acquisition point in the worker child, and arms stop when active operations reach zero. Rapid tool chains cancel the pending stop during the debounce window, so short model turns do not bounce the sandbox; a tool that arrives after stopping begins waits for that transition and shares the single subsequent start. Close is terminal: it transitions the controller to deleting/deleted, rejects later remote operations, and cannot race an active exec, upload, download, or workspace-file operation."
         }
       ],
       "children": []
@@ -536,7 +536,7 @@
       },
       "text": [
         {
-          "insert": "Stop debounce policy — Every model turn is stop-eligible. Select the short debounce that avoids rapid tool-chain thrash without depending on platform inactivity detection or predicting turn duration."
+          "insert": "Stop debounce policy — Resolved 2026-08-19: use a 250 ms idle debounce at the SandboxHandle operation gate. A recorded-session replay of 53 sweep sessions, parameterized by a live stop/start bench (stop approximately 1.01 seconds; wake-to-first-exec approximately 1.02 seconds median), showed that inter-burst gaps never undercut 1.97 seconds. The debounce protects sequential SandboxHandle calls within one tool operation. The measured fleet result was 70.0% sandbox-cost savings at approximately 8% added wall time."
         }
       ],
       "children": []
@@ -549,7 +549,7 @@
       },
       "text": [
         {
-          "insert": "Measurement contract — Record stop count, stop completion latency, wake latency to ready and to first successful operation, stopped duration, start failures, close-to-delete latency, post-close live-sandbox count, and estimated saved sandbox-hours by resource class. These measurements replace assumed duty cycle and expose teardown regressions."
+          "insert": "Measurement contract — Each worker writes per-claim sandbox_sleep_stats.json at close with stopCount, startCount, stoppedMs, and failures. Live close-to-delete measured 2–7 seconds. Validation artifacts live under objectives/sandbox-runtime-consolidation/examples/phase4 and objectives/sandbox-runtime-consolidation/examples/phase5."
         }
       ],
       "children": []
@@ -562,7 +562,7 @@
       },
       "text": [
         {
-          "insert": "Wake failure details — If start fails mid-claim, route the job through the existing fail-safe failure, backoff, and requeue path; there is no local-execution fallback. Implementation still must settle whether one bounded start retry is safe and which failure evidence accompanies the requeue."
+          "insert": "Wake failure details — A failed start receives one bounded retry after a 25 ms delay. If that retry fails, the operation rejects and the existing fail-safe failure and requeue path handles the claim. There is no local-execution fallback."
         }
       ],
       "children": []

@@ -13,7 +13,7 @@ function packageBin(): string {
   return resolve(packageRoot(), "apps/server/src/job-runner.ts");
 }
 
-export async function settleSupervisedRun(params: {
+export async function settleRunOnExit(params: {
   globals: GlobalArgs;
   args: Map<string, string | true>;
   leaseId: string | null;
@@ -29,9 +29,9 @@ export async function settleSupervisedRun(params: {
       if (run?.status === "active" || run?.status === "draining" || run?.status === "paused") {
         settlePausedRun({
           actor: "guardian",
-          commandId: `command-run-supervisor-settled-${randomUUID()}`,
+          commandId: `command-run-loop-settled-${randomUUID()}`,
           leaseId,
-          reason: `supervisor settled after ${stoppedReason}`,
+          reason: `run-loop settled after ${stoppedReason}`,
           runId: run.id,
           store,
         });

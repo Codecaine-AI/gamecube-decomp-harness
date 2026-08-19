@@ -10,6 +10,10 @@ import { FakeSandboxProvider, type SandboxProvider } from "@server/core/job-queu
 import type { TaskHandle, TaskSpec, WorkerExecutor } from "@server/core/job-queue/types.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
+  enqueueBackgroundKnowledgeForWorker,
+  startBackgroundKnowledgeProcessor,
+} from "@server/core/knowledge/background/index.js";
+import {
   admitEpochTargets,
   claimNextEpochTarget,
   createRun,
@@ -67,7 +71,8 @@ function fixture() {
   if (dispatch.queued) throw new Error("Expected test dispatch lease");
   const ctx: WorkerJobRunContext = {
     store, globals, runId: run.id, dispatchLeaseId: dispatch.leaseId, baseRev: "base-test",
-    ttlSeconds: 1800, concurrencyLimit: 1, thinkingLevel: "medium",
+    ttlSeconds: 1800, sandboxSleep: true, sandboxSleepDebounceMs: 1_000,
+    concurrencyLimit: 1, thinkingLevel: "medium",
     postReturnCheckCommand: "check", workerConfigureCommand: "configure", graphDbPath: resolve(stateDir, "graph.db"),
     writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false }, workerIdPrefix: "test",
   };
@@ -99,6 +104,14 @@ function configureSandbox(f: ReturnType<typeof fixture>): void {
   } as NonNullable<GlobalArgs["game"]>;
 }
 
+async function until(predicate: () => boolean, timeoutMs = 1_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error("timed out waiting for condition");
+    await Bun.sleep(1);
+  }
+}
+
 async function sandboxClaim(f: ReturnType<typeof fixture>, provider: FakeSandboxProvider) {
   f.store.db.query("UPDATE jobs SET execution_class = 'sandbox' WHERE kind = 'worker' AND dedupe_key = ?").run(f.epochTargetId);
   const result = claim(f);
@@ -120,7 +133,7 @@ async function sandboxClaim(f: ReturnType<typeof fixture>, provider: FakeSandbox
     ttlMinutes: 60,
   });
   attachJobPayload(f.store, result.token, { sandbox_id: sandbox.sandboxId });
-  return { ...result, job: getJob(f.store, result.job.jobId)!, sandbox };
+  return { ...result, claimedJob: result.job, job: getJob(f.store, result.job.jobId)!, sandbox };
 }
 
 describe("worker job kind", () => {
@@ -174,22 +187,41 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
-  test("builds a provisioned worker task file with claim linkage", async () => {
+  test("builds a provisioned sandbox task file with claim linkage", async () => {
     const f = fixture();
     try {
-      const result = claim(f);
+      configureSandbox(f);
+      const result = claimSandboxJob(f);
+      const provider = new FakeSandboxProvider();
       const calls: unknown[] = [];
-      const task = await buildWorkerTask(f.ctx, { provision: async (input) => { calls.push(input); } })(result.job, { store: f.store, token: result.token });
+      const task = await buildWorkerTask(f.ctx, {
+        sandboxProvider: provider,
+        provisionSandbox: async (input) => {
+          calls.push(input);
+          return { sandboxId: "sandbox-worker-claim", workspaceRoot: input.workspaceRoot };
+        },
+      })(result.job, { store: f.store, token: result.token });
       expect(calls).toHaveLength(1);
-      expect(calls[0]).toMatchObject({ sourceRepoRoot: f.ctx.globals.repoRoot, baseRev: "base-test" });
+      expect(calls[0]).toMatchObject({
+        provider,
+        sourceRepoRoot: f.ctx.globals.repoRoot,
+        baseRev: "base-test",
+        workspaceRoot: "/opt/melee-test",
+      });
       const taskFile = task.command.at(-1)!;
       expect(task.command.slice(-3)).toEqual(["worker-task", "--task-file", taskFile]);
       const spec = JSON.parse(readFileSync(taskFile, "utf8"));
       expect(spec.claim_token).toEqual(result.token);
       expect(spec.target_claim_id).toBe(result.job.payload.target_claim_id);
       expect(spec.worker_state_id).toBe(result.job.payload.worker_state_id);
-      expect(spec.worktree_path).toBe((calls[0] as { workerRepoRoot: string }).workerRepoRoot);
-      expect(spec.sandbox_id).toBeUndefined();
+      expect(spec).toMatchObject({
+        execution_class: "sandbox",
+        sandbox_id: "sandbox-worker-claim",
+        workspace_root: "/opt/melee-test",
+        sandbox_sleep: true,
+        sandbox_sleep_debounce_ms: 1_000,
+      });
+      expect(spec.worktree_path).toBeUndefined();
     } finally { f.store.db.close(); }
   });
 
@@ -201,7 +233,6 @@ describe("worker job kind", () => {
       const provider = new FakeSandboxProvider();
       const calls: unknown[] = [];
       const task = await buildWorkerTask(f.ctx, {
-        provision: async () => { throw new Error("local provisioner must not run"); },
         sandboxProvider: provider,
         provisionSandbox: async (input) => {
           calls.push(input);
@@ -357,6 +388,7 @@ describe("worker job kind", () => {
       expect(settlement.status).toBe("succeeded");
       expect(childError).toBe("");
       expect(childResult?.dryRun).toBeTrue();
+      expect(childResult?.sandboxSleep).toMatchObject({ enabled: true, debounceMs: 1_000 });
       expect(capturedTask?.command).toContain("--dry-run-agents");
       const taskFile = capturedTask?.command.at(-1);
       if (!taskFile) throw new Error("sandbox gate did not capture task_spec path");
@@ -365,7 +397,17 @@ describe("worker job kind", () => {
         execution_class: "sandbox",
         sandbox_id: "sandbox-1",
         workspace_root: "/opt/melee-test",
+        sandbox_sleep: true,
+        sandbox_sleep_debounce_ms: 1_000,
       });
+      expect(JSON.parse(readFileSync(resolve(String(spec.artifact_dir), "sandbox_sleep_stats.json"), "utf8")))
+        .toMatchObject({
+          stopCount: expect.any(Number),
+          startCount: expect.any(Number),
+          stoppedMs: expect.any(Number),
+          stopFailures: 0,
+          startFailures: 0,
+        });
       expect(spec.worktree_path).toBeUndefined();
 
       const job = getJobByDedupeKey(f.store, "worker", f.epochTargetId)!;
@@ -433,6 +475,44 @@ describe("worker job kind", () => {
     } finally { open.store.db.close(); }
   });
 
+  test("hung background knowledge does not block worker settlement", async () => {
+    const f = fixture();
+    let stopBackgroundKnowledge: ((options?: { maxWaitMs?: number }) => Promise<void>) | undefined;
+    try {
+      f.store.db
+        .query(
+          `INSERT INTO worker_state (id, run_id, epoch_id, epoch_target_id, target_claim_id, worker_id,
+            target_key, lifecycle_status, started_at, ended_at, summary_json)
+          VALUES ('knowledge-source', ?, 'past-epoch', 'past-target', 'past-claim', 'past-worker',
+            'past::symbol', 'finished', '2026-08-19T00:00:00.000Z', '2026-08-19T00:01:00.000Z', '{}')`,
+        )
+        .run(f.run.id);
+      enqueueBackgroundKnowledgeForWorker(f.store, "knowledge-source");
+      let knowledgeEntered = false;
+      stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(
+        f.store,
+        async () => {
+          knowledgeEntered = true;
+          await new Promise<never>(() => {});
+        },
+        { intervalMs: 1 },
+      );
+      await until(() => knowledgeEntered);
+
+      const result = claim(f);
+      f.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
+      f.store.db.query("UPDATE target_claims SET status = 'closed' WHERE id = ?").run(String(result.job.payload.target_claim_id));
+      f.store.db.query("UPDATE epoch_targets SET status = 'finished' WHERE id = ?").run(f.epochTargetId);
+      const descriptor = workerJobDescriptor(f.ctx);
+      workerKernelOps(f.ctx).completeJob(f.store, result.token, {}, { onComplete: descriptor.onComplete });
+
+      expect(getJob(f.store, result.job.jobId)?.status).toBe("succeeded");
+    } finally {
+      await stopBackgroundKnowledge?.({ maxWaitMs: 50 });
+      f.store.db.close();
+    }
+  });
+
   test("deletes a settled sandbox job exactly once and emits sandbox.deleted", async () => {
     const f = fixture();
     try {
@@ -467,23 +547,61 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
-  test("does not delete a local-class job even when it carries sandbox metadata", async () => {
+  test("deletes a sandbox on the poll after its worker state and claim close", async () => {
     const f = fixture();
     try {
       const provider = new FakeSandboxProvider();
-      const result = claim(f);
-      const sandbox = await provider.create({
-        snapshot: "test-snapshot",
-        labels: { game_id: "test" },
-        resources: { cpu: 2, memoryGiB: 4, diskGiB: 5 },
-        ttlMinutes: 60,
+      const result = await sandboxClaim(f, provider);
+      const tracked: Promise<void>[] = [];
+      const descriptor = workerJobDescriptor(f.ctx, {
+        sandboxProvider: provider,
+        trackSandboxDeletion: (deletion) => tracked.push(deletion),
       });
-      attachJobPayload(f.store, result.token, { sandbox_id: sandbox.sandboxId });
+      if (!descriptor.onPoll) throw new Error("Expected worker poll watcher");
+      expect(result.claimedJob.payload.sandbox_id).toBeUndefined();
+
       f.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
-      const job = getJob(f.store, result.job.jobId)!;
-      const deletion = onWorkerJobComplete(job, {}, f.ctx, { sandboxProvider: provider });
-      expect(deletion).toBeUndefined();
+      f.store.db.query("UPDATE target_claims SET status = 'closed' WHERE id = ?").run(String(result.job.payload.target_claim_id));
+      descriptor.onPoll(result.claimedJob, { store: f.store });
+      expect(tracked).toHaveLength(1);
+      await tracked[0];
+
+      expect(getJob(f.store, result.job.jobId)?.status).toBe("claimed");
+      expect(provider.deletedSandboxes).toHaveLength(1);
+      expect(provider.deletedSandboxes[0]).toMatchObject({
+        sandboxId: result.sandbox.sandboxId,
+        reason: "settlement",
+      });
+
+      f.store.db.query("UPDATE epoch_targets SET status = 'finished' WHERE id = ?").run(f.epochTargetId);
+      workerKernelOps(f.ctx).completeJob(f.store, result.token, {}, { onComplete: descriptor.onComplete });
+      await Promise.all(tracked);
+
+      expect(provider.deletedSandboxes).toHaveLength(1);
+      expect(listGameEvents(f.store.db).filter((event) => event.eventType === "sandbox.deleted")).toHaveLength(1);
+    } finally { f.store.db.close(); }
+  });
+
+  test("poll watcher keeps an active sandbox while its worker state is open", async () => {
+    const f = fixture();
+    try {
+      const provider = new FakeSandboxProvider();
+      const result = await sandboxClaim(f, provider);
+      const tracked: Promise<void>[] = [];
+      const descriptor = workerJobDescriptor(f.ctx, {
+        sandboxProvider: provider,
+        trackSandboxDeletion: (deletion) => tracked.push(deletion),
+      });
+      if (!descriptor.onPoll) throw new Error("Expected worker poll watcher");
+
+      descriptor.onPoll(result.job, { store: f.store });
+      await Bun.sleep(0);
+
+      expect(tracked).toHaveLength(0);
       expect(provider.deletedSandboxes).toHaveLength(0);
+      expect(listGameEvents(f.store.db).filter((event) => event.eventType === "sandbox.deleted")).toHaveLength(0);
+      expect(f.store.db.query("SELECT ended_at FROM worker_state WHERE id = ?").get(String(result.job.payload.worker_state_id))).toEqual({ ended_at: null });
+      expect(f.store.db.query("SELECT status FROM target_claims WHERE id = ?").get(String(result.job.payload.target_claim_id))).toEqual({ status: "active" });
     } finally { f.store.db.close(); }
   });
 

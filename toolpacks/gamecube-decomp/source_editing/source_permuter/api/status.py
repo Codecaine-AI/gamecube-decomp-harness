@@ -4,20 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
 from toolpack_runtime import compiler_runner_status, print_json, resolve_repo_root, tool_impl_status
-
-
-def max_jobs() -> int:
-    try:
-        parsed = int(os.environ.get("ORCH_SOURCE_PERMUTER_MAX_JOBS", "1"))
-    except ValueError:
-        parsed = 1
-    return max(1, min(16, parsed))
 
 
 def main() -> None:
@@ -49,12 +40,9 @@ def main() -> None:
         ),
     )
     payload["compiler_runner"] = runner
-    payload["queue_policy"] = {
-        "run_replay_default_slots": 1,
-        "run_replay_when_slots_full": "queue_busy",
+    payload["internal_parallelism"] = {
         "run_default_jobs": 1,
-        "run_max_jobs": max_jobs(),
-        "run_max_jobs_env": "ORCH_SOURCE_PERMUTER_MAX_JOBS",
+        "run_max_jobs": 1,
     }
     if runner["status"] != "ok":
         payload["status"] = "missing_prerequisite"

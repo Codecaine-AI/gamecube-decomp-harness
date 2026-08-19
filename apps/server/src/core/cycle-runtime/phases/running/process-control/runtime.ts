@@ -20,7 +20,6 @@ import {
 import { activateRun, reconcileRunLeaseState } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import type { GameSummary, ResolvedGame } from "@server/core/game-registry";
 import type { RunRecord } from "@server/core/shared/types";
-import { toolConcurrencyEnvFromInput } from "@server/core/tools/concurrency-config";
 
 type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
@@ -267,9 +266,7 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
           store.db.close();
         }
         command.push("--lease-id", acquiredLease.leaseId);
-        const env = toolConcurrencyEnvFromInput(body.toolConcurrency);
-        if (Object.keys(env).length > 0) deps.appendLog("ui", `tool concurrency env: ${Object.keys(env).sort().join(", ")}`);
-        deps.processController.spawn({ command, env, name, game, stateDir });
+        deps.processController.spawn({ command, name, game, stateDir });
       } catch (error) {
         if (acquiredLease) {
           const store = openState(stateDir);

@@ -11,6 +11,10 @@ import {
   type WorkerChangeValidation,
 } from "./change-validation.js";
 
+function fakeWorkspaceExec(exec: WorkspaceExec["exec"] = async () => ({ exitCode: 0, stdout: "", stderr: "" })): WorkspaceExec {
+  return { exec } as WorkspaceExec;
+}
+
 function passedValidation(): WorkerChangeValidation {
   return {
     status: "passed",
@@ -47,6 +51,7 @@ describe("validateWidenedChange", () => {
       writeSetEntries: [...writeSetEntries],
       baseRev: "base-sha",
       runStateDir: "/state/runs/run-1",
+      workspaceExec: fakeWorkspaceExec(),
       headerOwnerByPath: { "include/melee/shared.h": "src/melee/shared_owner.c" },
       runners: {
         resolveHeaderConsumers: async () => ({
@@ -103,6 +108,7 @@ describe("validateWidenedChange", () => {
       writeSetEntries: [writeSetEntries[1]],
       baseRev: "base-sha",
       runStateDir: "/state/runs/run-1",
+      workspaceExec: fakeWorkspaceExec(),
       runners: {
         checkUnit: async (options) => ({
           sourcePath: options.sourcePath,
@@ -133,6 +139,7 @@ describe("validateWidenedChange", () => {
       baseRev: "base-sha",
       runStateDir: "/state/runs/run-1",
       maxConsumers: 1,
+      workspaceExec: fakeWorkspaceExec(),
       runners: {
         resolveHeaderConsumers: async () => ({
           consumers: ["src/melee/direct_a.c"],
@@ -157,13 +164,12 @@ describe("validateWidenedChange", () => {
     const outputDir = await mkdtemp(join(tmpdir(), "widened-validation-sandbox-owner-"));
     const commands: string[][] = [];
     const checked: string[] = [];
-    const workspaceExec: WorkspaceExec = {
-      executionClass: "sandbox",
-      exec: async (command) => {
+    const workspaceExec = fakeWorkspaceExec(
+      async (command) => {
         commands.push(command);
         return { exitCode: command.join(" ") === "test -f src/melee/shared.c" ? 0 : 1, stdout: "", stderr: "" };
       },
-    };
+    );
     const validation = await validateWidenedChange({
       validation: passedValidation(),
       repoRoot: "/workspace/melee",
@@ -200,6 +206,7 @@ describe("validateWidenedChange", () => {
       writeSetEntries: [writeSetEntries[1]],
       baseRev: "base-sha",
       runStateDir: "/state/runs/run-1",
+      workspaceExec: fakeWorkspaceExec(),
       runners: {
         checkUnit: async (options) => {
           calls += 1;

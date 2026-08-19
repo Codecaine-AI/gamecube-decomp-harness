@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import argparse
-import os
 import re
 from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
 from toolpack_runtime import clamp_int, print_json, resolve_repo_root, run_tool_script
+
+
+DEFAULT_JOBS = 1
+MAX_JOBS = 1
 
 
 def split_symbols(values: list[str], joined: str | None) -> list[str]:
@@ -22,14 +25,6 @@ def split_symbols(values: list[str], joined: str | None) -> list[str]:
     return [value.strip() for value in raw if value.strip()]
 
 
-def max_jobs() -> int:
-    try:
-        parsed = int(os.environ.get("ORCH_SOURCE_PERMUTER_MAX_JOBS", "1"))
-    except ValueError:
-        parsed = 1
-    return max(1, min(16, parsed))
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", help="Target project checkout root.")
@@ -38,7 +33,7 @@ def main() -> None:
     parser.add_argument("--mutate-functions", help="Comma- or space-separated mutation targets.")
     parser.add_argument("--max-iters", type=int, default=32, help="Maximum compiled candidates.")
     parser.add_argument("--timeout-seconds", type=int, default=90, help="Maximum search runtime.")
-    parser.add_argument("--jobs", type=int, default=1, help="Worker threads for permutation.")
+    parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS, help="Worker threads for permutation.")
     parser.add_argument("--seed", type=int, default=0, help="Base random seed.")
     parser.add_argument("--keep-prob", type=float, default=0.25, help="Probability of stacking another mutation.")
     parser.add_argument("--no-narrow", action="store_true", help="Skip post-search diff minimization.")
@@ -48,7 +43,7 @@ def main() -> None:
     args = parser.parse_args()
 
     mutate_functions = split_symbols(args.mutate_function, args.mutate_functions)
-    jobs = clamp_int(args.jobs, default=1, minimum=1, maximum=max_jobs())
+    jobs = clamp_int(args.jobs, default=DEFAULT_JOBS, minimum=1, maximum=MAX_JOBS)
     command_args = [
         args.function,
         *mutate_functions,

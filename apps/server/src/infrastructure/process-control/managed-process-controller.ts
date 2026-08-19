@@ -1,5 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 export type JsonObject = Record<string, unknown>;
@@ -15,6 +15,8 @@ export interface ManagedProcessGame {
   id?: string;
   gameId?: string;
   repoRoot?: string;
+  stderrPath: string;
+  stdoutPath: string;
   stateDir?: string;
 }
 
@@ -206,6 +208,8 @@ export class ManagedProcessController {
           repoRoot: proc.repoRoot ?? null,
           stateDir: proc.stateDir ?? null,
           graphDbPath: proc.graphDbPath ?? null,
+          stdoutPath: proc.stdoutPath,
+          stderrPath: proc.stderrPath,
         },
         null,
         2,
@@ -288,6 +292,8 @@ export class ManagedProcessController {
       repoRoot: activeRepoRoot || null,
       stateDir: this.managed?.stateDir ?? stringValue(activeSaved?.stateDir, stateDir),
       graphDbPath: activeGraphDbPath || null,
+      stdoutPath: this.managed?.stdoutPath ?? (stringValue(activeSaved?.stdoutPath) || null),
+      stderrPath: this.managed?.stderrPath ?? (stringValue(activeSaved?.stderrPath) || null),
       logs: this.processLogs.slice(-220),
       knownProcesses,
       freshRunActive,
@@ -308,13 +314,21 @@ export class ManagedProcessController {
   spawn(input: StartManagedInput): ManagedProcess {
     const { command, env, name, game, stateDir } = input;
     const envOverrides = env && Object.keys(env).length > 0 ? env : undefined;
+    const processDir = resolve(stateDir, "ui-processes");
+    mkdirSync(processDir, { recursive: true });
+    const stdoutPath = resolve(processDir, `${name}.stdout.log`);
+    const stderrPath = resolve(processDir, `${name}.stderr.log`);
+    const stdoutFd = openSync(stdoutPath, "a");
+    const stderrFd = openSync(stderrPath, "a");
     const child = spawn(command[0] ?? "bun", command.slice(1), {
       cwd: this.deps.packageRoot,
       detached: true,
       env: { ...process.env, ...(envOverrides ?? {}) },
       argv0: `orch-${name}`,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["ignore", stdoutFd, stderrFd],
     });
+    closeSync(stdoutFd);
+    closeSync(stderrFd);
     const pid = child.pid ?? 0;
     const proc: ManagedProcess = {
       child,
@@ -326,9 +340,11 @@ export class ManagedProcessController {
       pidFilePath: this.pidFilePath(stateDir, name),
       game: game ? this.deps.gameToSummary(game) : null,
       repoRoot: game?.repoRoot,
+      stderrPath,
       startedAt: new Date().toISOString(),
       state: "running",
       stateDir,
+      stdoutPath,
     };
     this.managed = proc;
     this.writeProcessFile(proc);
@@ -345,10 +361,6 @@ export class ManagedProcessController {
       state: proc.state,
       stateDir,
     });
-    child.stdout?.setEncoding("utf8");
-    child.stderr?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk) => this.appendLog("stdout", String(chunk)));
-    child.stderr?.on("data", (chunk) => this.appendLog("stderr", String(chunk)));
     child.on("exit", (code, signal) => {
       proc.state = "exited";
       proc.exitCode = code;
@@ -532,7 +544,7 @@ export class ManagedProcessController {
         this.appendLog("stderr", `drain signal failed for process ${pid}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    this.appendLog("ui", `sent drain signal to ${signaled.length} process${signaled.length === 1 ? "" : "es"}; supervisor remains active until workers finish`);
+    this.appendLog("ui", `sent drain signal to ${signaled.length} process${signaled.length === 1 ? "" : "es"}; run-loop remains active until workers finish`);
     return { draining: signaled.length > 0, signaled, process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
   }
 }

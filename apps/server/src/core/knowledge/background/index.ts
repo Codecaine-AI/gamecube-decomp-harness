@@ -19,6 +19,7 @@ import { immediateTransaction, type StateStore } from "@server/core/orchestrator
 const KIND = "knowledge_absorption" as const;
 const CONCURRENCY_LIMIT = 2;
 const DEFAULT_LEASE_MS = 60_000;
+const DEFAULT_STOP_MAX_WAIT_MS = 15_000;
 
 export type BackgroundKnowledgeJobStatus =
   | "queued"
@@ -399,7 +400,7 @@ export function startBackgroundKnowledgeProcessor(
   store: StateStore,
   processor: BackgroundKnowledgeProcessor,
   options: { intervalMs?: number; leaseMs?: number } = {},
-): () => Promise<void> {
+): (options?: { maxWaitMs?: number }) => Promise<void> {
   catchUpBackgroundKnowledge(store);
   const consumer = startJobConsumer(
     store,
@@ -407,5 +408,25 @@ export function startBackgroundKnowledgeProcessor(
     kernelOps,
     { intervalMs: options.intervalMs ?? 1_000, actor: "runner" },
   );
-  return () => consumer.stop();
+  return async (stopOptions = {}) => {
+    const stopping = consumer.stop();
+    const maxWaitMs = stopOptions.maxWaitMs ?? DEFAULT_STOP_MAX_WAIT_MS;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = Symbol("background-knowledge-stop-deadline");
+    const outcome = await Promise.race([
+      stopping,
+      new Promise<typeof deadline>((resolveDeadline) => {
+        timer = setTimeout(() => resolveDeadline(deadline), maxWaitMs);
+      }),
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+    if (outcome === deadline) {
+      const abandoned = consumer.inFlight();
+      void stopping.catch(() => {});
+      console.warn(
+        `Background knowledge shutdown abandoned ${abandoned} in-flight job(s) after ${maxWaitMs}ms; lease expiry and catchUpBackgroundKnowledge will recover them on next startup`,
+      );
+    }
+  };
 }

@@ -522,7 +522,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       run = getRun(store, runId);
       if (!run) throw new Error(`Run not found: ${runId}`);
       if (run.status !== "paused") {
-        throw new Error(`Pause boundary requires supervisor-settled paused run ${runId}; current status is ${run.status}`);
+        throw new Error(`Pause boundary requires exit-settled paused run ${runId}; current status is ${run.status}`);
       }
     } finally {
       store.db.close();
@@ -535,7 +535,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       runGit: deps.runGit,
       stateDir,
     });
-    appendLog("ui", `run ${runId} boundary recorded after supervisor settlement`);
+    appendLog("ui", `run ${runId} boundary recorded after run-loop exit settlement`);
     if (!run.cycleUuid) throw new Error(`Run ${runId} has no game cycle for pause save-point evidence`);
     const savePoint = await savePoints.boundarySavePoint(paths, "pause", run.cycleUuid);
     return {
@@ -544,7 +544,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       repoRoot,
       stateDir,
       run,
-      drain: { draining: false, reason: "supervisor_settled" },
+      drain: { draining: false, reason: "run_loop_settled" },
       boundaryCommit,
       savePoint,
     };

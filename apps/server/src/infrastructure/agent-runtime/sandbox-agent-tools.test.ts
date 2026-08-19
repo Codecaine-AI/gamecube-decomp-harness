@@ -81,28 +81,6 @@ describe("sandboxBashOperations", () => {
       timeoutMs: DEFAULT_SANDBOX_BASH_TIMEOUT_MS,
     });
   });
-
-  test("holds host compile admission around sandbox ninja commands", async () => {
-    const { provider, handle } = await createFakeSandbox();
-    const order: string[] = [];
-    provider.scriptExec(() => {
-      order.push("sandbox build");
-      return { exitCode: 0, stdout: "", stderr: "" };
-    });
-
-    await sandboxBashOperations(handle, "/sandbox/workspace", {
-      withCompileSlot: async (run) => {
-        order.push("slot acquired");
-        try {
-          return await run();
-        } finally {
-          order.push("slot released");
-        }
-      },
-    }).exec("ninja build/GALE01/src/example.o", "/sandbox/workspace", { onData() {} });
-
-    expect(order).toEqual(["slot acquired", "sandbox build", "slot released"]);
-  });
 });
 
 describe("sandbox file tool definitions", () => {

@@ -26,7 +26,6 @@ export interface RunningProcessCommandBody {
   runId?: unknown;
   stateDir?: unknown;
   thinkingLevel?: unknown;
-  toolConcurrency?: unknown;
   usePathOverrides?: unknown;
   workerConfigureCommand?: unknown;
 }
@@ -100,8 +99,8 @@ type RunningProcessPolicyField = keyof typeof POLICY_FIELDS;
  * These request fields do not change run policy and may pass through without
  * appearing in configuration_snapshot: routing/identity (runId, gameId),
  * command attribution (commandId, reason, confirmed), managed-process identity
- * (processName), deployment paths (usePathOverrides, repoRoot, stateDir,
- * graphDbPath), and host-level resource limits (toolConcurrency).
+ * (processName), and deployment paths (usePathOverrides, repoRoot, stateDir,
+ * graphDbPath).
  */
 export const RUNNING_PROCESS_OPERATIONAL_FIELDS = [
   "commandId",
@@ -113,7 +112,6 @@ export const RUNNING_PROCESS_OPERATIONAL_FIELDS = [
   "repoRoot",
   "runId",
   "stateDir",
-  "toolConcurrency",
   "usePathOverrides",
 ] as const satisfies readonly (keyof RunningProcessCommandBody)[];
 
@@ -269,7 +267,7 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   if (Boolean(policySnapshotValue("dryRunAgents", configuration))) command.push("--dry-run-agents");
   command.push("--agent-timeout-seconds", String(agentTimeoutSeconds));
   command.push(
-    "babysit",
+    "run-loop",
     "--max-workers",
     String(maxWorkers),
     "--epoch-size",
@@ -279,7 +277,6 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
     String(integrationResolverConcurrency),
     "--graph-db",
     graphDbPath,
-    "--force-recover-claims",
   );
   if (workerConfigureCommand) command.push("--worker-configure-command", workerConfigureCommand);
   if (epochConfigureCommand) command.push("--epoch-configure-command", epochConfigureCommand);

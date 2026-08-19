@@ -13,6 +13,7 @@ import { defaultWorkerToolProfile } from "@server/core/tools";
 import { parse } from "../src/core/game-registry/runtime-options.js";
 import { buildPrSplitPlanFromChanges } from "../src/core/cycle-runtime/phases/pr/jobs/pr-split-plan.js";
 import { agentNoteSignalsToolError, workerAttemptRepairReasons } from "../src/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { activateRun } from "../src/core/cycle-runtime/phases/running/run-control.js";
 import { loadKnowledgeBoardSnapshot, openKnowledgeGraph } from "@server/core/knowledge";
 import { planRegressionRepair } from "@server/core/cycle-runtime/phases/running/epochs";
 import { evaluatePrPromotion, readRegressionReport } from "@server/core/validation/objdiff/report";
@@ -1286,24 +1287,34 @@ async function main(): Promise<void> {
     workerErrors: unknown[];
     finalStatus: { activeWorkers: number; admittedTargets: number; unhandledEvents: number };
   }>(
-    await runCli([
-      ...triggerFlags,
-      "run-loop",
-      "--run-id",
-      triggerInit.run.id,
-      "--max-workers",
-      "1",
-      "--max-iterations",
-      "16",
-      "--max-idle-iterations",
-      "1",
-      "--idle-sleep-ms",
-      "1",
-      "--candidate-limit",
-      "8",
-      "--graph-db",
-      graphDb,
-    ]),
+    await (async () => {
+      const store = openState(triggerStateDir);
+      try {
+        const active = activateRun({ reason: "smoke run-loop", runId: triggerInit.run.id, store });
+        return await runCli([
+          ...triggerFlags,
+          "run-loop",
+          "--lease-id",
+          active.leaseId,
+          "--run-id",
+          triggerInit.run.id,
+          "--max-workers",
+          "1",
+          "--max-iterations",
+          "16",
+          "--max-idle-iterations",
+          "1",
+          "--idle-sleep-ms",
+          "1",
+          "--candidate-limit",
+          "8",
+          "--graph-db",
+          graphDb,
+        ]);
+      } finally {
+        store.db.close();
+      }
+    })(),
   );
   const triggerStore = openState(triggerStateDir);
   try {
@@ -1318,67 +1329,9 @@ async function main(): Promise<void> {
     assertSmoke("run-loop does not record director cycles", count(triggerStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", triggerInit.run.id) === 0);
     assertSmoke("run-loop records one worker state per started worker", count(triggerStore, "SELECT COUNT(*) AS count FROM worker_state WHERE run_id = ?", triggerInit.run.id) === triggerRun.workersStarted);
     assertSmoke("run-loop handled all wake events", count(triggerStore, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", triggerInit.run.id) === 0);
+    assertSmoke("run-loop settles its dispatch lease on exit", count(triggerStore, "SELECT COUNT(*) AS count FROM dispatch_leases WHERE status = 'active'") === 0);
   } finally {
     triggerStore.db.close();
-  }
-  const babysitStateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-babysit-smoke-"));
-  const babysitFlags = ["--repo-root", fixtureRoot, "--state-dir", babysitStateDir, "--dry-run-agents"];
-  const babysitInit = parseJson<{ run: { id: string } }>(
-    await runCli([
-      ...babysitFlags,
-      "init-run",
-      "--desired-workers",
-      "1",
-      "--candidate-limit",
-      "8",
-      "--goal-kind",
-      "matched_code_percent",
-      "--goal-value",
-      "72",
-    ]),
-  );
-  const babysitRun = parseJson<{
-    stoppedReason: string;
-    systemCommand: string;
-    incidents: number;
-    restarts: number;
-    systemRuns: Array<{ stdoutPath: string; stderrPath: string; resultPath: string; classification: string; reason: string }>;
-    finalStatus: { activeClaims: number; unhandledEvents: number };
-  }>(
-    await runCli([
-      ...babysitFlags,
-      "babysit",
-      "--run-id",
-      babysitInit.run.id,
-      "--max-workers",
-      "1",
-      "--max-iterations",
-      "16",
-      "--max-idle-iterations",
-      "1",
-      "--idle-sleep-ms",
-      "1",
-      "--candidate-limit",
-      "8",
-    ]),
-  );
-  const babysitStore = openState(babysitStateDir);
-  try {
-    assertSmoke("babysit exits after clean bounded child", babysitRun.stoppedReason === "system_clean_exit");
-    assertSmoke("babysit defaults to the run-loop child", babysitRun.systemCommand === "run-loop");
-    assertSmoke("babysit records one system run", babysitRun.systemRuns.length === 1);
-    assertSmoke("babysit child run is clean", babysitRun.systemRuns[0]?.classification === "clean");
-    assertSmoke("babysit records no incidents", babysitRun.incidents === 0);
-    assertSmoke("babysit performs no incident restarts", babysitRun.restarts === 0);
-    assertSmoke("babysit leaves no active claims", babysitRun.finalStatus.activeClaims === 0);
-    assertSmoke("babysit drains wake events", babysitRun.finalStatus.unhandledEvents === 0);
-    assertSmoke("babysit records bounded worker states", count(babysitStore, "SELECT COUNT(*) AS count FROM worker_state WHERE run_id = ?", babysitInit.run.id) > 0);
-    assertSmoke("babysit system stdout artifact exists", existsSync(babysitRun.systemRuns[0]?.stdoutPath ?? ""));
-    assertSmoke("babysit system stderr artifact exists", existsSync(babysitRun.systemRuns[0]?.stderrPath ?? ""));
-    assertSmoke("babysit system result artifact exists", existsSync(babysitRun.systemRuns[0]?.resultPath ?? ""));
-    assertSmoke("babysit child run does not record director cycles", count(babysitStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", babysitInit.run.id) === 0);
-  } finally {
-    babysitStore.db.close();
   }
 
   const initialBoard = resolve(stateDir, "runs", init.run.id, "snapshots", "initial_board.json");

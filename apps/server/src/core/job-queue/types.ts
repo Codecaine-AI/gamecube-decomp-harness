@@ -45,6 +45,7 @@ export interface WorkerExecutor {
 
 export interface JobHandlerContext { store: StateStore; token: ClaimToken; }
 export interface JobCompletionContext { store: StateStore; }
+export interface JobPollContext { store: StateStore; }
 
 export type JobKindExecution =
   | { mode: "inline"; handler: (job: JobRecord, ctx: JobHandlerContext) => Promise<JobResult> }
@@ -56,6 +57,7 @@ export interface JobKindDescriptor {
   leaseMs: number;
   backoff?: (attempts: number) => number;   // ms until next attempt; default min(300_000, 1_000 * 2 ** min(attempts, 8))
   execution: JobKindExecution;
+  onPoll?: (job: JobRecord, ctx: JobPollContext) => void;
   onComplete?: (job: JobRecord, result: JobResult, ctx: JobCompletionContext) => void;  // runs inside the completion transaction
 }
 

@@ -252,4 +252,24 @@ describe("durable background knowledge queue", () => {
       getJobByDedupeKey(store, "knowledge_absorption", "worker-state-1"),
     ).toMatchObject({ status: "succeeded", resultRef: "sha256:worker-state-1" });
   });
+
+  test("bounded stop resolves while an in-flight processor remains hung", async () => {
+    const { store } = fixture();
+    completedWorker(store, "worker-state-1");
+    enqueueBackgroundKnowledgeForWorker(store, "worker-state-1");
+    let entered = false;
+    const stop = startBackgroundKnowledgeProcessor(
+      store,
+      async () => {
+        entered = true;
+        await new Promise<never>(() => {});
+      },
+      { intervalMs: 1 },
+    );
+
+    await until(() => entered);
+    const startedAt = Date.now();
+    await stop({ maxWaitMs: 50 });
+    expect(Date.now() - startedAt).toBeLessThan(2_000);
+  });
 });

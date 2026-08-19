@@ -5,11 +5,11 @@
  * can choose the specific tool whose evidence type matches the question instead
  * of searching through a generic command list.
  */
-import { existsSync, readdirSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { runKnowledgeToolApiForContext } from "../runtime/execution.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
+import { mwccDebugCompilerProvisioned } from "./mwcc-debug-capability.js";
 
 const evidenceToolRoles = [
   "worker",
@@ -292,18 +292,6 @@ export const objdiffScoreCandidateToolRegistration = knowledgeApiTool({
 // toolpacks/gamecube-decomp/_impl/gamecube/mwcc_debug/README.md. Gate them on provisioning so an
 // unprovisioned checkout returns structured guidance instead of a script crash
 // that the runner would classify as a tool error.
-function mwccDebugCompilerProvisioned(repoRoot: string): boolean {
-  const compilersRoot = resolve(repoRoot, "build/compilers");
-  if (!existsSync(compilersRoot)) return false;
-  for (const family of readdirSync(compilersRoot, { withFileTypes: true })) {
-    if (!family.isDirectory()) continue;
-    for (const version of readdirSync(resolve(compilersRoot, family.name), { withFileTypes: true })) {
-      if (version.isDirectory() && existsSync(resolve(compilersRoot, family.name, version.name, "mwcceppc_debug.exe"))) return true;
-    }
-  }
-  return false;
-}
-
 function mwccDebugUnavailablePayload(): Record<string, unknown> {
   return {
     status: "debug_compiler_not_provisioned",
@@ -334,7 +322,7 @@ export const mwccDebugDumpFunctionToolRegistration = knowledgeApiTool({
   args(params, context) {
     const fn = stringParam(params, "function");
     if (!fn) return { status: "missing_function" };
-    if (!mwccDebugCompilerProvisioned(context.repoRoot)) return mwccDebugUnavailablePayload();
+    if (!mwccDebugCompilerProvisioned(context)) return mwccDebugUnavailablePayload();
     return [
       "--repo-root",
       context.repoRoot,
@@ -372,7 +360,7 @@ function mwccDiagnoseTool(id: string, label: string, mode: "stack" | "regflow" |
     args(params, context) {
       const fn = stringParam(params, "function");
       if (!fn) return { status: "missing_function" };
-      if (!mwccDebugCompilerProvisioned(context.repoRoot)) return mwccDebugUnavailablePayload();
+      if (!mwccDebugCompilerProvisioned(context)) return mwccDebugUnavailablePayload();
       const args = [
         "--repo-root",
         context.repoRoot,

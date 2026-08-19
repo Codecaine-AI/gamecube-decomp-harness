@@ -497,7 +497,7 @@ export function admitEpochTargets(
           target_key: key,
         },
         traceId: run.trace_id == null ? undefined : String(run.trace_id),
-        executionClass: "local",
+        executionClass: "sandbox",
       });
     });
     store.db.query("UPDATE epochs SET admitted_count = admitted_count + ? WHERE id = ?").run(selected.selected.length, params.epochId);

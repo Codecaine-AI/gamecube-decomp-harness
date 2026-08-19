@@ -201,7 +201,7 @@ describe("game cycle durable state", () => {
       id: "cycle:cycle-uuid",
     });
     const processState = cycleProcessState({
-      command: ["bun", "apps/server/src/job-runner.ts", "babysit"],
+      command: ["bun", "apps/server/src/job-runner.ts", "run-loop"],
       graphDbPath: "/tmp/graph.sqlite",
       name: "melee-live",
       pid: 1234,

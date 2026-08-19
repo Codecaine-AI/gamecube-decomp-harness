@@ -202,7 +202,6 @@ describe("game cycle runtime", () => {
             provider: "codex-lb",
             model: "gpt-5.5",
             thinkingLevel: "xhigh",
-            toolConcurrency: { compile: 12 },
           },
         },
       },
@@ -215,7 +214,6 @@ describe("game cycle runtime", () => {
       provider: "codex-lb",
       model: "gpt-5.5",
       thinkingLevel: "xhigh",
-      toolConcurrency: { compile: 12 },
     });
     db.close();
   });

@@ -1,5 +1,5 @@
 import type { FormState } from "@/lib/format";
-import { DEFAULT_TOOL_CONCURRENCY, DEFAULT_WORKER_TIMEOUT_SECONDS, normalizeToolConcurrency } from "@/lib/workerConfig";
+import { DEFAULT_WORKER_TIMEOUT_SECONDS } from "@/lib/workerConfig";
 
 const RUN_SETTINGS_KEY = "runSettings.v1";
 const THINKING_LEVEL_SETTINGS_VERSION = 2;
@@ -25,7 +25,6 @@ type SavedRunSettings = Pick<
   | "candidateRerank"
   | "integrationResolverConcurrency"
   | "agentTimeoutSeconds"
-  | "toolConcurrency"
 > & {
   thinkingLevelVersion?: number;
   settingsVersion?: number;
@@ -57,7 +56,6 @@ function loadRunSettings(): Partial<SavedRunSettings> {
       settings.integrationResolverConcurrency = Math.trunc(parsed.integrationResolverConcurrency);
     }
     if (typeof parsed.agentTimeoutSeconds === "number" && parsed.agentTimeoutSeconds > 0) settings.agentTimeoutSeconds = Math.trunc(parsed.agentTimeoutSeconds);
-    if (parsed.toolConcurrency && typeof parsed.toolConcurrency === "object") settings.toolConcurrency = normalizeToolConcurrency(parsed.toolConcurrency);
     return settings;
   } catch {
     return {};
@@ -78,7 +76,6 @@ export function saveRunSettings(form: FormState) {
       candidateRerank: form.candidateRerank,
       integrationResolverConcurrency: form.integrationResolverConcurrency,
       agentTimeoutSeconds: form.agentTimeoutSeconds,
-      toolConcurrency: normalizeToolConcurrency(form.toolConcurrency),
     };
     localStorage.setItem(RUN_SETTINGS_KEY, JSON.stringify(settings));
   } catch {
@@ -113,5 +110,4 @@ const defaultForm: FormState = {
   model: "gpt-5.6-sol",
   thinkingLevel: DEFAULT_THINKING_LEVEL,
   agentTimeoutSeconds: DEFAULT_WORKER_TIMEOUT_SECONDS,
-  toolConcurrency: DEFAULT_TOOL_CONCURRENCY,
 };

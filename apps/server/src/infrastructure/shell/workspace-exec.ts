@@ -1,24 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox";
-import { withGlobalCompileJobserverSlot } from "./global-compile-jobserver.js";
-import { runCommand, type CommandResult, type RunCommandOptions } from "./run-command.js";
+import type { CommandResult, RunCommandOptions } from "./run-command.js";
 
 export const DEFAULT_SANDBOX_WORKSPACE_TIMEOUT_MS = 30 * 60_000;
 
-export interface WorkspaceExecOptions extends RunCommandOptions {
-  compile?: boolean;
-}
+export type WorkspaceExecOptions = RunCommandOptions;
 
 export interface WorkspaceExec {
-  readonly executionClass: "local" | "sandbox";
   exec(command: string[], options?: WorkspaceExecOptions): Promise<CommandResult>;
-  captureGitDiff?(paths: string[], outputPath: string): Promise<CommandResult>;
+  captureGitDiff(paths: string[], outputPath: string): Promise<CommandResult>;
 }
 
 export interface SandboxWorkspaceExecOptions {
   defaultTimeoutMs?: number;
-  withCompileSlot?: <T>(run: () => Promise<T>) => Promise<T>;
 }
 
 function sandboxEnv(env: RunCommandOptions["env"]): Record<string, string> | undefined {
@@ -34,13 +29,6 @@ function positiveTimeout(timeoutMs: number | undefined, fallback: number): numbe
     : fallback;
 }
 
-export function localWorkspaceExec(repoRoot: string): WorkspaceExec {
-  return {
-    executionClass: "local",
-    exec: (command, options = {}) => runCommand(repoRoot, command, options),
-  };
-}
-
 export function sandboxWorkspaceExec(
   handle: SandboxHandle,
   workspaceRoot: string,
@@ -50,17 +38,14 @@ export function sandboxWorkspaceExec(
     options.defaultTimeoutMs,
     DEFAULT_SANDBOX_WORKSPACE_TIMEOUT_MS,
   );
-  const withCompileSlot = options.withCompileSlot ?? withGlobalCompileJobserverSlot;
   const exec = async (command: string[], commandOptions: WorkspaceExecOptions = {}) => {
-    const run = () => handle.exec(command, {
+    return handle.exec(command, {
       cwd: workspaceRoot,
       env: sandboxEnv(commandOptions.env),
       timeoutMs: positiveTimeout(commandOptions.timeoutMs, defaultTimeoutMs),
     });
-    return commandOptions.compile ? withCompileSlot(run) : run();
   };
   return {
-    executionClass: "sandbox",
     exec,
     captureGitDiff: async (paths, outputPath) => {
       const remotePath = `/tmp/decomp-orchestrator-evidence-${randomUUID()}.diff`;
@@ -83,12 +68,5 @@ export async function captureWorkspaceGitDiff(
   paths: string[],
   outputPath: string,
 ): Promise<CommandResult> {
-  if (workspaceExec.captureGitDiff) {
-    return workspaceExec.captureGitDiff(paths, outputPath);
-  }
-  const result = paths.length > 0
-    ? await workspaceExec.exec(["git", "diff", "--", ...paths])
-    : { exitCode: 0, stdout: "", stderr: "" };
-  await writeFile(outputPath, result.stdout);
-  return result;
+  return workspaceExec.captureGitDiff(paths, outputPath);
 }

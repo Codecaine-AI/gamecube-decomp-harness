@@ -82,6 +82,7 @@ export {
   enabledCapabilities,
   parseWorkerCheckpointNote,
   targetPacketTarget,
+  WORKER_CANONICAL_TOOL_PATHS,
   workerPacket,
   workerPrompt,
   workerPromptInputXml,

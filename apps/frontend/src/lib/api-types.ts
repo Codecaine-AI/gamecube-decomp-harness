@@ -46,17 +46,6 @@ export interface FormState {
   provider: string;
   model: string;
   thinkingLevel: string;
-  toolConcurrency: ToolConcurrencySettings;
-}
-
-export interface ToolConcurrencySettings {
-  checkdiff: number;
-  compile: number;
-  m2cDecomp: number;
-  mwccDebug: number;
-  other: number;
-  sourcePermuter: number;
-  sourcePermuterJobs: number;
 }
 
 export interface Dashboard {

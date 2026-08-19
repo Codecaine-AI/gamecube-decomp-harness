@@ -44,6 +44,7 @@ import {
   type GlobalArgs,
 } from "@server/core/game-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/cycle-runtime/phases/running/jobs/shared.js";
+import { settleRunOnExit } from "@server/core/cycle-runtime/phases/running/jobs/settle-supervised-run.js";
 import {
   derivedSchedulerCandidateWindow,
   ensureSchedulerEpochFromBoard,
@@ -59,6 +60,7 @@ import { reconcileSandboxes } from "@server/core/job-queue/sandbox-lifecycle.js"
 import { DaytonaSandboxProvider, type SandboxProvider } from "@server/core/job-queue/sandbox.js";
 import type { JobRecord, TaskOutcome } from "@server/core/job-queue/types.js";
 import {
+  DEFAULT_SANDBOX_SLEEP_DEBOUNCE_MS,
   reapWorkerJobs,
   workerJobDescriptor,
   workerKernelOps,
@@ -244,6 +246,18 @@ async function probeProvider(globals: GlobalArgs, outputDir: string, sessionId: 
 function nonNegativeInt(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value));
+}
+
+export function sandboxSleepConfigFromArgs(args: Map<string, string | true>): {
+  sandboxSleep: boolean;
+  sandboxSleepDebounceMs: number;
+} {
+  return {
+    sandboxSleep: !booleanArg(args, "--no-sandbox-sleep"),
+    sandboxSleepDebounceMs: nonNegativeInt(
+      numberArg(args, "--sandbox-sleep-debounce-ms", DEFAULT_SANDBOX_SLEEP_DEBOUNCE_MS),
+    ),
+  };
 }
 
 function targetPressureSnapshotForRunLoop(params: {
@@ -742,6 +756,7 @@ export async function runRunLoop(
     const candidateWindow = derivedSchedulerCandidateWindow(globals, args, maxWorkers);
     const baseRev = resolveBaseRev(globals.repoRoot, stringArg(args, "--base-rev", "unknown"));
     const ttlSeconds = workerTtlSeconds(globals, args);
+    const { sandboxSleep, sandboxSleepDebounceMs } = sandboxSleepConfigFromArgs(args);
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const writeSetFlags = writeSetIntegrationFlags(args);
@@ -807,6 +822,8 @@ export async function runRunLoop(
       dispatchLeaseId: leaseId,
       baseRev,
       ttlSeconds,
+      sandboxSleep,
+      sandboxSleepDebounceMs,
       concurrencyLimit: maxWorkers,
       thinkingLevel: workerThinkingLevel,
       postReturnCheckCommand,
@@ -1526,7 +1543,7 @@ export async function runRunLoop(
       },
     };
   } finally {
-    await stopBackgroundKnowledge();
+    await stopBackgroundKnowledge({ maxWaitMs: 15_000 });
     if (observedRunId) setRunSchedulerCondition(store, observedRunId, "idle");
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
@@ -1536,5 +1553,14 @@ export async function runRunLoop(
 }
 
 export async function runLoop(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
-  console.log(JSON.stringify(await runRunLoop(globals, args), null, 2));
+  const leaseId = stringArg(args, "--lease-id", "").trim();
+  let stoppedReason = "error";
+  let result: RunLoopResult;
+  try {
+    result = await runRunLoop(globals, args);
+    stoppedReason = result.stoppedReason;
+  } finally {
+    await settleRunOnExit({ globals, args, leaseId, stoppedReason });
+  }
+  console.log(JSON.stringify(result, null, 2));
 }

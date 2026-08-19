@@ -87,6 +87,11 @@ export interface LibrarianReportValidation {
 
 const LEARNING_SCOPES = new Set<LearningScope>(["symbol", "file", "area", "general"]);
 const LEARNING_ORIGINS = new Set<LearningOrigin>(["human_extracted", "ai_inferred"]);
+const DEFAULT_LIBRARIAN_TIMEOUT_SECONDS = 600;
+
+export interface LibrarianCondenseDeps {
+  runPiAgent?: typeof runPiAgent;
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -316,7 +321,11 @@ export interface LibrarianCondensePublication {
 }
 
 /** Programmatic materializer used by both the durable queue and the CLI wrapper. */
-export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string, string | true>): Promise<LibrarianCondensePublication> {
+export async function kgLibrarianCondense(
+  globals: GlobalArgs,
+  args: Map<string, string | true>,
+  deps: LibrarianCondenseDeps = {},
+): Promise<LibrarianCondensePublication> {
   const workerStateId = stringArg(args, "--worker-state-id", "").trim();
   if (!workerStateId) throw new Error("kg-librarian-condense requires --worker-state-id");
 
@@ -325,6 +334,7 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
   const store = openState(globals.stateDir);
 
   try {
+    // This store remains an idle connection during the model call; no SQLite transaction spans the await.
     const {
       worker_state: workerState,
       checkpoints: checkpointRows,
@@ -343,7 +353,9 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
 
     const outputDir = resolve(globals.stateDir, "knowledge_librarian", new Date().toISOString().replace(/[:.]/g, "-"));
     await mkdir(outputDir, { recursive: true });
-    const result = await runPiAgent({
+    const timeoutMs = (globals.agentTimeoutSeconds || DEFAULT_LIBRARIAN_TIMEOUT_SECONDS) * 1_000;
+    const startedAt = Date.now();
+    const modelRun = (deps.runPiAgent ?? runPiAgent)({
       role: "librarian",
       cwd: globals.repoRoot,
       prompt: librarianPrompt({
@@ -357,7 +369,7 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
       provider: globals.provider,
       model: globals.model,
       thinkingLevel: globals.thinkingLevel,
-      timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
+      timeoutMs,
       toolContext: {
         repoRoot: globals.repoRoot,
         stateDir: globals.stateDir,
@@ -377,6 +389,31 @@ export async function kgLibrarianCondense(globals: GlobalArgs, args: Map<string,
         },
       }),
     });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = Symbol("librarian-timeout");
+    const result = await Promise.race([
+      modelRun,
+      new Promise<typeof timedOut>((resolveTimeout) => {
+        timer = setTimeout(() => resolveTimeout(timedOut), timeoutMs);
+      }),
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+    if (result === timedOut) {
+      void modelRun.catch(() => {});
+      console.warn(
+        `Librarian worker_state ${workerStateId} timed out after ${Date.now() - startedAt}ms; cooperative abort may not settle, so the underlying agent session may remain active`,
+      );
+      return {
+        digest: `timeout:${workerStateId}`,
+        provenance: {
+          worker_state_id: workerStateId,
+          ledger_path: ledgerPath,
+          learning_ids: [],
+          output_path: null,
+        },
+      };
+    }
 
     if (result.dryRun) {
       console.log(

@@ -125,11 +125,37 @@ interface LocalEntry {
   startedAt: string;
   timedOut: boolean;
   cancelled: boolean;
+  deadPid: boolean;
   timer: ReturnType<typeof setTimeout> | null;
+}
+
+interface LocalProcessExecutorOptions {
+  isPidAlive?: (pid: number) => boolean;
+  deadProcessCollectDeadlineMs?: number;
+}
+
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error) {
+      if (error.code === "ESRCH") return false;
+      if (error.code === "EPERM") return true;
+    }
+    throw error;
+  }
 }
 
 export class LocalProcessExecutor implements WorkerExecutor {
   readonly #entries = new Map<string, LocalEntry>();
+  readonly #isPidAlive: (pid: number) => boolean;
+  readonly #deadProcessCollectDeadlineMs: number;
+
+  constructor(options: LocalProcessExecutorOptions = {}) {
+    this.#isPidAlive = options.isPidAlive ?? isPidAlive;
+    this.#deadProcessCollectDeadlineMs = options.deadProcessCollectDeadlineMs ?? 100;
+  }
 
   async submit(task: TaskSpec): Promise<TaskHandle> {
     const handleId = randomUUID();
@@ -142,6 +168,7 @@ export class LocalProcessExecutor implements WorkerExecutor {
       startedAt,
       timedOut: false,
       cancelled: false,
+      deadPid: false,
       timer: null,
     };
     if (task.timeoutMs != null) {
@@ -153,29 +180,49 @@ export class LocalProcessExecutor implements WorkerExecutor {
 
   async poll(handle: TaskHandle): Promise<TaskStatus> {
     const entry = this.#entry(handle);
-    return { state: entry.proc.exitCode == null ? "running" : "exited" };
+    if (entry.proc.exitCode != null) return { state: "exited" };
+    if (!this.#isPidAlive(entry.proc.pid)) {
+      entry.deadPid = true;
+      return { state: "exited" };
+    }
+    return { state: "running" };
   }
 
   async collect(handle: TaskHandle): Promise<TaskOutcome> {
     const entry = this.#entry(handle);
-    const [stdout, stderr, exitCode] = await Promise.all([entry.stdout, entry.stderr, entry.proc.exited]);
-    if (entry.timer) clearTimeout(entry.timer);
-    entry.timer = null;
-    return {
-      exitCode,
-      signal: entry.timedOut || entry.cancelled ? "SIGKILL" : null,
-      stdout,
-      stderr,
-      timedOut: entry.timedOut,
-      startedAt: entry.startedAt,
-      endedAt: new Date().toISOString(),
-    };
+    try {
+      const collected = Promise.all([entry.stdout, entry.stderr, entry.proc.exited] as const);
+      const [stdout, stderr, exitCode] = entry.deadPid
+        ? await Promise.race([
+            collected,
+            new Promise<[string, string, number]>((resolve) => {
+              setTimeout(() => resolve(["", "Process disappeared before its exit status could be collected", 1]), this.#deadProcessCollectDeadlineMs);
+            }),
+          ])
+        : await collected;
+      return {
+        exitCode,
+        signal: entry.timedOut || entry.cancelled ? "SIGKILL" : null,
+        stdout,
+        stderr,
+        timedOut: entry.timedOut,
+        startedAt: entry.startedAt,
+        endedAt: new Date().toISOString(),
+      };
+    } finally {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.timer = null;
+      this.#entries.delete(handle.handleId);
+    }
   }
 
   async cancel(handle: TaskHandle): Promise<void> {
     const entry = this.#entry(handle);
     entry.cancelled = true;
+    if (entry.timer) clearTimeout(entry.timer);
+    entry.timer = null;
     entry.proc.kill(9);
+    this.#entries.delete(handle.handleId);
   }
 
   #entry(handle: TaskHandle): LocalEntry {

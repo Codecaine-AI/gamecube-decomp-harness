@@ -105,6 +105,49 @@ describe("FakeSandboxProvider", () => {
     await expect(sandbox.exec(["sleep", "60"], { timeoutMs: 10_000 })).rejects.toThrow("timed out");
     expect(provider.execCalls[0]?.opts.timeoutMs).toBe(10_000);
   });
+
+  test("stops and starts sandboxes with transition scripting and operation tripwires", async () => {
+    let finishStop!: () => void;
+    const stopDelay = new Promise<void>((resolve) => { finishStop = resolve; });
+    const wakeFailure = new Error("wake failed");
+    const provider = new FakeSandboxProvider()
+      .scriptStop(() => stopDelay)
+      .scriptStart(wakeFailure);
+    const sandbox = await provider.create(createParams);
+
+    const stopping = sandbox.stop();
+    expect(provider.sandboxState(sandbox.sandboxId)).toBe("started");
+    expect(provider.stopCalls).toEqual([{ sandboxId: "sandbox-1" }]);
+    finishStop();
+    await stopping;
+    expect(provider.sandboxState(sandbox.sandboxId)).toBe("stopped");
+
+    await expect(sandbox.exec(["true"], { timeoutMs: 1_000 })).rejects.toThrow("sandbox-1 is stopped");
+    await expect(sandbox.uploadFile("/unused", "/unused")).rejects.toThrow("sandbox-1 is stopped");
+    await expect(sandbox.downloadFile("/unused", "/unused")).rejects.toThrow("sandbox-1 is stopped");
+    await expect(sandbox.readFile("/unused")).rejects.toThrow("sandbox-1 is stopped");
+    await expect(sandbox.writeFile("/unused", "unused")).rejects.toThrow("sandbox-1 is stopped");
+
+    await expect(sandbox.start()).rejects.toBe(wakeFailure);
+    expect(provider.sandboxState(sandbox.sandboxId)).toBe("stopped");
+    await sandbox.start();
+    await sandbox.exec(["true"], { timeoutMs: 1_000 });
+    expect(provider.startCalls).toEqual([
+      { sandboxId: "sandbox-1" },
+      { sandboxId: "sandbox-1" },
+    ]);
+    expect(provider.operationCalls.map((call) => call.operation)).toEqual([
+      "stop",
+      "start",
+      "start",
+      "exec",
+    ]);
+
+    await sandbox.stop();
+    await provider.delete(sandbox.sandboxId, "reconciliation");
+    expect(await provider.get(sandbox.sandboxId)).toBeNull();
+    expect(provider.deletedSandboxes).toHaveLength(1);
+  });
 });
 
 describe("DaytonaSandboxProvider", () => {
@@ -119,6 +162,8 @@ describe("DaytonaSandboxProvider", () => {
     let keyReads = 0;
     let clientCreates = 0;
     let deleted = false;
+    const stopTimeouts: Array<number | undefined> = [];
+    const startTimeouts: Array<number | undefined> = [];
 
     function downloadFile(remotePath: string): Promise<Buffer>;
     function downloadFile(remotePath: string, localPath: string): Promise<void>;
@@ -155,6 +200,12 @@ describe("DaytonaSandboxProvider", () => {
           if (Buffer.isBuffer(source)) remoteFiles.set(remotePath, source);
         },
         downloadFile,
+      },
+      stop: async (timeoutSeconds?: number) => {
+        stopTimeouts.push(timeoutSeconds);
+      },
+      start: async (timeoutSeconds?: number) => {
+        startTimeouts.push(timeoutSeconds);
       },
       delete: async (timeoutSeconds?: number, wait?: boolean) => {
         expect({ timeoutSeconds, wait }).toEqual({ timeoutSeconds: 60, wait: true });
@@ -208,6 +259,10 @@ describe("DaytonaSandboxProvider", () => {
       timeoutSeconds: 11,
     });
     expect(deletedSessions).toEqual([sessionCalls[0]!.sessionId]);
+    await sandbox.stop();
+    await sandbox.start();
+    expect(stopTimeouts).toEqual([60]);
+    expect(startTimeouts).toEqual([60]);
 
     const root = mkdtempSync(join(tmpdir(), "daytona-sandbox-"));
     roots.push(root);

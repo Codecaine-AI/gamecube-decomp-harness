@@ -60,11 +60,6 @@ export interface ConfigureGlobalCompileJobserverResult {
   slots?: number;
 }
 
-export interface GlobalCompileJobserverSlotOptions {
-  env?: NodeJS.ProcessEnv;
-  acquire?: (env: NodeJS.ProcessEnv) => Promise<() => void | Promise<void>>;
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
@@ -416,39 +411,6 @@ async function acquireWrapperToken(fifoPath: string, statePath: string): Promise
       }
     }
     await sleep(25);
-  }
-}
-
-async function acquireGlobalCompileJobserverSlot(env: NodeJS.ProcessEnv): Promise<() => void> {
-  const paths = globalCompileJobserverPaths();
-  const statePath = env[JOBSERVER_STATE_ENV] ?? paths.statePath;
-  const state = readJobserverState(statePath);
-  if (!state || !processAlive(state.pid) || !fifoExists(state.fifoPath)) {
-    throw new Error("Global compile jobserver cannot reserve a slot because no live jobserver was found");
-  }
-  const fifoPath = env[JOBSERVER_FIFO_ENV] ?? state.fifoPath;
-  const reservation = await acquireWrapperToken(fifoPath, statePath);
-  return () => {
-    writeSync(reservation.fd, reservation.token);
-    closeSync(reservation.fd);
-  };
-}
-
-/**
- * Reserves one host FIFO token while a build runs somewhere that cannot join
- * the FIFO directly (for example, a Daytona sandbox).
- */
-export async function withGlobalCompileJobserverSlot<T>(
-  run: () => Promise<T>,
-  options: GlobalCompileJobserverSlotOptions = {},
-): Promise<T> {
-  const env = options.env ?? process.env;
-  if (parseGlobalCompileSlots(env[GLOBAL_COMPILE_SLOTS_ENV]) === null) return run();
-  const release = await (options.acquire ?? acquireGlobalCompileJobserverSlot)(env);
-  try {
-    return await run();
-  } finally {
-    await release();
   }
 }
 

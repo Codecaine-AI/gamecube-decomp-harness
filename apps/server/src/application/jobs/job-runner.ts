@@ -4,7 +4,6 @@ import { closeDefaultMeleeKernelRuntime, resetDefaultMeleeKernelRuntimeForTests 
 import { loadLocalEnv } from "@server/infrastructure/env";
 import { configureGlobalCompileJobserver } from "@server/infrastructure/shell/global-compile-jobserver";
 import { parse } from "@server/core/game-registry/runtime-options.js";
-import { babysit } from "@server/core/cycle-runtime/phases/running/jobs/babysit.js";
 import { checkpointRun } from "@server/core/cycle-runtime/phases/pr/jobs/checkpoint-run.js";
 import { prDraftQa } from "@server/core/cycle-runtime/phases/pr/jobs/pr-draft-qa.js";
 import { prPreshipReview } from "@server/core/cycle-runtime/phases/pr/jobs/pr-preship-review.js";
@@ -57,7 +56,6 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "tick") await tick(globals, args);
     else if (command === "worker-task") await workerTask(globals, args);
     else if (command === "run-loop") await runLoop(globals, args);
-    else if (command === "babysit") await babysit(globals, args);
     else if (command === "checkpoint-run") await checkpointRun(globals, args);
     else if (command === "recover-claims") await recoverClaims(globals, args);
     else if (command === "integration-resolve") await integrationResolve(globals, args);
@@ -91,6 +89,12 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   } finally {
     await closeDefaultMeleeKernelRuntime();
     resetDefaultMeleeKernelRuntimeForTests();
+  }
+
+  if (command === "worker-task") {
+    // The result JSON is written synchronously before workerTask returns. Exit now so remote-SDK
+    // handles cannot delay the child exit that tells the host consumer to settle the job.
+    process.exit(0);
   }
 }
 

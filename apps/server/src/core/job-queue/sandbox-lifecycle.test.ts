@@ -167,6 +167,22 @@ describe("sandbox reconciliation", () => {
     expect(deletedEvents(f.store)).toEqual([]);
   });
 
+  test("keeps a stopped sandbox with a live claim and unexpired job lease", async () => {
+    const f = await fixture();
+    const handle = await f.provider.get(f.sandboxId);
+    if (!handle) throw new Error("Expected sandbox handle");
+    await handle.stop();
+    expect(f.provider.sandboxState(f.sandboxId)).toBe("stopped");
+
+    expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: ACTIVE_AT }, {
+      sandboxProvider: f.provider,
+    })).toEqual({ scanned: 1, kept: 1, deleted: 0, failed: 0 });
+    expect(f.provider.sandboxState(f.sandboxId)).toBe("stopped");
+    expect(await f.provider.get(f.sandboxId)).not.toBeNull();
+    expect(f.provider.deletedSandboxes).toEqual([]);
+    expect(deletedEvents(f.store)).toEqual([]);
+  });
+
   test("deletes an expired job lease and a second sweep is idempotent", async () => {
     const f = await fixture();
 
@@ -176,6 +192,23 @@ describe("sandbox reconciliation", () => {
     expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: EXPIRED_AT }, {
       sandboxProvider: f.provider,
     })).toEqual({ scanned: 0, kept: 0, deleted: 0, failed: 0 });
+    expect(f.provider.deletedSandboxes).toEqual([
+      expect.objectContaining({ sandboxId: f.sandboxId, reason: "reconciliation" }),
+    ]);
+    expect(deletedEvents(f.store)).toHaveLength(1);
+  });
+
+  test("deletes a stopped sandbox with an expired job lease", async () => {
+    const f = await fixture();
+    const handle = await f.provider.get(f.sandboxId);
+    if (!handle) throw new Error("Expected sandbox handle");
+    await handle.stop();
+    expect(f.provider.sandboxState(f.sandboxId)).toBe("stopped");
+
+    expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: EXPIRED_AT }, {
+      sandboxProvider: f.provider,
+    })).toEqual({ scanned: 1, kept: 0, deleted: 1, failed: 0 });
+    expect(await f.provider.get(f.sandboxId)).toBeNull();
     expect(f.provider.deletedSandboxes).toEqual([
       expect.objectContaining({ sandboxId: f.sandboxId, reason: "reconciliation" }),
     ]);

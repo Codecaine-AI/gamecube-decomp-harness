@@ -127,6 +127,7 @@ export function startJobConsumer(
       while (true) {
         const status = await execution.executor.poll(handle);
         if (status.state === "exited") break;
+        descriptor.onPoll?.(job, { store });
         try {
           kernel.heartbeatJob(store, token, { leaseMs: descriptor.leaseMs, at: at() });
         } catch (cause) {

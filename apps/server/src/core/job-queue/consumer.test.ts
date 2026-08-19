@@ -158,6 +158,26 @@ describe("startJobConsumer", () => {
     await stop.stop();
   });
 
+  test("does not heartbeat after an executor reports a dead task", async () => {
+    const kernel = kernelFor([job("zombie")]);
+    const executor: WorkerExecutor = {
+      submit: mock(async () => ({ executorId: "memory", handleId: "zombie" })),
+      poll: mock(async () => ({ state: "exited" as const })),
+      collect: mock(async () => outcome(1)),
+      cancel: mock(async () => undefined),
+    };
+    const descriptor: JobKindDescriptor = {
+      kind: "worker", concurrencyLimit: 1, leaseMs: 900,
+      execution: { mode: "dispatched", buildTask: (value) => ({ jobId: value.jobId, kind: value.kind,
+        executionClass: value.executionClass, command: ["false"], env: {}, cwd: "/tmp", timeoutMs: null }), executor },
+    };
+    const stop = startJobConsumer(store, descriptor, kernel, { intervalMs: 1 });
+    await until(() => kernel.failJob.mock.calls.length === 1);
+    expect(kernel.heartbeatJob).not.toHaveBeenCalled();
+    expect(kernel.failJob.mock.calls[0]?.[2]).toContain("exitCode=1");
+    await stop.stop();
+  });
+
   test("swallows a stale-token write and continues claiming", async () => {
     const kernel = kernelFor([job("stale"), job("next")]);
     kernel.completeJob.mockImplementationOnce(() => { throw new Error("stale lease"); });

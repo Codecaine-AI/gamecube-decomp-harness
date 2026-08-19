@@ -10,20 +10,41 @@ import {
   closeSchedulerEpoch,
   closeWorkerState,
   createRun,
+  getRun,
   openState,
   schedulerEpochProgress,
   startSchedulerEpoch,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
+import { getHarnessState } from "@server/core/harness-state";
+import { activateRun } from "../run-control.js";
+import { settleRunOnExit } from "../jobs/settle-supervised-run.js";
 import {
   epochBoundaryWorkPending,
   evaluateFastKnowledgeMaintenanceDecision,
   forceFinishActiveEpoch,
   integrationResolverLockPaths,
+  sandboxSleepConfigFromArgs,
   selectRunLoopSchedulerCondition,
   selectIntegrationResolverBatch,
 } from "./run-loop.js";
 import { resolveBaseRev } from "../workers/worker-cycle.js";
+
+describe("sandboxSleepConfigFromArgs", () => {
+  test("defaults sleep on at 250ms and accepts the comparison-run switches", () => {
+    expect(sandboxSleepConfigFromArgs(new Map())).toEqual({
+      sandboxSleep: true,
+      sandboxSleepDebounceMs: 250,
+    });
+    expect(sandboxSleepConfigFromArgs(new Map([
+      ["--no-sandbox-sleep", true],
+      ["--sandbox-sleep-debounce-ms", "2750"],
+    ]))).toEqual({
+      sandboxSleep: false,
+      sandboxSleepDebounceMs: 2_750,
+    });
+  });
+});
 
 describe("selectRunLoopSchedulerCondition", () => {
   test("preserves blocked and boundary priority over transient work", () => {
@@ -44,6 +65,30 @@ function tempState(): { dir: string; store: StateStore } {
 
 afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
+
+describe("run-loop exit settlement", () => {
+  test("pauses the run and releases its dispatch lease", async () => {
+    const { dir, store } = tempState();
+    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot: dir, stateDir: dir }, { baseRevision: "base-test" });
+    const active = activateRun({ reason: "test run-loop start", runId: run.id, store });
+    store.db.close();
+
+    await settleRunOnExit({
+      globals: { dryRunAgents: true, model: "test", provider: "test", repoRoot: dir, stateDir: dir, thinkingLevel: "low" },
+      args: new Map([["--run-id", run.id]]),
+      leaseId: active.leaseId,
+      stoppedReason: "signal",
+    });
+
+    const settledStore = openState(dir);
+    try {
+      expect(getRun(settledStore, run.id)).toMatchObject({ status: "paused", stopRequest: null });
+      expect(getHarnessState(settledStore, "test")?.active_workflow).toBeNull();
+    } finally {
+      settledStore.db.close();
+    }
+  });
 });
 
 describe("resolveBaseRev", () => {

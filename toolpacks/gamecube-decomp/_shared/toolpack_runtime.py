@@ -19,20 +19,11 @@ import signal
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any, Iterable, Sequence
 
 
 MAX_STREAM_CHARS = 80_000
-TOOL_SLOT_STALE_SECONDS = 60 * 60
-TOOL_SLOT_MISSING_OWNER_STALE_SECONDS = 30
-
-
-class ToolQueueBusy(Exception):
-    def __init__(self, info: dict[str, Any]) -> None:
-        super().__init__("tool queue is busy")
-        self.info = info
 
 
 def package_root() -> Path:
@@ -119,228 +110,6 @@ def clamp_int(value: int | None, *, default: int, minimum: int, maximum: int) ->
     if value is None:
         return default
     return max(minimum, min(maximum, int(value)))
-
-
-def _truthy_env(name: str) -> bool:
-    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_int(names: Sequence[str], *, default: int, minimum: int, maximum: int) -> int:
-    for name in names:
-        value = os.environ.get(name)
-        if value is None or value.strip() == "":
-            continue
-        try:
-            return max(minimum, min(maximum, int(value)))
-        except ValueError:
-            continue
-    return default
-
-
-def _slot_key(operation: str) -> str:
-    key = operation.split(":", 1)[0].strip().lower()
-    safe = "".join(ch if ch.isalnum() else "_" for ch in key).strip("_")
-    return safe or "tool"
-
-
-def _tool_concurrency_default(operation: str) -> int:
-    if operation.startswith("source_permuter:run") or operation.startswith("source_permuter:replay"):
-        return 1
-    if operation.startswith("checkdiff:"):
-        return 12
-    if operation.startswith("m2c_decomp:"):
-        return 8
-    if operation.startswith("mwcc_debug:"):
-        return 2
-    return 16
-
-
-def _tool_fails_fast_when_busy(operation: str) -> bool:
-    return operation.startswith("source_permuter:run") or operation.startswith("source_permuter:replay")
-
-
-def _tool_slot_dir(repo_root: Path, operation: str) -> Path:
-    repo_root = repo_root.resolve()
-    if repo_root.name == "source" and repo_root.parent.parent.name == "workers":
-        return repo_root.parent.parent.parent / ".worker-tool-slots" / _slot_key(operation)
-    return repo_root.parent / ".worker-tool-slots" / _slot_key(operation)
-
-
-def _slot_is_stale(slot_dir: Path) -> bool:
-    try:
-        age = time.time() - slot_dir.stat().st_mtime
-    except OSError:
-        return True
-    try:
-        owner = json.loads((slot_dir / "owner.json").read_text())
-        pid = int(owner.get("pid") or 0)
-        if pid > 0:
-            try:
-                os.kill(pid, 0)
-                return age > TOOL_SLOT_STALE_SECONDS
-            except OSError:
-                return True
-    except Exception:
-        return age > TOOL_SLOT_MISSING_OWNER_STALE_SECONDS
-    return age > TOOL_SLOT_STALE_SECONDS
-
-
-def _slot_index(slot_dir: Path) -> int | str:
-    name = slot_dir.name
-    if name.startswith("slot-"):
-        try:
-            return int(name[5:])
-        except ValueError:
-            pass
-    return name
-
-
-def _active_tool_slots(queue_dir: Path, limit: int) -> list[dict[str, Any]]:
-    candidates: list[Path] = []
-    seen: set[Path] = set()
-    for index in range(limit):
-        slot_dir = queue_dir / f"slot-{index}"
-        candidates.append(slot_dir)
-        seen.add(slot_dir)
-    try:
-        candidates.extend(sorted(path for path in queue_dir.glob("slot-*") if path not in seen))
-    except OSError:
-        pass
-
-    active: list[dict[str, Any]] = []
-    for slot_dir in candidates:
-        if not slot_dir.exists():
-            continue
-        if _slot_is_stale(slot_dir):
-            shutil.rmtree(slot_dir, ignore_errors=True)
-            continue
-        owner: dict[str, Any] = {}
-        with contextlib.suppress(Exception):
-            parsed = json.loads((slot_dir / "owner.json").read_text())
-            if isinstance(parsed, dict):
-                owner = parsed
-        active.append(
-            {
-                "slot": _slot_index(slot_dir),
-                "pid": owner.get("pid"),
-                "operation": owner.get("operation"),
-                "repoRoot": owner.get("repoRoot"),
-                "acquiredAt": owner.get("acquiredAt"),
-            }
-        )
-    return active
-
-
-def _tool_queue_info(
-    *,
-    operation: str,
-    queue_dir: Path,
-    limit: int,
-    started: float,
-    policy: str,
-    active_slots: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    active = active_slots if active_slots is not None else _active_tool_slots(queue_dir, limit)
-    return {
-        "enabled": True,
-        "operation": operation,
-        "queue_dir": str(queue_dir),
-        "limit": limit,
-        "active_slots": len(active),
-        "active_slot_owners": active,
-        "wait_seconds": round(time.monotonic() - started, 3),
-        "policy": policy,
-    }
-
-
-@contextlib.contextmanager
-def worker_tool_slot(repo_root: Path, operation: str, *, default_concurrency: int) -> Iterator[dict[str, Any]]:
-    """Acquire an epoch-shared slot for expensive worker-local tools."""
-
-    if _truthy_env("ORCH_TOOL_QUEUE_DISABLED") or _truthy_env("ORCH_WORKER_TOOL_QUEUE_DISABLED"):
-        yield {"enabled": False, "operation": operation}
-        return
-
-    key = _slot_key(operation)
-    env_key = key.upper()
-    limit = _env_int(
-        (
-            f"ORCH_TOOL_CONCURRENCY_{env_key}",
-            f"ORCH_WORKER_TOOL_CONCURRENCY_{env_key}",
-            "ORCH_WORKER_TOOL_CONCURRENCY",
-        ),
-        default=default_concurrency,
-        minimum=1,
-        maximum=64,
-    )
-    queue_dir = _tool_slot_dir(repo_root, operation)
-    queue_dir.mkdir(parents=True, exist_ok=True)
-    started = time.monotonic()
-    fail_fast = _tool_fails_fast_when_busy(operation)
-
-    while True:
-        if fail_fast:
-            active_slots = _active_tool_slots(queue_dir, limit)
-            if len(active_slots) >= limit:
-                raise ToolQueueBusy(
-                    _tool_queue_info(
-                        operation=operation,
-                        queue_dir=queue_dir,
-                        limit=limit,
-                        started=started,
-                        policy="fail_fast_when_full",
-                        active_slots=active_slots,
-                    )
-                )
-        for index in range(limit):
-            slot_dir = queue_dir / f"slot-{index}"
-            try:
-                slot_dir.mkdir()
-                acquired_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                (slot_dir / "owner.json").write_text(
-                    json.dumps(
-                        {
-                            "pid": os.getpid(),
-                            "operation": operation,
-                            "repoRoot": str(repo_root),
-                            "acquiredAt": acquired_at,
-                        },
-                        indent=2,
-                    )
-                )
-            except FileExistsError:
-                if _slot_is_stale(slot_dir):
-                    shutil.rmtree(slot_dir, ignore_errors=True)
-                    continue
-                continue
-            info = {
-                "enabled": True,
-                "operation": operation,
-                "queue_dir": str(queue_dir),
-                "slot": index,
-                "limit": limit,
-                "active_slots": 1,
-                "policy": "fail_fast_when_full" if fail_fast else "wait_for_slot",
-                "wait_seconds": round(time.monotonic() - started, 3),
-                "acquired_at": acquired_at,
-            }
-            try:
-                yield info
-            finally:
-                shutil.rmtree(slot_dir, ignore_errors=True)
-            return
-        if fail_fast:
-            raise ToolQueueBusy(
-                _tool_queue_info(
-                    operation=operation,
-                    queue_dir=queue_dir,
-                    limit=limit,
-                    started=started,
-                    policy="fail_fast_when_full",
-                    active_slots=_active_tool_slots(queue_dir, limit),
-                )
-            )
-        time.sleep(0.25 + (os.getpid() % 10) * 0.03)
 
 
 def command_payload(
@@ -493,64 +262,44 @@ def run_tool_script(
     uv = shutil.which("uv")
     command = [uv, "run", "--no-project", "--script", str(script), *args] if uv and script_declares_dependencies(script) else [sys.executable, str(script), *args]
     cwd = repo_root if repo_root.exists() else package_root()
-    slot_info: dict[str, Any] | None = None
     try:
-        with worker_tool_slot(repo_root, operation, default_concurrency=_tool_concurrency_default(operation)) as acquired_slot:
-            slot_info = acquired_slot
-            proc = subprocess.Popen(
-                command,
-                cwd=cwd,
-                env=tool_env(repo_root),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                start_new_session=os.name != "nt",
-            )
+        proc = subprocess.Popen(
+            command,
+            cwd=cwd,
+            env=tool_env(repo_root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=os.name != "nt",
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            if os.name == "nt":
+                proc.terminate()
+            else:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(proc.pid, signal.SIGTERM)
             try:
-                stdout, stderr = proc.communicate(timeout=timeout_seconds)
+                stdout, stderr = proc.communicate(timeout=5)
             except subprocess.TimeoutExpired:
                 if os.name == "nt":
-                    proc.terminate()
+                    proc.kill()
                 else:
                     with contextlib.suppress(ProcessLookupError):
-                        os.killpg(proc.pid, signal.SIGTERM)
-                try:
-                    stdout, stderr = proc.communicate(timeout=5)
-                except subprocess.TimeoutExpired:
-                    if os.name == "nt":
-                        proc.kill()
-                    else:
-                        with contextlib.suppress(ProcessLookupError):
-                            os.killpg(proc.pid, signal.SIGKILL)
-                    stdout, stderr = proc.communicate()
-                return command_payload(
-                    operation=operation,
-                    command=command,
-                    cwd=cwd,
-                    repo_root=repo_root,
-                    exit_code=None,
-                    stdout=stdout or "",
-                    stderr=stderr or "",
-                    status="timed_out",
-                    extra={"timeout_seconds": timeout_seconds, "tool_queue": slot_info},
-                )
-    except ToolQueueBusy as error:
-        slot_info = error.info
-        return command_payload(
-            operation=operation,
-            command=command,
-            cwd=cwd,
-            repo_root=repo_root,
-            exit_code=None,
-            stdout="",
-            stderr="source_permuter slots are full; skipped instead of waiting in the queue",
-            status="queue_busy",
-            extra={
-                "retryable": True,
-                "message": "source_permuter slots are full; continue with cheaper analysis or validation instead of waiting",
-                "tool_queue": slot_info,
-            },
-        )
+                        os.killpg(proc.pid, signal.SIGKILL)
+                stdout, stderr = proc.communicate()
+            return command_payload(
+                operation=operation,
+                command=command,
+                cwd=cwd,
+                repo_root=repo_root,
+                exit_code=None,
+                stdout=stdout or "",
+                stderr=stderr or "",
+                status="timed_out",
+                extra={"timeout_seconds": timeout_seconds},
+            )
     except OSError as error:
         return command_payload(
             operation=operation,
@@ -561,7 +310,6 @@ def run_tool_script(
             stdout="",
             stderr=str(error),
             status="spawn_failed",
-            extra={"tool_queue": slot_info} if slot_info is not None else None,
         )
     return command_payload(
         operation=operation,
@@ -571,7 +319,6 @@ def run_tool_script(
         exit_code=proc.returncode,
         stdout=stdout,
         stderr=stderr,
-        extra={"tool_queue": slot_info} if slot_info is not None else None,
     )
 
 

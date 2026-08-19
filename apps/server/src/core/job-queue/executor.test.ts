@@ -14,7 +14,7 @@ describe("LocalProcessExecutor", () => {
     expect(await executor.poll(handle)).toEqual({ state: "running" });
     const outcome = await executor.collect(handle);
     expect(outcome).toMatchObject({ exitCode: 0, signal: null, stdout: "output", stderr: "error", timedOut: false });
-    expect(await executor.poll(handle)).toEqual({ state: "exited" });
+    await expect(executor.poll(handle)).rejects.toThrow("Unknown local process handle");
   });
 
   test("reports a nonzero exit", async () => {
@@ -32,14 +32,28 @@ describe("LocalProcessExecutor", () => {
     expect(outcome.exitCode).not.toBe(0);
   });
 
-  test("cancel kills a running process without marking timeout", async () => {
+  test("cancel kills a running process and removes its entry", async () => {
     const executor = new LocalProcessExecutor();
     const handle = await executor.submit(task(["/bin/sh", "-c", "sleep 1"]));
     await executor.cancel(handle);
+    await expect(executor.poll(handle)).rejects.toThrow("Unknown local process handle");
+  });
+
+  test("reports a dead pid as exited and bounds collection when Bun has no exit code", async () => {
+    const executor = new LocalProcessExecutor({
+      isPidAlive: () => false,
+      deadProcessCollectDeadlineMs: 10,
+    });
+    const handle = await executor.submit(task(["/bin/sh", "-c", "sleep 1"]));
+    expect(await executor.poll(handle)).toEqual({ state: "exited" });
     const outcome = await executor.collect(handle);
-    expect(outcome.timedOut).toBeFalse();
-    expect(outcome.signal).toBe("SIGKILL");
-    expect(outcome.exitCode).not.toBe(0);
+    expect(outcome).toMatchObject({
+      exitCode: 1,
+      stderr: "Process disappeared before its exit status could be collected",
+      timedOut: false,
+    });
+    process.kill(handle.pid!, "SIGKILL");
+    await expect(executor.poll(handle)).rejects.toThrow("Unknown local process handle");
   });
 
   test("throws for unknown handles", async () => {

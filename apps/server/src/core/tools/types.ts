@@ -27,6 +27,8 @@ export interface AgentToolRuntimeContext {
   attemptIndex?: number;
   /** Authoritative sandbox handle, present only for sandbox-class worker claims. */
   sandboxHandle?: SandboxHandle;
+  /** Worker-startup sandbox probe result for the instrumented MWCC compiler. */
+  mwccDebugProvisioned?: boolean;
 }
 
 export interface PiToolTextContent {

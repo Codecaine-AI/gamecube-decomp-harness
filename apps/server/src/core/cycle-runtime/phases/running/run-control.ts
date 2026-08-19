@@ -272,7 +272,7 @@ export function pauseRun(input: PauseRunInput): PauseRunResult {
   });
 }
 
-/** Supervisor-owned boundary report: release/park authority and then pause. */
+/** Run-loop exit boundary: release/park authority and then pause. */
 export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
   const operationCommandId = commandId({ ...input, confirmed: true }, "run-pause-settled");
   const actionSpanId = input.spanId ?? newSpanId();
@@ -286,12 +286,12 @@ export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
     const activeClaims = activeClaimsForRun(input.store, original.id);
     if (activeClaims.length > 0) {
       throw new RunControlBlockedError(
-        `Run ${original.id} still has ${activeClaims.length} active claim(s) at supervisor settlement: ${activeClaims.map((claim) => claim.claimId).join(", ")}`,
+        `Run ${original.id} still has ${activeClaims.length} active claim(s) at run-loop exit settlement: ${activeClaims.map((claim) => claim.claimId).join(", ")}`,
         ["unsettled_claims"],
       );
     }
     if (!lease || (input.leaseId && lease.lease_id !== input.leaseId)) {
-      throw new RunControlBlockedError(`Run ${original.id} lost its dispatch lease before supervisor settlement`, ["run_lease_disagreement"]);
+      throw new RunControlBlockedError(`Run ${original.id} lost its dispatch lease before run-loop exit settlement`, ["run_lease_disagreement"]);
     }
     const actor = input.actor ?? "runner";
     const gameId = requireGameId(original);

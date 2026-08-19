@@ -3,7 +3,6 @@ export { runCommand, runCommandStreaming, type CommandResult } from "./run-comma
 export {
   DEFAULT_SANDBOX_WORKSPACE_TIMEOUT_MS,
   captureWorkspaceGitDiff,
-  localWorkspaceExec,
   sandboxWorkspaceExec,
   type SandboxWorkspaceExecOptions,
   type WorkspaceExec,

@@ -188,6 +188,9 @@ describe("process control runtime", () => {
     expect(payload.command.slice(payload.command.indexOf("--max-workers"), payload.command.indexOf("--max-workers") + 2)).toEqual(["--max-workers", "2"]);
     expect(payload.command.slice(payload.command.indexOf("--candidate-window"), payload.command.indexOf("--candidate-window") + 2)).toEqual(["--candidate-window", "64"]);
     expect(payload.command.slice(leaseFlag, leaseFlag + 2)).toEqual(["--lease-id", payload.leaseId]);
+    expect(payload.command).toContain("run-loop");
+    expect(payload.command).not.toContain("babysit");
+    expect(payload.command).not.toContain("--force-recover-claims");
     expect((spawned as StartManagedInput | null)?.command.slice(repoRootFlag, repoRootFlag + 2)).toEqual(["--repo-root", cycleRepoRoot]);
 
     const resumedResponse = await runtime.startManagedProcess({ gameId: "melee", runId: run.id, maxWorkers: 2 });
@@ -305,7 +308,7 @@ describe("process control runtime", () => {
     }
   });
 
-  test("passes tool concurrency env overrides when starting a managed process", async () => {
+  test("starts a managed process with a clean environment", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
     const store = openState(stateDir);
     const run = createRun(store, "matched_code_percent", 100, 16, { gameId: "melee", stateDir }, { baseRevision: "base-test" });
@@ -361,19 +364,10 @@ describe("process control runtime", () => {
       gameId: "melee",
       runId: run.id,
       maxWorkers: 16,
-      toolConcurrency: {
-        mwccDebug: 6,
-        sourcePermuter: 2,
-        sourcePermuterJobs: 1,
-      },
     });
 
     expect(response.status).toBe(200);
-    expect((spawned as StartManagedInput | null)?.env).toEqual({
-      ORCH_SOURCE_PERMUTER_MAX_JOBS: "1",
-      ORCH_WORKER_TOOL_CONCURRENCY_MWCC_DEBUG: "6",
-      ORCH_WORKER_TOOL_CONCURRENCY_SOURCE_PERMUTER: "2",
-    });
+    expect((spawned as StartManagedInput | null)?.env).toBeUndefined();
   });
 
   test("keeps the operator actor across start action spawn-failure compensation", async () => {

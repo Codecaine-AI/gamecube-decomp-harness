@@ -62,7 +62,7 @@ Shared implementations that support multiple public tool suites live under
 `toolpacks/gamecube-decomp/_impl/gamecube`. Project-specific assumptions belong
 in project bindings, project-owned shared data, or project override roots.
 
-## MWCC Runner And Tool Slots
+## MWCC Runner
 
 For high-throughput worker runs, wibo is the preferred MWCC process runner. The
 orchestrator-managed install lives at `projects/<id>/state/tools/wibo`; the
@@ -72,19 +72,7 @@ it from `ORCH_GAME_STATE_DIR` or from worker worktree paths. Checkout-local
 compatibility fallback when wibo is not available or a tool explicitly requests
 it.
 
-Compile-heavy API calls are queued by `_shared/toolpack_runtime.py` before the
-helper command starts. Slot directories sit beside the epoch worker worktrees
-under `.worker-tool-slots/<tool>/slot-N` and carry `owner.json` so stale slots
-can be recovered. Defaults are 12 checkdiff slots, 1 source-permuter run/replay
-slot, 8 m2c slots, 2 mwcc_debug slots, and 16 for other tool APIs. Source
-permuter run/replay calls fail fast with `queue_busy` when all configured
-source-permuter slots are full instead of waiting in line. Tune tool API slots
-with `ORCH_TOOL_CONCURRENCY_<TOOL>`,
-`ORCH_WORKER_TOOL_CONCURRENCY_<TOOL>`, or
-`ORCH_WORKER_TOOL_CONCURRENCY`. Tune shared MWCC/wibo compile slots with
-`ORCH_WORKER_COMPILE_CONCURRENCY` or `ORCH_WORKER_NINJA_CONCURRENCY`; the
-default is 12. Source-permuter run calls are capped at 1 internal job by
-default; set `ORCH_SOURCE_PERMUTER_MAX_JOBS` to intentionally allow more.
+Source-permuter run calls use one internal job by default.
 
 ## Capability Roles
 

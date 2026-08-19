@@ -4,10 +4,8 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { listGameEvents } from "@server/core/harness-state/events.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
-import { hostToolPlatform } from "@server/core/tools/platform.js";
 import {
   provisionSandboxWorkspace,
-  provisionWorkerWorktree,
   type ProvisionCommandRunner,
   type SandboxProvisionLabels,
 } from "./provisioning.js";
@@ -18,39 +16,6 @@ const stores: StateStore[] = [];
 afterEach(async () => {
   for (const store of stores.splice(0)) store.db.close();
   await Promise.all(roots.splice(0).map((path) => rm(path, { recursive: true, force: true })));
-});
-
-describe("provisionWorkerWorktree", () => {
-  test("runs the disposable worktree reset and clean recipe through the injected runner", async () => {
-    const root = await mkdtemp(resolve(tmpdir(), "provision-worker-")); roots.push(root);
-    const sourceRepoRoot = resolve(root, "source-repo");
-    const workerRepoRoot = resolve(root, "worktrees/cycles/c1/epochs/0001/workers/w1/source");
-    const outputDir = resolve(root, "output");
-    await mkdir(resolve(workerRepoRoot, ".git"), { recursive: true });
-    await mkdir(resolve(workerRepoRoot, "build/tools"), { recursive: true });
-    await writeFile(resolve(workerRepoRoot, "build/tools/objdiff-cli"), "ready");
-    await writeFile(resolve(workerRepoRoot, "build.ninja"), "# configured\n");
-    await mkdir(sourceRepoRoot, { recursive: true });
-    const calls: Array<{ cwd: string; command: string[] }> = [];
-    const runner: ProvisionCommandRunner = async (cwd, command) => { calls.push({ cwd, command }); return { exitCode: 0, stdout: "", stderr: "" }; };
-
-    await provisionWorkerWorktree({ sourceRepoRoot, workerRepoRoot, baseRev: "abc123", outputDir, configureCommand: "", reportArtifactSources: [], toolArtifactSources: [], toolPlatform: hostToolPlatform(), dryRun: false, commandRunner: runner });
-
-    expect(calls).toEqual([
-      { cwd: workerRepoRoot, command: ["git", "reset", "--hard", "abc123"] },
-      { cwd: workerRepoRoot, command: ["git", "clean", "-fd"] },
-    ]);
-  });
-
-  test("dry-run links the source tree without invoking commands", async () => {
-    const root = await mkdtemp(resolve(tmpdir(), "provision-worker-dry-")); roots.push(root);
-    const sourceRepoRoot = resolve(root, "source"); const workerRepoRoot = resolve(root, "dry/worktree/source"); const outputDir = resolve(root, "output");
-    await mkdir(sourceRepoRoot, { recursive: true }); await writeFile(resolve(sourceRepoRoot, "file.c"), "x");
-    let called = false;
-    await provisionWorkerWorktree({ sourceRepoRoot, workerRepoRoot, baseRev: "abc", outputDir, configureCommand: "", reportArtifactSources: [], toolArtifactSources: [], toolPlatform: hostToolPlatform(), dryRun: true, commandRunner: async () => { called = true; return { exitCode: 0, stdout: "", stderr: "" }; } });
-    expect(called).toBe(false);
-    expect(await Bun.file(resolve(workerRepoRoot, "file.c")).text()).toBe("x");
-  });
 });
 
 const sandboxLabels: SandboxProvisionLabels = {
@@ -143,7 +108,7 @@ describe("provisionSandboxWorkspace", () => {
     expect(provider.execCalls.map(({ command, opts }) => ({ command, opts }))).toEqual([
       { command: ["git", "bundle", "verify", "/tmp/melee-claim-seed.bundle"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
       { command: ["git", "fetch", "/tmp/melee-claim-seed.bundle", "base-rev"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
-      { command: ["git", "checkout", "--detach", "base-rev"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
+      { command: ["git", "checkout", "--force", "--detach", "base-rev"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
       { command: ["/bin/sh", "-c", "test -x build/tools/wibo-real && test -x build/tools/objdiff-cli && test -x build/tools/dtk"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
     ]);
     expect(provider.uploadCalls.map(({ remotePath }) => remotePath)).toEqual([
@@ -191,7 +156,7 @@ describe("provisionSandboxWorkspace", () => {
     expect(provider.uploadCalls).toEqual([]);
     expect(provider.execCalls.map((call) => call.command)).toEqual([
       ["git", "rev-parse", "--verify", "same-rev^{commit}"],
-      ["git", "checkout", "--detach", "same-rev"],
+      ["git", "checkout", "--force", "--detach", "same-rev"],
       ["/bin/sh", "-c", "test -x build/tools/wibo-real && test -x build/tools/objdiff-cli && test -x build/tools/dtk"],
     ]);
     expect(provider.createdSandboxes[0]?.params.ttlMinutes).toBe(31);

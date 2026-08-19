@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, lstatSync, statSync, symlinkSync } from "node:fs";
-import { chmod, cp, mkdir, readFile, readdir, rm, utimes, writeFile } from "node:fs/promises";
-import { delimiter, dirname, isAbsolute, relative, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { delimiter, isAbsolute, relative, resolve } from "node:path";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import {
   appendWorkerActivityEvent,
@@ -26,11 +26,6 @@ import {
 } from "@server/core/agent-catalog/agents/running/worker/change-validation";
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import {
-  isHostToolPlatform,
-  type ToolPlatform,
-} from "@server/core/tools/platform.js";
-import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
-import {
   fileGraphCard,
   graphDbExists,
   loadKnowledgeBoardSnapshot,
@@ -39,7 +34,6 @@ import {
 } from "@server/core/knowledge";
 import {
   captureWorkspaceGitDiff,
-  localWorkspaceExec,
   runCommand,
   sandboxWorkspaceExec,
   type WorkspaceExec,
@@ -99,6 +93,10 @@ import {
   type SandboxProvider,
 } from "@server/core/job-queue/sandbox.js";
 import {
+  wrapSandboxHandleWithSleep,
+  type SandboxSleepStats,
+} from "@server/core/job-queue/sandbox-sleep.js";
+import {
   createSandboxFileToolDefinitions,
   sandboxBashOperations,
 } from "@server/infrastructure/agent-runtime/sandbox-agent-tools.js";
@@ -120,6 +118,7 @@ export interface WorkerCycleResult {
   exact: boolean;
   wakeEvent: string;
   dryRun: boolean;
+  sandboxSleep: SandboxSleepStats & { enabled: boolean; debounceMs: number };
   failed?: boolean;
   providerFailure?: boolean;
   errorKind?: string;
@@ -390,15 +389,13 @@ function safeRepoRelativePath(repoRoot: string, path: string): string | null {
 export async function headerDeclaresEvidenceSymbol(
   repoRoot: string,
   request: WideningRequest,
-  sandboxHandle?: SandboxHandle,
+  sandboxHandle: SandboxHandle,
 ): Promise<boolean | undefined> {
   if (request.rung !== 3 || request.paths.length !== 1) return undefined;
   const headerPath = safeRepoRelativePath(repoRoot, request.paths[0] ?? "");
   if (!headerPath) return false;
   try {
-    const contents = sandboxHandle
-      ? await sandboxHandle.readFile(headerPath)
-      : await readFile(headerPath, "utf8");
+    const contents = await sandboxHandle.readFile(headerPath);
     const symbol = request.evidence.mismatched_declaration.symbol;
     const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`\\b${escaped}\\b`).test(contents);
@@ -845,7 +842,7 @@ async function runPostReturnCheck(params: {
   const summaryPath = resolve(validationDir, `attempt-${params.attemptIndex}.post_return.summary.json`);
   const result = await params.workspaceExec.exec(
     ["/bin/sh", "-lc", command],
-    { compile: params.workspaceExec.executionClass === "sandbox" },
+    { compile: true },
   );
   await writeFile(stdoutPath, result.stdout);
   await writeFile(stderrPath, result.stderr);
@@ -878,21 +875,6 @@ function outputTail(text: string, maxChars = 2000): string {
   return text.length <= maxChars ? text : text.slice(-maxChars);
 }
 
-function cycleRootFromRepoRoot(globals: GlobalArgs): string | null {
-  const gameDir = globals.game?.gameDir ?? dirname(globals.repoRoot);
-  const cyclesRoot = resolve(gameDir, "worktrees", "cycles");
-  const cycleRelativePath = relative(cyclesRoot, globals.repoRoot);
-  if (!cycleRelativePath || cycleRelativePath.startsWith("..") || isAbsolute(cycleRelativePath)) return null;
-  const [cycleUuid, worktreeName] = cycleRelativePath.split(/[\\/]/);
-  if (!cycleUuid || (worktreeName !== "current" && worktreeName !== "source")) return null;
-  return resolve(cyclesRoot, cycleUuid);
-}
-
-function workerEpochDirectory(epoch: { ordinal?: number } | null): string {
-  const ordinal = Number(epoch?.ordinal);
-  return Number.isInteger(ordinal) && ordinal > 0 ? String(ordinal).padStart(4, "0") : "legacy";
-}
-
 export function resolveBaseRev(repoRoot: string, requested: string): string {
   const candidate = requested.trim() && requested.trim() !== "unknown" ? requested.trim() : "HEAD";
   const resolved = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", `${candidate}^{commit}`], {
@@ -911,85 +893,6 @@ export function resolveBaseRev(repoRoot: string, requested: string): string {
   return fallback.stdout.toString().trim();
 }
 
-export function workerWorktreePath(globals: GlobalArgs, claimId: string, epoch: { ordinal?: number } | null = null): string {
-  if (globals.dryRunAgents) return resolve(globals.stateDir, "dry_run_worktrees", claimId, "source");
-  const gameDir = globals.game?.gameDir ?? dirname(globals.repoRoot);
-  const cycleRoot = cycleRootFromRepoRoot(globals);
-  if (cycleRoot) {
-    return resolve(cycleRoot, "epochs", workerEpochDirectory(epoch), "workers", claimId, "source");
-  }
-  return resolve(gameDir, "worktrees", claimId, "source");
-}
-
-const WORKER_TOOL_ARTIFACTS = [
-  { name: "tools", relativePath: "build/tools", mode: "copy" },
-  { name: "compilers", relativePath: "build/compilers", mode: "link" },
-  { name: "binutils", relativePath: "build/binutils", mode: "link" },
-] as const;
-const WORKER_TOOL_ARTIFACT_RELATIVE_PATHS = WORKER_TOOL_ARTIFACTS.map((artifact) => artifact.relativePath);
-const WORKER_SHELL_BIN_DIRNAME = "worker_shell_bin";
-
-const WORKER_FIND_GUARD_SCRIPT = `#!/bin/sh
-real_find="\${ORCH_REAL_FIND:-/usr/bin/find}"
-
-blocked_find() {
-  root="$1"
-  cat >&2 <<'EOF'
-orchestrator: blocked broad worker find sweep.
-
-Use canonical worker-local tool paths instead:
-  powerpc-eabi-objdump -> build/binutils/powerpc-eabi-objdump
-  powerpc-eabi-nm      -> build/binutils/powerpc-eabi-nm
-  powerpc-eabi-readelf -> build/binutils/powerpc-eabi-readelf
-  dtk                  -> build/tools/dtk
-  objdiff-cli          -> build/tools/objdiff-cli
-  sjiswrap             -> build/tools/sjiswrap.exe
-  wibo                 -> build/tools/wibo
-
-Narrow find inside the worker checkout is allowed, for example:
-  find src include build -name '<pattern>'
-EOF
-  echo "blocked root: $root" >&2
-  exit 2
-}
-
-pwd_logical="\${PWD:-$(pwd)}"
-pwd_physical="$(pwd -P 2>/dev/null || pwd)"
-
-for arg in "$@"; do
-  case "$arg" in
-    -*|"("|")"|"!") break ;;
-  esac
-  case "$arg" in
-    ""|".") ;;
-    ..|../*|*/../*|*/..) blocked_find "$arg" ;;
-    /*)
-      case "$arg" in
-        "$pwd_logical"|"$pwd_logical"/*|"$pwd_physical"|"$pwd_physical"/*) ;;
-        *) blocked_find "$arg" ;;
-      esac
-      ;;
-  esac
-done
-
-exec "$real_find" "$@"
-`;
-
-interface WorkerToolArtifactSource {
-  platform: ToolPlatform;
-  relativePath: string;
-  sourcePath: string;
-}
-
-interface WorkerConfigureToolPaths {
-  wrapper?: string;
-  binutils?: string;
-  compilers?: string;
-  dtk?: string;
-  objdiff?: string;
-  sjiswrap?: string;
-}
-
 function envKeyForToolPath(id: string): string {
   return `ORCH_WORKER_TOOL_${id.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").toUpperCase()}`;
 }
@@ -1005,35 +908,23 @@ function uniquePathEntries(entries: string[]): string[] {
   return result;
 }
 
-export function workerAgentToolEnvironment(params: {
-  workerRepoRoot: string;
-  shellBin?: string | null;
-  executionClass?: "local" | "sandbox";
-}): Record<string, string> {
+export function workerAgentToolEnvironment(params: { workerRepoRoot: string }): Record<string, string> {
   const remoteToolPaths = [
     resolve(params.workerRepoRoot, "build/binutils"),
     resolve(params.workerRepoRoot, "build/tools"),
   ];
-  const pathEntries = params.executionClass === "sandbox"
-    ? uniquePathEntries([
-        ...remoteToolPaths,
-        "/usr/local/sbin",
-        "/usr/local/bin",
-        "/usr/sbin",
-        "/usr/bin",
-        "/sbin",
-        "/bin",
-      ])
-    : uniquePathEntries([
-        params.shellBin ?? "",
-        ...remoteToolPaths,
-        ...(process.env.PATH ? process.env.PATH.split(delimiter) : []),
-      ]);
+  const pathEntries = uniquePathEntries([
+    ...remoteToolPaths,
+    "/usr/local/sbin",
+    "/usr/local/bin",
+    "/usr/sbin",
+    "/usr/bin",
+    "/sbin",
+    "/bin",
+  ]);
   const env: Record<string, string> = {
     PATH: pathEntries.join(delimiter),
-    ORCH_REAL_FIND: params.executionClass === "sandbox"
-      ? "/usr/bin/find"
-      : process.env.ORCH_REAL_FIND ?? "/usr/bin/find",
+    ORCH_REAL_FIND: "/usr/bin/find",
     ORCH_WORKER_CANONICAL_TOOL_PATHS: JSON.stringify(WORKER_CANONICAL_TOOL_PATHS),
   };
   for (const tool of WORKER_CANONICAL_TOOL_PATHS) {
@@ -1042,185 +933,61 @@ export function workerAgentToolEnvironment(params: {
   return env;
 }
 
-export async function writeWorkerShellGuardBin(params: { outputDir: string }): Promise<string> {
-  const binDir = resolve(params.outputDir, WORKER_SHELL_BIN_DIRNAME);
-  const findPath = resolve(binDir, "find");
-  await mkdir(binDir, { recursive: true });
-  await writeFile(findPath, WORKER_FIND_GUARD_SCRIPT);
-  await chmod(findPath, 0o755);
-  return binDir;
-}
+export const MWCC_DEBUG_COMPILER_PROBE_COMMAND = [
+  "bash",
+  "-lc",
+  "find build/compilers -mindepth 3 -maxdepth 3 -type f -name mwcceppc_debug.exe -print -quit 2>/dev/null | grep -q .",
+] as const;
+export const MWCC_DEBUG_COMPILER_PROBE_TIMEOUT_MS = 10_000;
 
-function existsOrSymlink(path: string): boolean {
+/** Probe the worker sandbox once for the instrumented compiler used by live MWCC-debug tools. */
+export async function probeMwccDebugCompilerProvisioned(
+  sandboxHandle: SandboxHandle,
+  workerRepoRoot: string,
+): Promise<boolean> {
   try {
-    lstatSync(path);
-    return true;
+    const result = await sandboxHandle.exec([...MWCC_DEBUG_COMPILER_PROBE_COMMAND], {
+      cwd: workerRepoRoot,
+      timeoutMs: MWCC_DEBUG_COMPILER_PROBE_TIMEOUT_MS,
+    });
+    return result.exitCode === 0;
   } catch {
     return false;
   }
 }
 
-async function touchTreeMtime(path: string, at = new Date()): Promise<void> {
-  let stats: ReturnType<typeof statSync>;
-  try {
-    stats = statSync(path);
-  } catch {
-    return;
-  }
-  if (stats.isDirectory()) {
-    for (const entry of await readdir(path, { withFileTypes: true })) {
-      await touchTreeMtime(resolve(path, entry.name), at);
-    }
-  }
-  await utimes(path, at, at).catch(() => {});
-}
+export const WORKER_CANONICAL_TOOL_PATH_PROBE_TIMEOUT_MS = 10_000;
 
-export function workerWorktreeLockDir(workerRepoRoot: string): string {
-  return resolve(dirname(dirname(workerRepoRoot)), ".git-worktree-add.lock");
-}
-
-export function workerToolArtifactSourceRoots(globals: Pick<GlobalArgs, "repoRoot" | "game">): string[] {
-  const roots = [globals.repoRoot];
-  if (globals.game?.gameDir) roots.push(resolve(globals.game.gameDir, "worktrees", "upstream-current"));
-  return Array.from(new Set(roots));
-}
-
-export async function seedWorkerToolArtifacts(params: {
-  workerRepoRoot: string;
-  outputDir: string;
-  sources: WorkerToolArtifactSource[];
-  toolPlatform: ToolPlatform;
-}): Promise<void> {
-  await mkdir(params.outputDir, { recursive: true });
-  const linked: Array<Record<string, string>> = [];
-  const copied: Array<Record<string, string>> = [];
-  const existing: string[] = [];
-  const sourceByRelativePath = new Map(
-    params.sources
-      .filter((source) => source.platform === params.toolPlatform && existsSync(source.sourcePath))
-      .map((source) => [source.relativePath, source.sourcePath]),
+export async function probeExistingWorkerCanonicalToolPaths(
+  sandboxHandle: SandboxHandle,
+  workerRepoRoot: string,
+): Promise<Set<string>> {
+  const relativePaths = WORKER_CANONICAL_TOOL_PATHS.map((tool) => tool.relativePath);
+  const candidates = new Set<string>(relativePaths);
+  const result = await sandboxHandle.exec(
+    [
+      "bash",
+      "-lc",
+      'for path in "$@"; do if test -e "$path"; then printf \'%s\\n\' "$path"; fi; done',
+      "--",
+      ...relativePaths,
+    ],
+    {
+      cwd: workerRepoRoot,
+      timeoutMs: WORKER_CANONICAL_TOOL_PATH_PROBE_TIMEOUT_MS,
+    },
   );
-  const crossPlatformTarget = !isHostToolPlatform(params.toolPlatform);
-  if (crossPlatformTarget) {
-    const missing = WORKER_TOOL_ARTIFACT_RELATIVE_PATHS.filter((relativePath) => !sourceByRelativePath.has(relativePath));
-    if (missing.length > 0) {
-      throw new Error(
-        `Required worker tool artifact source(s) for execution target ${params.toolPlatform} are missing: ${missing.join(", ")}`,
-      );
-    }
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `Unable to probe canonical worker tool paths in ${workerRepoRoot}` +
+      (result.stderr.trim() ? `: ${result.stderr.trim()}` : ""),
+    );
   }
-  for (const artifact of WORKER_TOOL_ARTIFACTS) {
-    const { relativePath } = artifact;
-    const targetPath = resolve(params.workerRepoRoot, relativePath);
-    if (crossPlatformTarget && existsOrSymlink(targetPath)) {
-      await rm(targetPath, { recursive: true, force: true });
-    }
-    if (existsOrSymlink(targetPath)) {
-      if (!existsSync(targetPath)) {
-        await rm(targetPath, { recursive: true, force: true });
-      } else {
-        const isSharedSymlink = lstatSync(targetPath).isSymbolicLink();
-        if (artifact.mode === "copy" && !isSharedSymlink) {
-          const sourcePath = sourceByRelativePath.get(relativePath);
-          if (sourcePath && existsSync(sourcePath)) {
-            await cp(sourcePath, targetPath, { recursive: true, dereference: true, force: true });
-            await touchTreeMtime(targetPath);
-            copied.push({ relativePath, sourcePath, targetPath });
-          } else {
-            existing.push(relativePath);
-          }
-          continue;
-        }
-        if (artifact.mode === "link" && isSharedSymlink) {
-          existing.push(relativePath);
-          continue;
-        }
-        await rm(targetPath, { recursive: true, force: true });
-      }
-    }
-    const sourcePath = sourceByRelativePath.get(relativePath);
-    if (!sourcePath || !existsSync(sourcePath)) continue;
-    await mkdir(dirname(targetPath), { recursive: true });
-    if (artifact.mode === "copy") {
-      await cp(sourcePath, targetPath, { recursive: true, dereference: true });
-      await touchTreeMtime(targetPath);
-      copied.push({ relativePath, sourcePath, targetPath });
-    } else {
-      const sourceType = statSync(sourcePath).isDirectory() ? "dir" : "file";
-      symlinkSync(sourcePath, targetPath, sourceType);
-      linked.push({ relativePath, sourcePath, targetPath });
-    }
-  }
-  if (existsSync(resolve(params.workerRepoRoot, "build/tools/wibo"))) {
-    installMwccCacheShim(params.workerRepoRoot);
-  }
-  await writeFile(
-    resolve(params.outputDir, "worker_worktree_tool_artifacts.json"),
-    JSON.stringify(
-      {
-        copied,
-        linked,
-        existing,
-        missing: WORKER_TOOL_ARTIFACT_RELATIVE_PATHS.filter(
-          (relativePath) =>
-            !existing.includes(relativePath) &&
-            !copied.some((item) => item.relativePath === relativePath) &&
-            !linked.some((item) => item.relativePath === relativePath),
-        ),
-      },
-      null,
-      2,
-    ),
+  return new Set(
+    result.stdout
+      .split(/\r?\n/)
+      .filter((relativePath) => candidates.has(relativePath)),
   );
-}
-
-function hasShellFlag(command: string, flag: string): boolean {
-  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?:^|\\s)${escaped}(?:\\s|=|$)`).test(command);
-}
-
-function setShellFlag(command: string, flag: string, value: string): string {
-  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`(^|\\s)${escaped}(?:\\s+|=)(?:"[^"]*"|'[^']*'|\\S+)`);
-  const replacement = `${flag} ${shellQuote(value)}`;
-  if (pattern.test(command)) return command.replace(pattern, (_match, prefix: string) => `${prefix}${replacement}`);
-  return `${command} ${replacement}`;
-}
-
-export function configureCommandWithWorkerToolPaths(command: string, toolPaths: WorkerConfigureToolPaths): string {
-  if (!/\bconfigure\.py\b/.test(command)) return command;
-  let next = command;
-  if (toolPaths.wrapper) {
-    next = setShellFlag(next, "--wrapper", toolPaths.wrapper);
-  }
-  const additions: string[] = [];
-  const maybeAppend = (flag: string, value: string | undefined) => {
-    if (!value || hasShellFlag(next, flag)) return;
-    additions.push(flag, shellQuote(value));
-  };
-  maybeAppend("--binutils", toolPaths.binutils);
-  maybeAppend("--compilers", toolPaths.compilers);
-  maybeAppend("--dtk", toolPaths.dtk);
-  maybeAppend("--objdiff", toolPaths.objdiff);
-  maybeAppend("--sjiswrap", toolPaths.sjiswrap);
-  return additions.length > 0 ? `${next} ${additions.join(" ")}` : next;
-}
-
-export function workerBuildNinjaNeedsToolReconfigure(buildNinjaText: string, toolPaths: WorkerConfigureToolPaths): boolean {
-  if (toolPaths.wrapper && /(?:^|\n)\s*command\s*=\s*wine(?:\s|$)/.test(buildNinjaText)) return true;
-  if (toolPaths.wrapper && !buildNinjaText.includes(`--wrapper ${toolPaths.wrapper}`)) return true;
-  const staleToolEdges = [
-    ["compilers", "build/compilers"],
-    ["binutils", "build/binutils"],
-    ["dtk", "build/tools/dtk"],
-    ["objdiff", "build/tools/objdiff-cli"],
-    ["sjiswrap", "build/tools/sjiswrap.exe"],
-  ] as const;
-  return staleToolEdges.some(([tool, output]) => {
-    if (!toolPaths[tool]) return false;
-    const escapedOutput = output.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(?:^|\\n)build\\s+${escapedOutput}:\\s+download_tool(?:\\s|$)`).test(buildNinjaText);
-  });
 }
 
 async function integrateWorkerDiff(params: {
@@ -1348,6 +1115,8 @@ interface WorkerTaskFileBase {
   base_rev: string;
   artifact_dir: string;
   ttl_seconds: number;
+  sandbox_sleep: boolean;
+  sandbox_sleep_debounce_ms: number;
   thinking_level: string;
   post_return_check_command: string;
   worker_configure_command: string;
@@ -1355,18 +1124,11 @@ interface WorkerTaskFileBase {
   write_set_flags: ReturnType<typeof writeSetIntegrationFlags>;
 }
 
-interface LocalWorkerTaskFile extends WorkerTaskFileBase {
-  execution_class: "local";
-  worktree_path: string;
-}
-
-interface SandboxWorkerTaskFile extends WorkerTaskFileBase {
+interface WorkerTaskFile extends WorkerTaskFileBase {
   execution_class: "sandbox";
   sandbox_id: string;
   workspace_root: string;
 }
-
-type WorkerTaskFile = LocalWorkerTaskFile | SandboxWorkerTaskFile;
 
 function requiredTaskString(value: unknown, field: string): string {
   if (typeof value !== "string" || !value.trim()) throw new Error(`Worker task is missing required string ${field}`);
@@ -1395,11 +1157,21 @@ export async function readWorkerTaskFile(args: Map<string, string | true>): Prom
   };
   if (claimToken.kind !== "worker") throw new Error(`Worker task claim_token has invalid kind: ${claimToken.kind}`);
   const executionClass = requiredTaskString(row.execution_class, "execution_class");
-  if (executionClass !== "local" && executionClass !== "sandbox") {
+  if (executionClass !== "sandbox") {
     throw new Error(`Worker task has invalid execution_class: ${executionClass}`);
   }
   if (typeof row.ttl_seconds !== "number" || !Number.isFinite(row.ttl_seconds) || row.ttl_seconds <= 0) {
     throw new Error("Worker task requires a positive ttl_seconds");
+  }
+  if (typeof row.sandbox_sleep !== "boolean") {
+    throw new Error("Worker task requires boolean sandbox_sleep");
+  }
+  if (
+    typeof row.sandbox_sleep_debounce_ms !== "number"
+    || !Number.isFinite(row.sandbox_sleep_debounce_ms)
+    || row.sandbox_sleep_debounce_ms < 0
+  ) {
+    throw new Error("Worker task requires a non-negative sandbox_sleep_debounce_ms");
   }
   if (!row.write_set_flags || typeof row.write_set_flags !== "object" || Array.isArray(row.write_set_flags)) {
     throw new Error("Worker task is missing write_set_flags");
@@ -1408,7 +1180,6 @@ export async function readWorkerTaskFile(args: Map<string, string | true>): Prom
     throw new Error("Worker task command fields must be strings");
   }
   const common: WorkerTaskFileBase = {
-    ...(row as unknown as WorkerTaskFileBase),
     version: 1,
     run_id: requiredTaskString(row.run_id, "run_id"),
     worker_id: requiredTaskString(row.worker_id, "worker_id"),
@@ -1418,28 +1189,28 @@ export async function readWorkerTaskFile(args: Map<string, string | true>): Prom
     worker_state_id: requiredTaskString(row.worker_state_id, "worker_state_id"),
     base_rev: requiredTaskString(row.base_rev, "base_rev"),
     artifact_dir: requiredTaskString(row.artifact_dir, "artifact_dir"),
+    ttl_seconds: row.ttl_seconds,
+    sandbox_sleep: row.sandbox_sleep,
+    sandbox_sleep_debounce_ms: row.sandbox_sleep_debounce_ms,
     thinking_level: requiredTaskString(row.thinking_level, "thinking_level"),
+    post_return_check_command: row.post_return_check_command,
+    worker_configure_command: row.worker_configure_command,
     graph_db_path: requiredTaskString(row.graph_db_path, "graph_db_path"),
+    write_set_flags: row.write_set_flags as ReturnType<typeof writeSetIntegrationFlags>,
   };
-  return executionClass === "local"
-    ? {
-        ...common,
-        execution_class: "local",
-        worktree_path: requiredTaskString(row.worktree_path, "worktree_path"),
-      }
-    : {
-        ...common,
-        execution_class: "sandbox",
-        sandbox_id: requiredTaskString(row.sandbox_id, "sandbox_id"),
-        workspace_root: requiredTaskString(row.workspace_root, "workspace_root"),
-      };
+  return {
+    ...common,
+    execution_class: "sandbox",
+    sandbox_id: requiredTaskString(row.sandbox_id, "sandbox_id"),
+    workspace_root: requiredTaskString(row.workspace_root, "workspace_root"),
+  };
 }
 
 export function reconstructClaimedWorkerTask(store: StateStore, task: WorkerTaskFile): ClaimedTarget & { worktreePath: string } {
   const row = store.db.query(`
     SELECT epoch_targets.*, target_claims.worker_id AS claim_worker_id,
       target_claims.ttl AS claim_ttl, target_claims.write_set_json,
-      target_claims.write_set_entries_json, target_claims.worktree_path,
+      target_claims.write_set_entries_json,
       worker_state.id AS joined_worker_state_id
     FROM target_claims
     JOIN epoch_targets ON epoch_targets.id = target_claims.epoch_target_id
@@ -1458,13 +1229,24 @@ export function reconstructClaimedWorkerTask(store: StateStore, task: WorkerTask
     }),
     writeSet: entries.map((entry) => entry.path),
     writeSetEntries: entries,
-    worktreePath: task.execution_class === "sandbox" ? task.workspace_root : task.worktree_path,
+    worktreePath: task.workspace_root,
   };
 }
 
 export interface WorkerTaskRuntimeDeps {
   sandboxProvider?: SandboxProvider;
   runAgent?: (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
+}
+
+function disabledSandboxSleepStats(): SandboxSleepStats {
+  return {
+    stopCount: 0,
+    startCount: 0,
+    stoppedMs: 0,
+    stopFailures: 0,
+    startFailures: 0,
+    lastTransitionAt: Date.now(),
+  };
 }
 
 export async function runWorkerCycleFromTask(
@@ -1483,13 +1265,34 @@ export async function runWorkerCycleFromTask(
     const cycleGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId;
     const sessionId = run.cycleUuid ?? (cycleGameId ? getActiveCycle(store.db, cycleGameId)?.cycle_uuid : null) ?? task.run_id;
     const claimed = reconstructClaimedWorkerTask(store, task);
-    let sandboxHandle: SandboxHandle | undefined;
-    let workerRepoRoot: string;
-    let workspaceExec: WorkspaceExec;
-    if (task.execution_class === "sandbox") {
-      const provider = deps.sandboxProvider ?? new DaytonaSandboxProvider();
-      sandboxHandle = await provider.get(task.sandbox_id) ?? undefined;
-      if (!sandboxHandle) throw new Error(`Worker task sandbox does not exist: ${task.sandbox_id}`);
+    const provider = deps.sandboxProvider ?? new DaytonaSandboxProvider();
+    const rawSandboxHandle = await provider.get(task.sandbox_id);
+    if (!rawSandboxHandle) throw new Error(`Worker task sandbox does not exist: ${task.sandbox_id}`);
+    const sleepController = task.sandbox_sleep
+      ? wrapSandboxHandleWithSleep(rawSandboxHandle, {
+          debounceMs: task.sandbox_sleep_debounce_ms,
+          log: (message) => console.error(`[sandbox-sleep] worker ${task.worker_id}: ${message}`),
+        })
+      : null;
+    const sandboxHandle: SandboxHandle = sleepController ?? rawSandboxHandle;
+    let finalizeSleepPromise: Promise<SandboxSleepStats> | null = null;
+    const finalizeSandboxSleep = (): Promise<SandboxSleepStats> => {
+      finalizeSleepPromise ??= (async () => {
+        await sleepController?.close();
+        const stats = sleepController?.stats() ?? disabledSandboxSleepStats();
+        await mkdir(task.artifact_dir, { recursive: true });
+        await writeFile(resolve(task.artifact_dir, "sandbox_sleep_stats.json"), `${JSON.stringify(stats, null, 2)}\n`);
+        console.error(
+          `[sandbox-sleep] worker ${task.worker_id}: enabled=${task.sandbox_sleep} `
+          + `stops=${stats.stopCount} starts=${stats.startCount} stopped_ms=${stats.stoppedMs} `
+          + `stop_failures=${stats.stopFailures} start_failures=${stats.startFailures}`,
+        );
+        return stats;
+      })();
+      return finalizeSleepPromise;
+    };
+    let taskFailed = false;
+    try {
       const workspaceCheck = await sandboxHandle.exec(["test", "-d", "."], {
         cwd: task.workspace_root,
         timeoutMs: 30_000,
@@ -1500,33 +1303,45 @@ export async function runWorkerCycleFromTask(
           (workspaceCheck.stderr.trim() ? `: ${workspaceCheck.stderr.trim()}` : ""),
         );
       }
-      workerRepoRoot = task.workspace_root;
-      workspaceExec = sandboxWorkspaceExec(sandboxHandle, workerRepoRoot);
-    } else {
-      if (!existsSync(task.worktree_path)) throw new Error(`Worker task worktree_path does not exist: ${task.worktree_path}`);
-      workerRepoRoot = task.worktree_path;
-      workspaceExec = localWorkspaceExec(workerRepoRoot);
+      const workerRepoRoot = task.workspace_root;
+      const workspaceExec = sandboxWorkspaceExec(sandboxHandle, workerRepoRoot);
+      return await executeClaimedWorker({
+        store,
+        globals,
+        run,
+        runId: task.run_id,
+        sessionId,
+        claimed,
+        workerRepoRoot,
+        workspaceExec,
+        sandboxHandle,
+        runAgent: deps.runAgent,
+        outputDir: task.artifact_dir,
+        baseRev: task.base_rev,
+        ttlSeconds: task.ttl_seconds,
+        thinkingLevel: task.thinking_level,
+        postReturnCheckCommand: task.post_return_check_command,
+        graphDbPath: task.graph_db_path,
+        writeSetFlags: task.write_set_flags,
+        token: task.claim_token,
+        sandboxSleepEnabled: task.sandbox_sleep,
+        sandboxSleepDebounceMs: task.sandbox_sleep_debounce_ms,
+        finalizeSandboxSleep,
+      });
+    } catch (error) {
+      taskFailed = true;
+      throw error;
+    } finally {
+      try {
+        await finalizeSandboxSleep();
+      } catch (error) {
+        if (!taskFailed) throw error;
+        console.error(
+          `[sandbox-sleep] worker ${task.worker_id}: close failed after worker error: `
+          + (error instanceof Error ? error.message : String(error)),
+        );
+      }
     }
-    return await executeClaimedWorker({
-      store,
-      globals,
-      run,
-      runId: task.run_id,
-      sessionId,
-      claimed,
-      workerRepoRoot,
-      workspaceExec,
-      sandboxHandle,
-      runAgent: deps.runAgent,
-      outputDir: task.artifact_dir,
-      baseRev: task.base_rev,
-      ttlSeconds: task.ttl_seconds,
-      thinkingLevel: task.thinking_level,
-      postReturnCheckCommand: task.post_return_check_command,
-      graphDbPath: task.graph_db_path,
-      writeSetFlags: task.write_set_flags,
-      token: task.claim_token,
-    });
   } finally {
     store.db.close();
   }
@@ -1541,7 +1356,7 @@ async function executeClaimedWorker(params: {
   claimed: ClaimedTarget & { worktreePath: string };
   workerRepoRoot: string;
   workspaceExec: WorkspaceExec;
-  sandboxHandle?: SandboxHandle;
+  sandboxHandle: SandboxHandle;
   runAgent?: (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
   outputDir: string;
   baseRev: string;
@@ -1551,10 +1366,14 @@ async function executeClaimedWorker(params: {
   graphDbPath: string;
   writeSetFlags: ReturnType<typeof writeSetIntegrationFlags>;
   token: ClaimToken;
+  sandboxSleepEnabled: boolean;
+  sandboxSleepDebounceMs: number;
+  finalizeSandboxSleep: () => Promise<SandboxSleepStats>;
 }): Promise<WorkerCycleResult> {
     const { store, globals, run, runId, sessionId, claimed, workerRepoRoot, workspaceExec,
       sandboxHandle, runAgent, outputDir, baseRev, ttlSeconds, thinkingLevel, postReturnCheckCommand,
-      graphDbPath, writeSetFlags, token } = params;
+      graphDbPath, writeSetFlags, token, sandboxSleepEnabled, sandboxSleepDebounceMs,
+      finalizeSandboxSleep } = params;
     const writeSetWideningMode = writeSetFlags.writeSetWidening;
     let currentWriteSet = [...claimed.writeSet];
     let currentEntries = [...claimed.writeSetEntries];
@@ -1568,14 +1387,11 @@ async function executeClaimedWorker(params: {
     await mkdir(reportDir, { recursive: true });
     const validationDir = resolve(outputDir, "runner_validation");
     await mkdir(validationDir, { recursive: true });
-    const runnerCwd = sandboxHandle ? resolve(outputDir, "host-cwd") : workerRepoRoot;
-    if (sandboxHandle) await mkdir(runnerCwd, { recursive: true });
-    const workerShellBin = sandboxHandle ? null : await writeWorkerShellGuardBin({ outputDir });
-    const workerAgentEnv = workerAgentToolEnvironment({
-      workerRepoRoot,
-      shellBin: workerShellBin,
-      executionClass: workspaceExec.executionClass,
-    });
+    const runnerCwd = resolve(outputDir, "host-cwd");
+    await mkdir(runnerCwd, { recursive: true });
+    const workerAgentEnv = workerAgentToolEnvironment({ workerRepoRoot });
+    const mwccDebugProvisioned = await probeMwccDebugCompilerProvisioned(sandboxHandle, workerRepoRoot);
+    const existingCanonicalToolPaths = await probeExistingWorkerCanonicalToolPaths(sandboxHandle, workerRepoRoot);
     const summaryPath = resolve(reportDir, "worker_state.json");
     const factsPath = resolve(reportDir, "facts.json");
     let preAttemptDiffPath = resolve(validationDir, "pre_worker_write_set.diff");
@@ -1665,17 +1481,15 @@ async function executeClaimedWorker(params: {
       let result: PiRunResult;
       try {
         const runWorkerAgent = runAgent ?? (await import("@server/infrastructure/agent-runtime/kernel-pi-runner")).runMeleeKernelPiAgent;
-        let targetSourceText: string | null | undefined;
-        if (sandboxHandle) {
-          const targetSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
-          if (!targetSourcePath) {
+        let targetSourceText: string | null;
+        const targetSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
+        if (!targetSourcePath) {
+          targetSourceText = null;
+        } else {
+          try {
+            targetSourceText = await sandboxHandle.readFile(targetSourcePath);
+          } catch {
             targetSourceText = null;
-          } else {
-            try {
-              targetSourceText = await sandboxHandle.readFile(targetSourcePath);
-            } catch {
-              targetSourceText = null;
-            }
           }
         }
         result = await runWorkerAgent({
@@ -1689,7 +1503,8 @@ async function executeClaimedWorker(params: {
             initialBoardPath,
             workerLogDir: outputDir,
             contextBudget,
-            ...(sandboxHandle ? { targetSourceText: targetSourceText ?? null } : {}),
+            targetSourceText,
+            existingCanonicalToolPaths,
           }),
           outputDir,
           dryRun: globals.dryRunAgents,
@@ -1700,18 +1515,12 @@ async function executeClaimedWorker(params: {
           env: workerAgentEnv,
           // Whole-file writes conflict with the preserve-dirty-work rule and were
           // used in 0% of confirmed exacts (-51pt lift); edit/bash cover the need.
-          excludeBuiltinTools: sandboxHandle
-            ? ["write", "read", "edit", "grep", "glob", "bash"]
-            : ["write"],
-          ...(sandboxHandle
-            ? {
-                bashOperations: sandboxBashOperations(sandboxHandle, workerRepoRoot),
-                bashEnvironment: workerAgentEnv,
-                customTools: [...createSandboxFileToolDefinitions(sandboxHandle, workerRepoRoot)],
-              }
-            : {}),
+          excludeBuiltinTools: ["write", "read", "edit", "grep", "glob", "bash"],
+          bashOperations: sandboxBashOperations(sandboxHandle, workerRepoRoot),
+          bashEnvironment: workerAgentEnv,
+          customTools: [...createSandboxFileToolDefinitions(sandboxHandle, workerRepoRoot)],
           toolContext: {
-            ...(sandboxHandle ? { cwd: workerRepoRoot } : {}),
+            cwd: workerRepoRoot,
             repoRoot: workerRepoRoot,
             stateDir: globals.stateDir,
             game,
@@ -1721,7 +1530,8 @@ async function executeClaimedWorker(params: {
             workerLogDir: outputDir,
             claimId: claimed.claimId,
             attemptIndex,
-            ...(sandboxHandle ? { sandboxHandle } : {}),
+            sandboxHandle,
+            mwccDebugProvisioned,
           },
           kernelContext: createMeleeKernelSpawnContext({
             kind: "worker",
@@ -2118,6 +1928,7 @@ async function executeClaimedWorker(params: {
       const shouldRunRunnerValidation = shouldRunRunnerValidationForWorkerSession(result);
       const targetChangeValidation = await validateWorkerChange({
         repoRoot: workerRepoRoot,
+        hostRepoRoot: globals.repoRoot,
         outputDir: validationDir,
         attemptIndex,
         baseline: workerChangeBaseline,
@@ -2394,6 +2205,12 @@ async function executeClaimedWorker(params: {
             ? `Runner banked improvement checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}) and closed the worker.`
             : `Runner timeout selected best prior checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}).`
           : "Runner timeout selected baseline because no checkpoint passed hard gates and improved over baseline.");
+    const sandboxSleepStats = await finalizeSandboxSleep();
+    const sandboxSleepSummary = {
+      enabled: sandboxSleepEnabled,
+      debounceMs: sandboxSleepDebounceMs,
+      ...sandboxSleepStats,
+    };
     const workerStateSummary = {
       run_id: runId,
       epoch_id: claimed.epochId,
@@ -2423,6 +2240,11 @@ async function executeClaimedWorker(params: {
       facts: agentFacts,
       blockers: agentBlockers,
       error: errorClassification,
+      sandbox_sleep: {
+        enabled: sandboxSleepEnabled,
+        debounce_ms: sandboxSleepDebounceMs,
+        ...sandboxSleepStats,
+      },
       latest_runner_validation: finalEvaluation.runnerValidation,
       continuation_attempts: {
         policy: WORKER_ATTEMPT_TAIL_POLICY.mode,
@@ -2540,6 +2362,7 @@ async function executeClaimedWorker(params: {
       exact: Boolean(bestCheckpoint?.exactMatch),
       wakeEvent,
       dryRun: result.dryRun,
+      sandboxSleep: sandboxSleepSummary,
       failed: lifecycleStatus === "error" && errorClassification?.kind !== "provider_error",
       providerFailure: errorClassification?.kind === "provider_error",
       errorKind: errorClassification?.kind,

@@ -79,7 +79,7 @@ export async function deleteSandboxForJob(
   deps: SandboxLifecycleDeps = {},
 ): Promise<boolean> {
   const sandboxId = nonempty(job.payload.sandbox_id);
-  if (job.executionClass !== "sandbox" || !sandboxId || !deps.sandboxProvider) return false;
+  if (!sandboxId || !deps.sandboxProvider) return false;
   const claimId = nonempty(job.payload.target_claim_id);
   const result = await deleteSandbox(store, {
     gameId: job.gameId,
@@ -115,7 +115,7 @@ function isLiveSandbox(
 
   const job = getJob(store, jobId);
   if (!isCurrentClaimToken(job, { jobId, kind: "worker", leaseId: jobLeaseId }, at)) return null;
-  if (job.executionClass !== "sandbox" || job.gameId !== gameId || job.runId !== runId) return null;
+  if (job.gameId !== gameId || job.runId !== runId) return null;
   if (job.payload.sandbox_id !== sandbox.sandboxId || job.payload.target_claim_id !== claimId) return null;
 
   let dispatch: ReturnType<typeof requireActiveLease>;
