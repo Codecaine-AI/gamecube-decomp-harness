@@ -117,6 +117,23 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
 - Parity run in flight: run 23b77d33, same target, execution_class local, wine host builds.
 </phase3_progress>
 
+<phase3_gate verdict="PASS" date="2026-08-18">
+All gate criteria verified live (full narrative: examples/phase3/live_poc_report.md):
+- Claim settled cleanly: run 0b662f7a banked-improvement checkpoint b8517a4c (99.65522 ->
+  99.72665), two-cycle real agent session, all exec/file IO remote.
+- Patch integrated: integration outcome APPLIED (working-tree change verified); knowledge
+  jobs succeeded.
+- Sandbox deleted at settlement; remote list-by-label sweep EMPTY at end (no orphans across
+  4 runs / 4 sandboxes created).
+- Parity vs local worker (run 23b77d33, same target, same 99.65522 baseline): identical
+  mechanism, validation contract, and evidence shape; local banked 99.68132 in one cycle.
+  Host wine build verified byte-identical (runtime.o df6bb9cb... == shipped == Daytona).
+- Mid-claim sandbox death drill (run 1e74f937): external delete at 01:23:16Z mid-session ->
+  claim closed(error) -> job requeued -> retry provisioned a fresh sandbox and resumed;
+  drill then terminated deliberately; no dangling sandboxes.
+- Both recovery teardown paths exercised live: reconciliation (run 1 orphan) and settlement.
+</phase3_gate>
+
 <in_progress>
 - Phase 2 slice 5b is complete on daytona/slice-5 and ready for handoff. Slices 1/2/3/6 are merged
   into this branch base; slice 4 remains before the phase 3 live claim PoC.
