@@ -26,14 +26,24 @@
         "b-stop-thinking-6",
         "b-stop-thinking-7",
         "b-stop-thinking-8",
+        "b-stop-thinking-close-decision",
         "b-stop-thinking-9",
         "b-stop-thinking-10",
         "b-stop-thinking-11",
+        "b-stop-thinking-knowledge-heading",
+        "b-stop-thinking-knowledge-decision",
+        "b-stop-thinking-knowledge-details",
         "b-stop-thinking-12",
         "b-stop-thinking-13",
         "b-stop-thinking-14",
         "b-stop-thinking-15",
         "b-stop-thinking-16",
+        "b-stop-thinking-sandbox-consequence-1",
+        "b-stop-thinking-sandbox-consequence-2",
+        "b-stop-thinking-sandbox-consequence-3",
+        "b-stop-thinking-sandbox-consequence-4",
+        "b-stop-thinking-placement-heading",
+        "b-stop-thinking-placement-table",
         "b-stop-thinking-17",
         "b-stop-thinking-18",
         "b-stop-thinking-19",
@@ -46,33 +56,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The shipped Daytona lifecycle deliberately keeps each sandbox running for its claim's full lifetime under "
-        },
-        {
-          "insert": "locked Decision 7 (2026-08-18)",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/30-lease-claims-and-lifecycle",
-              "label": "locked Decision 7 (2026-08-18)"
-            }
-          }
-        },
-        {
-          "insert": ". Worker claims, especially at high thinking levels, are dominated by model turns that often last minutes; during those turns the sandbox has no work but continues to bill active compute. The quarter-duty-cycle fleet economics in "
-        },
-        {
-          "insert": "Scale and Cost",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/60-scale-and-cost",
-              "label": "Scale and Cost"
-            }
-          }
-        },
-        {
-          "insert": " assumed that compute would stop during those intervals. Phase 1 supplied the missing feasibility measurement: 0.86, 0.78, and 0.85 seconds from a start request to the first successful exec across three real-runner trials, an observed range of 0.78–0.86 seconds. Against a minutes-long model turn, that wake is nearly free."
+          "insert": "The sandbox worker fleet has one definitive runtime placement: the host-side worker agent thinks, while an isolated 2-vCPU sandbox holds the claim workspace and executes every worker command. The 2026-08-19 scale sweep reached 32 concurrent workers without provider, quota, or compile contention and measured model turns at about 90% of worker-session time. Stop-while-thinking removes active compute during that dominant idle interval; killing the sandbox at worker-state close removes the settlement tail that left finished sandboxes alive behind knowledge processing."
         }
       ],
       "children": []
@@ -82,12 +66,12 @@
       "type": "callout",
       "props": {
         "kind": "decision",
-        "title": "Next objective (operator-ruled 2026-08-18) — stop while thinking",
+        "title": "Operator ruling (2026-08-19) — definitive sandbox worker placement",
         "tone": "success"
       },
       "text": [
         {
-          "insert": "Stop-while-thinking is the next task after the completed Daytona sandbox-execution objective. It changes the running state of the existing claim-local sandbox; it does not introduce a new execution architecture, workspace, or authority path."
+          "insert": "Sandbox-only execution, close-time sandbox deletion, and a decoupled host-side knowledge/librarian lane form one placement contract. Stop and start govern the middle of a worker claim during model turns; host-observed worker-state close and immediate kill govern the end."
         }
       ],
       "children": []
@@ -111,33 +95,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The "
-        },
-        {
-          "insert": "host-agent/remote-exec boundary",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/10-execution-boundary",
-              "label": "host-agent/remote-exec boundary"
-            }
-          }
-        },
-        {
-          "insert": " already owns both transition points. The host knows when it hands control to a model turn, and every later exec or file operation returns through its sandbox adapter under the same "
-        },
-        {
-          "insert": "claim and lease lifecycle",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/30-lease-claims-and-lifecycle",
-              "label": "claim and lease lifecycle"
-            }
-          }
-        },
-        {
-          "insert": ". Idling therefore belongs in the host's remote-operation gate, where one controller can serialize stop, start, exec, and file I/O without giving the sandbox authority of its own."
+          "insert": "The host-agent/remote-exec boundary owns every running-state transition. The host knows when it hands control to a model turn, and every later exec or file operation returns through its sandbox adapter under the same claim and lease lifecycle. Idling therefore belongs in the host's remote-operation gate, where one controller serializes stop, start, exec, file I/O, evidence transfer, and terminal close without giving the sandbox authority of its own."
         }
       ],
       "children": []
@@ -170,6 +128,15 @@
           },
           {
             "text": "The operation runs in the same workspace under the same ClaimToken and trace identity; its result starts the next model-turn idle decision"
+          },
+          {
+            "text": "After required per-attempt evidence is downloaded, the worker closes its worker state; the host observes close and immediately kills the sandbox",
+            "steps": [
+              {
+                "text": "job settlement and knowledge processing continue on host-side lanes without retaining the sandbox",
+                "kind": "note"
+              }
+            ]
           }
         ]
       },
@@ -181,7 +148,7 @@
       "props": {},
       "text": [
         {
-          "insert": "One serialized state controller owns the started, stopping, stopped, and starting transitions. Rapid tool chains cancel the pending stop during the debounce window, so short model turns do not bounce the sandbox; a tool that arrives after stopping begins waits for that transition and shares the single subsequent start. The exact debounce duration remains policy, but the safety rule does not: no stop may overlap an active exec, upload, download, or workspace-file operation."
+          "insert": "One serialized state controller owns the started, stopping, stopped, and starting transitions until worker-state close. Rapid tool chains cancel the pending stop during the debounce window, so short model turns do not bounce the sandbox; a tool that arrives after stopping begins waits for that transition and shares the single subsequent start. Close is terminal: it transitions the controller to deleting/deleted, rejects later remote operations, and cannot race an active exec, upload, download, or workspace-file operation."
         }
       ],
       "children": []
@@ -205,7 +172,22 @@
       "props": {},
       "text": [
         {
-          "insert": "Wake readiness and command execution use separate timeout budgets. The outer tool deadline spans both stages, while the explicit exec timeout begins only after the sandbox reports ready, so a normal wake cannot consume a command's execution allowance. Cancellation or timeout at either stage must leave the controller in a recoverable state rather than allowing a late start or exec to escape the claim fence."
+          "insert": "Wake readiness and command execution use separate timeout budgets. The outer tool deadline spans both stages, while the explicit exec timeout begins only after the sandbox reports ready, so a normal wake cannot consume a command's execution allowance. Cancellation or timeout at either stage must leave the controller recoverable and close-aware rather than allowing a late start or exec to escape the claim fence."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-close-decision": {
+      "id": "b-stop-thinking-close-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-19) — kill the sandbox at worker-state close",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "The host kills the claim sandbox the moment the worker closes its worker state, not when the job later settles. In the 32-worker sweep, finished workers retained sandboxes while settlement queued behind knowledge processing; one librarian LLM call hung for more than 25 minutes and two completed workers' sandboxes survived until the TTL backstop."
         }
       ],
       "children": []
@@ -216,7 +198,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Platform inactivity auto-stop remains disabled: only the host boundary may decide that all remote surfaces are quiescent. The sandbox's wall-clock TTL is unchanged and continues advancing while stopped, as do the claim deadline and job lease; stopping compute grants no extra claim lifetime. Settlement, queue reap, and startup reconciliation continue to own deletion, with TTL retaining its role as the abandonment backstop."
+          "insert": "Deletion authority remains host-consumer-side. The preferred path is for the child to signal or persist worker-state close, then for the host consumer to observe that close and immediately delete the labeled sandbox. A narrowly scoped child-initiated delete is an admissible alternative, but host-observes-close is preferred because it preserves the existing authority boundary and keeps provider deletion credentials out of the child path."
         }
       ],
       "children": []
@@ -227,20 +209,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Evidence transfer participates in the same quiescence barrier as exec and file tools. An in-flight checkpoint or validation download prevents a stop; a transfer that arrives after the sandbox reaches stopped state wakes it before reading. Settlement drains pending transfers and retrieves required evidence before deletion, preserving the "
-        },
-        {
-          "insert": "host-owned evidence and integration path",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/40-evidence-and-integration",
-              "label": "host-owned evidence and integration path"
-            }
-          }
-        },
-        {
-          "insert": " without a stop/download race."
+          "insert": "Locked Decision 6 already requires per-attempt evidence download before worker close, so nothing inside the sandbox is needed after the worker state closes. In-flight evidence remains part of the quiescence barrier and delays close until transfer completes. Queue reap and startup reconciliation continue to remove labeled sandboxes missed by the normal close observer, while the wall-clock TTL remains the abandonment and cost backstop; stopped time still advances the TTL, claim deadline, and job lease."
         }
       ],
       "children": []
@@ -250,12 +219,51 @@
       "type": "callout",
       "props": {
         "kind": "decision",
-        "title": "Invariant — an intentional stop is not sandbox death",
+        "title": "Invariant — stop is live; worker-state close is terminal",
         "tone": "success"
       },
       "text": [
         {
-          "insert": "A stopped sandbox remains the live, labeled execution surface for its claim and must be retained by reconciliation. The sandbox-death drill continues to delete, kill, or otherwise make that surface unexpectedly unavailable; expected stopped state never satisfies the drill. Unexpected disappearance or a failed wake follows the existing sandbox-loss and fail-safe requeue semantics."
+          "insert": "A stopped sandbox remains the live, labeled execution surface for its claim and must be retained by reconciliation until the worker state closes. At close it must be killed immediately. Unexpected disappearance or a failed wake before close follows the existing sandbox-loss and fail-safe requeue semantics; expected stopped state never satisfies the sandbox-death drill."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-knowledge-heading": {
+      "id": "b-stop-thinking-knowledge-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Decoupled Host-Side Knowledge Lane"
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-knowledge-decision": {
+      "id": "b-stop-thinking-knowledge-decision",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision (2026-08-19) — librarian work never gates settlement or teardown",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Librarian condensation and knowledge absorption run in their own host-side queue/agent. They never gate worker job settlement and never retain or delay sandbox teardown."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-knowledge-details": {
+      "id": "b-stop-thinking-knowledge-details",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This lane already belongs on the host and needs no sandbox tools: its capabilities are graph and ledger queries plus file writes. It may parallelize independently of worker settlement, and every librarian LLM call has a bounded timeout so a hung call cannot stall the run loop as the sweep's greater-than-25-minute call did."
         }
       ],
       "children": []
@@ -308,7 +316,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Daytona's billing and persistence documentation therefore supports the optimization's premise: reaching stopped state removes CPU and RAM billing without discarding the claim's source tree, installed tools, or incremental build state. The saving is compute, not storage, and saved sandbox-hours must count only time actually spent stopped rather than time between the stop request and transition completion."
+          "insert": "Daytona's billing and persistence contract supports the optimization: reaching stopped state removes CPU and RAM billing without discarding the claim's source tree, installed tools, or incremental build state. The measured model-turn share is about 90% of worker-session time, so the saving is primarily compute during the claim's middle; close-time kill then ends both compute and workspace retention. Saved sandbox-hours count only completed stopped time and exclude stop/start transition time."
         }
       ],
       "children": []
@@ -318,12 +326,21 @@
       "type": "callout",
       "props": {
         "kind": "decision",
-        "title": "Decision (2026-08-18) — execution class is run-scoped",
+        "title": "Decision (2026-08-19) — worker execution is sandbox-only",
         "tone": "success"
       },
       "text": [
         {
-          "insert": "A run is entirely local or entirely sandbox; individual worker jobs do not mix execution classes within one run. Stop-while-thinking applies uniformly to every claim in a sandbox run and does not apply to a local run."
+          "insert": "Sandbox execution is the only supported worker runtime. The local worker execution class is removed outright under the repository's zero-backward-compatibility convention, not deprecated and not retained behind a shim. With one execution class, the run-level selector question is void. "
+        },
+        {
+          "insert": "FakeSandboxProvider",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " remains the dry-run test and development surface."
         }
       ],
       "children": []
@@ -334,18 +351,150 @@
       "props": {},
       "text": [
         {
-          "insert": "The fleet selector will expose execution class as a run-level knob. Jobs currently enqueue "
+          "insert": "Worker isolation and build capacity are per-sandbox concerns. The host-era worker mechanisms below retire from the worker path rather than surviving as alternate execution paths:"
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-sandbox-consequence-1": {
+      "id": "b-stop-thinking-sandbox-consequence-1",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Per-epoch "
         },
         {
-          "insert": "local",
+          "insert": ".worker-ninja-slots",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " as a hardcoded value, so making that selector operational belongs to fleet-rollout work rather than this idling mechanism. Once a run selects sandbox execution, every claim receives the same stop policy; there is no partial per-job rollout inside that run."
+          "insert": " directories retire entirely; there is no host-local worker slot pool to provision or clean up."
         }
       ],
+      "children": []
+    },
+    "b-stop-thinking-sandbox-consequence-2": {
+      "id": "b-stop-thinking-sandbox-consequence-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The host compile-jobserver wrapper around worker builds retires. Each sandbox is an isolated 2-vCPU island; the jobserver remains only for host-side builds such as the epoch-boundary report build."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-sandbox-consequence-3": {
+      "id": "b-stop-thinking-sandbox-consequence-3",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": ""
+        },
+        {
+          "insert": "provisionWorkerWorktree",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " retires from the worker path; the worker workspace materializes only inside its sandbox from the image and claim seed."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-sandbox-consequence-4": {
+      "id": "b-stop-thinking-sandbox-consequence-4",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": ""
+        },
+        {
+          "insert": "ORCH_WORKER_TOOL_CONCURRENCY",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "-style knobs lose their protect-the-host meaning. Re-evaluate them as per-sandbox policy against the isolated 2-vCPU allocation, without preserving a hidden host-global worker cap."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-placement-heading": {
+      "id": "b-stop-thinking-placement-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Definitive Runtime Placement"
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-placement-table": {
+      "id": "b-stop-thinking-placement-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Placement",
+          "Lane or surface",
+          "Definitive responsibility"
+        ],
+        "rows": [
+          [
+            "Sandbox",
+            "Worker command execution + workspace only",
+            "Claim-local source tree, toolchain, and build state; every worker shell, file, edit, build, score, and workspace-coupled tool operation."
+          ],
+          [
+            "Host",
+            "Worker agent process",
+            "Agent/model loop, prompt and tool orchestration, telemetry, worker state, and sandbox lifecycle controller."
+          ],
+          [
+            "Host",
+            "Knowledge/librarian lane",
+            "Independent queue/agent for graph and ledger queries, condensation/absorption, and file writes; no sandbox tools."
+          ],
+          [
+            "Host",
+            "Integration",
+            "Serial evidence and patch integration, confirmation, save points, and head lineage."
+          ],
+          [
+            "Host",
+            "Epoch-boundary report build",
+            "The existing host-side build remains; an own-sandbox variant remains future work under Daytona sandbox-execution bundle 70."
+          ],
+          [
+            "Host",
+            "QA/PR lanes",
+            "Review, quality gates, pull-request preparation, and publication orchestration."
+          ],
+          [
+            "Host",
+            "Dashboard",
+            "Operator UI, fleet status, and control surfaces."
+          ]
+        ]
+      },
       "children": []
     },
     "b-stop-thinking-17": {
@@ -369,7 +518,7 @@
       },
       "text": [
         {
-          "insert": "Stop threshold policy — Should every model turn arm a stop after a short debounce, or should the host stop only turns predicted to exceed a cost threshold? The policy must avoid rapid tool-chain thrash without depending on platform inactivity detection."
+          "insert": "Stop debounce policy — Every model turn is stop-eligible. Select the short debounce that avoids rapid tool-chain thrash without depending on platform inactivity detection or predicting turn duration."
         }
       ],
       "children": []
@@ -382,7 +531,7 @@
       },
       "text": [
         {
-          "insert": "Measurement contract — Record stop count, stop completion latency, wake latency to ready and to first successful operation, stopped duration, start failures, and estimated saved sandbox-hours by resource class. These measurements must replace the fleet model's assumed duty cycle with observed savings."
+          "insert": "Measurement contract — Record stop count, stop completion latency, wake latency to ready and to first successful operation, stopped duration, start failures, close-to-delete latency, post-close live-sandbox count, and estimated saved sandbox-hours by resource class. These measurements replace assumed duty cycle and expose teardown regressions."
         }
       ],
       "children": []
@@ -395,7 +544,7 @@
       },
       "text": [
         {
-          "insert": "Wake failure details — The invariant is fixed: if start fails mid-claim, route the job through the existing fail-safe failure, backoff, and requeue path rather than falling back to local execution. The implementation still must settle whether one bounded start retry is safe and which failure evidence accompanies the requeue."
+          "insert": "Wake failure details — If start fails mid-claim, route the job through the existing fail-safe failure, backoff, and requeue path; there is no local-execution fallback. Implementation still must settle whether one bounded start retry is safe and which failure evidence accompanies the requeue."
         }
       ],
       "children": []
