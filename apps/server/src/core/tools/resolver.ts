@@ -11,6 +11,7 @@ import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import { runCommand } from "@server/infrastructure/shell";
 import { resolveStateToolArtifact, resolveToolPlatform, type ToolPlatform } from "./platform.js";
 import { runSandboxM2cFetchFirst } from "./wrappers/m2c-decompile.js";
+import { runSandboxTypeLayoutIndexFallback } from "./wrappers/type-layout-fetch.js";
 
 export interface ToolRuntimeContext {
   game?: RunGameMetadata;
@@ -383,6 +384,28 @@ export async function runRegisteredToolApi(
         const command = ["python3", scriptPath, ...hostArgs];
         const result = await commandRunner(cwd, command, { env: resolved.env });
         return commandPayload({ operation: `tool:${toolId}:${scriptName}`, command, cwd, ...result });
+      },
+    });
+    return { ...payload, resolved_tool: resolvedTool };
+  }
+
+  if (toolId === "type_layout_lookup" && scriptName === "layout_lookup.py" && context.sandboxHandle) {
+    const runnerPath = resolve(resolved.toolRoot, "runners/build_type_index.py");
+    const payload = await runSandboxTypeLayoutIndexFallback({
+      sandboxHandle: context.sandboxHandle,
+      workspaceRoot: resolved.gameRepoRoot,
+      gameId: resolved.gameId,
+      worktreeCacheRoot: resolved.worktreeCacheRoot,
+      args,
+      runHostApi: async (hostArgs) => {
+        const command = ["python3", scriptPath, ...hostArgs];
+        const result = await commandRunner(cwd, command, { env: resolved.env });
+        return commandPayload({ operation: `tool:${toolId}:${scriptName}`, command, cwd, ...result });
+      },
+      runHostRunner: async (runnerArgs) => {
+        const command = ["python3", runnerPath, ...runnerArgs];
+        const result = await commandRunner(cwd, command, { env: resolved.env });
+        return commandPayload({ operation: `tool:${toolId}:build_type_index.py`, command, cwd, ...result });
       },
     });
     return { ...payload, resolved_tool: resolvedTool };

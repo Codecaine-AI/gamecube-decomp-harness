@@ -28,6 +28,8 @@ export const agent = defineHarnessAgent({
       "source_mutation_preview",
       "type_oracle_lookup",
       "m2c_decompile",
+      "asm_window_search",
+      "type_layout_lookup",
       "review_lint_scan",
       "review_lint_sdata2_order_helper",
   ],
