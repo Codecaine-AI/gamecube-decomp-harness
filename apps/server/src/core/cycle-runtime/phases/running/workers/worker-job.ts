@@ -265,7 +265,7 @@ export function buildWorkerTask(
         target_claim_id: targetClaimId,
         worker_state_id: workerStateId,
         base_rev: ctx.baseRev,
-        worktree_path: workerRepoRoot,
+        ...(provisionedSandbox ? {} : { worktree_path: workerRepoRoot }),
         artifact_dir: artifactDir,
         ttl_seconds: ctx.ttlSeconds,
         thinking_level: ctx.thinkingLevel,
@@ -274,7 +274,9 @@ export function buildWorkerTask(
         graph_db_path: ctx.graphDbPath,
         write_set_flags: ctx.writeSetFlags,
         execution_class: job.executionClass,
-        ...(provisionedSandbox ? { sandbox_id: provisionedSandbox.sandboxId } : {}),
+        ...(provisionedSandbox
+          ? { sandbox_id: provisionedSandbox.sandboxId, workspace_root: workerRepoRoot }
+          : {}),
       }, null, 2));
       const command = ["bun", resolve(packageRoot(), "apps/server/src/job-runner.ts")];
       if (ctx.globals.gameId) command.push("--game", ctx.globals.gameId);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { WorkspaceExec } from "@server/infrastructure/shell";
 import {
   configHunkAddresses,
   parseSplitUnitRanges,
@@ -150,6 +151,41 @@ describe("validateWidenedChange", () => {
     expect(validation.status).toBe("failed");
     expect(validation.reasons.join(" ")).toContain("explicit maxConsumers ceiling");
     expect(validation.reasons.join(" ")).toContain("no full-build escalation");
+  });
+
+  test("infers an owning-header source through sandbox workspace exec", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "widened-validation-sandbox-owner-"));
+    const commands: string[][] = [];
+    const checked: string[] = [];
+    const workspaceExec: WorkspaceExec = {
+      executionClass: "sandbox",
+      exec: async (command) => {
+        commands.push(command);
+        return { exitCode: command.join(" ") === "test -f src/melee/shared.c" ? 0 : 1, stdout: "", stderr: "" };
+      },
+    };
+    const validation = await validateWidenedChange({
+      validation: passedValidation(),
+      repoRoot: "/workspace/melee",
+      outputDir,
+      attemptIndex: 4,
+      targetSourcePath: "src/melee/ft/target.c",
+      writeSetEntries: [writeSetEntries[2]],
+      baseRev: "base-sha",
+      runStateDir: "/state/runs/run-1",
+      workspaceExec,
+      runners: {
+        resolveHeaderConsumers: async () => ({ consumers: [], derivedFrom: "grep-includes", truncated: false }),
+        checkUnit: async (options) => {
+          checked.push(options.sourcePath);
+          return { sourcePath: options.sourcePath, mode: options.mode, triggerPaths: options.triggerPaths, status: "passed", reasons: [] };
+        },
+      },
+    });
+
+    expect(commands).toContainEqual(["test", "-f", "src/melee/shared.c"]);
+    expect(checked).toEqual(["src/melee/shared.c"]);
+    expect(validation.scopedChecks?.status).toBe("passed");
   });
 
   test("skips widened dispatch until the existing target-unit validation passes", async () => {

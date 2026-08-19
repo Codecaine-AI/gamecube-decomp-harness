@@ -181,6 +181,28 @@ describe("workerPrompt", () => {
     }
   });
 
+  test("renders sandbox-prefetched source without reading the host workspace path", () => {
+    const bundle = workerPrompt({
+      packet: {
+        target: {
+          unit: "GALE01:test",
+          symbol: "sandbox_symbol",
+          source_path: "src/melee/test/sandbox.c",
+        },
+        baseline: { fuzzy_match_percent: 80 },
+      },
+      repoRoot: "/remote/workspace/that-is-not-on-the-host",
+      stateDir: "/state",
+      initialBoardPath: "/state/board.json",
+      workerLogDir: "/state/workers",
+      targetSourceText: "int sandbox_prefetched_marker;\n",
+    });
+
+    const renderedContext = bundle.kernelContext?.renderedContext ?? "";
+    expect(renderedContext).toContain("int sandbox_prefetched_marker;");
+    expect(renderedContext).not.toContain('content unavailable="true"');
+  });
+
   test("organizes the system prompt around goal, workflow context, and contracted rules", () => {
     const systemPrompt = sampleWorkerPrompt().systemPrompt;
     const goal = systemPrompt.indexOf("<goal>");

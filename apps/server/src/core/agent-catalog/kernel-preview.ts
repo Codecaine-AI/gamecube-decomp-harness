@@ -121,6 +121,13 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         game,
         initialBoardPath: resolve(paths.stateDir, "runs/kernel-viewer/snapshots/initial_board.json"),
         workerLogDir: resolve(paths.stateDir, "runs/kernel-viewer/worker_logs/sample"),
+        targetSourceText: [
+          "void ftDemo_KernelViewerSample(void)",
+          "{",
+          "    /* Dashboard preview of sandbox-prefetched target source. */",
+          "}",
+          "",
+        ].join("\n"),
       });
     case "conflict-resolver": {
       const claim = {

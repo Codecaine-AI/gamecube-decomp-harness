@@ -1,16 +1,20 @@
 import { afterAll, describe, expect, spyOn, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { initializeHarnessState, listGameEvents, releaseDispatch, requestDispatch, StaleLeaseError } from "@server/core/harness-state";
+import { startJobConsumer } from "@server/core/job-queue/consumer.js";
 import { attachJobPayload, getJob, getJobByDedupeKey } from "@server/core/job-queue/kernel.js";
+import { reconcileSandboxes } from "@server/core/job-queue/sandbox-lifecycle.js";
 import { FakeSandboxProvider, type SandboxProvider } from "@server/core/job-queue/sandbox.js";
+import type { TaskHandle, TaskSpec, WorkerExecutor } from "@server/core/job-queue/types.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
   admitEpochTargets,
   claimNextEpochTarget,
   createRun,
   startSchedulerEpoch,
+  updateRunStatus,
 } from "@server/core/cycle-runtime/run-state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import {
@@ -21,6 +25,7 @@ import {
   workerKernelOps,
   type WorkerJobRunContext,
 } from "./worker-job.js";
+import { runWorkerCycleFromTask, type WorkerCycleResult } from "./worker-cycle.js";
 
 const tempDirs: string[] = [];
 
@@ -239,10 +244,11 @@ describe("worker job kind", () => {
       const taskFile = task.command.at(-1)!;
       const spec = JSON.parse(readFileSync(taskFile, "utf8"));
       expect(spec).toMatchObject({
-        worktree_path: "/opt/melee-test",
+        workspace_root: "/opt/melee-test",
         sandbox_id: "sandbox-worker-1",
         execution_class: "sandbox",
       });
+      expect(spec.worktree_path).toBeUndefined();
       expect(getJob(f.store, result.job.jobId)?.payload.sandbox_id).toBe("sandbox-worker-1");
       expect(f.store.db.query("SELECT worktree_path FROM target_claims WHERE id = ?").get(String(result.job.payload.target_claim_id))).toEqual({ worktree_path: "/opt/melee-test" });
       expect(f.store.db.query("SELECT worktree_path FROM worker_state WHERE id = ?").get(String(result.job.payload.worker_state_id))).toEqual({ worktree_path: "/opt/melee-test" });
@@ -260,11 +266,157 @@ describe("worker job kind", () => {
       expect(spec).toMatchObject({
         execution_class: "sandbox",
         sandbox_id: "sandbox-1",
-        worktree_path: "/opt/melee-test",
+        workspace_root: "/opt/melee-test",
       });
+      expect(spec.worktree_path).toBeUndefined();
       expect(listGameEvents(f.store.db).some((event) => event.eventType === "sandbox.created" && event.subjectId === "sandbox-1")).toBeTrue();
     } finally { f.store.db.close(); }
   });
+
+  test("runs one dry-run sandbox worker through provisioning, child execution, settlement, and empty sweeps", async () => {
+    const f = fixture();
+    const provider = new FakeSandboxProvider();
+    const trackedDeletions: Promise<void>[] = [];
+    const previousKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    let consumer: ReturnType<typeof startJobConsumer> | undefined;
+    try {
+      configureSandbox(f);
+      f.ctx.globals.game!.sandbox.snapshot_baked_rev = f.ctx.baseRev;
+      f.store.db.query("UPDATE jobs SET execution_class = 'sandbox' WHERE kind = 'worker' AND dedupe_key = ?").run(f.epochTargetId);
+      updateRunStatus(f.store, f.run.id, "active", "operator");
+
+      const knowledgeRoot = resolve(f.stateDir, "knowledge");
+      const functionsIndex = resolve(knowledgeRoot, "sources", "code_graph", "indexes", "functions.jsonl");
+      mkdirSync(resolve(functionsIndex, ".."), { recursive: true });
+      writeFileSync(functionsIndex, `${JSON.stringify({
+        unit: "unit",
+        symbol: "fn",
+        sourcePath: "src/a.c",
+        size: 64,
+        fuzzy: 90,
+      })}\n`);
+      process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;
+
+      let capturedTask: TaskSpec | undefined;
+      let childResult: WorkerCycleResult | undefined;
+      let childError = "";
+      let childDone = false;
+      let childRun: Promise<void> | undefined;
+      const handle: TaskHandle = { executorId: "in-process-worker-task", handleId: "sandbox-gate" };
+      const executor: WorkerExecutor = {
+        submit: async (task) => {
+          capturedTask = task;
+          const taskFile = task.command.at(-1);
+          if (!taskFile) throw new Error("sandbox gate task is missing task_spec path");
+          childRun = runWorkerCycleFromTask(
+            f.ctx.globals,
+            new Map([["--task-file", taskFile]]),
+            { sandboxProvider: provider },
+          ).then((result) => {
+            childResult = result;
+          }).catch((error) => {
+            childError = error instanceof Error ? error.stack ?? error.message : String(error);
+          }).finally(() => {
+            childDone = true;
+          });
+          return handle;
+        },
+        poll: async () => ({ state: childDone ? "exited" : "running" }),
+        collect: async () => {
+          await childRun;
+          return {
+            exitCode: childError ? 1 : 0,
+            signal: null,
+            stdout: childResult ? JSON.stringify(childResult) : "",
+            stderr: childError,
+            timedOut: false,
+            startedAt: "2026-08-18T00:00:00.000Z",
+            endedAt: "2026-08-18T00:00:01.000Z",
+          };
+        },
+        cancel: async () => undefined,
+      };
+      const settled = new Promise<{ status: "succeeded" | "failed"; error?: string }>((resolveSettled) => {
+        const descriptor = workerJobDescriptor(f.ctx, {
+          sandboxProvider: provider,
+          executor,
+          trackSandboxDeletion: (deletion) => trackedDeletions.push(deletion),
+        });
+        consumer = startJobConsumer(f.store, descriptor, workerKernelOps(f.ctx), {
+          intervalMs: 1,
+          onJobSettled: (_job, result) => resolveSettled(result),
+        });
+      });
+      const settlement = await Promise.race([
+        settled,
+        Bun.sleep(10_000).then(() => { throw new Error("timed out waiting for sandbox gate settlement"); }),
+      ]);
+      await consumer?.stop();
+      await Promise.all(trackedDeletions);
+
+      expect(settlement.status).toBe("succeeded");
+      expect(childError).toBe("");
+      expect(childResult?.dryRun).toBeTrue();
+      expect(capturedTask?.command).toContain("--dry-run-agents");
+      const taskFile = capturedTask?.command.at(-1);
+      if (!taskFile) throw new Error("sandbox gate did not capture task_spec path");
+      const spec = JSON.parse(readFileSync(taskFile, "utf8"));
+      expect(spec).toMatchObject({
+        execution_class: "sandbox",
+        sandbox_id: "sandbox-1",
+        workspace_root: "/opt/melee-test",
+      });
+      expect(spec.worktree_path).toBeUndefined();
+
+      const job = getJobByDedupeKey(f.store, "worker", f.epochTargetId)!;
+      expect(job).toMatchObject({ status: "succeeded", attempts: 1, payload: { sandbox_id: "sandbox-1" } });
+      expect(provider.createdSandboxes).toHaveLength(1);
+      expect(provider.createdSandboxes[0]?.labels).toEqual({
+        game_id: "test",
+        run_id: f.run.id,
+        claim_id: spec.target_claim_id,
+        job_id: job.jobId,
+        job_lease_id: spec.claim_token.leaseId,
+        dispatch_lease_id: f.ctx.dispatchLeaseId,
+        worker_state_id: spec.worker_state_id,
+        trace_id: job.traceId ?? `trace-job-${job.jobId}`,
+      });
+      expect(f.store.db.query("SELECT status, worktree_path FROM target_claims WHERE id = ?").get(spec.target_claim_id)).toEqual({
+        status: "closed",
+        worktree_path: "/opt/melee-test",
+      });
+      expect(f.store.db.query("SELECT ended_at IS NOT NULL AS ended, worktree_path FROM worker_state WHERE id = ?").get(spec.worker_state_id)).toEqual({
+        ended: 1,
+        worktree_path: "/opt/melee-test",
+      });
+      expect(provider.deletedSandboxes).toHaveLength(1);
+      expect(provider.deletedSandboxes[0]).toMatchObject({ sandboxId: "sandbox-1", reason: "settlement" });
+
+      expect(await reapWorkerJobs(f.store, f.ctx, { sandboxProvider: provider })).toEqual({
+        reaped: [],
+        recovered: 0,
+        expiredClaimsRecovered: 0,
+      });
+      expect(await reconcileSandboxes(f.store, { gameId: "test" }, { sandboxProvider: provider })).toEqual({
+        scanned: 0,
+        kept: 0,
+        deleted: 0,
+        failed: 0,
+      });
+      expect(listGameEvents(f.store.db)
+        .filter((event) => event.eventType === "sandbox.created" || event.eventType === "sandbox.deleted")
+        .map((event) => ({ type: event.eventType, subject: event.subjectId, reason: event.payload.reason ?? null })))
+        .toEqual([
+          { type: "sandbox.created", subject: "sandbox-1", reason: null },
+          { type: "sandbox.deleted", subject: "sandbox-1", reason: "settlement" },
+        ]);
+    } finally {
+      await consumer?.stop();
+      if (previousKnowledgeRoot === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+      else process.env.ORCH_GAME_KNOWLEDGE_ROOT = previousKnowledgeRoot;
+      f.store.db.close();
+    }
+  }, 15_000);
 
   test("completion enqueues knowledge only after close and requeues a released slot", () => {
     const open = fixture();

@@ -83,6 +83,8 @@ export interface WorkerPromptOptions {
   initialBoardPath: string;
   workerLogDir: string;
   contextBudget?: WorkerPromptContextBudget;
+  /** Sandbox-prefetched target source; undefined keeps local rendering unchanged. */
+  targetSourceText?: string | null;
 }
 
 export interface WorkerPromptInputXmlOptions {
@@ -90,6 +92,7 @@ export interface WorkerPromptInputXmlOptions {
   repoRoot: string;
   game?: RunGameMetadata;
   contextBudget?: WorkerPromptContextBudget;
+  targetSourceText?: string | null;
 }
 
 export interface WorkerPromptInputXml {
@@ -215,10 +218,15 @@ function targetFileXml(
   primarySourcePath: string,
   primarySourceAbs: string,
   contextBudget: WorkerPromptContextBudget,
+  targetSourceText?: string | null,
   indent = "    ",
 ): string {
   const budget = WORKER_CONTEXT_BUDGETS[contextBudget];
-  const fileText = primarySourceAbs && existsSync(primarySourceAbs) ? readFileSync(primarySourceAbs, "utf8") : null;
+  const fileText = targetSourceText !== undefined
+    ? targetSourceText
+    : primarySourceAbs && existsSync(primarySourceAbs)
+      ? readFileSync(primarySourceAbs, "utf8")
+      : null;
   const originalChars = fileText?.length ?? null;
   const truncated = fileText != null && fileText.length > budget.sourceLimit;
   const inlineText = fileText == null
@@ -277,6 +285,7 @@ function targetXml(
   primarySourcePath: string,
   primarySourceAbs: string,
   contextBudget: WorkerPromptContextBudget,
+  targetSourceText?: string | null,
 ): string {
   return [
     `    <target context_budget="${contextBudget}">`,
@@ -287,6 +296,7 @@ function targetXml(
       primarySourcePath,
       primarySourceAbs,
       contextBudget,
+      targetSourceText,
       "        ",
     ),
     "    </target>",
@@ -669,7 +679,14 @@ export function workerPromptInputXml(
     ? resolve(options.repoRoot, primarySourcePath)
     : "";
   return {
-    targetXml: targetXml(target, baseline, primarySourcePath, primarySourceAbs, contextBudget),
+    targetXml: targetXml(
+      target,
+      baseline,
+      primarySourcePath,
+      primarySourceAbs,
+      contextBudget,
+      options.targetSourceText,
+    ),
     baselineXml: baselineXml(baseline),
     targetGraphFileCardXml: targetGraphFileCardXml(
       options.packet,
@@ -688,6 +705,7 @@ export function buildWorkerKernelContext(
     repoRoot: options.repoRoot,
     game: options.game,
     contextBudget,
+    targetSourceText: options.targetSourceText,
   });
   const toolContext = {
     role: "worker" as const,

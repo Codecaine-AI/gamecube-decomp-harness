@@ -459,17 +459,30 @@ function isSafeRepoRelativePath(path: string): boolean {
   return Boolean(path) && !isAbsolute(path) && !path.split(/[\\/]/).includes("..");
 }
 
-async function snapshotPreWorkerSources(params: { repoRoot: string; outputDir: string; paths: string[] }): Promise<{ dir: string; copied: string[] }> {
+async function snapshotPreWorkerSources(params: {
+  repoRoot: string;
+  outputDir: string;
+  paths: string[];
+  workspaceExec?: WorkspaceExec;
+}): Promise<{ dir: string; copied: string[] }> {
   const dir = resolve(params.outputDir, "pre_worker_source");
   const copied: string[] = [];
   for (const relPath of new Set(params.paths)) {
     if (!isSafeRepoRelativePath(relPath)) continue;
     const source = resolve(params.repoRoot, relPath);
-    if (!existsSync(source)) continue;
     const destination = resolve(dir, relPath);
     try {
-      await mkdir(dirname(destination), { recursive: true });
-      await copyFile(source, destination);
+      if (params.workspaceExec?.executionClass === "sandbox") {
+        const contents = await readWorkspaceText(params.repoRoot, relPath, params.workspaceExec);
+        await mkdir(dirname(destination), { recursive: true });
+        await writeFile(destination, contents);
+      } else {
+        // Keep the local path byte-identical: missing sources are skipped before
+        // creating any snapshot directories.
+        if (!existsSync(source)) continue;
+        await mkdir(dirname(destination), { recursive: true });
+        await copyFile(source, destination);
+      }
       copied.push(relPath);
     } catch {
       // A failed copy only degrades the QA lint scan to "skipped" later;
@@ -508,6 +521,7 @@ export async function captureWorkerChangeBaseline(params: {
     repoRoot: params.repoRoot,
     outputDir: params.outputDir,
     paths: [sourcePath, ...(params.extraPaths ?? [])],
+    workspaceExec: params.workspaceExec,
   });
   const sourceSnapshotDir = sourceSnapshot.dir;
   const sourceSnapshotPaths = sourceSnapshot.copied;
@@ -623,6 +637,7 @@ export async function extendWorkerChangeBaselineSourceSnapshot(params: {
   repoRoot: string;
   baseline: WorkerChangeBaseline;
   extraPaths: string[];
+  workspaceExec?: WorkspaceExec;
 }): Promise<string[]> {
   const dir = params.baseline.sourceSnapshotDir;
   if (!dir) return [];
@@ -632,7 +647,9 @@ export async function extendWorkerChangeBaselineSourceSnapshot(params: {
     if (!isSafeRepoRelativePath(relPath) || existing.has(relPath)) continue;
     let show: CommandResult;
     try {
-      show = await runCommand(params.repoRoot, ["git", "show", `HEAD:${relPath}`]);
+      show = params.workspaceExec?.executionClass === "sandbox"
+        ? await params.workspaceExec.exec(["git", "show", `HEAD:${relPath}`])
+        : await runCommand(params.repoRoot, ["git", "show", `HEAD:${relPath}`]);
     } catch {
       continue;
     }
@@ -1104,12 +1121,23 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
   };
 }
 
-function inferredHeaderOwner(repoRoot: string, headerPath: string): string | null {
+async function inferredHeaderOwner(
+  repoRoot: string,
+  headerPath: string,
+  workspaceExec?: WorkspaceExec,
+): Promise<string | null> {
   const normalized = normalizeRepoPath(headerPath);
   const candidates = normalized.startsWith("include/")
     ? [`src/${normalized.slice("include/".length).replace(/\.h$/i, ".c")}`]
     : [normalized.replace(/\.h$/i, ".c")];
-  return candidates.find((candidate) => existsSync(resolve(repoRoot, candidate))) ?? null;
+  if (workspaceExec?.executionClass !== "sandbox") {
+    return candidates.find((candidate) => existsSync(resolve(repoRoot, candidate))) ?? null;
+  }
+  for (const candidate of candidates) {
+    const result = await workspaceExec.exec(["test", "-f", candidate]);
+    if (result.exitCode === 0) return candidate;
+  }
+  return null;
 }
 
 /**
@@ -1200,7 +1228,7 @@ export async function validateWidenedChange(params: {
       try {
         owner ??= params.runners?.resolveHeaderOwner
           ? await params.runners.resolveHeaderOwner(entry.path)
-          : inferredHeaderOwner(params.repoRoot, entry.path);
+          : await inferredHeaderOwner(params.repoRoot, entry.path, params.workspaceExec);
       } catch (error) {
         reasons.push(`header owner resolution failed for ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -1279,6 +1307,7 @@ async function runWorkerQaLintScan(params: {
   baseline: WorkerChangeBaseline;
   orchestratorRoot: string;
   qaScanRunner: QaScanRunner;
+  workspaceExec?: WorkspaceExec;
 }): Promise<WorkerQaLint> {
   const unavailable = (toolError: string): WorkerQaLint => ({ status: "tool_unavailable", exitCode: null, findings: [], scanPath: null, toolError });
   const snapshotDir = params.baseline.sourceSnapshotDir;
@@ -1293,13 +1322,27 @@ async function runWorkerQaLintScan(params: {
   const rawDiffPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.qa_diff.raw.patch`);
   for (const relPath of snapshotPaths) {
     const preWorkerCopy = resolve(snapshotDir, relPath);
-    const currentPath = resolve(params.repoRoot, relPath);
+    let currentPath = resolve(params.repoRoot, relPath);
     // A file the worker deleted (or a copy that vanished) has no post-edit
     // content to scan; the score validation owns judging that situation.
-    if (!existsSync(preWorkerCopy) || !existsSync(currentPath)) continue;
+    if (!existsSync(preWorkerCopy)) continue;
+    if (params.workspaceExec?.executionClass === "sandbox") {
+      currentPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.qa_current`, relPath);
+      try {
+        await mkdir(dirname(currentPath), { recursive: true });
+        await writeFile(currentPath, await readWorkspaceText(params.repoRoot, relPath, params.workspaceExec));
+      } catch {
+        continue;
+      }
+    } else if (!existsSync(currentPath)) {
+      continue;
+    }
     let diff: CommandResult;
     try {
-      diff = await runCommand(params.repoRoot, ["git", "diff", "--no-index", `--output=${rawDiffPath}`, preWorkerCopy, currentPath]);
+      diff = await runCommand(
+        params.workspaceExec?.executionClass === "sandbox" ? params.outputDir : params.repoRoot,
+        ["git", "diff", "--no-index", `--output=${rawDiffPath}`, preWorkerCopy, currentPath],
+      );
     } catch (error) {
       return unavailable(`git diff --no-index failed for ${relPath}: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -1363,6 +1406,7 @@ export async function validateWorkerChange(params: {
     baseline: params.baseline,
     orchestratorRoot: params.orchestratorRoot ?? packageRoot(),
     qaScanRunner: params.qaScanRunner ?? runQaScanDiff,
+    workspaceExec: params.workspaceExec,
   });
   const scoreValidation = await validateWorkerScoreChange(params, summaryPath);
   const validation = applyQaLintToValidation(scoreValidation, qaLint);

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { parse, writeSetWideningArg } from "@server/core/game-registry/runtime-options.js";
+import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
 import type { WideningDecision, WideningRequest } from "@server/core/cycle-runtime/run-state/write-set-categories.js";
 import {
+  headerDeclaresEvidenceSymbol,
   parseWorkerWideningRequest,
   shouldApplyWideningDecision,
   shouldExposeWideningDecisionToWorker,
@@ -62,5 +64,35 @@ describe("worker-cycle write-set widening", () => {
     expect(writeSetWideningArg(parse(["worker", "--write-set-widening=shadow"]).args)).toBe("shadow");
     expect(writeSetWideningArg(parse(["worker", "--write-set-widening", "header"]).args)).toBe("header");
     expect(() => writeSetWideningArg(new Map([["--write-set-widening", "foreign"]]))).toThrow("off, shadow, config, header");
+  });
+
+  test("reads owning-header evidence from the sandbox instead of the host filesystem", async () => {
+    const request: WideningRequest = {
+      ...configRequest,
+      paths: ["include/melee/gr/ground.h"],
+      category: "owning-header",
+      rung: 3,
+      evidence: {
+        ...configRequest.evidence,
+        mismatched_declaration: {
+          ...configRequest.evidence.mismatched_declaration,
+          symbol: "Ground_801C57F0",
+          expected_owner: "include/melee/gr/ground.h",
+        },
+      },
+    };
+    const provider = new FakeSandboxProvider();
+    const handle = await provider.create({
+      snapshot: "test",
+      labels: { game_id: "test" },
+      resources: { cpu: 2, memoryGiB: 4, diskGiB: 5 },
+      ttlMinutes: 30,
+    });
+    await handle.writeFile(
+      "/workspace/melee/include/melee/gr/ground.h",
+      "void Ground_801C57F0(void);\n",
+    );
+
+    expect(await headerDeclaresEvidenceSymbol("/workspace/melee", request, handle)).toBeTrue();
   });
 });

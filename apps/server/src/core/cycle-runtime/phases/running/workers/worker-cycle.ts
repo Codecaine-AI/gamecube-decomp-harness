@@ -386,12 +386,18 @@ function safeRepoRelativePath(repoRoot: string, path: string): string | null {
   return relativePath && !relativePath.startsWith("..") && !isAbsolute(relativePath) ? resolved : null;
 }
 
-async function headerDeclaresEvidenceSymbol(repoRoot: string, request: WideningRequest): Promise<boolean | undefined> {
+export async function headerDeclaresEvidenceSymbol(
+  repoRoot: string,
+  request: WideningRequest,
+  sandboxHandle?: SandboxHandle,
+): Promise<boolean | undefined> {
   if (request.rung !== 3 || request.paths.length !== 1) return undefined;
   const headerPath = safeRepoRelativePath(repoRoot, request.paths[0] ?? "");
   if (!headerPath) return false;
   try {
-    const contents = await readFile(headerPath, "utf8");
+    const contents = sandboxHandle
+      ? await sandboxHandle.readFile(headerPath)
+      : await readFile(headerPath, "utf8");
     const symbol = request.evidence.mismatched_declaration.symbol;
     const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`\\b${escaped}\\b`).test(contents);
@@ -1653,6 +1659,19 @@ async function executeClaimedWorker(params: {
       let result: PiRunResult;
       try {
         const { runMeleeKernelPiAgent } = await import("@server/infrastructure/agent-runtime/kernel-pi-runner");
+        let targetSourceText: string | null | undefined;
+        if (sandboxHandle) {
+          const targetSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
+          if (!targetSourcePath) {
+            targetSourceText = null;
+          } else {
+            try {
+              targetSourceText = await sandboxHandle.readFile(targetSourcePath);
+            } catch {
+              targetSourceText = null;
+            }
+          }
+        }
         result = await runMeleeKernelPiAgent({
           role: "worker",
           cwd: workerRepoRoot,
@@ -1665,6 +1684,7 @@ async function executeClaimedWorker(params: {
             initialBoardPath,
             workerLogDir: outputDir,
             contextBudget,
+            ...(sandboxHandle ? { targetSourceText: targetSourceText ?? null } : {}),
           }),
           outputDir,
           dryRun: globals.dryRunAgents,
@@ -1802,6 +1822,7 @@ async function executeClaimedWorker(params: {
           repoRoot: workerRepoRoot,
           baseline: workerChangeBaseline,
           extraPaths: outOfWriteSetChanges.map((change) => change.path),
+          workspaceExec,
         });
       }
 
@@ -1830,7 +1851,7 @@ async function executeClaimedWorker(params: {
             sourcePath: String(target.source_path ?? ""),
             wideningId,
             allowOwningHeader: writeSetWideningMode === "shadow" || writeSetWideningMode === "header",
-            headerDeclaresEvidenceSymbol: await headerDeclaresEvidenceSymbol(workerRepoRoot, request),
+            headerDeclaresEvidenceSymbol: await headerDeclaresEvidenceSymbol(workerRepoRoot, request, sandboxHandle),
           });
           recordWriteSetWideningDecision(store, wideningId, wideningDecision);
 
@@ -1856,6 +1877,7 @@ async function executeClaimedWorker(params: {
                 repoRoot: workerRepoRoot,
                 baseline: workerChangeBaseline,
                 extraPaths: newPaths,
+                workspaceExec,
               });
               preAttemptDiffPath = resolve(validationDir, `attempt-${attemptIndex}.pre_widening_write_set.diff`);
               preAttemptDiff = await captureWriteSetDiff(workspaceExec, currentWriteSet, preAttemptDiffPath);
