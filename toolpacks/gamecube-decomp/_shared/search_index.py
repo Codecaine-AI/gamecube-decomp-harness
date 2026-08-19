@@ -63,9 +63,9 @@ def default_project_shared_data_root(tool_root: Path) -> Path:
     try:
         rel = tool_root.resolve().relative_to(tools_resource_root(tool_root).resolve())
     except ValueError:
-        return package_root / "projects" / project_id / "shared" / "tool-data" / tool_root.name
+        return package_root / "games" / project_id / "shared" / "tool-data" / tool_root.name
     tool_id = rel.parts[-1] if rel.parts else tool_root.name
-    return package_root / "projects" / project_id / "shared" / "tool-data" / tool_id
+    return package_root / "games" / project_id / "shared" / "tool-data" / tool_id
 
 
 def tool_storage_root(tool_root: Path) -> Path:
@@ -78,6 +78,9 @@ def tool_storage_roots(tool_root: Path) -> list[Path]:
     shared = env_path("ORCH_TOOL_SHARED_DATA_ROOT")
     if shared:
         roots.append(shared)
+    worktree_cache = env_path("ORCH_TOOL_WORKTREE_CACHE_ROOT")
+    if worktree_cache and worktree_cache not in roots:
+        roots.append(worktree_cache)
     default_root = default_project_shared_data_root(tool_root)
     if default_root not in roots:
         roots.append(default_root)

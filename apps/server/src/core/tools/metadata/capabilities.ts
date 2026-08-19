@@ -82,6 +82,16 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
     type: "exploration",
     useWhen: "Generate an m2c scaffold as a reading aid only; formatting is best-effort.",
   },
+  asm_window_search: {
+    provider: "asm_window_search",
+    type: "exploration",
+    useWhen: "Find matched donor functions for a specific normalized instruction window when whole-function analogs are too broad.",
+  },
+  type_layout_lookup: {
+    provider: "type_layout_lookup",
+    type: "diagnostics",
+    useWhen: "Compare record layouts, union aliases, and cast-only overlay evidence before changing a type.",
+  },
   include_fixer_preview: {
     provider: "include_fixer",
     type: "source_review",

@@ -346,6 +346,10 @@ describe("meleeKernelAgentCatalog", () => {
     expect(rendered).toContain("the runner owns the follow-up decision");
     expect(rendered).not.toContain("for this claimed target");
     expect(rendered).toContain('"mismatch_patterns"');
+    expect(rendered).toContain('tool name="asm_window_search"');
+    expect(rendered).toContain('provider="asm_window_search" type="exploration"');
+    expect(rendered).toContain('tool name="type_layout_lookup"');
+    expect(rendered).toContain('provider="type_layout_lookup" type="diagnostics"');
     expect(rendered).not.toMatch(unresolvedPlaceholderPattern);
   });
 

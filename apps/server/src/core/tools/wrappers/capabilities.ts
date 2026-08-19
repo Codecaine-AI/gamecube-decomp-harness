@@ -92,6 +92,13 @@ function boundedNumber(value: unknown, fallback: number, min: number, max: numbe
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
+/** Clamp a numeric parameter while preserving its fractional component. */
+function boundedFloat(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
+}
+
 /** Normalize string-array or comma/space-separated parameters. */
 function stringListParam(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
@@ -641,6 +648,82 @@ export const m2cDecompileToolRegistration = knowledgeApiTool({
   },
 });
 
+/** Tool for construct-level donor search over pre-indexed target-object windows. */
+export const asmWindowSearchToolRegistration = knowledgeApiTool({
+  id: "asm_window_search",
+  toolId: "asm_window_search",
+  scriptName: "window_search.py",
+  label: "ASM Window Search",
+  purpose: "Find matched donor functions with similar normalized instruction windows.",
+  description: "Search 32-instruction hashed-embedding windows from target objects and return the best construct-level hit per donor function.",
+  guidance: "Use asm_window_search when a specific instruction construct needs a donor; use whole-function graph analogs first for broad similarity.",
+  executionMode: "parallel",
+  parameters: {
+    type: "object",
+    properties: {
+      symbol: { type: "string", description: "Indexed query-function symbol." },
+      unit: { type: "string", description: "Optional unit or source-path suffix used to disambiguate the symbol." },
+      min_match: { type: "number", description: "Minimum donor fuzzy-match percent. Defaults to 98." },
+      all: { type: "boolean", description: "Ignore the minimum fuzzy-match filter." },
+      exclude_self_unit: { type: "boolean", description: "Exclude donor functions from the query unit." },
+      limit: { type: "number", description: "Maximum donor functions to return." },
+    },
+    required: ["symbol"],
+    additionalProperties: false,
+  },
+  args(params) {
+    const symbol = stringParam(params, "symbol");
+    if (!symbol) return { status: "missing_symbol" };
+    // DTK target objects cover every function, so the query tokens are already
+    // in the host index and no sandbox repo path or fetch step is needed.
+    const args = ["--symbol", symbol];
+    const unit = stringParam(params, "unit");
+    if (unit) args.push("--unit", unit);
+    if (params.min_match !== undefined) args.push("--min-match", String(boundedFloat(params.min_match, 98, 0, 100)));
+    if (boolParam(params, "all")) args.push("--all");
+    if (boolParam(params, "exclude_self_unit")) args.push("--exclude-self-unit");
+    if (params.limit !== undefined) args.push("--limit", String(boundedLimit(params.limit)));
+    return args;
+  },
+});
+
+/** Tool for duplicate, near, union, and cast-overlay type-layout evidence. */
+export const typeLayoutLookupToolRegistration = knowledgeApiTool({
+  id: "type_layout_lookup",
+  toolId: "type_layout_lookup",
+  scriptName: "layout_lookup.py",
+  label: "Type Layout Lookup",
+  purpose: "Inspect flattened type layouts, union views, and cast-only overlays.",
+  description: "Query duplicate layouts, near-layout ranks, byte-aliasing union members, and build-time cast-overlay flags.",
+  guidance: "Use type_layout_lookup before changing a record or union type when field ownership, aliasing, or cast-only overlays are unclear.",
+  executionMode: "parallel",
+  parameters: {
+    type: "object",
+    properties: {
+      record: { type: "string", description: "Optional record name." },
+      mode: { type: "string", enum: ["dups", "near", "unions", "casts", "summary"], description: "Type-layout query mode." },
+      at: { type: "string", description: "Hex or decimal byte offset for union-member views." },
+      prefix: { type: "boolean", description: "Include truncated or prefix-compatible duplicate decodes." },
+      limit: { type: "number", description: "Maximum rows to return." },
+    },
+    additionalProperties: false,
+  },
+  args(params) {
+    // The normal path is fully host-index-side. The resolver fetches only
+    // build/ctx.c when a sandbox claim needs to populate its private cache.
+    const args: string[] = [];
+    const record = stringParam(params, "record");
+    const mode = stringParam(params, "mode");
+    const at = stringParam(params, "at");
+    if (record) args.push("--record", record);
+    if (mode) args.push("--mode", mode);
+    if (at) args.push("--at", at);
+    if (boolParam(params, "prefix")) args.push("--prefix");
+    if (params.limit !== undefined) args.push("--limit", String(boundedLimit(params.limit)));
+    return args;
+  },
+});
+
 /** Tool for previewing missing include additions. */
 export const includeFixerPreviewToolRegistration = knowledgeApiTool({
   id: "include_fixer_preview",
@@ -775,6 +858,8 @@ export const capabilityToolRegistrations = [
   typeOracleLookupToolRegistration,
   structInferFromAsmToolRegistration,
   m2cDecompileToolRegistration,
+  asmWindowSearchToolRegistration,
+  typeLayoutLookupToolRegistration,
   includeFixerPreviewToolRegistration,
   itemStateTablePreviewToolRegistration,
   reviewLintScanToolRegistration,

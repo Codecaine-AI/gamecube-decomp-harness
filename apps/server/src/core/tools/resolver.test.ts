@@ -44,7 +44,30 @@ describe("toolpack runtime resolver", () => {
 
     expect(ids.has("checkdiff")).toBe(true);
     expect(ids.has("mwcc_debug")).toBe(true);
+    expect(ids.has("asm_window_search")).toBe(true);
+    expect(ids.has("type_layout_lookup")).toBe(true);
     expect(ids.has("not_a_tool")).toBe(false);
+  });
+
+  test("resolves the new research tool bindings", () => {
+    const root = packageRoot();
+    const context = {
+      game: {
+        gameId: "melee",
+        repoRoot: resolve(root, "games/melee/checkout"),
+        stateDir: resolve(root, "games/melee/state"),
+        descriptorPath: resolve(root, "games/melee/game.json"),
+      },
+      worktreeId: "lease-layout",
+    };
+
+    const asmSearch = resolveRegisteredTool(context, "asm_window_search");
+    const typeLayout = resolveRegisteredTool(context, "type_layout_lookup");
+
+    expect(asmSearch.toolRoot).toBe(resolve(root, "toolpacks/gamecube-decomp/research/asm_window_search"));
+    expect(asmSearch.sharedDataRoot).toBe(resolve(root, "games/melee/shared/tool-data/asm_window_search"));
+    expect(typeLayout.toolRoot).toBe(resolve(root, "toolpacks/gamecube-decomp/research/type_layout_lookup"));
+    expect(typeLayout.worktreeCacheRoot).toBe(resolve(root, "games/melee/worktrees/lease-layout/tool-cache/type_layout_lookup"));
   });
 
   test("resolves a non-Melee fixture without reading Melee bindings or data", () => {

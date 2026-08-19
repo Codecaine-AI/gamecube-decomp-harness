@@ -1,0 +1,45 @@
+{
+  "id": "type_layout_lookup",
+  "title": "Type layout lookup",
+  "trust_tier": "tool_evidence",
+  "description": "Query normalized PPC-EABI record layouts for duplicate structs, near layouts, union aliases, and cast-only overlays.",
+  "operation_mode": "host_index_with_sandbox_fetch_first",
+  "runner_status": "operator_build_or_fetch_first",
+  "status_message": "Queries use a prebuilt type-layout index; when absent, the server can build a cast-free worktree cache from sandbox build/ctx.c.",
+  "limitations": [
+    "Layout evidence reflects the build/ctx.c used at index time and must be rebuilt after relevant type changes.",
+    "Sandbox fetch-first indexes omit source cast scanning; rebuild from a host checkout to enable casts mode."
+  ],
+  "commands": {
+    "status": "python3 toolpacks/gamecube-decomp/research/type_layout_lookup/api/status.py --json",
+    "runner": "python3 toolpacks/gamecube-decomp/research/type_layout_lookup/runners/build_type_index.py --repo-root <repo_root>",
+    "layout_lookup": "python3 toolpacks/gamecube-decomp/research/type_layout_lookup/api/layout_lookup.py --record <record> --mode <dups|near|unions|casts|summary> --json"
+  },
+  "capabilities": [
+    "duplicate_type_layouts",
+    "near_type_layouts",
+    "union_member_views",
+    "cast_only_overlay_flags"
+  ],
+  "category": "research",
+  "path": "research/type_layout_lookup",
+  "process_role": "type_layout_evidence",
+  "usage": {
+    "invocation_mode": "on_demand",
+    "mutates_source": false,
+    "blocks_on_failure": false,
+    "triggers": [
+      "type_layout_unclear",
+      "duplicate_struct_suspected",
+      "union_overlay_unclear"
+    ],
+    "outputs": [
+      "duplicate_layout_groups",
+      "near_layout_rankings",
+      "union_member_views",
+      "cast_overlay_flags"
+    ],
+    "agent_guidance": "Use when field offsets or overlay interpretations are uncertain; treat results as layout evidence tied to the indexed build context."
+  }
+}
+

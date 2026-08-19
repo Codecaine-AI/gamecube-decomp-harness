@@ -1,0 +1,40 @@
+{
+  "id": "asm_window_search",
+  "title": "Assembly window donor search",
+  "trust_tier": "tool_evidence",
+  "description": "Find matched donor functions containing a construct similar to any normalized instruction window in the query function.",
+  "operation_mode": "index_backed_v1",
+  "runner_status": "operator_build_required",
+  "status_message": "Construct-level search reads a host-built sparse hashed index of dtk target-object instruction windows.",
+  "limitations": [
+    "The operator must rebuild the host index after target objects or match-report data change.",
+    "Hashed normalized 1-, 2-, and 3-gram cosine similarity is retrieval evidence, not proof that two constructs compile identically."
+  ],
+  "commands": {
+    "status": "python3 toolpacks/gamecube-decomp/research/asm_window_search/api/status.py --json",
+    "runner": "python3 toolpacks/gamecube-decomp/research/asm_window_search/runners/build_asm_window_index.py --repo-root <built_melee_checkout>",
+    "window_search": "python3 toolpacks/gamecube-decomp/research/asm_window_search/api/window_search.py --symbol <symbol> --json"
+  },
+  "capabilities": [
+    "construct_level_similarity",
+    "matched_donor_search"
+  ],
+  "category": "research",
+  "path": "research/asm_window_search",
+  "process_role": "construct_similarity_lookup",
+  "usage": {
+    "invocation_mode": "on_demand",
+    "mutates_source": false,
+    "blocks_on_failure": false,
+    "triggers": [
+      "needs_analog_function",
+      "construct_level_similarity",
+      "matching_strategy_unclear"
+    ],
+    "outputs": [
+      "ranked_donor_functions",
+      "window_similarity_evidence"
+    ],
+    "agent_guidance": "Use when whole-function similarity misses a loop or idiom inside a larger function. Treat a high score as a donor lead and inspect the reported window offsets."
+  }
+}
