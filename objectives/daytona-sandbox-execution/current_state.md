@@ -155,8 +155,11 @@ All gate criteria verified live (full narrative: examples/phase3/live_poc_report
 </next_actions>
 
 <risks_or_open_questions>
-- The measured 5.87 GB snapshot predates the 0.70 GiB bundle trim; no trimmed-image size has been
-  measured. Bundle 60's stopped-idle cost assumption remains future work owned by the follow-up.
+- RESOLVED post-close: trimmed image re-baked (1.05 GB uncompressed, -82%), pushed as snapshot
+  melee-sandbox-poc-20260818-trimmed at the locked 2/4/5 class, and live-proven — sandbox created
+  at the 5 GiB default with 5.4 GB free, one-TU rebuild byte-identical, score clean, no orphans
+  (examples/phase4/rebake_report.md). Decision 9's default stands as locked; melee local.game.json
+  now points at the trimmed snapshot. Push cost dropped 909 s -> 50 s.
 - This worktree's full server suite reports the known qa-repair.test.ts 5-second timeout plus an
   environmental boundary failure because root node_modules/@agent-kernel/kernel is absent; the
   app-level link exists, and the suite excluding those two tests passes 1,095/1,095.
