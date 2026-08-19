@@ -77,6 +77,23 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
   used 10 GiB; recommend raising the config default (knob exists from slice 1).
 </phase1_gate>
 
+<phase2_gate verdict="PASS" date="2026-08-18">
+- All six slices merged to main and suite-green (final: 1,121 pass / 0 fail): slice 1 provider
+  seam + sandbox.* events + config (2a48700b); slice 2 provisioning (b28bf2b7); slice 3 exec
+  routing + agent tools + jobserver wrap (4db25680); slice 4 per-attempt evidence download
+  (dcecda90); slice 5b m2c fetch-first shim (8d0adc1c); slice 6 settlement/reap/reconciliation
+  teardown (30806fb0); close-out d9181103 (widening via seams + gate round-trip test).
+- Gate test passes: sandbox-class dry-run job round-trips claim -> provision -> child ->
+  settlement delete -> reap sweep empty, with the sandbox.created/deleted event sequence
+  asserted against FakeSandboxProvider.
+- Local-class behavior unchanged (existing suite as regression net throughout).
+- Known non-blockers: qa-repair.test.ts 5s-timeout is a pre-existing environmental flake
+  (fails on 9d1b93f6, before this objective's code); three deferred host-FS reads with policy
+  choices pending (prompt exists-attribute hydration, QA scanner --repo, MWCC-debug probe).
+- Bundle trim landed (e36d8d0e, operator-directed): 5.39 -> 0.70 GiB payload via ai_docs/debris
+  exclusion + shallow .git at baked rev; shallow bundle-fetch validated host-side.
+</phase2_gate>
+
 <in_progress>
 - Phase 2 slice 5b is complete on daytona/slice-5 and ready for handoff. Slices 1/2/3/6 are merged
   into this branch base; slice 4 remains before the phase 3 live claim PoC.
