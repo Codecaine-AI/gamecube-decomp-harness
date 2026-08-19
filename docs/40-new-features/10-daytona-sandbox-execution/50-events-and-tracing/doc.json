@@ -1,166 +1,198 @@
 {
-  "schemaVersion": 1,
-  "id": "40-new-features-10-daytona-sandbox-execution-50-events-and-tracing",
-  "title": "Events and Tracing",
-  "root": "b-day-trace-root",
-  "blocks": {
-    "b-day-trace-root": {
-      "id": "b-day-trace-root",
-      "type": "paragraph",
-      "props": {
-        "concepts": [
-          "events",
-          "tracing",
-          "correlation",
-          "causation",
-          "kernel-container",
-          "operations"
-        ]
-      },
-      "children": [
-        "b-day-trace-1",
-        "b-day-trace-2",
-        "b-day-trace-3",
-        "b-day-trace-4",
-        "b-day-trace-5",
-        "b-day-trace-6",
-        "b-day-trace-7"
-      ]
-    },
-    "b-day-trace-1": {
-      "id": "b-day-trace-1",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Sandbox activity lands in the same tracing fabric as everything else because it introduces no new identity: sandbox operations run under the worker's existing trace anchor, and durable facts keep flowing through the events the "
-        },
-        {
-          "insert": "events contract",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/40-harness-state/50-game-events",
-              "label": "events contract"
-            }
-          }
-        },
-        {
-          "insert": " already defines. A kernel container remains the traceable execution envelope around a worker's prompt, tools, agent session, and artifacts; the sandbox is the OS container inside that envelope, not a second trace subject."
-        }
-      ],
-      "children": []
-    },
-    "b-day-trace-2": {
-      "id": "b-day-trace-2",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Identity on Every Sandbox Operation"
-        }
-      ],
-      "children": []
-    },
-    "b-day-trace-3": {
-      "id": "b-day-trace-3",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The event envelope's identity fields extend to sandbox operations without new vocabulary:"
-        }
-      ],
-      "children": []
-    },
-    "b-day-trace-4": {
-      "id": "b-day-trace-4",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Every sandbox lifecycle call — create, start, stop, delete — and every exec or file transfer executes under the worker state's "
-        },
-        {
-          "insert": "trace_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " with its own span, so token accounting, latency, and failure attribution read from one trace."
-        }
-      ],
-      "children": []
-    },
-    "b-day-trace-5": {
-      "id": "b-day-trace-5",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
+	"schemaVersion": 1,
+	"id": "40-new-features-10-daytona-sandbox-execution-50-events-and-tracing",
+	"title": "Events and Tracing",
+	"root": "b-day-trace-root",
+	"blocks": {
+		"b-day-trace-root": {
+			"id": "b-day-trace-root",
+			"type": "paragraph",
+			"props": {
+				"concepts": [
+					"events",
+					"tracing",
+					"correlation",
+					"causation",
+					"kernel-container",
+					"operations"
+				]
+			},
+			"children": [
+				"b-day-trace-1",
+				"b-day-trace-2",
+				"b-day-trace-3",
+				"b-day-trace-4",
+				"b-day-trace-5",
+				"b-day-trace-6",
+				"b-day-trace-7"
+			]
+		},
+		"b-day-trace-1": {
+			"id": "b-day-trace-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Sandbox activity lands in the same tracing fabric as everything else because it introduces no new identity: sandbox operations run under the worker's existing trace anchor, and durable facts keep flowing through the events the "
+				},
+				{
+					"insert": "Tracing",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/60-tracing"
+						}
+					}
+				},
+				{
+          "insert": " already defines. Durable lifecycle facts are recorded as sandbox.created and sandbox.deleted game events beside the job.* family, while individual remote operations remain spans under the worker trace. A kernel container remains the traceable execution envelope around the prompt, tools, agent session, and artifacts; the sandbox is the OS container inside that envelope, not a second trace subject."
+				}
+			],
+			"children": []
+		},
+		"b-day-trace-2": {
+			"id": "b-day-trace-2",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+          "insert": "Durable Lifecycle Events and Operation Spans"
+				}
+			],
+			"children": []
+		},
+		"b-day-trace-3": {
+			"id": "b-day-trace-3",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+          "insert": "Decision 8, operator-locked on 2026-08-18, replaces the earlier no-new-event-kinds ruling with two durable sandbox lifecycle events. They use the existing game-event envelope and trace identity rather than inventing a parallel event system:"
+				}
+			],
+			"children": []
+		},
+		"b-day-trace-4": {
+			"id": "b-day-trace-4",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Every exec or file transfer executes under the owning worker job's "
+				},
+				{
+					"insert": "trace_id",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+          "insert": " with its own span. Per-operation exec and file-transfer latency therefore remains trace data, preserving the timing and failure attribution model used by other tools; lifecycle durability comes from the created/deleted events."
+				}
+			],
+			"children": []
+		},
+		"b-day-trace-5": {
+			"id": "b-day-trace-5",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
           "insert": "correlation_id",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+          "insert": " follows the durable caller: provisioning uses the worker job, settlement and reap prefer the owning run, and reconciliation recovers the run from labels or state. "
+				},
+				{
+					"insert": "causation_id",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+          "insert": " names the job or event that caused the lifecycle action. The sandbox contributes no process-local lineage of its own."
+				}
+			],
+			"children": []
+		},
+		"b-day-trace-6": {
+			"id": "b-day-trace-6",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "sandbox.created",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " stays the owning workflow's, grouping a claim's sandbox activity under the run that dispatched it; "
+          "insert": " records the provisioned sandbox and resource class; "
         },
         {
-          "insert": "causation_id",
+          "insert": "sandbox.deleted",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " names the command or event that made the operation happen — a tool call, a validation step, a recovery action."
-        }
-      ],
-      "children": []
-    },
-    "b-day-trace-6": {
-      "id": "b-day-trace-6",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Sandbox lifecycle transitions are operations, not durable state transitions: they increment no revision and mint no event kinds. Where sandbox activity changes durable state — a claim settles, a checkpoint is recorded, a run recovers — the existing events carry the facts, and cancelled claim ids in "
+          "insert": " records deletion with exactly one reason — "
         },
         {
-          "insert": "run.recovered",
+          "insert": "settlement | reap | reconciliation | provision_failure",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " double as the record of reaped sandboxes."
-        }
-      ],
-      "children": []
-    },
-    "b-day-trace-7": {
-      "id": "b-day-trace-7",
-      "type": "callout",
-      "props": {
-        "kind": "proposal",
-        "title": "Open call — span and operation naming",
-        "tone": "info"
-      },
-      "text": [
+          "insert": ". Provisioning also persists "
+        },
         {
-          "insert": "Event and span naming conventions are being finalized in the current events pass. This page binds sandbox operations to the envelope's identity fields and defers all naming to that pass rather than minting sandbox-specific conventions here."
-        }
-      ],
-      "children": []
-    }
-  }
+          "insert": "sandbox_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " on the owning job payload through "
+        },
+        {
+          "insert": "attachJobPayload",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", giving settlement and recovery a durable lookup even when process memory is gone."
+				}
+			],
+			"children": []
+		},
+		"b-day-trace-7": {
+			"id": "b-day-trace-7",
+			"type": "callout",
+			"props": {
+        "kind": "decision",
+        "title": "Decision 8 (operator-locked 2026-08-18) — mint sandbox lifecycle events",
+        "tone": "success"
+			},
+			"text": [
+				{
+          "insert": "sandbox.created and sandbox.deleted are durable game events with sandbox subjects, emitted beside the job.* family because remote capacity must remain reconstructable after a process crash. Exec and file-transfer timings remain operation spans; event durability is reserved for the created/deleted lifecycle boundary."
+				}
+			],
+			"children": []
+		}
+	}
 }

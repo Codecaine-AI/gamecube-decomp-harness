@@ -38,7 +38,7 @@
       "children": [],
       "text": [
         {
-          "insert": "A sandbox's contents come in three layers: the game image baked once and shared by every sandbox, a per-claim seed pushed at claim creation, and the command and artifact traffic of the run itself. Nothing intelligent enters at any layer — no model access, no knowledge corpora, no secrets, no orchestrator state."
+          "insert": "A sandbox's contents come in three layers: the game image baked once and shared by every sandbox, a per-claim seed pushed during worker-task construction, and the command and artifact traffic of the run itself. This is also a data boundary: no model access, knowledge corpora such as ai_docs, secrets, or orchestrator state enter the image, seed, or run traffic."
         }
       ]
     },
@@ -47,8 +47,8 @@
       "type": "callout",
       "props": {
         "kind": "status",
-        "title": "Image authority and hold",
-        "tone": "warning"
+        "title": "Image authority and accepted build",
+        "tone": "success"
       },
       "children": [],
       "text": [
@@ -62,7 +62,16 @@
           }
         },
         {
-          "insert": " governs image contents, with "
+          "insert": " governs image contents. The bundle builder sources repository assets under "
+        },
+        {
+          "insert": "games/melee/...",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
         },
         {
           "insert": "build_image_bundle.sh",
@@ -71,7 +80,16 @@
           }
         },
         {
-          "insert": " beside it producing the ~2.7 GiB verified bundle. Builds hold until the harness working-tree changes are committed and the Linux musl build of the patched objdiff-cli exists."
+          "insert": " installs the Linux musl score server from "
+        },
+        {
+          "insert": "games/melee/state/tools/objdiff-cli-3.6.1-score/objdiff-cli-linux-x86_64",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the committed score-server patch is stored beside that binary."
         }
       ]
     },
@@ -95,7 +113,7 @@
         "entries": [
           {
             "path": "melee/",
-            "note": "synthetic single-commit git repo, ~25 MB; the 3.2 GB history stays on the host"
+            "note": "depth-1 shallow clone at the baked revision with real commit SHAs; full history stays on the host"
           },
           {
             "path": "melee/src/",
@@ -115,15 +133,23 @@
           },
           {
             "path": "melee/build/tools/",
-            "note": "Linux dtk, patched objdiff-cli score fork (musl build pending), sjiswrap.exe, optimized wibo 1.2.0-opt1 static i686 — never the configure.py 0.7.0 download"
+            "note": "Linux dtk, the patched objdiff-cli 3.6.1 musl score-server build, sjiswrap.exe, and optimized wibo 1.2.0-opt1 static i686 — never the configure.py 0.7.0 download"
+          },
+          {
+            "path": "melee/build/mwcc-objcache/",
+            "note": "baked-warm MWCC cache on sandbox-local disk; this directory lives and dies with the sandbox"
           },
           {
             "path": "melee/build/GALE01/",
             "note": "fully built Linux tree: build.ninja, every object, report.json — 125 MB"
           },
           {
-            "path": "toolpacks/",
-            "note": "build-coupled Python tools, plus python3, ninja, git, ripgrep"
+            "path": "image-tools/",
+            "note": "MWCC cache installer and shim copied from the build-coupled GameCube toolpack"
+          },
+          {
+            "path": "provenance/",
+            "note": "baked-revision record plus wibo and objdiff build provenance, patch documentation, and Linux artifact"
           }
         ]
       },
@@ -139,13 +165,67 @@
           "insert": "The image is configured and fully built at bake time — MANIFEST.md requires the Linux tree built through "
         },
         {
-          "insert": "ninja report.json",
+          "insert": "ninja build/GALE01/report.json",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " and the all-object target before the snapshot is accepted — so a worker's first unit build is an incremental rebuild in the one-to-five-second range rather than an eighty-plus-second cold configure. The optimized wibo (upstream 1.2.0 plus local patches) halved the full build with every object hash-identical, and runs natively on Linux with no wine fallback."
+          "insert": " and the all-object target before the snapshot is accepted — so a worker's first unit build is incremental rather than a cold configure. That full build also pre-populates "
+        },
+        {
+          "insert": "MWCC_CACHE_DIR",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " on sandbox-local disk; the persistent-volume plan is excluded because S3-FUSE latency is unacceptable on the compile hot path. The bundle builder omits "
+        },
+        {
+          "insert": "ai_docs/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", harness build debris, "
+        },
+        {
+          "insert": ".venv/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": ".cache/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", reducing the measured payload from 5.39 GiB to 0.70 GiB. Repository-side image inputs use "
+        },
+        {
+          "insert": "games/melee/...",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the objdiff activation README names "
+        },
+        {
+          "insert": "ORCH_GAME_STATE_DIR",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " as the state-root override."
         }
       ]
     },
@@ -169,7 +249,7 @@
       "children": [],
       "text": [
         {
-          "insert": "Claim creation pushes under 10 MB and completes in seconds:"
+          "insert": "Worker-task provisioning pushes the claim's revision delta and report artifacts after the synchronous claim transaction has returned. The accepted image repository is a depth-1 shallow clone at the baked revision with real SHAs, so the validated seed path is:"
         }
       ]
     },
@@ -182,13 +262,13 @@
             "text": "Upload the base-revision delta: a git bundle of commits between the image's baked revision and the claim's base revision",
             "steps": [
               {
-                "text": "kilobytes to megabytes per epoch, and every claim in an epoch pushes the same bundle",
+              "text": "the image clone's real baked SHA accepts this fetch cleanly; the baked-rev..claim-base-rev path was validated",
                 "kind": "note"
               }
             ]
           },
           {
-            "text": "Fetch the bundle and check out the base revision detached inside the workspace"
+          "text": "Fetch the bundle into the image's shallow repository and check out the claim base revision detached inside the workspace"
           },
           {
             "text": "Seed report artifacts: report.json (3.4 MB), baseline.json (3.4 MB), report_changes.json (4 KB)"

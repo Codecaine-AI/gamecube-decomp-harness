@@ -1,392 +1,436 @@
 {
-  "schemaVersion": 1,
-  "id": "40-new-features-10-daytona-sandbox-execution-30-lease-claims-and-lifecycle",
-  "title": "Lease, Claims, and Lifecycle",
-  "root": "b-day-lease-root",
-  "blocks": {
-    "b-day-lease-root": {
-      "id": "b-day-lease-root",
-      "type": "paragraph",
-      "props": {
-        "concepts": [
-          "dispatch-lease",
-          "lease-id",
-          "target-claim",
-          "orphan",
-          "recovery",
-          "stop-while-thinking",
-          "warm-pool"
-        ]
-      },
-      "children": [
-        "b-day-lease-1",
-        "b-day-lease-2",
-        "b-day-lease-3",
-        "b-day-lease-4",
-        "b-day-lease-5",
-        "b-day-lease-6",
-        "b-day-lease-7",
-        "b-day-lease-8",
-        "b-day-lease-9",
-        "b-day-lease-10",
-        "b-day-lease-11",
-        "b-day-lease-12",
-        "b-day-lease-13",
-        "b-day-lease-14",
-        "b-day-lease-15",
-        "b-day-lease-16",
-        "b-day-lease-17",
-        "b-day-lease-18",
-        "b-day-lease-19",
-        "b-day-lease-20",
-        "b-day-lease-21"
-      ]
-    },
-    "b-day-lease-1": {
-      "id": "b-day-lease-1",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Authority reaches a sandbox through the same two-level structure the "
+	"schemaVersion": 1,
+	"id": "40-new-features-10-daytona-sandbox-execution-30-lease-claims-and-lifecycle",
+	"title": "Lease, Claims, and Lifecycle",
+	"root": "b-day-lease-root",
+	"blocks": {
+		"b-day-lease-root": {
+			"id": "b-day-lease-root",
+			"type": "paragraph",
+			"props": {
+				"concepts": [
+					"dispatch-lease",
+					"lease-id",
+					"target-claim",
+					"orphan",
+					"recovery",
+					"stop-while-thinking",
+					"warm-pool"
+				]
+			},
+			"children": [
+				"b-day-lease-1",
+				"b-day-lease-2",
+				"b-day-lease-3",
+				"b-day-lease-4",
+				"b-day-lease-5",
+				"b-day-lease-6",
+				"b-day-lease-7",
+				"b-day-lease-8",
+				"b-day-lease-9",
+				"b-day-lease-10",
+				"b-day-lease-11",
+				"b-day-lease-12",
+				"b-day-lease-13",
+				"b-day-lease-14",
+				"b-day-lease-15",
+				"b-day-lease-16",
+				"b-day-lease-17",
+				"b-day-lease-18",
+				"b-day-lease-19",
+				"b-day-lease-20",
+				"b-day-lease-21"
+			]
+		},
+		"b-day-lease-1": {
+			"id": "b-day-lease-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Authority reaches a sandbox through the same two-level structure the "
+				},
+				{
+					"insert": "Dispatch Authority and Handoffs",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness/50-dispatch-authority"
+						}
+					}
+				},
+				{
+					"insert": " defines: the dispatch lease grants the "
+				},
+				{
+					"insert": "Run Workflow",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/20-run"
+						}
+					}
+				},
+				{
+          "insert": " the right to dispatch worker agents and mutate its allowed checkout surfaces. Within that authority, the unified queue's "
         },
         {
-          "insert": "authority contract",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/40-harness-state/20-dispatch-authority",
-              "label": "authority contract"
-            }
-          }
-        },
-        {
-          "insert": " defines: the dispatch lease grants the run workflow the right to dispatch worker agents and mutate its allowed checkout surfaces, and each target claim is the per-target worker ownership record created under that lease. The sandbox binds one-to-one to the claim and adds no third authority layer: it is capacity that executes fenced commands, never an actor that issues them."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-2": {
-      "id": "b-day-lease-2",
-      "type": "callout",
-      "props": {
-        "kind": "decision",
-        "title": "Decision (2026-08-13) — sandbox lifetime is bound to the target claim",
-        "tone": "success"
-      },
-      "text": [
-        {
-          "insert": "A sandbox is created with its target claim, lives exactly as long as the claim is active, and is deleted when the claim settles or is cancelled. Sandbox lifecycle maps onto the claim's TTL and deadline layer rather than defining a parallel mechanism."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-3": {
-      "id": "b-day-lease-3",
-      "type": "callout",
-      "props": {
-        "kind": "decision",
-        "title": "Decision (2026-08-13) — on-demand creation, stop-while-thinking, no warm pool",
-        "tone": "success"
-      },
-      "text": [
-        {
-          "insert": "Sandboxes are created on demand from the game image at claim creation and stopped while the model thinks. Warm pools are rejected: their claim restrictions exclude per-claim configuration, and idle running sandboxes bill compute and hold quota against an hour-scale worker lifecycle where creation latency is noise."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-4": {
-      "id": "b-day-lease-4",
-      "type": "heading",
-      "props": {
-        "level": 3
-      },
-      "text": [
-        {
-          "insert": "How the Lease Reaches Sandbox Execution"
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-5": {
-      "id": "b-day-lease-5",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "The lease is enforced by fencing, not trust: every worker-dispatch and source-mutation command presents the current "
-        },
-        {
-          "insert": "lease_id",
+          "insert": "ClaimToken",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": ", and a stale actor from a previous activation is refused rather than obeyed. Sandboxes fit that rule as follows:"
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-6": {
-      "id": "b-day-lease-6",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "The host worker process is the presenting actor — it holds the claim, presents the current lease id on every guarded command, and drives the sandbox as its execution surface; the sandbox itself never issues commands against harness state."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-7": {
-      "id": "b-day-lease-7",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Every sandbox carries its binding as labels at creation, so any reconciler can map a live sandbox to the claim and lease acquisition that justify it without consulting process memory."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-8": {
-      "id": "b-day-lease-8",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "A sandbox whose labeled lease id is no longer current is an orphan: it holds no authority to refuse, so recovery deletes it rather than fencing it."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-9": {
-      "id": "b-day-lease-9",
-      "type": "state-shape",
-      "props": {
-        "description": "Labels stamped on every sandbox at creation; the platform-side record binding it to harness state.",
-        "example": "{\n  \"game_id\": \"melee\",\n  \"run_id\": \"run-91\",\n  \"claim_id\": \"claim-4c21\",\n  \"lease_id\": \"lease-7f3a\",\n  \"worker_state_id\": \"ws-88d0\",\n  \"trace_id\": \"trace-2b41\"\n}",
-        "fields": [
-          {
-            "name": "game_id",
-            "type": "GameId",
-            "required": true
-          },
-          {
-            "name": "run_id",
-            "type": "RunId",
-            "required": true,
-            "description": "Owning run workflow."
-          },
-          {
-            "name": "claim_id",
-            "type": "ClaimId",
-            "required": true,
-            "description": "The target claim this sandbox executes for; exactly one sandbox per active claim."
-          },
-          {
-            "name": "lease_id",
-            "type": "LeaseId",
-            "required": true,
-            "description": "The dispatch-lease acquisition the claim was created under; a mismatch with the current lease marks the sandbox an orphan."
-          },
-          {
-            "name": "worker_state_id",
-            "type": "WorkerStateId",
-            "required": true
-          },
-          {
-            "name": "trace_id",
-            "type": "TraceId",
-            "required": true,
-            "description": "Root trace of the worker state; ties sandbox operations into the tracing fabric."
-          }
-        ],
-        "name": "SandboxLabels"
-      },
-      "children": []
-    },
-    "b-day-lease-10": {
-      "id": "b-day-lease-10",
-      "type": "heading",
-      "props": {
-        "level": 3
-      },
-      "text": [
-        {
-          "insert": "Reaping in Recovery and at Startup"
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-11": {
-      "id": "b-day-lease-11",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Run recovery settles or cancels orphaned claims and breaks a stale dispatch lease when one is still held; sandbox reaping joins those existing steps instead of adding new ones:"
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-12": {
-      "id": "b-day-lease-12",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Each cancelled claim id in "
+          "insert": " leases the worker job execution while the target claim owns the target. The sandbox binds to both records but adds no authority of its own: it is capacity driven by the host actor through the same job fence used for every guarded write."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-2": {
+			"id": "b-day-lease-2",
+			"type": "callout",
+			"props": {
+				"kind": "decision",
+        "title": "Decision (2026-08-18) — provisioning follows transactional claim creation",
+				"tone": "success"
+			},
+			"text": [
+				{
+          "insert": "Queue-job acquisition, target-claim creation or recycling, worker-state creation, and job-payload attachment run synchronously inside one immediateTransaction, which cannot perform remote provisioning. After that transaction returns a current ClaimToken, buildWorkerTask provisions the sandbox, stamps its bindings, seeds the workspace, persists sandbox_id on the job payload, and only then launches the local worker child. The sandbox remains logically one-to-one with that claimed worker execution even though creation is deliberately outside the claim transaction."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-3": {
+			"id": "b-day-lease-3",
+			"type": "callout",
+			"props": {
+				"kind": "decision",
+        "title": "Decision 7 (2026-08-18) — always-run v1, no warm pool",
+				"tone": "success"
+			},
+			"text": [
+				{
+          "insert": "Sandboxes are provisioned on demand in buildWorkerTask and remain started for the claim's lifetime in v1. Platform inactivity auto-stop is disabled and the wall-clock TTL remains the abandonment backstop. Warm pools are rejected because their claim restrictions exclude per-claim configuration; stop-while-thinking is a named follow-up backed by the measured wake latency, not part of the shipped lifecycle."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-4": {
+			"id": "b-day-lease-4",
+			"type": "heading",
+			"props": {
+				"level": 3
+			},
+			"text": [
+				{
+					"insert": "How the Lease Reaches Sandbox Execution"
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-5": {
+			"id": "b-day-lease-5",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+          "insert": "The lease is enforced by fencing, not trust. Every guarded job mutation presents the current "
+				},
+				{
+          "insert": "ClaimToken",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+          "insert": ", whose job id, kind, and lease id must still match a jobs row with an unexpired lease. Sandbox orphan classification reuses that exact predicate rather than maintaining a second interpretation of liveness:"
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-6": {
+			"id": "b-day-lease-6",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "The host worker process is the presenting actor — it carries the job ClaimToken, owns the target claim, and drives the sandbox as its execution surface; the sandbox itself never issues commands against "
+				},
+				{
+					"insert": "Harness State",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness/20-harness-state"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-7": {
+			"id": "b-day-lease-7",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Provisioning stamps all eight durable identifiers as labels: game_id, run_id, claim_id, job_id, job_lease_id, dispatch_lease_id, worker_state_id, and trace_id. Reconciliation can therefore recover every authority and trace binding without consulting process memory."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-8": {
+			"id": "b-day-lease-8",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "The authoritative orphan test is the labeled job_lease_id matched against the jobs row's current unexpired lease. core/job-queue/kernel.ts exports isCurrentClaimToken as the shared write-fence predicate, and sandbox-lifecycle.ts reuses it; a mismatch, missing job, or expired lease makes the sandbox an orphan."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-9": {
+			"id": "b-day-lease-9",
+			"type": "state-shape",
+			"props": {
+        "description": "All eight identifiers stamped during provisioning; together they bind remote capacity to the job fence, dispatch authority, target claim, worker state, and trace.",
+        "example": "{\n  \"game_id\": \"melee\",\n  \"run_id\": \"run-91\",\n  \"claim_id\": \"claim-4c21\",\n  \"job_id\": \"job-2d19\",\n  \"job_lease_id\": \"job-lease-7f3a\",\n  \"dispatch_lease_id\": \"dispatch-lease-81ce\",\n  \"worker_state_id\": \"ws-88d0\",\n  \"trace_id\": \"trace-2b41\"\n}",
+				"fields": [
+					{
+						"name": "game_id",
+						"type": "GameId",
+						"required": true
+					},
+					{
+						"name": "run_id",
+						"type": "RunId",
+						"required": true,
+						"description": "Owning run workflow."
+					},
+					{
+						"name": "claim_id",
+						"type": "ClaimId",
+						"required": true,
+						"description": "The target claim this sandbox executes for; exactly one sandbox per active claim."
+					},
+					{
+          "name": "job_id",
+          "type": "JobId",
+          "required": true,
+          "description": "Worker job whose claimed execution owns the sandbox."
         },
         {
-          "insert": "run.recovered",
+          "name": "job_lease_id",
+          "type": "LeaseId",
+          "required": true,
+          "description": "ClaimToken leaseId; it must match the jobs row's current unexpired lease."
+        },
+        {
+          "name": "dispatch_lease_id",
+          "type": "LeaseId",
+          "required": true,
+          "description": "Run dispatch lease used as a secondary startup-reconciliation check."
+					},
+					{
+						"name": "worker_state_id",
+						"type": "WorkerStateId",
+						"required": true
+					},
+					{
+						"name": "trace_id",
+						"type": "TraceId",
+						"required": true,
+						"description": "Root trace of the worker state; ties sandbox operations into the tracing fabric."
+					}
+				],
+				"name": "SandboxLabels"
+			},
+			"children": []
+		},
+		"b-day-lease-10": {
+			"id": "b-day-lease-10",
+			"type": "heading",
+			"props": {
+				"level": 3
+			},
+			"text": [
+				{
+          "insert": "Teardown at Settlement, Queue Reap, and Startup"
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-11": {
+			"id": "b-day-lease-11",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+          "insert": "Sandbox deletion rides three shipped lifecycle paths so normal completion, expired queue ownership, and process restart all converge on the same cleanup invariant:"
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-12": {
+			"id": "b-day-lease-12",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Settlement resolves the completed or cancelled job's persisted "
+        },
+        {
+          "insert": "sandbox_id",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " names exactly one sandbox to delete; deletion is part of settling that claim."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-13": {
-      "id": "b-day-lease-13",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Startup reconciliation, which already reconciles pending integration rows before acquiring dispatch authority, additionally lists sandboxes by label and deletes any whose claim is closed or whose lease id does not match the current acquisition."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-14": {
-      "id": "b-day-lease-14",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "The platform TTL is the backstop beneath both: every sandbox is created with a wall-clock TTL set past the claim deadline, so a sandbox that recovery never reaches destroys itself."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-15": {
-      "id": "b-day-lease-15",
-      "type": "callout",
-      "props": {
-        "kind": "proposal",
-        "title": "Open call — guardian reaping of remote capacity",
-        "tone": "info"
-      },
-      "text": [
-        {
-          "insert": "Process guardians recover expired claims for broader process incidents but have no remote-resource step. Extending the guardian playbook with a sandbox sweep is deferred to the guardian pages; the label scheme above is sufficient evidence for it."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-16": {
-      "id": "b-day-lease-16",
-      "type": "heading",
-      "props": {
-        "level": 3
-      },
-      "text": [
-        {
-          "insert": "Stop While Thinking"
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-17": {
-      "id": "b-day-lease-17",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "A worker spends minutes of reasoning between tool-call bursts, and the host worker process — the actor awaiting the model — knows precisely when the sandbox is needed:"
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-18": {
-      "id": "b-day-lease-18",
-      "type": "process-outline",
-      "props": {
-        "steps": [
-          {
-            "text": "A tool call arrives: start the sandbox if stopped, execute, return output"
-          },
-          {
-            "text": "The model goes quiet: after roughly sixty to ninety seconds without calls, stop the sandbox",
-            "steps": [
-              {
-                "text": "not instantly — calls cluster (edit, build, score), and a wake delay inside a cluster is a real cost",
-                "kind": "note"
-              }
-            ]
-          },
-          {
-            "text": "The claim settles or is cancelled: delete the sandbox"
-          }
-        ]
-      },
-      "children": []
-    },
-    "b-day-lease-19": {
-      "id": "b-day-lease-19",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "A stopped sandbox bills disk only, releases its vCPU and memory back to the platform quota, and preserves the workspace on the runner for a fast wake — agent edits and incremental build state included."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-20": {
-      "id": "b-day-lease-20",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Container stop does not preserve running processes, so long-lived background work must complete before a stop; tool calls are discrete commands, which is what makes the pattern safe."
-        }
-      ],
-      "children": []
-    },
-    "b-day-lease-21": {
-      "id": "b-day-lease-21",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "The platform's inactivity auto-stop is disabled in favor of these explicit stops: its idle heuristic can misfire on long silent builds, and the TTL already backstops abandonment."
-        }
-      ],
-      "children": []
-    }
-  }
+          "insert": " and deletes that sandbox with reason settlement."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-13": {
+			"id": "b-day-lease-13",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "The queue reap lane in reapWorkerJobs deletes the persisted sandbox for every expired worker-job lease with reason reap, then recovers the corresponding active target claim."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-14": {
+			"id": "b-day-lease-14",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Startup reconciliation lists sandboxes by game label and retains one only when the shared ClaimToken predicate passes, the job payload points back to that sandbox and claim, the run dispatch lease is active, and the target claim is active. Everything else is deleted with reason reconciliation; the platform TTL remains the backstop below all three paths."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-15": {
+			"id": "b-day-lease-15",
+			"type": "callout",
+			"props": {
+        "kind": "status",
+        "title": "Shipped and live-verified (2026-08-18) — all three teardown paths",
+        "tone": "success"
+			},
+			"text": [
+				{
+          "insert": "Settlement, reapWorkerJobs, and startup reconciliation are shipped and live-verified through the provider seam. The PoC specifically observed settlement deletion and then swept a real orphan from a failed provisioning run at the next run-loop startup, leaving the remote sandbox list empty."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-16": {
+			"id": "b-day-lease-16",
+			"type": "heading",
+			"props": {
+				"level": 3
+			},
+			"text": [
+				{
+          "insert": "Always-Run v1 and Deferred Idling"
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-17": {
+			"id": "b-day-lease-17",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+          "insert": "The shipped v1 lifecycle keeps a provisioned sandbox started while its claim is active. This favors the simplest failure and TTL semantics for the first live path; the host worker still knows when a model turn begins and when the next tool call needs execution, so idling remains a contained future optimization."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-18": {
+			"id": "b-day-lease-18",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+          "text": "buildWorkerTask provisions and starts the sandbox after transactional claim creation"
+					},
+					{
+          "text": "Model turns and tool-call bursts run against the same started sandbox for the whole active claim",
+						"steps": [
+							{
+              "text": "platform inactivity auto-stop remains disabled, so a silent model turn cannot interrupt a build",
+								"kind": "note"
+							}
+						]
+					},
+					{
+          "text": "Settlement, queue reap, or startup reconciliation deletes the sandbox; wall-clock TTL backstops abandonment"
+					}
+				]
+			},
+			"children": []
+		},
+		"b-day-lease-19": {
+			"id": "b-day-lease-19",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Phase 1 measured 0.78–0.86 seconds from start request to the first successful exec across three stop/start trials on a real runner. That cost is low enough to justify a stop-while-thinking objective, but the measurement does not alter the always-run v1 contract."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-20": {
+			"id": "b-day-lease-20",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "The follow-up owns the transition points — stop when a model turn starts and start before the next tool call — together with in-flight command safety, claim TTL interaction, and the provider's stopped-versus-running billing semantics."
+				}
+			],
+			"children": []
+		},
+		"b-day-lease-21": {
+			"id": "b-day-lease-21",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Warm pooling remains out of scope: workspace state is claim-specific, and the measured sub-second wake makes preserving each claim's own stopped sandbox the relevant optimization."
+				}
+			],
+			"children": []
+		}
+	}
 }

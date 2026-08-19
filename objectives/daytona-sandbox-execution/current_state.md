@@ -134,24 +134,29 @@ All gate criteria verified live (full narrative: examples/phase3/live_poc_report
 - Both recovery teardown paths exercised live: reconciliation (run 1 orphan) and settlement.
 </phase3_gate>
 
+<phase4_gate verdict="PASS" date="2026-08-18">
+- Daytona parent and child design bundles 20, 30, 50, and 70 describe the shipped image,
+  ClaimToken lifecycle, durable sandbox events, live teardown paths, and measured platform proof.
+- Snapshot reactivation guidance is recorded in bundle 70; stop-while-thinking is captured as the
+  named future-objective seed at followups/stop-while-thinking-seed.md.
+- Docs validation matches the accepted baseline: exactly 10 pre-existing E6 structured-table
+  errors in 10-system-design, one pre-existing W1 warning, and 0 stale references.
+</phase4_gate>
+
 <in_progress>
-- Phase 2 slice 5b is complete on daytona/slice-5 and ready for handoff. Slices 1/2/3/6 are merged
-  into this branch base; slice 4 remains before the phase 3 live claim PoC.
+- None. OBJECTIVE COMPLETE: all four phase gates passed 2026-08-18; committed per phase.
 </in_progress>
 
 <next_actions>
-- Review/merge slice 5b, complete slice 4 (validation/evidence download path), then run the phase 3
-  live PoC against snapshot melee-sandbox-poc-20260818.
+- Operator: review the phase 4 docs diff, the live_poc_report, and the flagged decisions —
+  disk default (5 GiB cannot hold even a trimmed image comfortably; PoC ran at 10),
+  execution_class selector design for fleet rollout, and the stop-while-thinking seed.
+- Fleet rollout is a separate future objective (see followups/ and design bundle 60).
 </next_actions>
 
 <risks_or_open_questions>
-- Docs were restructured by the operator on 2026-08-18 (content largely same, layout changed):
-  phase 4 must RE-LOCATE the design bundles rather than trust the
-  docs/40-new-features/10-daytona-sandbox-execution/ paths recorded earlier in this bundle.
-- Snapshot two-week deactivation: melee-sandbox-poc-20260818 needs the keepalive/reactivation
-  runbook step (phase 4) if phase 3 slips.
-- Stop-while-thinking is deliberately out of v1; wake latency measured at ~0.85 s (phase 1) —
-  write the follow-up objective seed in phase 4 with that number attached.
+- The measured 5.87 GB snapshot predates the 0.70 GiB bundle trim; no trimmed-image size has been
+  measured. Bundle 60's stopped-idle cost assumption remains future work owned by the follow-up.
 - This worktree's full server suite reports the known qa-repair.test.ts 5-second timeout plus an
   environmental boundary failure because root node_modules/@agent-kernel/kernel is absent; the
   app-level link exists, and the suite excluding those two tests passes 1,095/1,095.
@@ -159,7 +164,8 @@ All gate criteria verified live (full narrative: examples/phase3/live_poc_report
 
 <important_paths>
 - objectives/daytona-sandbox-execution/context/ — constraints, scope, phased plan.
-- docs/40-new-features/10-daytona-sandbox-execution/ — design bundles (amendments pending).
+- objectives/daytona-sandbox-execution/followups/stop-while-thinking-seed.md — future idling work.
+- docs/40-new-features/10-daytona-sandbox-execution/ — design bundles (amended, phase 4).
 - toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/ — MANIFEST.md + build_image_bundle.sh.
 - games/melee/state/tools/wibo-1.2.0-opt1/ — golden wibo + patch (read-only; production state).
 - apps/server/src/core/job-queue/sandbox.ts — provider contract plus Daytona/Fake implementations.

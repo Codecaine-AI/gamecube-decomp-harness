@@ -1,586 +1,621 @@
 {
-  "schemaVersion": 1,
-  "id": "40-new-features-10-daytona-sandbox-execution",
-  "title": "Daytona Sandbox Execution",
-  "root": "b-day-root",
-  "blocks": {
-    "b-day-root": {
-      "id": "b-day-root",
-      "type": "paragraph",
-      "props": {
-        "concepts": [
-          "daytona",
-          "sandbox",
-          "worker-workspace",
-          "dispatch-lease",
-          "target-claim",
-          "evidence",
-          "tracing",
-          "image",
-          "stop-while-thinking"
-        ]
-      },
-      "children": [
-        "b-day-1",
-        "b-day-2",
-        "b-day-3",
-        "b-day-4",
-        "b-day-5",
-        "b-day-6",
-        "b-day-7",
-        "b-day-8",
-        "b-day-9",
-        "b-day-10",
-        "b-day-12",
-        "b-day-14",
-        "b-day-16",
-        "b-day-18",
-        "b-day-19",
-        "b-day-21",
-        "b-day-23",
-        "b-day-25",
-        "b-day-26",
-        "b-day-27",
-        "b-day-28",
-        "b-day-29",
-        "b-day-30"
-      ]
-    },
-    "b-day-1": {
-      "id": "b-day-1",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Worker execution moves into per-worker Daytona micro-VM sandboxes: every shell command, file edit, build, and score a worker performs runs inside a sandbox bound to its target claim, while the agent loop, knowledge tools, telemetry, and all dispatch authority stay on the orchestrator host. The sandbox is the OS-container realization of the worker's execution envelope that the "
-        },
-        {
-          "insert": "cycle operating flow",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/50-workflows/10-sync",
-              "label": "cycle operating flow"
-            }
-          }
-        },
-        {
-          "insert": " container model anticipates; authority, integration, and head lineage follow the "
-        },
-        {
-          "insert": "Harness State and Authority",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "10-system-design/40-harness-state",
-              "label": "Harness State and Authority"
-            }
-          }
-        },
-        {
-          "insert": " contract unchanged."
-        }
-      ],
-      "children": []
-    },
-    "b-day-2": {
-      "id": "b-day-2",
-      "type": "callout",
-      "props": {
-        "kind": "status",
-        "title": "Status — spec aligned to the state contract; implementation and image builds not started",
-        "tone": "warning"
-      },
-      "text": [
-        {
-          "insert": "Decisions are dated callouts in the child pages; image contents are governed by the acceptance manifest at "
-        },
-        {
-          "insert": "toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/MANIFEST.md",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", and image builds hold until the harness working-tree changes are committed and the Linux objdiff build exists."
-        }
-      ],
-      "children": []
-    },
-    "b-day-3": {
-      "id": "b-day-3",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Feature Scope"
-        }
-      ],
-      "children": []
-    },
-    "b-day-4": {
-      "id": "b-day-4",
-      "type": "structured-table",
-      "props": {
-        "columns": [
-          "Goal",
-          "Why"
-        ],
-        "rows": [
-          [
-            "Isolate worker execution in disposable micro-VMs, one sandbox per target claim",
-            "Removes 592 GB of per-claim worktree debris and all shared-filesystem coupling from the host; scaling to 64 workers becomes a platform quota question"
-          ],
-          [
-            "Keep every authority, integration, and evidence contract host-side and unchanged",
-            "The dispatch lease, target claims, serial integration, and the knowledge queue already define the boundaries a remote executor needs"
-          ],
-          [
-            "Specify sandbox lifecycle in the state contract's own vocabulary",
-            "Claims, leases, events, and traces must have one definition; the sandbox binds to them rather than duplicating them"
-          ]
-        ],
-        "title": "Goals"
-      },
-      "children": []
-    },
-    "b-day-5": {
-      "id": "b-day-5",
-      "type": "structured-table",
-      "props": {
-        "columns": [
-          "Non-goal",
-          "Boundary"
-        ],
-        "rows": [
-          [
-            "Move the agent loop, model access, or knowledge corpora into sandboxes",
-            "The worker process on the host keeps the Pi session, codex-lb, graph and corpus tools, and telemetry; relocation is a named deviation, rejected in Execution Boundary"
-          ],
-          [
-            "Change the isolation contract's semantics",
-            "One worker, one claim, one bounded source space holds; only the mechanism that materializes the workspace changes"
-          ],
-          [
-            "Build or publish sandbox images in this pass",
-            "MANIFEST.md groundwork is staged and on hold; the proof of concept is scoped separately"
-          ]
-        ],
-        "title": "Non-goals"
-      },
-      "children": []
-    },
-    "b-day-6": {
-      "id": "b-day-6",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Execution Model"
-        }
-      ],
-      "children": []
-    },
-    "b-day-7": {
-      "id": "b-day-7",
-      "type": "process-outline",
-      "props": {
-        "steps": [
-          {
-            "text": "Worker realization creates a target claim under the run's dispatch lease; the claim's sandbox is created with it",
-            "steps": [
-              {
-                "text": "sandbox labels record the claim, lease, and trace identity, so any reconciler can map a live sandbox to the claim that justifies it",
-                "kind": "note"
-              }
-            ]
-          },
-          {
-            "text": "The workspace materializes inside the sandbox from the game image plus the claim's base-revision seed (under 10 MB)"
-          },
-          {
-            "text": "Agent turns execute in the sandbox: bash, edits, incremental builds, scoring; the host worker process presents the current lease id on every guarded command"
-          },
-          {
-            "text": "The sandbox stops while the model thinks and wakes on the next tool call; the claim's deadline bounds the whole cycle",
-            "steps": [
-              {
-                "text": "a stopped sandbox bills disk only and releases its vCPU quota; workspace state is preserved",
-                "kind": "note"
-              }
-            ]
-          },
-          {
-            "text": "Checkpoint evidence returns to the host: runner validation records, the selected patch, facts; serial integration and the epoch boundary proceed unchanged"
-          },
-          {
-            "text": "Claim settlement deletes the sandbox; recovery reaps sandboxes named by cancelled claim ids"
-          }
-        ]
-      },
-      "children": []
-    },
-    "b-day-8": {
-      "id": "b-day-8",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Contract Pages"
-        }
-      ],
-      "children": []
-    },
-    "b-day-9": {
-      "id": "b-day-9",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Reading order:"
-        }
-      ],
-      "children": []
-    },
-    "b-day-10": {
-      "id": "b-day-10",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Execution boundary",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/10-execution-boundary",
-              "label": "Execution boundary"
-            }
-          }
-        }
-      ],
-      "children": [
-        "b-day-11"
-      ]
-    },
-    "b-day-11": {
-      "id": "b-day-11",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "What runs in the sandbox versus on the host, the bash-operations seam, file tools against a remote workspace, and the rejected whole-worker relocation."
-        }
-      ],
-      "children": []
-    },
-    "b-day-12": {
-      "id": "b-day-12",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Sandbox contents",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/20-sandbox-contents",
-              "label": "Sandbox contents"
-            }
-          }
-        }
-      ],
-      "children": [
-        "b-day-13"
-      ]
-    },
-    "b-day-13": {
-      "id": "b-day-13",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "The three layers: the baked image under MANIFEST.md authority, the per-claim seed, and what flows during a run."
-        }
-      ],
-      "children": []
-    },
-    "b-day-14": {
-      "id": "b-day-14",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Lease, claims, and lifecycle",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/30-lease-claims-and-lifecycle",
-              "label": "Lease, claims, and lifecycle"
-            }
-          }
-        }
-      ],
-      "children": [
-        "b-day-15"
-      ]
-    },
-    "b-day-15": {
-      "id": "b-day-15",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "How the fenced dispatch lease reaches sandbox execution, the claim binding, orphan reaping in recovery, and stop-while-thinking."
-        }
-      ],
-      "children": []
-    },
-    "b-day-16": {
-      "id": "b-day-16",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Evidence and integration",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/40-evidence-and-integration",
-              "label": "Evidence and integration"
-            }
-          }
-        }
-      ],
-      "children": [
-        "b-day-17"
-      ]
-    },
-    "b-day-17": {
-      "id": "b-day-17",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Sandbox outputs as immutable evidence: the checkpoint path into host-side serial integration and the background knowledge path."
-        }
-      ],
-      "children": []
-    },
-    "b-day-18": {
-      "id": "b-day-18",
-      "type": "paragraph",
-      "props": {},
-      "text": [
-        {
-          "insert": "Continue in this order:"
-        }
-      ],
-      "children": []
-    },
-    "b-day-19": {
-      "id": "b-day-19",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Events and tracing",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/50-events-and-tracing",
-              "label": "Events and tracing"
-            }
-          }
-        }
-      ],
-      "children": [
-        "b-day-20"
-      ]
-    },
-    "b-day-20": {
-      "id": "b-day-20",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Sandbox operations in the shared tracing fabric: envelope identity, kernel containers versus OS containers, no new event kinds."
-        }
-      ],
-      "children": []
-    },
-    "b-day-21": {
-      "id": "b-day-21",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Scale and cost",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/60-scale-and-cost",
-              "label": "Scale and cost"
-            }
-          }
-        }
-      ],
-      "children": [
-        "b-day-22"
-      ]
-    },
-    "b-day-22": {
-      "id": "b-day-22",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "The three capacity controls under sandboxes, 64-concurrency sizing, idle economics, and the host footprint."
-        }
-      ],
-      "children": []
-    },
-    "b-day-23": {
-      "id": "b-day-23",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Proof of concept",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/10-daytona-sandbox-execution/70-proof-of-concept",
-              "label": "Proof of concept"
-            }
-          }
-        }
-      ],
-      "children": [
-        "b-day-24"
-      ]
-    },
-    "b-day-24": {
-      "id": "b-day-24",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Open measurements and integration questions, and the held bake-and-time experiment that answers them."
-        }
-      ],
-      "children": []
-    },
-    "b-day-25": {
-      "id": "b-day-25",
-      "type": "heading",
-      "props": {
-        "level": 2
-      },
-      "text": [
-        {
-          "insert": "Decisions"
-        }
-      ],
-      "children": []
-    },
-    "b-day-26": {
-      "id": "b-day-26",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Resolved 2026-08-13 — worker workspaces materialize inside sandboxes from the game image, superseding per-worker worktrees of the cycle checkout; see the workspace decision callout in Execution Boundary."
-        }
-      ],
-      "children": []
-    },
-    "b-day-27": {
-      "id": "b-day-27",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Resolved 2026-08-13 — the agent process stays host-side; sandboxes execute commands and hold files only; see the boundary decision callout in Execution Boundary."
-        }
-      ],
-      "children": []
-    },
-    "b-day-28": {
-      "id": "b-day-28",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Resolved 2026-08-13 — sandbox lifetime is bound one-to-one to the target claim under the fenced dispatch lease; see the binding decision callout in Lease, Claims, and Lifecycle."
-        }
-      ],
-      "children": []
-    },
-    "b-day-29": {
-      "id": "b-day-29",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Resolved 2026-08-13 — sandboxes are created on demand from the game image and stopped while the model thinks; no warm pool; see the lifecycle decision callout in Lease, Claims, and Lifecycle."
-        }
-      ],
-      "children": []
-    },
-    "b-day-30": {
-      "id": "b-day-30",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Resolved 2026-08-13 — fleet-wide compile admission is orchestrator-owned via the global jobserver; per-epoch filesystem slot directories retire with the shared filesystem; see the admission decision callout in Scale and Cost."
-        }
-      ],
-      "children": []
-    }
-  }
+	"schemaVersion": 1,
+	"id": "40-new-features-10-daytona-sandbox-execution",
+	"title": "Daytona Sandbox Execution",
+	"root": "b-day-root",
+	"blocks": {
+		"b-day-root": {
+			"id": "b-day-root",
+			"type": "paragraph",
+			"props": {
+				"concepts": [
+					"daytona",
+					"sandbox",
+					"worker-workspace",
+					"dispatch-lease",
+					"target-claim",
+					"evidence",
+					"tracing",
+					"image",
+					"stop-while-thinking"
+				]
+			},
+			"children": [
+				"b-day-1",
+				"b-day-2",
+				"b-day-3",
+				"b-day-4",
+				"b-day-5",
+				"b-day-6",
+				"b-day-7",
+				"b-day-8",
+				"b-day-9",
+				"b-day-10",
+				"b-day-12",
+				"b-day-14",
+				"b-day-16",
+				"b-day-18",
+				"b-day-19",
+				"b-day-21",
+				"b-day-23",
+				"b-day-25",
+				"b-day-26",
+				"b-day-27",
+				"b-day-28",
+				"b-day-29",
+				"b-day-30"
+			]
+		},
+		"b-day-1": {
+			"id": "b-day-1",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Worker execution moves into per-worker Daytona micro-VM sandboxes: every shell command, file edit, build, and score a worker performs runs inside a sandbox bound to its target claim, while the agent loop, knowledge tools, telemetry, and all dispatch authority stay on the orchestrator host. The sandbox is the OS-container realization of the worker's execution envelope that the "
+				},
+				{
+					"insert": "cycle operating flow",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/50-workflows/10-sync",
+							"label": "cycle operating flow"
+						}
+					}
+				},
+				{
+					"insert": " container model anticipates; authority, integration, and head lineage follow the "
+				},
+				{
+					"insert": "Harness",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "10-system-design/30-harness"
+						}
+					}
+				},
+				{
+					"insert": " contract unchanged."
+				}
+			],
+			"children": []
+		},
+		"b-day-2": {
+			"id": "b-day-2",
+			"type": "callout",
+			"props": {
+				"kind": "status",
+        "title": "Status — phases 0–3 passed and live-verified on 2026-08-18",
+        "tone": "success"
+			},
+			"text": [
+				{
+					"insert": "Decisions are dated callouts in the child pages; image contents are governed by the acceptance manifest at "
+				},
+				{
+					"insert": "toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/MANIFEST.md",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+          "insert": ". The accepted image includes the Linux musl objdiff score server, the platform experiment passed all four measurements, and a real sandbox-class worker claim completed through evidence, integration, and teardown."
+				}
+			],
+			"children": []
+		},
+		"b-day-3": {
+			"id": "b-day-3",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Feature Scope"
+				}
+			],
+			"children": []
+		},
+		"b-day-4": {
+			"id": "b-day-4",
+			"type": "structured-table",
+			"props": {
+				"columns": [
+					"Goal",
+					"Why"
+				],
+				"rows": [
+					[
+						"Isolate worker execution in disposable micro-VMs, one sandbox per target claim",
+						"Removes 592 GB of per-claim worktree debris and all shared-filesystem coupling from the host; scaling to 64 workers becomes a platform quota question"
+					],
+					[
+						"Keep every authority, integration, and evidence contract host-side and unchanged",
+						"The dispatch lease, target claims, serial integration, and the knowledge queue already define the boundaries a remote executor needs"
+					],
+					[
+						"Specify sandbox lifecycle in the state contract's own vocabulary",
+						"Claims, leases, events, and traces must have one definition; the sandbox binds to them rather than duplicating them"
+					]
+				],
+				"title": "Goals"
+			},
+			"children": []
+		},
+		"b-day-5": {
+			"id": "b-day-5",
+			"type": "structured-table",
+			"props": {
+				"columns": [
+					"Non-goal",
+					"Boundary"
+				],
+				"rows": [
+					[
+						"Move the agent loop, model access, or knowledge corpora into sandboxes",
+						"The worker process on the host keeps the Pi session, codex-lb, graph and corpus tools, and telemetry; relocation is a named deviation, rejected in Execution Boundary"
+					],
+					[
+						"Change the isolation contract's semantics",
+						"One worker, one claim, one bounded source space holds; only the mechanism that materializes the workspace changes"
+					],
+					[
+          "Ship stop-while-thinking in v1",
+          "Decision 7 keeps sandboxes always running for the active claim; measured sub-second wake latency feeds a named follow-up objective"
+					]
+				],
+				"title": "Non-goals"
+			},
+			"children": []
+		},
+		"b-day-6": {
+			"id": "b-day-6",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Execution Model"
+				}
+			],
+			"children": []
+		},
+		"b-day-7": {
+			"id": "b-day-7",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+          "text": "The queue atomically acquires the worker job, creates or recycles its target claim and worker state, and returns a fenced ClaimToken; buildWorkerTask then provisions the sandbox",
+						"steps": [
+							{
+              "text": "all eight job, claim, dispatch, worker-state, run, game, and trace identifiers are stamped as labels",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "The workspace materializes inside the sandbox from the game image plus the claim's base-revision seed (under 10 MB)"
+					},
+					{
+          "text": "Agent turns execute in the sandbox: bash, edits, incremental builds, scoring; the host worker process carries the current job ClaimToken across every guarded mutation"
+					},
+					{
+          "text": "The v1 sandbox remains started while its claim is active; platform inactivity auto-stop is disabled and the wall-clock TTL backstops abandonment",
+						"steps": [
+							{
+              "text": "stop-while-thinking is a future objective supported by the measured 0.78–0.86 second start-to-first-exec latency",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "Checkpoint evidence returns to the host: runner validation records, the selected patch, facts; serial integration and the epoch boundary proceed unchanged"
+					},
+					{
+          "text": "Settlement, the reapWorkerJobs queue lane, and startup reconciliation delete sandboxes and emit sandbox.deleted with the path-specific reason"
+					}
+				]
+			},
+			"children": []
+		},
+		"b-day-8": {
+			"id": "b-day-8",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Contract Pages"
+				}
+			],
+			"children": []
+		},
+		"b-day-9": {
+			"id": "b-day-9",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Reading order:"
+				}
+			],
+			"children": []
+		},
+		"b-day-10": {
+			"id": "b-day-10",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Execution boundary",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/10-execution-boundary",
+							"label": "Execution boundary"
+						}
+					}
+				}
+			],
+			"children": [
+				"b-day-11"
+			]
+		},
+		"b-day-11": {
+			"id": "b-day-11",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "What runs in the sandbox versus on the host, the bash-operations seam, file tools against a remote workspace, and the rejected whole-worker relocation."
+				}
+			],
+			"children": []
+		},
+		"b-day-12": {
+			"id": "b-day-12",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Sandbox contents",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/20-sandbox-contents",
+							"label": "Sandbox contents"
+						}
+					}
+				}
+			],
+			"children": [
+				"b-day-13"
+			]
+		},
+		"b-day-13": {
+			"id": "b-day-13",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "The three layers: the baked image under MANIFEST.md authority, the per-claim seed, and what flows during a run."
+				}
+			],
+			"children": []
+		},
+		"b-day-14": {
+			"id": "b-day-14",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Lease, claims, and lifecycle",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/30-lease-claims-and-lifecycle",
+							"label": "Lease, claims, and lifecycle"
+						}
+					}
+				}
+			],
+			"children": [
+				"b-day-15"
+			]
+		},
+		"b-day-15": {
+			"id": "b-day-15",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "How the dispatch lease, target claim, and job ClaimToken reach sandbox execution; the shared orphan predicate; three teardown paths; and always-run v1."
+				}
+			],
+			"children": []
+		},
+		"b-day-16": {
+			"id": "b-day-16",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Evidence and integration",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/40-evidence-and-integration",
+							"label": "Evidence and integration"
+						}
+					}
+				}
+			],
+			"children": [
+				"b-day-17"
+			]
+		},
+		"b-day-17": {
+			"id": "b-day-17",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Sandbox outputs as immutable evidence: the checkpoint path into host-side serial integration and the background knowledge path."
+				}
+			],
+			"children": []
+		},
+		"b-day-18": {
+			"id": "b-day-18",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Continue in this order:"
+				}
+			],
+			"children": []
+		},
+		"b-day-19": {
+			"id": "b-day-19",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Events and tracing",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/50-events-and-tracing",
+							"label": "Events and tracing"
+						}
+					}
+				}
+			],
+			"children": [
+				"b-day-20"
+			]
+		},
+		"b-day-20": {
+			"id": "b-day-20",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Durable sandbox.created and sandbox.deleted game events beside the job.* family, with per-operation exec and file-transfer latency retained as spans."
+				}
+			],
+			"children": []
+		},
+		"b-day-21": {
+			"id": "b-day-21",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Scale and cost",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/60-scale-and-cost",
+							"label": "Scale and cost"
+						}
+					}
+				}
+			],
+			"children": [
+				"b-day-22"
+			]
+		},
+		"b-day-22": {
+			"id": "b-day-22",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "The three capacity controls under sandboxes, 64-concurrency sizing, idle economics, and the host footprint."
+				}
+			],
+			"children": []
+		},
+		"b-day-23": {
+			"id": "b-day-23",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Proof of concept",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/70-proof-of-concept",
+							"label": "Proof of concept"
+						}
+					}
+				}
+			],
+			"children": [
+				"b-day-24"
+			]
+		},
+		"b-day-24": {
+			"id": "b-day-24",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "The four measured platform answers, the executed live-worker proof, resolved integration questions, and the snapshot reactivation runbook."
+				}
+			],
+			"children": []
+		},
+		"b-day-25": {
+			"id": "b-day-25",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Decisions"
+				}
+			],
+			"children": []
+		},
+		"b-day-26": {
+			"id": "b-day-26",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Resolved 2026-08-13 — worker workspaces materialize inside sandboxes from the game image, superseding per-worker worktrees of the cycle checkout; see the workspace decision callout in "
+				},
+				{
+					"insert": "Execution Boundary",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/10-execution-boundary"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		},
+		"b-day-27": {
+			"id": "b-day-27",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Resolved 2026-08-13 — the agent process stays host-side; sandboxes execute commands and hold files only; see the boundary decision callout in Execution Boundary."
+				}
+			],
+			"children": []
+		},
+		"b-day-28": {
+			"id": "b-day-28",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Resolved 2026-08-18 — sandbox lifetime binds to the target claim and the worker job's fenced ClaimToken; provisioning runs in buildWorkerTask after synchronous claim acquisition; see "
+				},
+				{
+					"insert": "Lease, Claims, and Lifecycle",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/30-lease-claims-and-lifecycle"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		},
+		"b-day-29": {
+			"id": "b-day-29",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+          "insert": "Resolved 2026-08-18 — sandboxes are provisioned on demand and remain started for the active claim in v1; no warm pool; stop-while-thinking is deferred to its measured follow-up objective."
+				}
+			],
+			"children": []
+		},
+		"b-day-30": {
+			"id": "b-day-30",
+			"type": "list-item",
+			"props": {
+				"ordered": false
+			},
+			"text": [
+				{
+					"insert": "Resolved 2026-08-13 — fleet-wide compile admission is orchestrator-owned via the global jobserver; per-epoch filesystem slot directories retire with the shared filesystem; see the admission decision callout in "
+				},
+				{
+					"insert": "Scale and Cost",
+					"attributes": {
+						"reference": {
+							"kind": "doc",
+							"path": "40-new-features/10-daytona-sandbox-execution/60-scale-and-cost"
+						}
+					}
+				},
+				{
+					"insert": "."
+				}
+			],
+			"children": []
+		}
+	}
 }
