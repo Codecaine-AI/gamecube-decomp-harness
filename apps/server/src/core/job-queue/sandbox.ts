@@ -77,7 +77,6 @@ interface DaytonaClient {
   create(params: {
     snapshot: string;
     labels: Record<string, string>;
-    resources: { cpu: number; memory: number; disk: number };
     autoStopInterval: 0;
     ttlMinutes: number;
   }): Promise<DaytonaSandbox>;
@@ -238,11 +237,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     const sandbox = await (await this.client()).create({
       snapshot: params.snapshot,
       labels: { ...params.labels },
-      resources: {
-        cpu: params.resources.cpu,
-        memory: params.resources.memoryGiB,
-        disk: params.resources.diskGiB,
-      },
+      // Daytona API: "Cannot specify Sandbox resources when using a snapshot".
       autoStopInterval: 0,
       ttlMinutes: params.ttlMinutes,
     });

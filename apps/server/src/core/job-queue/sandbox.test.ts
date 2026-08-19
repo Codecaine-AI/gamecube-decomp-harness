@@ -190,7 +190,6 @@ describe("DaytonaSandboxProvider", () => {
     expect(createCalls).toEqual([{
       snapshot: "melee-worker-v1",
       labels: createParams.labels,
-      resources: { cpu: 2, memory: 4, disk: 5 },
       autoStopInterval: 0,
       ttlMinutes: 90,
     }]);
