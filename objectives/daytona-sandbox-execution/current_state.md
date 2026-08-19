@@ -105,6 +105,9 @@ All four platform unknowns answered on a real Daytona runner (artifacts: example
 </next_actions>
 
 <risks_or_open_questions>
+- Docs were restructured by the operator on 2026-08-18 (content largely same, layout changed):
+  phase 4 must RE-LOCATE the design bundles rather than trust the
+  docs/40-new-features/10-daytona-sandbox-execution/ paths recorded earlier in this bundle.
 - Snapshot two-week deactivation: melee-sandbox-poc-20260818 needs the keepalive/reactivation
   runbook step (phase 4) if phase 3 slips.
 - Stop-while-thinking is deliberately out of v1; wake latency measured at ~0.85 s (phase 1) —
