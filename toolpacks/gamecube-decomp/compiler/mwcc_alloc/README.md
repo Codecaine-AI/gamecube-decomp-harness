@@ -121,7 +121,7 @@ worktree.
 
 1. Add the `gdb-multiarch` and `qemu-user` apt packages to the sandbox image.
 2. Run the existing bundle builder. It copies the four `sandbox/*.py` files to
-   `$MELEE_ROOT/build/tools/mwcc-alloc/` in the bundle.
+   `$MELEE_ROOT/build/tools/mwcc-alloc/` in the bundle. It also bakes stock upstream wibo 1.2.0 to `$MELEE_ROOT/build/tools/wibo-qemu`; the optimized wibo crashes under qemu-user, so captures require the stock binary.
 
    ```sh
    toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/build_image_bundle.sh \

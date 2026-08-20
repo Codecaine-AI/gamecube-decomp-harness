@@ -6,6 +6,8 @@
 # - Read compiler identity from MWCC_ALLOC_TARGET_SHA256 and
 #   MWCC_ALLOC_COMPILER_LABEL.
 # - Let MWCC_ALLOC_ONLY_INDEX limit auto-capture writes to one function index.
+# - Use software breakpoints: qemu-user 7.x gdbstub rejects hardware
+#   breakpoints (Z1) in user mode; TCG software breakpoints are equivalent.
 
 import json
 import os
@@ -91,7 +93,7 @@ class ColoringReturnBreakpoint(gdb.Breakpoint):
     def __init__(self, session, attempt, reg_class, return_address):
         super().__init__(
             f"*0x{return_address:08x}",
-            type=gdb.BP_HARDWARE_BREAKPOINT,
+            type=gdb.BP_BREAKPOINT,
             internal=True,
         )
         self.session = session
@@ -121,7 +123,7 @@ class ColoringBreakpoint(gdb.Breakpoint):
     def __init__(self, session):
         super().__init__(
             f"*0x{SELECT_COLORS_ADDRESS:08x}",
-            type=gdb.BP_HARDWARE_BREAKPOINT,
+            type=gdb.BP_BREAKPOINT,
             internal=True,
         )
         self.session = session
@@ -163,7 +165,7 @@ class AllocateBreakpoint(gdb.Breakpoint):
     def __init__(self, session):
         super().__init__(
             f"*0x{ALLOCATE_REGISTERS_ADDRESS:08x}",
-            type=gdb.BP_HARDWARE_BREAKPOINT,
+            type=gdb.BP_BREAKPOINT,
             internal=True,
         )
         self.session = session

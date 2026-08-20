@@ -62,12 +62,14 @@ IMPL="$HARNESS_ROOT/toolpacks/gamecube-decomp/_impl/gamecube"
 WIBO_DIR="$STATE_TOOLS/wibo-1.2.0-opt1"
 OBJDIFF_DIR="$STATE_TOOLS/objdiff-cli-3.6.1-score"
 WIBO="$WIBO_DIR/wibo-linux-i686"
+STOCK_WIBO="$STATE_TOOLS/wibo-1.2.0-stock/wibo-i686"
 LINUX_OBJDIFF="$OBJDIFF_DIR/objdiff-cli-linux-x86_64"
 CACHE_SHIM="$IMPL/tools/mwcc_objcache.py"
 CACHE_INSTALLER="$IMPL/tools/install_mwcc_cache.py"
 MWCC_ALLOC_DIR="$HARNESS_ROOT/toolpacks/gamecube-decomp/compiler/mwcc_alloc/sandbox"
 
 require_file "$WIBO"
+require_file "$STOCK_WIBO"
 require_file "$WIBO_DIR/README.md"
 require_file "$WIBO_DIR/wibo-opt-vs-upstream-e8f4795.patch"
 require_file "$OBJDIFF_DIR/README.md"
@@ -135,6 +137,8 @@ cp -a "$MWCC_ALLOC_DIR/allocator_snapshot.py" \
 # The optimized Linux wibo is the real executable. The image-side cache
 # installer will rename it to wibo-real and install the shim at this path.
 cp -a "$WIBO" "$PAYLOAD/melee/build/tools/wibo"
+# Stock wibo for qemu-based allocator captures; optimized wibo crashes under qemu-user.
+cp -a "$STOCK_WIBO" "$PAYLOAD/melee/build/tools/wibo-qemu"
 if [ -f "$LINUX_OBJDIFF" ]; then
   cp -a "$LINUX_OBJDIFF" "$PAYLOAD/melee/build/tools/objdiff-cli"
   cp -a "$LINUX_OBJDIFF" "$PAYLOAD/provenance/objdiff-cli-3.6.1-score/"
@@ -143,6 +147,7 @@ fi
 echo "Artifact SHA-256:" >&2
 for artifact in \
   "$PAYLOAD/melee/build/tools/wibo" \
+  "$PAYLOAD/melee/build/tools/wibo-qemu" \
   "$PAYLOAD/melee/build/tools/sjiswrap.exe" \
   "$PAYLOAD/melee/build/GALE01/report.json" \
   "$PAYLOAD/melee/build/tools/mwcc-alloc/allocator_snapshot.py" \

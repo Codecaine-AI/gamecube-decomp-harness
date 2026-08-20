@@ -176,8 +176,8 @@ def run_command(
 
 def object_path_for_unit(unit: str) -> str:
     source = PurePosixPath(unit)
-    relative = PurePosixPath(*source.parts[1:])
-    return str(PurePosixPath("build/GALE01/obj") / relative.with_suffix(".o"))
+    # The compiled object is build/GALE01/src/<unit>.o; build/GALE01/obj/ is the dtk-split baseline and not a ninja target.
+    return str(PurePosixPath("build/GALE01") / source.with_suffix(".o"))
 
 
 def extract_compile_command(
@@ -249,7 +249,13 @@ def sha256_file(path: Path) -> str:
 
 
 def select_wibo(repo_root: Path) -> Optional[Path]:
-    for relative in ("build/tools/wibo-real", "build/tools/wibo"):
+    # Prefer the stock wibo for qemu: the optimized wibo-real crashes under
+    # qemu-user (helper-thread SIGSEGV from segment-base mishandling).
+    for relative in (
+        "build/tools/wibo-qemu",
+        "build/tools/wibo-real",
+        "build/tools/wibo",
+    ):
         candidate = repo_root / relative
         try:
             with candidate.open("rb") as stream:
