@@ -2,6 +2,7 @@ import { buildAgentSharedStateGraphRecords } from "./agent-shared-state.js";
 import { buildCallGraphEdgeRecords } from "./call-graph-edges.js";
 import { buildCodeGraphRecords } from "./code-graph.js";
 import { buildDecompStandardsGraphRecords } from "./decomp-standards.js";
+import { buildDocumentSourceGraphRecords } from "./document-sources.js";
 import { buildGhidraXrefGraphRecords } from "./ghidra-xrefs.js";
 import { insertGraphRecords, openKnowledgeGraph, resetKnowledgeGraph, upsertSourceDescriptor, upsertToolDescriptor, graphStats } from "../db.js";
 import { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
@@ -11,6 +12,20 @@ import { buildPastPrsGraphRecords } from "./past-prs.js";
 import { buildLearningsGraphRecords } from "./learnings.js";
 import { buildSiblingGraphRecords } from "./siblings.js";
 import { readSourceRegistry, readToolRegistry } from "../registry/sources.js";
+
+const STATIC_GRAPH_SOURCES = [
+  "code_graph",
+  "past_prs",
+  "decomp_standards",
+  "agent_shared_state",
+  "curator_enrichment",
+  "mismatch_patterns",
+  "opseq_similarity",
+  "call_graph",
+  "ghidra_xrefs",
+  "siblings",
+  "knowledge_ledger",
+];
 
 export interface RebuildKnowledgeGraphOptions {
   repoRoot: string;
@@ -123,6 +138,21 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
         skippedSources.push("knowledge_ledger");
       }
     }
+    for (const source of sourceDescriptors) {
+      if (
+        source.kind !== "document"
+        || source.active === false
+        || STATIC_GRAPH_SOURCES.includes(source.id)
+        || !selected.has(source.id)
+      ) continue;
+      const records = buildDocumentSourceGraphRecords(source);
+      if (records) {
+        insertGraphRecords(store, records);
+        indexedSources.push(source.id);
+      } else {
+        skippedSources.push(source.id);
+      }
+    }
 
     return {
       graph_db: store.path,
@@ -136,17 +166,16 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
 }
 
 export function defaultGraphSources(): string[] {
-  return [
-    "code_graph",
-    "past_prs",
-    "decomp_standards",
-    "agent_shared_state",
-    "curator_enrichment",
-    "mismatch_patterns",
-    "opseq_similarity",
-    "call_graph",
-    "ghidra_xrefs",
-    "siblings",
-    "knowledge_ledger",
-  ];
+  return [...STATIC_GRAPH_SOURCES, ...registryDocumentSourceIds()];
+}
+
+function registryDocumentSourceIds(): string[] {
+  try {
+    return readSourceRegistry()
+      .filter((source) => source.kind === "document" && source.active !== false && !STATIC_GRAPH_SOURCES.includes(source.id))
+      .map((source) => source.id)
+      .sort();
+  } catch {
+    return [];
+  }
 }
