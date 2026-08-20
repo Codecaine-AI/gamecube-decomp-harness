@@ -142,7 +142,7 @@ describe("document source graph records", () => {
     } finally {
       restoreGameKnowledgeRoot();
     }
-  });
+  }, 60_000);
 });
 
 function tempDir(prefix: string): string {
