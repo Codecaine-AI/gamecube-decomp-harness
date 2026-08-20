@@ -43,7 +43,7 @@ import { openState } from "@server/core/cycle-runtime/run-state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { booleanArg, numberArg, gameMetadata, stringArg } from "@server/core/game-registry/runtime-options.js";
 
-interface SpawnSummary {
+export interface SpawnSummary {
   tool?: string;
   command: string[];
   exit_code: number;
@@ -55,6 +55,7 @@ interface SpawnSummary {
   error?: string;
   repo_root?: string;
   fallback_reason?: string;
+  duration_ms?: number;
 }
 
 export interface KnowledgeMaintenanceProgressEvent {
@@ -359,51 +360,108 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
   }
 }
 
-async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMaintenanceOptions = {}): Promise<SpawnSummary[]> {
+export function knowledgeRunnerPlan(): Array<{ toolId: string; script: string; timeoutMs?: number }> {
   const registryEntries = readToolRegistryEntries();
-  const configuredRunners = readToolRegistry().flatMap((tool, index) => {
-    const entry = registryEntries[index] as ({ knowledge_runner?: unknown } & Record<string, unknown>) | undefined;
-    return typeof entry?.knowledge_runner === "string" ? [[tool.id, entry.knowledge_runner] as const] : [];
+  return readToolRegistry().flatMap((tool, index) => {
+    const entry = registryEntries[index] as ({ knowledge_runner?: unknown; knowledge_runner_timeout_ms?: unknown } & Record<string, unknown>) | undefined;
+    if (typeof entry?.knowledge_runner !== "string") return [];
+    const configuredTimeout = entry.knowledge_runner_timeout_ms;
+    const timeoutMs = typeof configuredTimeout === "number" && Number.isFinite(configuredTimeout) && configuredTimeout > 0
+      ? configuredTimeout
+      : undefined;
+    return [{ toolId: tool.id, script: entry.knowledge_runner, timeoutMs }];
   });
+}
+
+export async function executeToolRunner(params: {
+  toolId: string;
+  command: string[];
+  cwd: string;
+  env: Record<string, string>;
+  repoRoot: string;
+  fallbackReason?: string;
+  timeoutMs?: number;
+  blocksOnFailure: boolean;
+  spawn?: typeof Bun.spawn;
+}): Promise<SpawnSummary> {
+  const startedAt = Date.now();
+  const proc = (params.spawn ?? Bun.spawn)(params.command, {
+    cwd: params.cwd,
+    env: params.env,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const stdoutPromise = new Response(proc.stdout).text();
+  const stderrPromise = new Response(proc.stderr).text();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
+  try {
+    if (typeof params.timeoutMs === "number" && Number.isFinite(params.timeoutMs) && params.timeoutMs > 0) {
+      const timeout = new Promise<"timeout">((resolveTimeout) => {
+        timer = setTimeout(() => resolveTimeout("timeout"), params.timeoutMs);
+      });
+      timedOut = await Promise.race([proc.exited.then(() => false), timeout]) === "timeout";
+      if (timedOut) proc.kill();
+    }
+    const [stdout, stderr, exitCode] = await Promise.all([stdoutPromise, stderrPromise, proc.exited]);
+    const summary: SpawnSummary = {
+      tool: params.toolId,
+      command: params.command,
+      exit_code: exitCode,
+      stdout,
+      stderr,
+      repo_root: params.repoRoot,
+      fallback_reason: params.fallbackReason,
+      duration_ms: Date.now() - startedAt,
+    };
+    if (timedOut) {
+      const error = `timed out after ${params.timeoutMs}ms`;
+      if (params.blocksOnFailure) throw new Error(`Tool runner timed out for ${params.toolId}: ${error}`);
+      return { ...summary, failed: true, reason: "tool_runner_timeout", error };
+    }
+    if (exitCode !== 0) {
+      const error = stderr || stdout || `command exited ${exitCode}`;
+      if (params.blocksOnFailure) throw new Error(`Tool runner failed for ${params.toolId} (${exitCode}): ${params.command.join(" ")}\n${error}`);
+      return { ...summary, failed: true, reason: "non_blocking_tool_runner_failed", error };
+    }
+    return summary;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMaintenanceOptions = {}): Promise<SpawnSummary[]> {
+  const configuredRunners = knowledgeRunnerPlan();
   const runnerListFallbackReason = configuredRunners.length === 0 ? "tool_registry_has_no_knowledge_runners" : undefined;
   const runners = configuredRunners.length > 0
     ? configuredRunners
     : [
-        ["ghidra", "export_xrefs.py"],
-        ["opseq", "extract_opcode_sequences.py"],
-        ["mismatch_db", "analyze_objdiff_mismatches.py"],
-        ["mwcc_debug", "probe_mwcc_compiler.py"],
-      ] as const;
+        { toolId: "ghidra", script: "export_xrefs.py" },
+        { toolId: "opseq", script: "extract_opcode_sequences.py" },
+        { toolId: "mismatch_db", script: "analyze_objdiff_mismatches.py" },
+        { toolId: "mwcc_debug", script: "probe_mwcc_compiler.py" },
+      ];
   return Promise.all(
-    runners.map(async ([toolId, scriptName]) => {
+    runners.map(async ({ toolId, script: scriptName, timeoutMs }) => {
       const resolved = resolveRegisteredTool(context, toolId);
       const repo = toolRunnerRepoRoot(context, toolId);
       const repoRoot = repo.repoRoot;
       const fallbackReason = [repo.fallbackReason, runnerListFallbackReason].filter(Boolean).join("; ") || undefined;
       const command = ["python3", resolve(resolved.toolRoot, "runners", scriptName), "--repo-root", repoRoot];
       return runKnowledgeStep(options, "tool_runner", { tool: toolId, command, repo_root: repoRoot, reason: fallbackReason }, async () => {
-      const proc = Bun.spawn(command, {
-        cwd: packageRoot(),
-        env: { ...Bun.env, ...resolved.env },
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
-      const summary: SpawnSummary = {
-        tool: toolId,
-        command,
-        exit_code: exitCode,
-        stdout,
-        stderr,
-        repo_root: repoRoot,
-        fallback_reason: fallbackReason,
-      };
-      if (exitCode !== 0) {
-        const error = stderr || stdout || `command exited ${exitCode}`;
-        if (toolBlocksOnFailure(toolId)) throw new Error(`Tool runner failed for ${toolId} (${exitCode}): ${command.join(" ")}\n${error}`);
-        return { ...summary, failed: true, reason: "non_blocking_tool_runner_failed", error };
-      }
-      return summary;
+        if (resolved.enabled === false) {
+          return { tool: toolId, command, exit_code: 0, stdout: "", stderr: "", skipped: true, reason: "tool_binding_disabled", repo_root: repoRoot };
+        }
+        return executeToolRunner({
+          toolId,
+          command,
+          cwd: packageRoot(),
+          env: { ...Bun.env, ...resolved.env } as Record<string, string>,
+          repoRoot,
+          fallbackReason,
+          timeoutMs,
+          blocksOnFailure: toolBlocksOnFailure(toolId),
+        });
       });
     }),
   );
