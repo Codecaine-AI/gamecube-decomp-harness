@@ -101,11 +101,16 @@ describe("document source graph records", () => {
         ],
       }, null, 2)}\n`,
     );
+    const codeGraphIndexes = join(sourcesRoot, "code_graph", "indexes");
+    mkdirSync(codeGraphIndexes, { recursive: true });
+    writeFileSync(join(codeGraphIndexes, "files.jsonl"), "");
+    writeFileSync(join(codeGraphIndexes, "functions.jsonl"), "");
     process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;
 
     const dbPath = join(knowledgeRoot, "graph2.sqlite");
+    const defaultDbPath = join(knowledgeRoot, "graph-default.sqlite");
     try {
-      expect(defaultGraphSources()).toContain("fixture_docs");
+      expect(defaultGraphSources()).not.toContain("fixture_docs");
       const result = rebuildKnowledgeGraph({
         repoRoot: tempDir("document-rebuild-repo-"),
         dbPath,
@@ -119,6 +124,20 @@ describe("document source graph records", () => {
         expect(hits.some((hit) => hit.source_id === "fixture_docs" && hit.snippet.toLowerCase().includes("spill"))).toBe(true);
       } finally {
         store.db.close();
+      }
+
+      const defaultResult = rebuildKnowledgeGraph({
+        repoRoot: tempDir("document-default-rebuild-repo-"),
+        dbPath: defaultDbPath,
+      });
+      expect(defaultResult.indexed_sources).not.toContain("fixture_docs");
+
+      const defaultStore = openKnowledgeGraph(defaultDbPath);
+      try {
+        const hits = searchKnowledgeGraph(defaultStore, { query: "spill cost", limit: 5 });
+        expect(hits.some((hit) => hit.source_id === "fixture_docs")).toBe(false);
+      } finally {
+        defaultStore.db.close();
       }
     } finally {
       restoreGameKnowledgeRoot();

@@ -166,16 +166,7 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
 }
 
 export function defaultGraphSources(): string[] {
-  return [...STATIC_GRAPH_SOURCES, ...registryDocumentSourceIds()];
-}
-
-function registryDocumentSourceIds(): string[] {
-  try {
-    return readSourceRegistry()
-      .filter((source) => source.kind === "document" && source.active !== false && !STATIC_GRAPH_SOURCES.includes(source.id))
-      .map((source) => source.id)
-      .sort();
-  } catch {
-    return [];
-  }
+  // Registry document sources are librarian input, so default rebuilds exclude them.
+  // Opt in by listing document source ids in options.sources (kg CLI: --sources).
+  return [...STATIC_GRAPH_SOURCES];
 }
