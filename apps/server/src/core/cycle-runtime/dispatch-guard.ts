@@ -12,7 +12,6 @@ import {
 } from "@server/core/harness-state";
 import { newSpanId } from "@server/core/harness-state/events.js";
 import { openState } from "@server/core/orchestrator-state";
-import { pauseRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
 
 export interface DispatchGuardContext {
   game?: { gameId: string } | null;
@@ -27,6 +26,7 @@ export interface DispatchGuardInput {
   gameId?: string;
   reason: string;
   spanId?: string;
+  stopRunOnHandoff?: (input: { reason: string; runId: string }) => Promise<unknown>;
   workflowId: string;
 }
 
@@ -85,6 +85,7 @@ export async function withDispatchLease<T>(
       kind: input.kind,
       gameId,
       reason: input.reason,
+      handoffOnQueue: input.beginHandoffOnQueue,
       workflowId: input.workflowId,
       spanId: actionSpanId,
     });
@@ -97,33 +98,13 @@ export async function withDispatchLease<T>(
             `Cannot hand off ${holder.kind}:${holder.workflow_id} to ${input.kind}:${input.workflowId}; only the active run supports operator handoff`,
           );
         }
-        const requested = holder.requested_handoff;
-        if (holder.status === "draining") {
-          if (
-            requested?.target_kind !== input.kind ||
-            requested.target_workflow_id !== input.workflowId
-          ) {
-            throw new Error(
-              `Dispatch lease is already draining to ${requested?.target_kind ?? "unknown"}:${requested?.target_workflow_id ?? "unknown"}`,
-            );
-          }
-        } else {
-          if (holder.status !== "active") {
-            throw new Error(
-              `Cannot begin dispatch handoff while ${holder.kind}:${holder.workflow_id} is ${holder.status}`,
-            );
-          }
-          pauseRun({
-            actor,
-            commandId,
-            reason: input.reason,
-            runId: holder.workflow_id,
-            spanId: actionSpanId,
-            store,
-            targetKind: input.kind,
-            targetWorkflowId: input.workflowId,
-          });
+        if (holder.status !== "active") {
+          throw new Error(
+            `Cannot begin dispatch handoff while ${holder.kind}:${holder.workflow_id} is ${holder.status}`,
+          );
         }
+        if (!input.stopRunOnHandoff) throw new Error("Dispatch handoff requires a managed run stop callback");
+        await input.stopRunOnHandoff({ reason: input.reason, runId: holder.workflow_id });
       }
       throw new DispatchLeaseUnavailableError({
         kind: decision.blockedBy.kind,

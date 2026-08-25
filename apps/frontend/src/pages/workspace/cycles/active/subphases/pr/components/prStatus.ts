@@ -61,12 +61,12 @@ export function prLockReason(view: CycleView): string {
   return view.canOpenPrs
     ? ""
     : view.process.running
-      ? "Drain workers first."
+      ? "Stop workers first."
       : view.syncing
         ? "Sync is in progress."
         : view.operationActive
           ? `${view.operationLabel} is in progress.`
           : view.activeClaims > 0
-            ? `Waiting on ${num(view.activeClaims)} draining claim(s).`
+            ? `Waiting on ${num(view.activeClaims)} active claim(s).`
             : "";
 }

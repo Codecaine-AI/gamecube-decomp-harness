@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Archive, Hammer, Pause, Play, RefreshCw } from "@/icons";
+import { Archive, Play, RefreshCw } from "@/icons";
 import { Button, EmptyState, Field, InfoRows, Pill, SelectField } from "@/components/primitives";
 import { asArray, asObject, clock, numberValue, shortId, text, type JsonObject } from "@/lib/format";
 import { processView } from "@/lib/processView";
@@ -56,13 +56,11 @@ function processName(dashboard: ProcessTabProps["dashboard"]): string {
   return text(game.processName, "melee-live");
 }
 
-function processSentence(dashboard: ProcessTabProps["dashboard"], running: boolean, draining: boolean): string {
+function processSentence(dashboard: ProcessTabProps["dashboard"], running: boolean): string {
   const proc = asObject(dashboard?.process);
   const operation = asObject(proc.operation);
   const operationStatus = text(operation.status);
   if (operationStatus === "running") return `${text(operation.label, "Operation")} is running right now.`;
-  if (draining) return "Workers are draining; no new workers will start.";
-
   const cycle = asObject(dashboard?.cycle);
   const phase = text(cycle.phase);
   const subphase = text(cycle.activeSubphase);
@@ -108,7 +106,6 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
   const view = processView(dashboard, selectedName);
   const proc = view.display;
   const running = view.running;
-  const draining = view.draining;
   const startedAt = recordValue(proc, "startedAt", "started_at");
   const endedAt = recordValue(proc, "endedAt", "ended_at");
   const elapsed = startedAt ? formatElapsed(startedAt, running ? undefined : endedAt) : "";
@@ -117,12 +114,9 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
   const cycle = asObject(dashboard?.cycle);
   const run = asObject(status.run);
   const checkpoint = asObject(dashboard?.checkpointProgress);
-  const schedulerEpoch = asObject(status.schedulerEpoch);
   const activeClaims = numberValue(status.activeClaims, 0);
   const saved = view.saved.slice(0, 5);
   const hasRun = Boolean(text(run.id));
-  const hasActiveEpoch = Boolean(text(schedulerEpoch.epochId));
-  const checkpointBuilding = checkpoint.building === true;
   const timeoutMinutes = workerTimeoutMinutes(form.agentTimeoutSeconds);
 
   useEffect(() => {
@@ -137,24 +131,16 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Current Process</div>
-            <p className="mb-0 mt-1 text-sm font-semibold leading-5 text-fg">{processSentence(dashboard, running, draining)}</p>
+            <p className="mb-0 mt-1 text-sm font-semibold leading-5 text-fg">{processSentence(dashboard, running)}</p>
           </div>
           <Pill state={view.pillState} />
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-1.5">
-          <Button disabled={busy || !running || draining} icon={draining ? <RefreshCw size={13} /> : <Pause size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)} title={running ? "Stop scheduling and exit after in-flight workers finish." : "No process is running."} tone="warning" type="button">
-            {draining ? "Draining" : "Drain"}
-          </Button>
-          <Button disabled={busy || !running} icon={<Archive size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.hardStop)} title={running ? "Kill workers immediately and recover active claims for rescheduling." : "No process is running."} tone="danger" type="button">
-            Kill
+        <div className="mt-3 grid grid-cols-2 gap-1.5">
+          <Button disabled={busy || !running} icon={<Archive size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.hardStop)} title={running ? "Stop workers gracefully, then cancel any still running after 30 seconds." : "No process is running."} tone="warning" type="button">
+            Stop
           </Button>
           <Button disabled={busy || running || !hasRun} icon={<Play size={13} />} onClick={() => onAction("start")} title={!hasRun ? "No active run to start." : running ? "Workers are already running." : "Start workers with the current run config."} tone={!running && hasRun ? "primary" : undefined} type="button">
             Start
-          </Button>
-        </div>
-        <div className="mt-1.5">
-          <Button disabled={busy || !running || !hasActiveEpoch || checkpointBuilding} icon={<Hammer size={13} />} onClick={() => onAction("finishEpoch")} title={!running ? "No process is running." : !hasActiveEpoch ? "No active epoch to finish." : checkpointBuilding ? "An epoch checkpoint is already building." : "Treat the current epoch as drained and run the baseline/rebuild checkpoint now."} tone="warning" type="button">
-            Finish Epoch
           </Button>
         </div>
         <div className="mt-1.5">

@@ -17,7 +17,7 @@ import { CycleHistoryPage } from "@/pages/workspace/cycles/active/subphases/hist
 import { ActiveCycleSummary } from "@/pages/workspace/cycles/active/components/ActiveCycleSummary";
 import { ReviewSubPage } from "@/pages/workspace/cycles/active/components/ReviewSubPage";
 
-const leaseWarningStatuses = new Set(["draining", "blocked", "releasing"]);
+const leaseWarningStatuses = new Set(["blocked", "releasing"]);
 
 export function ActiveCyclePage(props: CyclesPageProps) {
   const sub = props.route.cycleSub ?? props.view.recommendedSub;

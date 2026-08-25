@@ -132,7 +132,7 @@ export function normalizeProcessState(value: unknown, gameId: string, cycleUuid:
   const raw = objectValue(value);
   if (Object.keys(raw).length === 0) return null;
   const command = Array.isArray(raw.command) ? raw.command.map((item) => String(item)) : undefined;
-  const status = ["idle", "running", "draining", "stopping", "exited", "unknown"].includes(String(raw.status)) ? String(raw.status) : "unknown";
+  const status = ["idle", "running", "stopping", "exited", "unknown"].includes(String(raw.status)) ? String(raw.status) : "unknown";
   return {
     ...raw,
     process_name: typeof raw.process_name === "string" && raw.process_name ? raw.process_name : "melee-live",

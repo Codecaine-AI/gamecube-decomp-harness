@@ -4,7 +4,6 @@ import { immediateTransaction } from "@server/core/orchestrator-state";
 import { reconcilePendingIntegrations } from "@server/core/cycle";
 import { newSpanId, type EventActor } from "@server/core/harness-state/events.js";
 import {
-  beginDrain,
   getHarnessState,
   initializeHarnessState,
   recoverDispatch,
@@ -14,7 +13,6 @@ import {
   requireLease,
   STALE_DISPATCH_LEASE_MS,
   type DispatchLease,
-  type DispatchKind,
 } from "@server/core/harness-state";
 import {
   completeRunRecoveryJournal,
@@ -58,17 +56,15 @@ export type RunDispatchLeaseStaleness = "stale" | "not_stale" | "process_livenes
 export type HardStopRunInput = SettlingRunControlInput;
 export type CancelRunInput = ConfirmedRunControlInput;
 
-export interface PauseRunInput extends Omit<ConfirmedRunControlInput, "confirmed"> {
+export interface RunActionInput extends Omit<ConfirmedRunControlInput, "confirmed"> {
   actor?: "guardian" | "operator" | "runner";
-  targetKind?: DispatchKind;
-  targetWorkflowId?: string;
 }
 
-export interface SettlePausedRunInput extends PauseRunInput {
+export interface SettleStoppedRunInput extends RunActionInput {
   leaseId?: string;
 }
 
-export interface ActivateRunInput extends PauseRunInput {
+export interface ActivateRunInput extends RunActionInput {
   gameId?: string;
 }
 
@@ -87,14 +83,14 @@ export interface HardStopRunResult extends SettledRunControlResult {
   dispatchLeaseRecovered: boolean;
 }
 
-export interface PauseRunResult {
+export interface StoppedRunSettlementResult {
   leaseId: string | null;
   run: RunRecord;
   settled: boolean;
 }
 
 export interface RunLeaseReconciliation {
-  action: "released_unexpected_lease" | "paused_lease_free_run" | "aligned_run_to_draining_lease";
+  action: "released_unexpected_lease" | "paused_lease_free_run";
   message: string;
   run: RunRecord;
 }
@@ -167,17 +163,6 @@ function dispatchReleaseEventId(store: StateStore, causedByEventId: string | nul
   throw new Error(`Dispatch release ended with unexpected event ${event.event_type}`);
 }
 
-function settlementReleaseCausationId(store: StateStore, gameId: string, fallbackCommandId: string): string {
-  const causedByEventId = getHarnessState(store, gameId)?.caused_by_event_id;
-  if (!causedByEventId) return fallbackCommandId;
-  const event = store.db
-    .query("SELECT event_type FROM game_events WHERE event_id = ? AND game_id = ?")
-    .get(causedByEventId, gameId) as { event_type: string } | null;
-  return event?.event_type === "game.dispatch_drain_started" || event?.event_type === "game.dispatch_requested"
-    ? causedByEventId
-    : fallbackCommandId;
-}
-
 /** Atomically acquires dispatch authority and activates a ready/paused run. */
 export function activateRun(input: ActivateRunInput): { leaseId: string; run: RunRecord } {
   const operationCommandId = commandId({ ...input, confirmed: true }, "run-activate");
@@ -228,60 +213,16 @@ export function activateRun(input: ActivateRunInput): { leaseId: string; run: Ru
   });
 }
 
-/** Atomically disables admission in both the run and its dispatch lease. */
-export function pauseRun(input: PauseRunInput): PauseRunResult {
-  const operationCommandId = commandId({ ...input, confirmed: true }, "run-pause");
+/** Run-loop exit boundary: release authority, activate a waiting successor, and park the run. */
+export function settleStoppedRun(input: SettleStoppedRunInput): StoppedRunSettlementResult {
+  const operationCommandId = commandId({ ...input, confirmed: true }, "run-stop-settled");
   const actionSpanId = input.spanId ?? newSpanId();
   return immediateTransaction(input.store.db, () => {
     const original = requireRun(input.store, input.runId);
     const lease = runLease(input.store, original);
     if (original.status === "paused" && !lease) return { leaseId: null, run: original, settled: true };
-    if (original.status === "draining" && lease?.status === "draining") {
-      return { leaseId: lease.lease_id, run: original, settled: false };
-    }
     if (original.status !== "active") {
-      throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; pause requires active`, ["run_not_active"]);
-    }
-    if (!lease || lease.status !== "active") {
-      throw new RunControlBlockedError(`Run ${original.id} cannot pause without its active dispatch lease`, ["run_lease_disagreement"]);
-    }
-    const actor = input.actor ?? "operator";
-    const run = transitionRun(input.store, original.id, {
-      actor,
-      commandId: operationCommandId,
-      correlationId: original.id,
-      eventType: "run.draining",
-      expectedRevision: original.revision,
-      patch: { status: "draining", stopRequest: { mode: "pause", reason: input.reason } },
-      payload: { lease_id: lease.lease_id, reason: input.reason },
-      spanId: actionSpanId,
-    });
-    beginDrain(input.store, {
-      actor,
-      causationId: run.causedByEventId ?? operationCommandId,
-      commandId: operationCommandId,
-      correlationId: original.id,
-      leaseId: lease.lease_id,
-      gameId: requireGameId(original),
-      reason: input.reason,
-      spanId: actionSpanId,
-      targetKind: input.targetKind,
-      targetWorkflowId: input.targetWorkflowId,
-    });
-    return { leaseId: lease.lease_id, run, settled: false };
-  });
-}
-
-/** Run-loop exit boundary: release/park authority and then pause. */
-export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
-  const operationCommandId = commandId({ ...input, confirmed: true }, "run-pause-settled");
-  const actionSpanId = input.spanId ?? newSpanId();
-  return immediateTransaction(input.store.db, () => {
-    const original = requireRun(input.store, input.runId);
-    const lease = runLease(input.store, original);
-    if (original.status === "paused" && !lease) return { leaseId: null, run: original, settled: true };
-    if (original.status !== "active" && original.status !== "draining") {
-      throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; pause settlement requires active or draining`, ["run_not_settling"]);
+      throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; stop settlement requires active`, ["run_not_settling"]);
     }
     const activeClaims = activeClaimsForRun(input.store, original.id);
     if (activeClaims.length > 0) {
@@ -297,7 +238,6 @@ export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
     const gameId = requireGameId(original);
     const release = releaseDispatchDetailed(input.store, {
       actor,
-      causationId: settlementReleaseCausationId(input.store, gameId, operationCommandId),
       commandId: operationCommandId,
       correlationId: original.id,
       leaseId: lease.lease_id,
@@ -371,7 +311,7 @@ export function settlePausedRun(input: SettlePausedRunInput): PauseRunResult {
 }
 
 /** Loud startup repair for the two status/lease crash-window shapes. */
-export function reconcileRunLeaseState(input: PauseRunInput): RunLeaseReconciliation | null {
+export function reconcileRunLeaseState(input: RunActionInput): RunLeaseReconciliation | null {
   const operationCommandId = commandId({ ...input, confirmed: true }, "run-lease-reconcile");
   const actionSpanId = input.spanId ?? newSpanId();
   return immediateTransaction(input.store.db, () => {
@@ -396,24 +336,7 @@ export function reconcileRunLeaseState(input: PauseRunInput): RunLeaseReconcilia
         run: original,
       };
     }
-    if (original.status === "active" && lease?.status === "draining") {
-      const run = transitionRun(input.store, original.id, {
-        actor: "guardian",
-        commandId: operationCommandId,
-        correlationId: original.id,
-        eventType: "run.draining",
-        expectedRevision: original.revision,
-        patch: { status: "draining", stopRequest: { mode: "pause", reason: input.reason } },
-        payload: { lease_id: lease.lease_id, reason: input.reason },
-        spanId: actionSpanId,
-      });
-      return {
-        action: "aligned_run_to_draining_lease",
-        message: `Startup reconciliation moved active run ${original.id} to draining to match lease ${lease.lease_id}`,
-        run,
-      };
-    }
-    if ((original.status === "active" || original.status === "draining") && !lease) {
+    if (original.status === "active" && !lease) {
       const run = transitionRun(input.store, original.id, {
         actor: "guardian",
         commandId: operationCommandId,
@@ -422,7 +345,7 @@ export function reconcileRunLeaseState(input: PauseRunInput): RunLeaseReconcilia
         expectedRevision: original.revision,
         patch: {
           status: "paused",
-          stopRequest: original.stopRequest ?? { mode: "pause", reason: input.reason },
+          stopRequest: original.stopRequest,
         },
         payload: {},
         spanId: actionSpanId,
@@ -533,8 +456,8 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
   if (original.status === "completed" || original.status === "cancelled") {
     throw new RunControlBlockedError(`Run ${original.id} is terminal (${original.status})`, ["run_terminal"]);
   }
-  if (original.status !== "failed" && original.status !== "active" && original.status !== "draining" && original.status !== "paused") {
-    throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; recovery requires failed, active, draining, or paused`, [
+  if (original.status !== "failed" && original.status !== "active" && original.status !== "paused") {
+    throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; recovery requires failed, active, or paused`, [
       "run_status_not_recoverable",
     ]);
   }
@@ -586,7 +509,7 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
         `Recovery journal ${prepared.journal.recoveryId} expects run revision ${prepared.journal.expectedRunRevision}, found ${current.revision}`,
       );
     }
-    if (current.status !== "failed" && current.status !== "active" && current.status !== "draining" && current.status !== "paused") {
+    if (current.status !== "failed" && current.status !== "active" && current.status !== "paused") {
       throw new RunControlBlockedError(`Run ${current.id} changed to ${current.status} during recovery`, ["run_status_changed"]);
     }
     const recovery = settlePreparedRunClaimRecovery(
@@ -668,8 +591,8 @@ export async function hardStopRun(input: HardStopRunInput): Promise<HardStopRunR
   if (original.status === "paused" && !originalLease && activeClaimsForRun(input.store, original.id).length === 0) {
     return { cancelledClaimIds: [], cancelledOperationIds: [], dispatchLeaseRecovered: false, run: original };
   }
-  if (original.status !== "active" && original.status !== "draining" && original.status !== "paused") {
-    throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; hard stop requires active or draining`, ["run_not_active_or_draining"]);
+  if (original.status !== "active" && original.status !== "paused") {
+    throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; hard stop requires active or paused`, ["run_not_active_or_paused"]);
   }
   const lease = originalLease;
   const prepared = await prepareSettlingRunClaims(input, original, "run.hard_stop", operationCommandId);
@@ -683,7 +606,7 @@ export async function hardStopRun(input: HardStopRunInput): Promise<HardStopRunR
         `Recovery journal ${prepared.journal.recoveryId} expects run revision ${prepared.journal.expectedRunRevision}, found ${current.revision}`,
       );
     }
-    if (current.status !== "active" && current.status !== "draining" && current.status !== "paused") {
+    if (current.status !== "active" && current.status !== "paused") {
       throw new RunControlBlockedError(`Run ${current.id} changed to ${current.status} during hard stop`, ["run_status_changed"]);
     }
     const recovery = settlePreparedRunClaimRecovery(

@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { immediateTransaction, now as currentTime, openState, type StateStore } from "@server/core/orchestrator-state";
 import {
-  beginDrain,
   cancelDispatchRequest,
   getHarnessState,
   initializeHarnessState,
@@ -14,7 +13,6 @@ import {
 import { getActiveCycle } from "@server/core/cycle/store.js";
 import { unresolvedSavePointFailures } from "@server/core/cycle/timeline.js";
 import { newSpanId, type JsonObject as EventJsonObject } from "@server/core/harness-state/events.js";
-import { pauseRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import type { GameRuntimeContext } from "@server/core/game-registry";
 import type { DispatchLeaseRevalidator } from "@server/core/cycle-runtime/dispatch-guard.js";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner.js";
@@ -86,6 +84,7 @@ export interface PrCampaignRuntimeDeps {
     input: JsonObject,
     options?: { useDefaultGame?: boolean },
   ) => GameRuntimeContext;
+  stopManaged: (body: JsonObject) => Promise<JsonObject>;
   runGit: (
     repoRoot: string,
     args: string[],
@@ -97,7 +96,7 @@ export interface PrActivateDecision {
   campaign: PrCampaignState;
   lease_id: string | null;
   queued: boolean;
-  run_draining: boolean;
+  run_stopping: boolean;
 }
 
 export class PrCampaignActionBlockedError extends Error {
@@ -423,12 +422,7 @@ export function gamePrCampaignAction(
         ));
       }
       const activeRun = lease.kind === "run" && lease.status === "active";
-      const drainingRun = lease.kind === "run" && lease.status === "draining" && (
-        !lease.requested_handoff ||
-        (lease.requested_handoff.target_kind === "pr" &&
-          lease.requested_handoff.target_workflow_id === campaign.campaign_id)
-      );
-      if (!sameCampaign && !activeRun && !drainingRun) {
+      if (!sameCampaign && !activeRun) {
         blockers.push(blocker(
           "dispatch_lease_held",
           `${lease.kind} workflow ${lease.workflow_id} holds the dispatch lease and cannot hand off to this PR campaign.`,
@@ -441,7 +435,7 @@ export function gamePrCampaignAction(
       actionId,
       subjectId,
       blockers,
-      lease?.kind === "run" ? "preparing/in_review → working after run drains" : "preparing/in_review → working",
+      lease?.kind === "run" ? "preparing/in_review → working after run stops" : "preparing/in_review → working",
       false,
     );
   }
@@ -661,7 +655,8 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
       if (!campaign) throw new Error(`PR campaign not found for ${gameId}`);
       const operationCommandId = commandId(body, "pr-activate");
       const operationSpanId = newSpanId();
-      return immediateTransaction(store.db, () => {
+      let stoppedRunId: string | null = null;
+      const decision = immediateTransaction(store.db, () => {
         initializeHarnessState(store, { gameId, traceId: `trace-game-${gameId}` });
         const existing = getHarnessState(store, gameId)?.active_workflow;
         if (existing?.kind === "pr" && existing.workflow_id === campaign.campaign_id) {
@@ -675,7 +670,7 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
             spanId: operationSpanId,
             store,
           });
-          return { campaign: activated, lease_id: existing.lease_id, queued: false, run_draining: false };
+          return { campaign: activated, lease_id: existing.lease_id, queued: false, run_stopping: false };
         }
         const dispatch = requestDispatch(store, {
           actor: "operator",
@@ -686,6 +681,7 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
           reason: text(body.reason, "operator activated PR campaign"),
           workflowId: campaign.campaign_id,
           spanId: operationSpanId,
+          handoffOnQueue: true,
         });
         if (!dispatch.queued) {
           const activated = activateAcquiredPrCampaign({
@@ -698,44 +694,24 @@ export function createPrCampaignRuntime(deps: PrCampaignRuntimeDeps) {
             store,
             spanId: operationSpanId,
           });
-          return { campaign: activated, lease_id: dispatch.leaseId, queued: false, run_draining: false };
+          return { campaign: activated, lease_id: dispatch.leaseId, queued: false, run_stopping: false };
         }
         const holder = dispatch.blockedBy;
         if (holder.kind !== "run") {
           throw new Error(`Only an active run can hand off dispatch authority to PR; found ${holder.kind}:${holder.workflow_id}`);
         }
-        if (holder.status === "active") {
-          pauseRun({
-            actor: "operator",
-            commandId: operationCommandId,
-            reason: text(body.reason, "operator activated PR campaign"),
-            runId: holder.workflow_id,
-            spanId: operationSpanId,
-            store,
-            targetKind: "pr",
-            targetWorkflowId: campaign.campaign_id,
-          });
-        } else if (holder.status === "draining" && !holder.requested_handoff) {
-          beginDrain(store, {
-            actor: "operator",
-            commandId: operationCommandId,
-            correlationId: holder.workflow_id,
-            leaseId: holder.lease_id,
-            gameId,
-            reason: text(body.reason, "operator activated PR campaign"),
-            targetKind: "pr",
-            targetWorkflowId: campaign.campaign_id,
-            spanId: operationSpanId,
-          });
-        } else if (
-          holder.status !== "draining" ||
-          holder.requested_handoff?.target_kind !== "pr" ||
-          holder.requested_handoff.target_workflow_id !== campaign.campaign_id
-        ) {
-          throw new Error(`Run ${holder.workflow_id} cannot hand off to PR while ${holder.status}`);
-        }
-        return { campaign, lease_id: null, queued: true, run_draining: true };
+        stoppedRunId = holder.workflow_id;
+        return { campaign, lease_id: null, queued: true, run_stopping: true };
       });
+      if (stoppedRunId) {
+        await deps.stopManaged({
+          ...body,
+          reason: text(body.reason, "operator activated PR campaign"),
+          recoverClaims: false,
+          runId: stoppedRunId,
+        });
+      }
+      return decision;
     } finally {
       store.db.close();
     }

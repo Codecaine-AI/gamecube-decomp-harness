@@ -1,4 +1,4 @@
-import { AlertTriangle, Ban, Pause, Play, RotateCcw, X } from "@/icons";
+import { AlertTriangle, Ban, Play, RotateCcw, X } from "@/icons";
 import { num, pct } from "@/lib/format";
 import { Button, PanelSection, PanelTitle, StatCard } from "@/components/primitives";
 import { prettyStatus, harnessStateAction } from "@/pages/workspace/_lib/model";
@@ -15,9 +15,8 @@ const RUN_ACTIONS: ReadonlyArray<{
   label: string;
 }> = [
   { actionId: "run.start", dashboardAction: "runStart", icon: Play, label: "Start" },
-  { actionId: "run.pause", dashboardAction: "runPause", icon: Pause, label: "Pause" },
   { actionId: "run.resume", dashboardAction: "runResume", icon: Play, label: "Resume" },
-  { actionId: "run.hard_stop", dashboardAction: "runHardStop", icon: X, label: "Hard stop" },
+  { actionId: "run.hard_stop", dashboardAction: "runHardStop", icon: X, label: "Stop" },
   { actionId: "run.cancel", dashboardAction: "runCancel", icon: Ban, label: "Cancel" },
   { actionId: "run.recover", dashboardAction: "runRecover", icon: RotateCcw, label: "Recover" },
 ];
@@ -45,7 +44,7 @@ export function RunStateCard({ busy, onAction, harnessState }: {
     <PanelSection>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <PanelTitle className="mb-0">Run State</PanelTitle>
-        <span className={`status-tag ${run?.status === "active" ? "status-tag-live" : run && ["draining", "failed"].includes(run.status) ? "status-tag-warn" : ""}`}>
+        <span className={`status-tag ${run?.status === "active" ? "status-tag-live" : run?.status === "failed" ? "status-tag-warn" : ""}`}>
           <span className="lamp" />
           {run ? prettyStatus(run.status) : "No run"}
         </span>

@@ -19,7 +19,7 @@ import {
   StaleLeaseError,
 } from "@server/core/harness-state";
 import { openState } from "@server/core/orchestrator-state";
-import { settlePausedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
+import { settleStoppedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { enterPrPhase } from "./index.js";
 
 const cleanupPaths: string[] = [];
@@ -188,7 +188,7 @@ test("enterPrPhase preserves durable cycle status while activating PR work", () 
       started_at: "2026-08-14T10:01:00.000Z",
       status: "blocked",
       stop_reason: "manual_stop",
-      subphase: "draining",
+      subphase: "workers",
     },
     status: "active",
   }, "2026-08-14T10:02:00.000Z", { force: true });
@@ -251,6 +251,7 @@ function runtimeFixture(
     } | null;
     ghCommands: string[][];
     publish: number;
+    stopManagedBodies: Array<Record<string, unknown>>;
   } = {
     boundaryOrder: [],
     events: [],
@@ -259,6 +260,7 @@ function runtimeFixture(
     merge: 0,
     order: [],
     publish: 0,
+    stopManagedBodies: [],
   };
 
   const deps = {
@@ -318,7 +320,12 @@ function runtimeFixture(
       },
       verifyShipSet: async () => ({ status: "pr_ready", newMatches: 1, files: 1, shippedFiles: ["src/melee/gm/gmtest.c"], droppedFiles: {} }),
     },
-    processControl: { drainManaged: async () => ({}) },
+    processControl: {
+      stopManaged: async (body: Record<string, unknown>) => {
+        calls.stopManagedBodies.push(body);
+        return { stopped: true };
+      },
+    },
     gameToSummary: () => ({}),
     resolveDashboardGame: () => ({
       repoRoot,
@@ -632,7 +639,7 @@ describe("openPrForSlice support manifests", () => {
 });
 
 describe("PR dispatch lease fencing", () => {
-  test("pause commits boundary work before anchoring the resulting HEAD", async () => {
+  test("stop commits boundary work before anchoring the resulting HEAD", async () => {
     const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "local_only", " M src/melee/gm/gmtest.c\n");
     seedDurablePrWorkflow(stateDir, "pr-handoff:run-1");
     const store = openState(stateDir);
@@ -644,11 +651,11 @@ describe("PR dispatch lease fencing", () => {
       initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
       const dispatch = requestDispatch(store, {
         actor: "operator",
-        commandId: "command-pause-run",
+        commandId: "command-stop-run",
         correlationId: "pr-handoff:run-1",
         kind: "pr",
         gameId: "melee",
-        reason: "pause boundary test",
+        reason: "stop boundary test",
         workflowId: "pr-handoff:run-1",
       });
       if (dispatch.queued) throw new Error("expected run lease acquisition");
@@ -656,15 +663,15 @@ describe("PR dispatch lease fencing", () => {
       store.db.close();
     }
 
-    await expect(runtime.pauseRunForPr({ runId: "run-1" })).resolves.toMatchObject({
-      paused: true,
+    await expect(runtime.stopRunForPr({ runId: "run-1" })).resolves.toMatchObject({
+      stopped: true,
       boundaryCommit: { committed: true, headRevision: "head-sha" },
       savePoint: { ok: true },
     });
     expect(calls.boundaryOrder).toEqual(["status", "add", "commit", "rev-parse", "save-point"]);
   });
 
-  test("pause fails loudly and never records an anchor when its boundary commit fails", async () => {
+  test("stop fails loudly and never records an anchor when its boundary commit fails", async () => {
     const { calls, runtime, stateDir } = runtimeFixture(undefined, [], true, undefined, "local_only", " M src/melee/gm/gmtest.c\n", true);
     seedDurablePrWorkflow(stateDir, "pr-handoff:run-1");
     const store = openState(stateDir);
@@ -676,11 +683,11 @@ describe("PR dispatch lease fencing", () => {
       initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
       const dispatch = requestDispatch(store, {
         actor: "operator",
-        commandId: "command-pause-run-failure",
+        commandId: "command-stop-run-failure",
         correlationId: "pr-handoff:run-1",
         kind: "pr",
         gameId: "melee",
-        reason: "pause boundary failure test",
+        reason: "stop boundary failure test",
         workflowId: "pr-handoff:run-1",
       });
       if (dispatch.queued) throw new Error("expected run lease acquisition");
@@ -688,7 +695,7 @@ describe("PR dispatch lease fencing", () => {
       store.db.close();
     }
 
-    await expect(runtime.pauseRunForPr({ runId: "run-1" })).rejects.toThrow("boundary git commit failed");
+    await expect(runtime.stopRunForPr({ runId: "run-1" })).rejects.toThrow("boundary git commit failed");
     expect(calls.boundaryOrder).toEqual(["status", "add", "commit"]);
     expect(calls.boundaryOrder).not.toContain("save-point");
   });
@@ -829,8 +836,8 @@ describe("PR dispatch lease fencing", () => {
     }
   });
 
-  test("queues an operator PR activation, drains the run, and hands the lease to PR", async () => {
-    const { runtime, stateDir } = runtimeFixture();
+  test("queues an operator PR activation, stops the run, and hands the lease to PR", async () => {
+    const { calls, runtime, stateDir } = runtimeFixture();
     seedDurablePrWorkflow(stateDir, "pr-handoff:run-1");
     const store = openState(stateDir);
     let runLeaseId = "";
@@ -868,27 +875,30 @@ describe("PR dispatch lease fencing", () => {
     await expect(runtime.preparePrHandoff({ runId: "run-1" })).rejects.toBeInstanceOf(
       DispatchLeaseUnavailableError,
     );
+    expect(calls.stopManagedBodies).toEqual([
+      expect.objectContaining({ recoverClaims: false, runId: "run-1" }),
+    ]);
 
-    const drainingStore = openState(stateDir);
+    const stoppingStore = openState(stateDir);
     try {
-      expect(getHarnessState(drainingStore, "melee")?.active_workflow).toMatchObject({
+      expect(getHarnessState(stoppingStore, "melee")?.active_workflow).toMatchObject({
         kind: "run",
         lease_id: runLeaseId,
-        status: "draining",
+        status: "active",
         requested_handoff: {
           target_kind: "pr",
           target_workflow_id: "pr-handoff:run-1",
         },
       });
-      settlePausedRun({
+      settleStoppedRun({
         actor: "operator",
         commandId: "command-run-settled",
         leaseId: runLeaseId,
         reason: "operator settled PR handoff",
         runId: "run-1",
-        store: drainingStore,
+        store: stoppingStore,
       });
-      const handedOff = getHarnessState(drainingStore, "melee");
+      const handedOff = getHarnessState(stoppingStore, "melee");
       expect(handedOff?.active_workflow).toMatchObject({
         kind: "pr",
         status: "active",
@@ -896,20 +906,18 @@ describe("PR dispatch lease fencing", () => {
       });
       expect(handedOff?.active_workflow?.lease_id).not.toBe(runLeaseId);
       expect(handedOff?.queued_dispatch_requests).toEqual([]);
-      expect(listGameEvents(drainingStore.db).map((event) => event.eventType)).toEqual([
+      expect(listGameEvents(stoppingStore.db).map((event) => event.eventType)).toEqual([
         "cycle.opened",
         "game.dispatch_requested",
         "game.dispatch_acquired",
         "game.dispatch_requested",
-        "run.draining",
-        "game.dispatch_drain_started",
         "game.dispatch_released",
         "game.dispatch_acquired",
         "pr.campaign_working",
         "run.paused",
       ]);
     } finally {
-      drainingStore.db.close();
+      stoppingStore.db.close();
     }
   });
 

@@ -38,7 +38,7 @@ const DEFAULT_THINKING_LEVEL = "xhigh";
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prOpenCampaign", "prActivate", "prPublishBatch", "prRelease", "prCloseCampaign", "prAbandonCampaign", "prCampaignRecover", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prOpenCampaign", "prActivate", "prPublishBatch", "prRelease", "prCloseCampaign", "prAbandonCampaign", "prCampaignRecover", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
 const legacyPublicationActions: ReadonlySet<Action> = new Set(["openPr", "openDraftBatch", "openAllPrs"]);
 
 function newCycleBody(body: JsonObject): JsonObject {
@@ -426,12 +426,6 @@ export function App() {
       }
       if (knowledgeAction?.confirmation_required && !(await requestConfirm(`${knowledgeActionId}?\n\n${knowledgeAction.expected_transition}`))) return;
       if (
-        nextAction === "finishEpoch" &&
-        !(await requestConfirm("Finish the current epoch now?\n\nThis cancels active workers in the current epoch, treats remaining epoch work as finished, and lets the scheduler run the normal baseline/rebuild checkpoint path."))
-      ) {
-        return;
-      }
-      if (
         nextAction === "completeRun" &&
         !(await requestConfirm("Close this legacy cycle?\n\nThis records a save point and marks the run complete. Use this when PR work is already shipped, closed, or intentionally carried forward. Stale ship/QA blockers will be overridden."))
       ) {
@@ -509,9 +503,6 @@ export function App() {
           await postJson("/api/process/start", body);
           await markWorkersActive();
           await manualRefresh();
-        } else if (nextAction === "runPause") {
-          await postJson(RUN_CONTROL_ENDPOINTS.runPause, body);
-          await manualRefresh();
         } else if (nextAction === "runResume") {
           await postJson("/api/run/resume", body);
           await manualRefresh();
@@ -558,9 +549,6 @@ export function App() {
             const cycleUuid = String(cycle.cycleUuid || cycle.id || "");
             navigate({ kind: "workspace", section: "cycles", cycle: cycleUuid || "active", cycleSub: "run", gameId: form.gameId || String(cycle.gameId || "") || undefined });
           }
-          await manualRefresh();
-        } else if (nextAction === "finishEpoch") {
-          await postJson("/api/process/finish-epoch", { ...body, reason: "dashboard_finish_epoch" });
           await manualRefresh();
         } else if (nextAction === "init") {
           await postJson("/api/run/init", body);

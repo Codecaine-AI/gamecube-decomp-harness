@@ -47,7 +47,7 @@ export function DetailsRail({
   const requestedSection = initialRequestedSection();
   const cycleFocus = detailsRailCycleFocus(dashboard);
   const gameId = route.kind === "workspace" ? route.gameId : undefined;
-  const processHint = view.process.draining ? "draining" : view.process.running ? "running" : view.process.pillState || "idle";
+  const processHint = view.process.running ? "running" : view.process.pillState || "idle";
   const operation = asObject(asObject(dashboard?.process).operation);
   const operationStatus = text(operation.status);
   const logsHint = operationStatus || `${asArray(asObject(dashboard?.process).logs).length} lines`;

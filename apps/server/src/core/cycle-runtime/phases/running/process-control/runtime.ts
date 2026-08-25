@@ -9,12 +9,9 @@ import {
 } from "@server/core/cycle-runtime/phases/running/process-command";
 import { type ManagedProcessController, type ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
 import {
-  activeSchedulerEpoch,
-  addEvent,
   getLatestRun,
   getRun,
   openState,
-  schedulerEpochProgress,
   updateRunStatus,
 } from "@server/core/cycle-runtime/run-state";
 import { activateRun, reconcileRunLeaseState } from "@server/core/cycle-runtime/phases/running/run-control.js";
@@ -108,48 +105,10 @@ function commandFromBody(body: JsonObject, deps: ProcessControlRuntimeDeps): Run
 }
 
 export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
-  drainManaged: (body: JsonObject) => Promise<JsonObject>;
-  finishEpochNow: (body: JsonObject) => Promise<JsonObject>;
   startManagedProcess: (body: JsonObject) => Promise<Response>;
   stopManaged: (body: JsonObject) => Promise<JsonObject>;
 } {
   return {
-    async finishEpochNow(body): Promise<JsonObject> {
-      const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
-      const { game, stateDir } = paths;
-      const runId = stringValue(body.runId) || latestRunId(stateDir);
-      if (!runId) return { requested: false, reason: "no_run", process: deps.processStatus(stateDir, game) };
-
-      const store = openState(stateDir);
-      try {
-        const epoch = activeSchedulerEpoch(store, runId);
-        if (!epoch) return { requested: false, reason: "no_active_epoch", runId, process: deps.processStatus(stateDir, game) };
-        const progress = schedulerEpochProgress(store, epoch.id);
-        const eventId = addEvent(store, runId, "epoch_force_finish_requested", "dashboard", {
-          epoch_id: epoch.id,
-          ordinal: epoch.ordinal,
-          available: progress.available,
-          claimed: progress.claimed,
-          finished: progress.finished,
-          admitted: progress.admitted,
-          reason: stringValue(body.reason, "dashboard_finish_epoch"),
-          created_by: "dashboard",
-        });
-        deps.appendLog("ui", `finish epoch requested for epoch ${epoch.ordinal} (${progress.finished}/${progress.admitted} finished, ${progress.claimed} claimed, ${progress.available} available)`);
-        return {
-          requested: true,
-          eventId,
-          runId,
-          epochId: epoch.id,
-          ordinal: epoch.ordinal,
-          progress,
-          process: deps.processStatus(stateDir, game),
-        };
-      } finally {
-        store.db.close();
-      }
-    },
-
     async stopManaged(body): Promise<JsonObject> {
       const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
       const { stateDir } = paths;
@@ -175,12 +134,6 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
         runCommand: (command) => deps.runCli(command),
         stateDir,
       });
-    },
-
-    async drainManaged(body): Promise<JsonObject> {
-      const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
-      const name = paths.game?.processName ?? stringValue(body.processName, "melee-live");
-      return deps.processController.drain({ name, game: paths.game, stateDir: paths.stateDir });
     },
 
     async startManagedProcess(body): Promise<Response> {

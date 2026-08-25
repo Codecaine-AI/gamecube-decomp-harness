@@ -81,7 +81,6 @@ export type RunStatusPreservingEventType = "run.desired_workers_changed";
 export interface RunDestinationStatusByEvent {
   "run.readied": "ready";
   "run.activated": "active";
-  "run.draining": "draining";
   "run.paused": "paused";
   "run.completed": "completed";
   "run.failed": "failed";
@@ -123,7 +122,6 @@ interface RunPayloadInputByEvent {
     starting_knowledge_revision: string;
   };
   "run.activated": { lease_id: string };
-  "run.draining": { lease_id: string; reason: string };
   "run.paused": Omit<RunPausedEventPayload, "from_status" | "to_status">;
   "run.completed": Record<string, never>;
   "run.failed": { terminal_reason?: string };
@@ -341,7 +339,6 @@ function readinessFailures(run: RunRecord): string[] {
 const RUN_STATUS_EVENT_BY_DESTINATION = {
   ready: "run.readied",
   active: "run.activated",
-  draining: "run.draining",
   paused: "run.paused",
   completed: "run.completed",
   failed: "run.failed",
@@ -352,7 +349,6 @@ const RUN_EVENT_DESTINATION_STATUSES = {
   "run.desired_workers_changed": "preserve",
   "run.readied": ["ready"],
   "run.activated": ["active"],
-  "run.draining": ["draining"],
   "run.paused": ["paused"],
   "run.completed": ["completed"],
   "run.failed": ["failed"],
@@ -395,8 +391,7 @@ function assertStatusTransition(current: RunStatus, next: RunStatus): void {
   const allowed: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
     draft: ["ready"],
     ready: ["active"],
-    active: ["draining", "paused", "completed", "failed"],
-    draining: ["paused", "completed", "failed"],
+    active: ["paused", "completed", "failed"],
     paused: ["active", "completed", "cancelled"],
     completed: [],
     failed: ["paused", "cancelled"],

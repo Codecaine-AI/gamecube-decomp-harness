@@ -400,6 +400,7 @@ const syncRuntime = createSyncRuntime({
   runGit: commandRunner.runGit,
   serverJobPath,
   sourceRoot,
+  stopManaged: (body) => processControlRuntime.stopManaged(body),
 });
 
 const prRecords = createPrRecordsService({
@@ -486,7 +487,6 @@ const processControlRuntime = createProcessControlRuntime({
 });
 
 const runControlRuntime = createRunControlRuntime({
-  drainManaged: processControlRuntime.drainManaged,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   resolveDashboardGame: gameContext.resolveDashboardGame,
   stopManaged: processControlRuntime.stopManaged,
@@ -537,6 +537,7 @@ const prCampaignRuntime = createPrCampaignRuntime({
   prSync,
   resolveDashboardGame: gameContext.resolveDashboardGame,
   runGit: commandRunner.runGit,
+  stopManaged: (body) => processControlRuntime.stopManaged(body),
 });
 
 const standards = createStandardsService({
@@ -842,8 +843,6 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   if (knowledgeLearnings) return knowledgeLearnings;
 
   const processControl = await handleProcessControlApiRoute(req, url, {
-    drainManaged: processControlRuntime.drainManaged,
-    finishEpochNow: processControlRuntime.finishEpochNow,
     json,
     processStatus: (stateDir, game) => processStatusService.processStatus(stateDir, game as ResolvedGame | null),
     requestPaths: gameContext.requestPaths,
@@ -857,8 +856,6 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     json,
     ...handoffRuntime,
     runQaRepairForCampaign: prCampaignRuntime.runQaRepair,
-    // Compatibility alias: lifecycle ownership remains in run-control.
-    pauseRunForPr: runControlRuntime.pause,
   });
   if (handoff) return handoff;
 
@@ -869,7 +866,6 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     hardStopRun: runControlRuntime.hardStop,
     initRun: preparingRuntime.initRun,
     json,
-    pauseRun: runControlRuntime.pause,
     recoverRun: runControlRuntime.recover,
     resumeRun: async (body) => {
       const resumed = handoffRuntime.resumeRunForPr(body);

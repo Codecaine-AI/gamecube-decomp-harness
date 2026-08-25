@@ -10,7 +10,6 @@ export interface HandoffApiRouteDeps {
   checkpointRunForPr: (body: JsonObject) => Promise<unknown>;
   createSavePoint: (body: JsonObject) => Promise<unknown>;
   json: JsonResponder;
-  pauseRunForPr: (body: JsonObject) => Promise<unknown>;
   prepareLocalPr: (body: JsonObject) => Promise<unknown>;
   prepareLocalPrBatch: (body: JsonObject) => Promise<unknown>;
   preparePrHandoff: (body: JsonObject) => Promise<unknown>;
@@ -34,7 +33,6 @@ async function requestBody(req: Request): Promise<JsonObject> {
 export async function handleHandoffApiRoute(req: Request, url: URL, deps: HandoffApiRouteDeps): Promise<Response | null> {
   if (req.method !== "POST") return null;
   const body = () => requestBody(req);
-  if (url.pathname === "/api/pr/pause") return deps.json(await deps.pauseRunForPr(await body()));
   if (url.pathname === "/api/pr/resume") return deps.json(deps.resumeRunForPr(await body()));
   if (url.pathname === "/api/run/checkpoint") return deps.json(await deps.checkpointRunForPr(await body()));
   if (url.pathname === "/api/pr/qa") return deps.json(await deps.runPrQa(await body()));

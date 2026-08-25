@@ -193,24 +193,18 @@ export function OverviewPage({
                 </Button>
               ) : null}
               <Button
-                disabled={busy || !view.canStartWorkers}
-                icon={
-                  view.process.draining ? (
-                    <RefreshCw size={13} />
-                  ) : (
-                    <Ban size={13} />
-                  )
-                }
-                onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)}
+                disabled={busy || !view.process.running}
+                icon={<Ban size={13} />}
+                onClick={() => onAction(RUN_CONTROL_ACTIONS.hardStop)}
                 title={
                   view.process.running
-                    ? "Drain the managed process."
+                    ? "Stop workers gracefully, then cancel any still running after 30 seconds."
                     : "No process is running."
                 }
                 tone="warning"
                 type="button"
               >
-                Drain / Stop
+                Stop
               </Button>
               <Button
                 icon={<RefreshCw size={13} />}

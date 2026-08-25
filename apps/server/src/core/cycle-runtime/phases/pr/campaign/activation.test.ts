@@ -7,7 +7,7 @@ import { createCycle, getCycleByUuid } from "@server/core/cycle/store.js";
 import { recordSavePointAnchor } from "@server/core/cycle/timeline.js";
 import { eventsForSubject } from "@server/core/harness-state/events.js";
 import { getHarnessState, initializeHarnessState, requestDispatch } from "@server/core/harness-state";
-import { activateRun, settlePausedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
+import { activateRun, settleStoppedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { createRun, getRun } from "@server/core/cycle-runtime/run-state";
 import { handlePrApiRoute } from "@server/api/routes/pr.js";
 import { activateAcquiredPrCampaign } from "./activation.js";
@@ -87,6 +87,7 @@ function fixture(options: FixtureOptions = {}) {
     writeFileSync(join(directory, "pr_records.json"), JSON.stringify(options.legacyRecords));
   }
   const qaRepairBodies: Array<Record<string, unknown>> = [];
+  const stopManagedBodies: Array<Record<string, unknown>> = [];
   const runtime = createPrCampaignRuntime({
     handoff: {
       openPrForSliceUnderLease: async () => ({}),
@@ -102,13 +103,17 @@ function fixture(options: FixtureOptions = {}) {
       repoRoot: stateDir,
       stateDir,
     } as never),
+    stopManaged: async (body) => {
+      stopManagedBodies.push(body);
+      return { stopped: true };
+    },
     runGit: async () => ({
       exitCode: 0,
       stdout: (options.discoveredBranches ?? []).join("\n"),
       stderr: "",
     }),
   });
-  return { qaRepairBodies, runtime, stateDir, store };
+  return { qaRepairBodies, runtime, stateDir, stopManagedBodies, store };
 }
 
 afterEach(() => {
@@ -234,7 +239,7 @@ describe("PR campaign activation lease", () => {
       commandId: activateCommandId,
       gameId: "melee",
     });
-    expect(activated).toMatchObject({ queued: false, run_draining: false, campaign: { status: "working" } });
+    expect(activated).toMatchObject({ queued: false, run_stopping: false, campaign: { status: "working" } });
     expect(getHarnessState(store, "melee")?.active_workflow).toMatchObject({
       kind: "pr",
       workflow_id: "campaign-1",
@@ -308,8 +313,8 @@ describe("PR campaign activation lease", () => {
     expect(getCycleByUuid(store.db, "cycle-1")!.revision).toBe(beforeRevision + 2);
   });
 
-  test("queues behind an active run and activates atomically when the run settles", async () => {
-    const { runtime, stateDir, store } = fixture();
+  test("queues behind an active run, requests a stop, and activates atomically when the run settles", async () => {
+    const { runtime, stateDir, stopManagedBodies, store } = fixture();
     const run = createRun(
       store,
       "matched_code_percent",
@@ -321,14 +326,15 @@ describe("PR campaign activation lease", () => {
     const active = activateRun({ gameId: "melee", reason: "run first", runId: run.id, store });
 
     const queued = await runtime.activate({ gameId: "melee", campaignId: "campaign-1" });
-    expect(queued).toMatchObject({ queued: true, run_draining: true, lease_id: null });
-    expect(getRun(store, run.id)?.status).toBe("draining");
+    expect(queued).toMatchObject({ queued: true, run_stopping: true, lease_id: null });
+    expect(getRun(store, run.id)?.status).toBe("active");
+    expect(stopManagedBodies).toEqual([expect.objectContaining({ recoverClaims: false, runId: run.id })]);
     expect(getPrCampaign(store, "campaign-1")?.status).toBe("preparing");
 
-    settlePausedRun({
+    settleStoppedRun({
       actor: "guardian",
       leaseId: active.leaseId,
-      reason: "run drained for PR",
+      reason: "run stopped for PR",
       runId: run.id,
       store,
     });
@@ -894,7 +900,7 @@ describe("PR campaign activation lease", () => {
     expect(terminalState?.active_workflow).toMatchObject({ kind: "run", workflow_id: run.id });
     expect(terminalState?.active_workflow?.requested_handoff).toBeUndefined();
     expect(terminalState?.queued_dispatch_requests).toEqual([]);
-    settlePausedRun({ leaseId: activeRun.leaseId, reason: "run settled", runId: run.id, store });
+    settleStoppedRun({ leaseId: activeRun.leaseId, reason: "run settled", runId: run.id, store });
     expect(getHarnessState(store, "melee")?.active_workflow).toBeNull();
     expect(getRun(store, run.id)?.status).toBe("paused");
   });
@@ -922,7 +928,7 @@ describe("PR campaign activation lease", () => {
       payload: { outcome: "abandoned", per_series_terminal_summary: { "series-1": "prepared" } },
     });
 
-    settlePausedRun({ leaseId: activeRun.leaseId, reason: "run settled", runId: run.id, store });
+    settleStoppedRun({ leaseId: activeRun.leaseId, reason: "run settled", runId: run.id, store });
     expect(getHarnessState(store, "melee")).toMatchObject({ active_workflow: null, queued_dispatch_requests: [] });
     expect(getPrCampaign(store, "campaign-1")?.status).toBe("abandoned");
   });

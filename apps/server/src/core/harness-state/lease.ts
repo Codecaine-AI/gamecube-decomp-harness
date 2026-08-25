@@ -10,7 +10,6 @@ import {
   type GameEventInput,
 } from "./events.js";
 import type {
-  BeginDrainInput,
   Blocker,
   CancelDispatchRequestInput,
   DispatchLease,
@@ -489,35 +488,66 @@ export function requestDispatch(store: StateStore, input: RequestDispatchInput):
     if (state.active_workflow) {
       const holder = state.active_workflow;
       durableWorkflowTrace(store.db, state, holder.kind, holder.workflow_id);
-      const alreadyQueued = state.queued_dispatch_requests.some(
+      const existingQueued = state.queued_dispatch_requests.find(
         (request) => request.kind === input.kind && request.workflow_id === input.workflowId,
       );
+      if (input.handoffOnQueue) {
+        if (holder.kind !== "run" || holder.status !== "active") {
+          throw new Error(`Dispatch handoff requires an active run lease; current holder is ${holder.kind}:${holder.status}`);
+        }
+        const existingHandoff = holder.requested_handoff;
+        if (
+          existingHandoff &&
+          (existingHandoff.target_kind !== input.kind || existingHandoff.target_workflow_id !== input.workflowId)
+        ) {
+          throw new Error(
+            `Dispatch handoff already targets ${existingHandoff.target_kind}:${existingHandoff.target_workflow_id}`,
+          );
+        }
+        if (existingQueued) assertDurableRequestProvenance(store, state, existingQueued);
+      }
       const requested = appendEvent(store, state, context, at, workflowTraceId, {
         eventType: "game.dispatch_requested",
         subjectKind: "game",
         subjectId: state.game_id,
         payload: requestedPayload(input, holder),
       });
-      const queuedRequests = alreadyQueued
+      const queuedRequest: QueuedDispatchRequest = existingQueued ?? {
+        kind: input.kind,
+        workflow_id: input.workflowId,
+        reason: input.reason,
+        requested_at: at,
+        requested_by: input.actor,
+        request_command_id: input.commandId,
+        request_root_span_id: context.spanId,
+        request_event_id: requested.eventId,
+      };
+      const queuedRequests = existingQueued
         ? state.queued_dispatch_requests
         : [
             ...state.queued_dispatch_requests,
-            {
-              kind: input.kind,
-              workflow_id: input.workflowId,
-              reason: input.reason,
-              requested_at: at,
-              requested_by: input.actor,
-              request_command_id: input.commandId,
-              request_root_span_id: context.spanId,
-              request_event_id: requested.eventId,
-            },
+            queuedRequest,
           ];
+      const activeWorkflow = input.handoffOnQueue
+        ? {
+            ...holder,
+            requested_handoff: {
+              target_kind: queuedRequest.kind,
+              target_workflow_id: queuedRequest.workflow_id,
+              reason: queuedRequest.reason,
+              requested_at: queuedRequest.requested_at,
+              requested_by: queuedRequest.requested_by,
+              request_command_id: queuedRequest.request_command_id,
+              request_root_span_id: queuedRequest.request_root_span_id,
+              request_event_id: queuedRequest.request_event_id,
+            },
+          }
+        : holder;
       state = updateRevision(store, state, requested.eventId, at, {
-        activeWorkflow: holder,
+        activeWorkflow,
         queuedRequests,
       });
-      return { queued: true, blockedBy: holder, state };
+      return { queued: true, blockedBy: activeWorkflow, state };
     }
 
     const mintedLeaseId = leaseId();
@@ -598,67 +628,10 @@ export function heartbeatDispatch(store: StateStore, input: HeartbeatDispatchInp
   });
 }
 
-export function beginDrain(store: StateStore, input: BeginDrainInput): HarnessState {
-  return immediateTransaction(store.db, () => {
-    const context = { ...input, spanId: input.spanId ?? newSpanId() };
-    const { state, lease } = requireCurrentLease(store, input.leaseId, input.gameId);
-    assertWorkflowCorrelation(input, lease.workflow_id);
-    const holderTraceId = durableWorkflowTrace(store.db, state, lease.kind, lease.workflow_id);
-    if ((input.targetKind === undefined) !== (input.targetWorkflowId === undefined)) {
-      throw new Error("Dispatch drain must provide both targetKind and targetWorkflowId, or neither");
-    }
-    let targetRequest: QueuedDispatchRequest | undefined;
-    if (input.targetKind && input.targetWorkflowId) {
-      durableWorkflowTrace(store.db, state, input.targetKind, input.targetWorkflowId);
-      targetRequest = state.queued_dispatch_requests.find(
-        (request) => request.kind === input.targetKind && request.workflow_id === input.targetWorkflowId,
-      );
-      if (!targetRequest) {
-        throw new Error(`Dispatch handoff target ${input.targetKind}:${input.targetWorkflowId} is not queued`);
-      }
-      assertDurableRequestProvenance(store, state, targetRequest);
-    }
-    const at = input.now ?? currentTime();
-    const draining: DispatchLease = {
-      ...lease,
-      status: "draining",
-      ...(targetRequest
-        ? {
-            requested_handoff: {
-              target_kind: targetRequest.kind,
-              target_workflow_id: targetRequest.workflow_id,
-              reason: targetRequest.reason,
-              requested_at: targetRequest.requested_at,
-              requested_by: targetRequest.requested_by,
-              request_command_id: targetRequest.request_command_id,
-              request_root_span_id: targetRequest.request_root_span_id,
-              request_event_id: targetRequest.request_event_id,
-            },
-          }
-        : { requested_handoff: undefined }),
-    };
-    const event = appendEvent(store, state, context, at, holderTraceId, {
-      eventType: "game.dispatch_drain_started",
-      subjectKind: workflowSubjectKind(lease.kind),
-      subjectId: lease.workflow_id,
-      payload: {
-        lease_id: lease.lease_id,
-        target_kind: input.targetKind ?? "none",
-        open_obligations: lease.blockers.map((blocker) => ({
-          code: blocker.code,
-          source_kind: blocker.source_kind,
-          source_id: blocker.source_id,
-        })),
-      },
-    });
-    return updateRevision(store, state, event.eventId, at, { activeWorkflow: draining });
-  });
-}
-
 /**
  * Removes a queued workflow that the operator cancelled before it acquired
- * authority. A run already draining for that handoff remains draining, but
- * settles without promoting the cancelled target.
+ * authority. A run already stopping for that handoff settles without
+ * promoting the cancelled target.
  */
 export function cancelDispatchRequest(store: StateStore, input: CancelDispatchRequestInput): HarnessState {
   return immediateTransaction(store.db, () => {

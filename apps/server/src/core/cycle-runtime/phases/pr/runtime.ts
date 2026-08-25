@@ -117,7 +117,7 @@ export interface HandoffRuntimeDeps {
     verifyShipSet: (paths: GameRuntimeContext, baseline: JsonObject, matchPathspecs: string[], options?: { revalidateLease?: DispatchLeaseRevalidator; sourceRef?: string }) => Promise<JsonObject>;
   };
   processControl: {
-    drainManaged: (body: JsonObject) => Promise<JsonObject>;
+    stopManaged: (body: JsonObject) => Promise<JsonObject>;
   };
   gameToSummary: (game: ResolvedGame) => GameSummary;
   resolveDashboardGame: (input: JsonObject, options?: { useDefaultGame?: boolean }) => GameRuntimeContext;
@@ -138,7 +138,7 @@ export interface HandoffRuntime {
     body: JsonObject,
     revalidateLease: DispatchLeaseRevalidator,
   ) => Promise<JsonObject>;
-  pauseRunForPr: (body: JsonObject) => Promise<JsonObject>;
+  stopRunForPr: (body: JsonObject) => Promise<JsonObject>;
   prepareLocalPr: (body: JsonObject) => Promise<JsonObject>;
   prepareLocalPrBatch: (body: JsonObject) => Promise<JsonObject>;
   preparePrHandoff: (body: JsonObject) => Promise<JsonObject>;
@@ -484,18 +484,18 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     const active = deps.hasActiveProcess(stateDir);
     if (active.active) {
       const name = stringValue(active.name, "managed process");
-      throw new Error(`${action} requires stopped workers. Stop or drain the active process (${name}) first.`);
+      throw new Error(`${action} requires stopped workers. Stop the active process (${name}) first.`);
     }
   }
 
   function currentDispatchLeaseRevalidator(paths: GameRuntimeContext, runId: string): DispatchLeaseRevalidator {
     const gameId = paths.game?.gameId;
-    if (!gameId) throw new Error("Pause boundary commit requires a game id for dispatch fencing");
+    if (!gameId) throw new Error("Stopped-run boundary commit requires a game id for dispatch fencing");
     const store = openState(paths.stateDir);
     let leaseId = "";
     try {
       const lease = getHarnessState(store, gameId)?.active_workflow;
-      if (!lease) throw new Error(`Pause boundary commit requires current dispatch authority for run ${runId}`);
+      if (!lease) throw new Error(`Stopped-run boundary commit requires current dispatch authority for run ${runId}`);
       leaseId = lease.lease_id;
       requireLease(store, leaseId, gameId);
     } finally {
@@ -511,40 +511,40 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     };
   }
 
-  async function pauseRunForPr(body: JsonObject, revalidateLease?: DispatchLeaseRevalidator): Promise<JsonObject> {
+  async function stopRunForPr(body: JsonObject, revalidateLease?: DispatchLeaseRevalidator): Promise<JsonObject> {
     const paths = resolveDashboardGame(body, { useDefaultGame: true });
     const { repoRoot, stateDir } = paths;
     const runId = activeRunIdFromBody(body, stateDir);
-    assertHandoffIdle(stateDir, "Pause boundary");
+    assertHandoffIdle(stateDir, "Stopped-run boundary");
     const store = openState(stateDir);
     let run: ReturnType<typeof getRun>;
     try {
       run = getRun(store, runId);
       if (!run) throw new Error(`Run not found: ${runId}`);
       if (run.status !== "paused") {
-        throw new Error(`Pause boundary requires exit-settled paused run ${runId}; current status is ${run.status}`);
+        throw new Error(`Stopped-run boundary requires exit-settled paused run ${runId}; current status is ${run.status}`);
       }
     } finally {
       store.db.close();
     }
     const validateBoundaryLease = revalidateLease ?? currentDispatchLeaseRevalidator(paths, runId);
     const boundaryCommit = await commitBoundaryWorktree({
-      message: `boundary(pause): run ${runId}`,
+      message: `boundary(stop): run ${runId}`,
       repoRoot,
       revalidateLease: validateBoundaryLease,
       runGit: deps.runGit,
       stateDir,
     });
-    appendLog("ui", `run ${runId} boundary recorded after run-loop exit settlement`);
-    if (!run.cycleUuid) throw new Error(`Run ${runId} has no game cycle for pause save-point evidence`);
-    const savePoint = await savePoints.boundarySavePoint(paths, "pause", run.cycleUuid);
+    appendLog("ui", `run ${runId} stop boundary recorded after run-loop exit settlement`);
+    if (!run.cycleUuid) throw new Error(`Run ${runId} has no game cycle for stop save-point evidence`);
+    const savePoint = await savePoints.boundarySavePoint(paths, "checkpoint", run.cycleUuid, `run ${runId} stopped`);
     return {
-      paused: true,
+      stopped: true,
       game: paths.game ? gameToSummary(paths.game) : null,
       repoRoot,
       stateDir,
       run,
-      drain: { draining: false, reason: "run_loop_settled" },
+      process: { stopped: true, reason: "run_loop_settled" },
       boundaryCommit,
       savePoint,
     };
@@ -565,11 +565,11 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         actor: "operator",
         commandId,
         gameId,
-        reason: "resume run after PR handoff pause",
+        reason: "resume run after PR handoff",
         runId,
         store,
       });
-      appendLog("ui", `run ${runId} resumed after PR handoff pause`);
+      appendLog("ui", `run ${runId} resumed after PR handoff`);
       return { resumed: true, game: paths.game ? gameToSummary(paths.game) : null, repoRoot, stateDir, run };
     } finally {
       store.db.close();
@@ -1643,6 +1643,11 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         kind: "pr",
         workflowId: `pr-handoff:${runId}`,
         reason: `prepare PR handoff for run ${runId}`,
+        stopRunOnHandoff: ({ runId: stoppedRunId }) => deps.processControl.stopManaged({
+          ...body,
+          recoverClaims: false,
+          runId: stoppedRunId,
+        }),
       },
       (_leaseId, revalidateLease) => {
         const lease = revalidateLease();
@@ -1655,7 +1660,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         return withOperation("prepare", "Prepare Handoff", prepareSteps, async () => {
       assertHandoffIdle(stateDir, "Prepare handoff");
       operationStep("stop worker scheduling");
-      const pause = body.pauseBeforeHandoff !== false ? await pauseRunForPr(body, revalidateLease) : null;
+      const stoppedRun = await stopRunForPr(body, revalidateLease);
 
       operationStep("rebuild production baseline");
       revalidateLease();
@@ -1795,7 +1800,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         game: paths.game ? gameToSummary(paths.game) : null,
         blockedAt: null,
         runId,
-        pause,
+        stoppedRun,
         boundaryCommit,
         prRecords: prRecordsPayload,
         savePoint,
@@ -1821,7 +1826,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
     openNextDraftBatch,
     openPrForSlice,
     openPrForSliceUnderLease,
-    pauseRunForPr,
+    stopRunForPr,
     prepareLocalPr,
     prepareLocalPrBatch,
     preparePrHandoff,

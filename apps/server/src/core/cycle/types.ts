@@ -5,7 +5,7 @@ export type CyclePhase = "preparing" | "running" | "pr" | "complete";
 export type PhaseLifecycleStatus = "pending" | "active" | "complete" | "blocked";
 
 export type PreparingSubphase = "config" | "sync_intake" | "processing_prs" | "knowledge_refresh" | "baseline" | "ready" | "other";
-export type RunningSubphase = "candidate_list" | "graph_rebuild" | "epoch_build" | "workers" | "checkpoint" | "draining" | "other";
+export type RunningSubphase = "candidate_list" | "graph_rebuild" | "epoch_build" | "workers" | "checkpoint" | "other";
 export type PrSubphase = "final_build" | "qa" | "qa_fixes" | "split" | "prepare_prs" | "publish" | "review" | "intake" | "other";
 export type CompleteSubphase = "settled" | "other";
 
@@ -336,7 +336,7 @@ export interface CycleProcessState {
   process_name: string;
   game_id: string;
   cycle_uuid: string;
-  status: "idle" | "running" | "draining" | "stopping" | "exited" | "unknown";
+  status: "idle" | "running" | "stopping" | "exited" | "unknown";
   pid?: number | null;
   process_group?: number | null;
   process_file_path?: string | null;

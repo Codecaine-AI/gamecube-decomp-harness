@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { settlePausedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
+import { settleStoppedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { getLatestRun, getRun, openState } from "@server/core/cycle-runtime/run-state";
 import { createSyncRuntime } from "@server/core/cycle-runtime/phases/sync/runtime.js";
 import { resolveGame } from "@server/core/game-registry";
@@ -26,8 +26,8 @@ export async function settleRunOnExit(params: {
     try {
       const runId = stringArg(args, "--run-id", "") || getLatestRun(store)?.id;
       const run = runId ? getRun(store, runId) : null;
-      if (run?.status === "active" || run?.status === "draining" || run?.status === "paused") {
-        settlePausedRun({
+      if (run?.status === "active" || run?.status === "paused") {
+        settleStoppedRun({
           actor: "guardian",
           commandId: `command-run-loop-settled-${randomUUID()}`,
           leaseId,
@@ -71,6 +71,9 @@ export async function settleRunOnExit(params: {
         return result;
       },
       serverJobPath: packageBin(),
+      stopManaged: async () => {
+        throw new Error("A successor sync cannot request another run stop during exit settlement");
+      },
       sourceRoot,
     });
     await syncRuntime.advance(paths, {}, acquiredSyncId);

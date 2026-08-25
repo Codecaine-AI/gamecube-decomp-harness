@@ -100,7 +100,6 @@ export type DashboardGameContext = GameRuntimeContext;
 export interface ActionProjection {
   action_id:
     | "run.start"
-    | "run.pause"
     | "run.resume"
     | "run.hard_stop"
     | "run.cancel"
@@ -809,9 +808,8 @@ export function gameRunActionState(
     return {
       availableActions: [
         absent("run.start", "ready → active", false),
-        absent("run.pause", "active → draining → paused", false),
         absent("run.resume", "paused → active", false),
-        absent("run.hard_stop", "active/draining → paused", true),
+        absent("run.hard_stop", "active/paused → paused", true),
         absent("run.cancel", "paused/failed → cancelled", true),
         absent("run.recover", "failed/stale → paused via run.recovered", true),
       ],
@@ -895,14 +893,6 @@ export function gameRunActionState(
     ...(staleBaseline ? [staleBaseline] : []),
     ...(syncRequest ? [syncRequest] : []),
   ];
-  const pauseBlockers: Blocker[] = [
-    ...(run.status === "active"
-      ? []
-      : [stateBlocker("run_not_active", `Run ${run.id} is ${run.status}; pause requires active.`, "run", run.id)]),
-    ...(ownLease
-      ? []
-      : [stateBlocker("run_does_not_own_dispatch_lease", "The run does not own the dispatch lease.", "run", run.id)]),
-  ];
   const resumeBlockers: Blocker[] = [
     ...(run.status === "paused"
       ? []
@@ -920,12 +910,12 @@ export function gameRunActionState(
       : []),
   ];
   const hardStopBlockers =
-    run.status === "active" || run.status === "draining" || run.status === "paused"
+    run.status === "active" || run.status === "paused"
       ? []
       : [
           stateBlocker(
-            "run_not_active_or_draining",
-            `Run ${run.id} is ${run.status}; hard stop requires active, draining, or an already-settled paused run.`,
+            "run_not_active_or_paused",
+            `Run ${run.id} is ${run.status}; hard stop requires active or an already-settled paused run.`,
             "run",
             run.id,
           ),
@@ -952,7 +942,7 @@ export function gameRunActionState(
         ]
       : []),
   ];
-  const recoverableStatus = run.status === "failed" || run.status === "active" || run.status === "draining" || run.status === "paused";
+  const recoverableStatus = run.status === "failed" || run.status === "active" || run.status === "paused";
   const recoverBlockers: Blocker[] =
     run.status === "completed" || run.status === "cancelled"
       ? [
@@ -968,7 +958,7 @@ export function gameRunActionState(
       ? [
           stateBlocker(
             "run_status_not_recoverable",
-            `Run ${run.id} is ${run.status}; recovery requires failed, active, draining, or paused.`,
+            `Run ${run.id} is ${run.status}; recovery requires failed, active, or paused.`,
             "run",
             run.id,
           ),
@@ -993,7 +983,6 @@ export function gameRunActionState(
     run: runSummaryProjection(store, gameId, run),
     availableActions: [
       runActionProjection(run, "run.start", startBlockers, "ready → active", false),
-      runActionProjection(run, "run.pause", pauseBlockers, "active → draining → paused", false),
       runActionProjection(run, "run.resume", resumeBlockers, "paused → active", false),
       runActionProjection(run, "run.hard_stop", hardStopBlockers, `${run.status} → paused`, true),
       runActionProjection(run, "run.cancel", cancelBlockers, `${run.status} → cancelled`, true),
@@ -1424,7 +1413,7 @@ export function buildHarnessStateReadModel(
 }
 
 const CANONICAL_ACTION_IDS = [
-  "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
+  "run.start", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
   "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
   "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
   "cycle.save_point", "cycle.close", "knowledge.process",

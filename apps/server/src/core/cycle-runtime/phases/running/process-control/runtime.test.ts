@@ -10,87 +10,12 @@ import {
   listCycleTimeline,
   preparePendingIntegration,
 } from "@server/core/cycle";
-import { admitEpochTargets, createRun, getRun, openState, startSchedulerEpoch } from "@server/core/cycle-runtime/run-state";
+import { createRun, getRun, openState } from "@server/core/cycle-runtime/run-state";
 import type { ResolvedGame } from "@server/core/game-registry";
 import type { ManagedProcessController, StartManagedInput } from "@server/infrastructure/process-control/managed-process-controller";
 import { createProcessControlRuntime } from "./runtime.js";
 
 describe("process control runtime", () => {
-  test("requests active epoch finish by adding a scheduler-owned event", async () => {
-    const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
-    const store = openState(stateDir);
-    const run = createRun(store, "matched_code_percent", 100, 2, { gameId: "melee" }, { baseRevision: "base-test" });
-    const epoch = startSchedulerEpoch(store, run.id, {
-      workerPoolSize: 2,
-    });
-    admitEpochTargets(store, {
-      epochId: epoch.id,
-      runId: run.id,
-      candidates: [
-        { unit: "unit", symbol: "fn_a", sourcePath: "src/a.c", size: 64, fuzzy: 91, priority: 2, reason: "test" },
-        { unit: "unit", symbol: "fn_b", sourcePath: "src/b.c", size: 64, fuzzy: 90, priority: 1, reason: "test" },
-      ],
-      workerPoolSize: 2,
-    });
-    store.db.close();
-
-    const logs: string[] = [];
-    const game = {
-      gameId: "melee",
-      processName: "melee-live",
-      dashboard: {},
-      repoRoot: "/tmp/melee-checkout",
-      stateDir,
-      graphDbPath: "/tmp/melee-graph.sqlite",
-    } as unknown as ResolvedGame;
-    const runtime = createProcessControlRuntime({
-      appendLog: (_stream, text) => logs.push(text),
-      json: (data, init) => new Response(JSON.stringify(data), init),
-      processController: {} as ManagedProcessController,
-      processStatus: () => ({ state: "running" }),
-      gameToSummary: () => ({
-        id: "melee",
-        displayName: "Melee",
-        kind: "doldecomp-melee",
-        repoRoot: game.repoRoot,
-        stateDir,
-        graphDbPath: game.graphDbPath,
-        processName: "melee-live",
-        baseRef: "origin/master",
-        descriptorPath: "/tmp/melee/game.json",
-        repoRootExists: true,
-        stateDirExists: true,
-        graphDbExists: true,
-      }),
-      resolveDashboardGame: () => ({
-        game,
-        repoRoot: game.repoRoot,
-        stateDir,
-        graphDbPath: game.graphDbPath,
-        usePathOverrides: false,
-      }),
-      runCli: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-      serverJobPath: "/tmp/orchestrator/apps/server/src/job-runner.ts",
-    });
-
-    const result = await runtime.finishEpochNow({ gameId: "melee", runId: run.id, reason: "test_finish_epoch" });
-
-    expect(result).toMatchObject({ requested: true, runId: run.id, epochId: epoch.id, ordinal: epoch.ordinal });
-    expect(logs[0]).toContain(`finish epoch requested for epoch ${epoch.ordinal}`);
-
-    const verifyStore = openState(stateDir);
-    try {
-      const event = verifyStore.db
-        .query("SELECT event_type, producer, payload_json, handled_at FROM events WHERE id = ?")
-        .get(String(result.eventId)) as Record<string, unknown> | undefined;
-      expect(event).toMatchObject({ event_type: "epoch_force_finish_requested", producer: "dashboard", handled_at: null });
-      const payload = JSON.parse(String(event?.payload_json ?? "{}")) as Record<string, unknown>;
-      expect(payload).toMatchObject({ epoch_id: epoch.id, ordinal: epoch.ordinal, reason: "test_finish_epoch" });
-    } finally {
-      verifyStore.db.close();
-    }
-  });
-
   test("accepts matching start options and builds the command from the stored run snapshot and worktree", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
     const cycleRepoRoot = "/tmp/melee-cycle-worktree/source";

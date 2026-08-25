@@ -1,8 +1,10 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 export type JsonObject = Record<string, unknown>;
+
+const GRACEFUL_STOP_TIMEOUT_MS = 35_000;
 
 export interface CliResult {
   exitCode: number | null;
@@ -15,8 +17,6 @@ export interface ManagedProcessGame {
   id?: string;
   gameId?: string;
   repoRoot?: string;
-  stderrPath: string;
-  stdoutPath: string;
   stateDir?: string;
 }
 
@@ -34,8 +34,10 @@ export interface ManagedProcess {
   repoRoot?: string;
   signal?: NodeJS.Signals | null;
   startedAt: string;
-  state: "draining" | "running" | "stopping" | "exited";
+  state: "running" | "stopping" | "exited";
   stateDir?: string;
+  stderrPath: string;
+  stdoutPath: string;
 }
 
 export interface ProcessLogLine {
@@ -66,12 +68,6 @@ export interface StopManagedInput {
   recoverClaims?: boolean;
   recoveryCommand?: string[] | null;
   runCommand: (command: string[]) => Promise<CliResult>;
-  stateDir: string;
-}
-
-export interface DrainManagedInput {
-  name: string;
-  game: ManagedProcessGame | null;
   stateDir: string;
 }
 
@@ -129,16 +125,6 @@ function processGroupAlive(pid: number): boolean {
       return false;
     }
   }
-}
-
-function directChildPids(pid: number): number[] {
-  if (!pid) return [];
-  const result = spawnSync("pgrep", ["-P", String(pid)], { encoding: "utf8" });
-  if (result.status !== 0) return [];
-  return result.stdout
-    .split(/\s+/)
-    .map((value) => Number(value))
-    .filter((value) => Number.isInteger(value) && value > 0);
 }
 
 function waitForProcessGroupExit(pid: number, timeoutMs: number): Promise<boolean> {
@@ -267,7 +253,7 @@ export class ManagedProcessController {
       const gameId = stringValue(game.gameId, stringValue(game.id));
       return !gameId || savedGameId === gameId || stringValue(record.name) === "melee-live";
     });
-    const managedRunning = this.managed?.state === "running" || this.managed?.state === "stopping" || this.managed?.state === "draining";
+    const managedRunning = this.managed?.state === "running" || this.managed?.state === "stopping";
     const savedPid = intValue(activeSaved?.pid, 0, 0);
     const activeProcess = this.managed ?? activeSaved ?? null;
     const activeState = this.managed?.state ?? stringValue(activeSaved?.state, activeSaved ? "running" : "idle");
@@ -303,7 +289,7 @@ export class ManagedProcessController {
   }
 
   hasActiveProcess(stateDir: string): { active: boolean; name: string } {
-    const activeManaged = this.managed?.state === "running" || this.managed?.state === "stopping" || this.managed?.state === "draining";
+    const activeManaged = this.managed?.state === "running" || this.managed?.state === "stopping";
     const activeSaved = this.savedProcessRecords(stateDir).find((record) => record.alive === true);
     return {
       active: Boolean(activeManaged || activeSaved),
@@ -413,7 +399,7 @@ export class ManagedProcessController {
           this.appendLog("stderr", `SIGTERM failed: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
-      const graceful = await waitForExit(this.managed, 5000);
+      const graceful = await waitForExit(this.managed, GRACEFUL_STOP_TIMEOUT_MS);
       if (!graceful && this.managed.pid) {
         try {
           process.kill(-this.managed.pid, "SIGKILL");
@@ -447,7 +433,7 @@ export class ManagedProcessController {
       } catch (error) {
         this.appendLog("stderr", `SIGTERM failed: ${error instanceof Error ? error.message : String(error)}`);
       }
-      let exited = await waitForProcessGroupExit(pid, 5000);
+      let exited = await waitForProcessGroupExit(pid, GRACEFUL_STOP_TIMEOUT_MS);
       let signal = "SIGTERM";
       if (!exited) {
         try {
@@ -486,67 +472,6 @@ export class ManagedProcessController {
     return { stopped, recovery, process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
   }
 
-  async drain(input: DrainManagedInput): Promise<JsonObject> {
-    const { name, game, stateDir } = input;
-    const saved = this.savedProcessRecords(stateDir).find((record) => stringValue(record.name) === name);
-    const pid = this.managed && this.managed.state !== "exited" ? this.managed.pid : intValue(saved?.pid, 0, 0);
-    if (!pid || !processGroupAlive(pid)) return { draining: false, reason: "not_running", process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
-
-    const children = directChildPids(pid);
-    if (this.managed && this.managed.pid === pid && this.managed.state !== "exited") {
-      this.managed.state = "draining";
-      this.writeProcessFile(this.managed);
-      this.deps.mirrorProcessState({
-        command: this.managed.command,
-        graphDbPath: this.managed.graphDbPath,
-        name: this.managed.name,
-        pid: this.managed.pid,
-        processFilePath: this.managed.pidFilePath,
-        game: this.managed.game,
-        repoRoot: this.managed.repoRoot,
-        startedAt: this.managed.startedAt,
-        state: this.managed.state,
-        stateDir,
-      });
-    } else {
-      this.updateSavedProcessFile(stateDir, name, { state: "draining", pid, drainRequestedAt: new Date().toISOString() });
-      this.deps.mirrorProcessState({
-        command: savedCommand(saved),
-        graphDbPath: stringValue(saved?.graphDbPath, game?.graphDbPath ?? ""),
-        name,
-        pid,
-        processFilePath: this.pidFilePath(stateDir, name),
-        game,
-        repoRoot: stringValue(saved?.repoRoot, game?.repoRoot ?? ""),
-        startedAt: stringValue(saved?.startedAt),
-        state: "draining",
-        stateDir,
-      });
-    }
-
-    this.appendLog("ui", `drain requested for ${name} pid=${pid}`);
-    const signaled: number[] = [];
-    const drainSignal: NodeJS.Signals = "SIGUSR1";
-    if (children.length > 0) {
-      for (const childPid of children) {
-        try {
-          process.kill(childPid, drainSignal);
-          signaled.push(childPid);
-        } catch (error) {
-          this.appendLog("stderr", `drain signal failed for child ${childPid}: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-    } else {
-      try {
-        process.kill(pid, drainSignal);
-        signaled.push(pid);
-      } catch (error) {
-        this.appendLog("stderr", `drain signal failed for process ${pid}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-    this.appendLog("ui", `sent drain signal to ${signaled.length} process${signaled.length === 1 ? "" : "es"}; run-loop remains active until workers finish`);
-    return { draining: signaled.length > 0, signaled, process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
-  }
 }
 
 export function createManagedProcessController(deps: ManagedProcessControllerDeps): ManagedProcessController {

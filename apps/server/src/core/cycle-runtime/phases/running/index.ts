@@ -58,7 +58,8 @@ export function stopRunning(
   const runningState = {
     ...record.running_state_json,
     status: blocked ? "blocked" : "complete",
-    subphase: "draining",
+    subphase: "other",
+    subphase_detail: "stopped",
     completed_at: blocked ? record.running_state_json.completed_at : now,
     stop_reason: stopReason,
     manual_stop_mode: options.manualStopMode,
@@ -78,7 +79,8 @@ export function unblockStoppedRunning(record: CycleRecord, now: string): CyclePa
     blockers_json: [],
     running_state_json: {
       ...completePhase(record.running_state_json, now),
-      subphase: "draining",
+      subphase: "other",
+      subphase_detail: "stopped",
     },
   };
 }

@@ -2,15 +2,12 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
 import { heartbeatDispatch } from "@server/core/harness-state";
-import { getActiveCycle } from "@server/core/cycle";
 import { loadExactTargetKeys } from "@server/core/cycle-runtime/phases/running/board/snapshot.js";
 import {
-  activeClaimsForRun,
   activeWorkerCount,
   activeSchedulerEpoch,
   addEvent,
   blockingWorkerOutputIntegrationCount,
-  closeWorkerState,
   closeSchedulerEpoch,
   getLatestRun,
   getRun,
@@ -30,11 +27,9 @@ import {
   type EpochProgressSummary,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
-import { immediateTransaction, withBusyRetry } from "@server/core/orchestrator-state";
+import { withBusyRetry } from "@server/core/orchestrator-state";
 import type { EpochCycleResult } from "@server/core/cycle-runtime/phases/running/epochs";
 import { integrationResolve, processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration";
-import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
-import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import {
   booleanArg,
   numberArg,
@@ -114,20 +109,6 @@ interface BoundaryErrorEpoch {
   finished: number;
 }
 
-export interface ForceFinishEpochEvent {
-  id: string;
-  payload: Record<string, unknown>;
-}
-
-export interface ForceFinishEpochResult {
-  epochId: string | null;
-  ordinal: number | null;
-  activeClaimsClosed: number;
-  openTargetsFinished: number;
-  before: EpochProgressSummary | null;
-  after: EpochProgressSummary | null;
-}
-
 export type FastKnowledgeMaintenanceAction = "defer" | "none" | "skip_no_new_reports" | "start";
 
 export interface FastKnowledgeMaintenanceDecision {
@@ -161,9 +142,6 @@ export interface RunLoopResult {
   workersStarted: number;
   workerResults: WorkerResultSummary[];
   workerErrors: WorkerError[];
-  providerPauses: number;
-  providerPaused: boolean;
-  lastProviderError?: string;
   knowledgeMaintenanceRuns: Record<string, unknown>[];
   knowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
   fastKnowledgeMaintenanceRuns: Record<string, unknown>[];
@@ -189,53 +167,6 @@ export interface RunLoopDeps {
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-const PROVIDER_PROBE_INITIAL_BACKOFF_MS = 30_000;
-const PROVIDER_PROBE_MAX_BACKOFF_MS = 300_000;
-
-// Cheapest truthful health check: a tiny no-tools session through the exact provider
-// path workers use. An LB liveness endpoint can say "ok" while its upstream account
-// pool is exhausted; a completion can't lie.
-async function probeProvider(globals: GlobalArgs, outputDir: string, sessionId: string, runId: string): Promise<{ healthy: boolean; error?: string }> {
-  try {
-    const result = await runPiAgent({
-      role: "worker",
-      cwd: globals.repoRoot,
-      prompt: {
-        systemPrompt: "You are a connectivity probe. Reply with the single word OK.",
-        userPrompt: "Reply with the single word OK.",
-        systemTemplatePath: "(provider-probe inline)",
-        userTemplatePath: "(provider-probe inline)",
-      },
-      outputDir,
-      dryRun: false,
-      provider: globals.provider,
-      model: globals.model,
-      thinkingLevel: "low",
-      timeoutMs: 120_000,
-      sessionDir: outputDir,
-      toolProfile: { replace: [] },
-      kernelContext: createMeleeKernelSpawnContext({
-        kind: "run",
-        gameId: globals.game?.gameId ?? globals.gameId,
-        sessionId,
-        runId,
-        phase: "provider-probe",
-        workingDir: globals.repoRoot,
-        metadata: {
-          probe: true,
-          outputDir,
-        },
-      }),
-    });
-    if (result.failed) return { healthy: false, error: result.error ?? "probe session failed" };
-    if (result.providerError) return { healthy: false, error: result.providerError };
-    if (!result.rawText.trim()) return { healthy: false, error: "probe returned empty output" };
-    return { healthy: true };
-  } catch (error) {
-    return { healthy: false, error: error instanceof Error ? error.message : String(error) };
-  }
 }
 
 function nonNegativeInt(value: number): number {
@@ -365,42 +296,6 @@ export function selectIntegrationResolverBatch<T extends IntegrationResolverSele
   return selected;
 }
 
-function jsonObjectValue(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (typeof value !== "string" || !value.trim()) return {};
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function stringPayloadValue(payload: Record<string, unknown>, key: string, fallbackKey = key): string {
-  const value = payload[key] ?? payload[fallbackKey];
-  return typeof value === "string" ? value : "";
-}
-
-function nextForceFinishEpochEvent(store: StateStore, runId: string): ForceFinishEpochEvent | null {
-  const row = withBusyRetry(
-    () =>
-      store.db
-        .query(
-          `
-            SELECT id, payload_json
-            FROM events
-            WHERE run_id = ?
-              AND event_type = 'epoch_force_finish_requested'
-              AND handled_at IS NULL
-            ORDER BY created_at ASC
-            LIMIT 1
-          `,
-        )
-        .get(runId) as Record<string, unknown> | undefined,
-  );
-  return row ? { id: String(row.id), payload: jsonObjectValue(row.payload_json) } : null;
-}
-
 function knowledgeProgressReporter(
   store: StateStore,
   runId: string,
@@ -432,83 +327,6 @@ function knowledgeProgressReporter(
     }
   };
 }
-
-function finishOpenEpochTargets(store: StateStore, epochId: string): number {
-  return immediateTransaction(store.db, () => {
-    const finishedAt = new Date().toISOString();
-    const result = store.db
-      .query(
-        `
-          UPDATE epoch_targets
-          SET status = 'finished',
-              finished_at = ?
-          WHERE epoch_id = ?
-            AND status IN ('admitted', 'claimed')
-        `,
-      )
-      .run(finishedAt, epochId);
-    store.db
-      .query(
-        `
-          UPDATE epochs
-          SET finished_count = (
-            SELECT COUNT(*)
-            FROM epoch_targets
-            WHERE epoch_targets.epoch_id = epochs.id
-              AND epoch_targets.status = 'finished'
-          )
-          WHERE id = ?
-        `,
-      )
-      .run(epochId);
-    return Number(result.changes ?? 0);
-  });
-}
-
-export function forceFinishActiveEpoch(store: StateStore, runId: string, event: ForceFinishEpochEvent): ForceFinishEpochResult {
-  const epoch = activeSchedulerEpoch(store, runId);
-  if (!epoch) {
-    markEventHandled(store, event.id);
-    return { epochId: null, ordinal: null, activeClaimsClosed: 0, openTargetsFinished: 0, before: null, after: null };
-  }
-  const requestedEpochId = stringPayloadValue(event.payload, "epoch_id", "epochId");
-  if (requestedEpochId && requestedEpochId !== epoch.id) {
-    markEventHandled(store, event.id);
-    return { epochId: null, ordinal: null, activeClaimsClosed: 0, openTargetsFinished: 0, before: null, after: null };
-  }
-
-  const before = schedulerEpochProgress(store, epoch.id);
-  const activeClaims = activeClaimsForRun(store, runId).filter((claim) => claim.epochId === epoch.id);
-  for (const claim of activeClaims) {
-    closeWorkerState(store, {
-      authority: { host: "run-loop-settle" },
-      workerStateId: claim.workerStateId,
-      lifecycleStatus: "cancelled",
-      epochTargetStatus: "finished",
-      summary: {
-        forced_by: "dashboard",
-        force_finish_event_id: event.id,
-        recovery_reason: "manual epoch finish requested; treating current epoch as drained",
-      },
-      errorSummary: "Manual epoch finish requested; worker claim cancelled and retained as epoch-finished.",
-    });
-  }
-  const openTargetsFinished = finishOpenEpochTargets(store, epoch.id);
-  const after = schedulerEpochProgress(store, epoch.id);
-  markEventHandled(store, event.id);
-  addEvent(store, runId, "epoch_force_finished", "run-loop", {
-    epoch_id: epoch.id,
-    ordinal: epoch.ordinal,
-    request: event.payload,
-    active_claims_closed: activeClaims.length,
-    open_targets_finished: openTargetsFinished,
-    before,
-    after,
-    created_by: "run-loop",
-  });
-  return { epochId: epoch.id, ordinal: epoch.ordinal, activeClaimsClosed: activeClaims.length, openTargetsFinished, before, after };
-}
-
 
 export function evaluateFastKnowledgeMaintenanceDecision(params: {
   intervalMs: number;
@@ -686,29 +504,17 @@ export async function runRunLoop(
   let runningKnowledgeMaintenance: Promise<void> | null = null;
   let stoppedReason = "running";
   let stopRequested = false;
-  let drainRequested = false;
   let iterations = 0;
   let idleIterations = 0;
   let workersStarted = 0;
   let integrationDrains = 0;
-  let providerPausedSinceMs: number | null = null;
-  let providerPauses = 0;
-  let lastProviderError: string | undefined;
-  let providerProbeBackoffMs = PROVIDER_PROBE_INITIAL_BACKOFF_MS;
-  let nextProviderProbeMs = 0;
-  let runningProviderProbe: Promise<void> | null = null;
   const stop = () => {
     stopRequested = true;
     stoppedReason = "signal";
   };
-  const drain = () => {
-    drainRequested = true;
-    stoppedReason = "draining";
-  };
 
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  process.once("SIGUSR1", drain);
 
   try {
     const leaseId = stringArg(args, "--lease-id", "").trim();
@@ -719,7 +525,6 @@ export async function runRunLoop(
     if (!run) throw new Error(`Run not found: ${runId}`);
     assertSchedulableRun(run, "run-loop");
     const sessionGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId;
-    const sessionId = run.cycleUuid ?? (sessionGameId ? getActiveCycle(store.db, sessionGameId)?.cycle_uuid : null) ?? runId;
     const sandboxProvider = deps.sandboxProvider
       ?? (process.env.DAYTONA_API_KEY?.trim() ? new DaytonaSandboxProvider() : undefined);
     if (sessionGameId) {
@@ -791,7 +596,7 @@ export async function runRunLoop(
     let pendingFastKnowledgeMaintenance = false;
     let schedulerBlocked = false;
     let runningIntegrationDrain: Promise<void> | null = null;
-    let workerSettledSinceDrain = false;
+    let integrationFlushPending = false;
     const pendingSettleWork = new Set<Promise<void>>();
     let settleWakeResolve: (() => void) | null = null;
     let settleWake = new Promise<void>((resolveWake) => { settleWakeResolve = resolveWake; });
@@ -839,17 +644,7 @@ export async function runRunLoop(
         errorKind,
       });
       workersStarted += 1;
-      const providerFailure = errorKind === "provider_error" || /provider[_ -]?error/i.test(settle.error ?? "");
-      if (providerFailure) {
-        lastProviderError = error ?? "provider error";
-        if (providerPausedSinceMs == null) {
-          providerPausedSinceMs = Date.now();
-          providerPauses += 1;
-          providerProbeBackoffMs = PROVIDER_PROBE_INITIAL_BACKOFF_MS;
-          nextProviderProbeMs = Date.now() + providerProbeBackoffMs;
-          console.error(`[run-loop] provider failure from ${workerId}: ${lastProviderError}; pausing worker dispatch until a provider probe succeeds`);
-        }
-      } else if (settle.status === "failed") {
+      if (settle.status === "failed") {
         let recoveryTask: Promise<void>;
         recoveryTask = recoverActiveClaims({
           globals,
@@ -872,7 +667,7 @@ export async function runRunLoop(
         workerErrors.push({ workerId, error: error ?? `Worker state closed as ${String(row?.lifecycle_status)}` });
         if (exitOnWorkerError) { stopRequested = true; stoppedReason = "worker_error"; }
       }
-      workerSettledSinceDrain = true;
+      integrationFlushPending = true;
       settleWakeResolve?.();
     };
     const workerDescriptor = workerJobDescriptor(workerCtx, {
@@ -885,8 +680,7 @@ export async function runRunLoop(
     const workerConsumer = startJobConsumer(store, workerDescriptor, workerKernelOps(workerCtx), {
       intervalMs: 1_000,
       actor: "runner",
-      shouldClaim: () => !drainRequested && providerPausedSinceMs == null
-        && !(maxIterations > 0 && iterations >= maxIterations) && !schedulerBlocked && !epochPaused,
+      shouldClaim: () => !(maxIterations > 0 && iterations >= maxIterations) && !schedulerBlocked && !epochPaused,
       onJobSettled: handleWorkerJobSettled,
     });
     const syncSchedulerCondition = (fallback: "planning" | "dispatching" | "waiting"): void => {
@@ -967,23 +761,16 @@ export async function runRunLoop(
         gameId: globals.game?.gameId ?? globals.gameId,
       });
       schedulerBlocked = dispatchLease.status === "blocked";
-      if (dispatchLease.status === "draining") {
-        drainRequested = true;
-        stoppedReason = "draining";
-      } else if (dispatchLease.status === "blocked") {
-      }
       syncSchedulerCondition("planning");
       let didWork = false;
       resetSettleWake();
-      if (!drainRequested) {
-        const reaped = await reapWorkerJobs(store, workerCtx, { sandboxProvider });
-        if (reaped.recovered > 0) {
-          console.error(`[run-loop] reaped worker jobs and recovered ${reaped.recovered} active claim(s)`);
-          didWork = true;
-        }
+      const reaped = await reapWorkerJobs(store, workerCtx, { sandboxProvider });
+      if (reaped.recovered > 0) {
+        console.error(`[run-loop] reaped worker jobs and recovered ${reaped.recovered} active claim(s)`);
+        didWork = true;
       }
-      if (workerSettledSinceDrain && !runningIntegrationDrain) {
-        workerSettledSinceDrain = false;
+      if (integrationFlushPending && !runningIntegrationDrain) {
+        integrationFlushPending = false;
         let task: Promise<void>;
         task = processWorkerOutputIntegrationQueue({
           dryRun: globals.dryRunAgents,
@@ -1010,7 +797,6 @@ export async function runRunLoop(
       // from each other, the epoch boundary is blocked while any resolver
       // runs, and no boundary may be running when one launches.
       if (
-        !drainRequested &&
         autoIntegrationResolverEnabled(args) &&
         !runningEpoch &&
         runningIntegrationResolvers.size < integrationResolverConcurrency
@@ -1033,7 +819,6 @@ export async function runRunLoop(
       }
 
       if (
-        !drainRequested &&
         !runningKnowledgeMaintenance &&
         runningIntegrationResolvers.size === 0 &&
         !boundaryWorkPendingBeforeMaintenance &&
@@ -1129,23 +914,7 @@ export async function runRunLoop(
           });
         runningEpoch = task;
       };
-      const forceFinishEvent = nextForceFinishEpochEvent(store, runId);
-      if (forceFinishEvent) {
-        syncSchedulerCondition("planning");
-        const result = forceFinishActiveEpoch(store, runId, forceFinishEvent);
-        if (result.epochId) {
-          console.error(
-            `[run-loop] epoch ${result.ordinal}: manual finish requested; ` +
-              `closed ${result.activeClaimsClosed} active claim(s), marked ${result.openTargetsFinished} open target(s) finished`,
-          );
-        }
-        if (workerConsumer.inFlight() > 0) await workerConsumer.cancelAll();
-        if (result.after) lastSchedulerEpoch = result.after;
-        didWork = true;
-      }
-
       if (
-        !drainRequested &&
         epochCycleEnabled &&
         fastMaintenanceIntervalMs > 0 &&
         !runningEpoch &&
@@ -1262,7 +1031,7 @@ export async function runRunLoop(
       // the same iteration that settles the last worker starts a drain, and
       // the boundary's blocking-integration check would then throw a spurious
       // error epoch. The drain finishes fast; the next iteration launches.
-      if (!drainRequested && epochCycleEnabled && runningIntegrationResolvers.size === 0 && !runningIntegrationDrain) {
+      if (epochCycleEnabled && runningIntegrationResolvers.size === 0 && !runningIntegrationDrain) {
         if (!runningEpoch && nowMs >= nextEpochAllowedMs && !epochPaused) {
           const boundaryError = boundaryErrorEpoch(store, runId);
           if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
@@ -1337,34 +1106,8 @@ export async function runRunLoop(
         }
       }
 
-      if (!drainRequested && providerPausedSinceMs != null && !runningProviderProbe && Date.now() >= nextProviderProbeMs) {
-        const probeDir = resolve(globals.stateDir, "runs", runId, "provider_probes");
-        let probeTask: Promise<void>;
-        probeTask = probeProvider(globals, probeDir, sessionId, runId)
-          .then((probe) => {
-            if (probe.healthy) {
-              const pausedForMs = Date.now() - (providerPausedSinceMs ?? Date.now());
-              console.error(`[run-loop] provider probe succeeded after ${Math.round(pausedForMs / 1000)}s paused; resuming worker spawns`);
-              providerPausedSinceMs = null;
-              providerProbeBackoffMs = PROVIDER_PROBE_INITIAL_BACKOFF_MS;
-            } else {
-              lastProviderError = probe.error ?? lastProviderError;
-              providerProbeBackoffMs = Math.min(providerProbeBackoffMs * 2, PROVIDER_PROBE_MAX_BACKOFF_MS);
-              nextProviderProbeMs = Date.now() + providerProbeBackoffMs;
-              console.error(
-                `[run-loop] provider probe failed (${probe.error ?? "unknown"}); next probe in ${Math.round(providerProbeBackoffMs / 1000)}s`,
-              );
-            }
-          })
-          .finally(() => {
-            if (runningProviderProbe === probeTask) runningProviderProbe = null;
-          });
-        runningProviderProbe = probeTask;
-      }
-
       const schedulerEvent = nextUnhandledEvent(store, runId);
-      const schedulerEventType = schedulerEvent ? String(schedulerEvent.eventType ?? schedulerEvent.event_type ?? "") : "";
-      if (!drainRequested && !runningScheduler && schedulerEvent && schedulerEventType !== "epoch_force_finish_requested") {
+      if (!runningScheduler && schedulerEvent) {
         const tickArgs = schedulerTickArgs(args, { runId });
         let task: Promise<void>;
         task = runSchedulerTick(globals, tickArgs, { ownsSchedulerCondition: false })
@@ -1406,23 +1149,6 @@ export async function runRunLoop(
         stoppedReason = "max_iterations";
         break;
       }
-      if (
-        drainRequested &&
-        workerConsumer.inFlight() === 0 &&
-        !runningEpoch &&
-        !runningScheduler &&
-        !runningIntegrationDrain &&
-        !workerSettledSinceDrain &&
-        pendingSettleWork.size === 0 &&
-        runningIntegrationResolvers.size === 0 &&
-        !runningFastKnowledgeMaintenance &&
-        !runningKnowledgeMaintenance &&
-        !runningProviderProbe
-      ) {
-        stoppedReason = "drained";
-        break;
-      }
-
       syncSchedulerCondition("waiting");
       await waitForRestingTrigger(idleSleepMs, [
         settleWake,
@@ -1431,7 +1157,6 @@ export async function runRunLoop(
         runningFastKnowledgeMaintenance,
         runningKnowledgeMaintenance,
         runningScheduler,
-        runningProviderProbe,
         ...runningIntegrationResolvers.values(),
       ]);
     }
@@ -1455,7 +1180,7 @@ export async function runRunLoop(
     }
     if (pendingSettleWork.size > 0) await Promise.allSettled([...pendingSettleWork]);
     if (runningIntegrationDrain) await runningIntegrationDrain;
-    if (workerSettledSinceDrain) {
+    if (integrationFlushPending) {
       const finalDrain = await processWorkerOutputIntegrationQueue({
         dryRun: globals.dryRunAgents,
         leaseId,
@@ -1466,14 +1191,13 @@ export async function runRunLoop(
       });
       if (finalDrain.headRev) workerCtx.baseRev = finalDrain.headRev;
       integrationDrains += 1;
-      workerSettledSinceDrain = false;
+      integrationFlushPending = false;
     }
     if (runningEpoch) await runningEpoch;
     if (runningScheduler) await runningScheduler;
     if (runningIntegrationResolvers.size > 0) await Promise.allSettled([...runningIntegrationResolvers.values()]);
     if (runningFastKnowledgeMaintenance) await runningFastKnowledgeMaintenance;
     if (runningKnowledgeMaintenance) await runningKnowledgeMaintenance;
-    if (runningProviderProbe) await runningProviderProbe;
     if (stoppedReason === "running") stoppedReason = "complete";
     const finalActiveSchedulerEpoch = activeSchedulerEpoch(store, runId);
     const finalSchedulerEpoch = lastSchedulerEpoch ?? (finalActiveSchedulerEpoch ? schedulerEpochProgress(store, finalActiveSchedulerEpoch.id) : null);
@@ -1501,9 +1225,6 @@ export async function runRunLoop(
       workersStarted,
       workerResults,
       workerErrors,
-      providerPauses,
-      providerPaused: providerPausedSinceMs != null,
-      lastProviderError,
       knowledgeMaintenanceRuns,
       knowledgeMaintenanceErrors,
       fastKnowledgeMaintenanceRuns,
@@ -1524,7 +1245,6 @@ export async function runRunLoop(
     if (observedRunId) setRunSchedulerCondition(store, observedRunId, "idle");
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
-    process.off("SIGUSR1", drain);
     store.db.close();
   }
 }

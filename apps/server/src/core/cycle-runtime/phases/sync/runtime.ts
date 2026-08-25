@@ -5,7 +5,6 @@ import { resolve, sep } from "node:path";
 import { immediateTransaction, openState, type StateStore } from "@server/core/orchestrator-state";
 import { getActiveCycle, getCycleByUuid } from "@server/core/cycle/store.js";
 import {
-  beginDrain,
   getHarnessState,
   initializeHarnessState,
   requestDispatch,
@@ -14,7 +13,7 @@ import {
 } from "@server/core/harness-state";
 import type { JsonValue } from "@server/core/harness-state/events.js";
 import { getRun } from "@server/core/cycle-runtime/run-state";
-import { pauseRun, runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
+import { runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { fetchUpstreamAndFindMergedPrs } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { prepareWorktreePaths } from "@server/core/cycle-runtime/phases/preparing/subphases/worktrees.js";
 import type { ResolvedGame } from "@server/core/game-registry";
@@ -86,6 +85,7 @@ export interface SyncRuntimeDeps {
     options?: { check?: boolean; failureHint?: string },
   ) => Promise<CliResult>;
   serverJobPath: string;
+  stopManaged: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
   /** Injectable backoff delay for retries; defaults to setTimeout. */
   sleep?: (ms: number) => Promise<void>;
   sourceRoot: (sourceId: string) => string;
@@ -99,7 +99,7 @@ export interface SyncRuntimeDeps {
 
 export interface SyncStartDecision {
   queued: boolean;
-  run_draining: boolean;
+  run_stopping: boolean;
   lease_id: string | null;
   sync: SyncState;
 }
@@ -235,13 +235,12 @@ export function gameSyncAction(
     }
     if (lease) {
       const sameSync = sync && lease.kind === "sync" && lease.workflow_id === sync.sync_id && lease.status === "active";
-      const activeRun = lease.kind === "run" && lease.status === "active";
-      const drainCanTargetSync = lease.kind === "run" && lease.status === "draining" &&
+      const activeRun = lease.kind === "run" && lease.status === "active" &&
         (!lease.requested_handoff || (
           sync && lease.requested_handoff.target_kind === "sync" &&
           lease.requested_handoff.target_workflow_id === sync.sync_id
         ));
-      if (!sameSync && !activeRun && !drainCanTargetSync) {
+      if (!sameSync && !activeRun) {
         blockers.push(blocker(
           "dispatch_lease_held",
           `${lease.kind} workflow ${lease.workflow_id} holds the dispatch lease and cannot hand off to this sync.`,
@@ -250,12 +249,12 @@ export function gameSyncAction(
         ));
       }
     }
-    const afterDrain = lease?.kind === "run";
+    const afterStop = lease?.kind === "run";
     return actionResult(
       actionId,
       subjectId,
       blockers,
-      afterDrain ? "requested → ingesting after run drains" : "requested → ingesting",
+      afterStop ? "requested → ingesting after run stops" : "requested → ingesting",
       false,
     );
   }
@@ -891,6 +890,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
 
     store = openState(paths.stateDir);
     let decision: SyncStartDecision;
+    let stopRunId: string | null = null;
     try {
       action = gameSyncAction(store, gameId, "sync.start", sync.sync_id, syncActionOptions(paths, deps));
       if (!action.enabled) throw new SyncActionBlockedError(action);
@@ -910,7 +910,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
             causationId: harnessState?.caused_by_event_id ?? commandId,
             spanId: actionSpanId,
           });
-          return { queued: false, run_draining: false, lease_id: existingLease.lease_id, sync: activated };
+          return { queued: false, run_stopping: false, lease_id: existingLease.lease_id, sync: activated };
         }
         const dispatch = requestDispatch(store, {
           actor: "operator",
@@ -921,6 +921,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           reason: text(body.reason, "operator started sync"),
           workflowId: sync!.sync_id,
           spanId: actionSpanId,
+          handoffOnQueue: true,
         });
         if (!dispatch.queued) {
           const activated = activateAcquiredSync({
@@ -934,48 +935,30 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
             causationId: dispatch.acquiredEventId,
             spanId: actionSpanId,
           });
-          return { queued: false, run_draining: false, lease_id: dispatch.leaseId, sync: activated };
+          return { queued: false, run_stopping: false, lease_id: dispatch.leaseId, sync: activated };
         }
         const holder = dispatch.blockedBy;
         if (holder.kind !== "run") {
           throw new Error(`Only an active run can hand off dispatch authority to sync; found ${holder.kind}:${holder.workflow_id}`);
         }
-        if (holder.status === "active") {
-          const run = getRun(store, holder.workflow_id);
-          if (!run) throw new Error(`Run not found: ${holder.workflow_id}`);
-          pauseRun({
-            actor: "operator",
-            commandId,
-            reason: text(body.reason, "operator started sync"),
-            runId: run.id,
-            spanId: actionSpanId,
-            store,
-            targetKind: "sync",
-            targetWorkflowId: sync!.sync_id,
-          });
-        } else if (holder.status === "draining" && !holder.requested_handoff) {
-          beginDrain(store, {
-            actor: "operator",
-            commandId,
-            correlationId: holder.workflow_id,
-            leaseId: holder.lease_id,
-            gameId,
-            reason: text(body.reason, "operator started sync"),
-            targetKind: "sync",
-            targetWorkflowId: sync!.sync_id,
-            spanId: actionSpanId,
-          });
-        } else if (
-          holder.status !== "draining" ||
-          holder.requested_handoff?.target_kind !== "sync" ||
-          holder.requested_handoff.target_workflow_id !== sync!.sync_id
-        ) {
+        if (holder.status !== "active") {
           throw new Error(`Run ${holder.workflow_id} cannot hand off to sync while ${holder.status}`);
         }
-        return { queued: true, run_draining: true, lease_id: null, sync: getSyncState(store, sync!.sync_id)! };
+        if (!getRun(store, holder.workflow_id)) throw new Error(`Run not found: ${holder.workflow_id}`);
+        stopRunId = holder.workflow_id;
+        return { queued: true, run_stopping: true, lease_id: null, sync: getSyncState(store, sync!.sync_id)! };
       });
     } finally {
       store.db.close();
+    }
+    if (stopRunId) {
+      await deps.stopManaged({
+        ...body,
+        commandId,
+        reason: text(body.reason, "operator started sync"),
+        recoverClaims: false,
+        runId: stopRunId,
+      });
     }
     if (!decision.queued) decision.sync = await advance(paths, actionBody, decision.sync.sync_id);
     return decision;

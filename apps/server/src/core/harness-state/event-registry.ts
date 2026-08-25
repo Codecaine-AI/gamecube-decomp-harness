@@ -1,8 +1,8 @@
 import type { EventActor, JsonObject, JsonValue } from "./events.js";
 
 /**
- * Canonical event-subject vocabulary. Dispatch drain and blocked facts retain
- * the active workflow subject; request, acquire, and release use `game`.
+ * Canonical event-subject vocabulary. Dispatch blocked facts retain the active
+ * workflow subject; request, acquire, and release use `game`.
  */
 export const GAME_EVENT_SUBJECT_KINDS = Object.freeze([
   "game",
@@ -137,16 +137,6 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
     handoff_from_lease_id: optional("string"),
     handoff_release_event_id: optional("string"),
   }),
-  "game.dispatch_drain_started": v1(
-    ["run", "sync_workflow", "pr_campaign"],
-    "coordination",
-    controllers,
-    {
-      lease_id: required("string"),
-      target_kind: required("string"),
-      open_obligations: required("array"),
-    },
-  ),
   "game.dispatch_blocked": v1(
     ["run", "sync_workflow", "pr_campaign"],
     "coordination",
@@ -193,10 +183,6 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
     starting_knowledge_revision: required("string"),
   }),
   "run.activated": status("run", ["operator", "runner"], { lease_id: required("string") }),
-  "run.draining": status("run", controllers, {
-    lease_id: required("string"),
-    reason: required("string"),
-  }),
   "run.paused": status("run", controllers, {
     recovery_id: optional("string"),
     recovery_reason: optional("string"),

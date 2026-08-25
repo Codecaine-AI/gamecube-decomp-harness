@@ -1,7 +1,6 @@
-import { Archive, RefreshCw, RotateCcw, Save } from "@/icons";
+import { Archive, RotateCcw, Save } from "@/icons";
 import { asObject, clock, num, shortId } from "@/lib/format";
 import { Button, PageHeader, PanelSection, PanelTitle } from "@/components/primitives";
-import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 import { prettyStatus, harnessStateAction } from "@/pages/workspace/_lib/model";
 import type { DashboardAction, HarnessStateActionProjection, CycleView, WorkspaceNav } from "@/pages/workspace/_lib/types";
 import { ActiveCyclePage } from "@/pages/workspace/cycles/active/page";
@@ -39,7 +38,7 @@ function CyclesIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: Wo
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <PanelTitle className="mb-0">Active Cycle</PanelTitle>
             <span
-              className={`status-tag ${activeWorkflow && ["draining", "blocked", "releasing"].includes(activeWorkflow.status) ? "status-tag-warn" : activeWorkflow ? "status-tag-live" : ""}`}
+              className={`status-tag ${activeWorkflow && ["blocked", "releasing"].includes(activeWorkflow.status) ? "status-tag-warn" : activeWorkflow ? "status-tag-live" : ""}`}
               title={activeWorkflow?.headline}
             >
               <span className="lamp" />
@@ -111,11 +110,6 @@ function CyclesIndexPage({ busy, nav, onAction, view }: { busy: boolean; nav: Wo
               <Button icon={<Archive size={13} />} onClick={() => nav.goToCycle(cycleFocus, view.recommendedSub)} tone="primary" type="button">
                 Open Cycle
               </Button>
-              {view.process.running ? (
-                <Button disabled={busy} icon={view.process.draining ? <RefreshCw size={13} /> : <Archive size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)} tone="warning" type="button">
-                  {view.process.draining ? "Draining" : "Drain Run"}
-                </Button>
-              ) : null}
               <Button
                 disabled={busy || !savePointAction?.enabled}
                 icon={<Save size={13} />}

@@ -49,7 +49,7 @@ export const reportFilters: Array<{ description: string; id: WorkerStateFilter; 
   { id: "dry_run", label: "Dry Run", description: "The worker stopped at the dry-run boundary." },
   { id: "recovered_requeued", label: "Recovered: Requeued", description: "An interrupted active claim was recovered and its target was admitted again." },
   { id: "recovered_finished", label: "Recovered: Retained", description: "An interrupted active claim was recovered with selectable evidence retained." },
-  { id: "provider_error", label: "Provider Error", description: "The LLM provider failed before the target was really attempted; worker spawns paused until a probe succeeded." },
+  { id: "provider_error", label: "Provider Error", description: "The LLM provider failed before the target was really attempted; the target will retry in a later epoch." },
   { id: "worker_session_failed", label: "Session Failed", description: "The Pi worker session failed before a validation-ready response was available." },
   { id: "agent_tool_error", label: "Agent Tool Error", description: "The worker explicitly reported a tool/build/validation failure as terminal." },
   { id: "validation_qa_lint_failed", label: "QA Lint Failed", description: "Runner validation failed because QA lint found required repairs." },
@@ -415,7 +415,7 @@ export function reportOutcomeDescription(report: JsonObject): string {
   if (outcome === "dry_run") return "Dry Run: the worker stopped at the dry-run boundary.";
   if (outcome === "recovered_requeued") return "Recovered: an interrupted active worker was closed and its target was requeued.";
   if (outcome === "recovered_finished") return "Recovered: an interrupted active worker was closed with selectable evidence retained.";
-  if (outcome === "provider_error") return "Provider Error: the LLM provider failed before the target was really attempted; worker spawns paused until a provider probe succeeded.";
+  if (outcome === "provider_error") return "Provider Error: the LLM provider failed before the target was really attempted; the target will retry in a later epoch.";
   if (outcome === "worker_session_failed") return "Session Failed: the Pi worker session failed before a validation-ready response was available.";
   if (outcome === "agent_tool_error") return "Agent Tool Error: the worker explicitly reported a tool/build/validation failure as terminal.";
   if (outcome === "validation_qa_lint_failed") return "QA Lint Failed: runner validation found QA findings that required repair.";

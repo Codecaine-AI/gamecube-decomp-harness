@@ -1,6 +1,6 @@
 import { asArray, asObject, text, type Dashboard, type JsonObject } from "./format";
 
-const activeStates = new Set(["running", "stopping", "draining"]);
+const activeStates = new Set(["running", "stopping"]);
 
 function normalizedSavedState(record: JsonObject): string {
   const state = text(record.state, "saved");
@@ -11,7 +11,6 @@ function normalizedSavedState(record: JsonObject): string {
 export interface ProcessView {
   detached: boolean;
   display: JsonObject;
-  draining: boolean;
   pillState: string;
   proc: JsonObject;
   running: boolean;
@@ -32,8 +31,7 @@ export function processView(dashboard: Dashboard | null, selectedName = ""): Pro
   const savedState = text(display.viewState, normalizedSavedState(display));
   const running = Boolean(managedLive || detached);
   const pillState = procState && procState !== "idle" ? procState : detached && savedState ? savedState : detached ? "detached" : savedState || "idle";
-  const draining = (managedLive && procState === "draining") || (detached && savedState === "draining");
-  return { detached, display, draining, pillState, proc, running, saved };
+  return { detached, display, pillState, proc, running, saved };
 }
 
 export function processPillState(dashboard: Dashboard | null): string {

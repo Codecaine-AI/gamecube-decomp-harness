@@ -8,11 +8,11 @@ import { CYCLE_CONTROL_ACTION_IDS, CYCLE_CONTROL_ENDPOINTS, cycleConfirmationMes
 import { SYNC_CONTROL_ACTION_IDS } from "./projectedSyncControls";
 
 describe("canonical projected action inventory", () => {
-  test("contains exactly the 21 canonical action ids", () => {
-    expect(CANONICAL_HARNESS_ACTION_IDS).toHaveLength(21);
-    expect(new Set(CANONICAL_HARNESS_ACTION_IDS).size).toBe(21);
+  test("contains exactly the 20 canonical action ids", () => {
+    expect(CANONICAL_HARNESS_ACTION_IDS).toHaveLength(20);
+    expect(new Set(CANONICAL_HARNESS_ACTION_IDS).size).toBe(20);
     expect(CANONICAL_HARNESS_ACTION_IDS).toEqual([
-      "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
+      "run.start", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
       "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
       "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
       "cycle.save_point", "cycle.close", "knowledge.process",

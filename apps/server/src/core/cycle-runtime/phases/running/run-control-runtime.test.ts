@@ -44,7 +44,6 @@ describe("run control runtime", () => {
   test("rejects caller-supplied correlation that does not name the run", async () => {
     const fixture = activeRunFixture();
     const runtime = createRunControlRuntime({
-      drainManaged: async () => ({ draining: true, signaled: [] }),
       hasActiveProcess: () => ({ active: true }),
       resolveDashboardGame: () => ({
         graphDbPath: join(fixture.stateDir, "graph.sqlite"),
@@ -55,10 +54,11 @@ describe("run control runtime", () => {
       stopManaged: async () => ({ stopped: true }),
     });
 
-    await expect(runtime.pause({
+    expect(() => runtime.cancel({
+      confirmed: true,
       correlationId: "sync-wrong-workflow",
       runId: fixture.runId,
-    })).rejects.toThrow(`correlation_id must equal run id ${fixture.runId}`);
+    })).toThrow(`correlation_id must equal run id ${fixture.runId}`);
 
     const store = openState(fixture.stateDir);
     try {
@@ -72,38 +72,4 @@ describe("run control runtime", () => {
     }
   });
 
-  test("pause returns draining only after durable run and lease admission gates are closed", async () => {
-    const fixture = activeRunFixture();
-    let observedDuringSignal: Record<string, unknown> | null = null;
-    const runtime = createRunControlRuntime({
-      drainManaged: async () => {
-        const store = openState(fixture.stateDir);
-        try {
-          observedDuringSignal = {
-            lease: getHarnessState(store, "melee")?.active_workflow,
-            run: getRun(store, fixture.runId),
-          };
-        } finally {
-          store.db.close();
-        }
-        return { draining: true, signaled: [123] };
-      },
-      hasActiveProcess: () => ({ active: true }),
-      resolveDashboardGame: () => ({
-        graphDbPath: join(fixture.stateDir, "graph.sqlite"),
-        game: null,
-        repoRoot: fixture.stateDir,
-        stateDir: fixture.stateDir,
-      }),
-      stopManaged: async () => ({ stopped: true }),
-    });
-
-    const result = await runtime.pause({ runId: fixture.runId, reason: "operator pause" });
-
-    expect(result).toMatchObject({ draining: true, paused: false, run: { status: "draining" } });
-    expect(observedDuringSignal).toMatchObject({
-      lease: { lease_id: fixture.leaseId, status: "draining" },
-      run: { status: "draining" },
-    });
-  });
 });

@@ -179,7 +179,7 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
         kind: text(activeWorkflowRaw.kind) as "run" | "pr" | "sync",
         workflow_id: text(activeWorkflowRaw.workflow_id),
         lease_id: text(activeWorkflowRaw.lease_id),
-        status: text(activeWorkflowRaw.status) as "acquiring" | "active" | "draining" | "blocked" | "releasing",
+        status: text(activeWorkflowRaw.status) as "acquiring" | "active" | "blocked" | "releasing",
         headline: text(activeWorkflowRaw.headline),
         acquired_at: text(activeWorkflowRaw.acquired_at),
         heartbeat_at: text(activeWorkflowRaw.heartbeat_at),
@@ -657,7 +657,7 @@ export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | 
   const modeEvidence: string[] = [];
   if (hasCanonicalCycle) modeEvidence.push(`canonical phase ${prettyStatus(canonicalPhase)}${canonicalSubphase ? ` / ${prettyStatus(canonicalSubphase)}` : ""}`);
   if (canonicalBlockers.length > 0) modeEvidence.push(`${canonicalBlockers.length.toLocaleString()} canonical blocker(s)`);
-  if (process.running) modeEvidence.push(process.draining ? "process draining" : "worker process running");
+  if (process.running) modeEvidence.push("worker process running");
   if (activeClaims > 0) modeEvidence.push(`${activeClaims.toLocaleString()} active claim(s)`);
   if (runStatus === "active") modeEvidence.push("run status active");
   if (hasHandoffEvidence) modeEvidence.push("handoff, QA, split, ship, or PR evidence exists");
@@ -704,16 +704,14 @@ export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | 
     ? "No run yet."
     : completedLegacyRun
       ? "This legacy run is complete."
-    : process.draining
-      ? "Workers are draining."
-    : process.running
-        ? "Drain workers first."
+      : process.running
+        ? "Stop workers first."
         : syncing
           ? "Sync is in progress."
           : operationActive
             ? `${text(operation.label, "An operation")} is in progress.`
             : activeClaims > 0
-              ? `Waiting on ${activeClaims.toLocaleString()} draining claim(s).`
+              ? `Waiting on ${activeClaims.toLocaleString()} active claim(s).`
               : "";
 
   const baseline = asObject(handoff.baseline);

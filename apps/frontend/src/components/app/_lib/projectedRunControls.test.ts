@@ -6,11 +6,10 @@ import { RUN_CONTROL_ACTION_IDS, RUN_CONTROL_ACTIONS, RUN_CONTROL_ENDPOINTS } fr
 
 const sourceRoot = resolve(import.meta.dir, "../../..");
 
-describe("legacy process controls", () => {
+describe("run controls", () => {
   test("maps all canonical run controls onto projected actions and routes", () => {
     expect(RUN_CONTROL_ACTIONS).toEqual({
       start: "runStart",
-      pause: "runPause",
       resume: "runResume",
       hardStop: "runHardStop",
       cancel: "runCancel",
@@ -18,7 +17,6 @@ describe("legacy process controls", () => {
     });
     expect(RUN_CONTROL_ACTION_IDS).toEqual({
       runStart: "run.start",
-      runPause: "run.pause",
       runResume: "run.resume",
       runHardStop: "run.hard_stop",
       runCancel: "run.cancel",
@@ -26,7 +24,6 @@ describe("legacy process controls", () => {
     });
     expect(RUN_CONTROL_ENDPOINTS).toEqual({
       runStart: "/api/process/start",
-      runPause: "/api/run/pause",
       runResume: "/api/run/resume",
       runHardStop: "/api/run/hard-stop",
       runCancel: "/api/run/cancel",
@@ -34,13 +31,11 @@ describe("legacy process controls", () => {
     });
   });
 
-  test("wire every legacy Drain/Kill surface through the shared projection actions", () => {
+  test("wires every Stop control through the shared projected action", () => {
     const actionUsage = new Map([
-      ["components/details-rail/_components/process-tab.tsx", ["pause", "hardStop"]],
-      ["pages/workspace/cycles/active/subphases/run/components/RunControls.tsx", ["pause", "hardStop"]],
-      ["pages/workspace/cycles/index.tsx", ["pause"]],
-      ["pages/workspace/overview/index.tsx", ["pause"]],
-      ["pages/workspace/cycles/active/subphases/pr/components/PrModeActions.tsx", ["pause"]],
+      ["components/details-rail/_components/process-tab.tsx", ["hardStop"]],
+      ["pages/workspace/cycles/active/subphases/run/components/RunControls.tsx", ["hardStop"]],
+      ["pages/workspace/overview/index.tsx", ["hardStop"]],
     ]);
 
     for (const [relativePath, actions] of actionUsage) {
@@ -52,12 +47,12 @@ describe("legacy process controls", () => {
     }
   });
 
-  test("keeps raw supervisor drain/stop endpoints out of the frontend dispatcher", () => {
+  test("keeps removed pause and raw process-stop routes out of the frontend dispatcher", () => {
     const source = readFileSync(resolve(sourceRoot, "components/app/index.tsx"), "utf8");
 
     expect(source).not.toMatch(/\/api\/process\/(?:drain|stop)/);
     expect(source).not.toContain("/api/pr/pause");
-    expect(source).toContain("postJson(RUN_CONTROL_ENDPOINTS.runPause, body)");
+    expect(source).not.toContain("/api/run/pause");
     expect(source).toContain("postJson(RUN_CONTROL_ENDPOINTS.runHardStop, body)");
   });
 });

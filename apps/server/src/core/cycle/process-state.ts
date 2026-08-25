@@ -20,7 +20,7 @@ export interface CycleProcessIdentityInput {
 export function cycleProcessState(input: CycleProcessIdentityInput): CycleProcessState {
   const now = input.updatedAt ?? new Date().toISOString();
   const pid = typeof input.pid === "number" && Number.isFinite(input.pid) ? input.pid : null;
-  const status = input.state === "running" || input.state === "draining" || input.state === "stopping" || input.state === "exited" || input.state === "idle" ? input.state : "unknown";
+  const status = input.state === "running" || input.state === "stopping" || input.state === "exited" || input.state === "idle" ? input.state : "unknown";
   return {
     process_name: canonicalProcessName(input.name),
     game_id: input.gameId,

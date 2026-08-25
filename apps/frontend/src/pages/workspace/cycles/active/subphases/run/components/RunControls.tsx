@@ -1,4 +1,4 @@
-import { Archive, Pause, Play, RefreshCw } from "@/icons";
+import { Archive, Play } from "@/icons";
 import { type FormState, text } from "@/lib/format";
 import { workerTimeoutMinutes, workerTimeoutSecondsFromMinutes } from "@/lib/workerConfig";
 import { Button, Field, PanelSection, PanelTitle, SelectField } from "@/components/primitives";
@@ -17,15 +17,12 @@ export function RunControls({ busy, form, onAction, setForm, view }: { busy: boo
   return (
     <PanelSection>
       <PanelTitle>Run Controls</PanelTitle>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button disabled={busy || !view.canStartWorkers} icon={<Play size={14} />} onClick={() => onAction("startWork")} title={view.canStartWorkers ? "Init/resume this run and start workers." : startBlocked} tone={view.canStartWorkers ? "primary" : undefined} type="button">
           {view.runStatus === "paused" ? "Resume" : "Start"}
         </Button>
-        <Button disabled={busy || !view.process.running || view.process.draining} icon={view.process.draining ? <RefreshCw size={14} /> : <Pause size={14} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)} title={view.process.running ? "Drain workers and enter PR handoff." : "Workers are not running."} tone="warning" type="button">
-          {view.process.draining ? "Draining" : "Drain"}
-        </Button>
-        <Button disabled={busy || !view.process.running} icon={<Archive size={14} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.hardStop)} title={view.process.running ? "Kill workers immediately and recover active claims for rescheduling." : "No process is running."} tone="danger" type="button">
-          Kill
+        <Button disabled={busy || !view.process.running} icon={<Archive size={14} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.hardStop)} title={view.process.running ? "Stop workers gracefully, then cancel any still running after 30 seconds." : "No process is running."} tone="warning" type="button">
+          Stop
         </Button>
       </div>
       {view.mode === "pr" ? <p className="mb-0 mt-2 text-xs text-warn">Run start is gated because this active cycle is in PR Mode.</p> : null}

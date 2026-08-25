@@ -3,7 +3,6 @@ import { handleRunsApiRoute, type RunsApiRouteDeps } from "./runs.js";
 
 describe("handleRunsApiRoute", () => {
   test.each([
-    ["/api/run/pause", "pauseRun", "run.pause"],
     ["/api/run/resume", "resumeRun", "run.resume"],
     ["/api/run/hard-stop", "hardStopRun", "run.hard_stop"],
     ["/api/run/cancel", "cancelRun", "run.cancel"],
@@ -51,33 +50,33 @@ describe("handleRunsApiRoute", () => {
     let invoked = false;
     const deps = {
       json: (data: unknown, init?: ResponseInit) => Response.json(data, init),
-      pauseRun: async () => {
+      resumeRun: async () => {
         invoked = true;
         return {};
       },
       runActionProjection: () => ({
-        action_id: "run.pause",
+        action_id: "run.resume",
         subject_kind: "run",
         subject_id: "run-1",
         enabled: false,
-        blocked_by: [{ code: "run_does_not_hold_lease" }],
-        expected_transition: "active → draining → paused",
+        blocked_by: [{ code: "run_not_paused" }],
+        expected_transition: "paused → active",
         confirmation_required: false,
       }),
     } as unknown as RunsApiRouteDeps;
 
     const response = await handleRunsApiRoute(
-      new Request("http://localhost/api/run/pause", { method: "POST" }),
-      new URL("http://localhost/api/run/pause"),
+      new Request("http://localhost/api/run/resume", { method: "POST" }),
+      new URL("http://localhost/api/run/resume"),
       deps,
     );
 
     expect(response?.status).toBe(409);
     expect(invoked).toBe(false);
     expect(await response?.json()).toMatchObject({
-      action_id: "run.pause",
+      action_id: "run.resume",
       enabled: false,
-      blocked_by: [{ code: "run_does_not_hold_lease" }],
+      blocked_by: [{ code: "run_not_paused" }],
       result: null,
     });
   });

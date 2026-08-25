@@ -64,7 +64,7 @@ afterAll(() => {
 });
 
 describe("dashboard read model", () => {
-  test("canonical HarnessStateView always projects the 21 actions and isolates compatibility actions", () => {
+  test("canonical HarnessStateView always projects the 20 actions and isolates compatibility actions", () => {
     const { store } = tempState();
     try {
       initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
@@ -74,9 +74,9 @@ describe("dashboard read model", () => {
       expect(view.run).toBeNull();
       expect(view.pr_work).toEqual([]);
       expect(view.knowledge).toMatchObject({ queued: 0, processing: 0, waiting: 0, failed: 0, active_lease: null });
-      expect(view.available_actions).toHaveLength(21);
+      expect(view.available_actions).toHaveLength(20);
       expect(view.available_actions.map((action) => action.action_id)).toEqual([
-        "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
+        "run.start", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
         "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
         "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
         "cycle.save_point", "cycle.close", "knowledge.process",
@@ -292,7 +292,6 @@ describe("dashboard read model", () => {
       });
       expect(view.available_actions.map((action) => action.action_id)).toEqual([
         "run.start",
-        "run.pause",
         "run.resume",
         "run.hard_stop",
         "run.cancel",
@@ -316,7 +315,7 @@ describe("dashboard read model", () => {
       expect(view.available_actions.find((action) => action.action_id === "sync.start")).toMatchObject({
         enabled: true,
         blocked_by: [],
-        expected_transition: "requested → ingesting after run drains",
+        expected_transition: "requested → ingesting after run stops",
         confirmation_required: false,
       });
       expect(view.available_actions.find((action) => action.action_id === "sync.resolve_conflict")?.enabled).toBe(false);
@@ -544,7 +543,7 @@ describe("dashboard read model", () => {
     }
   });
 
-  test("projects campaign opening, legacy adoption, run-drain activation, and stale activation recovery", () => {
+  test("projects campaign opening, legacy adoption, run-stop activation, and stale activation recovery", () => {
     const { dir, store } = tempState();
     try {
       createCycle(store.db, {
@@ -616,14 +615,14 @@ describe("dashboard read model", () => {
         correlationId: durableRun.id,
         kind: "run",
         gameId: "melee",
-        reason: "test drain projection",
+        reason: "test stop projection",
         workflowId: durableRun.id,
       });
       if (runDispatch.queued) throw new Error("test run lease was unexpectedly queued");
       view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
       expect(view.available_actions.find((action) => action.action_id === "pr.activate")).toMatchObject({
         enabled: true,
-        expected_transition: "preparing/in_review → working after run drains",
+        expected_transition: "preparing/in_review → working after run stops",
         confirmation_required: false,
       });
 
@@ -702,14 +701,12 @@ describe("dashboard read model", () => {
       const readyState = gameRunActionState(store, "melee", { runId: ready.id });
       expect(readyState.availableActions.map((action) => action.action_id)).toEqual([
         "run.start",
-        "run.pause",
         "run.resume",
         "run.hard_stop",
         "run.cancel",
         "run.recover",
       ]);
       expect(readyState.availableActions.map((action) => action.confirmation_required)).toEqual([
-        false,
         false,
         false,
         true,
@@ -820,16 +817,11 @@ describe("dashboard read model", () => {
         },
         recovery_points: [],
       });
-      expect(activeView.available_actions.find((action) => action.action_id === "run.pause")?.enabled).toBe(true);
       expect(activeView.available_actions.find((action) => action.action_id === "run.hard_stop")?.enabled).toBe(true);
 
       const failed = updateRunStatus(store, active.id, "failed", "runner");
       const failedState = gameRunActionState(store, "melee", { runId: active.id });
       expect(failedState.availableActions.find((action) => action.action_id === "run.recover")?.enabled).toBe(true);
-      expect(failedState.availableActions.find((action) => action.action_id === "run.pause")).toMatchObject({
-        enabled: false,
-        blocked_by: [expect.objectContaining({ code: "run_not_active" })],
-      });
       expect(failedState.availableActions.find((action) => action.action_id === "run.cancel")?.blocked_by).toContainEqual(
         expect.objectContaining({ code: "unsettled_claims" }),
       );

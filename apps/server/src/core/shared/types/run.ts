@@ -2,7 +2,6 @@ export type RunStatus =
   | "draft"
   | "ready"
   | "active"
-  | "draining"
   | "paused"
   | "completed"
   | "failed"

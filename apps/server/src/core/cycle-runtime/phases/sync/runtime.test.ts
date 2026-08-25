@@ -7,7 +7,7 @@ import { openState } from "@server/core/orchestrator-state";
 import { createCycle } from "@server/core/cycle/store.js";
 import { getHarnessState, initializeHarnessState, listGameEvents, newSpanId, requestDispatch } from "@server/core/harness-state";
 import { createRun, getRun, updateRunStatus } from "@server/core/cycle-runtime/run-state";
-import { settlePausedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
+import { settleStoppedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { defaultSyncGitRunner } from "./git.js";
 import { getSyncState, recordSyncRequested, syncActionSpanId, transitionSync } from "./state.js";
 import { activateAcquiredSync } from "./activation.js";
@@ -84,16 +84,21 @@ function fixture(
     repoRoot,
     stateDir,
   };
+  const stopCalls: Record<string, unknown>[] = [];
   const runtime = createSyncRuntime({
     packageRoot: root,
     resolveDashboardGame: () => paths,
     runCli: async () => ({ exitCode: 0, stdout: "{}", stderr: "" }),
     runGit,
     serverJobPath: resolve(root, "job-runner.ts"),
+    stopManaged: async (body) => {
+      stopCalls.push(body);
+      return { stopped: true };
+    },
     sourceRoot: () => root,
     processors,
   });
-  return { paths, root, runtime, stateDir, store };
+  return { paths, root, runtime, stateDir, stopCalls, store };
 }
 
 function requested(store: ReturnType<typeof openState>, syncId = "sync-1") {
@@ -292,6 +297,7 @@ describe("S4 sync operator runtime", () => {
         return defaultSyncGitRunner(repoRoot, args, options);
       },
       serverJobPath: resolve(root, "job-runner.ts"),
+      stopManaged: async () => ({ stopped: true }),
       sourceRoot: () => root,
       processors: () => ({
         processMergedPr: async () => ({}),
@@ -377,7 +383,7 @@ describe("S4 sync operator runtime", () => {
 
     const decision = await current.runtime.start({ commandId, gameId: "melee", syncId: sync.sync_id });
 
-    expect(decision).toMatchObject({ queued: false, run_draining: false, sync: { status: "validated" } });
+    expect(decision).toMatchObject({ queued: false, run_stopping: false, sync: { status: "validated" } });
     const store = openState(current.stateDir);
     try {
       expect(getHarnessState(store, "melee")?.active_workflow).toMatchObject({
@@ -418,7 +424,7 @@ describe("S4 sync operator runtime", () => {
     }
   });
 
-  test("operator sync activation queues behind the run and begins its handoff drain", async () => {
+  test("operator sync activation queues behind the run and requests a graceful stop", async () => {
     const current = fixture();
     const sync = requested(current.store, "sync-handoff");
     const syncStartCommand = "command-sync-handoff-start";
@@ -445,7 +451,7 @@ describe("S4 sync operator runtime", () => {
     expect(gameSyncAction(current.store, "melee", "sync.start", sync.sync_id)).toMatchObject({
       enabled: true,
       blocked_by: [],
-      expected_transition: "requested → ingesting after run drains",
+      expected_transition: "requested → ingesting after run stops",
     });
     current.store.db.close();
 
@@ -456,10 +462,15 @@ describe("S4 sync operator runtime", () => {
     });
     expect(decision).toMatchObject({
       queued: true,
-      run_draining: true,
+      run_stopping: true,
       lease_id: null,
       sync: { sync_id: sync.sync_id, status: "requested" },
     });
+    expect(current.stopCalls).toEqual([expect.objectContaining({
+      commandId: syncStartCommand,
+      recoverClaims: false,
+      runId: run.id,
+    })]);
     expect(current.runtime.action({ gameId: "melee", syncId: sync.sync_id }, "sync.cancel")).toMatchObject({
       enabled: true,
       confirmation_required: true,
@@ -470,22 +481,19 @@ describe("S4 sync operator runtime", () => {
       expect(getHarnessState(settling, "melee")?.active_workflow).toMatchObject({
         kind: "run",
         workflow_id: run.id,
-        status: "draining",
+        status: "active",
         requested_handoff: { target_kind: "sync", target_workflow_id: sync.sync_id },
       });
-      const drain = [...listGameEvents(settling.db)].reverse().find(
-        (event) => event.eventType === "game.dispatch_drain_started",
-      )!;
       const queuedRequest = [...listGameEvents(settling.db)].reverse().find(
         (event) => event.eventType === "game.dispatch_requested" && event.payload.workflow_id === sync.sync_id,
       )!;
       const settlementRoot = newSpanId();
       const settlementCommand = "command-run-settled-for-sync";
-      const settled = settlePausedRun({
+      const settled = settleStoppedRun({
         actor: "guardian",
         commandId: settlementCommand,
         leaseId: runDispatch.leaseId,
-        reason: "run drained for operator sync",
+        reason: "run stopped for operator sync",
         runId: run.id,
         spanId: settlementRoot,
         store: settling,
@@ -511,7 +519,6 @@ describe("S4 sync operator runtime", () => {
       const paused = [...events].reverse().find((event) => event.eventType === "run.paused")!;
       expect(release.correlationId).toBe(run.id);
       expect(release.traceId).toBe(run.traceId);
-      expect(release.causationId).toBe(drain.eventId);
       expect(release.payload.handoff_snapshot_id).toMatch(/^handoff-snapshot-/);
       expect(acquired.correlationId).toBe(sync.sync_id);
       expect(acquired.traceId).toBe(sync.trace_id);
@@ -540,7 +547,7 @@ describe("S4 sync operator runtime", () => {
     }
   });
 
-  test("legacy handoff provenance fails settlement atomically before release, acquisition, ingestion, or pause", async () => {
+  test("legacy handoff provenance fails settlement atomically before release, acquisition, ingestion, or stop", async () => {
     const current = fixture();
     const sync = requested(current.store, "sync-legacy-handoff");
     const run = createRun(
@@ -583,7 +590,7 @@ describe("S4 sync operator runtime", () => {
       const syncBefore = getSyncState(settling, sync.sync_id);
       const eventsBefore = listGameEvents(settling.db);
 
-      expect(() => settlePausedRun({
+      expect(() => settleStoppedRun({
         actor: "guardian",
         commandId: "command-settle-legacy-handoff",
         leaseId: runDispatch.leaseId,
@@ -689,7 +696,7 @@ describe("S4 sync operator runtime", () => {
     });
   });
 
-  test("cancel clears a queued sync handoff and leaves the run draining without a target", async () => {
+  test("cancel clears a queued sync handoff and leaves the stopping run without a target", async () => {
     const current = fixture();
     const sync = requested(current.store, "sync-cancel-handoff");
     const run = createRun(
@@ -726,7 +733,7 @@ describe("S4 sync operator runtime", () => {
       expect(getHarnessState(store, "melee")?.active_workflow).toMatchObject({
         kind: "run",
         workflow_id: run.id,
-        status: "draining",
+        status: "active",
       });
       expect(getHarnessState(store, "melee")?.active_workflow?.requested_handoff).toBeUndefined();
       expect(getHarnessState(store, "melee")?.queued_dispatch_requests).toEqual([]);

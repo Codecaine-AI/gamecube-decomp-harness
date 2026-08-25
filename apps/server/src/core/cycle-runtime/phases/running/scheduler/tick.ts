@@ -27,7 +27,7 @@ import { assertSchedulableRun } from "@server/core/cycle-runtime/phases/running/
 
 export interface SchedulerTickResult {
   runId: string;
-  status?: "no_unhandled_events" | "force_finish_event_pending";
+  status?: "no_unhandled_events";
   handledEvent?: unknown;
   eventType?: string;
   eventProducer?: string;
@@ -126,16 +126,6 @@ export async function runSchedulerTick(
     const event = nextUnhandledEvent(store, runId);
     if (!event) return { runId, status: "no_unhandled_events" };
     const eventType = String(event.eventType ?? event.event_type ?? "");
-    if (eventType === "epoch_force_finish_requested") {
-      return {
-        runId,
-        status: "force_finish_event_pending",
-        eventType,
-        eventProducer: String(event.producer ?? ""),
-        eventCreatedAt: String(event.createdAt ?? event.created_at ?? ""),
-      };
-    }
-
     const workerPoolSize = Math.max(1, nonNegativeInt(run.desiredWorkers));
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     let epochResult: SchedulerEpochEnsureResult | null = null;

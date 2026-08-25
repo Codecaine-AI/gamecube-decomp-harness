@@ -114,7 +114,7 @@ export function Pill({ state }: { state: string }) {
   const tone =
     state === "running" || state === "detached"
       ? "status-tag-live"
-      : state === "stopping" || state === "draining"
+      : state === "stopping"
         ? "status-tag-warn"
         : "";
   return (

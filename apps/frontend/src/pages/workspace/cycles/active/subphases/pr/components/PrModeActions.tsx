@@ -1,9 +1,8 @@
-import { Archive, GitBranch, GitPullRequest, Hammer, Pause, RefreshCw, RotateCcw, ShieldCheck, Wrench } from "@/icons";
+import { Archive, GitBranch, GitPullRequest, Hammer, RefreshCw, RotateCcw, ShieldCheck, Wrench } from "@/icons";
 import { Button, PanelSection, PanelTitle } from "@/components/primitives";
 import { prettyStatus, harnessStateAction } from "@/pages/workspace/_lib/model";
 import type { DashboardAction, CycleView } from "@/pages/workspace/_lib/types";
 import { prLockReason } from "./prStatus";
-import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 
 export function PrModeActions({ busy, onAction, view }: { busy: boolean; onAction: (action: DashboardAction) => void; view: CycleView }) {
   const prepareEnabled = view.handoffIdle && (view.runStatus === "active" || view.runStatus === "paused");
@@ -40,11 +39,6 @@ export function PrModeActions({ busy, onAction, view }: { busy: boolean; onActio
         </div>
         <div className="pr-action-group">
           <span className="pr-action-group-label">Cycle</span>
-          {view.process.running ? (
-            <Button disabled={busy || view.process.draining} icon={view.process.draining ? <RefreshCw size={13} /> : <Pause size={13} />} onClick={() => onAction(RUN_CONTROL_ACTIONS.pause)} title="Drain workers before PR handoff." tone="warning" type="button">
-              {view.process.draining ? "Draining" : "Drain Workers"}
-            </Button>
-          ) : null}
           <Button disabled={busy || view.newCycleBlocked} icon={<RotateCcw size={13} />} onClick={() => onAction("fresh")} title={view.newCycleBlocked ? view.newCycleReasons.join("; ") : "Start a fresh cycle."} tone="warning" type="button">
             New Cycle
           </Button>

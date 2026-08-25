@@ -2,7 +2,7 @@ import type { ActionProjection } from "@server/application/dashboard/read-model"
 
 type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
-type RunActionId = "run.pause" | "run.resume" | "run.hard_stop" | "run.cancel" | "run.recover";
+type RunActionId = "run.resume" | "run.hard_stop" | "run.cancel" | "run.recover";
 
 export interface RunsApiRouteDeps {
   cancelRun: (body: JsonObject) => unknown;
@@ -11,7 +11,6 @@ export interface RunsApiRouteDeps {
   hardStopRun: (body: JsonObject) => Promise<unknown>;
   initRun: (body: JsonObject) => Promise<unknown>;
   json: JsonResponder;
-  pauseRun: (body: JsonObject) => Promise<unknown>;
   recoverRun: (body: JsonObject) => Promise<unknown>;
   resumeRun: (body: JsonObject) => unknown;
   runActionProjection: (body: JsonObject, actionId: RunActionId) => ActionProjection;
@@ -62,10 +61,6 @@ export async function handleRunsApiRoute(req: Request, url: URL, deps: RunsApiRo
   if (url.pathname === "/api/run/complete") return deps.json(await deps.completeRun(await requestBody(req)));
   if (url.pathname === "/api/run/init") return deps.json(await deps.initRun(await requestBody(req)));
   if (url.pathname === "/api/run/fresh") return deps.json(await deps.freshRun(await requestBody(req)));
-  if (url.pathname === "/api/run/pause") {
-    const body = await requestBody(req);
-    return runCommand(deps, body, "run.pause", deps.pauseRun);
-  }
   if (url.pathname === "/api/run/resume") {
     const body = await requestBody(req);
     return runCommand(deps, body, "run.resume", deps.resumeRun);

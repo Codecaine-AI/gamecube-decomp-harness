@@ -1,7 +1,7 @@
 import type { EventActor } from "./events.js";
 
 export type DispatchKind = "run" | "pr" | "sync";
-export type DispatchLeaseStatus = "acquiring" | "active" | "draining" | "blocked" | "releasing";
+export type DispatchLeaseStatus = "acquiring" | "active" | "blocked" | "releasing";
 
 export interface Blocker {
   code: string;
@@ -73,6 +73,7 @@ export interface TransitionContext {
 }
 
 export interface RequestDispatchInput extends TransitionContext {
+  handoffOnQueue?: boolean;
   kind: DispatchKind;
   workflowId: string;
   reason: string;
@@ -82,15 +83,6 @@ export interface HeartbeatDispatchInput {
   leaseId: string;
   gameId?: string;
   now?: string;
-}
-
-export interface BeginDrainInput extends TransitionContext {
-  leaseId: string;
-  /** Omitted when the current workflow is parking rather than handing off. */
-  targetKind?: DispatchKind;
-  /** Omitted when the current workflow is parking rather than handing off. */
-  targetWorkflowId?: string;
-  reason: string;
 }
 
 export interface CancelDispatchRequestInput extends TransitionContext {

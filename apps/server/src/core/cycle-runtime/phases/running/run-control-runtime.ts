@@ -9,7 +9,6 @@ import { getRun, openState } from "@server/core/cycle-runtime/run-state";
 import {
   cancelRun,
   hardStopRun,
-  pauseRun,
   recoverRun,
   RunControlConfirmationRequiredError,
 } from "./run-control.js";
@@ -25,7 +24,6 @@ export interface RunControlGameContext {
 
 export interface RunControlRuntimeDeps {
   hasActiveProcess: (stateDir: string) => { active: boolean };
-  drainManaged: (body: JsonObject) => Promise<JsonObject>;
   resolveDashboardGame: (
     input: JsonObject,
     options: { useDefaultGame?: boolean },
@@ -90,7 +88,6 @@ function currentStatus(paths: RunControlGameContext, runId: string): string {
 export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
   cancel: (body: JsonObject) => JsonObject;
   hardStop: (body: JsonObject) => Promise<JsonObject>;
-  pause: (body: JsonObject) => Promise<JsonObject>;
   recover: (body: JsonObject) => Promise<JsonObject>;
 } {
   return {
@@ -135,27 +132,6 @@ export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
       } finally {
         store.db.close();
       }
-    },
-
-    async pause(body): Promise<JsonObject> {
-      const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
-      const runId = runIdFromBody(body, paths.stateDir);
-      assertWorkflowCorrelation(body, runId);
-      const store = openState(paths.stateDir);
-      let result;
-      try {
-        result = pauseRun({
-          commandId: stringValue(body.commandId) || undefined,
-          reason: stringValue(body.reason, "operator paused run"),
-          runId,
-          store,
-        });
-      } finally {
-        store.db.close();
-      }
-      if (result.settled) return { draining: false, paused: true, process: null, ...result };
-      const process = await deps.drainManaged({ ...body, runId });
-      return { draining: true, paused: false, process, ...result };
     },
 
     async recover(body): Promise<JsonObject> {

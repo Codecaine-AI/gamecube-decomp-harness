@@ -31,11 +31,10 @@ import {
   cancelRun,
   hardStopRun,
   isStaleRunDispatchLease,
-  pauseRun,
   reconcileRunLeaseState,
   recoverRun,
   runDispatchLeaseStaleness,
-  settlePausedRun,
+  settleStoppedRun,
 } from "./run-control.js";
 
 const tempDirs: string[] = [];
@@ -324,34 +323,24 @@ describe("run recovery controls", () => {
     expect(stopped.run.causedByEventId).toBe(event?.eventId ?? null);
   });
 
-  test("pause records draining before settlement until run-loop exit pauses", () => {
+  test("run-loop exit settlement releases the lease and pauses the run", () => {
     const { dir, store } = tempState();
     const active = activeRun(store, dir);
     const claim = orphanedClaim(store, active.run.id);
 
-    const draining = pauseRun({ reason: "operator pause", runId: active.run.id, store });
-
-    expect(draining).toMatchObject({ leaseId: active.leaseId, settled: false, run: { status: "draining" } });
-    expect(getHarnessState(store, "melee")?.active_workflow).toMatchObject({
-      lease_id: active.leaseId,
-      status: "draining",
-    });
     closeWorkerState(store, {
       authority: { host: "run-control-test-settle" },
       epochTargetStatus: "finished",
       lifecycleStatus: "finished",
-      summary: { settled_for_pause: true },
+      summary: { settled_for_stop: true },
       workerStateId: claim.workerStateId,
     });
     const beforeSettlement = listGameEvents(store.db).at(-1)?.sequence ?? 0;
-    const drainEvent = [...listGameEvents(store.db)].reverse().find(
-      (event) => event.eventType === "game.dispatch_drain_started",
-    )!;
     const settlementRoot = newSpanId();
-    const paused = settlePausedRun({
+    const paused = settleStoppedRun({
       commandId: "command-run-loop-settled-test",
       leaseId: active.leaseId,
-      reason: "run-loop drained",
+      reason: "run-loop stopped",
       runId: active.run.id,
       spanId: settlementRoot,
       store,
@@ -361,55 +350,30 @@ describe("run recovery controls", () => {
       settled: true,
       run: {
         status: "paused",
-        stopRequest: { mode: "pause", reason: "operator pause" },
+        stopRequest: null,
       },
     });
     expect(getHarnessState(store, "melee")?.active_workflow).toBeNull();
-    expect(eventsForSubject(store.db, "run", active.run.id).slice(-3).map((event) => event.eventType)).toEqual([
-      "run.draining",
-      "game.dispatch_drain_started",
-      "run.paused",
-    ]);
     const settlementEvents = listGameEvents(store.db, { afterSequence: beforeSettlement });
     expect(settlementEvents.map((event) => event.eventType)).toEqual(["game.dispatch_released", "run.paused"]);
     expect(settlementEvents.map((event) => event.actor)).toEqual(["runner", "runner"]);
     expect(settlementEvents.map((event) => event.correlationId)).toEqual([active.run.id, active.run.id]);
     expect(settlementEvents.map((event) => event.causationId)).toEqual([
-      drainEvent.eventId,
+      "command-run-loop-settled-test",
       settlementEvents[0]?.eventId,
     ]);
     expect(settlementEvents.map((event) => event.parentSpanId)).toEqual([settlementRoot, settlementRoot]);
     expect(settlementEvents[0]?.spanId).not.toBe(settlementEvents[1]?.spanId);
     expect(settlementEvents[1]?.payload).toEqual({
-      from_status: "draining",
+      from_status: "active",
       to_status: "paused",
     });
-  });
-
-  test("pause rolls the run transition back when the lease cannot enter draining", () => {
-    const { dir, store } = tempState();
-    const active = activeRun(store, dir);
-    const beforeEvents = eventsForSubject(store.db, "run", active.run.id).length;
-    store.db.exec(`
-      CREATE TRIGGER reject_test_lease_drain
-      BEFORE UPDATE OF active_workflow_json ON harness_state
-      WHEN NEW.active_workflow_json LIKE '%"status":"draining"%'
-      BEGIN
-        SELECT RAISE(ABORT, 'test lease drain failure');
-      END
-    `);
-
-    expect(() => pauseRun({ reason: "operator pause", runId: active.run.id, store })).toThrow("test lease drain failure");
-    expect(getRun(store, active.run.id)).toMatchObject({ revision: active.run.revision, status: "active" });
-    expect(getHarnessState(store, "melee")?.active_workflow).toMatchObject({ lease_id: active.leaseId, status: "active" });
-    expect(eventsForSubject(store.db, "run", active.run.id)).toHaveLength(beforeEvents);
   });
 
   test("hard stop is event-free after run-loop exit settlement already paused the run", async () => {
     const { dir, store } = tempState();
     const active = activeRun(store, dir);
-    pauseRun({ reason: "operator pause", runId: active.run.id, store });
-    const settled = settlePausedRun({
+    const settled = settleStoppedRun({
       actor: "guardian",
       leaseId: active.leaseId,
       reason: "run-loop reported settlement",
@@ -462,7 +426,7 @@ describe("run recovery controls", () => {
       run: {
         revision: leaseFree.run.revision + 1,
         status: "paused",
-        stopRequest: { mode: "pause", reason: "startup reconciliation" },
+        stopRequest: null,
       },
     });
     expect(eventsForSubject(second.store.db, "run", leaseFree.run.id).at(-1)).toMatchObject({
@@ -470,38 +434,9 @@ describe("run recovery controls", () => {
       payload: { from_status: "active", to_status: "paused" },
     });
 
-    const third = tempState();
-    const drainingLease = activeRun(third.store, third.dir);
-    const currentState = getHarnessState(third.store, "melee");
-    if (!currentState?.active_workflow) throw new Error("test run has no draining lease");
-    third.store.db
-      .query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?")
-      .run(
-        JSON.stringify({ ...currentState.active_workflow, status: "draining" }),
-        "melee",
-      );
-    const aligned = reconcileRunLeaseState({
-      reason: "startup reconciliation",
-      runId: drainingLease.run.id,
-      store: third.store,
-    });
-    expect(aligned).toMatchObject({
-      action: "aligned_run_to_draining_lease",
-      run: { revision: drainingLease.run.revision + 1, status: "draining" },
-    });
-    expect(eventsForSubject(third.store.db, "run", drainingLease.run.id).at(-1)).toMatchObject({
-      eventType: "run.draining",
-      payload: {
-        from_status: "active",
-        lease_id: drainingLease.leaseId,
-        reason: "startup reconciliation",
-        to_status: "draining",
-      },
-    });
     for (const [store, runId] of [
       [first.store, pausedWithLease.run.id],
       [second.store, leaseFree.run.id],
-      [third.store, drainingLease.run.id],
     ] as const) {
       expect(eventsForSubject(store.db, "run", runId).map((event) => event.eventType)).not.toContain(
         "run.lease_reconciled",

@@ -3,8 +3,6 @@ import { handleProcessControlApiRoute, type ProcessControlApiRouteDeps } from ".
 
 function startDeps(overrides: Partial<ProcessControlApiRouteDeps> = {}): ProcessControlApiRouteDeps {
   return {
-    drainManaged: async () => ({}),
-    finishEpochNow: async () => ({}),
     json: (data: unknown, init?: ResponseInit) => Response.json(data, init),
     processStatus: () => ({}),
     requestPaths: () => ({ stateDir: "/state" }),

@@ -3,8 +3,6 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  activeClaimsForRun,
-  addEvent,
   admitEpochTargets,
   claimNextEpochTarget,
   closeSchedulerEpoch,
@@ -12,7 +10,6 @@ import {
   createRun,
   getRun,
   openState,
-  schedulerEpochProgress,
   startSchedulerEpoch,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
@@ -22,7 +19,6 @@ import { settleRunOnExit } from "../jobs/settle-supervised-run.js";
 import {
   epochBoundaryWorkPending,
   evaluateFastKnowledgeMaintenanceDecision,
-  forceFinishActiveEpoch,
   integrationResolverLockPaths,
   sandboxSleepConfigFromArgs,
   selectRunLoopSchedulerCondition,
@@ -299,81 +295,5 @@ describe("selectIntegrationResolverBatch", () => {
     });
 
     expect(selected.map((item) => item.record.id)).toEqual(["item-1", "item-3", "item-4"]);
-  });
-});
-
-describe("forceFinishActiveEpoch", () => {
-  test("marks active claims and admitted epoch targets finished", () => {
-    const { store } = tempState();
-    try {
-      const run = createRun(store, "matched_code_percent", 100, 3, { gameId: "test" }, { baseRevision: "base-test" });
-      const epoch = startSchedulerEpoch(store, run.id, {
-        workerPoolSize: 3,
-      });
-      admitEpochTargets(store, {
-        epochId: epoch.id,
-        runId: run.id,
-        candidates: [
-          { unit: "unit", symbol: "claimed_fn", sourcePath: "src/claimed.c", size: 64, fuzzy: 91, priority: 3, reason: "test" },
-          { unit: "unit", symbol: "queued_a", sourcePath: "src/a.c", size: 64, fuzzy: 90, priority: 2, reason: "test" },
-          { unit: "unit", symbol: "queued_b", sourcePath: "src/b.c", size: 64, fuzzy: 89, priority: 1, reason: "test" },
-        ],
-        workerPoolSize: 3,
-      });
-      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
-      expect(claim).not.toBeNull();
-      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ available: 2, claimed: 1, finished: 0, remaining: 3 });
-
-      const eventId = addEvent(store, run.id, "epoch_force_finish_requested", "dashboard", { epoch_id: epoch.id, ordinal: epoch.ordinal });
-      const result = forceFinishActiveEpoch(store, run.id, { id: eventId, payload: { epoch_id: epoch.id, ordinal: epoch.ordinal } });
-
-      expect(result).toMatchObject({ epochId: epoch.id, ordinal: epoch.ordinal, activeClaimsClosed: 1, openTargetsFinished: 2 });
-      expect(activeClaimsForRun(store, run.id)).toHaveLength(0);
-      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ available: 0, claimed: 0, finished: 3, remaining: 0 });
-
-      const requestEvent = store.db.query("SELECT handled_at FROM events WHERE id = ?").get(eventId) as Record<string, unknown>;
-      expect(requestEvent.handled_at).not.toBeNull();
-      const finishedEvents = store.db
-        .query("SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'epoch_force_finished'")
-        .get(run.id) as Record<string, unknown>;
-      expect(Number(finishedEvents.count ?? 0)).toBe(1);
-      const worker = store.db.query("SELECT lifecycle_status, error_summary FROM worker_state WHERE id = ?").get(claim?.workerStateId ?? "") as
-        | Record<string, unknown>
-        | undefined;
-      expect(worker?.lifecycle_status).toBe("cancelled");
-      expect(String(worker?.error_summary ?? "")).toContain("Manual epoch finish requested");
-    } finally {
-      store.db.close();
-    }
-  });
-
-  test("does not apply a stale finish request to the next active epoch", () => {
-    const { store } = tempState();
-    try {
-      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
-      const firstEpoch = startSchedulerEpoch(store, run.id, {
-        workerPoolSize: 1,
-      });
-      closeSchedulerEpoch(store, firstEpoch.id, { status: "completed" });
-      const secondEpoch = startSchedulerEpoch(store, run.id, {
-        workerPoolSize: 1,
-      });
-      admitEpochTargets(store, {
-        epochId: secondEpoch.id,
-        runId: run.id,
-        candidates: [{ unit: "unit", symbol: "new_epoch_fn", sourcePath: "src/new.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
-        workerPoolSize: 1,
-      });
-
-      const eventId = addEvent(store, run.id, "epoch_force_finish_requested", "dashboard", { epoch_id: firstEpoch.id, ordinal: firstEpoch.ordinal });
-      const result = forceFinishActiveEpoch(store, run.id, { id: eventId, payload: { epoch_id: firstEpoch.id, ordinal: firstEpoch.ordinal } });
-
-      expect(result.epochId).toBeNull();
-      expect(schedulerEpochProgress(store, secondEpoch.id)).toMatchObject({ available: 1, claimed: 0, finished: 0, remaining: 1 });
-      const requestEvent = store.db.query("SELECT handled_at FROM events WHERE id = ?").get(eventId) as Record<string, unknown>;
-      expect(requestEvent.handled_at).not.toBeNull();
-    } finally {
-      store.db.close();
-    }
   });
 });

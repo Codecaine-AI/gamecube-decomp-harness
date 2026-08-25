@@ -7,7 +7,6 @@ import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { eventsForSubject, listGameEvents, newSpanId } from "./events.js";
 import {
   StaleLeaseError,
-  beginDrain,
   cancelDispatchRequest,
   checkLease,
   getHarnessState,
@@ -295,7 +294,7 @@ describe("game dispatch lease", () => {
     expect(released.caused_by_event_id).toBe(events[4]!.eventId);
   });
 
-  test("drains and atomically hands off only to the requested target, consuming its queued request", () => {
+  test("records a stop handoff and atomically activates only its queued target on release", () => {
     const store = testStore();
     const requestRoot = newSpanId();
     const settlementRoot = newSpanId();
@@ -313,6 +312,7 @@ describe("game dispatch lease", () => {
       workflowId: "sync-1",
       reason: "upstream PRs merged",
       commandId: "command-sync-1",
+      handoffOnQueue: true,
       spanId: requestRoot,
       now: "2026-08-12T10:02:00.000Z",
     });
@@ -325,18 +325,10 @@ describe("game dispatch lease", () => {
       commandId: "command-pr-1",
     });
 
-    const draining = beginDrain(store, {
-      ...workflowContext("run-1"),
-      leaseId: run.leaseId,
-      targetKind: "sync",
-      targetWorkflowId: "sync-1",
-      reason: "handoff to sync",
-      commandId: "command-drain-run-1",
-      now: "2026-08-12T10:04:00.000Z",
-    });
-    expect(draining.revision).toBe(5);
-    expect(draining.active_workflow).toMatchObject({
-      status: "draining",
+    const stopping = getHarnessState(store, GAME_ID)!;
+    expect(stopping.revision).toBe(4);
+    expect(stopping.active_workflow).toMatchObject({
+      status: "active",
       requested_handoff: {
         target_kind: "sync",
         target_workflow_id: "sync-1",
@@ -352,7 +344,7 @@ describe("game dispatch lease", () => {
     const release = releaseDispatchDetailed(store, {
       ...workflowContext("run-1"),
       actor: "guardian",
-      causationId: draining.caused_by_event_id ?? undefined,
+      causationId: stopping.caused_by_event_id ?? undefined,
       leaseId: run.leaseId,
       handoffSnapshotId: "snapshot-1",
       commandId: "command-settle-run-1",
@@ -361,7 +353,7 @@ describe("game dispatch lease", () => {
     });
     const handedOff = release.state;
 
-    expect(handedOff.revision).toBe(7);
+    expect(handedOff.revision).toBe(6);
     const activeSuccessor = handedOff.active_workflow;
     if (activeSuccessor === null) throw new Error("expected active successor workflow");
     expect(activeSuccessor).toMatchObject({
@@ -380,7 +372,6 @@ describe("game dispatch lease", () => {
       "game.dispatch_acquired",
       "game.dispatch_requested",
       "game.dispatch_requested",
-      "game.dispatch_drain_started",
       "game.dispatch_released",
       "game.dispatch_acquired",
     ]);
@@ -390,25 +381,19 @@ describe("game dispatch lease", () => {
       "trace-sync-1",
       "trace-pr-1",
       "trace-run-1",
-      "trace-run-1",
       "trace-sync-1",
     ]);
     expect(events[4]).toMatchObject({
-      correlationId: "run-1",
-      causationId: "command-drain-run-1",
-      traceId: "trace-run-1",
-    });
-    expect(events[5]).toMatchObject({
       actor: "guardian",
       correlationId: "run-1",
-      causationId: events[4]?.eventId,
+      causationId: stopping.caused_by_event_id,
       parentSpanId: settlementRoot,
       traceId: "trace-run-1",
     });
-    expect(events[6]).toMatchObject({
+    expect(events[5]).toMatchObject({
       actor: "operator",
       correlationId: "sync-1",
-      causationId: events[5]?.eventId,
+      causationId: events[4]?.eventId,
       parentSpanId: requestRoot,
       traceId: "trace-sync-1",
     });
@@ -416,7 +401,7 @@ describe("game dispatch lease", () => {
       actor: "operator",
       commandId: "command-sync-1",
       correlationId: "sync-1",
-      causationId: events[6]?.eventId,
+      causationId: events[5]?.eventId,
       spanId: requestRoot,
       kind: "sync",
       workflowId: "sync-1",
@@ -430,9 +415,9 @@ describe("game dispatch lease", () => {
     expect(snapshot).toMatchObject({
       game_id: GAME_ID,
       content_hash: contentHash,
-      terminal_game_revision: 6,
-      release_event_id: events[5]?.eventId,
-      acquisition_event_id: events[6]?.eventId,
+      terminal_game_revision: 5,
+      release_event_id: events[4]?.eventId,
+      acquisition_event_id: events[5]?.eventId,
     });
     expect(JSON.parse(contentJson)).toEqual({
       schema_version: 1,
@@ -448,7 +433,7 @@ describe("game dispatch lease", () => {
         request_root_span_id: requestRoot,
         request_event_id: events[2]?.eventId,
       },
-      terminal_game_revision: 6,
+      terminal_game_revision: 5,
     });
     expect(JSON.parse(String(snapshot.old_lease_holder_json))).toEqual({
       kind: "run",
@@ -463,15 +448,15 @@ describe("game dispatch lease", () => {
       request_root_span_id: requestRoot,
       request_event_id: events[2]?.eventId,
     });
-    expect(events[6]?.payload).toMatchObject({
+    expect(events[5]?.payload).toMatchObject({
       workflow_id: "sync-1",
-      state_revision: 7,
+      state_revision: 6,
       handoff_from_lease_id: run.leaseId,
       handoff_snapshot_id: "snapshot-1",
       handoff_snapshot_content_hash: contentHash,
-      handoff_release_event_id: events[5]?.eventId,
+      handoff_release_event_id: events[4]?.eventId,
     });
-    expect(events[5]?.payload).toMatchObject({
+    expect(events[4]?.payload).toMatchObject({
       handoff_snapshot_id: "snapshot-1",
       handoff_snapshot_content_hash: contentHash,
     });
@@ -481,8 +466,8 @@ describe("game dispatch lease", () => {
     expect(() => store.db.query(
       "DELETE FROM dispatch_handoff_snapshots WHERE snapshot_id = ?",
     ).run("snapshot-1")).toThrow("dispatch handoff snapshots are immutable");
-    expect(draining.caused_by_event_id).toBe(events[4]!.eventId);
-    expect(handedOff.caused_by_event_id).toBe(events[6]?.eventId);
+    expect(stopping.caused_by_event_id).toBe(events[3]!.eventId);
+    expect(handedOff.caused_by_event_id).toBe(events[5]?.eventId);
   });
 
   test("derives snapshot identities and hashes from complete canonical handoff content", () => {
@@ -505,16 +490,8 @@ describe("game dispatch lease", () => {
         workflowId: "sync-stable",
         reason: "stable handoff target",
         commandId: "command-sync-stable",
+        handoffOnQueue: true,
         now: "2026-08-12T10:02:00.000Z",
-      });
-      beginDrain(store, {
-        ...workflowContext("run-stable"),
-        leaseId: "lease-stable",
-        targetKind: "sync",
-        targetWorkflowId: "sync-stable",
-        reason: "stable handoff",
-        commandId: "command-drain-stable",
-        now: "2026-08-12T10:03:00.000Z",
       });
       releaseDispatch(store, {
         ...workflowContext("run-stable"),
@@ -604,7 +581,7 @@ describe("game dispatch lease", () => {
     expect(listGameEvents(store.db)).toEqual([]);
   });
 
-  test("rejects legacy queued requests without accepted provenance before beginning a handoff", () => {
+  test("rejects legacy queued requests without accepted provenance before recording a handoff", () => {
     const store = testStore();
     const run = requestWorkflowDispatch(store, {
       ...workflowContext("run-legacy-queue"),
@@ -628,13 +605,13 @@ describe("game dispatch lease", () => {
     const legacyState = getHarnessState(store, GAME_ID);
     const eventCount = listGameEvents(store.db).length;
 
-    expect(() => beginDrain(store, {
-      ...workflowContext("run-legacy-queue"),
-      leaseId: run.leaseId,
-      targetKind: "sync",
-      targetWorkflowId: "sync-legacy-queue",
-      reason: "attempt legacy handoff",
-      commandId: "command-drain-legacy-queue",
+    expect(() => requestWorkflowDispatch(store, {
+      ...workflowContext("sync-legacy-queue"),
+      kind: "sync",
+      workflowId: "sync-legacy-queue",
+      reason: "queue legacy successor",
+      commandId: "command-sync-legacy-queue-retry",
+      handoffOnQueue: true,
     })).toThrow("missing accepted request provenance field request_event_id");
     expect(getHarnessState(store, GAME_ID)).toEqual(legacyState);
     expect(listGameEvents(store.db)).toHaveLength(eventCount);
@@ -650,25 +627,18 @@ describe("game dispatch lease", () => {
       commandId: "command-run-mismatched-handoff",
     });
     if (run.queued) throw new Error("expected acquired run lease");
-    requestWorkflowDispatch(store, {
+    const stopping = requestWorkflowDispatch(store, {
       ...workflowContext("sync-mismatched-handoff"),
       kind: "sync",
       workflowId: "sync-mismatched-handoff",
       reason: "queue successor",
       commandId: "command-sync-mismatched-handoff",
-    });
-    const draining = beginDrain(store, {
-      ...workflowContext("run-mismatched-handoff"),
-      leaseId: run.leaseId,
-      targetKind: "sync",
-      targetWorkflowId: "sync-mismatched-handoff",
-      reason: "handoff to successor",
-      commandId: "command-drain-mismatched-handoff",
+      handoffOnQueue: true,
     });
     const mismatchedLease = {
-      ...draining.active_workflow!,
+      ...stopping.state.active_workflow!,
       requested_handoff: {
-        ...draining.active_workflow!.requested_handoff!,
+        ...stopping.state.active_workflow!.requested_handoff!,
         request_command_id: "command-tampered-handoff",
       },
     };
@@ -698,20 +668,13 @@ describe("game dispatch lease", () => {
       commandId: "command-run-missing-successor",
     });
     if (run.queued) throw new Error("expected acquired run lease");
-    requestWorkflowDispatch(store, {
+    const stopping = requestWorkflowDispatch(store, {
       ...workflowContext("sync-missing-successor"),
       kind: "sync",
       workflowId: "sync-missing-successor",
       reason: "queue successor",
       commandId: "command-sync-missing-successor",
-    });
-    const draining = beginDrain(store, {
-      ...workflowContext("run-missing-successor"),
-      leaseId: run.leaseId,
-      targetKind: "sync",
-      targetWorkflowId: "sync-missing-successor",
-      reason: "handoff to successor",
-      commandId: "command-drain-missing-successor",
+      handoffOnQueue: true,
     });
     const eventCount = listGameEvents(store.db).length;
     store.db.query("DELETE FROM sync_state WHERE sync_id = ?").run("sync-missing-successor");
@@ -721,7 +684,7 @@ describe("game dispatch lease", () => {
       leaseId: run.leaseId,
       commandId: "command-release-missing-successor",
     })).toThrow("Durable sync workflow sync-missing-successor was not found for dispatch");
-    expect(getHarnessState(store, GAME_ID)).toEqual(draining);
+    expect(getHarnessState(store, GAME_ID)).toEqual(stopping.state);
     expect(listGameEvents(store.db)).toHaveLength(eventCount);
     expect(store.db.query("SELECT COUNT(*) AS count FROM dispatch_handoff_snapshots").get()).toEqual({ count: 0 });
   });
@@ -736,20 +699,13 @@ describe("game dispatch lease", () => {
       commandId: "command-run-rollback",
     });
     if (run.queued) throw new Error("expected acquired run lease");
-    requestWorkflowDispatch(store, {
+    const stopping = requestWorkflowDispatch(store, {
       ...workflowContext("sync-rollback"),
       kind: "sync",
       workflowId: "sync-rollback",
       reason: "queue sync",
       commandId: "command-sync-rollback",
-    });
-    const draining = beginDrain(store, {
-      ...workflowContext("run-rollback"),
-      leaseId: run.leaseId,
-      targetKind: "sync",
-      targetWorkflowId: "sync-rollback",
-      reason: "handoff",
-      commandId: "command-drain-rollback",
+      handoffOnQueue: true,
     });
     const eventCount = listGameEvents(store.db).length;
     store.db.exec(`
@@ -765,12 +721,12 @@ describe("game dispatch lease", () => {
       leaseId: run.leaseId,
       commandId: "command-release-rollback",
     })).toThrow("snapshot rejected");
-    expect(getHarnessState(store)).toEqual(draining);
+    expect(getHarnessState(store)).toEqual(stopping.state);
     expect(listGameEvents(store.db)).toHaveLength(eventCount);
     expect(store.db.query("SELECT COUNT(*) AS count FROM dispatch_handoff_snapshots").get()).toEqual({ count: 0 });
   });
 
-  test("cancels a queued handoff target without releasing the draining run", () => {
+  test("cancels a queued handoff target without releasing the stopping run", () => {
     const store = testStore();
     const run = requestWorkflowDispatch(store, {
       ...workflowContext("run-1"),
@@ -786,14 +742,7 @@ describe("game dispatch lease", () => {
       workflowId: "sync-1",
       reason: "operator started sync",
       commandId: "command-sync-1",
-    });
-    beginDrain(store, {
-      ...workflowContext("run-1"),
-      leaseId: run.leaseId,
-      targetKind: "sync",
-      targetWorkflowId: "sync-1",
-      reason: "handoff to sync",
-      commandId: "command-drain-run-1",
+      handoffOnQueue: true,
     });
 
     const cancelled = cancelDispatchRequest(store, {
@@ -807,7 +756,7 @@ describe("game dispatch lease", () => {
     expect(cancelled.active_workflow).toMatchObject({
       kind: "run",
       workflow_id: "run-1",
-      status: "draining",
+      status: "active",
     });
     expect(cancelled.active_workflow?.requested_handoff).toBeUndefined();
     expect(cancelled.queued_dispatch_requests).toEqual([]);
@@ -821,7 +770,7 @@ describe("game dispatch lease", () => {
     });
   });
 
-  test("rejects an unqueued handoff target without accepting a revision or event", () => {
+  test("rejects a conflicting handoff target without accepting a revision or event", () => {
     const store = testStore();
     const run = requestWorkflowDispatch(store, {
       ...workflowContext("run-1"),
@@ -831,20 +780,29 @@ describe("game dispatch lease", () => {
       commandId: "command-run-1",
     });
     if (run.queued) throw new Error("expected acquired run lease");
-    seedWorkflow(store, "sync", "sync-not-queued");
+    requestWorkflowDispatch(store, {
+      ...workflowContext("sync-1"),
+      kind: "sync",
+      workflowId: "sync-1",
+      reason: "first handoff",
+      commandId: "command-sync-1",
+      handoffOnQueue: true,
+    });
+    const before = getHarnessState(store)!;
+    const eventCount = listGameEvents(store.db).length;
 
     expect(() =>
-      beginDrain(store, {
-        ...workflowContext("run-1"),
-        leaseId: run.leaseId,
-        targetKind: "sync",
-        targetWorkflowId: "sync-not-queued",
-        reason: "invalid handoff",
-        commandId: "command-drain-invalid",
+      requestWorkflowDispatch(store, {
+        ...workflowContext("pr-1"),
+        kind: "pr",
+        workflowId: "pr-1",
+        reason: "conflicting handoff",
+        commandId: "command-pr-1",
+        handoffOnQueue: true,
       }),
-    ).toThrow("is not queued");
-    expect(getHarnessState(store)?.revision).toBe(2);
-    expect(listGameEvents(store.db)).toHaveLength(2);
+    ).toThrow("Dispatch handoff already targets sync:sync-1");
+    expect(getHarnessState(store)).toEqual(before);
+    expect(listGameEvents(store.db)).toHaveLength(eventCount);
   });
 
   test("rejects stale fencing tokens and permits only operator recovery", () => {

@@ -15,7 +15,6 @@ export type DashboardAction =
   | "cycleSavePoint"
   | "cycleClose"
   | "runStart"
-  | "runPause"
   | "runResume"
   | "runHardStop"
   | "runCancel"
@@ -38,7 +37,6 @@ export type DashboardAction =
   | "knowledgeProcess"
   | "start"
   | "startWork"
-  | "finishEpoch"
   | "checkpoint"
   | "qa"
   | "qaRepair"
@@ -74,7 +72,6 @@ export type HarnessStateRunStatus =
   | "draft"
   | "ready"
   | "active"
-  | "draining"
   | "paused"
   | "completed"
   | "failed"
@@ -275,7 +272,7 @@ export interface HarnessStateDispatchLease {
   kind: "run" | "pr" | "sync";
   workflow_id: string;
   lease_id: string;
-  status: "acquiring" | "active" | "draining" | "blocked" | "releasing";
+  status: "acquiring" | "active" | "blocked" | "releasing";
   acquired_at: string;
   heartbeat_at: string;
   headline: string;

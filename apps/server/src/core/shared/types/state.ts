@@ -23,8 +23,6 @@ export type EventType =
   | "epoch_fast_refresh_finished"
   | "epoch_fast_refresh_deferred"
   | "epoch_fast_refresh_skipped"
-  | "epoch_force_finish_requested"
-  | "epoch_force_finished"
   | "epoch_full_refresh_started"
   | "knowledge_maintenance_progress"
   | "epoch_full_refresh_finished"

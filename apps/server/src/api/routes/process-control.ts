@@ -4,8 +4,6 @@ type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
 
 export interface ProcessControlApiRouteDeps {
-  drainManaged: (body: JsonObject) => Promise<unknown>;
-  finishEpochNow: (body: JsonObject) => Promise<unknown>;
   json: JsonResponder;
   processStatus: (stateDir?: string, game?: unknown) => unknown;
   requestPaths: (url: URL, options: { useDefaultGame?: boolean }) => { game?: unknown; stateDir: string };
@@ -53,7 +51,5 @@ export async function handleProcessControlApiRoute(req: Request, url: URL, deps:
   if (req.method !== "POST") return null;
   if (url.pathname === "/api/process/start") return startRun(await requestBody(req), deps);
   if (url.pathname === "/api/process/stop") return deps.json(await deps.stopManaged(await requestBody(req)));
-  if (url.pathname === "/api/process/drain") return deps.json(await deps.drainManaged(await requestBody(req)));
-  if (url.pathname === "/api/process/finish-epoch") return deps.json(await deps.finishEpochNow(await requestBody(req)));
   return null;
 }

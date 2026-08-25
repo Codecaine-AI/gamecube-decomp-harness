@@ -12,7 +12,7 @@ const form = {
 } as unknown as FormState;
 
 const canonicalActionIds = [
-  "run.start", "run.pause", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
+  "run.start", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
   "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign",
   "pr.abandon_campaign", "pr.campaign_recover", "sync.start", "sync.resolve_conflict",
   "sync.publish", "sync.cancel", "sync.recover", "cycle.save_point", "cycle.close",
@@ -20,7 +20,7 @@ const canonicalActionIds = [
 ] as const;
 
 describe("canonical HarnessState DTO", () => {
-  test("preserves canonical summaries, all 21 actions, and compatibility separation", () => {
+  test("preserves canonical summaries, all 20 actions, and compatibility separation", () => {
     const action = (action_id: string) => ({
       action_id,
       subject_kind: action_id.split(".")[0],
@@ -90,7 +90,7 @@ describe("workspace cycle view", () => {
           kind: "run",
           workflow_id: "run-14",
           lease_id: "lease-14",
-          status: "draining",
+          status: "active",
           acquired_at: "2026-08-12T12:00:00.000Z",
           heartbeat_at: "2026-08-12T12:01:00.000Z",
           requested_handoff: {
@@ -228,7 +228,7 @@ describe("workspace cycle view", () => {
               source_id: "sync-15",
               recoverable: true,
             }],
-            expected_transition: "requested → ingesting after run drains",
+            expected_transition: "requested → ingesting after run stops",
             confirmation_required: false,
           },
           {
@@ -586,7 +586,6 @@ describe("workspace cycle view", () => {
         latest_event_sequence: 20,
         available_actions: [
           action("run.start", true, false),
-          action("run.pause", false, false),
           action("run.resume", false, false),
           action("run.hard_stop", true, true),
           action("run.cancel", true, true),
@@ -621,7 +620,6 @@ describe("workspace cycle view", () => {
     });
     expect(state?.available_actions.map((candidate) => candidate.action_id)).toEqual([
       "run.start",
-      "run.pause",
       "run.resume",
       "run.hard_stop",
       "run.cancel",
