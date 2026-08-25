@@ -71,10 +71,7 @@ import {
   recordWriteSetWideningDecision,
   recordWriteSetWideningValidation,
 } from "@server/core/cycle-runtime/run-state/write-set-widening.js";
-import type {
-  WorkerOutputConflictResolverConfig,
-  WorkerOutputIntegrationApplyResult,
-} from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
+import type { WorkerOutputIntegrationApplyResult } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import type { PiRunResult } from "@server/core/shared/types";
 import type { MeleeKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner.js";
 import {
@@ -1072,36 +1069,6 @@ function runnerValidationCompiled(validation: WorkerRunnerValidation): boolean {
 function clampSummary(text: string, maxChars = 400): string {
   const trimmed = text.trim();
   return trimmed.length <= maxChars ? trimmed : `${trimmed.slice(0, maxChars)}…`;
-}
-
-export function liveConflictResolverConfig(globals: GlobalArgs, sessionId: string, runId: string): WorkerOutputConflictResolverConfig {
-  return {
-    dryRun: globals.dryRunAgents,
-    game: gameMetadata(globals),
-    provider: globals.provider,
-    model: globals.model,
-    thinkingLevel: globals.thinkingLevel,
-    timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
-    runner: async (options) => {
-      const { executionContract, ...runnerOptions } = options;
-      const { runMeleeKernelPiAgent } = await import("@server/infrastructure/agent-runtime/kernel-pi-runner");
-      return runMeleeKernelPiAgent({
-        ...runnerOptions,
-        kernelContext: createMeleeKernelSpawnContext({
-          kind: "worker-integration",
-          gameId: globals.game?.gameId ?? globals.gameId,
-          sessionId,
-          runId,
-          phase: "integration",
-          workingDir: options.cwd,
-          metadata: {
-            agentRole: "conflict-resolver",
-            cycleWorktreePath: executionContract.cycleWorktreePath,
-          },
-        }),
-      });
-    },
-  };
 }
 
 interface WorkerTaskFileBase {

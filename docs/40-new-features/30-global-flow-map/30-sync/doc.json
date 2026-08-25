@@ -1,0 +1,326 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map-30-sync",
+  "title": "Sync",
+  "root": "b-gf-sync-root-1",
+  "blocks": {
+    "b-gf-sync-root-1": {
+      "id": "b-gf-sync-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-gf-sync-intro-2",
+        "b-gf-sync-outline-4"
+      ]
+    },
+    "b-gf-sync-intro-2": {
+      "id": "b-gf-sync-intro-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Working process flow for this band of the global flow. Confirmed detail from the walkthrough accumulates here before mapping to the owning chapter."
+        }
+      ],
+      "children": []
+    },
+    "b-gf-sync-outline-4": {
+      "id": "b-gf-sync-outline-4",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Observe upstream and request the `Sync`",
+            "trace": true,
+            "steps": [
+              {
+                "text": "Fetch the configured remote"
+              },
+              {
+                "text": "Anchor the prior revision, take the observed tip as target"
+              },
+              {
+                "text": "Record the merged PR ids and requested corpus batches"
+              },
+              {
+                "text": "A `Sync` whose observed tip already equals its anchor is `knowledge_only`.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Take the dispatch lease and activate the `Sync`",
+            "trace": true,
+            "steps": [
+              {
+                "text": "While a `Run` holds the lease, stay queued until it hands over",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Pause the `Run`, or point its drain at this `Sync`",
+                    "trace": true
+                  }
+                ]
+              },
+              {
+                "text": "Block the start outright if a non-`Run` holds the lease"
+              },
+              {
+                "text": "Every staging step revalidates the lease. Losing it stops the `Sync` where it stands.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Stage the requested inputs into sync staging",
+            "steps": [
+              {
+                "text": "Enqueue one durable job per merged PR and per corpus batch",
+                "trace": true
+              },
+              {
+                "text": "For each queued job, run its processor until the queue drains",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Curate the PR dump or read the corpus batch into a staging artifact"
+                  }
+                ]
+              },
+              {
+                "text": "Block on `knowledge_stage_failed` once a job fails terminally",
+                "trace": true
+              },
+              {
+                "text": "Seal the succeeded artifacts into one digested manifest"
+              },
+              {
+                "text": "A `knowledge_only` Sync skips the source workspace and rests at validated on that manifest alone.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Reconcile the staged result onto the upstream tip",
+            "trace": true,
+            "steps": [
+              {
+                "text": "Create a detached staging worktree at the canonical cycle head"
+              },
+              {
+                "text": "Fetch upstream again and record the observed tip",
+                "trace": true
+              },
+              {
+                "text": "Rebase the staged cycle history onto the target tip",
+                "trace": true
+              },
+              {
+                "text": "For each open PR series, rebase it onto the same tip",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Record the staged head, auto-resolved paths, conflicting paths"
+                  }
+                ]
+              },
+              {
+                "text": "Block on `conflict_needs_operator` if a conflicting path survives",
+                "trace": true
+              },
+              {
+                "text": "Repeat operator resolution and rebase until no conflicts remain",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "`Operator` edits the staged files in place"
+                  },
+                  {
+                    "text": "Each pass resumes from the last durable stage: workspace created, cycle rebased, or series reconciled.",
+                    "kind": "note"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "text": "Validate the complete staged result",
+            "trace": true,
+            "steps": [
+              {
+                "text": "Confirm every worktree is clean and submodules sit at expected heads"
+              },
+              {
+                "text": "Force a report run against the staged tree"
+              },
+              {
+                "text": "Block on `validation_failed` for regressions or broken matches",
+                "trace": true
+              },
+              {
+                "text": "Record the evidence and rest the `Sync` at validated",
+                "trace": true
+              },
+              {
+                "text": "While upstream moves past the validated tip, revalidate until the tips match",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Rebase staging and the surviving PR worktrees onto the new tip"
+                  },
+                  {
+                    "text": "Block on `upstream_moved_after_validation`",
+                    "trace": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "text": "`Operator` confirms publication",
+            "trace": true,
+            "steps": [
+              {
+                "text": "Require explicit confirmation, validated status, recorded evidence"
+              },
+              {
+                "text": "Observe upstream one last time and block if the tip moved",
+                "trace": true
+              },
+              {
+                "text": "Write the recursive repoint intent on the move into publishing"
+              },
+              {
+                "text": "Publishing is not cancellable. From here the `Sync` goes forward to published or blocks for recovery.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Publish across the canonical boundary",
+            "steps": [
+              {
+                "text": "Repoint the cycle worktree at the staged head, refusing any unexpected tree"
+              },
+              {
+                "text": "Commit one boundary transaction carrying the head, anchor, invalidations, push rows",
+                "trace": true
+              },
+              {
+                "text": "For each pending push row, force-with-lease until every row resolves",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Block on `pr_push_failed` if a remote branch moved",
+                    "trace": true
+                  }
+                ]
+              },
+              {
+                "text": "Transition to published",
+                "trace": true
+              },
+              {
+                "text": "A `knowledge_only` publication advances the knowledge revision without moving the cycle head or pushing branches.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Release the lease and finalize the `Sync`",
+            "steps": [
+              {
+                "text": "Release the lease, delete the publication intent, record published",
+                "trace": true
+              },
+              {
+                "text": "Finalization does all three in one transaction.",
+                "kind": "note"
+              },
+              {
+                "text": "Hand the accepted inputs to `Knowledge Processing`"
+              },
+              {
+                "text": "The new knowledge revision is the generation later Runs and queries read.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Cancel a `Sync` before publication",
+            "trace": true,
+            "steps": [
+              {
+                "text": "Require explicit confirmation, refuse once publication has started"
+              },
+              {
+                "text": "Cancel every live knowledge job and discard the staging worktrees",
+                "trace": true
+              },
+              {
+                "text": "Prove the cycle head and its recursive submodule pointers never moved"
+              },
+              {
+                "text": "Release the lease, or cancel the still-queued dispatch request",
+                "trace": true
+              }
+            ]
+          },
+          {
+            "text": "Recover a blocked `Sync`",
+            "steps": [
+              {
+                "text": "Require explicit confirmation and a choice of resume or discard"
+              },
+              {
+                "text": "Choose discard to abandon the `Sync`, exactly like a cancel",
+                "trace": true
+              },
+              {
+                "text": "Choose resume to re-enter at the durable origin of the block",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "A crash-left ingest requeues its jobs once the lease is proven stale",
+                    "trace": true
+                  },
+                  {
+                    "text": "A failed knowledge stage requeues the failed jobs and resumes ingesting"
+                  },
+                  {
+                    "text": "Durable staging resumes at reconciling or validating"
+                  },
+                  {
+                    "text": "A committed boundary resumes at publishing and continues the pushes"
+                  }
+                ]
+              },
+              {
+                "text": "Staged reconciliation conflicts do not recover this way. They route back through conflict resolution.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Reconcile any `Sync` left in publishing at boot",
+            "steps": [
+              {
+                "text": "A committed boundary continues its remaining pushes and finalizes",
+                "trace": true
+              },
+              {
+                "text": "A raw publishing state resets the cycle worktree to the recorded prior heads, parent first, and blocks on `publication_interrupted`",
+                "trace": true
+              },
+              {
+                "text": "A publishing state with no durable intent blocks without touching any worktree.",
+                "kind": "note"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

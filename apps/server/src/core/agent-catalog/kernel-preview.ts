@@ -1,6 +1,5 @@
 import { resolve } from "node:path";
 import {
-  conflictResolverPrompt,
   integrationResolverPrompt,
   librarianPrompt,
   prFixerPrompt,
@@ -133,48 +132,6 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           "",
         ].join("\n"),
       });
-    case "conflict-resolver": {
-      const claim = {
-        claim_id: "kernel-viewer-incoming-claim",
-        worker_state_id: "kernel-viewer-worker-state",
-        checkpoint_id: "kernel-viewer-checkpoint",
-        target_id: "kernel-viewer-target",
-        target_symbol: "ftDemo_KernelViewerSample",
-        source_paths: ["src/melee/ft/chara/ftDemo.c"],
-        write_set: ["src/melee/ft/chara/ftDemo.c", "src/melee/ft/chara/ftDemo.h"],
-        validation_state: "tentative" as const,
-        metadata: { widening_ids: ["kernel-viewer-widening"] },
-      };
-      const scopedChecks = { passed: true, checks: [], metadata: { scope: "touched-files" } };
-      return conflictResolverPrompt({
-        request: {
-          schema_version: "melee_conflict_resolver_request_v1",
-          integration_item_id: "kernel-viewer-merge-conflict",
-          conflict_group_id: "worker-output:kernel-viewer-merge-conflict",
-          isolated_worktree: {
-            path: resolve(paths.stateDir, "kernel-viewer/conflict-worktree"),
-            base_revision: "aaaaaaaa",
-            cycle_revision: "bbbbbbbb",
-          },
-          cycle_worktree_path: paths.repoRoot,
-          incoming: {
-            claim,
-            scoped_checks: scopedChecks,
-            patch: { path: resolve(paths.stateDir, "kernel-viewer/incoming.patch"), text: null, sha256: "1234" },
-          },
-          current: {
-            claim: { ...claim, claim_id: "kernel-viewer-current-claim", validation_state: "confirmed" },
-            scoped_checks: scopedChecks,
-            branch_state: { head_revision: "bbbbbbbb", status_porcelain: "", diff: null, metadata: {} },
-          },
-          conflict_paths: ["src/melee/ft/chara/ftDemo.h"],
-          metadata: { merge_on_finish: true },
-        },
-        repoRoot: paths.repoRoot,
-        stateDir: paths.stateDir,
-        game,
-      });
-    }
     case "integration-resolver":
       return integrationResolverPrompt({
         integrationItem: {

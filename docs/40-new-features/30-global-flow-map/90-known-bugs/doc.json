@@ -1,0 +1,194 @@
+{
+	"schemaVersion": 1,
+	"id": "40-new-features-30-global-flow-map-90-known-bugs",
+	"title": "Known Bugs",
+	"root": "b-gf-bugs-root-1",
+	"blocks": {
+		"b-gf-bugs-root-1": {
+			"id": "b-gf-bugs-root-1",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-gf-bugs-intro-2",
+				"b-gf-bugs-table-3"
+			]
+		},
+		"b-gf-bugs-intro-2": {
+			"id": "b-gf-bugs-intro-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Bugs and code-versus-docs mismatches found while aligning process outlines with traces. We walk this list together; each row gets a disposition (fix inline, rewrite doc, or spin off a thread) and its status updates here."
+				}
+			],
+			"children": []
+		},
+		"b-gf-bugs-table-3": {
+			"id": "b-gf-bugs-table-3",
+			"type": "structured-table",
+			"props": {
+				"title": "Bug catalog",
+				"columns": [
+					"Severity",
+					"Where",
+					"Bug",
+					"Status"
+				],
+				"rows": [
+					[
+						"high",
+						"apps/frontend trace page",
+						"The harness trace viewer passes no containers to buildTraceSpans (pages/workspace/trace/index.tsx:307-310) and the server emits no phase or container events, so traces render as a flat list instead of the process hierarchy.",
+						"open"
+					],
+					[
+						"medium",
+						"kernel bridge session-mapping.ts:380-389",
+						"pr-qa and pr-handoff container kinds hit the default branch of describeMeleeContainer (bare-string labels, re-parented to root; only pr-publication gets the pr parent injected at workflow-trace.ts:214). Confirmed but LATENT: no production code emits either kind today.",
+						"open"
+					],
+					[
+						"medium",
+						"docs 10-system-design/20-game/20-registration-and-setup",
+						"Outlines a four-stage registration and activation process that has no implementation; registration is pure descriptor resolution (game-registry/resolver.ts:444).",
+						"open"
+					],
+					[
+						"medium",
+						"docs 10-system-design/40-knowledge/.../40-crosswalk",
+						"Documents wiki-mirror refresh and crosswalk generation that do not exist in code; only the smashwiki search tools exist.",
+						"open"
+					],
+					[
+						"medium",
+						"phases/preparing/runtime.ts:317,324 vs docs",
+						"Legacy git-intake and PR-intake prep subphases hard-throw as disabled while the docs still imply they run during prepare.",
+						"open"
+					],
+					[
+						"low",
+						"docs 50-workflows/20-run/20-run-loop",
+						"Run Loop outline is missing the provider health-probe and pause lane, the force-finish-epoch signal, and shutdown and drain semantics.",
+						"open"
+					],
+					[
+						"low",
+						"docs 50-workflows/30-pr/20-score-gate-and-handoff",
+						"Outline is a converted transcript of prCycleReview and needs a re-diff against pr-cycle-review.ts:1504.",
+						"open"
+					],
+					[
+						"medium",
+						"core/cycle-runtime/index.ts (command switch) + api/cycle/routes.ts",
+						"markCycleComplete is unreachable: /api/cycle/complete routes to the close command and nothing in the command switch reaches the terminal complete transition.",
+						"open"
+					],
+					[
+						"medium",
+						"phases/preparing/runtime.ts (runPrIndexForPrepare)",
+						"The prepare-phase PR-index executor hard-throws like the legacy git-intake/PR-intake paths; only the PR-index debt survey is live during prepare.",
+						"open"
+					],
+					[
+						"high",
+						"core/validation/report/run.ts:264 (forceReportRun)",
+						"No single-flight guard on report runs: the reuse key is a cache check with no lock, run entry unconditionally clears report_changes.json and deletes report.json, so concurrent callers race the same build/GALE01 dir and can destroy each other's outputs mid-build. Reached unguarded from validation routes, runtime, report-run job, and baseline prep.",
+						"open"
+					],
+					[
+						"low",
+						"docs 30-pr/30-qa-ship-gate vs core/validation/qa/repair-lane.ts:361-406",
+						"Old outline says one repair item per finding; code queues one item per candidate source file carrying all its findings, and llm_review warnings are advisory, never mandatory.",
+						"open"
+					],
+					[
+						"low",
+						"docs 40-knowledge/40-processing/20-job-lifecycle-and-leasing vs core/job-queue/kernel.ts:435",
+						"Docs say jobs are claimed under a fenced lease; the lease is a visibility timeout (lease-UUID + expiry), and the monotonic guard is the row revision used as optimistic CAS. Docs also insert waiting between queued and claimed; waiting is only re-entry from backoff or a lapsed lease.",
+						"open"
+					],
+					[
+						"low",
+						"core/job-queue kernel + background knowledge processor",
+						"No attempt ceiling and no dead letter for knowledge jobs: a persistently failing job retries on backoff forever until an operator cancels it.",
+						"open"
+					],
+					[
+						"medium",
+						"phases/pr/jobs/verify-ship-set.ts (check-issues lint)",
+						"A missing Docker daemon makes the check-issues lint report unavailable, and unavailable PASSES the ship-set gate \u2014 lint issues then only surface in upstream CI.",
+						"open"
+					],
+					[
+						"low",
+						"phases/pr/jobs/pr-cycle-review.ts (exit code)",
+						"Cycle review exit code reflects only agent errors and regression-command infrastructure failures; ledger findings never make the run exit nonzero.",
+						"open"
+					],
+					[
+						"medium",
+						"knowledge lane (core/knowledge/**) vs kernel bridge",
+						"The knowledge queue and publication path emit no workflow trace events at all \u2014 enqueue, claim, lease lapse, retry, completion, and revision publication are trace-invisible; only Librarian agent spawns appear (as Knowledge curation containers).",
+						"open"
+					],
+					[
+						"medium",
+						"bridge/session-mapping.ts:334-342 + preparing/knowledge-refresh subphase",
+						"The knowledge-refresh container kind is defined in the bridge but never spawned; refreshKnowledgeForPrepare shells kg-maintain with no kernel context, so the prepare-phase knowledge refresh never appears in traces.",
+						"open"
+					],
+					[
+						"medium",
+						"bridge/session-mapping.ts sync-intake + workflow-trace.ts syncProjectIntake",
+						"The sync-intake kernel container path has zero production callers (test fixture only, flagged inert in project-state-slice-3); Sync never appears as a container in kernel traces \u2014 its real emissions are sync.*/knowledge.*/game.dispatch_* game events.",
+						"open"
+					],
+					[
+						"low",
+						"phases/sync/types.ts:19-33 (SYNC_WORKFLOW_EVENT_TYPES)",
+						"sync.pr_push_started/succeeded/failed are emitted in production and registered in harness-state/event-registry.ts:308-329 but missing from SYNC_WORKFLOW_EVENT_TYPES.",
+						"open"
+					],
+					[
+						"medium",
+						"session-mapping.ts pr-index kind + preparing/subphases/knowledge-refresh.ts:22",
+						"The pr-index container kind is defined but never constructed (the PR indexer agent spawns as postmortem/intake-postmortem instead), and refreshKnowledgeForPrepare has zero callers \u2014 dead code; prepare-phase PR-index and knowledge-refresh never appear in traces.",
+						"open"
+					],
+					[
+						"high",
+						"core/knowledge/background/index.ts:21 vs jobs/librarian.ts:90",
+						"Knowledge job lease is 60s but the librarian defaults to a 600s timeout and inline execution never heartbeats \u2014 the lease expires mid-flight, claimNextJob steals the row, duplicate concurrent librarian runs process the same worker state, and the original completion is silently dropped as a stale token.",
+						"open"
+					],
+					[
+						"medium",
+						"jobs/librarian.ts:402-416",
+						"A librarian timeout returns a synthetic digest (timeout:<id>) that SUCCEEDS the job while the agent session may remain active \u2014 timeouts are masked as successes.",
+						"open"
+					],
+					[
+						"medium",
+						"bridge/spawn-context.ts:131-133 + librarian spawn sessionIds",
+						"knowledge-curation containers reuse the run container id (no dedicated id) and librarian runs derive separate app sessions (runId/batch ids), so they render as orphan Game session roots outside the cycle tree; corroboration fragments one session per batch.",
+						"open"
+					],
+					[
+						"medium",
+						"core/knowledge/** vs cycle-runtime/dispatch-guard.ts",
+						"Knowledge jobs read the repo checkout with no dispatch-lease mutual exclusion (no knowledge file imports the dispatch guard); they run concurrently with lease-holding workflows. Only the sync knowledge lane fences properly.",
+						"open"
+					],
+					[
+						"low",
+						"core/agent-catalog/kernel-catalog.ts:317 (pr-fixer)",
+						"The pr-fixer agent is registered in the kernel catalog but has zero runtime call sites \u2014 no container is ever created for it.",
+						"open"
+					]
+				]
+			},
+			"children": []
+		}
+	}
+}

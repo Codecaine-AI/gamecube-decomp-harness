@@ -1325,4 +1325,116 @@ describe("sync-owned staged knowledge", () => {
       payload: expect.objectContaining({ resume_stage: "publishing" }),
     });
   });
+
+  test("stages independent merged-PR jobs through a bounded pool", async () => {
+    const mergedPrIds = ["pr-1", "pr-2", "pr-3", "pr-4", "pr-5", "pr-6"];
+    const current = fixture({
+      upstream_from: "upstream-pool-old",
+      upstream_to: "upstream-pool-new",
+      merged_pr_ids: mergedPrIds,
+      corpus_batch_ids: [],
+      knowledge_only: false,
+    }, "sync-knowledge-pool");
+    enqueueSyncKnowledgeJobs(current.store, {
+      syncId: current.sync.sync_id,
+      commandId: "command-enqueue-pool",
+    });
+
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const manifest = await stageSyncKnowledge({
+      store: current.store,
+      stateDir: current.stateDir,
+      syncId: current.sync.sync_id,
+      commandId: "command-stage-pool",
+      revalidateOwnership: () => {},
+      concurrency: 2,
+      processors: {
+        async processMergedPr({ job }) {
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
+          inFlight -= 1;
+          return { pr: job.sourceId };
+        },
+        async processCorpus() {
+          throw new Error("pool fixture has no corpus sources");
+        },
+      },
+    });
+
+    expect(maxInFlight).toBe(2);
+    expect(inFlight).toBe(0);
+    expect(manifest.accepted_job_ids).toHaveLength(mergedPrIds.length);
+    expect(manifest.artifacts.map((artifact) => artifact.source_id).sort()).toEqual([...mergedPrIds].sort());
+    const jobs = listSyncKnowledgeJobs(current.store.db, current.sync.sync_id);
+    expect(jobs.map((job) => job.status)).toEqual(mergedPrIds.map(() => "succeeded"));
+  });
+
+  test("pooled ingest lets in-flight jobs finish and blocks with the serial blocker shape on one terminal failure", async () => {
+    const current = fixture({
+      upstream_from: "upstream-poolfail-old",
+      upstream_to: "upstream-poolfail-new",
+      merged_pr_ids: ["pr-1", "pr-2", "pr-3", "pr-4"],
+      corpus_batch_ids: [],
+      knowledge_only: false,
+    }, "sync-knowledge-pool-failure");
+
+    const started: string[] = [];
+    let signalSecondStarted!: () => void;
+    const secondStarted = new Promise<void>((resolveGate) => { signalSecondStarted = resolveGate; });
+    let signalFirstFailed!: () => void;
+    const firstFailed = new Promise<void>((resolveGate) => { signalFirstFailed = resolveGate; });
+
+    await expect(completeSyncKnowledgeIngest({
+      store: current.store,
+      stateDir: current.stateDir,
+      syncId: current.sync.sync_id,
+      expectedRevision: current.sync.revision,
+      commandId: "command-complete-pool-failure",
+      revalidateOwnership: () => {},
+      concurrency: 2,
+      processors: {
+        async processMergedPr({ job }) {
+          started.push(job.sourceId);
+          if (job.sourceId === "pr-1") {
+            // Fail only once pr-2 is provably in flight, so the assertion
+            // below shows the pool finished it instead of killing it.
+            await secondStarted;
+            signalFirstFailed();
+            throw new Error("pr-1 ingest exploded after retries");
+          }
+          if (job.sourceId === "pr-2") {
+            signalSecondStarted();
+            await firstFailed;
+            await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
+            return { pr: job.sourceId };
+          }
+          throw new Error(`pool fed ${job.sourceId} after a terminal failure`);
+        },
+        async processCorpus() {
+          throw new Error("pool failure fixture has no corpus sources");
+        },
+      },
+    })).rejects.toThrow("Sync knowledge ingest failed: pr-1 ingest exploded after retries");
+
+    expect(started.sort()).toEqual(["pr-1", "pr-2"]);
+    expect(getSyncState(current.store, current.sync.sync_id)).toMatchObject({
+      status: "blocked",
+      blockers: [expect.objectContaining({
+        code: "knowledge_stage_failed",
+        message: expect.stringContaining("pr-1 ingest exploded after retries"),
+        recoverable: true,
+      })],
+    });
+    const statusesBySource = new Map(
+      listSyncKnowledgeJobs(current.store.db, current.sync.sync_id)
+        .map((job) => [job.sourceId, job.status]),
+    );
+    expect(statusesBySource.get("pr-1")).toBe("failed");
+    expect(statusesBySource.get("pr-2")).toBe("succeeded");
+    expect(statusesBySource.get("pr-3")).toBe("queued");
+    expect(statusesBySource.get("pr-4")).toBe("queued");
+    expect(existsSync(syncKnowledgeManifestPath(current.stateDir, current.sync.sync_id))).toBe(false);
+  });
 });

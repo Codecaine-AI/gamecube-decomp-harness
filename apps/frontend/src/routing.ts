@@ -1,7 +1,7 @@
 // Game workspace routing. The orchestrator UI is game-centered: a top
 // Game Dashboard holds game cards, each card opens a Game Workspace
 // (Overview / Standards / Cycles / Agents / Trace / Settings / Style), and the active cycle is a
-// nested surface inside Cycles with its own phase sub-navigation.
+// nested surface inside Cycles with workflow tabs and drill-in details.
 //
 // The route is encoded in the path so deep links and reloads keep the operator
 // where they were without leaking internal view state into the URL:
@@ -11,6 +11,11 @@
 //   /standards/rendered
 //   /cycles
 //   /cycles/active/run
+//   /cycles/active/sync
+//   /cycles/active/pr
+//   /cycles/active/run/attempt/<workerStateId>
+//   /cycles/active/run/epoch/<epochId>
+//   /cycles/active/sync/stage/<stage>
 //   /agents
 //   /trace
 //   /settings
@@ -21,14 +26,17 @@
 
 export type WorkspaceSection = "overview" | "standards" | "cycles" | "agents" | "trace" | "knowledge" | "settings" | "style";
 export type StandardsView = "edit" | "rendered";
-export type CycleStage = "prepare" | "run" | "pr" | "done";
-export type CycleSubPage = CycleStage | "summary" | "review" | "artifacts";
+export type CycleTab = "run" | "sync" | "pr";
+export type CycleStage = "run" | "pr" | "done";
+export type CycleSubPage = CycleTab | "done" | "summary" | "review" | "artifacts";
+export type CycleDetailKind = "attempt" | "epoch" | "stage";
+export interface CycleDetail { kind: CycleDetailKind; id: string }
 // "active" points at the single active cycle; a run id opens a past cycle.
 export type CycleFocus = "active" | "new" | string;
 
 export type AppRoute =
   | { kind: "dashboard" }
-  | { kind: "workspace"; section: WorkspaceSection; gameId?: string; standardsView?: StandardsView; cycle?: CycleFocus; cycleSub?: CycleSubPage };
+  | { kind: "workspace"; section: WorkspaceSection; gameId?: string; standardsView?: StandardsView; cycle?: CycleFocus; cycleSub?: CycleSubPage; cycleDetail?: CycleDetail };
 
 export const WORKSPACE_SECTIONS: ReadonlyArray<{ id: WorkspaceSection; label: string; description: string }> = [
   { id: "overview", label: "Overview", description: "Active cycle, PR gate, readiness, and next action." },
@@ -46,27 +54,31 @@ export const STANDARDS_VIEWS: ReadonlyArray<{ id: StandardsView; label: string }
   { id: "rendered", label: "Rendered" },
 ];
 
-export const CYCLE_STAGES: ReadonlyArray<{ id: CycleStage; label: string }> = [
-  { id: "prepare", label: "Prepare" },
+export const CYCLE_TABS: ReadonlyArray<{ id: CycleTab; label: string }> = [
   { id: "run", label: "Run" },
+  { id: "sync", label: "Sync" },
   { id: "pr", label: "PR" },
-  { id: "done", label: "Done" },
 ];
 
 export const CYCLE_SUBPAGES: ReadonlyArray<{ id: CycleSubPage; label: string }> = [
-  ...CYCLE_STAGES,
+  ...CYCLE_TABS,
+  { id: "done", label: "Done" },
   { id: "summary", label: "Summary" },
   { id: "review", label: "Review" },
   { id: "artifacts", label: "Artifacts" },
 ];
 
-// The active-cycle workflow stepper doubles as the visible sub-navigation.
-export const CYCLE_PHASES = CYCLE_STAGES;
-
-export function cycleStageForSubPage(sub: CycleSubPage | null | undefined): CycleStage {
-  if (sub === "prepare" || sub === "run" || sub === "pr" || sub === "done") return sub;
+export function cycleTabForSubPage(sub: CycleSubPage | null | undefined): CycleTab | null {
+  if (sub === "run" || sub === "sync" || sub === "pr") return sub;
   if (sub === "review") return "pr";
-  return "done";
+  return null;
+}
+
+// Legacy /cycles/:id/prepare links (the retired Prepare stage) normalize onto
+// the Run sub-page, which now hosts the still-real setup inputs.
+function normalizeLegacyCycleSub(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value === "prepare" ? "run" : value;
 }
 
 function isWorkspaceSection(value: string | null): value is WorkspaceSection {
@@ -79,6 +91,10 @@ export function isStandardsView(value: string | null): value is StandardsView {
 
 export function isCycleSubPage(value: string | null): value is CycleSubPage {
   return CYCLE_SUBPAGES.some((sub) => sub.id === value);
+}
+
+function isCycleDetailKind(value: string | null): value is CycleDetailKind {
+  return value === "attempt" || value === "epoch" || value === "stage";
 }
 
 // Map the pre-redesign peer tabs onto the new nested structure.
@@ -157,10 +173,11 @@ function workspaceRouteFromSearchParams(params: URLSearchParams): AppRoute | nul
     };
   }
   if (section === "cycles") {
+    const sub = normalizeLegacyCycleSub(params.get("sub"));
     return {
       ...base,
       cycle: params.get("cycle") || undefined,
-      cycleSub: isCycleSubPage(params.get("sub")) ? (params.get("sub") as CycleSubPage) : undefined,
+      cycleSub: isCycleSubPage(sub) ? (sub as CycleSubPage) : undefined,
     };
   }
   return base;
@@ -172,7 +189,7 @@ function routeFromPathname(pathname: string, params: URLSearchParams): AppRoute 
     return { kind: "dashboard" };
   }
 
-  const [first, second, third] = segments[0] === "workspace" ? segments.slice(1) : segments;
+  const [first, second, third, fourth, fifth] = segments[0] === "workspace" ? segments.slice(1) : segments;
   if (first === "knowledge" && params.get("kb") === "standards") {
     return {
       kind: "workspace",
@@ -199,11 +216,14 @@ function routeFromPathname(pathname: string, params: URLSearchParams): AppRoute 
 
   if (section === "cycles") {
     const cycle = second || undefined;
-    return {
-      ...base,
-      cycle,
-      cycleSub: isCycleSubPage(third ?? null) ? third as CycleSubPage : undefined,
-    };
+    const sub = normalizeLegacyCycleSub(third ?? null);
+    const cycleSub = isCycleSubPage(sub) ? sub as CycleSubPage : undefined;
+    const cycleDetail = cycleSub && isCycleDetailKind(fourth ?? null) && fifth
+      ? { kind: fourth, id: fifth } as CycleDetail
+      : null;
+    return cycleDetail
+      ? { ...base, cycle, cycleSub, cycleDetail }
+      : { ...base, cycle, cycleSub };
   }
 
   return base;
@@ -236,7 +256,12 @@ export function routeToUrl(route: AppRoute): string {
       const segments = ["cycles"];
       if (route.cycle) {
         segments.push(encodeURIComponent(route.cycle));
-        if (route.cycleSub) segments.push(route.cycleSub);
+        if (route.cycleSub) {
+          segments.push(route.cycleSub);
+          if (route.cycleDetail) {
+            segments.push(route.cycleDetail.kind, encodeURIComponent(route.cycleDetail.id));
+          }
+        }
       }
       url.pathname = `/${segments.join("/")}`;
     } else {

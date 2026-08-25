@@ -7,7 +7,6 @@ import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 
 const sourceContextToolRoles = [
   "worker",
-  "conflict-resolver",
   "integration-resolver",
   "pr-splitter",
   "librarian",

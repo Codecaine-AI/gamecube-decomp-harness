@@ -1,6 +1,5 @@
 export type AgentRole =
   | "worker"
-  | "conflict-resolver"
   | "integration-resolver"
   | "pr-reviewer"
   | "pr-fixer"

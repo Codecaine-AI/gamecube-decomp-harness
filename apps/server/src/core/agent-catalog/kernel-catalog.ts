@@ -13,7 +13,6 @@ import {
   rootContextLoaderDeclaration,
 } from "@server/core/agent-catalog/kernel-context.js";
 import workerKernelAgent from "@server/core/agent-catalog/agents/running/worker/agent.js";
-import conflictResolverKernelAgent from "@server/core/agent-catalog/agents/running/conflict-resolver/agent.js";
 import integrationResolverKernelAgent from "@server/core/agent-catalog/agents/running/integration-resolver/agent.js";
 import prReviewerKernelAgent from "@server/core/agent-catalog/agents/pr/reviewer/agent.js";
 import prFixerKernelAgent from "@server/core/agent-catalog/agents/pr/fixer/agent.js";
@@ -24,7 +23,6 @@ import qaRepairKernelAgent from "@server/core/agent-catalog/agents/pr/qa-repair/
 
 export const KERNEL_AGENT_IDS = [
   "worker",
-  "conflict-resolver",
   "integration-resolver",
   "pr-reviewer",
   "pr-fixer",
@@ -124,7 +122,6 @@ type KernelAgentViewerContext = NonNullable<KernelAgentViewerDefinition["context
 const ROOT_CONTEXT_LOADERS = [ROOT_CONTEXT_LOADER_KIND] as const;
 const typedAgentDefinitions = {
   worker: workerKernelAgent,
-  "conflict-resolver": conflictResolverKernelAgent,
   "integration-resolver": integrationResolverKernelAgent,
   "pr-reviewer": prReviewerKernelAgent,
   "pr-fixer": prFixerKernelAgent,
@@ -283,21 +280,6 @@ export const meleeKernelAgentCatalog = [
       null,
       null,
       "Worker has no structured output contract. The runner may parse final assistant text as an advisory validation handoff, but lifecycle status, validation, reports, and best-record selection stay runner-owned.",
-    ),
-  }),
-  catalogEntry("conflict-resolver", {
-    group: "running",
-    phase: "integration",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/running/conflict-resolver/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/running/conflict-resolver/prompt.ts",
-    ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "merge-on-finish-conflict"],
-    resultContract: resultContract(
-      "melee_conflict_resolver_result_v1",
-      null,
-      "validateConflictResolverAgentResult",
-      "Conflict resolver results are validated and applied by the serial worker-output queue; every failure falls back to operator-visible conflict state.",
     ),
   }),
   catalogEntry("integration-resolver", {

@@ -1,0 +1,412 @@
+{
+	"schemaVersion": 1,
+	"id": "40-new-features-30-global-flow-map-10-standing-infrastructure",
+	"title": "Standing Infrastructure",
+	"root": "b-gf-infra-root-1",
+	"blocks": {
+		"b-gf-infra-root-1": {
+			"id": "b-gf-infra-root-1",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-gf-infra-intro-2",
+				"b-gf-infra-dispositions-3",
+				"b-gf-infra-outline-4"
+			]
+		},
+		"b-gf-infra-intro-2": {
+			"id": "b-gf-infra-intro-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Working process flow for this band of the global flow. Confirmed detail from the walkthrough accumulates here before mapping to the owning chapter."
+				}
+			],
+			"children": []
+		},
+		"b-gf-infra-dispositions-3": {
+			"id": "b-gf-infra-dispositions-3",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Confirmed dispositions: server boot gets a small outline in a new server-and-global-infrastructure doc. The global compile jobserver gets an outline but no trace containers. The kernel trace tailer is outlined beside the kernel-trace-linkage doc. The managed process controller gets a full outline. The job-queue consumer gets one shared outline referenced by both run and knowledge docs. Dashboard SSE is a one-line mention, the UI hot-reload watcher is skipped, and the cycle process mirror becomes a note inside the process-controller outline."
+				}
+			],
+			"children": []
+		},
+		"b-gf-infra-outline-4": {
+			"id": "b-gf-infra-outline-4",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Nothing in this band emits kernel trace events of its own. The trace tailer writes trace rows for other processes' sessions, and the compile jobserver gets no trace containers at all.",
+						"kind": "note"
+					},
+					{
+						"text": "Boot the server through three startup jobs in order",
+						"steps": [
+							{
+								"text": "Configure the global compile jobserver first",
+								"steps": [
+									{
+										"text": "Nothing can spawn a build until this job finishes.",
+										"kind": "note"
+									},
+									{
+										"text": "Resolve the slot budget, or leave the jobserver off"
+									},
+									{
+										"text": "Require `ninja` 1.13 or newer for FIFO jobserver support"
+									},
+									{
+										"text": "Install the wrapper bin and bring the daemon up"
+									},
+									{
+										"text": "Merge the jobserver env into the server's own env",
+										"steps": [
+											{
+												"text": "That env carries `MAKEFLAGS`, the FIFO and state paths, the real Ninja path, and a PATH with the wrapper bin in front. Every child the server spawns inherits it.",
+												"kind": "note"
+											}
+										]
+									}
+								]
+							},
+							{
+								"text": "Reconcile a `Sync` caught mid-`publishing`",
+								"steps": [
+									{
+										"text": "The reconcile runs under a fresh startup command id, before the HTTP surface opens, so nothing else can act on the Sync first.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Open the HTTP surface and stay resident",
+								"steps": [
+									{
+										"text": "Route kernel reads, then `/api/*`, then static dashboard files"
+									},
+									{
+										"text": "Start the kernel trace tailer in the background",
+										"steps": [
+											{
+												"text": "A failed tailer never takes the server down.",
+												"kind": "note"
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"text": "Ration compile parallelism across every build on the machine",
+						"steps": [
+							{
+								"text": "The global compile jobserver owns this rationing, machine-wide rather than per build.",
+								"kind": "note"
+							},
+							{
+								"text": "Run one detached daemon that owns the token FIFO",
+								"steps": [
+									{
+										"text": "Create the FIFO, write one token per slot, record `state.json`",
+										"steps": [
+											{
+												"text": "Each wrapper's token also covers Ninja's implicit job slot.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Serialize starters on `start.lock` so only one daemon spawns"
+									},
+									{
+										"text": "Replace a stale state file: dead pid or missing FIFO"
+									},
+									{
+										"text": "Error out when a live daemon holds a different slot count",
+										"steps": [
+											{
+												"text": "The daemon is not restarted, because builds may be in flight against it.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Clean up the FIFO and state file on shutdown"
+									}
+								]
+							},
+							{
+								"text": "Route every `ninja` invocation through the wrapper",
+								"steps": [
+									{
+										"text": "The wrapper bin leads PATH, so every invocation lands on the wrapper.",
+										"kind": "note"
+									},
+									{
+										"text": "Wait on the FIFO for a token, aborting if the daemon dies"
+									},
+									{
+										"text": "Spawn the real Ninja with `MAKEFLAGS`, a clean PATH, and no `-jN`",
+										"steps": [
+											{
+												"text": "The child then sees the jobserver rather than the wrapper, and honors it instead of its own parallelism. Serial `-j1` survives.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Return the token and exit with the child's code"
+									}
+								]
+							}
+						]
+					},
+					{
+						"text": "Stream Pi session transcripts into the kernel trace database",
+						"steps": [
+							{
+								"text": "The kernel trace tailer owns this ingest path.",
+								"kind": "note"
+							},
+							{
+								"text": "Start the tailer with its cursors, timers, and directory watcher"
+							},
+							{
+								"text": "Tail every `.jsonl` under the Pi sessions directory",
+								"steps": [
+									{
+										"text": "Open each reader at its snapshot offset and read the backlog"
+									},
+									{
+										"text": "Create readers for new files, re-read known ones on their events"
+									}
+								]
+							},
+							{
+								"text": "For each event a reader emits, run that file's mapper",
+								"steps": [
+									{
+										"text": "Map Pi events into kernel trace events"
+									},
+									{
+										"text": "Fold each event into the file's accumulated state",
+										"steps": [
+											{
+												"text": "State binds Pi session uuid, Container, phase, agent name, parent run, and run number, and accumulates token counters and a cost estimate.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Move status on lifecycle markers, and record subagent links"
+									},
+									{
+										"text": "Stamp mapped events with Container id, Agent Run id, and session uuid"
+									}
+								]
+							},
+							{
+								"text": "Buffer mapped events and flush them in batches",
+								"steps": [
+									{
+										"text": "Upsert the batch's Pi sessions, Containers, and Agent Runs first"
+									},
+									{
+										"text": "Pause the watcher at max buffer, resume below half"
+									},
+									{
+										"text": "Retry a failing insert, then split the batch to isolate the bad event",
+										"steps": [
+											{
+												"text": "Backoff is exponential and capped. Once the retry budget is spent the batch halves until one event isolates, and that event is logged and dropped.",
+												"kind": "note"
+											}
+										]
+									}
+								]
+							},
+							{
+								"text": "Write the cursor snapshot atomically on the timer and at shutdown",
+								"steps": [
+									{
+										"text": "A restart resumes each file where ingest stopped instead of re-reading it.",
+										"kind": "note"
+									}
+								]
+							}
+						]
+					},
+					{
+						"text": "Manage the Run Loop child process",
+						"steps": [
+							{
+								"text": "The managed process controller starts, stops, drains, and reaps this child.",
+								"kind": "note"
+							},
+							{
+								"text": "`POST /api/process/start` launches the Run Loop",
+								"steps": [
+									{
+										"text": "Return blockers when the Run, its inputs, or the options conflict"
+									},
+									{
+										"text": "Run startup repair: pending integrations, Run status versus lease"
+									},
+									{
+										"text": "Activate a ready or active Run under a dispatch lease"
+									},
+									{
+										"text": "Spawn the child detached with the lease id on its argv"
+									},
+									{
+										"text": "Record pid, process group, and kill command in a pid file",
+										"steps": [
+											{
+												"text": "The exit handler writes exit code, signal, and end time back into that pid file.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Mark the Run failed and release the lease when the spawn throws"
+									}
+								]
+							},
+							{
+								"text": "`POST /api/process/stop` tears the Run Loop down",
+								"steps": [
+									{
+										"text": "Send `SIGTERM` to the process group, `SIGKILL` after 5 seconds",
+										"steps": [
+											{
+												"text": "An orphan pid file from an earlier server life goes the same way. Liveness comes from probing the saved process group, not an in-memory child handle.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Run `recover-claims` once the process is down, unless opted out",
+										"steps": [
+											{
+												"text": "Job claims held by dead `Worker` processes release back to the queue.",
+												"kind": "note"
+											}
+										]
+									}
+								]
+							},
+							{
+								"text": "`POST /api/process/drain` signals `SIGUSR1` and sends no `SIGTERM`",
+								"steps": [
+									{
+										"text": "The Run Loop stays alive until its `Worker` processes finish. Drain returns not-running when the process group is already gone.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "`POST /api/process/finish-epoch` appends `epoch_force_finish_requested`",
+								"steps": [
+									{
+										"text": "`Run Loop scheduler` reads the event next tick and closes the Epoch"
+									}
+								]
+							},
+							{
+								"text": "Rescan the pid-file directory on every status read",
+								"steps": [
+									{
+										"text": "Probing every recorded process group means a dead process surfaces as not-alive, so no separate reaper loop is needed.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Every one of these transitions also lands on CycleState. The cycle process mirror resolves the game's active cycle, creates it on first spawn, advances a preparing cycle through to running, and stores the process snapshot on the cycle record.",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "Claim and execute queued jobs under leases",
+						"steps": [
+							{
+								"text": "The job-queue consumer owns this loop. `Run Loop` runs one for `Worker` jobs and `Knowledge background service` one for knowledge jobs, the same machinery under different descriptors.",
+								"kind": "note"
+							},
+							{
+								"text": "Repeat a tick every second until the consumer stops",
+								"steps": [
+									{
+										"text": "Ticks never overlap; one runs at a time.",
+										"kind": "note"
+									},
+									{
+										"text": "Skip the tick when the claim gate says no",
+										"steps": [
+											{
+												"text": "The `Worker` consumer gates on drain requests, a paused provider, the iteration limit, and a blocked or paused Epoch.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "While under the concurrency limit, claim jobs until none are eligible"
+									},
+									{
+										"text": "Run inline jobs through their handler and settle on the result",
+										"steps": [
+											{
+												"text": "A completion write whose claim is gone reports as a failure.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Send dispatched jobs out to an executor",
+										"steps": [
+											{
+												"text": "Build and submit the task, then mark the job running"
+											},
+											{
+												"text": "Repeat the poll cycle until the task reports exited",
+												"steps": [
+													{
+														"text": "Each cycle polls the executor, runs the descriptor's poll hook, heartbeats the claim to renew its lease, then waits an interval.",
+														"kind": "note"
+													}
+												]
+											},
+											{
+												"text": "Stop tracking a job whose heartbeat no longer owns the claim"
+											},
+											{
+												"text": "Complete on exit code 0, fail on anything else with backoff"
+											}
+										]
+									}
+								]
+							},
+							{
+								"text": "Stop the consumer: clear the timer, drain the tick, let jobs finish",
+								"steps": [
+									{
+										"text": "`cancelAll` cancels every dispatched task first"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		}
+	}
+}

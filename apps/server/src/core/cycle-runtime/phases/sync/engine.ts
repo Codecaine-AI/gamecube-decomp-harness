@@ -20,6 +20,7 @@ import {
   createDetachedSyncWorktree,
   defaultSyncGitRunner,
   discardSyncStaging,
+  abortAndRemoveSyncWorktree,
   inspectSyncWorktree,
   initializeSyncWorktreeSubmodules,
   rebaseSyncWorktree,
@@ -396,6 +397,16 @@ async function reconcilePrSeries(
   const conflicts: string[] = [];
   let minorConflictsResolved = 0;
   for (const series of records) {
+    // A planned slice with no local branch and no PR has nothing durable to
+    // migrate — the plan record predates any pushed work. Skip it rather than
+    // failing the whole sync; the next PR phase re-derives plans anyway.
+    if (series.prNumber === null) {
+      const planned = await runner(context)(context.repoRoot, ["rev-parse", "--verify", series.branch], { check: false });
+      if (planned.exitCode !== 0 || !planned.stdout.trim()) {
+        context.appendLog?.("stderr", `sync reconcile: skipping planned PR series with no branch or PR: ${series.branch}`);
+        continue;
+      }
+    }
     const sourceHead = await sourceHeadForSeries(context, sync, series);
     const oldBase = await oldBaseForSeries(context, sync, series, sourceHead);
     const worktreePath = syncPrStagingWorktreePath(context.stateDir, sync.sync_id, series.branch);
@@ -719,6 +730,60 @@ function operatorConflictPaths(staging: SyncStagingProgress): Array<{
   return groups;
 }
 
+/** Drops staged PR workspaces whose series is no longer open.
+ *
+ * A sync can stay blocked on staged PR-series conflicts long enough for the
+ * PRs themselves to merge (or close) upstream. Those staged rebases are then
+ * moot — their content already landed — so requiring the operator to
+ * hand-resolve their markers is wrong. Re-read the PR records and, for every
+ * staged workspace whose branch is no longer an open series, abort the
+ * in-progress rebase, remove the staging worktree, and drop the workspace
+ * plus its conflict identities from staging. Still-open series keep their
+ * workspaces and conflicts untouched. */
+async function pruneMootPrWorkspaces(
+  context: SyncEngineContext,
+  sync: SyncState,
+): Promise<{ staging: SyncStagingProgress; droppedBranches: Set<string> }> {
+  const staging = sync.staging!;
+  const droppedBranches = new Set<string>();
+  const workspaces = staging.pr_workspaces ?? [];
+  if (workspaces.length === 0) return { staging, droppedBranches };
+  const openBranches = new Set(
+    openPrSeriesFromRecords(readPrRecordsArtifact(context.stateDir)).map((series) => series.branch),
+  );
+  const keptWorkspaces: NonNullable<SyncStagingProgress["pr_workspaces"]> = [];
+  for (const workspace of workspaces) {
+    if (openBranches.has(workspace.branch)) {
+      keptWorkspaces.push(workspace);
+      continue;
+    }
+    droppedBranches.add(workspace.branch);
+    context.appendLog?.(
+      "stderr",
+      `sync ${sync.sync_id}: dropping staged PR workspace ${workspace.branch}: series merged/closed upstream`,
+    );
+    await abortAndRemoveSyncWorktree({
+      repoRoot: context.repoRoot,
+      worktreePath: workspace.workspace_path,
+      runGit: runner(context),
+    });
+  }
+  if (droppedBranches.size === 0) return { staging, droppedBranches };
+  const conflictingPaths = (staging.conflicting_paths ?? []).filter((identity) => {
+    const separator = identity.indexOf(":");
+    return separator < 0 || !droppedBranches.has(identity.slice(0, separator));
+  });
+  return {
+    staging: {
+      ...staging,
+      pr_workspaces: keptWorkspaces,
+      conflicting_paths: conflictingPaths,
+      conflicts_awaiting_operator: conflictingPaths.length,
+    },
+    droppedBranches,
+  };
+}
+
 async function assertOperatorResolutionsHaveNoMarkers(
   context: SyncEngineContext,
   staging: SyncStagingProgress,
@@ -748,16 +813,24 @@ export async function resolveSyncConflict(input: {
     throw new Error(`Sync ${sync.sync_id} is not blocked on a reconciliation conflict`);
   }
   if (!sync.staging) throw new Error(`Blocked sync ${sync.sync_id} has no staging workspace`);
-  const conflictIdentities = [...(sync.staging.conflicting_paths ?? [])];
   revalidateSyncLease(input.context, sync);
-  await assertOperatorResolutionsHaveNoMarkers(input.context, sync.staging);
+  // Series that merged/closed upstream while the sync was blocked make their
+  // staged conflicts moot; drop them before demanding marker resolution.
+  const pruned = await pruneMootPrWorkspaces(input.context, sync);
+  const conflictIdentities = [...(pruned.staging.conflicting_paths ?? [])];
+  await assertOperatorResolutionsHaveNoMarkers(input.context, pruned.staging);
   sync = transitionSync(input.context.store, sync.sync_id, {
     actor: input.context.actor ?? "operator",
     commandId: input.commandId,
     correlationId: sync.sync_id,
     expectedRevision: sync.revision,
-    patch: { status: "reconciling", blockers: [] },
-    payload: { resolution: "operator_staging_edits_verified" },
+    patch: { status: "reconciling", blockers: [], staging: pruned.staging },
+    payload: {
+      resolution: "operator_staging_edits_verified",
+      ...(pruned.droppedBranches.size > 0
+        ? { dropped_pr_workspaces: [...pruned.droppedBranches].sort() }
+        : {}),
+    },
   });
 
   let staging = sync.staging!;
@@ -785,7 +858,7 @@ export async function resolveSyncConflict(input: {
     remainingIdentities.push(...result.conflictingPaths);
   }
 
-  const prResults = [...sync.pr_reconciliation];
+  const prResults = sync.pr_reconciliation.filter((entry) => !pruned.droppedBranches.has(entry.branch));
   const nextPrWorkspaces: NonNullable<SyncStagingProgress["pr_workspaces"]> = [];
   for (const workspace of staging.pr_workspaces ?? []) {
     if (!workspace.conflicting_paths?.length) {
@@ -1178,7 +1251,10 @@ export async function recoverSync(input: {
   }
 
   if (sync.blockers.some((blocker) => blocker.code === "upstream_moved_after_validation")) {
-    throw new Error(`Sync ${sync.sync_id} validated candidate is stale; cancel it and request a new sync`);
+    if (!sync.staging?.workspace_path) {
+      throw new Error(`Sync ${sync.sync_id} validated candidate is stale; cancel it and request a new sync`);
+    }
+    return extendStaleValidatedCandidate(input, sync);
   }
 
   if (sync.blockers.some((blocker) => blocker.code === "conflict_needs_operator")) {
@@ -1260,6 +1336,43 @@ export async function recoverSync(input: {
     }
     throw new Error(`Sync ${sync.sync_id} has no retryable knowledge job or publication stage to resume`);
   }
+  // Blocked before anything durable was staged. The live shape: the cycle
+  // worktree check in ensureCycleStaging threw while entering reconciliation,
+  // before the ingesting -> reconciling transition, so the origin is
+  // "ingesting" with staging null even though ingest fully succeeded.
+  // Reconciliation had produced nothing durable, so the stage is safe to
+  // restart from scratch: an ingesting origin resumes through the ingest
+  // driver (succeeded jobs are skipped), and a reconciling/validating origin
+  // resumes at "reconciling" where ensureCycleStaging re-derives staging from
+  // the ingest artifacts and the cycle worktree. With durable staging present
+  // the staged-workspace path below handles recovery instead.
+  if (
+    (origin === "ingesting" || origin === "reconciling" || origin === "validating") &&
+    !sync.staging?.workspace_path &&
+    // The staging root also holds durable knowledge artifacts; only the git
+    // workspace (root/cycle) marks reconciliation as having staged anything.
+    !existsSync(syncStagingPaths(input.context.stateDir, sync.sync_id).cycleWorktree)
+  ) {
+    if (knowledgeJobs.some((job) => job.status === "cancelled")) {
+      throw new Error(`Sync ${sync.sync_id} has cancelled knowledge jobs and cannot resume`);
+    }
+    const bareResumeStage: SyncStatus = origin === "ingesting" ? "ingesting" : "reconciling";
+    return transitionSync(input.context.store, sync.sync_id, {
+      actor: "operator",
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
+      eventType: "sync.recovered",
+      expectedRevision: sync.revision,
+      patch: { status: bareResumeStage, blockers: [] },
+      payload: {
+        staging_preserved: true,
+        staging_discarded: false,
+        resume_stage: bareResumeStage,
+        recovery_reason: input.recoveryReason,
+        recovery_path: "resume",
+      },
+    });
+  }
   if (!sync.staging?.workspace_path) throw new Error(`Sync ${sync.sync_id} has no durable staging workspace to resume`);
   const inspection = await inspectSyncWorktree({ worktreePath: sync.staging.workspace_path, runGit: runner(input.context) });
   if (!inspection.exists) throw new Error(`Sync staging workspace is missing: ${sync.staging.workspace_path}`);
@@ -1279,5 +1392,163 @@ export async function recoverSync(input: {
       recovery_path: "resume",
       last_durable_stage: sync.staging.last_durable_stage ?? null,
     },
+  });
+}
+
+/** Extends a stale validated candidate onto the newly observed upstream tip.
+ *
+ * A busy upstream can move faster than validation completes; discarding the
+ * whole sync (its ingest included) each time makes the sync unpublishable
+ * forever. Instead: re-observe upstream, rebase the staging workspace and any
+ * surviving open-PR workspaces from the previously validated upstream onto
+ * the new tip, record the new tip in the durable intake, and return to
+ * "validating" so the incremental validation re-runs and re-records
+ * validated_upstream. Real conflicts route through the existing
+ * conflict_needs_operator flow (the updated intake target makes
+ * resolveSyncConflict continue rebases onto the new tip). If upstream moves
+ * again during revalidation the same loop applies. The publish-time
+ * staleness check stays the last line of defense. */
+async function extendStaleValidatedCandidate(
+  input: { context: SyncEngineContext; commandId: string; recoveryReason: string },
+  sync: SyncState,
+): Promise<SyncState> {
+  const context = input.context;
+  const staging = sync.staging!;
+  const oldBase = staging.validated_upstream ?? sync.intake.upstream_to;
+  const discovery = await discoverUpstream(context, sync);
+  const newBase = discovery.afterRef;
+  const recoveredPayload = {
+    staging_preserved: true,
+    staging_discarded: false,
+    recovery_reason: input.recoveryReason,
+    recovery_path: "resume",
+    revalidate_from_upstream: oldBase,
+    revalidate_to_upstream: newBase,
+  };
+  // A preserved sync.recovered transition may not replace staging, so the
+  // recovery flips only status/blockers and a follow-up staging_progressed
+  // transition records the new upstream target and cleared validation state.
+  const clearedValidation = {
+    observed_upstream: newBase,
+    validated_upstream: undefined,
+    validation_evidence: undefined,
+  };
+
+  if (newBase === oldBase) {
+    // Upstream returned to the validated tip; nothing to rebase — re-run
+    // validation directly against the unchanged staging heads.
+    sync = transitionSync(context.store, sync.sync_id, {
+      actor: "operator",
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
+      eventType: "sync.recovered",
+      expectedRevision: sync.revision,
+      patch: { status: "validating", blockers: [] },
+      payload: { ...recoveredPayload, resume_stage: "validating" },
+    });
+    return transitionSync(context.store, sync.sync_id, {
+      actor: "operator",
+      commandId: input.commandId,
+      correlationId: sync.sync_id,
+      expectedRevision: sync.revision,
+      patch: {
+        staging: {
+          ...sync.staging!,
+          ...clearedValidation,
+          last_durable_stage: (sync.staging!.pr_workspaces?.length ?? 0) > 0 ? "pr_series_reconciled" : "cycle_rebased",
+        },
+      },
+      payload: { revalidate_from_upstream: oldBase, revalidate_to_upstream: newBase },
+    });
+  }
+
+  sync = transitionSync(context.store, sync.sync_id, {
+    actor: "operator",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
+    eventType: "sync.recovered",
+    expectedRevision: sync.revision,
+    patch: { status: "reconciling", blockers: [] },
+    payload: { ...recoveredPayload, resume_stage: "reconciling" },
+  });
+  sync = transitionSync(context.store, sync.sync_id, {
+    actor: "operator",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
+    expectedRevision: sync.revision,
+    patch: {
+      intake: { ...sync.intake, upstream_to: newBase },
+      staging: {
+        ...sync.staging!,
+        ...clearedValidation,
+        last_durable_stage: "workspace_created",
+      },
+    },
+    payload: { revalidate_from_upstream: oldBase, revalidate_to_upstream: newBase },
+  });
+
+  let extended = sync.staging!;
+  const conflicts: string[] = [];
+  const cycleRebase = await rebaseSyncWorktree({
+    worktreePath: extended.workspace_path!,
+    oldBase,
+    newBase,
+    runGit: runner(context),
+    revalidateLease: leaseGuard(context, sync),
+  });
+  extended = {
+    ...extended,
+    staging_head_sha: cycleRebase.head,
+    minor_conflicts_resolved: extended.minor_conflicts_resolved + cycleRebase.minorConflictsResolved,
+    auto_resolved_paths: [...new Set([...(extended.auto_resolved_paths ?? []), ...cycleRebase.autoResolvedPaths])],
+    rebase_in_progress: cycleRebase.status === "needs_operator",
+    last_durable_stage: cycleRebase.status === "needs_operator" ? "workspace_created" : "cycle_rebased",
+  };
+  conflicts.push(...cycleRebase.conflictingPaths);
+
+  const prResults = [...sync.pr_reconciliation];
+  const extendedPrWorkspaces: NonNullable<SyncStagingProgress["pr_workspaces"]> = [];
+  for (const workspace of extended.pr_workspaces ?? []) {
+    const rebased = await rebaseSyncWorktree({
+      worktreePath: workspace.workspace_path,
+      oldBase,
+      newBase,
+      runGit: runner(context),
+      revalidateLease: leaseGuard(context, sync),
+    });
+    extendedPrWorkspaces.push({
+      ...workspace,
+      staging_head: rebased.head,
+      auto_resolved_paths: [...new Set([...(workspace.auto_resolved_paths ?? []), ...rebased.autoResolvedPaths])],
+      conflicting_paths: rebased.conflictingPaths,
+    });
+    extended = {
+      ...extended,
+      minor_conflicts_resolved: extended.minor_conflicts_resolved + rebased.minorConflictsResolved,
+    };
+    conflicts.push(...rebased.conflictingPaths.map((path) => `${workspace.branch}:${path}`));
+    const index = prResults.findIndex((entry) => entry.branch === workspace.branch);
+    if (index >= 0 && rebased.status === "needs_operator") {
+      prResults[index] = { ...prResults[index]!, result: "needs_operator", pushed: false };
+    }
+  }
+  extended = { ...extended, pr_workspaces: extendedPrWorkspaces };
+
+  if (conflicts.length > 0) {
+    return blockForConflicts(context, sync, extended, conflicts, input.commandId, prResults);
+  }
+  extended = {
+    ...extended,
+    conflicts_awaiting_operator: 0,
+    conflicting_paths: [],
+    last_durable_stage: extendedPrWorkspaces.length > 0 ? "pr_series_reconciled" : "cycle_rebased",
+  };
+  return transitionSync(context.store, sync.sync_id, {
+    actor: context.actor ?? "operator",
+    commandId: input.commandId,
+    correlationId: sync.sync_id,
+    expectedRevision: sync.revision,
+    patch: { status: "validating", staging: extended, prReconciliation: prResults },
+    payload: { revalidate_from_upstream: oldBase, revalidate_to_upstream: newBase },
   });
 }

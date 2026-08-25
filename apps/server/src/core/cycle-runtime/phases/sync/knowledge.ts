@@ -116,6 +116,14 @@ export interface StageSyncKnowledgeInput {
   commandId: string;
   spanId?: string;
   now?: () => string;
+  /**
+   * Maximum knowledge jobs processed at once. Defaults to 1 (the historical
+   * serial behavior) so direct callers keep deterministic event interleaving;
+   * the sync runtime driver passes its resolved pool size explicitly.
+   */
+  concurrency?: number;
+  /** Optional per-job progress log sink; lines are prefixed with the source id. */
+  appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
 }
 
 export interface CompleteSyncKnowledgeIngestInput extends StageSyncKnowledgeInput {
@@ -949,14 +957,23 @@ export function queryCanonicalSyncKnowledge(
 }
 
 /**
- * Processes queued jobs sequentially under sync ownership. Existing intake
- * code is injected through processors and can only return JSON; canonical
- * knowledge remains unchanged until the publication transaction accepts the
- * manifest digest.
+ * Processes queued jobs under sync ownership with a bounded concurrency pool
+ * (per-PR knowledge intakes are independent; artifact directories, claim
+ * transactions, and per-job domain events are all keyed by job id). Existing
+ * intake code is injected through processors and can only return JSON;
+ * canonical knowledge remains unchanged until the publication transaction
+ * accepts the manifest digest.
+ *
+ * Failure semantics match the serial version: the first terminal job failure
+ * stops the feeder, already-launched jobs run to completion (their success or
+ * failure is durably recorded), unstarted jobs stay queued, and the first
+ * error is rethrown so completeSyncKnowledgeIngest records the same
+ * knowledge_stage_failed blocker.
  */
 export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promise<SyncKnowledgeManifest> {
-  const sync = getSyncState(input.store, requiredText(input.syncId, "syncId"));
-  if (!sync) throw new Error(`Sync not found: ${input.syncId}`);
+  const initialSync = getSyncState(input.store, requiredText(input.syncId, "syncId"));
+  if (!initialSync) throw new Error(`Sync not found: ${input.syncId}`);
+  const sync: SyncState = initialSync;
   if (sync.status !== "ingesting") {
     throw new Error(`Sync knowledge can be staged only while ingesting; ${sync.sync_id} is ${sync.status}`);
   }
@@ -971,6 +988,7 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
     );
   }
 
+  const runnable: SyncKnowledgeJob[] = [];
   for (const initial of initialJobs) {
     if (initial.status === "succeeded") {
       verifySucceededArtifact(knowledgeRoot, initial);
@@ -982,11 +1000,22 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
     if (initial.status !== "queued" && initial.status !== "waiting") {
       throw new Error(`Knowledge job ${initial.jobId} cannot be staged from ${initial.status}`);
     }
+    runnable.push(initial);
+  }
+
+  const commandId = requiredText(input.commandId, "commandId");
+  const actor = input.actor ?? "runner";
+  const correlationId = sync.sync_id;
+  const spanId = input.spanId ?? syncActionSpanId(commandId);
+  const poolSize = Math.max(1, Math.trunc(input.concurrency ?? 1));
+  let completedCount = 0;
+  let inFlight = 0;
+  let nextIndex = 0;
+  let anyFailed = false;
+  let firstError: unknown = null;
+
+  async function runJob(initial: SyncKnowledgeJob): Promise<void> {
     const updatedAt = input.now?.() ?? new Date().toISOString();
-    const commandId = requiredText(input.commandId, "commandId");
-    const actor = input.actor ?? "runner";
-    const correlationId = sync.sync_id;
-    const spanId = input.spanId ?? syncActionSpanId(commandId);
     input.revalidateOwnership();
     const claimed = immediateTransaction(input.store.db, () => {
       const result = claimJobByDedupeKey(input.store, {
@@ -1089,6 +1118,42 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
       throw error;
     }
   }
+
+  // Bounded worker pool. Workers pull the next job synchronously (single JS
+  // thread: no take races), stop feeding after the first failure, and always
+  // let already-launched jobs settle before the stage rethrows.
+  async function worker(): Promise<void> {
+    while (!anyFailed && nextIndex < runnable.length) {
+      const job = runnable[nextIndex]!;
+      nextIndex += 1;
+      inFlight += 1;
+      input.appendLog?.(
+        "stdout",
+        `[sync ${sync.sync_id}] knowledge job ${job.sourceId} started (${completedCount}/${runnable.length} done, ${inFlight} in flight)`,
+      );
+      try {
+        await runJob(job);
+        completedCount += 1;
+        input.appendLog?.(
+          "stdout",
+          `[sync ${sync.sync_id}] knowledge job ${job.sourceId} succeeded (${completedCount}/${runnable.length} done)`,
+        );
+      } catch (error) {
+        if (!anyFailed) {
+          anyFailed = true;
+          firstError = error;
+        }
+        input.appendLog?.(
+          "stderr",
+          `[sync ${sync.sync_id}] knowledge job ${job.sourceId} failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        inFlight -= 1;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(poolSize, runnable.length) }, () => worker()));
+  if (anyFailed) throw firstError;
 
   const jobs = listSyncKnowledgeJobs(input.store.db, sync.sync_id);
   const artifacts = jobs.map((job) => {

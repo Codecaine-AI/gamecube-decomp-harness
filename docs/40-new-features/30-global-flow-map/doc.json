@@ -1,0 +1,402 @@
+{
+	"schemaVersion": 1,
+	"id": "40-new-features-30-global-flow-map",
+	"title": "Global Flow (Working Map)",
+	"root": "b-global-flow-root-1",
+	"blocks": {
+		"b-global-flow-root-1": {
+			"id": "b-global-flow-root-1",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-global-flow-intro-2",
+				"b-global-flow-whole-system-3",
+				"b-global-flow-master-outline-4",
+				"b-global-flow-bands-table-5"
+			]
+		},
+		"b-global-flow-intro-2": {
+			"id": "b-global-flow-intro-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "A working visualization of the entire harness as one system. The master outline below shows everything end to end; each band has its own doc in this folder where the walkthrough happens and confirmed detail accumulates. Known bugs found along the way live in their own doc here too."
+				}
+			],
+			"children": []
+		},
+		"b-global-flow-whole-system-3": {
+			"id": "b-global-flow-whole-system-3",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "The Whole System"
+				}
+			],
+			"children": []
+		},
+		"b-global-flow-master-outline-4": {
+			"id": "b-global-flow-master-outline-4",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Melee harness global flow",
+						"steps": [
+							{
+								"text": "Run standing infrastructure beside every cycle",
+								"steps": [
+									{
+										"text": "Boot the server, reconcile orphaned `Sync`, serve HTTP/UI"
+									},
+									{
+										"text": "Hand FIFO build tokens to every build from `Compile jobserver`"
+									},
+									{
+										"text": "Drive the Run Loop child from `Process controller`"
+									},
+									{
+										"text": "Claim, dispatch, heartbeat, and settle jobs in `Job-queue consumer`"
+									},
+									{
+										"text": "Flush mapped kernel events behind a cursor via `Trace tailer`"
+									}
+								]
+							},
+							{
+								"text": "Register a game",
+								"steps": [
+									{
+										"text": "Resolve the descriptor from `games/<id>/game.json` and list it available"
+									},
+									{
+										"text": "Registration only resolves the descriptor: files are read and a value is returned, with nothing activated and nothing written. The documented four-stage activation does not exist in code, and a missing checkout only warns (bug catalog)",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Open a cycle as a `Game session`",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Require every prior cycle closed, then provision the canonical worktree"
+									},
+									{
+										"text": "Capture the immutable baseline with its matching `head_revision`"
+									}
+								]
+							},
+							{
+								"text": "Prepare the cycle",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Provision worktrees for the cycle"
+									},
+									{
+										"text": "Survey PR-index debt"
+									},
+									{
+										"text": "Refresh knowledge"
+									},
+									{
+										"text": "Calculate the baseline in the prepared worktree",
+										"trace": true
+									},
+									{
+										"text": "Legacy git-intake and PR-intake prep subphases hard-throw and point the operator at `sync.start`, and the prepare-phase PR-index executor throws the same way, so only the debt survey runs here (bug catalog)",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Run a `Sync` when the operator starts one",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Observe upstream and stage the requested inputs"
+									},
+									{
+										"text": "Reconcile staging against the observed tip, then validate it"
+									},
+									{
+										"text": "Publish across the canonical boundary once `Operator` confirms"
+									},
+									{
+										"text": "Release dispatch authority and hand inputs to knowledge processing"
+									},
+									{
+										"text": "Sync holds the game dispatch lease, so a Run holding it is paused or drained first. A failed step blocks for recovery rather than rolling back, and publication is not cancellable.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Run autonomous work through the `Run Loop`",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Start under a dispatch lease and clear stale state"
+									},
+									{
+										"text": "Repeat from the refreshed board until the run drains, stops, idles out, or spends its budget",
+										"steps": [
+											{
+												"text": "Open an `Epoch` and admit a fixed target set",
+												"trace": true
+											},
+											{
+												"text": "Admission runs once, at Epoch open: the Epoch takes its size in targets, 64 by default, and is never topped up. Refill is the next Epoch's job.",
+												"kind": "note"
+											},
+											{
+												"text": "Claim a queued job and run the attempt sandboxed",
+												"trace": true
+											},
+											{
+												"text": "Drain accepted checkpoint evidence into integration, single flight",
+												"trace": true
+											},
+											{
+												"text": "Launch conflict resolvers path-disjoint and capped"
+											},
+											{
+												"text": "Close the boundary once the Epoch's queue empties"
+											},
+											{
+												"text": "Rebuild report truth, then record a save point"
+											},
+											{
+												"text": "The boundary confirmation pass is opt-in: where enabled, a clean global comparison confirms the tentative window and a dirty one reverts the widened candidates.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Drain `Worker`s for a 30-second grace, then integrate once more"
+									}
+								]
+							},
+							{
+								"text": "Break confirmed work into PR slices",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Score the working tree, then repair each queued item",
+										"trace": true
+									},
+									{
+										"text": "Verify the ship set, then plan review-sized slices",
+										"trace": true
+									},
+									{
+										"text": "Open a draft per slice, QA it, publish on confirmation",
+										"trace": true
+									},
+									{
+										"text": "Observe remote review, then record merged and closed results",
+										"trace": true
+									}
+								]
+							},
+							{
+								"text": "Reconcile merged results",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Open one intake item per merged PR",
+										"trace": true
+									},
+									{
+										"text": "Run a postmortem and a knowledge intake beneath it",
+										"trace": true
+									}
+								]
+							},
+							{
+								"text": "Close the cycle explicitly",
+								"steps": [
+									{
+										"text": "Settle obligations, record the final evidence boundary, clear the slot"
+									},
+									{
+										"text": "Block the cycle instead when the gate finds unshipped work"
+									}
+								]
+							},
+							{
+								"text": "Process knowledge beside the workflow story",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Claim typed jobs under leases in `Knowledge processor`"
+									},
+									{
+										"text": "Publish anchored records, validate evidence, advance the knowledge revision"
+									}
+								]
+							},
+							{
+								"text": "Answer validation requests on demand",
+								"steps": [
+									{
+										"text": "Build trusted `objdiff` report truth behind a reuse key"
+									},
+									{
+										"text": "Guard every boundary and handoff with regression checks and QA"
+									}
+								]
+							},
+							{
+								"text": "Host every `Worker` attempt in a sandbox",
+								"steps": [
+									{
+										"text": "Provision from the game image plus a base-revision seed"
+									},
+									{
+										"text": "Sleep while the model thinks, wake on activity"
+									},
+									{
+										"text": "Reap settled and orphaned sandboxes on reconciliation"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		},
+		"b-global-flow-bands-table-5": {
+			"id": "b-global-flow-bands-table-5",
+			"type": "structured-table",
+			"props": {
+				"title": "Band docs",
+				"columns": [
+					"Band",
+					"Doc"
+				],
+				"rows": [
+					[
+						"Standing Infrastructure",
+						[
+							{
+								"insert": "Standing Infrastructure",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "40-new-features/30-global-flow-map/10-standing-infrastructure"
+									}
+								}
+							}
+						]
+					],
+					[
+						"Registration and Cycle Lifecycle",
+						[
+							{
+								"insert": "Registration and Cycle Lifecycle",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "40-new-features/30-global-flow-map/20-registration-and-cycle"
+									}
+								}
+							}
+						]
+					],
+					[
+						"Sync",
+						[
+							{
+								"insert": "Sync",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "40-new-features/30-global-flow-map/30-sync"
+									}
+								}
+							}
+						]
+					],
+					[
+						"Run",
+						[
+							{
+								"insert": "Run",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "40-new-features/30-global-flow-map/40-run"
+									}
+								}
+							}
+						]
+					],
+					[
+						"PR",
+						[
+							{
+								"insert": "PR",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "40-new-features/30-global-flow-map/50-pr"
+									}
+								}
+							}
+						]
+					],
+					[
+						"Knowledge Lane",
+						[
+							{
+								"insert": "Knowledge Lane",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "40-new-features/30-global-flow-map/60-knowledge"
+									}
+								}
+							}
+						]
+					],
+					[
+						"Validation, Sandbox, and Tracing",
+						[
+							{
+								"insert": "Validation, Sandbox, and Tracing",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "40-new-features/30-global-flow-map/70-validation-sandbox-tracing"
+									}
+								}
+							}
+						]
+					],
+					[
+						"Known Bugs",
+						[
+							{
+								"insert": "Known Bugs",
+								"attributes": {
+									"reference": {
+										"kind": "doc",
+										"path": "40-new-features/30-global-flow-map/90-known-bugs"
+									}
+								}
+							}
+						]
+					]
+				]
+			},
+			"children": []
+		}
+	}
+}

@@ -78,11 +78,16 @@ export function workerKernelOps(ctx: WorkerJobRunContext): JobQueueKernelOps {
           const claimedJob = claimNextJob(store, { ...input, kind: "worker" });
           if (!claimedJob) return null;
           const workerId = `${ctx.workerIdPrefix ?? "jobq"}-${process.pid}-${randomUUID().slice(0, 8)}`;
+          // Capture baseRev exactly once at claim time. Provisioning and the
+          // task file must see this same value: ctx.baseRev advances on every
+          // integration commit, and a sandbox fetched at claim-time baseRev
+          // cannot `git show` a newer sha.
+          const baseRev = ctx.baseRev;
           const target = claimNextEpochTarget({
             store,
             runId: ctx.runId,
             workerId,
-            baseRev: ctx.baseRev,
+            baseRev,
             ttlSeconds: ctx.ttlSeconds,
             artifactDirRoot: resolve(ctx.globals.stateDir, "runs", ctx.runId, "worker_state"),
           });
@@ -92,6 +97,7 @@ export function workerKernelOps(ctx: WorkerJobRunContext): JobQueueKernelOps {
             worker_state_id: target.workerStateId,
             claimed_epoch_target_id: target.epochTargetId,
             worker_id: workerId,
+            base_rev: baseRev,
             ttl: target.ttl,
           });
           return { job: getJob(store, claimedJob.job.jobId)!, token: claimedJob.token };
@@ -158,6 +164,11 @@ export function buildWorkerTask(
     const workerStateId = payloadString(job, "worker_state_id");
     const targetClaimId = payloadString(job, "target_claim_id");
     const workerId = payloadString(job, "worker_id");
+    // The claim-time baseRev is authoritative for the whole job: reading
+    // ctx.baseRev again after the multi-minute provision await could name a
+    // commit the sandbox never fetched. Jobs claimed before base_rev was
+    // recorded in the payload fall back to the current ctx value, read once.
+    const baseRev = payloadString(job, "base_rev") || ctx.baseRev;
     const row = ctx.store.db.query("SELECT artifact_dir FROM worker_state WHERE id = ?").get(workerStateId) as { artifact_dir: string | null } | null;
     if (!row?.artifact_dir) throw new Error(`Worker state ${workerStateId} has no artifact_dir`);
     const artifactDir = row.artifact_dir;
@@ -173,7 +184,7 @@ export function buildWorkerTask(
       const provisioned = await (deps.provisionSandbox ?? provisionSandboxWorkspace)({
         provider,
         sourceRepoRoot: ctx.globals.repoRoot,
-        baseRev: ctx.baseRev,
+        baseRev,
         snapshotBakedRev: sandbox.snapshot_baked_rev,
         workspaceRoot: sandbox.workspace_root,
         snapshot: sandbox.snapshot_name,
@@ -222,7 +233,7 @@ export function buildWorkerTask(
         claim_token: { jobId: handlerCtx.token.jobId, kind: handlerCtx.token.kind, leaseId: handlerCtx.token.leaseId },
         target_claim_id: targetClaimId,
         worker_state_id: workerStateId,
-        base_rev: ctx.baseRev,
+        base_rev: baseRev,
         artifact_dir: artifactDir,
         ttl_seconds: ctx.ttlSeconds,
         sandbox_sleep: ctx.sandboxSleep,

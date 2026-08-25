@@ -8,9 +8,18 @@ import {
   validateIntegrationResolverAgentResult,
 } from "@server/core/agent-catalog/agents/running/integration-resolver";
 import { artifactTimestamp, parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
-import { addEvent, addPiSession, getWorkerOutputIntegration, updateWorkerOutputIntegration } from "@server/core/cycle-runtime/run-state";
+import {
+  addEvent,
+  addPiSession,
+  getWorkerOutputIntegration,
+  updateWorkerOutputIntegration,
+  type StateStore,
+  type WorkerOutputIntegrationRecord,
+} from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/cycle-runtime/run-state";
-import { requeueJob } from "@server/core/job-queue/kernel.js";
+import { requireLease } from "@server/core/harness-state";
+import { runCommand } from "@server/infrastructure/shell";
+import { integrationCommitMessage } from "./worker-output-queue.js";
 import { gameMetadata, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
 function readJsonFile(path: string): unknown {
@@ -55,21 +64,83 @@ function recordIntegrationResolverCycle(globals: GlobalArgs, runId: string, resu
   }
 }
 
-function persistIntegrationResolverResult(params: {
+function pathLike(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "patch failed") return false;
+  return trimmed.includes("/") || /\.[A-Za-z0-9_+-]+$/.test(trimmed);
+}
+
+/**
+ * The resolver agent hand-merges the live repoRoot but never commits; the
+ * harness commits the merged state after the resolved outcome is persisted.
+ * The original patch is never requeued: re-applying it on top of the merged
+ * tree would conflict again and livelock the resolve loop.
+ */
+interface ResolvedIntegrationCommit {
+  committedSha: string | null;
+  warning: string | null;
+  /** "committed" | "no_tree_change" (agent kept the incumbent or made no edits) | "commit_failed" */
+  resolution: "committed" | "no_tree_change" | "commit_failed";
+}
+
+async function commitResolvedIntegration(params: {
+  store: StateStore;
+  repoRoot: string;
+  leaseId: string;
+  record: WorkerOutputIntegrationRecord;
+}): Promise<ResolvedIntegrationCommit> {
+  const paths = [...new Set([...params.record.writeSet, ...params.record.conflictPaths].map((path) => path.trim()).filter(pathLike))];
+  if (paths.length === 0) {
+    return { committedSha: null, warning: "resolved integration has no path-like write set to commit", resolution: "commit_failed" };
+  }
+  const revalidate = (): void => {
+    if (params.leaseId) requireLease(params.store, params.leaseId);
+  };
+  const status = await runCommand(params.repoRoot, ["git", "status", "--porcelain", "--", ...paths]);
+  if (status.exitCode !== 0) {
+    return { committedSha: null, warning: `resolved integration status failed: ${status.stderr || status.stdout}`, resolution: "commit_failed" };
+  }
+  if (!status.stdout.trim()) return { committedSha: null, warning: null, resolution: "no_tree_change" };
+  revalidate();
+  const stage = await runCommand(params.repoRoot, ["git", "add", "--", ...paths]);
+  if (stage.exitCode !== 0) {
+    return { committedSha: null, warning: `resolved integration git add failed: ${stage.stderr || stage.stdout}`, resolution: "commit_failed" };
+  }
+  revalidate();
+  const commit = await runCommand(params.repoRoot, [
+    "git",
+    "commit",
+    "--no-verify",
+    "-m",
+    `${integrationCommitMessage(params.record)} (conflict resolved)`,
+    "--",
+    ...paths,
+  ]);
+  if (commit.exitCode !== 0) {
+    return { committedSha: null, warning: `resolved integration git commit failed: ${commit.stderr || commit.stdout}`, resolution: "commit_failed" };
+  }
+  const head = await runCommand(params.repoRoot, ["git", "rev-parse", "HEAD"]);
+  return head.exitCode === 0 && head.stdout.trim()
+    ? { committedSha: head.stdout.trim(), warning: null, resolution: "committed" }
+    : { committedSha: null, warning: `resolved integration could not resolve HEAD: ${head.stderr || head.stdout}`, resolution: "commit_failed" };
+}
+
+async function persistIntegrationResolverResult(params: {
   globals: GlobalArgs;
   runId: string;
   itemId: string;
+  leaseId: string;
   summaryPath: string;
   parsedOutputPath: string;
   outputPath: string;
   validationErrors: string[];
   result: ReturnType<typeof validateIntegrationResolverAgentResult>["result"];
-}): void {
-  if (!params.runId) return;
+}): Promise<{ status: string | null; committedSha: string | null }> {
+  if (!params.runId) return { status: null, committedSha: null };
   const store = openState(params.globals.stateDir);
   try {
     const row = getWorkerOutputIntegration(store, params.itemId);
-    if (!row) return;
+    if (!row) return { status: null, committedSha: null };
     const status = params.validationErrors.length > 0 || !params.result ? "resolver_failed" : params.result.outcome;
     const updated = updateWorkerOutputIntegration(store, params.itemId, {
       status,
@@ -92,18 +163,42 @@ function persistIntegrationResolverResult(params: {
       summary_path: params.summaryPath,
       parsed_output_path: params.parsedOutputPath,
     });
-    if (status === "resolved" && updated.workerCheckpointId) {
-      requeueJob(store, {
-        kind: "integration",
-        dedupeKey: updated.workerCheckpointId,
+    let committedSha: string | null = null;
+    if (status === "resolved") {
+      const commit = await commitResolvedIntegration({
+        store,
+        repoRoot: params.globals.repoRoot,
+        leaseId: params.leaseId,
+        record: updated,
       });
+      committedSha = commit.committedSha;
+      if (commit.warning) console.error(`[integration-resolver] ${commit.warning}`);
+      updateWorkerOutputIntegration(store, params.itemId, {
+        metadata: {
+          validation_state: "tentative",
+          resolved_commit: commit.committedSha,
+          resolution: commit.resolution,
+          ...(commit.warning ? { resolved_commit_warning: commit.warning } : {}),
+        },
+      });
+      if (updated.workerCheckpointId) {
+        store.db.query("UPDATE worker_checkpoints SET validation_state = 'tentative' WHERE id = ?").run(updated.workerCheckpointId);
+      }
     }
+    return { status, committedSha };
   } finally {
     store.db.close();
   }
 }
 
-export async function integrationResolve(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
+export interface IntegrationResolveResult {
+  itemId: string;
+  status: string | null;
+  /** Harness-side commit of the resolver's hand-merged state, when created. */
+  committedSha: string | null;
+}
+
+export async function integrationResolve(globals: GlobalArgs, args: Map<string, string | true>): Promise<IntegrationResolveResult> {
   const itemFile = stringArg(args, "--item-file", "");
   if (!itemFile) throw new Error("integration-resolve requires --item-file <integration-conflict-item.json>");
   if (!existsSync(itemFile)) throw new Error(`Integration conflict item file does not exist: ${itemFile}`);
@@ -187,15 +282,17 @@ export async function integrationResolve(globals: GlobalArgs, args: Map<string, 
   };
   const summaryPath = resolve(outputDir, "integration_resolver_summary.json");
   await writeFile(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
-  persistIntegrationResolverResult({
+  const persisted = await persistIntegrationResolverResult({
     globals,
     runId,
     itemId,
+    leaseId: stringArg(args, "--lease-id", "").trim(),
     summaryPath,
     parsedOutputPath,
     outputPath: result.outputPath,
     validationErrors: validated.errors,
     result: validated.result,
   });
-  console.log(JSON.stringify(summary, null, 2));
+  console.log(JSON.stringify({ ...summary, resolved_commit: persisted.committedSha }, null, 2));
+  return { itemId, status: persisted.status, committedSha: persisted.committedSha };
 }

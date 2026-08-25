@@ -2,7 +2,13 @@ import { ArrowRight } from "@/icons";
 import { asObject, text, type JsonObject } from "@/lib/format";
 import { activeRuntime, activityAttemptLabel, activityScoreCompact, baselineScoreCompact, latestActivity } from "@/lib/workerActivity";
 
-export function ActiveRows({ rows }: { rows: JsonObject[] }) {
+export function ActiveRows({
+  onSelectAttempt,
+  rows,
+}: {
+  onSelectAttempt?: (workerStateId: string) => void;
+  rows: JsonObject[];
+}) {
   return (
     <>
       {rows.map((file, index) => {
@@ -16,8 +22,29 @@ export function ActiveRows({ rows }: { rows: JsonObject[] }) {
         const fileTitle = text(file.sourcePath) || text(file.unit) || text(file.symbol);
         const eventSummary = text(lastEvent.summary, "Waiting for runner activity");
         const scoreTitle = displayScore.text ? `${eventSummary} - ${displayScore.text}` : eventSummary;
+        const workerStateId = text(file.workerStateId);
+        const selectable = Boolean(workerStateId && onSelectAttempt);
+
+        function selectAttempt() {
+          if (workerStateId) onSelectAttempt?.(workerStateId);
+        }
+
         return (
-          <tr className={`row-rhythm-1 ${alt}`} key={`${text(file.claimId)}-${text(file.symbol)}`}>
+          <tr
+            aria-label={selectable ? `Open attempt detail for ${text(file.symbol, "worker")}` : undefined}
+            className={`row-rhythm-1 ${alt} ${selectable ? "cursor-pointer hover:bg-raised" : ""}`}
+            key={`${text(file.claimId)}-${text(file.symbol)}`}
+            onClick={selectable ? selectAttempt : undefined}
+            onKeyDown={selectable ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                selectAttempt();
+              }
+            } : undefined}
+            role={selectable ? "button" : undefined}
+            tabIndex={selectable ? 0 : undefined}
+            title={selectable ? "Open attempt detail" : undefined}
+          >
             <td className="max-w-0" title={fileTitle}>
               <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-fg">{text(file.symbol, "-")}</span>
             </td>

@@ -9,6 +9,7 @@ export const SYNC_CONTROL_ACTION_IDS: Partial<Record<DashboardAction, string>> =
   syncPublish: "sync.publish",
   syncCancel: "sync.cancel",
   syncRecover: "sync.recover",
+  syncRecoverDiscard: "sync.recover",
   syncRevalidate: "sync.cancel",
 };
 
@@ -18,11 +19,15 @@ export const SYNC_CONTROL_ENDPOINTS: Partial<Record<DashboardAction, string>> = 
   syncPublish: "/api/sync/publish",
   syncCancel: "/api/sync/cancel",
   syncRecover: "/api/sync/recover",
+  syncRecoverDiscard: "/api/sync/recover",
   syncRevalidate: "/api/sync/cancel",
 };
 
+// sync.recover REQUIRES an explicit choice (400 without one), and the server
+// insists on confirmed: true regardless of the projection's confirmation flag.
 export function syncControlRequestPatch(action: DashboardAction): Record<string, unknown> {
-  if (action === "syncRecover") return { choice: "resume" };
+  if (action === "syncRecover") return { confirmed: true, choice: "resume" };
+  if (action === "syncRecoverDiscard") return { confirmed: true, choice: "discard" };
   return {};
 }
 
@@ -50,7 +55,10 @@ export function syncConfirmationMessage(
     return "Cancel this stale sync?\n\nStaging is discarded. Start a new sync to ingest and reconcile the observed upstream together.";
   }
   if (action === "syncRecover") {
-    return "Recover this sync?\n\nThe server will preserve staging and resume from its last durable stage.";
+    return "Resume this blocked sync?\n\nThe server will preserve staging and resume from its last durable stage. This is the safe default.";
+  }
+  if (action === "syncRecoverDiscard") {
+    return "Discard this blocked sync?\n\nThis cancels the sync and discards staged work: everything ingested by this sync is thrown away. Start a new sync afterward to catch up.";
   }
   return null;
 }

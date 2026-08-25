@@ -617,21 +617,6 @@ function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, for
     () => store.db.query("SELECT 1 FROM write_set_widenings WHERE run_id = ? LIMIT 1").get(runId),
   );
   if (wideningHistory) reasons.push("write_set_widening_history");
-  const mergeOnFinishIntegration = withBusyRetry(
-    () =>
-      store.db
-        .query(
-          `
-            SELECT 1
-            FROM integration_outcomes
-            WHERE run_id = ?
-              AND disposition IN ('merge_on_finish_clean', 'conflict_resolved')
-            LIMIT 1
-          `,
-        )
-        .get(runId),
-  );
-  if (mergeOnFinishIntegration) reasons.push("merge_on_finish_history");
   return reasons;
 }
 

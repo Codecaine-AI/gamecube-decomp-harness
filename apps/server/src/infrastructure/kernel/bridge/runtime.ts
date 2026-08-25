@@ -347,6 +347,25 @@ export async function createMeleeKernelRuntime(
 let defaultRuntimePromise: Promise<MeleeKernelRuntime | null> | null = null;
 let defaultRuntimeWarningShown = false;
 
+/** One retry after a short jittered pause. Runtime init can lose a transient
+ * race (schema bootstrap DDL queued behind live traffic); by the second
+ * attempt another process has usually committed the bootstrap, so the
+ * schema-current probe fast-path succeeds without any DDL. */
+async function createDefaultMeleeKernelRuntimeWithRetry(
+  options: GetDefaultMeleeKernelRuntimeOptions,
+): Promise<MeleeKernelRuntime> {
+  try {
+    return await createMeleeKernelRuntime(options);
+  } catch (error) {
+    const delayMs = Math.round(1000 + Math.random() * 1000);
+    console.warn(
+      `Agent Kernel runtime init failed (${error instanceof Error ? error.message : String(error)}); retrying once in ${delayMs}ms`,
+    );
+    await new Promise<void>((resolveDelay) => setTimeout(resolveDelay, delayMs));
+    return createMeleeKernelRuntime(options);
+  }
+}
+
 export async function getDefaultMeleeKernelRuntime(
   options: GetDefaultMeleeKernelRuntimeOptions = {},
 ): Promise<MeleeKernelRuntime | null> {
@@ -358,7 +377,7 @@ export async function getDefaultMeleeKernelRuntime(
   if (!databaseUrl) return null;
 
   if (!defaultRuntimePromise) {
-    defaultRuntimePromise = createMeleeKernelRuntime({
+    defaultRuntimePromise = createDefaultMeleeKernelRuntimeWithRetry({
       ...options,
       database: {
         ...options.database,

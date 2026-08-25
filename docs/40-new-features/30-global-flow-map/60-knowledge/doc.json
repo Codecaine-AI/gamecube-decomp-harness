@@ -1,0 +1,355 @@
+{
+	"schemaVersion": 1,
+	"id": "40-new-features-30-global-flow-map-60-knowledge",
+	"title": "Knowledge Lane",
+	"root": "b-gf-knowledge-root-1",
+	"blocks": {
+		"b-gf-knowledge-root-1": {
+			"id": "b-gf-knowledge-root-1",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-gf-knowledge-intro-2",
+				"b-gf-knowledge-outline-4"
+			]
+		},
+		"b-gf-knowledge-intro-2": {
+			"id": "b-gf-knowledge-intro-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Working process flow for this band of the global flow. Confirmed detail from the walkthrough accumulates here before mapping to the owning chapter."
+				}
+			],
+			"children": []
+		},
+		"b-gf-knowledge-outline-4": {
+			"id": "b-gf-knowledge-outline-4",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Enqueue a typed knowledge job from a source event",
+						"steps": [
+							{
+								"text": "`Worker` closure enqueues a `knowledge_absorption` job",
+								"steps": [
+									{
+										"text": "The row commits in the same transaction that ends the `Worker`, keyed on the worker state id, so a replayed closure returns the existing job.",
+										"kind": "note"
+									},
+									{
+										"text": "Catch up at startup on worker states that predate the queue"
+									}
+								]
+							},
+							{
+								"text": "`Sync` ingest derives one `sync_publication` job per intake source",
+								"steps": [
+									{
+										"text": "The job id digests the sync id, source kind, and source id; matching provenance skips, an identity collision refuses.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Operator backfill, corroboration, and curation never enter this queue.",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "Run claimed jobs inline in the background `Processor`",
+						"steps": [
+							{
+								"text": "Repeat on a one-second tick until the run loop stops",
+								"steps": [
+									{
+										"text": "Claim the highest-priority job under a sixty-second lease",
+										"steps": [
+											{
+												"text": "The lease is a visibility timeout, not a fence token; the row revision is the monotonic value guarding writes, so a stale claim fails rather than overwrites.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Run the handler for the job's kind"
+									},
+									{
+										"text": "Complete the job with the publication digest as result reference"
+									},
+									{
+										"text": "On failure, move to failed, then straight back to waiting"
+									}
+								]
+							},
+							{
+								"text": "Waiting is only ever re-entry, from retry backoff or a lapsed lease.",
+								"kind": "note"
+							},
+							{
+								"text": "Wait fifteen seconds at shutdown, abandoning the rest to lease expiry"
+							},
+							{
+								"text": "No attempt ceiling and no dead letter: a failing job retries until an operator cancels it.",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "For each job kind, materialize staged evidence in its handler",
+						"steps": [
+							{
+								"text": "`Condense` turns one closed `Worker` into ledger learnings",
+								"steps": [
+									{
+										"text": "Load the checkpoints, the attempt view, and every transcript span"
+									},
+									{
+										"text": "`Librarian` reads that batch and returns a report",
+										"trace": true
+									},
+									{
+										"text": "On a ten-minute timeout, publish a timeout digest and no learnings"
+									},
+									{
+										"text": "Append surviving learnings to the ledger"
+									}
+								]
+							},
+							{
+								"text": "`Intake` turns a merged PR postmortem into curated records",
+								"steps": [
+									{
+										"text": "Append deterministic records and their proposals before any agent runs"
+									},
+									{
+										"text": "`Librarian`'s curation door proposes further source updates",
+										"trace": true
+									},
+									{
+										"text": "Every proposal is marked `proposal_only`.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "`Index` builds the PR postmortem library from the raw dump",
+								"steps": [
+									{
+										"text": "A missing dump index skips the stage rather than failing it.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "`Corroborate` replays overlapping learnings through the curation door",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Group the ledger by scope and anchor, keeping subjects with two or more live learnings"
+									},
+									{
+										"text": "Anchor each group against the current checkout"
+									},
+									{
+										"text": "Confirm, refute, or accept a merged replacement"
+									}
+								]
+							}
+						]
+					},
+					{
+						"text": "Validate which records may become evidence",
+						"steps": [
+							{
+								"text": "Accept a librarian report only as `librarian_v1`",
+								"steps": [
+									{
+										"text": "A valid report carries a statement, a known scope and origin, confidence between zero and one, and at least one typed evidence reference.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Drop rejected learnings one by one and record them in the job summary"
+							},
+							{
+								"text": "Canonicalize, hash, and rename staged `Sync` artifacts into place",
+								"steps": [
+									{
+										"text": "The manifest digest covers source kind, source id, provenance, and artifact digest, so it names content rather than location.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Ledger and curator appends dedupe by record id, so replaying the same evidence rewrites the same row.",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "Advance the knowledge revision on acceptance",
+						"steps": [
+							{
+								"text": "Publish inside the `Sync` boundary transaction",
+								"steps": [
+									{
+										"text": "Publication runs only while the `Sync` is publishing.",
+										"kind": "note"
+									},
+									{
+										"text": "Require every accepted job succeeded and a tuple-for-tuple manifest match"
+									},
+									{
+										"text": "Pick the next revision, writing the revision-advanced event first",
+										"steps": [
+											{
+												"text": "That event id becomes the cause recorded on the new row.",
+												"kind": "note"
+											}
+										]
+									}
+								]
+							},
+							{
+								"text": "Return the existing revision when the digest repeats"
+							},
+							{
+								"text": "Stamp each new `Run` with its game's latest published revision"
+							},
+							{
+								"text": "Later `Workers` search a graph and ledger index built from that published state.",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "Rebuild the derived views in maintenance",
+						"steps": [
+							{
+								"text": "While idle, repeat on the configured interval until work arrives"
+							},
+							{
+								"text": "Run the fast lane when new reports landed since the last refresh",
+								"steps": [
+									{
+										"text": "Reload the board and re-open targets that became available"
+									}
+								]
+							},
+							{
+								"text": "Run the full lane at every `Epoch` boundary"
+							},
+							{
+								"text": "For each lane, run the stages in the same order",
+								"steps": [
+									{
+										"text": "Index PR postmortems first"
+									},
+									{
+										"text": "Run the tool runners in parallel",
+										"steps": [
+											{
+												"text": "The runners are ghidra xrefs, opcode sequences, mismatch analysis, and compiler probes.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Abort the lane on a blocking runner failure, otherwise record and continue"
+									},
+									{
+										"text": "Curate worker and PR lessons into enrichment records"
+									},
+									{
+										"text": "Review those records through the `Librarian` in batches when asked",
+										"trace": true
+									},
+									{
+										"text": "Reset the graph and re-ingest all eleven sources",
+										"steps": [
+											{
+												"text": "Opseq analogs and siblings skip rather than fail when their indexes or rules are missing.",
+												"kind": "note"
+											}
+										]
+									}
+								]
+							},
+							{
+								"text": "`Feature ranking` scores next-`Epoch` board candidates from the rebuilt graph"
+							}
+						]
+					},
+					{
+						"text": "Run backfill when the operator starts it",
+						"steps": [
+							{
+								"text": "For each source, let the planner shape its own batches"
+							},
+							{
+								"text": "Repeat wave by wave until the pending list is empty",
+								"steps": [
+									{
+										"text": "Run each batch's `Librarian` pass up to the concurrency limit",
+										"trace": true
+									},
+									{
+										"text": "Append learnings from the whole wave at once"
+									},
+									{
+										"text": "Record each batch in the manifest as done or failed"
+									}
+								]
+							},
+							{
+								"text": "On a rerun, reload the manifest and skip batches already marked done",
+								"steps": [
+									{
+										"text": "An interrupted backfill resumes where it stopped.",
+										"kind": "note"
+									}
+								]
+							}
+						]
+					},
+					{
+						"text": "Run curation when the operator starts it",
+						"steps": [
+							{
+								"text": "Read recent worker states and their PR postmortems together"
+							},
+							{
+								"text": "Write worker lessons, PR lessons, and proposals as one sorted, id-deduped enrichment file"
+							},
+							{
+								"text": "Preserve records an earlier curator agent produced across the rewrite"
+							},
+							{
+								"text": "Hand the enrichment file to the curator `Librarian` when asked",
+								"trace": true
+							},
+							{
+								"text": "Every proposal is `proposal_only`; nothing in this lane edits a registered source directly.",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "The background lane never holds the game dispatch lease; the `sync_stage` jobs are the exception, running inside the `Sync` under its lease.",
+						"kind": "note"
+					},
+					{
+						"text": "Only the marked `Librarian` runs reach the kernel trace. The queue itself emits nothing: enqueue, claim, lease lapse, retry, completion, and revision publication have no container, and the bridge's `Knowledge refresh` container is defined but never spawned.",
+						"kind": "note"
+					}
+				]
+			},
+			"children": []
+		}
+	}
+}

@@ -1,5 +1,5 @@
-import type { AppRoute, CycleFocus, CycleStage, CycleSubPage } from "@/routing";
-import type { Dashboard, FormState, JsonObject, UiConfig } from "@/lib/format";
+import type { AppRoute, CycleDetail, CycleFocus, CycleStage, CycleSubPage } from "@/routing";
+import type { Dashboard, FormState, JsonObject, RunDetails, UiConfig } from "@/lib/format";
 import type { GrainSettings, GrainSettingsPatch } from "@/lib/styleSettings";
 import type { ImprovedMode, WorkMode } from "@/pages/workspace/cycles/active/subphases/run/components/work-tables";
 import type { processView } from "@/lib/processView";
@@ -25,6 +25,7 @@ export type DashboardAction =
   | "syncPublish"
   | "syncCancel"
   | "syncRecover"
+  | "syncRecoverDiscard"
   | "syncRevalidate"
   | "prOpenCampaign"
   | "prActivate"
@@ -174,6 +175,18 @@ export interface HarnessStateSyncReadModel {
     blocker: HarnessStateBlocker | null;
     revalidate_action_id: "sync.cancel" | null;
   };
+}
+
+// Server-owned repo state: what is our head vs the upstream branch, and do we
+// need a sync? The client renders these fields as-is and never re-derives them.
+export interface HarnessStateRepoSyncReadModel {
+  cycle_head: string | null;
+  upstream_ref: string;
+  upstream_anchor: string | null;
+  local_upstream_sha: string | null;
+  behind_count: number | null;
+  last_synced_at: string | null;
+  needs_sync: boolean;
 }
 
 export type HarnessStatePrCampaignStatus =
@@ -351,6 +364,7 @@ export interface HarnessStateReadModel {
   pr_work: HarnessStatePrReadModel[];
   knowledge: HarnessStateKnowledgeFreshness;
   sync: HarnessStateSyncReadModel | null;
+  repo_sync: HarnessStateRepoSyncReadModel | null;
   active_operations: HarnessStateOperationSummary[];
   recent_events: HarnessStateEventSummary[];
   available_actions: HarnessStateActionProjection[];
@@ -403,32 +417,16 @@ export interface CycleView {
   operationLabel: string;
   prBlockedReasons: string[];
   prRecords: PrFlowRecord[];
+  // The still-real preparing-phase inputs that live in the details rail as
+  // the "Config" section: baseline calculation and the start-run gate. The
+  // Prepare stage's git-sync/PR-intake framing is retired (the repo/sync card
+  // renders the server's repo_sync read model instead).
   prepareState: {
     baseline: JsonObject;
     baselineDone: boolean;
-    headSha: string;
-    headShortSha: string;
-    intake: JsonObject;
     intakeDone: boolean;
-    knowledge: JsonObject;
     knowledgeDone: boolean;
-    mergedPrs: number[];
-    prIndexDebt: JsonObject;
-    prIndexDebtKnown: boolean;
-    pendingMergedPrIndexCount: number;
-    pendingIntakePrCount: number;
-    pendingPrIndexCount: number;
-    runningIntakeItemCount: number;
-    completedIntakeItemCount: number;
-    failedIntakeItemCount: number;
-    retryableIntakeItemCount: number;
-    totalIntakeItemCount: number;
     readyToStartRun: boolean;
-    cycleCurrentWorktreePath: string;
-    sync: JsonObject;
-    syncDone: boolean;
-    upstreamChanged: boolean | null;
-    upstreamWorktreePath: string;
   };
   prSummary: {
     checkpoint: JsonObject;
@@ -452,7 +450,7 @@ export interface CycleView {
 export interface WorkspaceNav {
   goToDashboard: () => void;
   goToSection: (section: Extract<AppRoute, { kind: "workspace" }>["section"]) => void;
-  goToCycle: (focus: CycleFocus, sub?: CycleSubPage) => void;
+  goToCycle: (focus: CycleFocus, sub?: CycleSubPage, detail?: CycleDetail) => void;
 }
 
 export interface GameWorkspaceProps {
@@ -465,6 +463,8 @@ export interface GameWorkspaceProps {
   grainSettings: GrainSettings;
   improvedMode: ImprovedMode;
   improvedPage: number;
+  loadRunDetails: () => void;
+  loadingRunDetails: boolean;
   onAction: (action: DashboardAction) => void;
   onCollapsedChange: (collapsed: boolean) => void;
   onDismissError: () => void;
@@ -474,9 +474,11 @@ export interface GameWorkspaceProps {
   onPrepareLocalPr: (branch: string) => void;
   onSetReviewState: (branch: string, subState: string) => void;
   route: Extract<AppRoute, { kind: "workspace" }>;
+  runDetails: RunDetails | null;
   setForm: (updates: Partial<FormState>) => void;
   setImprovedMode: (mode: ImprovedMode) => void;
   setImprovedPage: (page: number | ((page: number) => number)) => void;
   setWorkMode: (mode: WorkMode) => void;
+  view: CycleView;
   workMode: WorkMode;
 }

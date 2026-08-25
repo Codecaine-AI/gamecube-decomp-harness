@@ -16,7 +16,6 @@ import type {
 import { capabilityToolPromptMetadata } from "../metadata/capabilities.js";
 import { knowledgeToolPromptMetadata } from "../metadata/knowledge.js";
 import {
-  defaultConflictResolverToolProfile,
   defaultIntegrationResolverToolProfile,
   defaultLibrarianToolProfile,
   defaultPrFixerToolProfile,
@@ -27,7 +26,6 @@ import {
 } from "./defaults.js";
 
 export {
-  defaultConflictResolverToolProfile,
   defaultIntegrationResolverToolProfile,
   defaultLibrarianToolProfile,
   defaultPrFixerToolProfile,
@@ -44,7 +42,6 @@ const agentToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
 
 export const defaultAgentToolProfiles: Record<RuntimeAgentRole, string[]> = {
   worker: [...defaultWorkerToolProfile],
-  "conflict-resolver": [...defaultConflictResolverToolProfile],
   "integration-resolver": [...defaultIntegrationResolverToolProfile],
   "pr-reviewer": [],
   "pr-fixer": [...defaultPrFixerToolProfile],

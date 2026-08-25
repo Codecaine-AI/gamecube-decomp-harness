@@ -258,7 +258,7 @@ function blockerRecoveryChoices(blockers: SyncState["blockers"]): string[] {
   return uniqueStrings(blockers.flatMap((blocker) => {
     if (!blocker.recoverable) return [];
     if (blocker.code === "conflict_needs_operator") return ["resolve_conflict"];
-    if (blocker.code === "upstream_moved_after_validation") return ["cancel"];
+    if (blocker.code === "upstream_moved_after_validation") return ["resume", "cancel"];
     if (blocker.code.startsWith("publication_") || blocker.code === "pr_push_failed") return ["resume"];
     return ["resume", "discard"];
   }));
@@ -666,7 +666,18 @@ function assertStateInvariants(current: SyncState, next: SyncState, eventType: S
     current.status !== "requested" &&
     canonicalJson(next.intake) !== canonicalJson(current.intake)
   ) {
-    throw new Error(`Sync ${current.sync_id} intake is immutable after start`);
+    // A stale validated candidate extending onto a newly observed upstream
+    // tip may retarget exactly intake.upstream_to, only while reconciling,
+    // and only to the tip durably recorded as staging.observed_upstream.
+    const onlyUpstreamToChanged = canonicalJson({ ...next.intake, upstream_to: current.intake.upstream_to }) ===
+      canonicalJson(current.intake);
+    const staleCandidateExtension = onlyUpstreamToChanged &&
+      current.status === "reconciling" &&
+      next.status === "reconciling" &&
+      next.intake.upstream_to === next.staging?.observed_upstream;
+    if (!staleCandidateExtension) {
+      throw new Error(`Sync ${current.sync_id} intake is immutable after start`);
+    }
   }
   if (next.intake.knowledge_only) {
     if (next.staging !== null) throw new Error(`Knowledge-only sync ${current.sync_id} cannot have staging`);
@@ -830,10 +841,21 @@ export function transitionSync(store: StateStore, syncId: string, input: SyncTra
       next.status !== "cancelled" &&
       !(current.status === "ingesting" && next.status === "ingesting")
     ) {
+      // Extending a stale validated candidate onto a newly observed upstream
+      // tip legitimately steps one stage back: staging must re-reconcile
+      // before validation re-runs.
+      const staleCandidateExtension = blockedOrigin === "validated" &&
+        current.blockers.some((blocker) => blocker.code === "upstream_moved_after_validation") &&
+        (next.status === "reconciling" || next.status === "validating");
+      // A sync blocked out of validating with nothing durable staged can only
+      // restart at reconciling, where staging is re-derived from scratch.
+      const bareStagingRestart = blockedOrigin === "validating" &&
+        !current.staging &&
+        next.status === "reconciling";
       const allowedRecoveryStatus = blockedOrigin === "validated" && next.status === "validating"
         ? "validating"
         : blockedOrigin;
-      if (next.status !== allowedRecoveryStatus) {
+      if (!staleCandidateExtension && !bareStagingRestart && next.status !== allowedRecoveryStatus) {
         throw new Error(
           `Sync ${syncId} must recover to its last durable stage ${blockedOrigin ?? "unknown"}, not ${next.status}`,
         );

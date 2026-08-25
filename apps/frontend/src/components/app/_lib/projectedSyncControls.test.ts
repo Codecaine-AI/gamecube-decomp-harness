@@ -26,6 +26,7 @@ describe("projected sync controls", () => {
       syncPublish: "sync.publish",
       syncCancel: "sync.cancel",
       syncRecover: "sync.recover",
+      syncRecoverDiscard: "sync.recover",
       syncRevalidate: "sync.cancel",
     });
     expect(SYNC_CONTROL_ENDPOINTS).toEqual({
@@ -34,13 +35,15 @@ describe("projected sync controls", () => {
       syncPublish: "/api/sync/publish",
       syncCancel: "/api/sync/cancel",
       syncRecover: "/api/sync/recover",
+      syncRecoverDiscard: "/api/sync/recover",
       syncRevalidate: "/api/sync/cancel",
     });
   });
 
   test("resumes only crash recovery and cancels stale candidates without an adopt body", () => {
     expect(syncControlRequestPatch("syncRevalidate")).toEqual({});
-    expect(syncControlRequestPatch("syncRecover")).toEqual({ choice: "resume" });
+    expect(syncControlRequestPatch("syncRecover")).toEqual({ confirmed: true, choice: "resume" });
+    expect(syncControlRequestPatch("syncRecoverDiscard")).toEqual({ confirmed: true, choice: "discard" });
     expect(syncControlRequestPatch("syncPublish")).toEqual({});
   });
 
@@ -52,6 +55,7 @@ describe("projected sync controls", () => {
       "Cancel this sync?\n\nStaging is discarded. The cycle remains untouched.",
     );
     expect(syncConfirmationMessage("syncRecover", sync)).toContain("preserve staging");
+    expect(syncConfirmationMessage("syncRecoverDiscard", sync)).toContain("cancels the sync and discards staged work");
     expect(syncConfirmationMessage("syncRevalidate", sync)).toContain("Start a new sync");
   });
 

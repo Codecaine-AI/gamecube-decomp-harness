@@ -6,7 +6,6 @@ import { resolve } from "node:path";
 import type { PiPromptBundle } from "@server/core/shared/types";
 
 import {
-  conflictResolverPrompt,
   integrationResolverPrompt,
   librarianPrompt,
   prFixerPrompt,
@@ -55,43 +54,6 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         workerLogDir: resolve(sampleStateDir, "workers"),
         existingCanonicalToolPaths: new Set(),
       });
-    case "conflict-resolver": {
-      const claim = {
-        claim_id: "sample-incoming-claim",
-        worker_state_id: "sample-worker-state",
-        checkpoint_id: "sample-checkpoint",
-        target_id: "sample-target",
-        target_symbol: "ftDemo_Target",
-        source_paths: ["src/melee/ft/chara/ftDemo.c"],
-        write_set: ["src/melee/ft/chara/ftDemo.c", "src/melee/ft/chara/ftDemo.h"],
-        validation_state: "tentative" as const,
-        metadata: { widening_ids: ["sample-widening"] },
-      };
-      const scopedChecks = { passed: true, checks: [], metadata: { scope: "touched-files" } };
-      return conflictResolverPrompt({
-        request: {
-          schema_version: "melee_conflict_resolver_request_v1",
-          integration_item_id: "sample-merge-conflict",
-          conflict_group_id: "worker-output:sample-merge-conflict",
-          isolated_worktree: { path: "/tmp/sample-conflict", base_revision: "aaaa", cycle_revision: "bbbb" },
-          cycle_worktree_path: sampleRepoRoot,
-          incoming: {
-            claim,
-            scoped_checks: scopedChecks,
-            patch: { path: "/tmp/sample.patch", text: null, sha256: "1234" },
-          },
-          current: {
-            claim: { ...claim, claim_id: "sample-current-claim", validation_state: "confirmed" },
-            scoped_checks: scopedChecks,
-            branch_state: { head_revision: "bbbb", status_porcelain: "", diff: null, metadata: {} },
-          },
-          conflict_paths: ["src/melee/ft/chara/ftDemo.h"],
-          metadata: { merge_on_finish: true },
-        },
-        repoRoot: sampleRepoRoot,
-        stateDir: sampleStateDir,
-      });
-    }
     case "integration-resolver":
       return integrationResolverPrompt({
         integrationItem: {
@@ -230,8 +192,8 @@ describe("meleeKernelAgentCatalog", () => {
     const registeredIds = Object.keys(agentRegistry) as KernelAgentId[];
 
     expect(() => assertMeleeKernelCatalogComplete()).not.toThrow();
-    expect(KERNEL_AGENT_IDS).toHaveLength(9);
-    expect(meleeKernelAgentCatalog).toHaveLength(9);
+    expect(KERNEL_AGENT_IDS).toHaveLength(8);
+    expect(meleeKernelAgentCatalog).toHaveLength(8);
     expect([...KERNEL_AGENT_IDS].sort()).toEqual(registeredIds.sort());
     expect(new Set(meleeKernelAgentCatalog.map((entry) => entry.id)).size).toBe(meleeKernelAgentCatalog.length);
   });
@@ -337,7 +299,7 @@ describe("meleeKernelAgentCatalog", () => {
     const librarian = payload.agents.find((agent) => agent.name === "librarian");
     const rendered = `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
 
-    expect(payload.agents).toHaveLength(9);
+    expect(payload.agents).toHaveLength(8);
     expect(payload.warnings).toEqual([]);
     expect(librarian?.tools).toEqual([...defaultLibrarianToolProfile]);
     expect(worker).toBeDefined();

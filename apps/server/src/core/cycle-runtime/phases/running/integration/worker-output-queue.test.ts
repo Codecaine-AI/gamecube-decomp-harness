@@ -10,7 +10,8 @@ import { openPrCampaign } from "@server/core/cycle-runtime/phases/pr/campaign";
 import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import { createRun } from "@server/core/cycle-runtime/run-state";
 import { enqueueWorkerOutputIntegration } from "@server/core/cycle-runtime/run-state/worker-output-integration.js";
-import { processWorkerOutputIntegrationQueue, processWorkerOutputOnFinish } from "./worker-output-queue.js";
+import { runCommand } from "@server/infrastructure/shell";
+import { processWorkerOutputIntegrationQueue } from "./worker-output-queue.js";
 
 const tempDirs: string[] = [];
 
@@ -31,7 +32,7 @@ function git(repo: string, args: string[]): string {
 }
 
 function setupRepo(): string {
-  const repo = tempDir("merge-on-finish-repo-");
+  const repo = tempDir("worker-integration-repo-");
   mkdirSync(join(repo, "src"), { recursive: true });
   writeFileSync(join(repo, "src/a.c"), "int value = 0;\n");
   git(repo, ["init"]);
@@ -143,9 +144,9 @@ function createCampaign(store: StateStore): ReturnType<typeof openPrCampaign> {
   });
 }
 
-describe("merge-on-finish worker output integration", () => {
-  test("flag on applies, commits into cycle ancestry, and records tentative validation", async () => {
-    const stateDir = tempDir("merge-on-finish-state-");
+describe("apply-on-accept worker output integration", () => {
+  test("a clean apply commits immediately and records tentative validation", async () => {
+    const stateDir = tempDir("worker-integration-state-");
     const store = openState(stateDir);
     try {
       const repo = setupRepo();
@@ -154,7 +155,7 @@ describe("merge-on-finish worker output integration", () => {
       insertQueued(store, patchPath, run.id);
       const leaseId = acquireLease(store, "run", run.id);
 
-      const result = await processWorkerOutputOnFinish({
+      const result = await processWorkerOutputIntegrationQueue({
         dryRun: false,
         leaseId,
         repoRoot: repo,
@@ -164,9 +165,13 @@ describe("merge-on-finish worker output integration", () => {
       });
 
       expect(result.processed).toHaveLength(1);
-      expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "merge_on_finish_clean" });
+      expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 1;\n");
       expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(2);
+      expect(result.headRev).toBe(git(repo, ["rev-parse", "HEAD"]));
+      expect(result.processed[0].integratedRev).toBe(result.headRev);
+      expect(git(repo, ["log", "-1", "--format=%s"])).toContain("worker-integration(");
+      expect(git(repo, ["log", "-1", "--format=%s"])).toContain("unit::symbol");
       const row = integration(store);
       expect(String(row.metadata_json)).toContain("integrated_rev");
       expect(
@@ -178,8 +183,53 @@ describe("merge-on-finish worker output integration", () => {
     }
   });
 
-  test("conflict-resolver failure falls back to today's operator-visible conflict state", async () => {
-    const stateDir = tempDir("merge-on-finish-conflict-state-");
+  test("a racing sweep that captures the applied content is success, not a silent revert", async () => {
+    const stateDir = tempDir("worker-integration-race-state-");
+    const store = openState(stateDir);
+    try {
+      const repo = setupRepo();
+      const patchPath = patchFile(stateDir);
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      insertQueued(store, patchPath, run.id);
+      const leaseId = acquireLease(store, "run", run.id);
+      // Simulate a resolver commit / boundary `add -A` landing between the
+      // drain's apply and its pathspec commit: the drain's own commit then
+      // exits "no changes" while the accepted content is already in HEAD.
+      let raced = false;
+      const racingRunner: typeof runCommand = async (cwd, command, options) => {
+        if (!raced && command[0] === "git" && command[1] === "commit") {
+          raced = true;
+          git(repo, ["add", "-A"]);
+          git(repo, ["commit", "-m", "racing sweep captured applied content"]);
+        }
+        return runCommand(cwd, command, options);
+      };
+
+      const result = await processWorkerOutputIntegrationQueue({
+        commandRunner: racingRunner,
+        dryRun: false,
+        leaseId,
+        repoRoot: repo,
+        runId: run.id,
+        stateDir,
+        store,
+      });
+
+      expect(raced).toBe(true);
+      expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
+      // The applied content stays in HEAD; no compensation reverse-apply ran.
+      expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 1;\n");
+      expect(git(repo, ["status", "--porcelain"])).toBe("");
+      expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(2);
+      expect(result.headRev).toBe(git(repo, ["rev-parse", "HEAD"]));
+      expect(integration(store).status).toBe("applied");
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("an apply conflict records the operator-visible conflict item without mutating the tree", async () => {
+    const stateDir = tempDir("worker-integration-conflict-state-");
     const store = openState(stateDir);
     try {
       const repo = setupRepo();
@@ -190,127 +240,30 @@ describe("merge-on-finish worker output integration", () => {
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       insertQueued(store, patchPath, run.id);
       const leaseId = acquireLease(store, "run", run.id);
-      let resolverCalls = 0;
 
       const result = await processWorkerOutputIntegrationQueue({
         dryRun: false,
         leaseId,
-        mergeOnFinish: true,
         repoRoot: repo,
         runId: run.id,
         stateDir,
         store,
-        conflictResolver: {
-          runner: async () => {
-            resolverCalls += 1;
-            throw new Error("resolver unavailable");
-          },
-        },
       });
 
-      expect(resolverCalls).toBe(1);
       expect(result.processed[0]).toMatchObject({ status: "conflict", disposition: "apply_check_failed" });
+      expect(result.headRev).toBeNull();
       const row = integration(store);
       expect(row.status).toBe("conflict");
       expect(existsSync(String(row.item_path))).toBe(true);
-      const item = readFileSync(String(row.item_path), "utf8");
-      expect(item).toContain("resolver_request");
-      expect(item).toContain("current_branch_diff_path");
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 2;\n");
-    } finally {
-      store.db.close();
-    }
-  });
-
-  test("a resolver-produced patch is serially applied, committed, and recorded", async () => {
-    const stateDir = tempDir("merge-on-finish-resolved-state-");
-    const store = openState(stateDir);
-    try {
-      const repo = setupRepo();
-      const patchPath = patchFile(stateDir);
-      writeFileSync(join(repo, "src/a.c"), "int value = 2;\n");
-      git(repo, ["add", "src/a.c"]);
-      git(repo, ["commit", "-m", "current side"]);
-      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
-      const integrationId = insertQueued(store, patchPath, run.id);
-      const leaseId = acquireLease(store, "run", run.id);
-      const resolvedPatch = [
-        "diff --git a/src/a.c b/src/a.c",
-        "--- a/src/a.c",
-        "+++ b/src/a.c",
-        "@@ -1 +1 @@",
-        "-int value = 2;",
-        "+int value = 1;",
-        "",
-      ].join("\n");
-
-      const result = await processWorkerOutputIntegrationQueue({
-        dryRun: false,
-        leaseId,
-        mergeOnFinish: true,
-        repoRoot: repo,
-        runId: run.id,
-        stateDir,
-        store,
-        conflictResolver: {
-          runner: async () => ({
-            rawText: JSON.stringify({
-              schema_version: "melee_conflict_resolver_result_v1",
-              integration_item_id: integrationId,
-              conflict_group_id: `worker-output:${integrationId}`,
-              outcome: "resolved",
-              summary: "kept the accepted incoming value on top of current",
-              applied_in_isolated_worktree: true,
-              resolved_patch: { path: null, text: resolvedPatch, sha256: null },
-              conflict_resolutions: [{ path: "src/a.c", resolution: "merged", evidence: "scoped check retained" }],
-              validation: [],
-              remaining_conflicts: [],
-              risks: [],
-            }),
-          }),
-        },
-      });
-
-      expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "conflict_resolved" });
-      expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 1;\n");
-      expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(3);
-      expect(integration(store)).toMatchObject({ status: "applied" });
-    } finally {
-      store.db.close();
-    }
-  });
-
-  test("flags off preserve the legacy apply-only DB and git behavior", async () => {
-    const stateDir = tempDir("merge-on-finish-off-state-");
-    const store = openState(stateDir);
-    try {
-      const repo = setupRepo();
-      const patchPath = patchFile(stateDir);
-      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
-      insertQueued(store, patchPath, run.id);
-      const leaseId = acquireLease(store, "run", run.id);
-
-      const result = await processWorkerOutputIntegrationQueue({
-        dryRun: false,
-        leaseId,
-        mergeOnFinish: false,
-        repoRoot: repo,
-        runId: run.id,
-        stateDir,
-        store,
-      });
-
-      expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
-      expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 1;\n");
-      expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(1);
-      expect(JSON.parse(String(integration(store).metadata_json))).toEqual({ scoped_checks_passed: true });
+      expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(2);
     } finally {
       store.db.close();
     }
   });
 
   test("a stale lease cannot claim or mutate queued checkout work", async () => {
-    const stateDir = tempDir("merge-on-finish-stale-lease-state-");
+    const stateDir = tempDir("worker-integration-stale-lease-state-");
     const store = openState(stateDir);
     try {
       const repo = setupRepo();
@@ -332,7 +285,6 @@ describe("merge-on-finish worker output integration", () => {
         processWorkerOutputIntegrationQueue({
           dryRun: false,
           leaseId: staleLeaseId,
-          mergeOnFinish: true,
           repoRoot: repo,
           runId: run.id,
           stateDir,

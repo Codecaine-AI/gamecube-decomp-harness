@@ -1,0 +1,447 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map-50-pr",
+  "title": "PR",
+  "root": "b-gf-pr-root-1",
+  "blocks": {
+    "b-gf-pr-root-1": {
+      "id": "b-gf-pr-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-gf-pr-intro-2",
+        "b-gf-pr-outline-4"
+      ]
+    },
+    "b-gf-pr-intro-2": {
+      "id": "b-gf-pr-intro-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Working process flow for this band of the global flow. Confirmed detail from the walkthrough accumulates here before mapping to the owning chapter."
+        }
+      ],
+      "children": []
+    },
+    "b-gf-pr-outline-4": {
+      "id": "b-gf-pr-outline-4",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Enter the PR band on the Run boundary's classification",
+            "steps": [
+              {
+                "text": "Require an `active` Cycle, unblocking it first when entry is forced"
+              },
+              {
+                "text": "Walk the eight phases: `final_build`, `qa`, `qa_fixes`, `split`, `prepare_prs`, `publish`, `review`, `intake`"
+              },
+              {
+                "text": "Read the checkpoint dispositions: `pr_candidate` ships, `improvement_candidate` stays local",
+                "steps": [
+                  {
+                    "text": "Fall back to the explicit candidate list, then to every lint-touched file"
+                  }
+                ]
+              },
+              {
+                "text": "Nothing in this band re-derives a disposition. It reads what the Run already decided.",
+                "kind": "note"
+              },
+              {
+                "text": "Mark PR complete to record the result without closing the Cycle"
+              }
+            ]
+          },
+          {
+            "text": "Scan and review the working tree, then build the repair queue",
+            "steps": [
+              {
+                "text": "Run Cycle review with no commit, leaving validated edits in the working tree"
+              },
+              {
+                "text": "Scan the candidate files with the deterministic lint diff, worktree included"
+              },
+              {
+                "text": "Pin `HEAD` once so everything downstream names the same source position"
+              },
+              {
+                "text": "For each changed candidate file, review a one-file slice",
+                "trace": true
+              },
+              {
+                "text": "For each reviewer rejection, re-read the diff hunk for adversarial confirmation",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "An unreadable diff, a missing hunk, or any agent or parse error confirms the finding. The pass fails closed.",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Merge the survivors, quarantining refuted rejections and headers into the ledger"
+              },
+              {
+                "text": "Build one queue item per candidate source file, with its errors and mandatory warnings"
+              },
+              {
+                "text": "Write the queue, its summary, its report, and the ship status"
+              },
+              {
+                "text": "The chapter says one repair item per finding; code groups findings by source file into one item and keeps per-finding granularity inside the agent's dispositions (bug catalog)",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Repair each queued item under the score gate",
+            "steps": [
+              {
+                "text": "For each queued item, run one repair pass against one source file",
+                "trace": true
+              },
+              {
+                "text": "Repair at the source, re-scoring after each target, with a minimal revert as last resort",
+                "steps": [
+                  {
+                    "text": "Report one disposition per finding: fixed, reverted, evidenced, or false positive"
+                  }
+                ]
+              },
+              {
+                "text": "Gate the item before calling it clean: re-scan, rebuild, re-snapshot, check in fixed order",
+                "steps": [
+                  {
+                    "text": "Agent output alone can never mark an item clean.",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "Route to needs-rework on any error, mandatory warning, or failed check"
+                  }
+                ]
+              },
+              {
+                "text": "Snapshot every dirty header first, then revert what the agent was not authorized to touch"
+              },
+              {
+                "text": "Repeat the fill-and-wait loop **until** every selected item has run",
+                "steps": [
+                  {
+                    "text": "Build the change set, sending failed targets back to their items, or halting if none owns it"
+                  }
+                ]
+              },
+              {
+                "text": "Run the configured regression command, flipping clean files back to needs-rework"
+              },
+              {
+                "text": "Write the ledger: findings tiered, decomp context best-effort, mirrored to a stable path"
+              },
+              {
+                "text": "The job's exit code reflects only agent errors and regression-command infrastructure failures; ledger findings never make it nonzero (bug catalog)",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Plan review-sized slices from one stable point",
+            "steps": [
+              {
+                "text": "Resolve `HEAD` to one sha that every branch, patch, and isolation command replays from"
+              },
+              {
+                "text": "Refuse a ship filter that names nothing"
+              },
+              {
+                "text": "Collect the branch diff plus the worktree status as one set, dropping permuter scratch"
+              },
+              {
+                "text": "Assign the lanes: new exact matches ship, improvements only above both thresholds"
+              },
+              {
+                "text": "Group by melee subsystem, then support runtimes, then the first path segment",
+                "steps": [
+                  {
+                    "text": "Demote group files outside the verified ship set into the local lane"
+                  }
+                ]
+              },
+              {
+                "text": "Pack undersized groups first-fit under the ceiling, splitting oversized ones a level deeper"
+              },
+              {
+                "text": "Classify each slice as shared-prep, stacked, or independent",
+                "steps": [
+                  {
+                    "text": "Nothing is marked verified here. Independence is a proposal, and each slice carries the checks that would prove it in isolation.",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Optionally let the splitter agent regroup the deterministic seed",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Reject a proposal that drops a seed file, duplicates one, mixes lanes, or busts the ceiling"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "text": "Verify the ship set at the PR gate",
+            "steps": [
+              {
+                "text": "Take the passed plan's match-lane pathspecs, refusing when there are none"
+              },
+              {
+                "text": "Fetch, then pin the base and source refs, voiding the run if either moves"
+              },
+              {
+                "text": "Rebuild the production baseline in a detached worktree at the base sha, cached per sha",
+                "trace": true
+              },
+              {
+                "text": "Repeat the survivor loop **until** clean or four rounds spent",
+                "steps": [
+                  {
+                    "text": "Apply the ship-set patch onto the baseline, build it, and read the regression report"
+                  },
+                  {
+                    "text": "Lint that tree with upstream CI's check-issues container"
+                  },
+                  {
+                    "text": "Drop each offender's file with its reason and re-verify, or block if it owns no file"
+                  },
+                  {
+                    "text": "Settle as nothing to ship when a clean patch produces no new match"
+                  }
+                ]
+              },
+              {
+                "text": "`pr_ready` means exactly what the PRs will contain produces new matches, with zero metric regressions, zero broken matches, zero fuzzy regressions, and zero CI lint issues.",
+                "kind": "note"
+              },
+              {
+                "text": "Publish the stamps transactionally on `pr_ready`, then re-plan the slices against them"
+              },
+              {
+                "text": "A missing Docker daemon makes the lint check unavailable, and unavailable passes the gate — only upstream CI catches those issues (bug catalog)",
+                "kind": "note"
+              },
+              {
+                "text": "Hand a not-ready ship set to the reconcile agent for one fix loop",
+                "trace": true
+              }
+            ]
+          },
+          {
+            "text": "Prepare each slice, open its draft, then QA it",
+            "steps": [
+              {
+                "text": "Require a ready ship status, an existing patch, and a matching baseline sha"
+              },
+              {
+                "text": "Stamp each record preparing, verify the slice in the baseline, build its worktree"
+              },
+              {
+                "text": "Open drafts in bounded batches, each slice under its own lease",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Ensure the baseline, push the branch, re-sync the PR records, post ledger comments"
+                  }
+                ]
+              },
+              {
+                "text": "Repeat the draft QA round against the open draft",
+                "steps": [
+                  {
+                    "text": "Review the whole PR as one slice and lint its diff",
+                    "trace": true
+                  },
+                  {
+                    "text": "Hand the merged scan to the same repair lane",
+                    "trace": true
+                  },
+                  {
+                    "text": "Loop **until** the scan is clean, no repair is unresolved, and the reviewer raises nothing"
+                  }
+                ]
+              },
+              {
+                "text": "Classify the draft, first match wins: blocked, needs-repair, manual-review, or ready"
+              },
+              {
+                "text": "Post what is left: tier one inline, tier two as one comment, tier three dropped"
+              }
+            ]
+          },
+          {
+            "text": "Review each shipping slice one last time before it ships",
+            "steps": [
+              {
+                "text": "For each slice in the plan, read its diff alone with no tools",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Inject the deterministic lint findings as evidence"
+                  },
+                  {
+                    "text": "Warn the reviewer when the linter is unavailable, to read with extra suspicion"
+                  },
+                  {
+                    "text": "Return an error verdict on agent, parse, or schema failure — never an approval"
+                  }
+                ]
+              },
+              {
+                "text": "Block the ship on any reject or error, including a reject under an approving verdict",
+                "steps": [
+                  {
+                    "text": "Refuse to read an empty or all-skipped selection as approval"
+                  }
+                ]
+              },
+              {
+                "text": "Append reviewer-proposed rules to the curator's file as capped-confidence proposals"
+              }
+            ]
+          },
+          {
+            "text": "Open the campaign and publish bounded batches",
+            "steps": [
+              {
+                "text": "Require an active Cycle and a fresh source anchor at the Cycle head"
+              },
+              {
+                "text": "Create one series per match slice, branch names unique"
+              },
+              {
+                "text": "Activate the campaign by taking the game's dispatch lease from a Run",
+                "steps": [
+                  {
+                    "text": "Pause that Run or point its drain here, keeping the campaign queued until handover"
+                  },
+                  {
+                    "text": "Write a phase boundary into the Cycle timeline on acquire and on release"
+                  }
+                ]
+              },
+              {
+                "text": "Publish a batch on operator confirmation",
+                "steps": [
+                  {
+                    "text": "Publishing is reservation-backed: reserve the batch, claim it, then re-validate the lease and the series right before the external call.",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "Publish a series only on clean validation, an anchor-matching revision, and no newer invalidation"
+                  },
+                  {
+                    "text": "Open the PR, then commit the series and complete the reservation",
+                    "trace": true
+                  }
+                ]
+              },
+              {
+                "text": "Release the lease back to in-review once nothing is revising or in progress"
+              },
+              {
+                "text": "Adopt legacy `codex/split-*` branches instead, each at its observed upstream status"
+              }
+            ]
+          },
+          {
+            "text": "Ride the remote review round-trip, then revise",
+            "steps": [
+              {
+                "text": "Stay dormant: in-review with no lease, observing but blocked from fixing or publishing"
+              },
+              {
+                "text": "Ride the PR sync instead of a timer"
+              },
+              {
+                "text": "For each observed PR, ingest the feedback before applying the status transition",
+                "steps": [
+                  {
+                    "text": "Key comments and reviews as work items by source identity so repeat polls dedupe"
+                  },
+                  {
+                    "text": "Ingestion never reads or takes the dispatch lease, which is exactly what lets a dormant campaign keep collecting review.",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Fence every fixer command on a working campaign, matching correlation, and a held PR lease"
+              },
+              {
+                "text": "Claim the pending items, moving the series to revising on the first claim"
+              },
+              {
+                "text": "Resolve or decline each claimed item, a decline carrying a required reason"
+              },
+              {
+                "text": "Revise the series once nothing is pending or in progress, then return it to published"
+              },
+              {
+                "text": "Reconcile the slice when it no longer applies, never while a Run is active",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Recommend ready, retry, or escalate, writing the summary either way"
+                  }
+                ]
+              },
+              {
+                "text": "Recover a stale activation back to in-review, its items back to pending"
+              }
+            ]
+          },
+          {
+            "text": "Record the terminal results, then close or abandon",
+            "steps": [
+              {
+                "text": "Write merged and closed as terminal series statuses",
+                "steps": [
+                  {
+                    "text": "Observation writes them, not any operator action.",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Close the campaign on operator confirmation",
+                "steps": [
+                  {
+                    "text": "Refuse while any series is unfinished, or while the campaign holds no series at all"
+                  },
+                  {
+                    "text": "Release first when working, so it closes through in-review rather than dropping its lease"
+                  }
+                ]
+              },
+              {
+                "text": "Abandon on confirmation without waiting, cancelling revising series and in-progress items"
+              },
+              {
+                "text": "Send merged PRs out of this band through Cycle intake",
+                "steps": [
+                  {
+                    "text": "Create one intake item per PR, with its postmortem and knowledge intake nested beneath"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -32,6 +33,7 @@ import {
   createDashboardReadModel,
   getHarnessStateView,
   gameRunActionState,
+  repoSyncProjection,
   type JsonObject,
 } from "./read-model.js";
 
@@ -92,6 +94,78 @@ describe("dashboard read model", () => {
       expect(view.compatibility_actions).toHaveLength(1);
       expect(view.compatibility_actions[0]?.action_id).toBe("pr.adopt_legacy");
       expect(view.available_actions.some((action) => action.action_id === "pr.adopt_legacy")).toBeFalse();
+      expect(view.repo_sync).toEqual({
+        cycle_head: null,
+        upstream_ref: "origin/master",
+        upstream_anchor: null,
+        local_upstream_sha: null,
+        behind_count: null,
+        last_synced_at: null,
+        needs_sync: false,
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("repo_sync projects local-only git posture without an active sync workflow", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "dashboard-repo-sync-git-"));
+    tempDirs.push(repoRoot);
+    const git = (...args: string[]): string => {
+      const result = spawnSync("git", ["-C", repoRoot, ...args], { encoding: "utf8" });
+      expect(result.status).toBe(0);
+      return result.stdout.trim();
+    };
+    git("init", "-q");
+    git("config", "user.email", "dashboard-read-model-test@example.com");
+    git("config", "user.name", "dashboard read model test");
+    git("commit", "--allow-empty", "-q", "-m", "cycle head");
+    const cycleHead = git("rev-parse", "HEAD");
+    git("commit", "--allow-empty", "-q", "-m", "upstream one");
+    git("commit", "--allow-empty", "-q", "-m", "upstream two");
+    const upstreamSha = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/master", upstreamSha);
+    // Leave the checkout behind the upstream ref: HEAD is the observed truth.
+    git("reset", "-q", "--hard", cycleHead);
+
+    const { store } = tempState();
+    try {
+      store.db
+        .query(
+          `INSERT INTO game_upstream_anchors (
+             game_id, cycle_uuid, upstream_revision, sync_id, caused_by_event_id, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .run("melee", "session-1", upstreamSha, "sync-1", "event-1", "2026-08-19T00:00:00.000Z");
+      // The recorded head is deliberately stale: observed checkout HEAD must win.
+      const cycle = { head_revision: "feedfacefeedfacefeedfacefeedfacefeedface" } as unknown as Parameters<
+        typeof repoSyncProjection
+      >[2];
+      const gameContext = { game: { baseRef: "origin/master" }, repoRoot } as unknown as Parameters<
+        typeof repoSyncProjection
+      >[3];
+      expect(repoSyncProjection(store, "melee", cycle, gameContext)).toEqual({
+        cycle_head: cycleHead,
+        upstream_ref: "origin/master",
+        upstream_anchor: upstreamSha,
+        local_upstream_sha: upstreamSha,
+        behind_count: 2,
+        last_synced_at: "2026-08-19T00:00:00.000Z",
+        needs_sync: true,
+      });
+      // Git failure degrades soft: unknown checkout produces nulls, never throws.
+      expect(repoSyncProjection(store, "melee", null, {
+        game: { baseRef: "origin/master" },
+        repoRoot: join(repoRoot, "does-not-exist"),
+      } as unknown as Parameters<typeof repoSyncProjection>[3])).toEqual({
+        cycle_head: null,
+        upstream_ref: "origin/master",
+        upstream_anchor: upstreamSha,
+        local_upstream_sha: null,
+        behind_count: null,
+        last_synced_at: "2026-08-19T00:00:00.000Z",
+        needs_sync: false,
+      });
     } finally {
       store.db.close();
     }

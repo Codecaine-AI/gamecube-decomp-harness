@@ -21,24 +21,24 @@ import {
 import { formatElapsed } from "../_lib/time";
 import type { ProcessTabProps } from "../_lib/types";
 
+// Keyed by cycle.activeSubphase. The prepare-era subphases (config,
+// sync_intake, processing_prs, knowledge_refresh, prepare_prs) are retired
+// with the babysit/prepare flow; the generic phase/subphase fallback below
+// covers anything unlisted. Sync workflow statuses do not flow through this
+// field, so they get no entries here.
 const subphaseSentences: Record<string, string> = {
   baseline: "We are building the baseline right now.",
   candidate_list: "We are building the candidate list right now.",
   checkpoint: "We are writing a checkpoint right now.",
-  config: "We are configuring the cycle right now.",
   epoch_build: "We are building the epoch right now.",
   final_build: "We are running the final build right now.",
   graph_rebuild: "We are rebuilding graph context right now.",
   intake: "We are processing intake right now.",
-  knowledge_refresh: "We are refreshing knowledge right now.",
-  prepare_prs: "We are preparing PR branches right now.",
-  processing_prs: "We are processing merged PRs right now.",
   publish: "We are publishing PRs right now.",
   qa: "We are running QA right now.",
   qa_fixes: "We are resolving QA fixes right now.",
   review: "We are reviewing PR feedback right now.",
   split: "We are planning PR slices right now.",
-  sync_intake: "We are syncing and collecting intake right now.",
   workers: "Workers are running right now.",
 };
 

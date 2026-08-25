@@ -14,6 +14,8 @@ import { activateAcquiredSync } from "./activation.js";
 import {
   createSyncRuntime,
   gameSyncAction,
+  runSyncCliWithRetry,
+  syncIngestConcurrency,
   type SyncRuntimeDeps,
   type SyncRuntimeGameContext,
 } from "./runtime.js";
@@ -735,5 +737,101 @@ describe("S4 sync operator runtime", () => {
     } finally {
       store.db.close();
     }
+  });
+});
+
+describe("sync subprocess retry", () => {
+  test("retries a transient nonzero exit and returns the eventual success", async () => {
+    const attempts: string[][] = [];
+    const delays: number[] = [];
+    const logs: string[] = [];
+    const result = await runSyncCliWithRetry(
+      {
+        appendLog: (_stream, text) => logs.push(text),
+        packageRoot: "/tmp/package-root",
+        runCli: async (command) => {
+          attempts.push(command);
+          return attempts.length < 2
+            ? { exitCode: 1, stdout: "DO $migration$ ...sql...", stderr: "Kernel createSpawnAgent strategy requires an initialized kernel runtime DB" }
+            : { exitCode: 0, stdout: "{}", stderr: "" };
+        },
+        sleep: async (ms) => { delays.push(ms); },
+      },
+      "Merged PR #7 staged knowledge intake",
+      () => ["bun", "job-runner.ts", "kg-knowledge-intake-agent"],
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(attempts).toHaveLength(2);
+    expect(delays).toHaveLength(1);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toContain("Merged PR #7 staged knowledge intake attempt 1/3 failed (exit 1)");
+    expect(logs[0]).toContain("initialized kernel runtime DB");
+  });
+
+  test("gives up after three attempts and returns the final failure", async () => {
+    let attempts = 0;
+    const result = await runSyncCliWithRetry(
+      {
+        packageRoot: "/tmp/package-root",
+        runCli: async () => {
+          attempts += 1;
+          return { exitCode: 1, stdout: "", stderr: `persistent failure ${attempts}` };
+        },
+        sleep: async () => {},
+      },
+      "Merged PR #8 staged knowledge intake",
+      () => ["bun", "job-runner.ts", "kg-knowledge-intake-agent"],
+    );
+
+    expect(attempts).toBe(3);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("persistent failure 3");
+  });
+
+  test("treats a zero-exit result with a caller-declared failure as retryable and adjusts the retry command", async () => {
+    const root = tempDir();
+    const postmortem = resolve(root, "prs", "pr-3021", "postmortem", "postmortem.json");
+    const attempts: string[][] = [];
+    const logs: string[] = [];
+    const fetchCommand = (scope: string) => ["python3", "fetch_recent_pr_dump.py", "--postmortem-scope", scope, "--pr", "3021"];
+    const result = await runSyncCliWithRetry(
+      {
+        appendLog: (_stream, text) => logs.push(text),
+        packageRoot: root,
+        runCli: async (command) => {
+          attempts.push(command);
+          if (attempts.length === 2) {
+            // The widened-scope retry regenerates the missing postmortem.
+            write(root, "prs/pr-3021/postmortem/postmortem.json", "{}");
+          }
+          return { exitCode: 0, stdout: "postmortems: no fetched PRs selected", stderr: "" };
+        },
+        sleep: async () => {},
+      },
+      "Merged PR #3021 staged fetch",
+      (attempt) => fetchCommand(attempt === 1 ? "fetched" : "all"),
+      (cli) => (cli.exitCode !== 0 ? `exit ${String(cli.exitCode)}` : existsSync(postmortem) ? null : "postmortem.json was not produced"),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(postmortem)).toBe(true);
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0]).toContain("fetched");
+    expect(attempts[1]).toContain("all");
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toContain("Merged PR #3021 staged fetch attempt 1/3 failed (postmortem.json was not produced)");
+  });
+});
+
+describe("syncIngestConcurrency", () => {
+  test("defaults to 4 and honors ORCH_SYNC_INGEST_CONCURRENCY when it is a positive integer", () => {
+    expect(syncIngestConcurrency({})).toBe(4);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "2" })).toBe(2);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "1" })).toBe(1);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "0" })).toBe(4);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "-3" })).toBe(4);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "not-a-number" })).toBe(4);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "" })).toBe(4);
   });
 });

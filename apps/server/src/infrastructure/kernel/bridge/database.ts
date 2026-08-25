@@ -39,9 +39,108 @@ function meleeDb(db: unknown): MeleeKernelDatabase {
   return db as MeleeKernelDatabase;
 }
 
-/** Postgres bootstrap for the live kernel's dialect-neutral row model. */
+/** Executor surface shared by the root database and a transaction handle. */
+interface KernelSchemaExecutor {
+  execute(query: ReturnType<typeof sql>): Promise<unknown>;
+}
+
+function firstProbeRow(result: unknown): Record<string, unknown> | null {
+  if (Array.isArray(result)) return (result[0] as Record<string, unknown> | undefined) ?? null;
+  const rows = (result as { rows?: unknown[] } | null | undefined)?.rows;
+  if (Array.isArray(rows)) return (rows[0] as Record<string, unknown> | undefined) ?? null;
+  return null;
+}
+
+/** SELECT-only probe: true when the bootstrap below has fully run before.
+ *
+ * Sentinels are terminal effects of each migration branch plus the very last
+ * bootstrap statement, and they also hold on a fresh CREATE TABLE bootstrap:
+ * - containers.kernel_id: legacy containers branch ran (or fresh create)
+ * - trace_events.event_id as text: id rename + uuid->text conversion
+ * - trace_events.container_id NOT NULL: final unconditional DO-block ALTER
+ * - agent_runs_parent_run_id_fkey: terminal agent_runs constraint (fresh
+ *   CREATE TABLE auto-names the inline REFERENCES identically)
+ * - ix_agent_runs_parent_run_id: the last statement of the whole bootstrap
+ * Any probe error (missing tables, test doubles) reads as "not current". */
+async function kernelObservabilitySchemaCurrent(database: KernelSchemaExecutor): Promise<boolean> {
+  try {
+    const result = await database.execute(sql`
+      SELECT
+        EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'containers'
+            AND column_name = 'kernel_id'
+        ) AS containers_kernel_id,
+        EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'trace_events'
+            AND column_name = 'event_id'
+            AND data_type = 'text'
+        ) AS trace_events_event_id_text,
+        EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'trace_events'
+            AND column_name = 'container_id'
+            AND is_nullable = 'NO'
+        ) AS trace_events_container_id_not_null,
+        EXISTS (
+          SELECT 1 FROM pg_constraint AS con
+          JOIN pg_class AS rel ON rel.oid = con.conrelid
+          JOIN pg_namespace AS nsp ON nsp.oid = rel.relnamespace
+          WHERE con.conname = 'agent_runs_parent_run_id_fkey'
+            AND rel.relname = 'agent_runs'
+            AND nsp.nspname = current_schema()
+        ) AS agent_runs_parent_run_id_fkey,
+        EXISTS (
+          SELECT 1 FROM pg_class AS idx
+          JOIN pg_namespace AS nsp ON nsp.oid = idx.relnamespace
+          WHERE idx.relname = 'ix_agent_runs_parent_run_id'
+            AND nsp.nspname = current_schema()
+        ) AS ix_agent_runs_parent_run_id
+    `);
+    const row = firstProbeRow(result);
+    if (!row) return false;
+    const values = Object.values(row);
+    return values.length > 0 && values.every((value) => value === true || value === "t" || value === 1);
+  } catch {
+    return false;
+  }
+}
+
+/** Postgres bootstrap for the live kernel's dialect-neutral row model.
+ *
+ * Concurrent processes (the server's lazy runtime init plus one `bun
+ * server-job` subprocess per merged PR) all run this bootstrap against the
+ * same database. The compat migration below re-executes unconditional
+ * `ALTER TABLE trace_events ...` statements on every call, each taking an
+ * ACCESS EXCLUSIVE lock. The advisory lock serializes bootstraps against
+ * each other, but that DDL still queues behind live traffic (the server's
+ * trace tailer writes trace_events continuously) and can fail under
+ * contention, so the steady-state path must run zero DDL: probe first, and
+ * only fall through to the locked bootstrap when the schema is not current.
+ * Waiters re-probe after acquiring the lock so they skip the DDL the winner
+ * just committed. */
 export async function ensureKernelObservabilitySchema(db: unknown): Promise<void> {
   const database = meleeDb(db);
+  if (await kernelObservabilitySchemaCurrent(database)) return;
+  if (typeof database.transaction === "function") {
+    await database.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('melee:kernel-observability-schema', 0))`,
+      );
+      if (await kernelObservabilitySchemaCurrent(tx)) return;
+      await runKernelObservabilitySchemaStatements(tx);
+    });
+    return;
+  }
+  // Test doubles may provide only `execute`; run unguarded in that case.
+  await runKernelObservabilitySchemaStatements(database);
+}
+
+async function runKernelObservabilitySchemaStatements(database: KernelSchemaExecutor): Promise<void> {
   const tableStatements = [
     sql`CREATE TABLE IF NOT EXISTS containers (
       id TEXT PRIMARY KEY,

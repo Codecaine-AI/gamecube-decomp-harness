@@ -197,7 +197,7 @@ test("epoch boundary refreshes the successful cycle worktree and keeps failed ru
       epochRetryMs: 60_000,
       cycleDraftPrEnabled: false,
       fullKgMaintenanceMode: "full",
-      writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false },
+      writeSetFlags: { writeSetWidening: "off" },
       schedulerEpochConfig: { size: { mode: "fixed", value: 1 }, workerPoolSize: 1, candidateWindow: 1 },
       graphDbPath: resolve(value.dir, "missing-graph.sqlite"),
       epochWorktreeDir: worktreeDir,

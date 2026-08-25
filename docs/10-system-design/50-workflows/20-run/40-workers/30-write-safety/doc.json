@@ -24,6 +24,7 @@
 				"b-35-write-safety-risk-rule-20",
 				"b-35-write-safety-worker-output-integratio-9",
 				"b-35-write-safety-worker-outputs-move-thro-10",
+				"b-35-write-safety-apply-on-accept-base-rev-32",
 				"b-35-write-safety-text-11",
 				"b-35-write-safety-the-integration-queue-it-14",
 				"b-35-write-safety-text-13",
@@ -466,7 +467,25 @@
 			"props": {},
 			"text": [
 				{
-					"insert": "Selected checkpoints apply in one run-scoped lane. Merge-on-finish chooses immediate versus queued entry into that lane, but both modes preserve single-flight application, explicit conflicts, and boundary confirmation."
+					"insert": "Integration is apply-on-accept. Accepting a worker checkpoint enqueues one integration job keyed by the checkpoint id; the Run Loop drains those jobs in single flight, and each patch is applied and committed to the live cycle repo immediately ("
+				},
+				{
+					"insert": "commitAppliedPatch",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " in apps/server/src/core/cycle-runtime/phases/running/integration/worker-output-queue.ts, commit message "
+				},
+				{
+					"insert": "worker-integration(<id8>): <targetKey> [checkpoint <id8>]",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": "). Nothing pools for the epoch boundary: its snapshot commit is residual, usually empty, and tolerated as a no-op."
 				}
 			],
 			"children": []
@@ -638,6 +657,35 @@
 				},
 				{
 					"insert": "; regression attribution reverts the guilty change, marks its outcome regressed through checkpoint evidence, and confirms the clean remainder."
+				}
+			],
+			"children": []
+		},
+		"b-35-write-safety-apply-on-accept-base-rev-32": {
+			"id": "b-35-write-safety-apply-on-accept-base-rev-32",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Every integration commit advances the base revision that newly provisioned sandbox workers start from, so a worker spawned mid-epoch builds on accepted work instead of the epoch-start tree and the conflict window shrinks to genuinely concurrent attempts. A patch that still collides — two workers started from the same base, the first landed, and the second's "
+				},
+				{
+					"insert": "git apply --check",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " fails against the moved tree — records a conflict outcome for the integration resolver. A "
+				},
+				{
+					"insert": "resolved",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " outcome is terminal: the harness commits the resolver's hand-merged tree and never re-applies the original patch."
 				}
 			],
 			"children": []

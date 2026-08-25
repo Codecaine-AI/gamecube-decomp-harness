@@ -4,12 +4,13 @@ import { asObject, numberValue, type Dashboard, type FormState, type JsonObject,
 import { useDashboardStream } from "@/hooks/useDashboardStream";
 import { DetailsRail, type DetailsTab } from "@/components/details-rail";
 import { GameWorkspace, type DashboardAction } from "@/pages/workspace";
-import { harnessStateAction, harnessStateCompatibilityAction, harnessStateReadModel } from "@/pages/workspace/_lib/model";
+import { deriveCycleView, harnessStateAction, harnessStateCompatibilityAction, harnessStateReadModel } from "@/pages/workspace/_lib/model";
 import { type ImprovedMode, type WorkMode } from "@/pages/workspace/cycles/active/subphases/run/components/work-tables";
 import { type AppRoute, routeFromUrl, saveRoute } from "@/routing";
 import { loadGrainSettings, normalizeGrainSettings, saveGrainSettings, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
 import { DashboardPage } from "@/pages/dashboard";
 import { GrainOverlay } from "@/components/app/_components/GrainOverlay";
+import { ConfirmActionOverlay, type ConfirmTone } from "@/components/app/_components/ConfirmActionOverlay";
 import { clampDetailsWidth, loadDetailsCollapsed, loadDetailsWidth, loadSidebarCollapsed, saveDetailsCollapsed, saveDetailsWidth, saveSidebarCollapsed } from "@/components/app/_lib/railState";
 import { initialForm, saveRunSettings, schedulingForWorkers } from "@/components/app/_lib/runSettings";
 import { useHotReload } from "@/components/app/_lib/useHotReload";
@@ -37,7 +38,7 @@ const DEFAULT_THINKING_LEVEL = "xhigh";
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRevalidate", "prOpenCampaign", "prActivate", "prPublishBatch", "prRelease", "prCloseCampaign", "prAbandonCampaign", "prCampaignRecover", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prOpenCampaign", "prActivate", "prPublishBatch", "prRelease", "prCloseCampaign", "prAbandonCampaign", "prCampaignRecover", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "finishEpoch", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
 const legacyPublicationActions: ReadonlySet<Action> = new Set(["openPr", "openDraftBatch", "openAllPrs"]);
 
 function newCycleBody(body: JsonObject): JsonObject {
@@ -47,9 +48,11 @@ function newCycleBody(body: JsonObject): JsonObject {
   return next;
 }
 
-function cycleRouteSub(cycle: JsonObject): "prepare" | "run" | "pr" | "done" {
+function cycleRouteSub(cycle: JsonObject): "run" | "pr" | "done" {
   const phase = String(cycle.phase || "");
-  if (phase === "preparing") return "prepare";
+  // The Prepare stage is retired: a preparing cycle opens on the Run page,
+  // which hosts the remaining setup inputs (baseline, worker config).
+  if (phase === "preparing") return "run";
   if (phase === "running") return "run";
   if (phase === "pr") return "pr";
   return "done";
@@ -205,6 +208,34 @@ export function App() {
   const [route, setRouteState] = useState<AppRoute>(routeFromUrl);
   const [grainSettings, setGrainSettingsState] = useState<GrainSettings>(loadGrainSettings);
   const appliedSessionConfigSignatureRef = useRef("");
+  // In-UI confirmation for operator actions. window.confirm is banned here:
+  // native dialogs wedge the tab under automation and cannot carry API
+  // parameters. requestConfirm resolves true only when the operator clicks
+  // the confirm button; Escape, backdrop click, or Cancel resolve false.
+  const [confirmRequest, setConfirmRequest] = useState<{
+    confirmLabel: string;
+    message: string;
+    resolve: (confirmed: boolean) => void;
+    tone: ConfirmTone;
+  } | null>(null);
+
+  const requestConfirm = useCallback(
+    (message: string, options?: { confirmLabel?: string; tone?: ConfirmTone }) =>
+      new Promise<boolean>((resolve) => {
+        setConfirmRequest((current) => {
+          current?.resolve(false);
+          return { confirmLabel: options?.confirmLabel ?? "Confirm", message, resolve, tone: options?.tone ?? "danger" };
+        });
+      }),
+    [],
+  );
+
+  const resolveConfirm = useCallback((confirmed: boolean) => {
+    setConfirmRequest((current) => {
+      current?.resolve(confirmed);
+      return null;
+    });
+  }, []);
 
   const setForm = useCallback((updates: Partial<FormState>) => {
     setFormState((current) => ({ ...current, ...updates }));
@@ -308,6 +339,7 @@ export function App() {
 
   const currentDashboard = dashboard as Dashboard | null;
   const busy = action !== null;
+  const view = deriveCycleView(currentDashboard, config, form);
 
   useEffect(() => {
     const cycle = asObject(currentDashboard?.cycle);
@@ -384,38 +416,45 @@ export function App() {
         : null;
       if (
         projectedRunAction?.confirmation_required &&
-        !window.confirm(`${projectedRunActionId}?\n\n${projectedRunAction.expected_transition}`)
+        !(await requestConfirm(`${projectedRunActionId}?\n\n${projectedRunAction.expected_transition}`))
       ) return;
       if (projectedPrAction?.confirmation_required) {
         const confirmation = prCampaignConfirmationMessage(nextAction, projectedCampaign) ??
           `${projectedPrActionId}?\n\n${projectedPrAction.expected_transition}`;
-        if (!window.confirm(confirmation)) return;
+        if (!(await requestConfirm(confirmation))) return;
       }
       if (projectedSyncAction?.confirmation_required) {
         const confirmation = syncConfirmationMessage(syncControlAction, harnessState?.sync ?? null) ??
           `${projectedSyncActionId}?\n\n${projectedSyncAction.expected_transition}`;
-        if (!window.confirm(confirmation)) return;
+        const confirmed = await requestConfirm(confirmation, syncControlAction === "syncRecover"
+          ? { confirmLabel: "Resume sync", tone: "primary" }
+          : syncControlAction === "syncRecoverDiscard"
+            ? { confirmLabel: "Discard staged work", tone: "danger" }
+            : syncControlAction === "syncPublish"
+              ? { confirmLabel: "Publish", tone: "primary" }
+              : undefined);
+        if (!confirmed) return;
       }
-      if (compatibilityAction?.confirmation_required && !window.confirm(`${compatibilityActionId}?\n\n${compatibilityAction.expected_transition}`)) return;
+      if (compatibilityAction?.confirmation_required && !(await requestConfirm(`${compatibilityActionId}?\n\n${compatibilityAction.expected_transition}`))) return;
       if (cycleAction?.confirmation_required) {
-        if (!window.confirm(cycleConfirmationMessage(nextAction) ?? `${cycleActionId}?\n\n${cycleAction.expected_transition}`)) return;
+        if (!(await requestConfirm(cycleConfirmationMessage(nextAction) ?? `${cycleActionId}?\n\n${cycleAction.expected_transition}`))) return;
       }
-      if (knowledgeAction?.confirmation_required && !window.confirm(`${knowledgeActionId}?\n\n${knowledgeAction.expected_transition}`)) return;
+      if (knowledgeAction?.confirmation_required && !(await requestConfirm(`${knowledgeActionId}?\n\n${knowledgeAction.expected_transition}`))) return;
       if (
         nextAction === "finishEpoch" &&
-        !window.confirm("Finish the current epoch now?\n\nThis cancels active workers in the current epoch, treats remaining epoch work as finished, and lets the scheduler run the normal baseline/rebuild checkpoint path.")
+        !(await requestConfirm("Finish the current epoch now?\n\nThis cancels active workers in the current epoch, treats remaining epoch work as finished, and lets the scheduler run the normal baseline/rebuild checkpoint path."))
       ) {
         return;
       }
       if (
         nextAction === "completeRun" &&
-        !window.confirm("Close this legacy cycle?\n\nThis records a save point and marks the run complete. Use this when PR work is already shipped, closed, or intentionally carried forward. Stale ship/QA blockers will be overridden.")
+        !(await requestConfirm("Close this legacy cycle?\n\nThis records a save point and marks the run complete. Use this when PR work is already shipped, closed, or intentionally carried forward. Stale ship/QA blockers will be overridden."))
       ) {
         return;
       }
       if (nextAction === "openPr") {
         const seriesName = String(payload?.prBranch || "this series");
-        if (!window.confirm(`Publish a draft PR upstream for series "${seriesName}"?\n\nThis will create the draft PR on GitHub.`)) return;
+        if (!(await requestConfirm(`Publish a draft PR upstream for series "${seriesName}"?\n\nThis will create the draft PR on GitHub.`, { confirmLabel: "Open draft PR", tone: "primary" }))) return;
       }
       setAction(nextAction);
       setErrorMessage("");
@@ -564,7 +603,7 @@ export function App() {
           }
           const createdCycle = asObject(created.cycle);
           const cycleUuid = String(createdCycle.cycleUuid || createdCycle.id || "");
-          navigate({ kind: "workspace", section: "cycles", cycle: cycleUuid || "active", cycleSub: "prepare", gameId: form.gameId || String(createdCycle.gameId || "") || undefined });
+          navigate({ kind: "workspace", section: "cycles", cycle: cycleUuid || "active", cycleSub: "run", gameId: form.gameId || String(createdCycle.gameId || "") || undefined });
           await manualRefresh();
           setRunDetails(null);
         } else if (nextAction === "completeRun") {
@@ -624,7 +663,7 @@ export function App() {
         setAction(null);
       }
     },
-    [currentDashboard, form, manualRefresh, navigate, openLogsView, showError],
+    [currentDashboard, form, manualRefresh, navigate, openLogsView, requestConfirm, showError],
   );
 
   // Lightweight, non-operation review-substate update for the In Review
@@ -660,6 +699,9 @@ export function App() {
           onDismissError={() => setErrorMessage("")}
           onNavigate={navigate}
         />
+        {confirmRequest ? (
+          <ConfirmActionOverlay onCancel={() => resolveConfirm(false)} onConfirm={() => resolveConfirm(true)} request={confirmRequest} />
+        ) : null}
         <GrainOverlay settings={grainSettings} />
       </main>
     );
@@ -709,6 +751,10 @@ export function App() {
           setWorkMode={setWorkMode}
           improvedMode={improvedMode}
           improvedPage={improvedPage}
+          loadRunDetails={() => void loadRunDetails()}
+          loadingRunDetails={loadingRunDetails}
+          runDetails={runDetails}
+          view={view}
           workMode={workMode}
         />
       </PrCampaignAuthorityProvider>
@@ -721,13 +767,19 @@ export function App() {
         loadingRunDetails={loadingRunDetails}
         onAction={(nextAction) => void runAction(nextAction)}
         onCollapsedChange={setDetailsCollapsed}
+        onNavigate={navigate}
         onResizeEnd={finishDetailsResize}
         onResizeStart={() => setDetailsResizing(true)}
         onWidthChange={setDetailsWidth}
         runDetails={runDetails}
+        route={route}
         setForm={setForm}
         tabRequest={detailsTabRequest}
+        view={view}
       />
+      {confirmRequest ? (
+        <ConfirmActionOverlay onCancel={() => resolveConfirm(false)} onConfirm={() => resolveConfirm(true)} request={confirmRequest} />
+      ) : null}
       <GrainOverlay settings={grainSettings} />
     </main>
   );

@@ -74,7 +74,7 @@ function fixture() {
     ttlSeconds: 1800, sandboxSleep: true, sandboxSleepDebounceMs: 1_000,
     concurrencyLimit: 1, thinkingLevel: "medium",
     postReturnCheckCommand: "check", workerConfigureCommand: "configure", graphDbPath: resolve(stateDir, "graph.db"),
-    writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false }, workerIdPrefix: "test",
+    writeSetFlags: { writeSetWidening: "off" }, workerIdPrefix: "test",
   };
   const epochTargetId = String((store.db.query("SELECT id FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string }).id);
   return { store, stateDir, ctx, run, epochTargetId };

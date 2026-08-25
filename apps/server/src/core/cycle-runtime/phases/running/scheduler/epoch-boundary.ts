@@ -157,13 +157,11 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         console.error(`[run-loop] epoch ${epochOrdinal}: ${trigger}; snapshotting and rebuilding report`);
         const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
           baseRef: globals.game?.baseRef,
-          confirmationPass: config.writeSetFlags.confirmationPass,
           configureCommand: config.epochConfigureCommand,
           epochId: schedulerEpochId,
           label,
           leaseId,
           linkPaths: config.epochLinkPaths,
-          mergeOnFinish: config.writeSetFlags.mergeOnFinish,
           gameId: globals.game?.gameId ?? globals.gameId ?? null,
           qaScan: { orchestratorRoot: packageRoot() },
           regressionPauseThreshold: config.epochPauseThreshold,

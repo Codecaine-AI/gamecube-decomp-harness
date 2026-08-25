@@ -9,6 +9,7 @@ import type {
   HarnessStatePrWorkItem,
   HarnessStatePrReadModel,
   HarnessStateReadModel,
+  HarnessStateRepoSyncReadModel,
   HarnessStateRunRecoveryPoint,
   HarnessStateRunSchedulerCondition,
   HarnessStateRunStatus,
@@ -389,6 +390,21 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
       }
     : null;
 
+  // Server-owned head-vs-upstream repo state. Older servers do not send it;
+  // consumers render "-" placeholders when it is null.
+  const repoSyncRaw = asObject(raw.repo_sync);
+  const repoSync: HarnessStateRepoSyncReadModel | null = Object.keys(repoSyncRaw).length > 0
+    ? {
+        cycle_head: text(repoSyncRaw.cycle_head) || null,
+        upstream_ref: text(repoSyncRaw.upstream_ref),
+        upstream_anchor: text(repoSyncRaw.upstream_anchor) || null,
+        local_upstream_sha: text(repoSyncRaw.local_upstream_sha) || null,
+        behind_count: nullableNumber(repoSyncRaw.behind_count),
+        last_synced_at: text(repoSyncRaw.last_synced_at) || null,
+        needs_sync: booleanValue(repoSyncRaw.needs_sync),
+      }
+    : null;
+
   const parsePreservedSummary = (value: unknown): JsonObject => ({ ...asObject(value) });
   const knowledgeLeaseRaw = asObject(knowledgeRaw.active_lease);
 
@@ -408,6 +424,7 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
     }),
     cycle,
     run,
+    repo_sync: repoSync,
     pr_work: asArray(raw.pr_work).map((value) => parsePr(asObject(value))),
     knowledge: {
       ...knowledgeRaw,
@@ -600,49 +617,17 @@ export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | 
   const canonicalCycle = asObject(dashboard?.cycle);
   const canonicalGates = asObject(canonicalCycle.gates);
   const canonicalPhases = asObject(canonicalCycle.phases);
+  // The Prepare stage is retired as a UI framing. The preparing phase still
+  // exists server-side; the still-real inputs (baseline, worker config) render
+  // on the Run page, so only their completion flags are derived here.
   const preparingPhase = asObject(canonicalPhases.preparing);
   const prepareSync = asObject(preparingPhase.sync);
   const prepareIntake = asObject(preparingPhase.intake);
-  const prepareIntakeItems = asArray(prepareIntake.items).map(asObject);
-  const prepareIntakeItemCounts = asObject(prepareIntake.itemCounts);
   const prepareKnowledge = asObject(preparingPhase.knowledge);
   const prepareBaseline = asObject(preparingPhase.baseline);
-  const prepareMergedPrs = asArray(prepareSync.mergedPrs).map((value) => numberValue(value, NaN)).filter(Number.isFinite);
-  const syncDone = text(prepareSync.status) === "complete" || Boolean(prepareSync.completedAt);
   const intakeDone = text(prepareIntake.status) === "complete" || Boolean(prepareIntake.completedAt);
   const knowledgeDone = text(prepareKnowledge.status) === "complete" || Boolean(prepareKnowledge.completedAt);
   const baselineDone = text(prepareBaseline.status) === "complete" || Boolean(prepareBaseline.completedAt);
-  const prepareHeadSha = text(prepareSync.afterRef);
-  const prepareBeforeSha = text(prepareSync.beforeRef);
-  const prepareUpstreamChanged = prepareBeforeSha && prepareHeadSha ? prepareBeforeSha !== prepareHeadSha : null;
-  const prepareUpstreamWorktreePath = text(prepareSync.upstreamWorktreePath);
-  const prepareCycleCurrentWorktreePath = text(
-    prepareSync.cycleCurrentWorktreePath,
-    text(prepareSync.cycleWorktreePath),
-  );
-  const preparePrIndexDebt = asObject(
-    intakeDone
-      ? prepareIntake.prIndexDebtAfter
-      : prepareIntake.prIndexDebtBefore || prepareSync.prIndexDebt,
-  );
-  const prIndexDebtKnown = text(preparePrIndexDebt.status) === "available";
-  const pendingMergedPrIndexCount = prIndexDebtKnown
-    ? numberValue(preparePrIndexDebt.pendingMergedAgentPrs, 0)
-    : syncDone && !intakeDone
-      ? prepareMergedPrs.length
-      : 0;
-  const pendingPrIndexCount = prIndexDebtKnown
-    ? numberValue(preparePrIndexDebt.pendingAgentPrs, pendingMergedPrIndexCount)
-    : pendingMergedPrIndexCount;
-  const hasIntakeItemCounts = prepareIntakeItems.length > 0 || hasKeys(prepareIntakeItemCounts);
-  const pendingIntakePrCount = hasIntakeItemCounts
-    ? numberValue(prepareIntakeItemCounts.pending, prepareIntakeItems.filter((item) => text(item.status) === "pending").length)
-    : pendingPrIndexCount;
-  const runningIntakeItemCount = numberValue(prepareIntakeItemCounts.running, prepareIntakeItems.filter((item) => text(item.status) === "running").length);
-  const completedIntakeItemCount = numberValue(prepareIntakeItemCounts.complete, prepareIntakeItems.filter((item) => text(item.status) === "complete").length);
-  const failedIntakeItemCount = numberValue(prepareIntakeItemCounts.failed, prepareIntakeItems.filter((item) => text(item.status) === "failed").length);
-  const retryableIntakeItemCount = numberValue(prepareIntakeItemCounts.retryable, prepareIntakeItems.filter((item) => text(item.status) === "failed" && item.retryable === true).length);
-  const totalIntakeItemCount = numberValue(prepareIntakeItemCounts.total, prepareIntakeItems.length);
   const canonicalPhase = text(canonicalCycle.phase);
   const canonicalSubphase = text(canonicalCycle.activeSubphase);
   const canonicalStatus = text(canonicalCycle.status);
@@ -757,9 +742,8 @@ export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | 
   const activeRunId = completedLegacyRun && mode === "none" ? "" : runId;
   const activeCycleId = canonicalCycleId || activeRunId || (mode === "none" ? "" : fallbackCycleId);
   const activeCycleLabel = canonicalCycleId ? `Cycle ${shortId(canonicalCycleId)}` : activeRunId ? `Run ${shortId(activeRunId)}` : "No active cycle";
-  const recommendedSub = canonicalPhase === "preparing" ? "prepare" : canonicalPhase === "pr" ? "pr" : canonicalPhase === "running" ? "run" : mode === "pr" ? "pr" : mode === "run" ? "run" : "done";
+  const recommendedSub = harnessState?.active_workflow?.kind === "sync" ? "sync" : canonicalPhase === "preparing" ? "run" : canonicalPhase === "pr" ? "pr" : canonicalPhase === "running" ? "run" : mode === "pr" ? "pr" : mode === "run" ? "run" : "done";
   const cycleStageStates: CycleView["cycleStageStates"] = {
-    prepare: text(asObject(canonicalPhases.preparing).completed_at) ? "done" : "todo",
     run: text(asObject(canonicalPhases.running).completed_at) ? "done" : "todo",
     pr: text(asObject(canonicalPhases.pr).completed_at) ? "done" : "todo",
     done: text(canonicalCycle.completedAt) || canonicalStatus === "complete" || canonicalPhase === "complete" || (completedLegacyRun && !hasCanonicalCycle) ? "done" : "todo",
@@ -778,9 +762,11 @@ export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | 
     activeClaims === 0 &&
     !syncing &&
     !operationActive;
+  // The server's "preparing" phase still exists as a contract; the UI no
+  // longer presents it as a stage, so it reads as a neutral not-started state.
   const modeLabel =
     canonicalPhase === "preparing"
-      ? "Preparing"
+      ? "Not started"
       : canonicalPhase === "complete"
         ? "Complete"
         : mode === "pr"
@@ -817,29 +803,9 @@ export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | 
     prepareState: {
       baseline: prepareBaseline,
       baselineDone,
-      headSha: prepareHeadSha,
-      headShortSha: prepareHeadSha ? prepareHeadSha.slice(0, 10) : "",
-      intake: prepareIntake,
       intakeDone,
-      knowledge: prepareKnowledge,
       knowledgeDone,
-      mergedPrs: prepareMergedPrs,
-      prIndexDebt: preparePrIndexDebt,
-      prIndexDebtKnown,
-      pendingMergedPrIndexCount,
-      pendingIntakePrCount,
-      pendingPrIndexCount,
-      runningIntakeItemCount,
-      completedIntakeItemCount,
-      failedIntakeItemCount,
-      retryableIntakeItemCount,
-      totalIntakeItemCount,
       readyToStartRun: hasCanonicalCycle && canonicalPhase === "preparing" && baselineDone && !process.running && activeClaims === 0 && !syncing && !operationActive,
-      cycleCurrentWorktreePath: prepareCycleCurrentWorktreePath,
-      sync: prepareSync,
-      syncDone,
-      upstreamChanged: prepareUpstreamChanged,
-      upstreamWorktreePath: prepareUpstreamWorktreePath,
     },
     prSummary: {
       checkpoint,

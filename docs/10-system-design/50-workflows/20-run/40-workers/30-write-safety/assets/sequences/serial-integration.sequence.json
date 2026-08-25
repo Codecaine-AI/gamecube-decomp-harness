@@ -3,17 +3,66 @@
   "id": "worker-serial-integration",
   "title": "Serial worker integration",
   "participants": [
-    { "id": "p1", "name": "worker_a", "kind": "actor", "label": "Worker A" },
-    { "id": "p2", "name": "worker_b", "kind": "actor", "label": "Worker B" },
-    { "id": "p3", "name": "integrator", "kind": "participant", "label": "Serial integrator" },
-    { "id": "p4", "name": "resolver", "kind": "participant", "label": "Conflict resolver" },
-    { "id": "p5", "name": "ancestry", "kind": "participant", "label": "Cycle ancestry" },
-    { "id": "p6", "name": "boundary", "kind": "participant", "label": "Epoch boundary" },
-    { "id": "p7", "name": "operator", "kind": "actor", "label": "Operator" }
+    {
+      "id": "p1",
+      "name": "worker_a",
+      "kind": "actor",
+      "label": "Worker A"
+    },
+    {
+      "id": "p2",
+      "name": "worker_b",
+      "kind": "actor",
+      "label": "Worker B"
+    },
+    {
+      "id": "p3",
+      "name": "integrator",
+      "kind": "participant",
+      "label": "Serial integrator"
+    },
+    {
+      "id": "p4",
+      "name": "resolver",
+      "kind": "participant",
+      "label": "Integration resolver"
+    },
+    {
+      "id": "p5",
+      "name": "ancestry",
+      "kind": "participant",
+      "label": "Cycle ancestry"
+    },
+    {
+      "id": "p6",
+      "name": "boundary",
+      "kind": "participant",
+      "label": "Epoch boundary"
+    },
+    {
+      "id": "p7",
+      "name": "operator",
+      "kind": "actor",
+      "label": "Operator"
+    }
   ],
   "items": [
-    { "kind": "message", "id": "m1", "from": "p1", "to": "p3", "line": "sync", "text": "submit selected checkpoint" },
-    { "kind": "message", "id": "m2", "from": "p2", "to": "p3", "line": "sync", "text": "submit selected checkpoint" },
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p3",
+      "line": "sync",
+      "text": "submit selected checkpoint"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p2",
+      "to": "p3",
+      "line": "sync",
+      "text": "submit selected checkpoint"
+    },
     {
       "kind": "fragment",
       "id": "f1",
@@ -22,28 +71,56 @@
         {
           "guard": "clean application",
           "items": [
-            { "kind": "message", "id": "m3", "from": "p3", "to": "p5", "line": "sync", "text": "append tentative change" }
+            {
+              "kind": "message",
+              "id": "m3",
+              "from": "p3",
+              "to": "p5",
+              "line": "sync",
+              "text": "apply patch and commit immediately"
+            }
           ]
         },
         {
-          "guard": "merge conflict",
+          "guard": "apply --check conflict",
           "items": [
-            { "kind": "message", "id": "m4", "from": "p3", "to": "p4", "line": "sync", "text": "send conflict group and evidence" },
+            {
+              "kind": "message",
+              "id": "m4",
+              "from": "p3",
+              "to": "p4",
+              "line": "sync",
+              "text": "record conflict outcome; resolver launches promptly"
+            },
             {
               "kind": "fragment",
               "id": "f2",
               "op": "alt",
               "operands": [
                 {
-                  "guard": "resolved",
+                  "guard": "resolved (terminal)",
                   "items": [
-                    { "kind": "message", "id": "m5", "from": "p4", "to": "p5", "line": "sync", "text": "append resolved tentative change" }
+                    {
+                      "kind": "message",
+                      "id": "m5",
+                      "from": "p4",
+                      "to": "p5",
+                      "line": "sync",
+                      "text": "commit hand-merged tree; original patch never re-applied"
+                    }
                   ]
                 },
                 {
-                  "guard": "unresolved",
+                  "guard": "failed / needs_rework / blocked / resolver_failed",
                   "items": [
-                    { "kind": "message", "id": "m6", "from": "p4", "to": "p7", "line": "async", "text": "publish operator-visible conflict" }
+                    {
+                      "kind": "message",
+                      "id": "m6",
+                      "from": "p4",
+                      "to": "p7",
+                      "line": "async",
+                      "text": "publish blocking outcome; epoch boundary waits"
+                    }
                   ]
                 }
               ]
@@ -52,7 +129,14 @@
         }
       ]
     },
-    { "kind": "message", "id": "m7", "from": "p5", "to": "p6", "line": "sync", "text": "run global build and zero-regression report" },
+    {
+      "kind": "message",
+      "id": "m7",
+      "from": "p5",
+      "to": "p6",
+      "line": "sync",
+      "text": "run global build and zero-regression report"
+    },
     {
       "kind": "fragment",
       "id": "f3",
@@ -61,17 +145,33 @@
         {
           "guard": "clean boundary",
           "items": [
-            { "kind": "message", "id": "m8", "from": "p6", "to": "p5", "line": "sync", "text": "confirm tentative window" }
+            {
+              "kind": "message",
+              "id": "m8",
+              "from": "p6",
+              "to": "p5",
+              "line": "sync",
+              "text": "confirm tentative window"
+            }
           ]
         },
         {
           "guard": "regression",
           "items": [
-            { "kind": "message", "id": "m9", "from": "p6", "to": "p5", "line": "sync", "text": "attribute blame, revert guilty change, and mark regressed" }
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p6",
+              "to": "p5",
+              "line": "sync",
+              "text": "attribute blame, revert guilty change, and mark regressed"
+            }
           ]
         }
       ]
     }
   ],
-  "style": { "accent": "#9B59B6" }
+  "style": {
+    "accent": "#9B59B6"
+  }
 }

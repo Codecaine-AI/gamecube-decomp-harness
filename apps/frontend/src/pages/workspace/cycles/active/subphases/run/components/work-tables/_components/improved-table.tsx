@@ -27,6 +27,7 @@ import {
   num,
   scoreOrPercent,
   scorePairLooksPercent,
+  text,
   type Dashboard,
   type JsonObject,
 } from "@/lib/format";
@@ -34,6 +35,7 @@ import {
 interface ImprovedTableProps {
   dashboard: Dashboard | null;
   mode: ImprovedMode;
+  onSelectAttempt?: (workerStateId: string) => void;
 }
 
 function scorePart(value: unknown): string {
@@ -105,7 +107,7 @@ function itemTitle(entry: JsonObject, mode: ImprovedMode): string {
   return `${rowItem(entry)}\nScore: ${scoreTitle(entry)}\n${deltaLabel}: ${bytesTitle(entry)}`;
 }
 
-export function ImprovedTable({ dashboard, mode }: ImprovedTableProps) {
+export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTableProps) {
   const [page, setPage] = useState(0);
   const [resultMode, setResultMode] = useState<ImprovedResultMode>("matches");
   const rows = reportRows(dashboard, mode, resultMode);
@@ -183,19 +185,42 @@ export function ImprovedTable({ dashboard, mode }: ImprovedTableProps) {
               </tr>
             </thead>
             <tbody>
-              {visible.map((entry, index) => (
-                <tr className="row-rhythm-1" key={`${rowPath(entry)}-${rowItem(entry)}-${index}`}>
-                  <td title={itemTitle(entry, mode)}>{rowItem(entry)}</td>
-                  {tentativeMode ? (
-                    <td className="text-center" title={rowDeltaTitle(entry)}><ScoreCell entry={entry} /></td>
-                  ) : (
-                    <>
-                      <td className="text-center"><ScoreCell entry={entry} /></td>
-                      <td className={`text-right ${rowDeltaClass(entry)}`} title={rowDeltaTitle(entry)}>{rowDelta(entry)}</td>
-                    </>
-                  )}
-                </tr>
-              ))}
+              {visible.map((entry, index) => {
+                const workerStateId = tentativeMode ? text(entry.workerStateId) : "";
+                const selectable = Boolean(workerStateId && onSelectAttempt);
+
+                function selectAttempt() {
+                  if (workerStateId) onSelectAttempt?.(workerStateId);
+                }
+
+                return (
+                  <tr
+                    aria-label={selectable ? `Open attempt detail for ${rowItem(entry)}` : undefined}
+                    className={`row-rhythm-1 ${selectable ? "cursor-pointer hover:bg-raised" : ""}`}
+                    key={`${rowPath(entry)}-${rowItem(entry)}-${index}`}
+                    onClick={selectable ? selectAttempt : undefined}
+                    onKeyDown={selectable ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectAttempt();
+                      }
+                    } : undefined}
+                    role={selectable ? "button" : undefined}
+                    tabIndex={selectable ? 0 : undefined}
+                    title={selectable ? "Open attempt detail" : undefined}
+                  >
+                    <td title={itemTitle(entry, mode)}>{rowItem(entry)}</td>
+                    {tentativeMode ? (
+                      <td className="text-center" title={rowDeltaTitle(entry)}><ScoreCell entry={entry} /></td>
+                    ) : (
+                      <>
+                        <td className="text-center"><ScoreCell entry={entry} /></td>
+                        <td className={`text-right ${rowDeltaClass(entry)}`} title={rowDeltaTitle(entry)}>{rowDelta(entry)}</td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
               {visible.length === 0 ? (
                 <tr className="row-rhythm-1">
                   <td className="text-dim" colSpan={columns}>{improvedEmptyText(dashboard, mode, resultMode)}</td>

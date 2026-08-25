@@ -11,6 +11,12 @@ PR_QA_WAIT_CI ?= 0
 DOCS_PORT ?= 4800
 DOCS_API_PORT ?= 4801
 DOCS_KERNEL_PORT ?= 4840
+# Style rail: unlocked by default so this corpus can author the shared theme.
+# docs-cli resolves --themes-root to the docs-system checkout, so rail edits
+# made here write back to Core/docs-system/themes/default (the global theme).
+# Set DOCS_THEME_LOCKED=1 for a read-only serve (rail hidden, writes 403).
+DOCS_THEME_LOCKED ?= 0
+DOCS_THEME_LOCK_FLAG := $(if $(filter 1 true yes,$(DOCS_THEME_LOCKED)),--theme-locked,)
 
 PROVIDER ?= codex-lb
 MODEL ?= gpt-5.6-sol
@@ -121,7 +127,7 @@ docs:
 	    --dev \
 	    --port "$(DOCS_API_PORT)" \
 	    --ui-port "$(DOCS_PORT)" \
-	    --theme-locked \
+	    $(DOCS_THEME_LOCK_FLAG) \
 	    --corpus gamecube-decomp-harness
 
 status:

@@ -19,7 +19,6 @@ import { addEvent } from "@server/core/cycle-runtime/run-state/events.js";
 import { activeLockedSourcePaths, admitPriorityTargets } from "@server/core/cycle-runtime/run-state/targets.js";
 import { processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import { requireLease } from "@server/core/harness-state";
-import { processWriteSetIntegrationFlags } from "@server/core/cycle-runtime/phases/running/integration/write-set-options.js";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import {
   isHostToolPlatform,
@@ -43,7 +42,7 @@ export interface EpochCycleOptions {
   baseRef?: string;
   /** Shell command run in the epoch worktree before the report build; "" skips it. */
   configureCommand?: string;
-  /** Overrides the default-off merge/widening confirmation flag gate. */
+  /** Explicit opt-in for the boundary confirmation pass; default off. */
   confirmationPass?: boolean;
   /** Durable scheduler epoch identity for cycle timeline evidence. */
   epochId?: string;
@@ -52,8 +51,6 @@ export interface EpochCycleOptions {
   leaseId: string;
   /** Untracked build inputs symlinked from the live repo into the worktree (e.g. orig assets). */
   linkPaths?: string[];
-  /** Uses merge-on-finish queue semantics while draining boundary leftovers. */
-  mergeOnFinish?: boolean;
   gameId?: string | null;
   /** Above this many regressed report rows the cycle pauses instead of admitting repairs. */
   regressionPauseThreshold?: number;
@@ -142,10 +139,12 @@ function pathspecExcludes(paths: string[]): string[] {
 }
 
 /**
- * Commit everything except in-flight worker files. Active-lease files stay
- * uncommitted on purpose: the epoch measures validated work only, and a
+ * Commit residual changes except in-flight worker files. Accepted worker
+ * output is committed per-accept by the integration queue, so this snapshot
+ * usually finds nothing and no-ops with the current head. Active-lease files
+ * stay uncommitted on purpose: the epoch measures validated work only, and a
  * half-finished attempt must not poison the checkpoint build. Work excluded
- * here simply lands in the next epoch's commit.
+ * here simply lands in a later commit.
  */
 async function commitEpochSnapshot(params: {
   store: StateStore;
@@ -171,6 +170,17 @@ async function commitEpochSnapshot(params: {
   if (!add.ok) {
     throw new Error(`epoch integration git add failed: ${add.text}`);
   }
+  // Per-accept integration commits make the boundary snapshot residual. When
+  // nothing is staged the boundary skips the no-op commit and continues with
+  // the current head (report build, save point, and epoch worktree still run).
+  const staged = await git(params.repoRoot, ["diff", "--cached", "--quiet"]);
+  if (staged.ok) {
+    const head = await git(params.repoRoot, ["rev-parse", "HEAD"]);
+    if (!head.ok || !head.text.trim()) {
+      throw new Error(`epoch integration head resolution failed: ${head.text}`);
+    }
+    return { commitSha: head.text, committed: false, warning: null };
+  }
   const branch = await git(params.repoRoot, ["symbolic-ref", "--short", "HEAD"]);
   if (!branch.ok || !branch.text.trim()) {
     throw new Error(`epoch integration branch resolution failed: ${branch.text || "detached HEAD"}`);
@@ -186,8 +196,8 @@ async function commitEpochSnapshot(params: {
     parentSha: parent.text,
   });
   // Snapshot commits are internal checkpoints, and target-repo pre-commit
-  // hooks must not abort them. An empty marked commit is intentional: every
-  // epoch needs a unique, recoverable integration boundary.
+  // hooks must not abort them. --allow-empty guards a stage/commit race; the
+  // truly-empty case already returned above with the current head.
   let commit: GitResult;
   try {
     params.revalidateLease();
@@ -587,7 +597,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const reportChangesRelPath = options.reportChangesRelPath ?? "build/GALE01/report_changes.json";
   const baselineRelPath = options.baselineRelPath ?? "build/GALE01/baseline.json";
   const toolPlatform = resolveToolPlatform({ targetPlatform: options.toolPlatform });
-  const confirmationEnabled = options.confirmationPass ?? processWriteSetIntegrationFlags().confirmationPass;
+  const confirmationEnabled = options.confirmationPass ?? false;
   epochProgress(store, runId, {
     label,
     phase: "integration_drain",
@@ -598,7 +608,6 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     dryRun: false,
     leaseId: options.leaseId,
     limit: 64,
-    mergeOnFinish: options.mergeOnFinish,
     repoRoot,
     runId,
     stateDir,

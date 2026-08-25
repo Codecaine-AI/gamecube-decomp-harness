@@ -1,6 +1,6 @@
 import { AlertTriangle } from "@/icons";
 import type { ReactNode } from "react";
-import { type AppRoute, type CycleSubPage } from "@/routing";
+import { type AppRoute, type CycleDetail, type CycleSubPage } from "@/routing";
 import { WorkspaceSidebar } from "@/pages/workspace/_components/WorkspaceSidebar";
 import type { WorkspaceNav } from "@/pages/workspace/_lib/types";
 
@@ -23,7 +23,7 @@ export function useWorkspaceNav(onNavigate: (route: AppRoute) => void, gameId: s
   return {
     goToDashboard: () => onNavigate({ kind: "dashboard" }),
     goToSection: (section) => onNavigate({ kind: "workspace", section, gameId }),
-    goToCycle: (focus, sub?: CycleSubPage) => onNavigate({ kind: "workspace", section: "cycles", cycle: focus, cycleSub: sub, gameId }),
+    goToCycle: (focus, sub?: CycleSubPage, detail?: CycleDetail) => onNavigate({ kind: "workspace", section: "cycles", cycle: focus, cycleSub: sub, cycleDetail: detail, gameId }),
   };
 }
 

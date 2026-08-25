@@ -1,0 +1,3 @@
+# Process Outline and Trace Alignment
+
+This objective makes the harness documentation and runtime traces tell the same story. It inventories all 49 Process Outline blocks, settles one operator-facing vocabulary, repairs missing trace hierarchy and labels, rebuilds outlines to match real execution, and verifies every process by walking a real trace. Start with `goal.md` and `current_state.md`; `context/00_problem.md` explains the mismatch, `01_constraints.md` defines valid outlines and fidelity, `02_implementation_scope.md` names edit boundaries, `03_working_plan.md` holds phase gates, `04_validation_and_handoff.md` defines acceptance, and `05_process_map.md` is the living interview, inventory, naming, bug, and verification record.

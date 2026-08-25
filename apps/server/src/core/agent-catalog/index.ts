@@ -47,16 +47,6 @@ export {
   type ReconcilePromptOptions,
 } from "@server/core/agent-catalog/agents/pr/reconcile/index.js";
 export {
-  conflictResolverAgent,
-  conflictResolverPrompt,
-  invokeConflictResolver,
-  validateConflictResolverAgentResult,
-  type ConflictResolverAgentResult,
-  type ConflictResolverAgentRunner,
-  type ConflictResolverInvocationResult,
-  type ConflictResolverPromptOptions,
-} from "@server/core/agent-catalog/agents/running/conflict-resolver/index.js";
-export {
   integrationResolverAgent,
   integrationResolverPrompt,
   validateIntegrationResolverAgentResult,
@@ -69,7 +59,6 @@ export {
   buildAgentTools,
   defaultAgentToolProfiles,
   defaultIntegrationResolverToolProfile,
-  defaultConflictResolverToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultWorkerToolProfile,

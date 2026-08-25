@@ -104,7 +104,6 @@ describe("confirmed-only PR eligibility", () => {
     try {
       const run = exactCheckpoint(store, "tentative");
       addEvent(store, run.id, "write_set_integration_flags", "test", {
-        merge_on_finish: true,
         write_set_widening: "header",
       });
       const result = createRunCheckpoint(store, run.id, { artifactDir: resolve(dir, "checkpoint") });

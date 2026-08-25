@@ -78,7 +78,6 @@ export function workerCommand(
   command.push("--lease-id", params.leaseId);
   command.push("--graph-db", params.graphDbPath);
   if (params.writeSetFlags.writeSetWidening !== "off") command.push("--write-set-widening", params.writeSetFlags.writeSetWidening);
-  if (params.writeSetFlags.mergeOnFinish) command.push("--merge-on-finish");
   return command;
 }
 

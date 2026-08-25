@@ -44,7 +44,7 @@ function insertTentative(
           worker_state_id, worker_checkpoint_id, status, disposition,
           patch_path, write_set_json, metadata_json,
           created_at, updated_at
-        ) VALUES (?, 'run-1', 'epoch-1', ?, ?, ?, ?, 'applied', 'merge_on_finish_clean', ?, ?, ?, ?, ?)
+        ) VALUES (?, 'run-1', 'epoch-1', ?, ?, ?, ?, 'applied', 'clean_apply', ?, ?, ?, ?, ?)
       `,
     )
     .run(

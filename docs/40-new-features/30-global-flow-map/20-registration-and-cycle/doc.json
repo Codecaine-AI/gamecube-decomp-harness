@@ -1,0 +1,368 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map-20-registration-and-cycle",
+  "title": "Registration and Cycle Lifecycle",
+  "root": "b-gf-cycle-root-1",
+  "blocks": {
+    "b-gf-cycle-root-1": {
+      "id": "b-gf-cycle-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-gf-cycle-intro-2",
+        "b-gf-cycle-outline-4"
+      ]
+    },
+    "b-gf-cycle-intro-2": {
+      "id": "b-gf-cycle-intro-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Working process flow for this band of the global flow. Confirmed detail from the walkthrough accumulates here before mapping to the owning chapter."
+        }
+      ],
+      "children": []
+    },
+    "b-gf-cycle-outline-4": {
+      "id": "b-gf-cycle-outline-4",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Register a game",
+            "steps": [
+              {
+                "text": "Registration is descriptor resolution. `resolveGame` reads files and returns a value; nothing is activated and nothing is written.",
+                "kind": "note"
+              },
+              {
+                "text": "Resolve the game id from the argument, `defaultGame`, or the sole directory"
+              },
+              {
+                "text": "Fail when several candidates exist with no default"
+              },
+              {
+                "text": "Read `games/<id>/game.json`, requiring its `id` to match the directory"
+              },
+              {
+                "text": "Layer `local.game.json`, then explicit path overrides"
+              },
+              {
+                "text": "Resolve `repoRoot`, `stateDir`, `graphDb`, and `localEnv` against the game directory"
+              },
+              {
+                "text": "Fill the validation, dashboard, PR, knowledge, and sandbox blocks"
+              },
+              {
+                "text": "Warn for each missing path, then return the descriptor anyway"
+              },
+              {
+                "text": "`For each` descriptor under `games/`, return a `listGames` summary"
+              },
+              {
+                "text": "The documented four-stage activation process does not exist in code; registration is pure descriptor resolution, and a missing checkout surfaces as a warning rather than a blocker (bug catalog)",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Open a Cycle",
+            "steps": [
+              {
+                "text": "`Operator` posts `POST /api/cycle/new`"
+              },
+              {
+                "text": "Answer 409 with the existing Cycle when one is live"
+              },
+              {
+                "text": "Live means status `active`, `blocked`, or `closing`. A second open never creates a Cycle.",
+                "kind": "note"
+              },
+              {
+                "text": "`createNewCycle` writes the record and its opening event atomically"
+              },
+              {
+                "text": "Start `active` and `preparing` at revision 0, head from base sha"
+              },
+              {
+                "text": "Emit `cycle.opened` with baseline, head, worktree, and Sync id",
+                "trace": true
+              },
+              {
+                "text": "Write the event id back as `caused_by_event_id`"
+              },
+              {
+                "text": "`ensureCycle` hands back the existing Cycle instead of a second"
+              },
+              {
+                "text": "Documented open-gate semantics: every prior Cycle is closed, the canonical worktree is provisioned, and the immutable baseline and `head_revision` name the same source boundary.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Prepare the Cycle",
+            "steps": [
+              {
+                "text": "Open the `Prepare` container under the game session",
+                "trace": true
+              },
+              {
+                "text": "Hold phase `preparing`, stepping subphases `config`, `sync_intake`, `processing_prs`, `knowledge_refresh`, `baseline`, `ready`",
+                "trace": true
+              },
+              {
+                "text": "Every subphase update is status-preserving.",
+                "kind": "note"
+              },
+              {
+                "text": "Provision the `upstream_current` and cycle-branch worktrees at the cycle sha"
+              },
+              {
+                "text": "Stop the subphase when a registered path is not a usable worktree"
+              },
+              {
+                "text": "Record a step per git invocation, revalidating the dispatch lease between them"
+              },
+              {
+                "text": "Link game assets into each worktree, returning counts and paths"
+              },
+              {
+                "text": "Survey PR-index debt into a newest-first pending PR list"
+              },
+              {
+                "text": "A failed debt read returns status `error` instead of throwing. Intake counts tally pending, running, complete, failed, retryable, and total.",
+                "kind": "note"
+              },
+              {
+                "text": "Refresh knowledge with `kg-maintain` against the game's graph database"
+              },
+              {
+                "text": "Flip to subphase `baseline` once intake and knowledge read complete",
+                "trace": true
+              },
+              {
+                "text": "Baseline is single-flight, runs in the prepared main worktree rather than the game checkout, and without intake stops with \"Run PR intake before calculating the baseline\".",
+                "kind": "note"
+              },
+              {
+                "text": "Reset the report baseline",
+                "trace": true
+              },
+              {
+                "text": "Report against the new baseline",
+                "trace": true
+              },
+              {
+                "text": "Copy each run's artifacts into dashboard records"
+              },
+              {
+                "text": "Close the baseline completed or failed",
+                "trace": true
+              },
+              {
+                "text": "The legacy prepare paths for git sync and PR intake now hard-throw and point at the operator `sync.start` action, so observation, lease acquisition, staged validation, and confirm-gated publication stay inside SyncState (bug catalog)",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Move the Cycle through its phases",
+            "steps": [
+              {
+                "text": "Route every transition through `handleCycleCommand`"
+              },
+              {
+                "text": "One door for every transition, and one route path per command. `/api/cycle/force-pr` is `enter-pr` with force; `/api/cycle/complete` routes to `close`.",
+                "kind": "note"
+              },
+              {
+                "text": "Pin `correlation_id` to the Cycle UUID and reject any disagreement"
+              },
+              {
+                "text": "Complete preparing and pin the active run id",
+                "trace": true
+              },
+              {
+                "text": "`start-running` moves the phase with status still `active`",
+                "trace": true
+              },
+              {
+                "text": "Step running subphases `candidate_list`, `graph_rebuild`, `epoch_build`, `workers`, `checkpoint`, `draining`",
+                "trace": true
+              },
+              {
+                "text": "`stop-running` records a stop reason and manual stop mode",
+                "trace": true
+              },
+              {
+                "text": "Flip to `blocked` when the stop produces blockers",
+                "trace": true
+              },
+              {
+                "text": "Unblock to clear blockers and restore the stopped running state",
+                "trace": true
+              },
+              {
+                "text": "`enter-pr` requires status `active`, or `blocked` plus force",
+                "trace": true
+              },
+              {
+                "text": "Chain the forced unblock as causation for the PR entry"
+              },
+              {
+                "text": "Record the final build, then step PR subphases toward `publish`",
+                "trace": true
+              },
+              {
+                "text": "PR subphases run `final_build`, `qa`, `qa_fixes`, `split`, `prepare_prs`, `publish`, `review`, `intake`, and `publish-pr` jumps straight to `publish`.",
+                "kind": "note"
+              },
+              {
+                "text": "`mark-pr-complete` records completion without closing the Cycle",
+                "trace": true
+              },
+              {
+                "text": "`markCycleComplete` is the terminal status transition, carrying who completed it, the reason, the final save point, and settled PR counts. Nothing in the command switch reaches it.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Reconcile merged results",
+            "steps": [
+              {
+                "text": "Open the `Intake` container under Prepare",
+                "trace": true
+              },
+              {
+                "text": "`Sync Intake` is its sibling, covering the source side of the same reconciliation.",
+                "kind": "note"
+              },
+              {
+                "text": "`For each` merged PR, open a `PR #<n> intake` item",
+                "trace": true
+              },
+              {
+                "text": "Open its postmortem child in phase `postmortem`",
+                "trace": true
+              },
+              {
+                "text": "Open its knowledge intake child in phase `knowledge-intake`",
+                "trace": true
+              },
+              {
+                "text": "Both children carry the PR id, so the trace tree reads PR by PR instead of as one flat intake.",
+                "kind": "note"
+              },
+              {
+                "text": "Keep the `PR index` container as a Prepare child, beside per-PR intake"
+              }
+            ]
+          },
+          {
+            "text": "Record save points",
+            "steps": [
+              {
+                "text": "Write a save point with the `save-point` CLI job",
+                "trace": true
+              },
+              {
+                "text": "Requires `--cycle-uuid` and exactly one trigger: `manual`, `init`, `pause`, `checkpoint`, `qa`, `ship`, `sync`, `fresh`, or `epoch`.",
+                "kind": "note"
+              },
+              {
+                "text": "Read the dirty list, minus excluded paths and the state dir"
+              },
+              {
+                "text": "Resolve HEAD, base sha, and commits ahead; fail when HEAD will not resolve"
+              },
+              {
+                "text": "Copy `report.json` into a timestamped `save_points/` artifact directory"
+              },
+              {
+                "text": "It falls back to `baseline.json`, so the save point still records a real repo position.",
+                "kind": "note"
+              },
+              {
+                "text": "`boundarySavePoint` wraps the job, counting a missing id as failure"
+              },
+              {
+                "text": "Record durable evidence and raise a blocker on failure",
+                "trace": true
+              },
+              {
+                "text": "When even that record fails the error only reaches stderr, so the caller never learns no blocker was raised.",
+                "kind": "note"
+              },
+              {
+                "text": "Spool database-unreachable failures to disk, `wx` then rename"
+              },
+              {
+                "text": "`For each` unreplayed spool record, replay inside one transaction",
+                "trace": true
+              },
+              {
+                "text": "Match exactly one Cycle, requiring game, correlation, and actor agreement"
+              },
+              {
+                "text": "Anchor at `head_revision`, keyed on Cycle, commit, and trigger"
+              },
+              {
+                "text": "Replaying twice therefore does not double-write.",
+                "kind": "note"
+              },
+              {
+                "text": "Rewrite the record with `replayed_at` and the replay event id"
+              }
+            ]
+          },
+          {
+            "text": "Close the Cycle explicitly",
+            "steps": [
+              {
+                "text": "`Operator` posts `POST /api/cycle/close`"
+              },
+              {
+                "text": "`/api/cycle/complete` routes to the same command. Any other actor throws, as does an already-closed Cycle.",
+                "kind": "note"
+              },
+              {
+                "text": "Run the close gate, collecting blockers rather than throwing"
+              },
+              {
+                "text": "Raise `dispatch_lease_held` or `unshipped_work` per unmet obligation"
+              },
+              {
+                "text": "Unshipped work covers a worktree dirty beyond head, stale save-point evidence, unresolved save-point failures, a latest save point not anchored at `head_revision`, or no named save point at head. The message names which one.",
+                "kind": "note"
+              },
+              {
+                "text": "With blockers, move the Cycle to `blocked` or update its blocker set",
+                "trace": true
+              },
+              {
+                "text": "An unchanged blocker set writes nothing.",
+                "kind": "note"
+              },
+              {
+                "text": "With a clean gate, move `active` into `closing`",
+                "trace": true
+              },
+              {
+                "text": "Move to `closed` on the final evidence boundary, clearing the HarnessState slot",
+                "trace": true
+              },
+              {
+                "text": "The closed Cycle stays readable afterwards. No workflow transition closes a Cycle on its own.",
+                "kind": "note"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

@@ -60,6 +60,8 @@ import {
   gameSyncAction,
   type SyncActionId,
 } from "@server/core/cycle-runtime/phases/sync/runtime.js";
+import { parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
+import { quietGit } from "@server/core/cycle-runtime/phases/pr/pr-sync.js";
 
 export type JsonObject = Record<string, unknown>;
 type WorkerStateOutcome =
@@ -200,8 +202,24 @@ export interface DashboardSyncSummary {
     validated_upstream: string | null;
     observed_upstream: string | null;
     blocker: Blocker | null;
-    revalidate_action_id: "sync.cancel" | null;
+    revalidate_action_id: "sync.recover" | "sync.cancel" | null;
   };
+}
+
+/**
+ * Standing repo-sync posture for the active cycle.  Unlike
+ * DashboardSyncSummary.staleness this exists even when no sync workflow is
+ * active, and it only consults local git refs — fresh remote observation stays
+ * behind the sync actions (refreshSyncUpstreamObservation).
+ */
+export interface DashboardRepoSyncState {
+  cycle_head: string | null;
+  upstream_ref: string;
+  upstream_anchor: string | null;
+  local_upstream_sha: string | null;
+  behind_count: number | null;
+  last_synced_at: string | null;
+  needs_sync: boolean;
 }
 
 export interface GameSyncActionState {
@@ -312,6 +330,7 @@ export interface HarnessStateView {
     }>;
   };
   sync: DashboardSyncSummary | null;
+  repo_sync: DashboardRepoSyncState;
   active_operations: Array<{ operation_id: string; status: string; [key: string]: unknown }>;
   recent_events: GameEventDto[];
   available_actions: ActionProjection[];
@@ -321,6 +340,8 @@ export interface HarnessStateView {
 export interface HarnessStateViewOptions extends Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> {
   /** Legacy dashboard evidence used by the cycle close/readiness gates. */
   campaign?: JsonObject;
+  /** Game checkout used for the local-only repo_sync git observation. */
+  gameContext?: Pick<GameRuntimeContext, "game" | "repoRoot">;
 }
 
 export interface DashboardReadModelDependencies {
@@ -1184,6 +1205,7 @@ function syncSummaryProjection(
   const pushed = sync.pr_reconciliation.filter((entry) => entry.pushed).length;
   const staleBlocker = sync.blockers.find((entry) => entry.code === "upstream_moved_after_validation") ?? null;
   const cancelAction = availableActions.find((entry) => entry.action_id === "sync.cancel");
+  const recoverAction = availableActions.find((entry) => entry.action_id === "sync.recover");
   const validatedUpstream = sync.staging?.validated_upstream ?? null;
   const observedUpstream = sync.staging?.observed_upstream ?? sync.intake.upstream_to;
   const stale = staleBlocker !== null || Boolean(
@@ -1233,7 +1255,9 @@ function syncSummaryProjection(
       validated_upstream: validatedUpstream,
       observed_upstream: observedUpstream,
       blocker: staleBlocker,
-      revalidate_action_id: stale && cancelAction?.enabled ? "sync.cancel" : null,
+      revalidate_action_id: stale && recoverAction?.enabled
+        ? "sync.recover"
+        : stale && cancelAction?.enabled ? "sync.cancel" : null,
     },
   };
 }
@@ -1255,6 +1279,86 @@ export function gameSyncActionState(
   return {
     availableActions,
     sync: sync ? syncSummaryProjection(sync, cycle, availableActions) : null,
+  };
+}
+
+const REPO_SYNC_GIT_MEMO_TTL_MS = 10_000;
+const REPO_SYNC_GIT_MEMO_MAX_ENTRIES = 64;
+const repoSyncGitMemo = new Map<
+  string,
+  { at: number; head: string | null; local_upstream_sha: string | null; behind_count: number | null }
+>();
+
+/**
+ * Local-ref-only git observation for repo_sync.  Never fetches; any git
+ * failure degrades to nulls.  Memoized so dashboard polling does not spawn a
+ * git subprocess on every tick.
+ */
+function repoSyncGitObservation(
+  repoRoot: string,
+  upstreamRef: string,
+  fallbackHead: string | null,
+): { head: string | null; local_upstream_sha: string | null; behind_count: number | null } {
+  const key = [repoRoot, upstreamRef, fallbackHead ?? ""].join("\u0000");
+  const now = Date.now();
+  const memo = repoSyncGitMemo.get(key);
+  if (memo && now - memo.at < REPO_SYNC_GIT_MEMO_TTL_MS) return memo;
+  let head: string | null = fallbackHead;
+  let localUpstreamSha: string | null = null;
+  let behindCount: number | null = null;
+  try {
+    // The checkout's HEAD is the tree operators actually run on;
+    // cycles.head_revision can lag it by weeks between save points.
+    const headParse = quietGit(repoRoot, ["rev-parse", "--verify", "HEAD^{commit}"]);
+    head = headParse.exitCode === 0 ? headParse.stdout.trim() || fallbackHead : fallbackHead;
+    const revParse = quietGit(repoRoot, ["rev-parse", "--verify", `${upstreamRef}^{commit}`]);
+    localUpstreamSha = revParse.exitCode === 0 ? revParse.stdout.trim() || null : null;
+    if (localUpstreamSha && head) {
+      const revList = quietGit(repoRoot, ["rev-list", "--count", `${head}..${localUpstreamSha}`]);
+      const parsed = Number.parseInt(revList.stdout.trim(), 10);
+      behindCount = revList.exitCode === 0 && Number.isFinite(parsed) ? parsed : null;
+    }
+  } catch {
+    head = fallbackHead;
+    localUpstreamSha = null;
+    behindCount = null;
+  }
+  if (repoSyncGitMemo.size >= REPO_SYNC_GIT_MEMO_MAX_ENTRIES) repoSyncGitMemo.clear();
+  const observation = { at: now, head, local_upstream_sha: localUpstreamSha, behind_count: behindCount };
+  repoSyncGitMemo.set(key, observation);
+  return observation;
+}
+
+export function repoSyncProjection(
+  store: ReturnType<typeof openState>,
+  gameId: string,
+  cycle: CycleRecord | null,
+  gameContext: Pick<GameRuntimeContext, "game" | "repoRoot"> | undefined,
+): DashboardRepoSyncState {
+  const { branch, remote } = parseBaseRef(gameContext?.game?.baseRef ?? "origin/master");
+  const upstreamRef = `${remote}/${branch}`;
+  const cycleHead = cycle?.head_revision ?? null;
+  let anchor: { upstream_revision: string; updated_at: string } | null = null;
+  try {
+    anchor = store.db
+      .query("SELECT upstream_revision, updated_at FROM game_upstream_anchors WHERE game_id = ?")
+      .get(gameId) as { upstream_revision: string; updated_at: string } | null;
+  } catch {
+    anchor = null;
+  }
+  const observation = gameContext?.repoRoot
+    ? repoSyncGitObservation(gameContext.repoRoot, upstreamRef, cycleHead)
+    : { head: cycleHead, local_upstream_sha: null, behind_count: null };
+  return {
+    cycle_head: observation.head,
+    upstream_ref: upstreamRef,
+    upstream_anchor: anchor?.upstream_revision ?? null,
+    local_upstream_sha: observation.local_upstream_sha,
+    behind_count: observation.behind_count,
+    last_synced_at: anchor?.updated_at ?? null,
+    needs_sync:
+      (observation.behind_count ?? 0) > 0 ||
+      (observation.head === null && observation.local_upstream_sha !== null),
   };
 }
 
@@ -1497,6 +1601,7 @@ export function getHarnessStateView(
     pr_work: prState.pr ? [prState.pr] : [],
     knowledge,
     sync: syncState.sync,
+    repo_sync: repoSyncProjection(store, gameId, cycle, options.gameContext),
     active_operations: [],
     recent_events: recentGameEvents(store.db, gameId, 20),
     available_actions: availableActions,
@@ -1651,10 +1756,14 @@ function activeCycleRunId(cycle: JsonObject | null): string {
 function activeCycleRepoRoot(cycle: JsonObject | null): string {
   if (!cycle) return "";
   const sync = asObject(asObject(asObject(cycle.phases).preparing).sync);
-  return stringValue(
+  const recorded = stringValue(
     sync.cycleCurrentWorktreePath,
     stringValue(sync.cycleWorktreePath),
   );
+  // Recorded prepare-era worktree paths can outlive the worktree itself
+  // (repo moves, retired cycles); a missing directory must not become the
+  // dashboard's git cwd or every poll crashes the server on spawn ENOENT.
+  return recorded && existsSync(recorded) ? recorded : "";
 }
 
 export function dashboardAuthorityRepoRoot(
@@ -1664,7 +1773,11 @@ export function dashboardAuthorityRepoRoot(
 ): string {
   if (paths.usePathOverrides) return paths.repoRoot;
   const run = asObject(status.run);
-  return activeCycleRepoRoot(cycle) || stringValue(asObject(run.game).repoRoot, paths.repoRoot);
+  const recordedRunRoot = stringValue(asObject(run.game).repoRoot);
+  return (
+    activeCycleRepoRoot(cycle) ||
+    (recordedRunRoot && existsSync(recordedRunRoot) ? recordedRunRoot : paths.repoRoot)
+  );
 }
 
 function activeCycleBaseline(cycle: JsonObject | null, runId: string): JsonObject | null {
@@ -3587,6 +3700,9 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
     try {
       harnessState = getHarnessStateView(harnessStateStore, gameId, {
         campaign,
+        // The authority root (cycle worktree when present) is the tree whose
+        // head answers "are we behind upstream"; the raw checkout can lag it.
+        gameContext: { game: paths.game, repoRoot: repoRoot || paths.repoRoot },
         hasActiveProcess: dashboardDeps().hasActiveProcess,
       });
     } finally {

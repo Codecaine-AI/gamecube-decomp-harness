@@ -22,6 +22,7 @@
 				"b-index-in-the-default-epoch-cyc-19",
 				"b-10-run-director-loop-worker-delegation-48",
 				"b-10-run-director-loop-an-epoch-target-plus-tar-49",
+				"b-10-run-director-loop-base-rev-advance-60",
 				"b-10-run-director-loop-worker-delegation-sequence-20260818",
 				"b-10-run-director-loop-worker-checkpoint-contra-51",
 				"b-10-run-director-loop-the-runner-records-worke-52",
@@ -129,11 +130,17 @@
 								"text": "Queue knowledge processing for every closed worker state, including errors and non-improvements"
 							},
 							{
-								"text": "Drain run-scoped integration in single flight and preserve conflict or resolver outcomes"
+								"text": "Drain integration jobs in single flight, applying and committing each accepted checkpoint to the cycle repo and advancing the worker base revision"
+							},
+							{
+								"text": "Launch integration resolvers promptly for recorded conflicts, path-disjoint and capped by `integrationResolverConcurrency`"
 							},
 							{
 								"text": "At an epoch boundary",
 								"steps": [
+									{
+										"text": "Wait for open integration resolvers; unresolved integrations block the boundary"
+									},
 									{
 										"text": "Pause intake and rebuild authoritative report truth"
 									},
@@ -460,6 +467,35 @@
 			"text": [
 				{
 					"insert": "Selection is deterministic: exact checkpoints win over non-exact checkpoints, then higher score wins, then earlier validation time. Only confirmed integrations can enter PR preparation; failed and neutral checkpoints remain durable evidence for later ranking and knowledge processing."
+				}
+			],
+			"children": []
+		},
+		"b-10-run-director-loop-base-rev-advance-60": {
+			"id": "b-10-run-director-loop-base-rev-advance-60",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Provisioning pins each attempt's base revision at claim time: a worker job captures "
+				},
+				{
+					"insert": "baseRev",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " exactly once when it claims, and its sandbox provisions from that commit for the whole attempt. The loop advances "
+				},
+				{
+					"insert": "baseRev",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " on every integration commit and on every resolver resolution commit, and the epoch boundary advances it with a compare-and-set that never rolls back a newer integration commit. Every newly provisioned worker therefore starts from the newest committed tree and builds on accepted work instead of the epoch-start tree."
 				}
 			],
 			"children": []

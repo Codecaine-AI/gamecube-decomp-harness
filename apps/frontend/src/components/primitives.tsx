@@ -1,5 +1,4 @@
 import type { ComponentProps, ReactNode } from "react";
-import { Fragment } from "react";
 
 type ButtonTone = "default" | "primary" | "warning" | "danger";
 type ButtonProps = Omit<ComponentProps<"button">, "ref"> & { icon?: ReactNode; tone?: ButtonTone };
@@ -144,13 +143,14 @@ export function StatCard({ label, tone = "text-soft", value }: { label: string; 
   );
 }
 
-export function PageHeader({ kicker, title }: { kicker: string; title: string }) {
+export function PageHeader({ kicker, right, title }: { kicker: string; right?: ReactNode; title: string }) {
   return (
     <header className="flex h-[68px] shrink-0 items-center gap-3 border-b border-line bg-panel px-4 py-3">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-dim">{kicker}</div>
         <h2 className="m-0 mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[18px] font-bold tracking-normal text-fg">{title}</h2>
       </div>
+      {right ? <div className="ml-auto flex shrink-0 items-center justify-end gap-2">{right}</div> : null}
     </header>
   );
 }
@@ -162,6 +162,38 @@ export function InfoRows({ rows }: { rows: Array<[string, ReactNode, string?]> }
         <div className="grid min-h-8 grid-cols-[120px_minmax(0,1fr)] items-center gap-2 border-t border-line px-2.5 py-1.5 first:border-t-0" key={label}>
           <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">{label}</span>
           <span className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap ${tone}`}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function MiniRows({
+  rows,
+}: {
+  rows: Array<{
+    label: string;
+    title?: string;
+    tone?: string;
+    value: string;
+  }>;
+}) {
+  return (
+    <div className="grid gap-1 text-[11px]">
+      {rows.map((row) => (
+        <div
+          className="grid min-w-0 grid-cols-[82px_minmax(0,1fr)] items-center gap-2"
+          key={row.label}
+        >
+          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.08em] text-dim">
+            {row.label}
+          </span>
+          <span
+            className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-medium ${row.tone ?? "text-soft"}`}
+            title={row.title ?? row.value}
+          >
+            {row.value || "-"}
+          </span>
         </div>
       ))}
     </div>
@@ -216,73 +248,5 @@ export function SubNav({ items }: { items: Array<{ active: boolean; id: string; 
         </button>
       ))}
     </nav>
-  );
-}
-
-// Horizontal phase stepper: Prepare -> Run -> PR -> Done.
-export function PhaseStepperBar({
-  current,
-  onSelect,
-  phases,
-  workflowCurrent,
-}: {
-  current: string;
-  onSelect?: (id: string) => void;
-  phases: Array<{ id: string; label: string; state?: "done" | "current" | "todo" }>;
-  workflowCurrent?: string;
-}) {
-  const resolved = phases.map((phase) => ({
-    ...phase,
-    state: phase.state ?? "todo",
-  }));
-  return (
-    <div className="border border-line bg-card p-3">
-      <ol className="m-0 flex flex-wrap items-center justify-center gap-2 p-0">
-        {resolved.map((phase, index) => {
-          const active = phase.id === current;
-          const isWorkflowCurrent = phase.id === workflowCurrent;
-          const content = (
-            <>
-              <span
-                className={`grid h-5 w-5 shrink-0 place-items-center border text-[11px] font-bold ${
-                  phase.state === "done"
-                    ? "border-up bg-up text-ink"
-                    : isWorkflowCurrent
-                      ? "border-warn bg-warn/10 text-warn"
-                      : active
-                        ? "border-fg text-fg"
-                        : "border-line2 text-dim"
-                }`}
-              >
-                {phase.state === "done" ? "✓" : index + 1}
-              </span>
-              <span className={`text-[11px] font-bold uppercase tracking-[0.1em] ${isWorkflowCurrent ? "text-warn" : active ? "text-fg" : phase.state === "done" ? "text-soft" : "text-dim"}`}>{phase.label}</span>
-            </>
-          );
-          return (
-            <Fragment key={phase.id}>
-              <li className="flex items-center gap-2">
-                {onSelect ? (
-                  <button
-                    aria-current={active ? "step" : undefined}
-                    className={`flex min-h-7 items-center gap-2 border px-1.5 py-1 text-left hover:border-line2 hover:bg-raised ${
-                      isWorkflowCurrent ? "border-warn/60 bg-warn/10" : active ? "border-line2 bg-raised" : "border-transparent"
-                    }`}
-                    onClick={() => onSelect(phase.id)}
-                    title={`Open ${phase.label}`}
-                    type="button"
-                  >
-                    {content}
-                  </button>
-                ) : (
-                  <div className={`flex min-h-7 items-center gap-2 border px-1.5 py-1 ${isWorkflowCurrent ? "border-warn/60 bg-warn/10" : active ? "border-line2 bg-raised" : "border-transparent"}`}>{content}</div>
-                )}
-              </li>
-              {index < resolved.length - 1 ? <span aria-hidden="true" className="text-dim">→</span> : null}
-            </Fragment>
-          );
-        })}
-      </ol>
-    </div>
   );
 }

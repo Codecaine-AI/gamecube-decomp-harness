@@ -203,6 +203,57 @@ describe("Postgres observability schema", () => {
     expect(combined).toContain("CREATE TABLE IF NOT EXISTS prompt_revisions");
     expect(combined).toContain("CREATE TABLE IF NOT EXISTS trace_blobs");
   });
+
+  test("skips all DDL when the schema-current probe passes", async () => {
+    const dialect = new PgDialect();
+    const statements: string[] = [];
+    await ensureKernelObservabilitySchema({
+      async execute(query: SQL) {
+        statements.push(dialect.sqlToQuery(query).sql);
+        return [
+          {
+            containers_kernel_id: true,
+            trace_events_event_id_text: true,
+            trace_events_container_id_not_null: true,
+            agent_runs_parent_run_id_fkey: true,
+            ix_agent_runs_parent_run_id: true,
+          },
+        ];
+      },
+    });
+
+    expect(statements).toHaveLength(1);
+    expect(statements[0]).toContain("information_schema.columns");
+    expect(statements[0]).toContain("ix_agent_runs_parent_run_id");
+    expect(statements[0]).not.toContain("CREATE TABLE");
+    expect(statements[0]).not.toContain("ALTER TABLE");
+  });
+
+  test("runs the full bootstrap when the probe reports a missing sentinel", async () => {
+    const dialect = new PgDialect();
+    const statements: string[] = [];
+    await ensureKernelObservabilitySchema({
+      async execute(query: SQL) {
+        statements.push(dialect.sqlToQuery(query).sql);
+        if (statements.length > 1) return [];
+        return [
+          {
+            containers_kernel_id: true,
+            trace_events_event_id_text: true,
+            trace_events_container_id_not_null: true,
+            agent_runs_parent_run_id_fkey: true,
+            // The final bootstrap statement never ran; schema is not current.
+            ix_agent_runs_parent_run_id: false,
+          },
+        ];
+      },
+    });
+
+    const combined = statements.join("\n");
+    expect(combined).toContain("CREATE TABLE IF NOT EXISTS containers");
+    expect(combined).toContain("DO $migration$");
+    expect(combined).toContain("CREATE INDEX IF NOT EXISTS ix_agent_runs_parent_run_id");
+  });
 });
 
 describe("kernel registration", () => {

@@ -10,7 +10,7 @@ import { ALL_EPOCHS, CURRENT_EPOCH, currentEpochId, EpochSelector, epochOptionsF
 
 type WorkerStateTab = "active" | "completed";
 
-function workerStateKey(record: JsonObject): string {
+export function workerStateKey(record: JsonObject): string {
   return text(record.workerStateId) || text(record.id);
 }
 
@@ -27,7 +27,7 @@ function targetFromActiveClaim(claim: JsonObject): JsonObject {
   return target;
 }
 
-function activeWorkerClaims(dashboard: RunTabProps["dashboard"], runDetails: RunTabProps["runDetails"]): JsonObject[] {
+export function activeWorkerClaims(dashboard: RunTabProps["dashboard"], runDetails: RunTabProps["runDetails"]): JsonObject[] {
   const claims: JsonObject[] = [];
   const seen = new Set<string>();
   function addClaim(claim: JsonObject) {
@@ -46,7 +46,7 @@ function activeWorkerClaims(dashboard: RunTabProps["dashboard"], runDetails: Run
   return claims;
 }
 
-function mergeActiveWorkerState(claim: JsonObject, report: JsonObject | null): JsonObject {
+export function mergeActiveWorkerState(claim: JsonObject, report: JsonObject | null): JsonObject {
   const reportTarget = asObject(report?.target);
   const claimTarget = targetFromActiveClaim(claim);
   return {

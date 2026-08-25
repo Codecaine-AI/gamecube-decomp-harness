@@ -65,7 +65,7 @@ function params(
       epochRetryMs: 60_000,
       cycleDraftPrEnabled: false,
       fullKgMaintenanceMode: "skip",
-      writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false },
+      writeSetFlags: { writeSetWidening: "off" },
       schedulerEpochConfig: {
         size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,

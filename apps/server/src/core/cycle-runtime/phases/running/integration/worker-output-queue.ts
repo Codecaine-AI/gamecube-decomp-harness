@@ -1,19 +1,7 @@
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { resolve } from "node:path";
 import { runCommand } from "@server/infrastructure/shell";
-import {
-  invokeConflictResolver,
-  type ConflictResolverAgentRunner,
-  type ConflictResolverInvocationResult,
-} from "@server/core/agent-catalog/agents/running/conflict-resolver/invocation.js";
-import {
-  CONFLICT_RESOLVER_REQUEST_SCHEMA_VERSION,
-  type ConflictResolverCheckEvidence,
-  type ConflictResolverClaimMetadata,
-  type ConflictResolverRequest,
-} from "@server/core/agent-catalog/agents/running/conflict-resolver/context.js";
 import {
   addEvent,
   getWorkerOutputIntegration,
@@ -25,24 +13,12 @@ import {
 } from "@server/core/cycle-runtime/run-state";
 import { claimNextJob, completeJob, failJob } from "@server/core/job-queue/kernel.js";
 import { requireLease } from "@server/core/harness-state";
-import type { RunGameMetadata } from "@server/core/shared/types";
-import { processWriteSetIntegrationFlags } from "./write-set-options.js";
 
 type CommandRunner = typeof runCommand;
 
 function revalidateIntegrationLease(store: StateStore, leaseId: string): void {
   if (!leaseId.trim()) throw new Error("worker output integration requires a dispatch lease id");
   requireLease(store, leaseId);
-}
-
-export interface WorkerOutputConflictResolverConfig {
-  runner: ConflictResolverAgentRunner;
-  dryRun?: boolean;
-  game?: RunGameMetadata;
-  provider?: string;
-  model?: string;
-  thinkingLevel?: string;
-  timeoutMs?: number;
 }
 
 export interface WorkerOutputIntegrationApplyResult {
@@ -54,11 +30,15 @@ export interface WorkerOutputIntegrationApplyResult {
   summaryPath: string | null;
   failureReasons: string[];
   conflictPaths: string[];
+  /** Commit sha of the per-accept integration commit, when one was created. */
+  integratedRev: string | null;
 }
 
 export interface WorkerOutputIntegrationQueueResult {
   processed: WorkerOutputIntegrationApplyResult[];
   queueSummary: Record<string, unknown>;
+  /** Last integration commit created by this drain; new workers base off it. */
+  headRev: string | null;
 }
 
 interface ApplyArtifacts {
@@ -70,7 +50,6 @@ interface ApplyArtifacts {
   checkStderrPath: string;
   applyStdoutPath: string;
   applyStderrPath: string;
-  currentBranchDiffPath: string;
 }
 
 function outputTail(text: string, maxChars = 2000): string {
@@ -107,7 +86,6 @@ function integrationArtifacts(stateDir: string, runId: string, id: string): Appl
     checkStderrPath: resolve(artifactDir, "git_apply_check.stderr.txt"),
     applyStdoutPath: resolve(artifactDir, "git_apply.stdout.txt"),
     applyStderrPath: resolve(artifactDir, "git_apply.stderr.txt"),
-    currentBranchDiffPath: resolve(artifactDir, "current_branch.diff"),
   };
 }
 
@@ -154,183 +132,6 @@ function checkpointSnapshot(store: StateStore, record: WorkerOutputIntegrationRe
   };
 }
 
-function stringArray(value: unknown): string[] {
-  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
-  if (typeof value !== "string" || !value.trim()) return [];
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? parsed.map((item) => String(item)).filter(Boolean) : [];
-  } catch {
-    return [];
-  }
-}
-
-function jsonObject(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (typeof value !== "string" || !value.trim()) return {};
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function incumbentClaimSnapshots(store: StateStore, record: WorkerOutputIntegrationRecord, conflictPaths: string[]): Record<string, unknown>[] {
-  const paths = new Set([...record.writeSet, ...conflictPaths]);
-  const rows = store.db
-    .query(
-      `
-        SELECT id, target_claim_id, worker_state_id, worker_checkpoint_id,
-               target_key, write_set_json, metadata_json,
-               created_at, updated_at
-        FROM integration_outcomes
-        WHERE run_id = ?
-          AND id != ?
-          AND status IN ('applied', 'resolved')
-        ORDER BY updated_at DESC, created_at DESC
-      `,
-    )
-    .all(record.runId, record.id) as Record<string, unknown>[];
-  return rows
-    .filter((row) => stringArray(row.write_set_json).some((path) => paths.has(path)))
-    .map((row) => ({
-      integration_id: String(row.id),
-      target_claim_id: String(row.target_claim_id),
-      worker_state_id: String(row.worker_state_id),
-      checkpoint_id: row.worker_checkpoint_id == null ? null : String(row.worker_checkpoint_id),
-      target_key: row.target_key == null ? null : String(row.target_key),
-      write_set: stringArray(row.write_set_json),
-      validation_state: jsonObject(row.metadata_json).validation_state ?? null,
-      metadata: jsonObject(row.metadata_json),
-      created_at: String(row.created_at),
-      updated_at: String(row.updated_at),
-    }));
-}
-
-function checkEvidence(checkpoint: Record<string, unknown>): {
-  passed: boolean;
-  checks: ConflictResolverCheckEvidence[];
-  metadata: Record<string, unknown>;
-} {
-  const status = typeof checkpoint.validation_status === "string" ? checkpoint.validation_status : "not_run";
-  const passed = checkpoint.hard_gates_passed === true && status === "passed";
-  return {
-    passed,
-    checks: [
-      {
-        name: "worker scoped validation",
-        command: null,
-        status: passed ? "passed" : status === "not_run" ? "not_run" : "failed",
-        artifact_path: typeof checkpoint.artifact_path === "string" ? checkpoint.artifact_path : null,
-        summary: status,
-      },
-    ],
-    metadata: checkpoint,
-  };
-}
-
-function claimMetadata(params: {
-  record: WorkerOutputIntegrationRecord;
-  checkpoint: Record<string, unknown>;
-  target: Record<string, unknown>;
-}): ConflictResolverClaimMetadata {
-  return {
-    claim_id: params.record.targetClaimId,
-    worker_state_id: params.record.workerStateId,
-    checkpoint_id: params.record.workerCheckpointId,
-    target_id: params.record.epochTargetId,
-    target_symbol: typeof params.target.symbol === "string" ? params.target.symbol : null,
-    source_paths: typeof params.target.source_path === "string" ? [params.target.source_path] : [],
-    write_set: params.record.writeSet,
-    validation_state: "tentative",
-    metadata: params.record.metadata,
-  };
-}
-
-function currentClaimMetadata(snapshot: Record<string, unknown> | undefined): ConflictResolverClaimMetadata {
-  const targetKey = typeof snapshot?.target_key === "string" ? snapshot.target_key : "";
-  return {
-    claim_id: typeof snapshot?.target_claim_id === "string" ? snapshot.target_claim_id : null,
-    worker_state_id: typeof snapshot?.worker_state_id === "string" ? snapshot.worker_state_id : null,
-    checkpoint_id: typeof snapshot?.checkpoint_id === "string" ? snapshot.checkpoint_id : null,
-    target_id: null,
-    target_symbol: targetKey.includes("::") ? targetKey.split("::").at(-1) ?? null : null,
-    source_paths: [],
-    write_set: stringArray(snapshot?.write_set),
-    validation_state:
-      snapshot?.validation_state === "tentative" || snapshot?.validation_state === "confirmed" || snapshot?.validation_state === "regressed"
-        ? snapshot.validation_state
-        : null,
-    metadata: jsonObject(snapshot?.metadata),
-  };
-}
-
-function sha256(text: string): string {
-  return createHash("sha256").update(text).digest("hex");
-}
-
-async function conflictResolverRequest(params: {
-  commandRunner: CommandRunner;
-  repoRoot: string;
-  artifacts: ApplyArtifacts;
-  store: StateStore;
-  record: WorkerOutputIntegrationRecord;
-  patchText: string;
-  conflictPaths: string[];
-  isolatedWorktreePath: string;
-}): Promise<{ request: ConflictResolverRequest; incumbents: Record<string, unknown>[] }> {
-  const [head, status, diff] = await Promise.all([
-    params.commandRunner(params.repoRoot, ["git", "rev-parse", "HEAD"]),
-    params.commandRunner(params.repoRoot, ["git", "status", "--short"]),
-    params.commandRunner(params.repoRoot, ["git", "diff", "--binary"]),
-  ]);
-  await writeFile(params.artifacts.currentBranchDiffPath, diff.stdout);
-  const target = targetSnapshot(params.store, params.record);
-  const checkpoint = checkpointSnapshot(params.store, params.record);
-  const incumbents = incumbentClaimSnapshots(params.store, params.record, params.conflictPaths);
-  const current = incumbents[0];
-  const headRevision = head.exitCode === 0 ? head.stdout.trim() : "unknown";
-  return {
-    incumbents,
-    request: {
-      schema_version: CONFLICT_RESOLVER_REQUEST_SCHEMA_VERSION,
-      integration_item_id: params.record.id,
-      conflict_group_id: `worker-output:${params.record.id}`,
-      isolated_worktree: {
-        path: params.isolatedWorktreePath,
-        base_revision: headRevision,
-        cycle_revision: headRevision,
-      },
-      cycle_worktree_path: params.repoRoot,
-      incoming: {
-        claim: claimMetadata({ record: params.record, checkpoint, target }),
-        scoped_checks: checkEvidence(checkpoint),
-        patch: { path: params.record.patchPath, text: params.patchText, sha256: sha256(params.patchText) },
-      },
-      current: {
-        claim: currentClaimMetadata(current),
-        scoped_checks: {
-          passed: current?.validation_state === "confirmed" || current?.validation_state === "tentative",
-          checks: [],
-          metadata: { incumbent_integrations: incumbents },
-        },
-        branch_state: {
-          head_revision: headRevision,
-          status_porcelain: status.stdout,
-          diff: diff.stdout || null,
-          metadata: {
-            diff_path: params.artifacts.currentBranchDiffPath,
-            incumbent_integrations: incumbents,
-          },
-        },
-      },
-      conflict_paths: params.conflictPaths,
-      metadata: { merge_on_finish: true, all_incumbent_claims: incumbents },
-    },
-  };
-}
-
 function conflictItem(params: {
   record: WorkerOutputIntegrationRecord;
   target: Record<string, unknown>;
@@ -343,11 +144,6 @@ function conflictItem(params: {
   stderrPath: string;
   conflictPaths: string[];
   failureReasons: string[];
-  mergeContext?: {
-    currentBranchDiffPath: string;
-    incumbents: Record<string, unknown>[];
-    request: ConflictResolverRequest;
-  };
 }): Record<string, unknown> {
   return {
     schema_version: "integration_conflict_item_v1",
@@ -381,15 +177,6 @@ function conflictItem(params: {
         checkpoint: params.checkpoint,
       },
     ],
-    ...(params.mergeContext
-      ? {
-          merge_on_finish: {
-            current_branch_diff_path: params.mergeContext.currentBranchDiffPath,
-            incumbent_claims: params.mergeContext.incumbents,
-            resolver_request: params.mergeContext.request,
-          },
-        }
-      : {}),
     created_at: new Date().toISOString(),
   };
 }
@@ -413,6 +200,7 @@ async function updateAndSummarize(
     applyStderrPath?: string | null;
     itemPath?: string | null;
     metadata?: Record<string, unknown>;
+    integratedRev?: string | null;
   },
 ): Promise<WorkerOutputIntegrationApplyResult> {
   const updated = updateWorkerOutputIntegration(store, record.id, {
@@ -437,6 +225,7 @@ async function updateAndSummarize(
     summaryPath: updated.summaryPath,
     failureReasons: updated.failureReasons,
     conflictPaths: updated.conflictPaths,
+    integratedRev: update.integratedRev ?? null,
   };
   await writeSummary(update.artifacts.summaryPath, result, {
     queue_record: {
@@ -476,6 +265,39 @@ async function compensateAppliedPatch(params: {
   return failures;
 }
 
+/**
+ * Detects the stage/commit race where another commit (a resolver commit or a
+ * boundary `add -A` sweep) captured the applied content first: the working
+ * tree then matches HEAD for the integration's paths, so a pathspec commit
+ * exits non-zero with "no changes" even though the accepted work is already
+ * in HEAD. Reverse-applying in that state would silently revert accepted
+ * work, so callers must treat this as success at the current HEAD.
+ */
+async function contentCapturedByHead(commandRunner: CommandRunner, repoRoot: string, paths: string[]): Promise<string | null> {
+  const status = await commandRunner(repoRoot, ["git", "status", "--porcelain", "--", ...paths]);
+  if (status.exitCode !== 0 || status.stdout.trim()) return null;
+  const head = await commandRunner(repoRoot, ["git", "rev-parse", "HEAD"]);
+  return head.exitCode === 0 && head.stdout.trim() ? head.stdout.trim() : null;
+}
+
+/** Paths touched by a patch, from `git apply --numstat` (covers empty write sets). */
+async function patchPaths(commandRunner: CommandRunner, repoRoot: string, patchPath: string): Promise<string[]> {
+  const numstat = await commandRunner(repoRoot, ["git", "apply", "--numstat", patchPath]);
+  if (numstat.exitCode !== 0) return [];
+  return uniqueStrings(
+    numstat.stdout
+      .split("\n")
+      .map((line) => line.split("\t")[2] ?? "")
+      .filter(Boolean),
+  );
+}
+
+export function integrationCommitMessage(record: Pick<WorkerOutputIntegrationRecord, "id" | "targetKey" | "workerCheckpointId">): string {
+  const target = (record.targetKey ?? record.id).replace(/[\r\n]+/g, " ");
+  const checkpoint = record.workerCheckpointId ? ` [checkpoint ${record.workerCheckpointId.slice(0, 8)}]` : "";
+  return `worker-integration(${record.id.slice(0, 8)}): ${target}${checkpoint}`;
+}
+
 async function commitAppliedPatch(params: {
   commandRunner: CommandRunner;
   leaseId: string;
@@ -485,179 +307,54 @@ async function commitAppliedPatch(params: {
   paths?: string[];
   store: StateStore;
 }): Promise<{ preApplyRev: string; integratedRev: string }> {
-  const paths = uniqueStrings(params.paths ?? params.record.writeSet);
-  if (paths.length === 0) throw new Error("merge-on-finish cannot commit an empty write set");
+  let paths = uniqueStrings(params.paths ?? params.record.writeSet);
+  if (paths.length === 0) paths = await patchPaths(params.commandRunner, params.repoRoot, params.patchPath);
+  if (paths.length === 0) throw new Error("worker integration cannot commit an empty write set");
   const before = await params.commandRunner(params.repoRoot, ["git", "rev-parse", "HEAD"]);
   if (before.exitCode !== 0 || !before.stdout.trim()) {
-    throw new Error(`merge-on-finish could not resolve pre-apply revision: ${outputTail(before.stderr || before.stdout)}`);
+    throw new Error(`worker integration could not resolve pre-apply revision: ${outputTail(before.stderr || before.stdout)}`);
   }
   revalidateIntegrationLease(params.store, params.leaseId);
   const stage = await params.commandRunner(params.repoRoot, ["git", "add", "--", ...paths]);
   if (stage.exitCode !== 0) {
+    const capturedRev = await contentCapturedByHead(params.commandRunner, params.repoRoot, paths);
+    if (capturedRev) return { preApplyRev: before.stdout.trim(), integratedRev: capturedRev };
     const cleanup = await compensateAppliedPatch({ ...params, paths });
     throw new Error(
-      [`merge-on-finish git add failed: ${outputTail(stage.stderr || stage.stdout)}`, ...cleanup].join("; "),
+      [`worker integration git add failed: ${outputTail(stage.stderr || stage.stdout)}`, ...cleanup].join("; "),
     );
   }
-  const target = (params.record.targetKey ?? params.record.id).replace(/[\r\n]+/g, " ");
   revalidateIntegrationLease(params.store, params.leaseId);
   const commit = await params.commandRunner(params.repoRoot, [
     "git",
     "commit",
     "--no-verify",
     "-m",
-    `worker-integration(${params.record.id.slice(0, 8)}): ${target}`,
+    integrationCommitMessage(params.record),
     "--",
     ...paths,
   ]);
   if (commit.exitCode !== 0) {
+    const capturedRev = await contentCapturedByHead(params.commandRunner, params.repoRoot, paths);
+    if (capturedRev) return { preApplyRev: before.stdout.trim(), integratedRev: capturedRev };
     const cleanup = await compensateAppliedPatch({ ...params, paths });
     throw new Error(
-      [`merge-on-finish git commit failed: ${outputTail(commit.stderr || commit.stdout)}`, ...cleanup].join("; "),
+      [`worker integration git commit failed: ${outputTail(commit.stderr || commit.stdout)}`, ...cleanup].join("; "),
     );
   }
   const after = await params.commandRunner(params.repoRoot, ["git", "rev-parse", "HEAD"]);
   if (after.exitCode !== 0 || !after.stdout.trim()) {
-    throw new Error(`merge-on-finish could not resolve integrated revision: ${outputTail(after.stderr || after.stdout)}`);
+    throw new Error(`worker integration could not resolve integrated revision: ${outputTail(after.stderr || after.stdout)}`);
   }
   return { preApplyRev: before.stdout.trim(), integratedRev: after.stdout.trim() };
-}
-
-async function tryConflictResolver(params: {
-  artifacts: ApplyArtifacts;
-  commandRunner: CommandRunner;
-  config: WorkerOutputConflictResolverConfig | undefined;
-  leaseId: string;
-  mergeContext: { request: ConflictResolverRequest; incumbents: Record<string, unknown>[] } | undefined;
-  repoRoot: string;
-  stateDir: string;
-  store: StateStore;
-  record: WorkerOutputIntegrationRecord;
-}): Promise<{ result: WorkerOutputIntegrationApplyResult | null; invocation: ConflictResolverInvocationResult | null }> {
-  if (!params.config || !params.mergeContext) return { result: null, invocation: null };
-  const request = params.mergeContext.request;
-  const fallback = (reason: string, errors: string[] = []): ConflictResolverInvocationResult => ({
-    status: "conflict",
-    result: null,
-    fallback: {
-      operator_visible_status: "conflict",
-      reason,
-      conflict_paths: [...request.conflict_paths],
-      errors,
-    },
-  });
-  let worktreeAdded = false;
-
-  let acceptedResult: WorkerOutputIntegrationApplyResult | null = null;
-  let invocation: ConflictResolverInvocationResult | null = null;
-  try {
-    revalidateIntegrationLease(params.store, params.leaseId);
-    const worktreeAdd = await params.commandRunner(params.repoRoot, [
-      "git",
-      "worktree",
-      "add",
-      "--detach",
-      request.isolated_worktree.path,
-      request.isolated_worktree.cycle_revision,
-    ]);
-    if (worktreeAdd.exitCode !== 0) {
-      return {
-        result: null,
-        invocation: fallback("conflict-resolver worktree setup failed", [outputTail(worktreeAdd.stderr || worktreeAdd.stdout)]),
-      };
-    }
-    worktreeAdded = true;
-    invocation = await invokeConflictResolver({
-      request,
-      outputDir: resolve(params.artifacts.artifactDir, "conflict_resolver"),
-      stateDir: params.stateDir,
-      game: params.config.game,
-      provider: params.config.provider,
-      model: params.config.model,
-      thinkingLevel: params.config.thinkingLevel,
-      timeoutMs: params.config.timeoutMs,
-      dryRun: params.config.dryRun,
-      runner: params.config.runner,
-      acceptResolution: async ({ result }) => {
-        let resolvedPatchPath = result.resolved_patch.path;
-        if (result.resolved_patch.text) {
-          resolvedPatchPath = resolve(params.artifacts.artifactDir, "resolved.patch");
-          await writeFile(resolvedPatchPath, result.resolved_patch.text);
-        } else if (resolvedPatchPath && !isAbsolute(resolvedPatchPath)) {
-          resolvedPatchPath = resolve(request.isolated_worktree.path, resolvedPatchPath);
-        }
-        if (!resolvedPatchPath || !existsSync(resolvedPatchPath)) {
-          return { applied: false, recorded: false, summary: "resolver did not produce a readable patch" };
-        }
-        const check = await params.commandRunner(params.repoRoot, ["git", "apply", "--check", resolvedPatchPath]);
-        if (check.exitCode !== 0) {
-          return { applied: false, recorded: false, summary: `resolved patch check failed: ${outputTail(check.stderr || check.stdout)}` };
-        }
-        revalidateIntegrationLease(params.store, params.leaseId);
-        const apply = await params.commandRunner(params.repoRoot, ["git", "apply", resolvedPatchPath]);
-        if (apply.exitCode !== 0) {
-          return { applied: false, recorded: false, summary: `resolved patch apply failed: ${outputTail(apply.stderr || apply.stdout)}` };
-        }
-        const revisions = await commitAppliedPatch({
-          commandRunner: params.commandRunner,
-          leaseId: params.leaseId,
-          repoRoot: params.repoRoot,
-          record: params.record,
-          patchPath: resolvedPatchPath,
-          paths: uniqueStrings([
-            ...params.record.writeSet,
-            ...request.conflict_paths.filter((path) => path.includes("/") || /\.[A-Za-z0-9_+-]+$/.test(path)),
-          ]),
-          store: params.store,
-        });
-        acceptedResult = await updateAndSummarize(params.store, params.record, {
-          status: "applied",
-          disposition: "conflict_resolved",
-          artifacts: params.artifacts,
-          itemPath: params.artifacts.itemPath,
-          metadata: {
-            merge_on_finish: true,
-            validation_state: "tentative",
-            pre_apply_rev: revisions.preApplyRev,
-            integrated_rev: revisions.integratedRev,
-            resolver_result: result,
-            incumbent_claims: params.mergeContext?.incumbents ?? [],
-          },
-        });
-        markTentative(params.store, params.record);
-        addEvent(params.store, params.record.runId, "worker_integration_applied", "conflict-resolver", acceptedResult);
-        return { applied: true, recorded: true, summary: "resolved patch applied serially, committed, and recorded" };
-      },
-    });
-  } catch (error) {
-    invocation = fallback("conflict-resolver integration failed", [error instanceof Error ? error.message : String(error)]);
-  } finally {
-    if (worktreeAdded) {
-      try {
-        revalidateIntegrationLease(params.store, params.leaseId);
-        await params.commandRunner(params.repoRoot, ["git", "worktree", "remove", "--force", request.isolated_worktree.path]);
-      } catch {
-        // Cleanup failure must not replace the resolver disposition. The
-        // isolated worktree is never the cycle integration checkout.
-      }
-    }
-  }
-  return { result: invocation?.status === "resolved" ? acceptedResult : null, invocation };
 }
 
 async function handleApplyConflict(params: {
   artifacts: ApplyArtifacts;
   command: string[];
-  commandRunner: CommandRunner;
-  conflictResolver: WorkerOutputConflictResolverConfig | undefined;
   exitCode: number;
   failureReasons: string[];
   conflictPaths: string[];
-  leaseId: string;
-  mergeOnFinish: boolean;
-  patchText: string;
-  repoRoot: string;
-  stateDir: string;
   stderr: string;
   stderrPath: string;
   stdout: string;
@@ -666,19 +363,6 @@ async function handleApplyConflict(params: {
   record: WorkerOutputIntegrationRecord;
   disposition: string;
 }): Promise<WorkerOutputIntegrationApplyResult> {
-  const isolatedWorktreePath = resolve(params.artifacts.artifactDir, "conflict_resolver_worktree");
-  const mergeContext = params.mergeOnFinish
-    ? await conflictResolverRequest({
-        commandRunner: params.commandRunner,
-        repoRoot: params.repoRoot,
-        artifacts: params.artifacts,
-        store: params.store,
-        record: params.record,
-        patchText: params.patchText,
-        conflictPaths: params.conflictPaths,
-        isolatedWorktreePath,
-      })
-    : undefined;
   const item = conflictItem({
     record: params.record,
     target: targetSnapshot(params.store, params.record),
@@ -691,27 +375,8 @@ async function handleApplyConflict(params: {
     stderrPath: params.stderrPath,
     conflictPaths: params.conflictPaths,
     failureReasons: params.failureReasons,
-    mergeContext: mergeContext
-      ? {
-          ...mergeContext,
-          currentBranchDiffPath: params.artifacts.currentBranchDiffPath,
-        }
-      : undefined,
   });
   await writeFile(params.artifacts.itemPath, `${JSON.stringify(item, null, 2)}\n`);
-
-  const resolution = await tryConflictResolver({
-    artifacts: params.artifacts,
-    commandRunner: params.commandRunner,
-    config: params.mergeOnFinish ? params.conflictResolver : undefined,
-    leaseId: params.leaseId,
-    mergeContext,
-    repoRoot: params.repoRoot,
-    stateDir: params.stateDir,
-    store: params.store,
-    record: params.record,
-  });
-  if (resolution.result) return resolution.result;
 
   const result = await updateAndSummarize(params.store, params.record, {
     status: "conflict",
@@ -726,14 +391,6 @@ async function handleApplyConflict(params: {
     conflictPaths: params.conflictPaths,
     metadata: {
       queue_summary_path: params.artifacts.queueSummaryPath,
-      ...(params.mergeOnFinish
-        ? {
-            merge_on_finish: true,
-            conflict_resolver_status: resolution.invocation?.status ?? "not_invoked",
-            conflict_resolver_fallback:
-              resolution.invocation?.status === "conflict" ? resolution.invocation.fallback : null,
-          }
-        : {}),
     },
   });
   await writeFile(
@@ -746,10 +403,8 @@ async function handleApplyConflict(params: {
 
 async function applyClaimedWorkerOutput(params: {
   commandRunner: CommandRunner;
-  conflictResolver?: WorkerOutputConflictResolverConfig;
   dryRun: boolean;
   leaseId: string;
-  mergeOnFinish: boolean;
   repoRoot: string;
   stateDir: string;
   store: StateStore;
@@ -802,16 +457,9 @@ async function applyClaimedWorkerOutput(params: {
     return handleApplyConflict({
       artifacts,
       command: checkCommand,
-      commandRunner: params.commandRunner,
-      conflictResolver: params.conflictResolver,
       exitCode: check.exitCode,
       failureReasons,
       conflictPaths,
-      leaseId: params.leaseId,
-      mergeOnFinish: params.mergeOnFinish,
-      patchText,
-      repoRoot: params.repoRoot,
-      stateDir: params.stateDir,
       stderr: check.stderr,
       stderrPath: artifacts.checkStderrPath,
       stdout: check.stdout,
@@ -833,16 +481,9 @@ async function applyClaimedWorkerOutput(params: {
     return handleApplyConflict({
       artifacts,
       command: applyCommand,
-      commandRunner: params.commandRunner,
-      conflictResolver: params.conflictResolver,
       exitCode: apply.exitCode,
       failureReasons,
       conflictPaths,
-      leaseId: params.leaseId,
-      mergeOnFinish: params.mergeOnFinish,
-      patchText,
-      repoRoot: params.repoRoot,
-      stateDir: params.stateDir,
       stderr: apply.stderr,
       stderrPath: artifacts.applyStderrPath,
       stdout: apply.stdout,
@@ -853,56 +494,50 @@ async function applyClaimedWorkerOutput(params: {
     });
   }
 
-  const revisions = params.mergeOnFinish
-    ? await commitAppliedPatch({
-        commandRunner: params.commandRunner,
-        leaseId: params.leaseId,
-        repoRoot: params.repoRoot,
-        record: params.record,
-        patchPath: params.record.patchPath,
-        store: params.store,
-      })
-    : null;
+  // Apply-on-accept: every clean apply commits immediately so new workers can
+  // base off the integrated head instead of the epoch-start revision.
+  const revisions = await commitAppliedPatch({
+    commandRunner: params.commandRunner,
+    leaseId: params.leaseId,
+    repoRoot: params.repoRoot,
+    record: params.record,
+    patchPath: params.record.patchPath,
+    store: params.store,
+  });
   const result = await updateAndSummarize(params.store, params.record, {
     status: "applied",
-    disposition: params.mergeOnFinish ? "merge_on_finish_clean" : "clean_apply",
+    disposition: "clean_apply",
     artifacts,
     checkStdoutPath: artifacts.checkStdoutPath,
     checkStderrPath: artifacts.checkStderrPath,
     applyStdoutPath: artifacts.applyStdoutPath,
     applyStderrPath: artifacts.applyStderrPath,
-    metadata: revisions
-      ? {
-          merge_on_finish: true,
-          validation_state: "tentative",
-          pre_apply_rev: revisions.preApplyRev,
-          integrated_rev: revisions.integratedRev,
-        }
-      : undefined,
+    metadata: {
+      validation_state: "tentative",
+      pre_apply_rev: revisions.preApplyRev,
+      integrated_rev: revisions.integratedRev,
+    },
+    integratedRev: revisions.integratedRev,
   });
-  if (params.mergeOnFinish) markTentative(params.store, params.record);
+  markTentative(params.store, params.record);
   addEvent(params.store, params.record.runId, "worker_integration_applied", "worker-output-integration", result);
   return result;
 }
 
 export async function processWorkerOutputIntegrationQueue(params: {
   commandRunner?: CommandRunner;
-  conflictResolver?: WorkerOutputConflictResolverConfig;
   dryRun: boolean;
   leaseId: string;
   limit?: number;
-  mergeOnFinish?: boolean;
-  mergeOnFinishWaitMs?: number;
   repoRoot: string;
   runId: string;
   stateDir: string;
   store: StateStore;
 }): Promise<WorkerOutputIntegrationQueueResult> {
   const processed: WorkerOutputIntegrationApplyResult[] = [];
-  const mergeOnFinish = params.mergeOnFinish ?? processWriteSetIntegrationFlags().mergeOnFinish;
-  const limit = Math.max(1, Math.trunc(params.limit ?? (mergeOnFinish ? 1024 : 16)));
-  const waitDeadline = Date.now() + Math.max(0, params.mergeOnFinishWaitMs ?? 30_000);
+  const limit = Math.max(1, Math.trunc(params.limit ?? 64));
   const commandRunner = params.commandRunner ?? runCommand;
+  let headRev: string | null = null;
 
   while (processed.length < limit) {
     revalidateIntegrationLease(params.store, params.leaseId);
@@ -912,26 +547,7 @@ export async function processWorkerOutputIntegrationQueue(params: {
       leaseMs: 15 * 60_000,
       runId: params.runId,
     });
-    if (!claimed) {
-      if (mergeOnFinish && Date.now() < waitDeadline) {
-        const pending = params.store.db
-          .query(
-            `
-              SELECT
-                SUM(CASE WHEN status IN ('queued', 'waiting') THEN 1 ELSE 0 END) AS queued,
-                SUM(CASE WHEN status IN ('claimed', 'running') THEN 1 ELSE 0 END) AS applying
-              FROM jobs
-              WHERE kind = 'integration' AND run_id = ?
-            `,
-          )
-          .get(params.runId) as Record<string, unknown>;
-        if (Number(pending.queued ?? 0) > 0 && Number(pending.applying ?? 0) > 0) {
-          await new Promise((resolveWait) => setTimeout(resolveWait, 25));
-          continue;
-        }
-      }
-      break;
-    }
+    if (!claimed) break;
     const record = getWorkerOutputIntegration(params.store, claimed.job.jobId);
     if (!record) {
       failJob(params.store, claimed.token, `integration job ${claimed.job.jobId} has no record view`);
@@ -940,10 +556,8 @@ export async function processWorkerOutputIntegrationQueue(params: {
     try {
       const result = await applyClaimedWorkerOutput({
           commandRunner,
-          conflictResolver: params.conflictResolver,
           dryRun: params.dryRun,
           leaseId: params.leaseId,
-          mergeOnFinish,
           repoRoot: params.repoRoot,
           stateDir: params.stateDir,
           store: params.store,
@@ -951,6 +565,7 @@ export async function processWorkerOutputIntegrationQueue(params: {
       });
       completeJob(params.store, claimed.token, { resultRef: result.id });
       processed.push(result);
+      if (result.integratedRev) headRev = result.integratedRev;
     } catch (error) {
       failJob(params.store, claimed.token, error instanceof Error ? error.message : String(error));
     }
@@ -959,15 +574,6 @@ export async function processWorkerOutputIntegrationQueue(params: {
   return {
     processed,
     queueSummary: workerOutputIntegrationQueueSummary(params.store, params.runId),
+    headRev,
   };
-}
-
-/**
- * Targeted merge-on-finish seam for the worker owner. The generic processor is
- * retained for the legacy flag-off batch/recovery/boundary calls.
- */
-export async function processWorkerOutputOnFinish(
-  params: Omit<Parameters<typeof processWorkerOutputIntegrationQueue>[0], "mergeOnFinish">,
-): Promise<WorkerOutputIntegrationQueueResult> {
-  return processWorkerOutputIntegrationQueue({ ...params, mergeOnFinish: true });
 }

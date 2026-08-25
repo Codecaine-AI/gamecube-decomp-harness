@@ -1,0 +1,318 @@
+{
+	"schemaVersion": 1,
+	"id": "40-new-features-30-global-flow-map-40-run",
+	"title": "Run",
+	"root": "b-gf-run-root-1",
+	"blocks": {
+		"b-gf-run-root-1": {
+			"id": "b-gf-run-root-1",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-gf-run-intro-2",
+				"b-gf-run-outline-4"
+			]
+		},
+		"b-gf-run-intro-2": {
+			"id": "b-gf-run-intro-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Working process flow for this band of the global flow. Confirmed detail from the walkthrough accumulates here before mapping to the owning chapter."
+				}
+			],
+			"children": []
+		},
+		"b-gf-run-outline-4": {
+			"id": "b-gf-run-outline-4",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "`Run Loop` turns the ranked board into landed work",
+						"steps": [
+							{
+								"text": "The loop lands work one `Epoch` at a time.",
+								"kind": "note"
+							},
+							{
+								"text": "Take a dispatch lease and reconcile sandboxes at startup",
+								"steps": [
+									{
+										"text": "Refuse to start without a `--lease-id` and a schedulable run"
+									},
+									{
+										"text": "Clamp `Worker` capacity down to the run's `desiredWorkers`, never up"
+									}
+								]
+							},
+							{
+								"text": "Repeat each `Epoch` until the run drains, stops, or hits its budget",
+								"steps": [
+									{
+										"text": "Open the `Epoch`",
+										"trace": true
+									},
+									{
+										"text": "Load a candidate window off the knowledge graph"
+									},
+									{
+										"text": "Admit targets from the board once, at `Epoch` open",
+										"trace": true,
+										"steps": [
+											{
+												"text": "A fixed `Epoch` takes its size in targets, 64 by default, and is never topped up afterwards. Refill is the next `Epoch`'s job.",
+												"kind": "note"
+											},
+											{
+												"text": "Round-robin admission across source files"
+											},
+											{
+												"text": "Rerank the window by model, falling back to priority order"
+											}
+										]
+									},
+									{
+										"text": "Queue one deduplicated `Worker` job per admitted target"
+									},
+									{
+										"text": "For each admitted target",
+										"steps": [
+											{
+												"text": "`Worker` claims the job and its target atomically",
+												"trace": true
+											},
+											{
+												"text": "Provision an isolated sandbox at the claim's `base_rev`",
+												"steps": [
+													{
+														"text": "The claim-time `base_rev` is authoritative for the whole job. Re-reading the loop's current value after a multi-minute provision could name a commit the sandbox never fetched.",
+														"kind": "note"
+													}
+												]
+											},
+											{
+												"text": "`Agent` attempts the target against the sandbox",
+												"trace": true,
+												"steps": [
+													{
+														"text": "Repeat run, diff, validate, checkpoint until no repairs remain or the deadline passes"
+													},
+													{
+														"text": "Record a checkpoint on every attempt, passed or not"
+													}
+												]
+											},
+											{
+												"text": "Gate what leaves the `Worker`",
+												"trace": true,
+												"steps": [
+													{
+														"text": "The hard gate is exactly that conjunction: runner validation passed and review lint did not fail. Nothing else feeds it.",
+														"kind": "note"
+													},
+													{
+														"text": "Enqueue only the best checkpoint for integration"
+													}
+												]
+											},
+											{
+												"text": "Integrate the accepted checkpoint into the cycle worktree",
+												"trace": true,
+												"steps": [
+													{
+														"text": "Apply single-flight, commit accepted paths, reverse-apply a failed commit"
+													},
+													{
+														"text": "Advance the base revision on every accept",
+														"steps": [
+															{
+																"text": "New `Worker`s branch off the latest integration commit, while in-flight `Worker`s keep the base they were provisioned at.",
+																"kind": "note"
+															}
+														]
+													}
+												]
+											},
+											{
+												"text": "Fan conflicts out into path-disjoint resolvers",
+												"trace": true,
+												"steps": [
+													{
+														"text": "Hold resolvers and the `Epoch` boundary against each other"
+													}
+												]
+											}
+										]
+									},
+									{
+										"text": "Close the `Epoch` at the boundary once its queue empties",
+										"trace": true,
+										"steps": [
+											{
+												"text": "The boundary fires only when the `Epoch` has admitted targets, nothing remaining, nothing claimed, and no `Worker` in flight.",
+												"kind": "note"
+											},
+											{
+												"text": "Rebuild report truth in order",
+												"steps": [
+													{
+														"text": "Drain the integration queue"
+													},
+													{
+														"text": "Commit a snapshot excluding paths locked by live `Worker`s"
+													},
+													{
+														"text": "Force an incremental report build in the `Epoch` worktree"
+													},
+													{
+														"text": "Read the regression report back"
+													}
+												]
+											},
+											{
+												"text": "Run full knowledge maintenance against the boundary worktree",
+												"trace": true
+											},
+											{
+												"text": "Rule on the tentative window",
+												"steps": [
+													{
+														"text": "The confirmation pass is opt-in. It reuses the `Epoch`'s own global comparison and runs no build of its own.",
+														"kind": "note"
+													},
+													{
+														"text": "Confirm every tentative integration on a clean verdict"
+													},
+													{
+														"text": "Blame only widened candidates on a dirty verdict"
+													},
+													{
+														"text": "Repeat the halving probe until one candidate is left"
+													},
+													{
+														"text": "Probe the singleton alone, then revert only if it convicts"
+													},
+													{
+														"text": "Readmit other regressed targets instead of reverting them"
+													}
+												]
+											},
+											{
+												"text": "Pause the cycle once regressions cross the threshold",
+												"trace": true
+											},
+											{
+												"text": "Publish the rebuilt report and advance the baseline"
+											},
+											{
+												"text": "Record a save point as the `Epoch` closes",
+												"trace": true
+											},
+											{
+												"text": "Cancel still-queued jobs for its targets as `epoch_closed`"
+											}
+										]
+									},
+									{
+										"text": "Admit the next `Epoch` from the refreshed board",
+										"trace": true,
+										"steps": [
+											{
+												"text": "Base new `Worker` worktrees on the boundary commit, compare-and-set"
+											},
+											{
+												"text": "Rerank open target priorities on a fast knowledge refresh",
+												"trace": true
+											},
+											{
+												"text": "Close an `Epoch` `exhausted` when it admits nothing",
+												"trace": true,
+												"steps": [
+													{
+														"text": "Board exhaustion on its own never ends the run: the `Epoch` closes, the loop backs off, and the run ends only on a signal, a drain, the idle limit, or the iteration budget.",
+														"kind": "note"
+													}
+												]
+											},
+											{
+												"text": "Sleep on a resting trigger, then wake and repeat"
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"text": "`Run control` steers the loop from outside while it runs",
+						"steps": [
+							{
+								"text": "Settle the run in place, draining the process if it cannot"
+							},
+							{
+								"text": "Stop claiming new `Worker` jobs, let in-flight ones finish",
+								"steps": [
+									{
+										"text": "Pause stops intake, not work already claimed.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Demand an explicit confirmation flag for hard stop and recover"
+							},
+							{
+								"text": "Mark the run cancelled with the operator's reason"
+							},
+							{
+								"text": "Force-finish the active `Epoch` without sending a signal",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Close active claims, finish open targets, cancel what remains"
+									}
+								]
+							},
+							{
+								"text": "Pause dispatch on a provider failure, resume on a healthy probe"
+							},
+							{
+								"text": "`SIGINT` and `SIGTERM` stop the loop, `SIGUSR1` drains it"
+							}
+						]
+					},
+					{
+						"text": "`Shutdown` drains what is in flight before the loop exits",
+						"steps": [
+							{
+								"text": "Give in-flight `Worker`s a 30-second grace, then cancel them",
+								"trace": true,
+								"steps": [
+									{
+										"text": "`Worker`s ignore `SIGTERM`, so a stopped pool would otherwise wedge for hours waiting on TTLs.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Return every interrupted active target to admitted state"
+							},
+							{
+								"text": "Run one final integration drain before exiting"
+							},
+							{
+								"text": "Await `Epoch` work, resolvers, knowledge lanes, and the provider probe"
+							},
+							{
+								"text": "Set the stop reason from whatever tripped first"
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		}
+	}
+}

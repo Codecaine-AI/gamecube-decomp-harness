@@ -665,7 +665,7 @@ describe("workspace cycle view", () => {
     expect(view.mode).toBe("none");
     expect(view.activeCycleId).toBe("c850");
     expect(view.activeCycleLabel).toBe("Cycle c850");
-    expect(view.recommendedSub).toBe("prepare");
+    expect(view.recommendedSub).toBe("run");
     expect(view.newCycleBlocked).toBe(true);
     expect(view.newCycleReasons).toContain("canonical cycle is preparing / baseline");
     expect(activeCycleFocus(view)).toBe("c850");
@@ -693,28 +693,24 @@ describe("workspace cycle view", () => {
     expect(retired.activeCycleId).toBe("run-legacy");
   });
 
-  test("derives prepare sync summaries from canonical worktree fields", () => {
+  test("derives run-setup completion flags from the canonical preparing phase", () => {
     const dashboard = {
       cycle: {
         id: "cycle:c850",
         cycleUuid: "c850",
         status: "active",
         phase: "preparing",
-        activeSubphase: "sync_intake",
+        activeSubphase: "baseline",
         gates: {},
         blockers: [],
         phases: {
           preparing: {
             status: "active",
-            subphase: "sync_intake",
-            sync: {
-              status: "complete",
-              beforeRef: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-              afterRef: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-              mergedPrs: [2731, "2732"],
-              upstreamWorktreePath: "/repo/games/melee/worktrees/upstream-current",
-              cycleCurrentWorktreePath: "/repo/games/melee/worktrees/cycles/c850/current",
-            },
+            subphase: "baseline",
+            sync: { status: "complete" },
+            intake: { status: "complete" },
+            knowledge: { status: "complete" },
+            baseline: { status: "complete", completedAt: "2026-08-19T00:00:00Z" },
           },
           running: {},
           pr: {},
@@ -730,112 +726,11 @@ describe("workspace cycle view", () => {
 
     const view = deriveCycleView(dashboard, null, form);
 
-    expect(view.prepareState.syncDone).toBe(true);
-    expect(view.prepareState.headShortSha).toBe("bbbbbbbbbb");
-    expect(view.prepareState.upstreamChanged).toBe(true);
-    expect(view.prepareState.mergedPrs).toEqual([2731, 2732]);
-    expect(view.prepareState.pendingIntakePrCount).toBe(2);
-    expect(view.prepareState.upstreamWorktreePath).toBe("/repo/games/melee/worktrees/upstream-current");
-    expect(view.prepareState.cycleCurrentWorktreePath).toBe("/repo/games/melee/worktrees/cycles/c850/current");
-  });
-
-  test("keeps PR index debt separate from git movement after resync", () => {
-    const dashboard = {
-      cycle: {
-        id: "cycle:c850",
-        cycleUuid: "c850",
-        status: "active",
-        phase: "preparing",
-        activeSubphase: "sync_intake",
-        gates: {},
-        blockers: [],
-        phases: {
-          preparing: {
-            status: "active",
-            subphase: "sync_intake",
-            sync: {
-              status: "complete",
-              beforeRef: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-              afterRef: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-              mergedPrs: [],
-              prIndexDebt: {
-                status: "available",
-                knownMergedPrs: 2518,
-                agentIndexedMergedPrs: 2461,
-                pendingMergedAgentPrs: 57,
-                pendingAgentPrs: 63,
-              },
-            },
-          },
-          running: {},
-          pr: {},
-          complete: {},
-        },
-      },
-      status: { run: {} },
-      process: {},
-      campaign: { head: {} },
-      handoff: {},
-      prs: {},
-    } as unknown as Dashboard;
-
-    const view = deriveCycleView(dashboard, null, form);
-
-    expect(view.prepareState.syncDone).toBe(true);
-    expect(view.prepareState.upstreamChanged).toBe(false);
-    expect(view.prepareState.mergedPrs).toEqual([]);
-    expect(view.prepareState.prIndexDebtKnown).toBe(true);
-    expect(view.prepareState.pendingMergedPrIndexCount).toBe(57);
-    expect(view.prepareState.pendingPrIndexCount).toBe(63);
-    expect(view.prepareState.pendingIntakePrCount).toBe(63);
-  });
-
-  test("derives prepare intake item counts for retryable PR intake", () => {
-    const dashboard = {
-      cycle: {
-        id: "cycle:c850",
-        cycleUuid: "c850",
-        status: "active",
-        phase: "preparing",
-        activeSubphase: "processing_prs",
-        gates: {},
-        blockers: [],
-        phases: {
-          preparing: {
-            status: "active",
-            subphase: "processing_prs",
-            sync: { status: "complete", mergedPrs: [] },
-            intake: {
-              status: "failed",
-              itemCounts: {
-                pending: 2,
-                running: 1,
-                complete: 4,
-                failed: 3,
-                retryable: 3,
-                total: 10,
-              },
-            },
-          },
-          running: {},
-          pr: {},
-          complete: {},
-        },
-      },
-      status: { run: {} },
-      process: {},
-      campaign: { head: {} },
-      handoff: {},
-      prs: {},
-    } as unknown as Dashboard;
-
-    const view = deriveCycleView(dashboard, null, form);
-
-    expect(view.prepareState.pendingIntakePrCount).toBe(2);
-    expect(view.prepareState.runningIntakeItemCount).toBe(1);
-    expect(view.prepareState.completedIntakeItemCount).toBe(4);
-    expect(view.prepareState.failedIntakeItemCount).toBe(3);
-    expect(view.prepareState.retryableIntakeItemCount).toBe(3);
-    expect(view.prepareState.totalIntakeItemCount).toBe(10);
+    expect(view.prepareState.intakeDone).toBe(true);
+    expect(view.prepareState.knowledgeDone).toBe(true);
+    expect(view.prepareState.baselineDone).toBe(true);
+    expect(view.prepareState.readyToStartRun).toBe(true);
+    expect(view.recommendedSub).toBe("run");
+    expect(view.modeLabel).toBe("Not started");
   });
 });

@@ -391,19 +391,35 @@ describe("staged sync reconciliation", () => {
     expect(stale).toMatchObject({ stale: true, observedUpstream: later });
     expect(stale.sync.status).toBe("blocked");
     expect(stale.sync.blockers[0]?.code).toBe("upstream_moved_after_validation");
-    expect(gameSyncAction(fixture.store, "melee", "sync.recover", stale.sync.sync_id)).toMatchObject({
-      enabled: false,
-      blocked_by: expect.arrayContaining([expect.objectContaining({ code: "sync_cancel_required" })]),
-    });
-    await expect(recoverSync({
+    expect(gameSyncAction(fixture.store, "melee", "sync.recover", stale.sync.sync_id).enabled).toBe(true);
+    expect(gameSyncAction(fixture.store, "melee", "sync.cancel", stale.sync.sync_id).enabled).toBe(true);
+
+    // Recover resume extends the validated candidate in place: staging (and
+    // surviving PR workspaces) rebase onto the new tip and validation re-runs.
+    const revalidating = await recoverSync({
       context: fixture.context,
       syncId: stale.sync.sync_id,
       expectedRevision: stale.sync.revision,
-      commandId: "command-reject-stale-resume",
+      commandId: "command-revalidate-stale",
       choice: "resume",
-      recoveryReason: "must not revalidate the stale candidate",
-    })).rejects.toThrow("validated candidate is stale");
-    expect(gameSyncAction(fixture.store, "melee", "sync.cancel", stale.sync.sync_id).enabled).toBe(true);
+      recoveryReason: "operator extended the validated candidate to the new upstream tip",
+    });
+    expect(revalidating.status).toBe("validating");
+    expect(revalidating.intake.upstream_to).toBe(later);
+    expect(revalidating.staging?.observed_upstream).toBe(later);
+    expect(revalidating.staging?.validated_upstream).toBeUndefined();
+    expect(git(revalidating.staging!.workspace_path!, "merge-base", "--is-ancestor", later, "HEAD")).toBe("");
+    for (const workspace of revalidating.staging?.pr_workspaces ?? []) {
+      expect(git(workspace.workspace_path, "merge-base", "--is-ancestor", later, "HEAD")).toBe("");
+    }
+    const revalidated = await validateSync(fixture.context, {
+      syncId: revalidating.sync_id,
+      expectedRevision: revalidating.revision,
+      commandId: "command-revalidate-stale-validate",
+      validate: async () => ({ result: "passed", whatRan: [{ name: "fixture revalidation gate" }] }),
+    });
+    expect(revalidated.status).toBe("validated");
+    expect(revalidated.staging?.validated_upstream).toBe(later);
   }, 30_000);
 
   test("upstream returning to the original anchor becomes cancellable staleness instead of crashing observation", async () => {
@@ -425,10 +441,9 @@ describe("staged sync reconciliation", () => {
       blockers: [expect.objectContaining({ code: "upstream_moved_after_validation" })],
       intake: { upstream_to: fixture.upstream },
     });
-    expect(gameSyncAction(fixture.store, "melee", "sync.recover", stale.sync.sync_id)).toMatchObject({
-      enabled: false,
-      blocked_by: expect.arrayContaining([expect.objectContaining({ code: "sync_cancel_required" })]),
-    });
+    // With durable staging present the stale candidate is revalidatable in
+    // place through sync.recover; cancel stays available as the alternative.
+    expect(gameSyncAction(fixture.store, "melee", "sync.recover", stale.sync.sync_id).enabled).toBe(true);
     expect(gameSyncAction(fixture.store, "melee", "sync.cancel", stale.sync.sync_id).enabled).toBe(true);
   }, 30_000);
 
@@ -464,6 +479,203 @@ describe("staged sync reconciliation", () => {
         untouched_cycle_head: git(fixture.cycle, "rev-parse", "HEAD"),
       }),
     });
+  }, 30_000);
+
+  test("sync.recover resumes a sync blocked before any durable staging by restarting the stage", async () => {
+    const fixture = conflictFixture("sync-recover-bare", false);
+    // The live failure shape: the cycle worktree check threw while entering
+    // reconciliation, before the ingesting -> reconciling transition — origin
+    // "ingesting", staging null, ingest fully succeeded.
+    let sync = markSyncRecoveryRequired({
+      context: fixture.context,
+      syncId: fixture.sync.sync_id,
+      expectedRevision: fixture.sync.revision,
+      commandId: "command-record-bare-crash",
+      reason: "Worktree is missing: /worktrees/cycles/cycle-melee/current",
+    });
+    expect(sync.status).toBe("blocked");
+    expect(sync.staging).toBeNull();
+    expect(existsSync(syncStagingPaths(fixture.stateDir, sync.sync_id).root)).toBe(false);
+
+    sync = await recoverSync({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-resume-bare",
+      choice: "resume",
+      recoveryReason: "operator resumed after restoring the cycle worktree",
+    });
+
+    expect(sync.status).toBe("ingesting");
+    expect(sync.blockers).toEqual([]);
+    expect(eventsForSubject(fixture.store.db, "sync_workflow", sync.sync_id).at(-1)).toMatchObject({
+      eventType: "sync.recovered",
+      payload: expect.objectContaining({
+        resume_stage: "ingesting",
+        to_status: "ingesting",
+        staging_preserved: true,
+        staging_discarded: false,
+      }),
+    });
+
+    // The stage restarts from the bare post-ingest state: reconciliation
+    // re-derives staging from the cycle worktree and ingest artifacts.
+    sync = await reconcileSync({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-reconcile-after-bare-resume",
+    });
+    expect(sync.staging?.workspace_path).toBeTruthy();
+    expect(existsSync(syncStagingPaths(fixture.stateDir, sync.sync_id).root)).toBe(true);
+    // The fixture's ambiguous conflict blocks as usual — reconciliation ran.
+    expect(sync.status).toBe("blocked");
+    expect(sync.blockers[0]?.code).toBe("conflict_needs_operator");
+  }, 30_000);
+
+  test("sync.recover resume with durable staging still resumes through the staged workspace", async () => {
+    const fixture = conflictFixture("sync-recover-staged-resume", false);
+    let sync = await reconcileSync({
+      context: fixture.context,
+      syncId: fixture.sync.sync_id,
+      expectedRevision: fixture.sync.revision,
+      commandId: "command-reconcile-before-staged-crash",
+    });
+    write(sync.staging!.workspace_path!, "ambiguous.c", "const char *color = \"recovered\";\n");
+    sync = await resolveSyncConflict({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-resolve-before-staged-crash",
+    });
+    expect(sync.status).toBe("validating");
+    sync = markSyncRecoveryRequired({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-record-staged-crash",
+      reason: "validator process exited",
+    });
+
+    sync = await recoverSync({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-resume-staged",
+      choice: "resume",
+      recoveryReason: "operator resumed interrupted validation",
+    });
+
+    expect(sync.status).toBe("validating");
+    expect(sync.staging?.workspace_path).toBeTruthy();
+    expect(eventsForSubject(fixture.store.db, "sync_workflow", sync.sync_id).at(-1)).toMatchObject({
+      eventType: "sync.recovered",
+      payload: expect.objectContaining({
+        resume_stage: "validating",
+        staging_preserved: true,
+        staging_discarded: false,
+      }),
+    });
+  }, 30_000);
+
+  test("stale-candidate revalidation with a real conflict routes through conflict_needs_operator", async () => {
+    const fixture = conflictFixture("sync-revalidate-conflict", false);
+    const validated = await validateFixtureWithoutPrSeries(fixture, "command-revalidate-conflict");
+    expect(validated.status).toBe("validated");
+
+    // Upstream moves again with a change that conflicts with the staged
+    // operator resolution of ambiguous.c.
+    write(fixture.seed, "ambiguous.c", "const char *color = \"upstream-again\";\n");
+    const movedAgain = commitAll(fixture.seed, "upstream conflicting movement");
+    git(fixture.seed, "push", "origin", "HEAD:master");
+    const stale = await refreshSyncUpstreamObservation({
+      context: fixture.context,
+      syncId: validated.sync_id,
+      expectedRevision: validated.revision,
+      commandId: "command-observe-conflicting-move",
+    });
+    expect(stale.sync.status).toBe("blocked");
+
+    const blocked = await recoverSync({
+      context: fixture.context,
+      syncId: stale.sync.sync_id,
+      expectedRevision: stale.sync.revision,
+      commandId: "command-revalidate-conflicting",
+      choice: "resume",
+      recoveryReason: "operator extended the stale candidate",
+    });
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.blockers[0]?.code).toBe("conflict_needs_operator");
+    expect(blocked.intake.upstream_to).toBe(movedAgain);
+    expect(blocked.staging?.conflicting_paths).toEqual(["ambiguous.c"]);
+    expect(blocked.staging?.rebase_in_progress).toBe(true);
+
+    // The existing conflict flow completes the extension onto the new tip.
+    write(blocked.staging!.workspace_path!, "ambiguous.c", "const char *color = \"operator-extended\";\n");
+    const resumed = await resolveSyncConflict({
+      context: fixture.context,
+      syncId: blocked.sync_id,
+      expectedRevision: blocked.revision,
+      commandId: "command-resolve-extension-conflict",
+    });
+    expect(resumed.status).toBe("validating");
+    expect(git(resumed.staging!.workspace_path!, "merge-base", "--is-ancestor", movedAgain, "HEAD")).toBe("");
+  }, 30_000);
+
+  test("resolveSyncConflict drops staged workspaces for series merged upstream and keeps blocking on open ones", async () => {
+    const fixture = conflictFixture("sync-prune-merged-series", true);
+    let sync = await reconcileSync({
+      context: fixture.context,
+      syncId: fixture.sync.sync_id,
+      expectedRevision: fixture.sync.revision,
+      commandId: "command-reconcile-prune",
+    });
+    expect(sync.status).toBe("blocked");
+    write(sync.staging!.workspace_path!, "ambiguous.c", "const char *color = \"operator-merged\";\n");
+    sync = await resolveSyncConflict({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-resolve-cycle-prune",
+    });
+    expect(sync.status).toBe("blocked");
+    expect(sync.staging?.conflicting_paths).toEqual(["codex/split-01-series:series.c"]);
+    const droppedWorkspace = sync.staging?.pr_workspaces?.find((workspace) => workspace.series_id === "series-01");
+    expect(droppedWorkspace?.workspace_path).toBeTruthy();
+
+    // Still-open conflicted series keep the existing behavior: unresolved
+    // markers block resolution.
+    await expect(resolveSyncConflict({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-resolve-still-open",
+    })).rejects.toThrow("Conflict markers remain in codex/split-01-series:series.c");
+
+    // The PR merged upstream while the sync was blocked; its staged rebase is
+    // now moot and must be dropped without demanding marker resolution.
+    const recordsPath = resolve(fixture.stateDir, "pr_handoff/pr_records.json");
+    const records = JSON.parse(readFileSync(recordsPath, "utf8")) as {
+      records: Array<{ branch: string; status: string }>;
+    };
+    const mergedRecord = records.records.find((record) => record.branch === "codex/split-01-series");
+    if (!mergedRecord) throw new Error("Expected fixture PR record");
+    mergedRecord.status = "merged";
+    writeFileSync(recordsPath, JSON.stringify(records, null, 2), "utf8");
+
+    sync = await resolveSyncConflict({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-resolve-after-merge",
+    });
+
+    expect(sync.status).toBe("validating");
+    expect(sync.staging?.conflicting_paths).toEqual([]);
+    expect(sync.staging?.conflicts_awaiting_operator).toBe(0);
+    expect(sync.staging?.pr_workspaces?.map((workspace) => workspace.series_id)).toEqual(["series-02"]);
+    expect(sync.pr_reconciliation.map((entry) => entry.series_id)).toEqual(["series-02"]);
+    expect(existsSync(droppedWorkspace!.workspace_path)).toBe(false);
   }, 30_000);
 
   test("sync.recover can discard from the last durable stage", async () => {

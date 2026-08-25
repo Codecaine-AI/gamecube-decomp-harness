@@ -75,7 +75,7 @@ async function fixture(sandboxProvider = new FakeSandboxProvider()): Promise<{
     ttlSeconds: 1800, sandboxSleep: false, sandboxSleepDebounceMs: 1_000,
     concurrencyLimit: 1, thinkingLevel: "medium",
     postReturnCheckCommand: "check", workerConfigureCommand: "configure", graphDbPath: resolve(stateDir, "graph.db"),
-    writeSetFlags: { mergeOnFinish: false, writeSetWidening: "off", confirmationPass: false }, workerIdPrefix: "test",
+    writeSetFlags: { writeSetWidening: "off" }, workerIdPrefix: "test",
   };
   const claimed = workerKernelOps(ctx).claimNextJob(store, { kind: "worker", concurrencyLimit: 1, leaseMs: 1_800_000 });
   if (!claimed) throw new Error("Expected worker job claim");

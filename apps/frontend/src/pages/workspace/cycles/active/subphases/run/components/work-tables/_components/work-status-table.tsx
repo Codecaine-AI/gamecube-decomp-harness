@@ -8,7 +8,7 @@ import { activeWorkPageSize, epochWorkPageSize } from "../_lib/constants";
 import type { WorkMode } from "../_lib/types";
 import { num, type Dashboard } from "@/lib/format";
 
-export function WorkStatusTable({ dashboard, mode, setMode }: { dashboard: Dashboard | null; mode: WorkMode; setMode: (mode: WorkMode) => void }) {
+export function WorkStatusTable({ dashboard, mode, onSelectAttempt, setMode }: { dashboard: Dashboard | null; mode: WorkMode; onSelectAttempt?: (workerStateId: string) => void; setMode: (mode: WorkMode) => void }) {
   const [page, setPage] = useState(0);
   const activeFiles = dashboard?.activeFiles || [];
   const epochFiles = (dashboard?.epochTargets || []).filter((target) => target.epochStatus === "active" && target.epochTargetStatus === "admitted");
@@ -71,7 +71,7 @@ export function WorkStatusTable({ dashboard, mode, setMode }: { dashboard: Dashb
               )}
             </thead>
             <tbody>
-              {activeMode ? <ActiveRows rows={rows} /> : <EpochRows rows={rows} />}
+              {activeMode ? <ActiveRows onSelectAttempt={onSelectAttempt} rows={rows} /> : <EpochRows rows={rows} />}
               {rows.length === 0 ? (
                 <tr className={activeMode ? "row-rhythm-1" : "row-rhythm-2"}>
                   <td className="text-dim" colSpan={columns}>{emptyText}</td>

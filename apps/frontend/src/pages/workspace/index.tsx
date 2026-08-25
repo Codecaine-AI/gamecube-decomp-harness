@@ -1,6 +1,5 @@
 import { WorkspaceLayout, useWorkspaceNav } from "@/pages/workspace/layout";
 import { AgentsPage } from "@/pages/workspace/agents";
-import { deriveCycleView } from "@/pages/workspace/_lib/model";
 import { KnowledgePage } from "@/pages/workspace/knowledge";
 import { OverviewPage } from "@/pages/workspace/overview";
 import { CyclesPage } from "@/pages/workspace/cycles";
@@ -40,7 +39,6 @@ function WorkspaceSectionContent(props: GameWorkspaceProps & { nav: WorkspaceNav
 }
 
 export function GameWorkspace(props: GameWorkspaceProps) {
-  const view = deriveCycleView(props.dashboard, props.config, props.form);
   const nav = useWorkspaceNav(props.onNavigate, props.route.gameId);
   return (
     <WorkspaceLayout
@@ -51,7 +49,7 @@ export function GameWorkspace(props: GameWorkspaceProps) {
       onDismissError={props.onDismissError}
       route={props.route}
     >
-      <WorkspaceSectionContent {...props} nav={nav} view={view} />
+      <WorkspaceSectionContent {...props} nav={nav} view={props.view} />
     </WorkspaceLayout>
   );
 }

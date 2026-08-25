@@ -369,6 +369,33 @@ export async function discardSyncStaging(input: {
   return { discarded, workspaceId: input.syncId };
 }
 
+/** Aborts any in-progress rebase and removes one staged worktree.
+ *
+ * Used when a staged PR-series workspace becomes moot (its series merged or
+ * closed upstream while the sync was blocked). Mirrors discardSyncStaging's
+ * cleanup — `git worktree remove --force` from the repo root with an rm -rf
+ * fallback plus a prune — but scoped to a single workspace and tolerant of a
+ * workspace that is not mid-rebase or already gone. */
+export async function abortAndRemoveSyncWorktree(input: {
+  repoRoot: string;
+  worktreePath: string;
+  runGit?: SyncGitRunner;
+}): Promise<void> {
+  const runner = input.runGit ?? defaultSyncGitRunner;
+  if (existsSync(resolve(input.worktreePath, ".git"))) {
+    await runner(input.worktreePath, ["rebase", "--abort"], { check: false });
+  }
+  const removed = await runner(
+    input.repoRoot,
+    ["worktree", "remove", "--force", input.worktreePath],
+    { check: false },
+  );
+  if (removed.exitCode !== 0 && existsSync(input.worktreePath)) {
+    rmSync(input.worktreePath, { recursive: true, force: true });
+  }
+  await runner(input.repoRoot, ["worktree", "prune"], { check: false });
+}
+
 function normalizedMechanicalText(value: string): string {
   return value.replace(/\s+/g, "");
 }

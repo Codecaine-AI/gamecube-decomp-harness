@@ -53,7 +53,7 @@ import {
   type SchedulerEpochEnsureResult,
   type SchedulerTickResult,
 } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
-import { liveConflictResolverConfig, resolveBaseRev } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { resolveBaseRev } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { startJobConsumer } from "@server/core/job-queue/consumer.js";
 import { defaultConfigureCommand } from "@server/core/job-queue/executor.js";
 import { reconcileSandboxes } from "@server/core/job-queue/sandbox-lifecycle.js";
@@ -760,11 +760,9 @@ export async function runRunLoop(
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const writeSetFlags = writeSetIntegrationFlags(args);
-    if (writeSetFlags.mergeOnFinish || writeSetFlags.writeSetWidening !== "off") {
+    if (writeSetFlags.writeSetWidening !== "off") {
       const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
-        merge_on_finish: writeSetFlags.mergeOnFinish,
         write_set_widening: writeSetFlags.writeSetWidening,
-        confirmation_pass: writeSetFlags.confirmationPass,
         created_by: "run-loop",
       });
       markEventHandled(store, flagEvent);
@@ -941,13 +939,17 @@ export async function runRunLoop(
       let task: Promise<void>;
       runningIntegrationResolverPaths.set(record.id, lockPaths);
       task = integrationResolve(globals, integrationResolverArgs(args, runId, record))
-        .then(() => {
+        .then((resolveOutcome) => {
           integrationResolverRuns.push({
             item_id: record.id,
             lock_paths: lockPaths,
             target_key: record.targetKey,
             item_path: record.itemPath,
+            status: resolveOutcome.status,
+            resolved_commit: resolveOutcome.committedSha,
           });
+          // A resolved conflict is committed harness-side; base new workers on it.
+          if (resolveOutcome.committedSha) workerCtx.baseRev = resolveOutcome.committedSha;
           nextEpochAllowedMs = 0;
         })
         .catch((error) => {
@@ -999,15 +1001,18 @@ export async function runRunLoop(
         workerSettledSinceDrain = false;
         let task: Promise<void>;
         task = processWorkerOutputIntegrationQueue({
-          conflictResolver: writeSetFlags.mergeOnFinish ? liveConflictResolverConfig(globals, sessionId, runId) : undefined,
           dryRun: globals.dryRunAgents,
           leaseId,
-          mergeOnFinish: writeSetFlags.mergeOnFinish,
           repoRoot: globals.repoRoot,
           runId,
           stateDir: globals.stateDir,
           store,
-        }).then(() => { integrationDrains += 1; })
+        }).then((drainResult) => {
+          integrationDrains += 1;
+          // New workers base their sandboxes on the latest per-accept
+          // integration commit; in-flight workers keep their original base.
+          if (drainResult.headRev) workerCtx.baseRev = drainResult.headRev;
+        })
           .catch((error) => console.error(`[run-loop] worker output integration drain failed: ${error instanceof Error ? error.message : String(error)}`))
           .finally(() => { if (runningIntegrationDrain === task) runningIntegrationDrain = null; });
         runningIntegrationDrain = task;
@@ -1016,13 +1021,14 @@ export async function runRunLoop(
       const boundaryWorkPendingBeforeMaintenance = epochBoundaryWorkPending(store, runId);
       const blockingIntegrationsBeforeMaintenance = blockingWorkerOutputIntegrationCount(store, runId);
 
+      // Resolvers run promptly alongside live workers: path locks fence them
+      // from each other, the epoch boundary is blocked while any resolver
+      // runs, and no boundary may be running when one launches.
       if (
         !drainRequested &&
         autoIntegrationResolverEnabled(args) &&
         !runningEpoch &&
-        runningIntegrationResolvers.size < integrationResolverConcurrency &&
-        activeWorkerCount(store, runId) === 0 &&
-        workerConsumer.inFlight() === 0
+        runningIntegrationResolvers.size < integrationResolverConcurrency
       ) {
         const activeLockPaths = new Set([...runningIntegrationResolverPaths.values()].flat());
         const resolverItems = workerOutputIntegrationConflictsForResolver(store, runId, {
@@ -1082,6 +1088,7 @@ export async function runRunLoop(
       const launchEpochCycle = (trigger: string, schedulerEpochId?: string): void => {
         syncSchedulerCondition("planning");
         const epochOrdinal = epochCycles + 1;
+        const baseRevAtBoundaryStart = workerCtx.baseRev;
         let task: Promise<void>;
         task = runEpochBoundary({
           store,
@@ -1109,7 +1116,12 @@ export async function runRunLoop(
         })
           .then((outcome) => {
             // Workers base new worktrees on the latest epoch boundary commit.
-            workerCtx.baseRev = outcome.boundaryResult?.commitSha ?? workerCtx.baseRev;
+            // Compare-and-set: the boundary sha was captured at snapshot time,
+            // so if an integration drain or resolver advanced baseRev during
+            // the (long) report build, the newer value wins.
+            if (outcome.boundaryResult?.commitSha && workerCtx.baseRev === baseRevAtBoundaryStart) {
+              workerCtx.baseRev = outcome.boundaryResult.commitSha;
+            }
             if (globals.dryRunAgents || outcome.boundaryResult || outcome.reconciled) epochCycles += 1;
             if (outcome.boundaryResult) {
               lastEpoch = outcome.boundaryResult;
@@ -1273,7 +1285,11 @@ export async function runRunLoop(
         }
       }
 
-      if (!drainRequested && epochCycleEnabled && runningIntegrationResolvers.size === 0) {
+      // A boundary must not launch while a worker-output drain is applying:
+      // the same iteration that settles the last worker starts a drain, and
+      // the boundary's blocking-integration check would then throw a spurious
+      // error epoch. The drain finishes fast; the next iteration launches.
+      if (!drainRequested && epochCycleEnabled && runningIntegrationResolvers.size === 0 && !runningIntegrationDrain) {
         if (!runningEpoch && nowMs >= nextEpochAllowedMs && !epochPaused) {
           const boundaryError = boundaryErrorEpoch(store, runId);
           if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
@@ -1478,16 +1494,15 @@ export async function runRunLoop(
     if (pendingSettleWork.size > 0) await Promise.allSettled([...pendingSettleWork]);
     if (runningIntegrationDrain) await runningIntegrationDrain;
     if (workerSettledSinceDrain) {
-      await processWorkerOutputIntegrationQueue({
-        conflictResolver: writeSetFlags.mergeOnFinish ? liveConflictResolverConfig(globals, sessionId, runId) : undefined,
+      const finalDrain = await processWorkerOutputIntegrationQueue({
         dryRun: globals.dryRunAgents,
         leaseId,
-        mergeOnFinish: writeSetFlags.mergeOnFinish,
         repoRoot: globals.repoRoot,
         runId,
         stateDir: globals.stateDir,
         store,
       });
+      if (finalDrain.headRev) workerCtx.baseRev = finalDrain.headRev;
       integrationDrains += 1;
       workerSettledSinceDrain = false;
     }

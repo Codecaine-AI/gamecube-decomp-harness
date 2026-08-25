@@ -1,0 +1,351 @@
+{
+	"schemaVersion": 1,
+	"id": "40-new-features-30-global-flow-map-70-validation-sandbox-tracing",
+	"title": "Validation, Sandbox, and Tracing",
+	"root": "b-gf-services-root-1",
+	"blocks": {
+		"b-gf-services-root-1": {
+			"id": "b-gf-services-root-1",
+			"type": "paragraph",
+			"props": {},
+			"children": [
+				"b-gf-services-intro-2",
+				"b-gf-services-outline-4"
+			]
+		},
+		"b-gf-services-intro-2": {
+			"id": "b-gf-services-intro-2",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Working process flow for this band of the global flow. Confirmed detail from the walkthrough accumulates here before mapping to the owning chapter."
+				}
+			],
+			"children": []
+		},
+		"b-gf-services-outline-4": {
+			"id": "b-gf-services-outline-4",
+			"type": "process-outline",
+			"props": {
+				"steps": [
+					{
+						"text": "Answer a request for report truth",
+						"steps": [
+							{
+								"text": "Accept a report request from the dashboard, the `report-run` job, or a Cycle"
+							},
+							{
+								"text": "Configure the worktree when `build.ninja` is missing"
+							},
+							{
+								"text": "Compute the reuse key over HEAD, `build.ninja`, and `config.yml`"
+							},
+							{
+								"text": "Reuse `report.json` when reuse is on and the stored key matches"
+							},
+							{
+								"text": "On a miss, delete the report and run `ninja build/GALE01/report.json`"
+							},
+							{
+								"text": "Write the fresh reuse key beside the report"
+							},
+							{
+								"text": "With `--reset-baseline`, copy the fresh report over `baseline.json`",
+								"trace": true,
+								"steps": [
+									{
+										"text": "Every later comparison starts from this baseline.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Diff the report against the baseline with `ninja changes_all`",
+								"trace": true
+							},
+							{
+								"text": "Load `report_changes.json` as the trusted report"
+							},
+							{
+								"text": "Return empty counts as `missing` or `parse_error` when it will not parse"
+							},
+							{
+								"text": "Write the `report_run`, `board_snapshot`, and `trusted_report` rows"
+							},
+							{
+								"text": "Concurrent requests do not dedupe. No single-flight guard exists: each caller runs its own `ninja` in the same `build/GALE01`, clears `report_changes.json` on entry, and can delete `report.json` out from under a run already in flight (bug catalog).",
+								"kind": "note"
+							}
+						]
+					},
+					{
+						"text": "Check a candidate against the production baseline",
+						"steps": [
+							{
+								"text": "Rebuild the production baseline in a detached worktree",
+								"trace": true
+							},
+							{
+								"text": "Build the candidate end to end with `ninja changes_all`"
+							},
+							{
+								"text": "Record `build_failed` and stop without reading a report when the build fails"
+							},
+							{
+								"text": "Require `report_changes.json` newer than the build start, or fail closed"
+							},
+							{
+								"text": "Diff the candidate report against the production baseline",
+								"steps": [
+									{
+										"text": "Fail the regression gate on broken matches or fuzzy and metric regressions"
+									},
+									{
+										"text": "Weigh new matches and improvements at the promotion gate"
+									}
+								]
+							},
+							{
+								"text": "Evaluate PR promotion against the policy floors",
+								"steps": [
+									{
+										"text": "The floors are minimum new matches, matched code bytes, matched data bytes, and unmatched improvement bytes.",
+										"kind": "note"
+									},
+									{
+										"text": "Return `pr_ready`, `local_only`, or blocked"
+									}
+								]
+							},
+							{
+								"text": "Write `pr_report.md` and `summary.json` beside the captured build output"
+							}
+						]
+					},
+					{
+						"text": "Gate the QA sweep",
+						"steps": [
+							{
+								"text": "Sweep the candidate files with `scan_diff.py --gate` at the `pr_gate` surface",
+								"steps": [
+									{
+										"text": "Exit code is the contract: 0 clean, 1 hard-fail findings, 2 warnings only, anything else a tool failure.",
+										"kind": "note"
+									},
+									{
+										"text": "Block handoff when the scanner cannot run or its output will not parse"
+									}
+								]
+							},
+							{
+								"text": "Group the findings by candidate file",
+								"steps": [
+									{
+										"text": "The candidate files are the set of paths the checkpoint's proofs claim.",
+										"kind": "note"
+									},
+									{
+										"text": "For each candidate file carrying errors, queue one repair item"
+									},
+									{
+										"text": "Queue one for each warning-only file, unless repair-warnings is off"
+									},
+									{
+										"text": "`llm_review` warnings stay advisory and never become mandatory repair targets.",
+										"kind": "note"
+									},
+									{
+										"text": "Retain outside findings with reason `outside_candidate_set`"
+									}
+								]
+							},
+							{
+								"text": "Conjoin three gates into the handoff verdict",
+								"steps": [
+									{
+										"text": "Handoff needs the regression gate clean, promotion not blocked, and the QA gate clean; any miss reports `failed`.",
+										"kind": "note"
+									}
+								]
+							}
+						]
+					},
+					{
+						"text": "Run the attempt in a sandbox",
+						"steps": [
+							{
+								"text": "Provision from the game image plus the claim's base-revision seed",
+								"steps": [
+									{
+										"text": "Create the sandbox from the snapshot, autostop off, TTL budget plus thirty minutes"
+									},
+									{
+										"text": "Emit `sandbox.created` onto the game event log"
+									},
+									{
+										"text": "Bundle and fetch the gap when the baked revision trails the base revision"
+									},
+									{
+										"text": "Force a detached checkout at the base revision",
+										"steps": [
+											{
+												"text": "The claim's identity is that revision, not whatever the baked workspace left dirty.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Upload each seeded report artifact into the workspace"
+									},
+									{
+										"text": "Verify `wibo-real`, `objdiff-cli`, and `dtk` are present and executable"
+									},
+									{
+										"text": "On any throw, delete the sandbox as `provision_failure` and rethrow"
+									}
+								]
+							},
+							{
+								"text": "Reach Daytona through one provider client",
+								"steps": [
+									{
+										"text": "One client built from `DAYTONA_API_KEY` serves create, get, list-by-labels, and delete; a sandbox already gone reads as absent, not as an error.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Sleep while the model thinks",
+								"steps": [
+									{
+										"text": "Route every exec, upload, download, read, and write through the sleep controller"
+									},
+									{
+										"text": "While the sandbox sits at zero operations, run the stop timer down until it fires"
+									},
+									{
+										"text": "For each new operation, cancel the pending stop and wake the sandbox first"
+									}
+								]
+							},
+							{
+								"text": "Reconcile the fleet",
+								"steps": [
+									{
+										"text": "Delete the sandbox of a settled or reaped job and append `sandbox.deleted`"
+									},
+									{
+										"text": "For each sandbox labelled with this game, check liveness end to end",
+										"steps": [
+											{
+												"text": "Live means the current claim token, a live job lease, a matching game and run, a payload still naming this sandbox and claim, an active dispatch lease held by this run, and an active claim.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Delete anything failing a check as `reconciliation`, and count the rest live"
+									},
+									{
+										"text": "A sandbox already carrying a `sandbox.deleted` event is skipped instead of deleted twice.",
+										"kind": "note"
+									}
+								]
+							}
+						]
+					},
+					{
+						"text": "Trace it as it happens",
+						"steps": [
+							{
+								"text": "Submit every workflow event through one path",
+								"steps": [
+									{
+										"text": "Build the container lineage from the event's kind, stamping the terminal status",
+										"steps": [
+											{
+												"text": "Session sits at the root, then prepare, then the child; intake nests session, prepare, intake, item, then the event, and a PR publication hangs off a `pr` container.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "Upsert the whole lineage first, so every parent exists before the event"
+									},
+									{
+										"text": "Emit `melee:<phase>_<status>` onto the kernel trace",
+										"trace": true,
+										"steps": [
+											{
+												"text": "The event carries the phase, operation, app session, container id, `correlation_id`, `game_event_id`, and `caused_by_event_id`.",
+												"kind": "note"
+											}
+										]
+									},
+									{
+										"text": "The kernel event id derives from that same identity, so resubmitting one event is idempotent.",
+										"kind": "note"
+									}
+								]
+							},
+							{
+								"text": "Read the linkage cursor back",
+								"steps": [
+									{
+										"text": "Join kernel trace events to their containers over the app-session ids"
+									},
+									{
+										"text": "Return each game event with its `/workspace/trace` deep links, rejecting other shapes"
+									}
+								]
+							},
+							{
+								"text": "Hand work off through the event log",
+								"steps": [
+									{
+										"text": "Nothing calls the `Run Loop` directly; the producer stores a wake request as an event on the run.",
+										"kind": "note"
+									},
+									{
+										"text": "Repeat: `Run Loop` claims the next unhandled signal, until none remain",
+										"steps": [
+											{
+												"text": "Claim `pool_below_target` ahead of the queue, oldest first otherwise"
+											},
+											{
+												"text": "Act on the event, mark it handled, and store the result as a new event"
+											}
+										]
+									}
+								]
+							},
+							{
+								"text": "Hold the game's one dispatch lease",
+								"steps": [
+									{
+										"text": "Acquire when no holder is active, appending `game.dispatch_requested` then `game.dispatch_acquired`"
+									},
+									{
+										"text": "While another workflow holds the lease, queue the request until it releases"
+									},
+									{
+										"text": "On drain move the holder to `draining`, and to `blocked` when blockers stay open"
+									},
+									{
+										"text": "Otherwise append `game.dispatch_released`, clear the slot, and acquire into the successor"
+									},
+									{
+										"text": "Every write compare-and-swaps on the harness revision; a stale revision throws instead of overwriting.",
+										"kind": "note"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"children": []
+		}
+	}
+}

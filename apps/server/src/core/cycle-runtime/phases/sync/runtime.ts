@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve, sep } from "node:path";
@@ -85,6 +86,8 @@ export interface SyncRuntimeDeps {
     options?: { check?: boolean; failureHint?: string },
   ) => Promise<CliResult>;
   serverJobPath: string;
+  /** Injectable backoff delay for retries; defaults to setTimeout. */
+  sleep?: (ms: number) => Promise<void>;
   sourceRoot: (sourceId: string) => string;
   processors?: (input: {
     body: Record<string, unknown>;
@@ -304,7 +307,16 @@ export function gameSyncAction(
   }
 
   const blockers = [...missingSync, ...leaseRequired];
-  const staleRecoveryRequiresNewSync = Boolean(
+  // A stale validated candidate with durable staging can be revalidated in
+  // place through sync.recover (rebase staging onto the new tip, re-run the
+  // incremental validation); only a stale candidate without staging still
+  // forces a cancel.
+  const staleBlockedRevalidatable = Boolean(
+    sync?.status === "blocked" &&
+    sync.blockers.some((entry) => entry.code === "upstream_moved_after_validation") &&
+    sync.staging?.workspace_path,
+  );
+  const staleRecoveryRequiresNewSync = !staleBlockedRevalidatable && Boolean(
     sync && (
       staleValidatedCandidate ||
       sync.blockers.some((entry) => entry.code === "upstream_moved_after_validation")
@@ -478,9 +490,125 @@ function parseCliOutput(result: CliResult): Record<string, unknown> {
   }
 }
 
+const FAILURE_TAIL_CHARS = 200;
+const FAILURE_EARLIER_OUTPUT_CHARS = 3800;
+
+function failureOutput(result: CliResult): string {
+  return (result.stderr || result.stdout || "").trim() || "no output";
+}
+
+/** Leads with the tail of the output (the actual error), then earlier context.
+ * Kernel-runtime init failures echo kilobytes of migration SQL before the real
+ * error line; a plain slice buried the error under that SQL. */
 function commandFailure(name: string, result: CliResult): void {
   if (result.exitCode === 0) return;
-  throw new Error(`${name} failed (${String(result.exitCode)}): ${(result.stderr || result.stdout || "no output").slice(-4000)}`);
+  const output = failureOutput(result);
+  const tail = output.slice(-FAILURE_TAIL_CHARS);
+  const earlier = output.slice(0, output.length - tail.length).slice(-FAILURE_EARLIER_OUTPUT_CHARS);
+  const suffix = earlier ? `\n--- earlier output (truncated) ---\n${earlier}` : "";
+  throw new Error(`${name} failed (${String(result.exitCode)}): ${tail}${suffix}`);
+}
+
+const SYNC_CLI_MAX_ATTEMPTS = 3;
+const SYNC_CLI_BACKOFF_BASE_MS = 1500;
+
+function cliExitFailure(result: CliResult): string | null {
+  return result.exitCode === 0 ? null : `exit ${String(result.exitCode)}`;
+}
+
+/** Runs a per-PR sync subprocess, retrying transient failures.
+ *
+ * Both per-PR subprocesses flake transiently on 1 PR of hundreds and block
+ * the whole sync: the intake job's kernel runtime bootstrap used to collide
+ * on the idempotent schema migration, and the fetch step's pi postmortem
+ * agent can exit 0 without producing postmortem.json. Both commands are
+ * idempotent per PR (curated.jsonl appends dedupe by record id; the fetch
+ * skips already-complete raw data and existing postmortems), so retrying is
+ * safe. `commandForAttempt` lets a retry adjust flags; `failureFor` lets a
+ * caller treat a zero-exit result with missing outputs as a failure.
+ * Exported for tests. */
+export async function runSyncCliWithRetry(
+  deps: Pick<SyncRuntimeDeps, "appendLog" | "packageRoot" | "runCli" | "sleep">,
+  label: string,
+  commandForAttempt: (attempt: number) => string[],
+  failureFor: (result: CliResult) => string | null = cliExitFailure,
+): Promise<CliResult> {
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolveSleep) => setTimeout(resolveSleep, ms)));
+  let result = await deps.runCli(commandForAttempt(1), deps.packageRoot);
+  let failure = failureFor(result);
+  for (let attempt = 2; failure && attempt <= SYNC_CLI_MAX_ATTEMPTS; attempt += 1) {
+    const delayMs = Math.round(SYNC_CLI_BACKOFF_BASE_MS * (attempt - 1) * (1 + Math.random()));
+    deps.appendLog?.(
+      "stderr",
+      `${label} attempt ${attempt - 1}/${SYNC_CLI_MAX_ATTEMPTS} failed (${failure}); retrying in ${delayMs}ms: ${failureOutput(result).slice(-FAILURE_TAIL_CHARS)}`,
+    );
+    await sleep(delayMs);
+    result = await deps.runCli(commandForAttempt(attempt), deps.packageRoot);
+    failure = failureFor(result);
+  }
+  return result;
+}
+
+const SYNC_INGEST_CONCURRENCY_DEFAULT = 4;
+
+/**
+ * Pool size for per-PR knowledge ingest (fetch dump + intake subprocess per
+ * merged PR). Per-PR learnings are independent, so the pool has no ordering
+ * requirement. Configured with ORCH_SYNC_INGEST_CONCURRENCY (>= 1); wiring a
+ * games/<id>/game.json knob would require game-registry resolver changes
+ * outside the sync surface, so the env var is the single knob. Exported for
+ * tests.
+ */
+export function syncIngestConcurrency(env: Record<string, string | undefined> = process.env): number {
+  const parsed = Number.parseInt(env.ORCH_SYNC_INGEST_CONCURRENCY ?? "", 10);
+  return Number.isInteger(parsed) && parsed >= 1 ? parsed : SYNC_INGEST_CONCURRENCY_DEFAULT;
+}
+
+let ghTokenEnvReady: Promise<void> | null = null;
+
+const GH_TOKEN_RESOLUTION_TIMEOUT_MS = 15_000;
+
+/**
+ * Resolves the gh auth token once per server process and exports it as
+ * GH_TOKEN so every child process (the per-PR fetch script and anything it
+ * spawns) authenticates from env instead of hammering the macOS keyring —
+ * parallel gh invocations hit keyring timeouts even at low concurrency.
+ * Soft-fails: if gh is missing, exits non-zero, or hangs past the timeout,
+ * the env is left unchanged and children fall back to gh's own auth path.
+ * Deliberately avoids deps.runCli, which streams child stdout (the token)
+ * into the sync log.
+ */
+function ensureGhTokenEnv(appendLog?: SyncRuntimeDeps["appendLog"]): Promise<void> {
+  if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) return Promise.resolve();
+  ghTokenEnvReady ??= new Promise<void>((resolveReady) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn("gh", ["auth", "token"], { stdio: ["ignore", "pipe", "ignore"] });
+    } catch {
+      resolveReady();
+      return;
+    }
+    const chunks: string[] = [];
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => chunks.push(String(chunk)));
+    const timer = setTimeout(() => child.kill("SIGKILL"), GH_TOKEN_RESOLUTION_TIMEOUT_MS);
+    timer.unref?.();
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolveReady();
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      const token = chunks.join("").trim();
+      if (code === 0 && token) {
+        process.env.GH_TOKEN = token;
+      } else {
+        appendLog?.("stderr", "gh auth token resolution failed; per-PR fetches fall back to gh keyring auth");
+      }
+      resolveReady();
+    });
+  });
+  return ghTokenEnvReady;
 }
 
 function within(root: string, path: string): boolean {
@@ -500,9 +628,10 @@ function defaultProcessors(
     async processMergedPr({ artifactDirectory, job }) {
       const number = Number(job.sourceId.replace(/^pr-/, ""));
       if (!Number.isInteger(number) || number <= 0) throw new Error(`Invalid merged PR id: ${job.sourceId}`);
+      await ensureGhTokenEnv(deps.appendLog);
       const dataRoot = resolve(artifactDirectory, "data");
       const kernelEnabled = !dryRunAgents && await deps.kernelEnabled?.().catch(() => false);
-      const fetch = [
+      const fetchCommand = (postmortemScope: "fetched" | "all") => [
         "python3",
         resolve(deps.sourceRoot("past_prs"), "commands/fetch_recent_pr_dump.py"),
         "--dump-root",
@@ -510,7 +639,7 @@ function defaultProcessors(
         "--postmortem-mode",
         kernelEnabled ? "pi" : "scaffold",
         "--postmortem-scope",
-        "fetched",
+        postmortemScope,
         "--postmortem-jobs",
         "1",
         "--fetch-jobs",
@@ -524,9 +653,21 @@ function defaultProcessors(
         "--pr",
         String(number),
       ];
-      const fetched = await deps.runCli(fetch, deps.packageRoot);
-      commandFailure(`Merged PR #${number} staged fetch`, fetched);
       const postmortem = resolve(dataRoot, "prs", `pr-${number}`, "postmortem", "postmortem.json");
+      const fetched = await runSyncCliWithRetry(
+        deps,
+        `Merged PR #${number} staged fetch`,
+        // Retries widen the postmortem scope to "all": the raw PR data from a
+        // prior attempt makes the script report "nothing to fetch", and with
+        // scope "fetched" that skips postmortem generation entirely, so a
+        // missing postmortem.json would never regenerate. Scope "all" selects
+        // from the per-PR dump index and only rebuilds missing postmortems.
+        (attempt) => fetchCommand(attempt === 1 ? "fetched" : "all"),
+        // The postmortem agent can flake with a zero exit; treat a missing
+        // postmortem.json as a retryable failure too.
+        (result) => cliExitFailure(result) ?? (existsSync(postmortem) ? null : "postmortem.json was not produced"),
+      );
+      commandFailure(`Merged PR #${number} staged fetch`, fetched);
       if (!existsSync(postmortem)) throw new Error(`Merged PR #${number} staged postmortem was not produced`);
       const command = [
         "bun",
@@ -551,7 +692,7 @@ function defaultProcessors(
         "--agent-output-dir",
         resolve(artifactDirectory, "agent"),
       ];
-      const curated = await deps.runCli(command, deps.packageRoot);
+      const curated = await runSyncCliWithRetry(deps, `Merged PR #${number} staged knowledge intake`, () => command);
       commandFailure(`Merged PR #${number} staged knowledge intake`, curated);
       return {
         pr: number,
@@ -690,6 +831,8 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           actor: context.actor,
           processors: deps.processors?.({ body, paths, sync }) ?? defaultProcessors(deps, paths, body, sync),
           revalidateOwnership,
+          concurrency: syncIngestConcurrency(),
+          appendLog: deps.appendLog,
         });
         sync = knowledge.sync;
         if (sync.intake.knowledge_only || sync.status !== "ingesting") return sync;

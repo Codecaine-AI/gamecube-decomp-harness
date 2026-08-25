@@ -1,5 +1,4 @@
 import { librarianAgent } from "@server/core/agent-catalog/agents/knowledge/librarian/index.js";
-import { conflictResolverAgent } from "@server/core/agent-catalog/agents/running/conflict-resolver/index.js";
 import { integrationResolverAgent } from "@server/core/agent-catalog/agents/running/integration-resolver/index.js";
 import { prFixerAgent } from "@server/core/agent-catalog/agents/pr/fixer/index.js";
 import { qaRepairAgent } from "@server/core/agent-catalog/agents/pr/qa-repair/index.js";
@@ -14,7 +13,6 @@ export const agentRegistry = {
     toolProfile: "worker",
     purpose: "Execute one claimed Melee decomp target while the runner owns checkpoints and lifecycle state.",
   },
-  "conflict-resolver": conflictResolverAgent,
   "integration-resolver": integrationResolverAgent,
   "pr-reviewer": prReviewerAgent,
   "pr-fixer": prFixerAgent,

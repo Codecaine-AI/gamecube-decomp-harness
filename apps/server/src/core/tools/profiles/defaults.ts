@@ -58,17 +58,6 @@ export const defaultIntegrationResolverToolProfile = [
   "review_lint_scan",
 ] as const;
 
-/** Default tools for immediate merge-on-finish conflict resolution. */
-export const defaultConflictResolverToolProfile = [
-  "code_graph_file_card",
-  "code_graph_search",
-  "checkdiff_run",
-  "checkdiff_summary",
-  "direct_compile_tu",
-  "objdiff_score_candidate",
-  "review_lint_scan",
-] as const;
-
 /** Default PR splitter tools attached to handoff planning launches. */
 export const defaultPrSplitterToolProfile = [
   "code_graph_search",

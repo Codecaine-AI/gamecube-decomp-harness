@@ -23,6 +23,8 @@
 				"b-30-integration-resolver-inputs-body-5",
 				"b-30-integration-resolver-tools-heading-6",
 				"b-30-integration-resolver-tools-body-7",
+				"b-30-integration-resolver-terminal-heading-10",
+				"b-30-integration-resolver-terminal-body-11",
 				"b-30-integration-resolver-runs-heading-8",
 				"b-30-integration-resolver-runs-body-9"
 			]
@@ -33,73 +35,7 @@
 			"props": {},
 			"text": [
 				{
-					"insert": "The integration resolver resolves one queued running-phase integration conflict item so worker output still lands before PR handoff. Unlike the "
-				},
-				{
-					"insert": "Conflict Resolver",
-					"attributes": {
-						"reference": {
-							"kind": "doc",
-							"path": "20-implementation/10-agents/10-running/20-conflict-resolver"
-						}
-					}
-				},
-				{
-					"insert": " it edits the cycle checkout directly, making the smallest conflict-resolution edits, and may return "
-				},
-				{
-					"insert": "resolved",
-					"attributes": {
-						"code": true
-					}
-				},
-				{
-					"insert": ", "
-				},
-				{
-					"insert": "needs_rework",
-					"attributes": {
-						"code": true
-					}
-				},
-				{
-					"insert": ", "
-				},
-				{
-					"insert": "blocked",
-					"attributes": {
-						"code": true
-					}
-				},
-				{
-					"insert": ", or "
-				},
-				{
-					"insert": "rejected",
-					"attributes": {
-						"code": true
-					}
-				},
-				{
-					"insert": ". The runner validates its "
-				},
-				{
-					"insert": "melee_integration_resolver_result_v1",
-					"attributes": {
-						"code": true
-					}
-				},
-				{
-					"insert": " output (its schema is the group's only "
-				},
-				{
-					"insert": "schema.json",
-					"attributes": {
-						"code": true
-					}
-				},
-				{
-					"insert": ") and owns queue dispositions."
+					"insert": "The integration resolver resolves one queued integration conflict item — a genuine concurrency conflict where two workers started from the same base revision, the first patch landed, and the second no longer applies against the moved tree. It edits the cycle checkout directly, making the smallest conflict-resolution edits, and may return resolved, needs_rework, blocked, or rejected. The runner validates its melee_integration_resolver_result_v1 output (its schema is the group's only schema.json) and owns queue dispositions."
 				}
 			],
 			"children": []
@@ -303,7 +239,58 @@
 			"props": {},
 			"text": [
 				{
-					"insert": "Launched asynchronously by the run scheduler loop once all workers are idle (resolver enabled, no epoch running, not draining), in concurrent batches under a concurrency cap with path-disjoint locking so only non-overlapping conflict items run together. Open resolver runs are a boundary condition that blocks the next epoch."
+					"insert": "Launched by the run scheduler loop promptly whenever conflict outcomes exist — resolvers run alongside live workers rather than waiting for an idle pool. Up to "
+				},
+				{
+					"insert": "integrationResolverConcurrency",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " resolver agents (game configuration) run concurrently with path-disjoint locking, so only non-overlapping conflict items run together; no resolver launches while an epoch boundary is running or a drain is requested, and the epoch boundary waits for every open resolver before it proceeds."
+				}
+			],
+			"children": []
+		},
+		"b-30-integration-resolver-terminal-heading-10": {
+			"id": "b-30-integration-resolver-terminal-heading-10",
+			"type": "heading",
+			"props": {
+				"level": 2
+			},
+			"text": [
+				{
+					"insert": "Terminal Resolution"
+				}
+			],
+			"children": []
+		},
+		"b-30-integration-resolver-terminal-body-11": {
+			"id": "b-30-integration-resolver-terminal-body-11",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "A resolved outcome is terminal. The harness commits the resolver's hand-merged tree from the cycle checkout ("
+				},
+				{
+					"insert": "commitResolvedIntegration",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " in apps/server/src/core/cycle-runtime/phases/running/integration/integration-resolve.ts), recording a "
+				},
+				{
+					"insert": "resolution",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " discriminator of committed, no_tree_change, or commit_failed, and never re-applies the original worker patch — the resolver's tree is the resolution. The resolution commit also advances the base revision that newly provisioned sandbox workers start from."
 				}
 			],
 			"children": []

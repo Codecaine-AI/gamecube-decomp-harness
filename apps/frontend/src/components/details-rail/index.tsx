@@ -1,13 +1,29 @@
-import { useEffect, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, type PointerEvent as ReactPointerEvent } from "react";
+
 import { ChevronLeft, ChevronRight } from "@/icons";
+import { asArray, asObject, text } from "@/lib/format";
 
 import { OperationLogsTab } from "./_components/logs-tab";
+import { NavigatorSection, navigatorSectionHint } from "./_components/navigator-section";
 import { ProcessTab } from "./_components/process-tab";
-import { RunTab } from "./_components/run-tab";
-import { TabButton } from "./_components/tab-button";
+import { RailSection, type RailSectionId } from "./_components/rail-section";
+import { RunSetupSection, runSetupSummary } from "./_components/run-setup";
+import { StateSection, stateSectionHint } from "./_components/state-section";
+import { detailsRailCycleFocus } from "./_lib/cycle-focus";
 import type { DetailsRailProps, DetailsTab } from "./_lib/types";
 
 export type { DetailsRailProps, DetailsTab } from "./_lib/types";
+
+function initialRequestedSection(): RailSectionId | null {
+  try {
+    const requested = new URLSearchParams(window.location.search).get("details");
+    if (requested === "run") return "navigator";
+    if (requested === "process" || requested === "logs") return requested;
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export function DetailsRail({
   busy,
@@ -18,25 +34,30 @@ export function DetailsRail({
   loadingRunDetails,
   onAction,
   onCollapsedChange,
+  onNavigate,
   onResizeEnd,
   onResizeStart,
   onWidthChange,
+  route,
   runDetails,
   setForm,
   tabRequest,
+  view,
 }: DetailsRailProps) {
-  const [activeTab, setActiveTab] = useState<DetailsTab>(() => {
-    try {
-      const requested = new URLSearchParams(window.location.search).get("details");
-      return requested === "run" || requested === "logs" || requested === "process" ? requested : "run";
-    } catch {
-      return "run";
-    }
-  });
+  const requestedSection = initialRequestedSection();
+  const cycleFocus = detailsRailCycleFocus(dashboard);
+  const gameId = route.kind === "workspace" ? route.gameId : undefined;
+  const processHint = view.process.draining ? "draining" : view.process.running ? "running" : view.process.pillState || "idle";
+  const operation = asObject(asObject(dashboard?.process).operation);
+  const operationStatus = text(operation.status);
+  const logsHint = operationStatus || `${asArray(asObject(dashboard?.process).logs).length} lines`;
+  const navigatorRequest = tabRequest?.tab === "run" ? tabRequest.nonce : requestedSection === "navigator" ? 0 : undefined;
+  const processRequest = tabRequest?.tab === "process" ? tabRequest.nonce : requestedSection === "process" ? 0 : undefined;
+  const logsRequest = tabRequest?.tab === "logs" ? tabRequest.nonce : requestedSection === "logs" ? 0 : undefined;
 
   useEffect(() => {
-    if (tabRequest) setActiveTab(tabRequest.tab);
-  }, [tabRequest]);
+    if (tabRequest) onCollapsedChange(false);
+  }, [onCollapsedChange, tabRequest]);
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -49,6 +70,28 @@ export function DetailsRail({
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+  }
+
+  function openAttempt(workerStateId: string): void {
+    onNavigate({
+      kind: "workspace",
+      section: "cycles",
+      gameId,
+      cycle: cycleFocus,
+      cycleSub: "run",
+      cycleDetail: { kind: "attempt", id: workerStateId },
+    });
+  }
+
+  function openEpoch(epochId: string): void {
+    onNavigate({
+      kind: "workspace",
+      section: "cycles",
+      gameId,
+      cycle: cycleFocus,
+      cycleSub: "run",
+      cycleDetail: { kind: "epoch", id: epochId },
+    });
   }
 
   return (
@@ -73,27 +116,35 @@ export function DetailsRail({
           </button>
         </div>
       )}
-      <div className={`details-rail-content ${collapsed ? "hidden" : ""} grid min-h-0 grid-rows-[auto_minmax(0,1fr)]`}>
-        <div className="flex gap-1.5 border-b border-line bg-raised p-2" role="tablist" aria-label="Details rail">
-          <TabButton active={activeTab === "run"} onClick={() => setActiveTab("run")}>
-            Run
-          </TabButton>
-          <TabButton active={activeTab === "process"} onClick={() => setActiveTab("process")}>
-            Process
-          </TabButton>
-          <TabButton active={activeTab === "logs"} onClick={() => setActiveTab("logs")}>
-            Logs
-          </TabButton>
-        </div>
-        <div className="min-h-0 overflow-auto" role="tabpanel">
-          {activeTab === "logs" ? (
-            <OperationLogsTab dashboard={dashboard} />
-          ) : activeTab === "process" ? (
-            <ProcessTab busy={busy} dashboard={dashboard} form={form} onAction={onAction} setForm={setForm} />
-          ) : (
-            <RunTab dashboard={dashboard} form={form} loadRunDetails={loadRunDetails} loadingRunDetails={loadingRunDetails} runDetails={runDetails} />
-          )}
-        </div>
+      <div className={`details-rail-content ${collapsed ? "hidden" : ""} min-h-0 overflow-auto`}>
+        <RailSection
+          defaultOpen={requestedSection === null || requestedSection === "navigator"}
+          hint={navigatorSectionHint(dashboard, runDetails)}
+          id="navigator"
+          label="Navigator"
+          requestOpenNonce={navigatorRequest}
+        >
+          <NavigatorSection
+            dashboard={dashboard}
+            loadRunDetails={loadRunDetails}
+            loadingRunDetails={loadingRunDetails}
+            onSelectAttempt={openAttempt}
+            onSelectEpoch={openEpoch}
+            runDetails={runDetails}
+          />
+        </RailSection>
+        <RailSection hint={stateSectionHint(view)} id="state" label="State">
+          <StateSection dashboard={dashboard} view={view} />
+        </RailSection>
+        <RailSection hint={runSetupSummary(view)} id="config" label="Config">
+          <RunSetupSection busy={busy} form={form} onAction={onAction} setForm={setForm} view={view} />
+        </RailSection>
+        <RailSection hint={processHint} id="process" label="Process" requestOpenNonce={processRequest}>
+          <ProcessTab busy={busy} dashboard={dashboard} form={form} onAction={onAction} setForm={setForm} />
+        </RailSection>
+        <RailSection hint={logsHint} id="logs" label="Logs" requestOpenNonce={logsRequest} scrollOnRequest>
+          <OperationLogsTab dashboard={dashboard} />
+        </RailSection>
       </div>
     </aside>
   );

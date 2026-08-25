@@ -26,12 +26,8 @@ export const WRITE_SET_WIDENING_MODES = ["off", "shadow", "config", "header"] as
 export type WriteSetWideningMode = (typeof WRITE_SET_WIDENING_MODES)[number];
 
 export interface WriteSetIntegrationFlags {
-  /** Apply and commit accepted worker output as soon as its worker finishes. */
-  mergeOnFinish: boolean;
   /** The highest write-set widening rung enabled for the run. */
   writeSetWidening: WriteSetWideningMode;
-  /** Boundary confirmation requires both experimental features. */
-  confirmationPass: boolean;
 }
 
 function readFlag(argv: string[], index: number): string {
@@ -175,19 +171,6 @@ export function writeSetWideningArg(args: Map<string, string | true>): WriteSetW
   return value as WriteSetWideningMode;
 }
 
-export function mergeOnFinishArg(args: Map<string, string | true>): boolean {
-  const value = args.get("--merge-on-finish");
-  if (value === undefined) return false;
-  if (value === true) return true;
-  return !/^(?:0|false|no|off)$/i.test(value.trim());
-}
-
 export function writeSetIntegrationFlags(args: Map<string, string | true>): WriteSetIntegrationFlags {
-  const mergeOnFinish = mergeOnFinishArg(args);
-  const writeSetWidening = writeSetWideningArg(args);
-  return {
-    mergeOnFinish,
-    writeSetWidening,
-    confirmationPass: mergeOnFinish && writeSetWidening !== "off",
-  };
+  return { writeSetWidening: writeSetWideningArg(args) };
 }
