@@ -671,8 +671,6 @@ describe("container identity has one authority", () => {
     "intake-item",
     "intake-postmortem",
     "intake-knowledge",
-    "pr-index",
-    "knowledge-refresh",
     "baseline",
     "run",
     "epoch",

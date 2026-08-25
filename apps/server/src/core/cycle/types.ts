@@ -4,6 +4,13 @@ export type CycleStatus = "active" | "blocked" | "complete" | "closing" | "close
 export type CyclePhase = "preparing" | "running" | "pr" | "complete";
 export type PhaseLifecycleStatus = "pending" | "active" | "complete" | "blocked";
 
+/**
+ * `sync_intake`, `processing_prs`, and `knowledge_refresh` are retired: nothing
+ * writes them any more and the UI stopped rendering them. They stay in the union
+ * because preparing phase state is persisted as JSON on the cycle row, so stored
+ * rows from before the retirement still carry these values and narrowing the type
+ * would make reading them unsound. Drop them only behind a state migration.
+ */
 export type PreparingSubphase = "config" | "sync_intake" | "processing_prs" | "knowledge_refresh" | "baseline" | "ready" | "other";
 export type RunningSubphase = "candidate_list" | "graph_rebuild" | "epoch_build" | "workers" | "checkpoint" | "other";
 export type PrSubphase = "final_build" | "qa" | "qa_fixes" | "split" | "prepare_prs" | "publish" | "review" | "intake" | "other";

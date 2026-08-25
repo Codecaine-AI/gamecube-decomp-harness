@@ -15,8 +15,6 @@ export type MeleeContainerKind =
   | "intake-item"
   | "intake-postmortem"
   | "intake-knowledge"
-  | "pr-index"
-  | "knowledge-refresh"
   | "baseline"
   | "run"
   | "epoch"
@@ -44,8 +42,6 @@ export const MELEE_PHASE_VOCABULARY = [
   "intake-item",
   "knowledge-intake",
   "knowledge-curation",
-  "knowledge-refresh",
-  "pr-index",
   "baseline",
   "run",
   "epoch",
@@ -203,14 +199,6 @@ export function meleeIntakePostmortemContainerId(ref: MeleeIntakePrRef): string 
 
 export function meleeIntakeKnowledgeContainerId(ref: MeleeIntakePrRef): string {
   return `${meleeIntakeItemContainerId(ref)}:knowledge-intake`;
-}
-
-export function meleePrIndexContainerId(ref: MeleeCycleRef): string {
-  return `${meleePrepareContainerId(ref)}:pr-index`;
-}
-
-export function meleeKnowledgeRefreshContainerId(ref: MeleeCycleRef): string {
-  return `${meleePrepareContainerId(ref)}:knowledge-refresh`;
 }
 
 export function meleeBaselineContainerId(ref: MeleeCycleRef): string {
@@ -397,26 +385,6 @@ export function describeMeleeContainer(
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
     }
-    case "pr-index":
-      return {
-        id: meleePrIndexContainerId(ref),
-        kind,
-        appSessionId,
-        parentContainerId: meleePrepareContainerId(ref),
-        label: "PR index",
-        phase: "pr-index",
-        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
-      };
-    case "knowledge-refresh":
-      return {
-        id: meleeKnowledgeRefreshContainerId(ref),
-        kind,
-        appSessionId,
-        parentContainerId: meleePrepareContainerId(ref),
-        label: "Knowledge refresh",
-        phase: "knowledge-refresh",
-        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
-      };
     case "baseline":
       return {
         id: meleeBaselineContainerId(ref),

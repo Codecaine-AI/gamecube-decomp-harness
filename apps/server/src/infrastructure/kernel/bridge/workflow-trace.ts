@@ -38,8 +38,6 @@ export interface SubmitMeleeWorkflowTraceEventInput {
     | "intake-item"
     | "intake-postmortem"
     | "intake-knowledge"
-    | "pr-index"
-    | "knowledge-refresh"
     | "baseline"
     | "run"
     | "pr"
@@ -208,12 +206,7 @@ function childContainerLineage(input: {
     return [root, pr, child];
   }
 
-  if (
-    input.kind === "sync-intake" ||
-    input.kind === "pr-index" ||
-    input.kind === "knowledge-refresh" ||
-    input.kind === "baseline"
-  ) {
+  if (input.kind === "sync-intake" || input.kind === "baseline") {
     return [root, prepare, child];
   }
 
