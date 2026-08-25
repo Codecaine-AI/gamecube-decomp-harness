@@ -305,7 +305,24 @@ export function TracePage({ form, view }: { form: FormState; view: CycleView }) 
   const reconstructionGameEventItems = useRef(new Map<string, HTMLLIElement>());
   const focusedGameEventSelection = useRef<string | null>(null);
   const spans = useMemo(
-    () => (detail ? buildTraceSpans(detail.events, detail.pi_sessions, detail.agent_runs) : []),
+    () =>
+      detail
+        ? buildTraceSpans(
+            detail.events,
+            detail.pi_sessions,
+            detail.agent_runs,
+            // Containers are what give the tree its phase/container hierarchy;
+            // without them every span flattens under the trace root.
+            detail.containers ?? (detail.container ? [detail.container] : []),
+          )
+        : [],
+    [detail],
+  );
+  const usageContext = useMemo(
+    () =>
+      detail
+        ? { runs: detail.agent_runs, container: detail.container ?? null }
+        : undefined,
     [detail],
   );
   const listedWorkflowOptions = useMemo(
@@ -1078,6 +1095,13 @@ export function TracePage({ form, view }: { form: FormState; view: CycleView }) 
               className="flex h-full flex-col"
               spans={spans}
               initialTraceLevel={2}
+              usageContext={usageContext}
+              // No apiBase on purpose. It is an origin prefix that the viewer
+              // joins with paths that already carry "/kernel" (so the harness
+              // value would be "", never "/kernel"), and passing it only helps
+              // once the harness read service implements getBlob and
+              // getRunTurnContext — until then blob-backed renderers would
+              // trade their offline body for a 404.
             />
           )}
         </div>
