@@ -65,22 +65,6 @@ export const defaultPrSplitterToolProfile = [
   "review_lint_scan",
 ] as const;
 
-/** Default PR fixer tools attached to opened-PR feedback repair launches. */
-export const defaultPrFixerToolProfile = [
-  "code_graph_file_card",
-  "code_graph_search",
-  "knowledge_graph_search",
-  "past_prs_search",
-  "checkdiff_run",
-  "checkdiff_summary",
-  "direct_compile_tu",
-  "objdiff_score_candidate",
-  "source_mutation_preview",
-  "type_oracle_lookup",
-  "include_fixer_preview",
-  "review_lint_scan",
-] as const;
-
 /** Default reconcile tools attached to ship-validate / sync-merge launches. */
 export const defaultReconcileToolProfile = [
   "code_graph_file_card",

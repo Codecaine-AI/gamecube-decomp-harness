@@ -14,22 +14,12 @@ import {
 } from "@server/core/agent-catalog/kernel-context.js";
 import workerKernelAgent from "@server/core/agent-catalog/agents/running/worker/agent.js";
 import integrationResolverKernelAgent from "@server/core/agent-catalog/agents/running/integration-resolver/agent.js";
-import prReviewerKernelAgent from "@server/core/agent-catalog/agents/pr/reviewer/agent.js";
-import prFixerKernelAgent from "@server/core/agent-catalog/agents/pr/fixer/agent.js";
-import prSplitterKernelAgent from "@server/core/agent-catalog/agents/pr/splitter/agent.js";
 import librarianKernelAgent from "@server/core/agent-catalog/agents/knowledge/librarian/agent.js";
-import reconcileKernelAgent from "@server/core/agent-catalog/agents/pr/reconcile/agent.js";
-import qaRepairKernelAgent from "@server/core/agent-catalog/agents/pr/qa-repair/agent.js";
 
 export const KERNEL_AGENT_IDS = [
   "worker",
   "integration-resolver",
-  "pr-reviewer",
-  "pr-fixer",
-  "pr-splitter",
   "librarian",
-  "reconcile",
-  "qa-repair",
 ] as const satisfies readonly RegisteredAgentId[];
 
 export type KernelAgentId = (typeof KERNEL_AGENT_IDS)[number];
@@ -123,12 +113,7 @@ const ROOT_CONTEXT_LOADERS = [ROOT_CONTEXT_LOADER_KIND] as const;
 const typedAgentDefinitions = {
   worker: workerKernelAgent,
   "integration-resolver": integrationResolverKernelAgent,
-  "pr-reviewer": prReviewerKernelAgent,
-  "pr-fixer": prFixerKernelAgent,
-  "pr-splitter": prSplitterKernelAgent,
   librarian: librarianKernelAgent,
-  reconcile: reconcileKernelAgent,
-  "qa-repair": qaRepairKernelAgent,
 } as const satisfies Record<KernelAgentId, HarnessAgentDefinition>;
 
 function typedAgentDefinition(id: KernelAgentId): HarnessAgentDefinition {
@@ -298,54 +283,6 @@ export const meleeKernelAgentCatalog = [
       "Integration resolver results are validated before runner-owned queue status updates and epoch acceptance.",
     ),
   }),
-  catalogEntry("pr-reviewer", {
-    group: "pr",
-    phase: "pr-review",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/pr/reviewer/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/reviewer/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/reviewer/schema.json",
-    ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "pr-slice-diff", "review-lint-findings", "standard-examples"],
-    resultContract: resultContract(
-      "melee_pr_preship_review_v1",
-      "apps/server/src/core/agent-catalog/agents/pr/reviewer/schema.json",
-      "validatePreshipReview",
-      "Preship review findings are structurally validated before repair routing.",
-    ),
-  }),
-  catalogEntry("pr-fixer", {
-    group: "pr",
-    phase: "repair",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/pr/fixer/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/fixer/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/fixer/schema.json",
-    ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "pr-fixer-context", "standard-examples"],
-    resultContract: resultContract(
-      "melee_pr_fixer_result_v1",
-      "apps/server/src/core/agent-catalog/agents/pr/fixer/schema.json",
-      "validatePrFixerAgentResult",
-      "PR fixer results are validated before runner-owned source validation and remote PR state updates.",
-    ),
-  }),
-  catalogEntry("pr-splitter", {
-    group: "pr",
-    phase: "pr-split",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/pr/splitter/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/splitter/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/splitter/schema.json",
-    ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "pr-split-context"],
-    resultContract: resultContract(
-      "melee_pr_splitter_plan_v1",
-      "apps/server/src/core/agent-catalog/agents/pr/splitter/schema.json",
-      "validatePrSplitterPlan",
-      "PR split plans are validated before slice worktrees/publication.",
-    ),
-  }),
   catalogEntry("librarian", {
     group: "knowledge",
     phase: "knowledge-curation",
@@ -360,38 +297,6 @@ export const meleeKernelAgentCatalog = [
       "apps/server/src/core/agent-catalog/agents/knowledge/librarian/schema.json",
       null,
       "Librarian output is schema-described; learnings and attempt overlays are appended to the knowledge ledger by the harness-owned condense job.",
-    ),
-  }),
-  catalogEntry("reconcile", {
-    group: "pr",
-    phase: "reconcile",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/pr/reconcile/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/reconcile/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/reconcile/schema.json",
-    ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "reconcile-context"],
-    resultContract: resultContract(
-      "reconcile_v1",
-      "apps/server/src/core/agent-catalog/agents/pr/reconcile/schema.json",
-      null,
-      "Reconcile reports remain harness-owned gate evidence for ship validation and upstream sync.",
-    ),
-  }),
-  catalogEntry("qa-repair", {
-    group: "pr",
-    phase: "repair",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/pr/qa-repair/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/qa-repair/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/pr/qa-repair/schema.json",
-    ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "qa-repair-item", "qa-repair-queue-summary", "standard-examples"],
-    resultContract: resultContract(
-      "melee_qa_repair_result_v1",
-      "apps/server/src/core/agent-catalog/agents/pr/qa-repair/schema.json",
-      "validateQaRepairAgentResult",
-      "QA repair results are validated before runner-owned source validation and PR routing.",
     ),
   }),
 ] as const satisfies readonly KernelAgentCatalogEntry[];

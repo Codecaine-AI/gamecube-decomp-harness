@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { artifactTimestamp } from "@server/infrastructure/agent-runtime/runtime";
-import { latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "./artifacts.js";
-import { createRunCheckpoint, latestCheckpointSummary } from "@server/core/cycle-runtime/phases/pr/checkpoint";
+import { latestRegressionCheckSummary } from "./artifacts.js";
+import { createRunCheckpoint } from "@server/core/cycle-runtime/phases/pr/checkpoint";
 import { DEFAULT_PR_BATCH_LIMIT, type PrRecordContext } from "@server/core/cycle-runtime/phases/pr/pr-records";
 import { upstreamRepoSlug } from "@server/core/cycle-runtime/phases/pr/pr-sync";
 import type {
@@ -665,6 +665,9 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
   }
 
   async function runVerifyShipSet(body: JsonObject): Promise<JsonObject> {
+    // The PR campaign jobs were removed; keep this runtime callable until the remaining campaign runtime is deleted.
+    throw new Error("PR campaign machinery removed");
+    /*
     const paths = resolveDashboardGame(body, { useDefaultGame: true });
     const { stateDir } = paths;
     const runId = activeRunIdFromBody(body, stateDir);
@@ -701,9 +704,13 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         stderr: outputTail(result.stderr, 4000),
       };
     });
+    */
   }
 
   async function runReconcile(body: JsonObject): Promise<JsonObject> {
+    // The PR campaign jobs were removed; keep this runtime callable until the remaining campaign runtime is deleted.
+    throw new Error("PR campaign machinery removed");
+    /*
     const paths = resolveDashboardGame(body, { useDefaultGame: true });
     const { stateDir } = paths;
     const runId = activeRunIdFromBody(body, stateDir);
@@ -745,9 +752,13 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         stderr: outputTail(result.stderr, 4000),
       };
     });
+    */
   }
 
   async function runQaRepairForPr(body: JsonObject): Promise<JsonObject> {
+    // The PR campaign jobs were removed; keep this runtime callable until the remaining campaign runtime is deleted.
+    throw new Error("PR campaign machinery removed");
+    /*
     const paths = resolveDashboardGame(body, { useDefaultGame: true });
     const { stateDir } = paths;
     const runId = activeRunIdFromBody(body, stateDir);
@@ -799,9 +810,13 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
         stderr: outputTail(result.stderr, 4000),
       };
     });
+    */
   }
 
   async function runPrSplitPlan(body: JsonObject): Promise<JsonObject> {
+    // The PR campaign jobs were removed; keep this runtime callable until the remaining campaign runtime is deleted.
+    throw new Error("PR campaign machinery removed");
+    /*
     const paths = resolveDashboardGame(body, { useDefaultGame: true });
     const { stateDir } = paths;
     const runId = activeRunIdFromBody(body, stateDir);
@@ -921,6 +936,7 @@ export function createHandoffRuntime(deps: HandoffRuntimeDeps): HandoffRuntime {
       writeFileSync(summaryPath, JSON.stringify(summary, null, 2), "utf8");
       return summary;
     });
+    */
   }
 
   async function regressionReportFromChanges(repoRoot: string): Promise<RegressionReport | null> {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import type { DraftPrMetadata, DraftPrQaDeps } from "./jobs/pr-draft-qa.js";
+import type { DraftPrMetadata, DraftPrQaDeps } from "./github-comments.js";
 import {
   commentMarker,
   commentUnresolvedFindings,

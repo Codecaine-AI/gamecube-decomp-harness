@@ -38,7 +38,7 @@ PR_QA_COMMENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_COMMENT)),--comment-unres
 PR_QA_CI_FLAG := $(if $(filter 1 true yes,$(PR_QA_WAIT_CI)),--wait-ci,)
 ORCH_GLOBAL_FLAGS := --repo-root "$(REPO_ROOT)" --state-dir "$(STATE_DIR)" $(DRY_FLAG) --provider "$(PROVIDER)" --model "$(MODEL)" --thinking-level "$(THINKING)" --agent-timeout-seconds "$(AGENT_TIMEOUT_SECONDS)"
 
-.PHONY: help install check smoke ui docs status init-run start dry-start recover-leases regression-check verify-ship-set pr-split-plan pr-draft-qa pr-cycle-review kg-status kg-maintain
+.PHONY: help install check smoke ui docs status init-run start dry-start recover-leases regression-check kg-status kg-maintain
 
 help:
 	@printf '%s\n' \
@@ -51,10 +51,6 @@ help:
 	  '  make dry-start          Same as start with DRY_RUN=1' \
 	  '  make recover-leases     Force-recover active leases for the run' \
 	  '  make regression-check   Run the saved-baseline regression gate' \
-	  '  make verify-ship-set    Refresh baseline and verify the planned match-lane ship set' \
-	  '  make pr-split-plan      Render PR split/handoff plan' \
-	  '  make pr-draft-qa PR=N   Run draft PR QA lifecycle for PR N' \
-	  '  make pr-cycle-review    Run cycle review/repair ledger before PR splitting' \
 	  '  make kg-status          Print knowledge graph status' \
 	  '  make kg-maintain        Run knowledge maintenance' \
 	  '  make check              Typecheck + review-lint tests' \
@@ -160,27 +156,6 @@ recover-leases:
 
 regression-check:
 	bun run server:job -- $(ORCH_GLOBAL_FLAGS) regression-check $(RUN_ID_FLAG)
-
-verify-ship-set:
-	bun run server:job -- $(ORCH_GLOBAL_FLAGS) verify-ship-set $(RUN_ID_FLAG) $(RUN_ARGS)
-
-pr-split-plan:
-	bun run server:job -- $(ORCH_GLOBAL_FLAGS) pr-split-plan
-
-pr-draft-qa:
-	@test -n "$(PR)" || (printf '%s\n' 'Set PR=<number>, for example: make pr-draft-qa PR=2704' >&2; exit 2)
-	bun run server:job -- $(ORCH_GLOBAL_FLAGS) pr-draft-qa \
-	  $(RUN_ID_FLAG) \
-	  --pr "$(PR)" \
-	  $(PR_QA_AGENT_FLAG) \
-	  $(PR_QA_COMMENT_FLAG) \
-	  $(PR_QA_CI_FLAG) \
-	  $(PR_QA_FLAGS)
-
-pr-cycle-review:
-	bun run server:job -- $(ORCH_GLOBAL_FLAGS) pr-cycle-review \
-	  $(RUN_ID_FLAG) \
-	  $(RUN_ARGS)
 
 kg-status:
 	bun run server:job -- $(ORCH_GLOBAL_FLAGS) kg-status

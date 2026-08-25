@@ -2,8 +2,25 @@ import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell";
-import type { DraftPrMetadata, DraftPrQaDeps } from "./jobs/pr-draft-qa.js";
 import type { LedgerEntryDisposition, LedgerEntryTier, LedgerMatchContext } from "./review-ledger.js";
+
+export interface DraftPrMetadata {
+  number: number;
+  url: string;
+  title: string;
+  state: string;
+  isDraft: boolean;
+  baseRefName: string;
+  baseRefOid: string;
+  headRefName: string;
+  headRefOid: string;
+  authorLogin: string | null;
+  headOwnerLogin: string | null;
+}
+
+export interface DraftPrQaDeps {
+  commandRunner?: (cwd: string, command: string[]) => Promise<CommandResult>;
+}
 
 export const COMMENT_MARKER_PREFIX = "decomp-orchestrator:pr-draft-qa";
 

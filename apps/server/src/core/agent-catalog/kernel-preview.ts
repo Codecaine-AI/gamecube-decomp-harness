@@ -2,11 +2,6 @@ import { resolve } from "node:path";
 import {
   integrationResolverPrompt,
   librarianPrompt,
-  prFixerPrompt,
-  prPreshipReviewPrompt,
-  prSplitterPrompt,
-  qaRepairPrompt,
-  reconcilePrompt,
   WORKER_CANONICAL_TOOL_PATHS,
   workerPrompt,
 } from "@server/core/agent-catalog";
@@ -161,57 +156,6 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         stateDir: paths.stateDir,
         game,
       });
-    case "pr-reviewer":
-      return prPreshipReviewPrompt({
-        sliceId: "kernel-viewer-slice",
-        sliceDiff: "diff --git a/src/melee/ft/chara/ftDemo.c b/src/melee/ft/chara/ftDemo.c\n+int ftDemo_KernelViewerSample(void) { return 1; }\n",
-        lintFindings: { findings: [] },
-        exhibits: [],
-      });
-    case "pr-fixer":
-      return prFixerPrompt({
-        fixerContext: {
-          pr: {
-            number: 0,
-            branch: "kernel-viewer-pr-fixer",
-            title: "Kernel viewer sample PR",
-          },
-          comments: [
-            {
-              id: "kernel-viewer-review-comment",
-              file: "src/melee/ft/chara/ftDemo.c",
-              line: 12,
-              body: "Please restore the game assert helper here instead of open-coding this.",
-              standard_id: "global_standard:canonical-asserts",
-              rule_id: "raw_assert_idiom",
-            },
-          ],
-          findings: [
-            {
-              source: "pr-reviewer",
-              file: "src/melee/ft/chara/ftDemo.c",
-              line: 12,
-              verdict: "reject",
-              suggested_fix: "Use the canonical assert macro from nearby code.",
-            },
-          ],
-          diff_excerpt: "diff --git a/src/melee/ft/chara/ftDemo.c b/src/melee/ft/chara/ftDemo.c",
-        },
-        repoRoot: paths.repoRoot,
-        stateDir: paths.stateDir,
-        game,
-      });
-    case "pr-splitter":
-      return prSplitterPrompt({
-        splitContext: {
-          changed_files: ["src/melee/ft/chara/ftDemo.c"],
-          lanes: { match: ["src/melee/ft/chara/ftDemo.c"] },
-          max_files_per_pr: 3,
-        },
-        repoRoot: paths.repoRoot,
-        stateDir: paths.stateDir,
-        game,
-      });
     case "librarian":
       return librarianPrompt({
         librarianBatch: {
@@ -238,41 +182,6 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           ],
           transcripts: [],
         },
-        repoRoot: paths.repoRoot,
-        stateDir: paths.stateDir,
-        game,
-      });
-    case "reconcile":
-      return reconcilePrompt({
-        mode: "ship-validate",
-        reconcileContext: {
-          gate: "saved-baseline-regression",
-          regression_report: { regressions: [] },
-          attempt_budget: 1,
-        },
-        repoRoot: paths.repoRoot,
-        stateDir: paths.stateDir,
-        game,
-      });
-    case "qa-repair":
-      return qaRepairPrompt({
-        item: {
-          id: "kernel-viewer-qa-repair",
-          source_path: "src/melee/ft/chara/ftDemo.c",
-          lane: "match",
-          repair_warnings: false,
-          findings: [
-            {
-              rule_id: "review_lint.kernel_viewer_sample",
-              standard_id: "global_standard:sample",
-              severity: "error",
-              line: 1,
-              message: "Sample finding for the integrated kernel Agent Viewer.",
-            },
-          ],
-          warnings: [],
-        } as any,
-        queueSummary: { total: 1 },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
         game,

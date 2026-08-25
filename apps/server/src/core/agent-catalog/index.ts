@@ -1,52 +1,6 @@
 export { agentRegistry, type RegisteredAgentId } from "./registry.js";
 export { librarianAgent, librarianPrompt, type LibrarianPromptOptions } from "@server/core/agent-catalog/agents/knowledge/librarian/index.js";
 export {
-  PRESHIP_DIFF_CHAR_LIMIT,
-  PRESHIP_REVIEW_SCHEMA_VERSION,
-  loadPreshipExhibits,
-  preshipExhibitsPath,
-  preshipExhibitsPromptXml,
-  prPreshipReviewPrompt,
-  prReviewerAgent,
-  validatePreshipReview,
-  type PreshipExhibit,
-  type PreshipExhibitKind,
-  type PreshipFindingVerdict,
-  type PreshipReview,
-  type PreshipReviewFinding,
-  type PreshipSliceVerdict,
-  type PrPreshipReviewPromptOptions,
-} from "@server/core/agent-catalog/agents/pr/reviewer/index.js";
-export {
-  PR_SPLITTER_SCHEMA_VERSION,
-  prSplitterAgent,
-  prSplitterPrompt,
-  validatePrSplitterPlan,
-  type PrSplitterPlan,
-  type PrSplitterPromptOptions,
-  type PrSplitterSlice,
-} from "@server/core/agent-catalog/agents/pr/splitter/index.js";
-export {
-  prFixerAgent,
-  prFixerPrompt,
-  validatePrFixerAgentResult,
-  type PrFixerAgentResult,
-  type PrFixerPromptOptions,
-} from "@server/core/agent-catalog/agents/pr/fixer/index.js";
-export {
-  qaRepairAgent,
-  qaRepairPrompt,
-  validateQaRepairAgentResult,
-  type QaRepairAgentResult,
-  type QaRepairPromptOptions,
-} from "@server/core/agent-catalog/agents/pr/qa-repair/index.js";
-export {
-  reconcileAgent,
-  reconcilePrompt,
-  type ReconcileMode,
-  type ReconcilePromptOptions,
-} from "@server/core/agent-catalog/agents/pr/reconcile/index.js";
-export {
   integrationResolverAgent,
   integrationResolverPrompt,
   validateIntegrationResolverAgentResult,

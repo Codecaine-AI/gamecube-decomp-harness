@@ -8,11 +8,6 @@ import type { PiPromptBundle } from "@server/core/shared/types";
 import {
   integrationResolverPrompt,
   librarianPrompt,
-  prFixerPrompt,
-  prPreshipReviewPrompt,
-  prSplitterPrompt,
-  qaRepairPrompt,
-  reconcilePrompt,
   workerPrompt,
 } from "@server/core/agent-catalog";
 import { agentRegistry } from "@server/core/agent-catalog/registry";
@@ -82,46 +77,6 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
       });
-    case "pr-reviewer":
-      return prPreshipReviewPrompt({
-        sliceId: "slice-001",
-        sliceDiff: "diff --git a/src/melee/ft/chara/ftDemo.c b/src/melee/ft/chara/ftDemo.c\n+int ftDemo_Target(void) { return 1; }\n",
-        lintFindings: { findings: [] },
-        exhibits: [],
-      });
-    case "pr-fixer":
-      return prFixerPrompt({
-        fixerContext: {
-          pr: {
-            number: 2704,
-            branch: "sample-pr-fixer",
-            title: "Sample PR fixer",
-          },
-          comments: [
-            {
-              id: "sample-review-comment",
-              file: "src/melee/ft/chara/ftDemo.c",
-              line: 24,
-              body: "Please restore the game assert helper here instead of open-coding this.",
-              standard_id: "global_standard:canonical-asserts",
-              rule_id: "raw_assert_idiom",
-            },
-          ],
-          diff_excerpt: "diff --git a/src/melee/ft/chara/ftDemo.c b/src/melee/ft/chara/ftDemo.c",
-        },
-        repoRoot: sampleRepoRoot,
-        stateDir: sampleStateDir,
-      });
-    case "pr-splitter":
-      return prSplitterPrompt({
-        splitContext: {
-          changed_files: ["src/melee/ft/chara/ftDemo.c"],
-          lanes: { match: ["src/melee/ft/chara/ftDemo.c"] },
-          max_files_per_pr: 3,
-        },
-        repoRoot: sampleRepoRoot,
-        stateDir: sampleStateDir,
-      });
     case "librarian":
       return librarianPrompt({
         librarianBatch: {
@@ -151,39 +106,6 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
       });
-    case "reconcile":
-      return reconcilePrompt({
-        mode: "ship-validate",
-        reconcileContext: {
-          gate: "saved-baseline-regression",
-          regression_report: { regressions: [] },
-          attempt_budget: 1,
-        },
-        repoRoot: sampleRepoRoot,
-        stateDir: sampleStateDir,
-      });
-    case "qa-repair":
-      return qaRepairPrompt({
-        item: {
-          id: "qa-sample-1",
-          source_path: "src/melee/ft/chara/ftDemo.c",
-          lane: "match",
-          repair_warnings: false,
-          findings: [
-            {
-              rule_id: "review_lint.sample",
-              standard_id: "sample-standard",
-              severity: "error",
-              line: 1,
-              message: "Sample finding",
-            },
-          ],
-          warnings: [],
-        } as any,
-        queueSummary: { total: 1 },
-        repoRoot: sampleRepoRoot,
-        stateDir: sampleStateDir,
-      });
   }
 }
 
@@ -192,8 +114,8 @@ describe("meleeKernelAgentCatalog", () => {
     const registeredIds = Object.keys(agentRegistry) as KernelAgentId[];
 
     expect(() => assertMeleeKernelCatalogComplete()).not.toThrow();
-    expect(KERNEL_AGENT_IDS).toHaveLength(8);
-    expect(meleeKernelAgentCatalog).toHaveLength(8);
+    expect(KERNEL_AGENT_IDS).toHaveLength(3);
+    expect(meleeKernelAgentCatalog).toHaveLength(3);
     expect([...KERNEL_AGENT_IDS].sort()).toEqual(registeredIds.sort());
     expect(new Set(meleeKernelAgentCatalog.map((entry) => entry.id)).size).toBe(meleeKernelAgentCatalog.length);
   });
@@ -299,7 +221,7 @@ describe("meleeKernelAgentCatalog", () => {
     const librarian = payload.agents.find((agent) => agent.name === "librarian");
     const rendered = `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
 
-    expect(payload.agents).toHaveLength(8);
+    expect(payload.agents).toHaveLength(3);
     expect(payload.warnings).toEqual([]);
     expect(librarian?.tools).toEqual([...defaultLibrarianToolProfile]);
     expect(worker).toBeDefined();

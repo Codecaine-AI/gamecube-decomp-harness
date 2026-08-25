@@ -11,7 +11,6 @@ import {
 } from "@server/core/agent-catalog/agents/running/worker";
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import { parse } from "../src/core/game-registry/runtime-options.js";
-import { buildPrSplitPlanFromChanges } from "../src/core/cycle-runtime/phases/pr/jobs/pr-split-plan.js";
 import {
   agentNoteSignalsToolError,
   resolveBaseRev,
@@ -530,73 +529,6 @@ async function main(): Promise<void> {
       minMatchedDataBytesDelta: 0,
       minUnmatchedImprovementBytes: 0,
     }).status === "local_only",
-  );
-
-  const prSplitPlan = buildPrSplitPlanFromChanges(
-    [
-      { path: "src/melee/it/items/itfoo.c", status: "M", source: "branch" },
-      { path: "include/melee/it/itfoo.h", status: "M", source: "branch" },
-      { path: "src/melee/gm/gm_demo.c", status: "M", source: "branch" },
-      { path: "src/melee/cm/camera.c", status: "M", source: "branch" },
-      { path: "src/sysdolphin/baselib/cobj.c", status: "M", source: "branch" },
-      { path: "configure.py", status: "M", source: "worktree" },
-    ],
-    {
-      repoRoot: fixtureRoot,
-      baseRef: "origin/master",
-      headRef: "fixture-head",
-      currentBranch: "fixture-branch",
-      groupMode: "melee-subsystem",
-      maxFilesPerPr: 30,
-      branchPrefix: "review",
-      titlePrefix: "Melee decomp",
-      sliceCheckCommand: "ninja changes_all",
-    },
-  );
-  const prSplitIds = prSplitPlan.slices.map((slice) => slice.id);
-  const itemSlice = prSplitPlan.slices.find((slice) => slice.id === "it");
-  const configureSlice = prSplitPlan.slices.find((slice) => slice.id === "configure.py");
-  assertSmoke("pr-split-plan groups Melee source and headers by subsystem", itemSlice?.pathspecs.length === 2);
-  assertSmoke("pr-split-plan marks subsystem slices as unverified independent candidates", itemSlice?.independence.kind === "independent" && itemSlice.independence.verified === false);
-  assertSmoke("pr-split-plan creates subsystem slices", ["cm", "gm", "it"].every((id) => prSplitIds.includes(id)));
-  assertSmoke("pr-split-plan keeps support code separate from Melee subsystems", prSplitIds.includes("sysdolphin"));
-  assertSmoke("pr-split-plan marks root build/config changes as shared prep", configureSlice?.independence.kind === "shared-prep");
-  assertSmoke("pr-split-plan emits slice isolation commands", itemSlice?.isolationCommands.some((command) => command.includes("git worktree add")) === true);
-  assertSmoke("pr-split-plan records worktree warnings", prSplitPlan.warnings.some((warning) => warning.includes("Worktree changes")));
-  assertSmoke("pr-split-plan stays lane-less without a checkpoint", prSplitPlan.lanesApplied === false && prSplitPlan.slices.every((slice) => slice.lane === null));
-
-  const lanePlan = buildPrSplitPlanFromChanges(
-    [
-      { path: "src/melee/it/items/itfoo.c", status: "M", source: "branch" },
-      { path: "include/melee/it/itfoo.h", status: "M", source: "branch" },
-      { path: "src/melee/it/items/itbar.c", status: "M", source: "branch" },
-    ],
-    {
-      repoRoot: fixtureRoot,
-      baseRef: "origin/master",
-      headRef: "fixture-head",
-      currentBranch: "fixture-branch",
-      groupMode: "melee-subsystem",
-      maxFilesPerPr: 30,
-      branchPrefix: "review",
-      titlePrefix: "Melee decomp",
-      sliceCheckCommand: "ninja changes_all",
-      lanes: {
-        matchPaths: ["src/melee/it/items/itfoo.c"],
-        improvementPaths: ["src/melee/it/items/itbar.c"],
-      },
-    },
-  );
-  const laneMatchSlice = lanePlan.slices.find((slice) => slice.id === "it");
-  const laneLocalSlice = lanePlan.slices.find((slice) => slice.id === "local-it");
-  assertSmoke("pr-split-plan applies lanes from checkpoint candidates", lanePlan.lanesApplied === true && lanePlan.slices.length === 2);
-  assertSmoke(
-    "pr-split-plan match lane carries match and supporting files",
-    laneMatchSlice?.lane === "match" && laneMatchSlice.fileCount === 2 && laneMatchSlice.files.some((file) => file.path === "include/melee/it/itfoo.h"),
-  );
-  assertSmoke(
-    "pr-split-plan keeps non-match work in a local-only slice that does not ship",
-    laneLocalSlice?.lane === "local" && laneLocalSlice.fileCount === 1 && laneLocalSlice.warnings.some((warning) => warning.includes("do not ship")),
   );
 
   assertSmoke(
@@ -1658,16 +1590,13 @@ async function main(): Promise<void> {
   const kernelAgents = Array.isArray(kernelAgentsPayload.agents) ? kernelAgentsPayload.agents : [];
   const kernelWorker = kernelAgents.find((agent) => agent.name === "worker");
   const kernelIntegrationResolver = kernelAgents.find((agent) => agent.name === "integration-resolver");
-  const kernelPrFixer = kernelAgents.find((agent) => agent.name === "pr-fixer");
   const kernelWorkerPrompt = kernelWorker?.renderedPrompt?.content ?? "";
   const kernelWorkerContext = kernelWorker?.context?.renderedContext ?? "";
   const kernelIntegrationResolverPrompt = kernelIntegrationResolver?.renderedPrompt?.content ?? "";
   const kernelIntegrationResolverContext = kernelIntegrationResolver?.context?.renderedContext ?? "";
   const kernelWorkerJson = JSON.stringify(kernelWorker ?? {});
-  const kernelPrFixerPrompt = kernelPrFixer?.renderedPrompt?.content ?? "";
-  const kernelPrFixerContext = kernelPrFixer?.context?.renderedContext ?? "";
   assertSmoke("dashboard kernel agents endpoint responds", kernelAgentsResponse.ok);
-  assertSmoke("dashboard kernel agents endpoint renders all migrated agents", kernelAgents.length === 8);
+  assertSmoke("dashboard kernel agents endpoint renders all migrated agents", kernelAgents.length === 3);
   assertSmoke("dashboard kernel agents endpoint has no warnings", (kernelAgentsPayload.warnings ?? []).length === 0);
   assertSmoke("dashboard kernel worker catalog entry exists", Boolean(kernelWorker));
   assertSmoke(
@@ -1684,13 +1613,6 @@ async function main(): Promise<void> {
       kernelIntegrationResolverPrompt.includes("worker-output integration conflict") &&
       !`${kernelIntegrationResolverPrompt}\n${kernelIntegrationResolverContext}`.includes("{{"),
   );
-  assertSmoke(
-    "dashboard kernel PR fixer catalog entry exists",
-    Boolean(kernelPrFixer) &&
-      kernelPrFixer?.group === "pr" &&
-      kernelPrFixer?.agentFile === "apps/server/src/core/agent-catalog/agents/pr/fixer/agent.ts",
-  );
-  assertSmoke("dashboard kernel PR fixer catalog has no raw placeholders", !`${kernelPrFixerPrompt}\n${kernelPrFixerContext}`.includes("{{"));
   assertSmoke("dashboard kernel worker catalog exposes attached tools out of prompt", (kernelWorker?.tools ?? []).length === defaultWorkerToolProfile.length);
   assertSmoke(
     "dashboard kernel worker catalog has no raw placeholders",

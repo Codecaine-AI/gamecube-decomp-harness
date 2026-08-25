@@ -2,7 +2,6 @@ export type AgentRole =
   | "worker"
   | "integration-resolver"
   | "pr-reviewer"
-  | "pr-fixer"
   | "pr-splitter"
   | "librarian"
   | "reconcile"

@@ -399,7 +399,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
       }
 
       const clean =
-        report.regressions.length === 0 && report.brokenMatches.length === 0 && report.fuzzyRegressions.length === 0 && issues.status !== "issues";
+        report.regressions.length === 0 && report.brokenMatches.length === 0 && report.fuzzyRegressions.length === 0 && issues.status === "clean";
       if (clean) {
         const status = {
           status: report.newMatches.length > 0 ? "pr_ready" : "nothing_to_ship",

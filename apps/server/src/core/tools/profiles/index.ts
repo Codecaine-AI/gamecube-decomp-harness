@@ -18,7 +18,6 @@ import { knowledgeToolPromptMetadata } from "../metadata/knowledge.js";
 import {
   defaultIntegrationResolverToolProfile,
   defaultLibrarianToolProfile,
-  defaultPrFixerToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
@@ -28,7 +27,6 @@ import {
 export {
   defaultIntegrationResolverToolProfile,
   defaultLibrarianToolProfile,
-  defaultPrFixerToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
@@ -44,7 +42,6 @@ export const defaultAgentToolProfiles: Record<RuntimeAgentRole, string[]> = {
   worker: [...defaultWorkerToolProfile],
   "integration-resolver": [...defaultIntegrationResolverToolProfile],
   "pr-reviewer": [],
-  "pr-fixer": [...defaultPrFixerToolProfile],
   "pr-splitter": [...defaultPrSplitterToolProfile],
   librarian: [...defaultLibrarianToolProfile],
   reconcile: [...defaultReconcileToolProfile],

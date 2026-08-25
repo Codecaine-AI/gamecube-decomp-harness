@@ -197,7 +197,6 @@ export type PromptPreviewAgentId =
   | "worker"
   | "integration-resolver"
   | "pr-reviewer"
-  | "pr-fixer"
   | "pr-splitter"
   | "librarian"
   | "reconcile"

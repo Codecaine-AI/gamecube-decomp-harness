@@ -16,7 +16,6 @@ const evidenceToolRoles = [
   "integration-resolver",
   "pr-splitter",
   "librarian",
-  "pr-fixer",
   "reconcile",
   "qa-repair",
 ] as const;
