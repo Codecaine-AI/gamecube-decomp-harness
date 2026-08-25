@@ -106,11 +106,11 @@
 							{
 								"text": "Maintain the active epoch",
 								"steps": [
-									{
-										"text": "Refresh priorities only for admitted-but-unclaimed targets"
-									},
-									{
-										"text": "When capacity or exhaustion policy requires it, admit a fixed target set from the candidate window"
+							{
+								"text": "Admit every eligible board target at epoch open"
+							},
+							{
+								"text": "Refresh priorities only for admitted-but-unclaimed targets"
 									},
 									{
 										"text": "Create one deduplicated worker job per epoch target with stable board priority"
@@ -122,9 +122,6 @@
 							},
 							{
 								"text": "Heartbeat valid leases while child executors run; classify settled jobs from closed worker-state rows"
-							},
-							{
-								"text": "Coalesce fast in-epoch evidence refreshes that update learning and rank inputs without rebuilding report truth"
 							},
 							{
 								"text": "Queue knowledge processing for every closed worker state, including errors and non-improvements"
@@ -195,7 +192,7 @@
 			},
 			"text": [
 				{
-					"insert": "Capacity Inputs"
+					"insert": "Runtime Capacity Inputs"
 				}
 			],
 			"children": []
@@ -206,7 +203,7 @@
 			"props": {},
 			"text": [
 				{
-					"insert": "An epoch is a bounded wave with fixed target membership. "
+					"insert": "An epoch admits every eligible target from the ranked board once, when the epoch opens. Eligible targets are not yet exact, remain editable, and have a valid source path; the epoch deduplicates them by target identity. Its membership then stays fixed. "
 				},
 				{
 					"insert": "Board Prioritization",
@@ -218,7 +215,7 @@
 					}
 				},
 				{
-					"insert": " is the canonical home for every capacity definition; the loop only consumes the values below."
+					"insert": " defines job priority. Runtime concurrency uses the inputs below."
 				}
 			],
 			"children": []
@@ -233,16 +230,8 @@
 				],
 				"rows": [
 					[
-						"Epoch size",
-						"Stop admission when the fixed epoch reaches the configured target count."
-					],
-					[
 						"Worker pool size",
 						"Claim eligible worker jobs until the desired active count is reached."
-					],
-					[
-						"Candidate window",
-						"Request enough ranked candidates to satisfy deterministic admission or prove exhaustion."
 					],
 					[
 						"Tool/build slots",
@@ -260,7 +249,7 @@
 			},
 			"text": [
 				{
-					"insert": "Run-Owned Wake and Refresh Policy"
+					"insert": "Run-Owned Wake Policy"
 				}
 			],
 			"children": []
@@ -271,7 +260,7 @@
 			"props": {},
 			"text": [
 				{
-					"insert": "Wake requests are durable queue signals rather than accepted game facts. The tracing event catalog owns their cross-domain envelope; the Run Loop owns the selection and refresh policy below."
+					"insert": "Wake requests are durable queue signals rather than accepted game facts. The Run Loop selects the signal below before other unhandled events."
 				}
 			],
 			"children": []
@@ -296,44 +285,8 @@
 								}
 							}
 						],
-						"Admitted-but-unclaimed work or active workers fell below the configured pressure threshold.",
-						"Select ahead of ordinary worker-completion backlog so capacity-preserving admission is not delayed."
-					],
-					[
-						[
-							{
-								"insert": "epoch_fast_refresh_started / finished",
-								"attributes": {
-									"code": true
-								}
-							}
-						],
-						"In-epoch maintenance ingests closed states, checkpoints, facts, blockers, and deterministic curator output.",
-						"Update learning and ranking inputs only; do not rebuild report truth."
-					],
-					[
-						[
-							{
-								"insert": "epoch_fast_refresh_deferred / skipped",
-								"attributes": {
-									"code": true
-								}
-							}
-						],
-						"A fast refresh was coalesced, already active, or unnecessary.",
-						"Preserve one useful refresh and suppress duplicate maintenance work."
-					],
-					[
-						[
-							{
-								"insert": "epoch_full_refresh_started / finished",
-								"attributes": {
-									"code": true
-								}
-							}
-						],
-						"Boundary maintenance runs after authoritative report truth is rebuilt.",
-						"Keep full refresh at the boundary; it never substitutes for a fast in-epoch rank refresh."
+						"The worker pool has fallen below its desired active count.",
+						"Select first, then refresh active-epoch availability and unclaimed priorities."
 					]
 				]
 			},

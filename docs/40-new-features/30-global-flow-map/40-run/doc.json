@@ -48,36 +48,24 @@
 								]
 							},
 							{
-								"text": "Repeat each `Epoch` until the run drains, stops, or hits its budget",
+								"text": "Repeat each `Epoch` until the run stops or hits its budget",
 								"steps": [
 									{
 										"text": "Open the `Epoch`",
 										"trace": true
 									},
 									{
-										"text": "Load a candidate window off the knowledge graph"
+										"text": "Load the full ranked board"
 									},
 									{
 										"text": "Admit targets from the board once, at `Epoch` open",
-										"trace": true,
-										"steps": [
-											{
-												"text": "A fixed `Epoch` takes its size in targets, 64 by default, and is never topped up afterwards. Refill is the next `Epoch`'s job.",
-												"kind": "note"
-											},
-											{
-												"text": "Round-robin admission across source files"
-											},
-											{
-												"text": "Rerank the window by model, falling back to priority order"
-											}
-										]
+										"trace": true
 									},
 									{
-										"text": "Queue one deduplicated `Worker` job per admitted target"
+										"text": "Queue one deduplicated `Worker` job per eligible target"
 									},
 									{
-										"text": "For each admitted target",
+										"text": "For each eligible target",
 										"steps": [
 											{
 												"text": "`Worker` claims the job and its target atomically",
@@ -151,7 +139,7 @@
 										"trace": true,
 										"steps": [
 											{
-												"text": "The boundary fires only when the `Epoch` has admitted targets, nothing remaining, nothing claimed, and no `Worker` in flight.",
+												"text": "The boundary also runs for an empty `Epoch`. It waits for no remaining targets, claims, workers, or resolvers.",
 												"kind": "note"
 											},
 											{
@@ -222,22 +210,8 @@
 											{
 												"text": "Base new `Worker` worktrees on the boundary commit, compare-and-set"
 											},
-											{
-												"text": "Rerank open target priorities on a fast knowledge refresh",
-												"trace": true
-											},
-											{
-												"text": "Close an `Epoch` `exhausted` when it admits nothing",
-												"trace": true,
-												"steps": [
 													{
-														"text": "Board exhaustion on its own never ends the run: the `Epoch` closes, the loop backs off, and the run ends only on a signal, a drain, the idle limit, or the iteration budget.",
-														"kind": "note"
-													}
-												]
-											},
-											{
-												"text": "Sleep on a resting trigger, then wake and repeat"
+														"text": "Sleep at idle cadence, then wake and repeat"
 											}
 										]
 									}
@@ -249,42 +223,21 @@
 						"text": "`Run control` steers the loop from outside while it runs",
 						"steps": [
 							{
-								"text": "Settle the run in place, draining the process if it cannot"
+								"text": "Start the run and acquire its dispatch lease"
 							},
 							{
-								"text": "Stop claiming new `Worker` jobs, let in-flight ones finish",
-								"steps": [
-									{
-										"text": "Pause stops intake, not work already claimed.",
-										"kind": "note"
-									}
-								]
+								"text": "Stop the run gracefully"
 							},
 							{
-								"text": "Demand an explicit confirmation flag for hard stop and recover"
+								"text": "Recover claims and return the run to paused"
 							},
 							{
-								"text": "Mark the run cancelled with the operator's reason"
-							},
-							{
-								"text": "Force-finish the active `Epoch` without sending a signal",
-								"trace": true,
-								"steps": [
-									{
-										"text": "Close active claims, finish open targets, cancel what remains"
-									}
-								]
-							},
-							{
-								"text": "Pause dispatch on a provider failure, resume on a healthy probe"
-							},
-							{
-								"text": "`SIGINT` and `SIGTERM` stop the loop, `SIGUSR1` drains it"
+								"text": "Cancel a settled run with the operator's reason"
 							}
 						]
 					},
 					{
-						"text": "`Shutdown` drains what is in flight before the loop exits",
+						"text": "`Shutdown` settles work before the loop exits",
 						"steps": [
 							{
 								"text": "Give in-flight `Worker`s a 30-second grace, then cancel them",
@@ -300,10 +253,10 @@
 								"text": "Return every interrupted active target to admitted state"
 							},
 							{
-								"text": "Run one final integration drain before exiting"
+								"text": "Flush integration once before exiting"
 							},
 							{
-								"text": "Await `Epoch` work, resolvers, knowledge lanes, and the provider probe"
+								"text": "Await `Epoch` work, resolvers, and knowledge maintenance"
 							},
 							{
 								"text": "Set the stop reason from whatever tripped first"

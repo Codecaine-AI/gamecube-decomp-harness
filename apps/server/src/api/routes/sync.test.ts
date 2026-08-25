@@ -28,7 +28,7 @@ function deps(overrides: Partial<SyncApiRouteDeps> = {}): SyncApiRouteDeps {
     publish: async () => ({ sync: { status: "published" } }),
     recover: async () => ({ status: "ingesting" }),
     resolveConflict: async () => ({ status: "reconciling" }),
-    start: async () => ({ queued: false, run_draining: false, sync: { status: "ingesting" } }),
+    start: async () => ({ queued: false, sync: { status: "ingesting" } }),
     ...overrides,
   };
 }
@@ -48,7 +48,7 @@ describe("sync API command routes", () => {
       publish: async () => { called.push("publish"); return { sync: { status: "published" } }; },
       recover: async () => { called.push("recover"); return { status: "ingesting" }; },
       resolveConflict: async () => { called.push("resolve"); return { status: "reconciling" }; },
-      start: async () => { called.push("start"); return { queued: true, run_draining: true, sync: { status: "requested" } }; },
+      start: async () => { called.push("start"); return { queued: true, sync: { status: "requested" } }; },
     });
     const request = new Request(`http://localhost${path}`, {
       method: "POST",

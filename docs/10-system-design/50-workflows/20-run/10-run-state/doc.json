@@ -89,7 +89,7 @@
 			"type": "state-shape",
 			"props": {
 				"description": "Run control, scheduling position, progress, queue summaries, references, and tracing.",
-				"example": "{\n  \"run_id\": \"run-2026-08-11-01\",\n  \"game_id\": \"melee\",\n  \"cycle_id\": \"cycle-7\",\n  \"revision\": 288,\n  \"inputs\": {\n    \"base_revision\": \"upstream-9ac4\",\n    \"policy_revision\": \"policy-42\",\n    \"starting_knowledge_revision\": \"knowledge-375\",\n    \"configuration_snapshot\": {\n      \"desired_workers\": 64,\n      \"epoch_size\": 64\n    }\n  },\n  \"head_revision\": \"upstream-9ba1\",\n  \"control\": {\n    \"status\": \"draining\",\n    \"stop_request\": {\n      \"target\": \"sync\",\n      \"mode\": \"finish_epoch\"\n    }\n  },\n  \"scheduling\": {\n    \"active_epoch_id\": \"epoch-19\",\n    \"desired_workers\": 64,\n    \"scheduler_condition\": \"boundary\",\n    \"admitted\": 64,\n    \"claimed\": 64,\n    \"running\": 2\n  },\n  \"progress\": {\n    \"baseline_score\": 72.642,\n    \"confirmed_score\": 73.147,\n    \"tentative_changes\": 2,\n    \"confirmed_changes\": 31,\n    \"regressed_changes\": 1\n  },\n  \"job_ids\": [\n    \"job-worker-501\",\n    \"job-integration-88\"\n  ],\n  \"integration_outcome_ids\": [\n    \"integration-outcome-88\"\n  ],\n  \"epoch_ids\": [\n    \"epoch-18\",\n    \"epoch-19\"\n  ],\n  \"remote_application_ids\": [\n    \"remote-application-3\"\n  ],\n  \"worker_state_ids\": [\n    \"worker-state-501\",\n    \"worker-state-502\"\n  ],\n  \"checkpoint_ids\": [\n    \"checkpoint-88\"\n  ],\n  \"active_operation_ids\": [\n    \"operation-run-drain-44\"\n  ],\n  \"latest_event_sequence\": 92811,\n  \"blockers\": []\n}",
+				"example": "{\n  \"run_id\": \"run-2026-08-11-01\",\n  \"game_id\": \"melee\",\n  \"cycle_id\": \"cycle-7\",\n  \"revision\": 288,\n  \"inputs\": {\n    \"base_revision\": \"upstream-9ac4\",\n    \"policy_revision\": \"policy-42\",\n    \"starting_knowledge_revision\": \"knowledge-375\",\n    \"configuration_snapshot\": {\n      \"desired_workers\": 64\n    }\n  },\n  \"head_revision\": \"upstream-9ba1\",\n  \"control\": {\n    \"status\": \"active\",\n    \"stop_request\": null\n  },\n  \"scheduling\": {\n    \"desired_workers\": 64,\n    \"scheduler_condition\": \"boundary\"\n  },\n  \"progress\": {\n    \"baseline_score\": 72.642,\n    \"confirmed_score\": 73.147,\n    \"tentative_changes\": 2,\n    \"confirmed_changes\": 31,\n    \"regressed_changes\": 1\n  },\n  \"job_ids\": [\n    \"job-worker-501\",\n    \"job-integration-88\"\n  ],\n  \"integration_outcome_ids\": [\n    \"integration-outcome-88\"\n  ],\n  \"epoch_ids\": [\n    \"epoch-18\",\n    \"epoch-19\"\n  ],\n  \"remote_application_ids\": [\n    \"remote-application-3\"\n  ],\n  \"worker_state_ids\": [\n    \"worker-state-501\",\n    \"worker-state-502\"\n  ],\n  \"checkpoint_ids\": [\n    \"checkpoint-88\"\n  ],\n  \"active_operation_ids\": [],\n  \"latest_event_sequence\": 92811,\n  \"blockers\": []\n}",
 				"fields": [
 					{
 						"name": "run_id",
@@ -143,11 +143,11 @@
 						"fields": [
 							{
 								"name": "status",
-								"type": "\"draft\" | \"ready\" | \"active\" | \"draining\" | \"paused\" | \"completed\" | \"failed\" | \"cancelled\""
+								"type": "\"draft\" | \"ready\" | \"active\" | \"paused\" | \"completed\" | \"failed\" | \"cancelled\""
 							},
 							{
 								"name": "stop_request",
-								"type": "StopRequest",
+								"type": "{ mode: \"hard_stop\"; reason: string } | null",
 								"required": false
 							},
 							{
@@ -162,28 +162,12 @@
 						"type": "RunScheduling",
 						"fields": [
 							{
-								"name": "active_epoch_id",
-								"type": "EpochId | null"
-							},
-							{
 								"name": "desired_workers",
 								"type": "integer"
 							},
 							{
 								"name": "scheduler_condition",
 								"type": "\"idle\" | \"planning\" | \"dispatching\" | \"waiting\" | \"boundary\" | \"blocked\""
-							},
-							{
-								"name": "admitted",
-								"type": "integer"
-							},
-							{
-								"name": "claimed",
-								"type": "integer"
-							},
-							{
-								"name": "running",
-								"type": "integer"
 							}
 						]
 					},
@@ -377,26 +361,14 @@
 					[
 						[
 							{
-								"insert": "draining",
-								"attributes": {
-									"code": true
-								}
-							}
-						],
-						"New admission is disabled while existing work settles.",
-						"No new target claims are created."
-					],
-					[
-						[
-							{
 								"insert": "paused",
 								"attributes": {
 									"code": true
 								}
 							}
 						],
-						"Scheduling is disabled and the run remains resumable.",
-						"Work has settled or recovery recorded cancellations."
+						"The run is stopped but remains resumable after stop, recovery, or workflow handoff.",
+						"Claims and dispatch authority have settled before a later resume."
 					],
 					[
 						[
@@ -509,7 +481,7 @@
 								}
 							}
 						],
-						"Candidate evidence is becoming an admission decision."
+						"The scheduler is opening an epoch from the eligible board or refreshing target state."
 					],
 					[
 						[
@@ -520,7 +492,7 @@
 								}
 							}
 						],
-						"Admitted work is being assigned to queue capacity."
+						"Epoch work is being assigned to available workers."
 					],
 					[
 						[
@@ -604,7 +576,7 @@
 							}
 						],
 						"One autonomous effort keyed by run_id.",
-						"Frozen inputs, eight-status control, cycle-head mirror, scheduler observability, blockers, and progress."
+						"Frozen inputs, seven-status control, cycle-head mirror, scheduler observability, blockers, and progress."
 					],
 					[
 						[
@@ -628,7 +600,7 @@
 							}
 						],
 						"One deterministic scheduling wave.",
-						"Fixed membership, completion counts, refresh counters, and boundary-routing summary."
+						"Full eligible-board membership, completion counts, and boundary-routing summary."
 					],
 					[
 						[
@@ -725,7 +697,7 @@
 										"text": "Plan against `head_revision` and record the knowledge revision consumed"
 									},
 									{
-										"text": "Create the fixed epoch inventory and one deduplicated worker job per target"
+										"text": "Admit the full eligible board once at epoch open"
 									}
 								]
 							},
@@ -747,16 +719,16 @@
 								]
 							},
 							{
-								"text": "Pause and recover",
+								"text": "Stop and recover",
 								"steps": [
 									{
-										"text": "Stop admission and drain active claims, integration, and boundary work"
+										"text": "Request a managed stop with a 30-second grace"
 									},
 									{
-										"text": "Reconcile leases and crash evidence without changing `run_id`"
+										"text": "Cancel remaining work and reconcile leases after grace"
 									},
 									{
-										"text": "Return the same run to `paused` before any later resume"
+										"text": "Settle the same run as `paused` before resume"
 									}
 								]
 							},
@@ -764,7 +736,7 @@
 								"text": "Reconcile pending integration",
 								"steps": [
 									{
-										"text": "Inspect pending rows before dispatch acquisition or new admission"
+										"text": "Inspect pending rows before dispatch acquisition or epoch open"
 									},
 									{
 										"text": "Finish or reject the interrupted Git/state boundary from durable evidence"

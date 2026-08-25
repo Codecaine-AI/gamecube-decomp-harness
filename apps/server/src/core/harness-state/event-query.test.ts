@@ -119,10 +119,10 @@ describe("game event query", () => {
   test("joins workflow dispatch events into the virtual game subject exactly once", () => {
     const db = fixtureDatabase();
     insertEvent(db, { eventId: "requested", eventType: "game.dispatch_requested", subjectKind: "game", subjectId: "melee" });
-    insertEvent(db, { eventId: "drain", eventType: "game.dispatch_drain_started", subjectKind: "run", subjectId: "run-1" });
-    insertEvent(db, { eventId: "run-event", eventType: "run.draining", subjectKind: "run", subjectId: "run-1" });
+    insertEvent(db, { eventId: "run-dispatch", eventType: "game.dispatch_blocked", subjectKind: "run", subjectId: "run-1" });
+    insertEvent(db, { eventId: "run-event", eventType: "run.epoch_integrated", subjectKind: "run", subjectId: "run-1" });
     insertEvent(db, { eventId: "sync-blocked", eventType: "game.dispatch_blocked", subjectKind: "sync_workflow", subjectId: "sync-1" });
-    insertEvent(db, { eventId: "canonical-drain", eventType: "game.dispatch_drain_started", subjectKind: "sync_workflow", subjectId: "sync-2" });
+    insertEvent(db, { eventId: "canonical-blocked", eventType: "game.dispatch_blocked", subjectKind: "sync_workflow", subjectId: "sync-2" });
     insertEvent(db, { eventId: "cancelled", eventType: "game.dispatch_request_cancelled", subjectKind: "pr_campaign", subjectId: "campaign-1" });
     insertEvent(db, { eventId: "game-note", eventType: "game.note", subjectKind: "game", subjectId: "melee" });
     insertEvent(db, { eventId: "child", eventType: "game.dispatch_child", subjectKind: "sync_push", subjectId: "push-1" });
@@ -135,9 +135,9 @@ describe("game event query", () => {
 
     expect(page.events.map((event) => event.event_id)).toEqual([
       "requested",
-      "drain",
+      "run-dispatch",
       "sync-blocked",
-      "canonical-drain",
+      "canonical-blocked",
       "cancelled",
       "game-note",
     ]);
@@ -145,14 +145,14 @@ describe("game event query", () => {
     expect(page.events.filter((event) => event.event_id.includes("blocked") || event.event_id.includes("canonical")))
       .toEqual([
         expect.objectContaining({ event_id: "sync-blocked", subject_kind: "sync_workflow" }),
-        expect.objectContaining({ event_id: "canonical-drain", subject_kind: "sync_workflow" }),
+        expect.objectContaining({ event_id: "canonical-blocked", subject_kind: "sync_workflow" }),
       ]);
 
     const exactWorkflow = queryGameEvents(db, {
       gameId: "melee",
       subject: { kind: "run", id: "run-1" },
     });
-    expect(exactWorkflow.events.map((event) => event.event_id)).toEqual(["drain", "run-event"]);
+    expect(exactWorkflow.events.map((event) => event.event_id)).toEqual(["run-dispatch", "run-event"]);
   });
 
   test("filters canonical sync workflow subjects", () => {
@@ -347,10 +347,10 @@ describe("game event reconstruction", () => {
     });
   });
 
-  test("resolves run drain through sync publish to campaign activation across correlations", () => {
+  test("resolves a blocked run through sync publish to campaign activation across correlations", () => {
     const db = fixtureDatabase();
-    insertEvent(db, { eventId: "run-drain", eventType: "game.dispatch_drain_started", correlationId: "run-1", causationId: "command-sync-start", subjectKind: "run", subjectId: "run-1" });
-    insertEvent(db, { eventId: "run-release", eventType: "game.dispatch_released", correlationId: "run-1", causationId: "run-drain", subjectKind: "game", subjectId: "melee" });
+    insertEvent(db, { eventId: "run-dispatch", eventType: "game.dispatch_blocked", correlationId: "run-1", causationId: "command-sync-start", subjectKind: "run", subjectId: "run-1" });
+    insertEvent(db, { eventId: "run-release", eventType: "game.dispatch_released", correlationId: "run-1", causationId: "run-dispatch", subjectKind: "game", subjectId: "melee" });
     insertEvent(db, { eventId: "sync-acquire", eventType: "game.dispatch_acquired", correlationId: "sync-1", causationId: "run-release", subjectKind: "game", subjectId: "melee" });
     insertEvent(db, { eventId: "sync-published", eventType: "sync.boundary_published", correlationId: "sync-1", causationId: "sync-acquire", subjectKind: "sync_workflow", subjectId: "sync-1" });
     insertEvent(db, { eventId: "sync-release", eventType: "game.dispatch_released", correlationId: "sync-1", causationId: "sync-published", subjectKind: "game", subjectId: "melee" });
@@ -363,7 +363,7 @@ describe("game event reconstruction", () => {
     const sync = reconstructGameEvents(db, "melee", "sync-1");
     const campaign = reconstructGameEvents(db, "melee", "campaign-1");
 
-    expect(run.events.map((event) => event.event_id)).toEqual(["run-drain", "run-release"]);
+    expect(run.events.map((event) => event.event_id)).toEqual(["run-dispatch", "run-release"]);
     expect(run.events[0]?.caused_by).toEqual({ kind: "command", command_id: "command-sync-start" });
     expect(sync.events.map((event) => event.event_id)).toEqual(["sync-acquire", "sync-published", "sync-release"]);
     expect(sync.events[0]?.caused_by).toMatchObject({
