@@ -30,6 +30,84 @@ afterEach(() => {
 });
 
 describe("forceReportRun", () => {
+  test("serializes concurrent runs for the same repo root", async () => {
+    const root = tempDir();
+    const repoRoot = resolve(root, "repo");
+    const binDir = resolve(root, "bin");
+    const logPath = resolve(root, "commands.log");
+    const startedPath = resolve(root, "first-started");
+    const releasePath = resolve(root, "release-first");
+    mkdirSync(resolve(repoRoot, "build/GALE01"), { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(resolve(repoRoot, "build.ninja"), "# fixture\n");
+    writeExecutable(
+      resolve(binDir, "ninja"),
+      `#!/bin/sh
+set -eu
+echo "start $*" >> "$REPORT_RUN_TEST_LOG"
+if [ "$1" = "build/GALE01/report.json" ]; then
+  if [ ! -e "$REPORT_RUN_TEST_STARTED" ]; then
+    printf '%s\\n' '{"measures":{"matched_code_percent":99}}' > build/GALE01/report.json
+    touch "$REPORT_RUN_TEST_STARTED"
+    while [ ! -e "$REPORT_RUN_TEST_RELEASE" ]; do sleep 0.01; done
+    grep -q '"matched_code_percent":99' build/GALE01/report.json
+    printf '%s\\n' '{"measures":{"matched_code_percent":1}}' > build/GALE01/report.json
+  else
+    grep -q '"matched_code_percent":1' build/GALE01/baseline.json
+    printf '%s\\n' '{"measures":{"matched_code_percent":2}}' > build/GALE01/report.json
+  fi
+fi
+if [ "$1" = "changes_all" ]; then
+  grep -q '"matched_code_percent":1' build/GALE01/baseline.json
+  grep -q '"matched_code_percent":2' build/GALE01/report.json
+  printf '{"ok":true}\\n' > build/GALE01/report_changes.json
+fi
+echo "finish $*" >> "$REPORT_RUN_TEST_LOG"
+`,
+    );
+
+    const originalPath = Bun.env.PATH;
+    const originalLog = Bun.env.REPORT_RUN_TEST_LOG;
+    const originalStarted = Bun.env.REPORT_RUN_TEST_STARTED;
+    const originalRelease = Bun.env.REPORT_RUN_TEST_RELEASE;
+    Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
+    Bun.env.REPORT_RUN_TEST_LOG = logPath;
+    Bun.env.REPORT_RUN_TEST_STARTED = startedPath;
+    Bun.env.REPORT_RUN_TEST_RELEASE = releasePath;
+    try {
+      const first = forceReportRun(repoRoot, { generateChanges: false, resetBaseline: true });
+      const second = forceReportRun(repoRoot);
+
+      for (let attempt = 0; attempt < 100 && !existsSync(startedPath); attempt += 1) await Bun.sleep(10);
+      const firstStarted = existsSync(startedPath);
+      const logBeforeRelease = existsSync(logPath) ? readFileSync(logPath, "utf8").trim().split("\n") : [];
+      writeFileSync(releasePath, "release\n");
+
+      const [firstResult, secondResult] = await Promise.all([first, second]);
+      expect(firstStarted).toBe(true);
+      expect(logBeforeRelease).toEqual(["start build/GALE01/report.json"]);
+      expect(firstResult.summary?.matchedCodePercent).toBe(1);
+      expect(secondResult.summary?.matchedCodePercent).toBe(2);
+      expect(readFileSync(logPath, "utf8").trim().split("\n")).toEqual([
+        "start build/GALE01/report.json",
+        "finish build/GALE01/report.json",
+        "start build/GALE01/report.json",
+        "finish build/GALE01/report.json",
+        "start changes_all",
+        "finish changes_all",
+      ]);
+    } finally {
+      if (originalPath === undefined) delete Bun.env.PATH;
+      else Bun.env.PATH = originalPath;
+      if (originalLog === undefined) delete Bun.env.REPORT_RUN_TEST_LOG;
+      else Bun.env.REPORT_RUN_TEST_LOG = originalLog;
+      if (originalStarted === undefined) delete Bun.env.REPORT_RUN_TEST_STARTED;
+      else Bun.env.REPORT_RUN_TEST_STARTED = originalStarted;
+      if (originalRelease === undefined) delete Bun.env.REPORT_RUN_TEST_RELEASE;
+      else Bun.env.REPORT_RUN_TEST_RELEASE = originalRelease;
+    }
+  });
+
   test("configures an unconfigured checkout before invoking ninja", async () => {
     const root = tempDir();
     const repoRoot = resolve(root, "repo");

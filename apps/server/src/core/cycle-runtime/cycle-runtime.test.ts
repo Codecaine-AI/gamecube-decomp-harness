@@ -9,7 +9,6 @@ import {
   finishPrFinalBuild,
   markPreparingComplete,
   markPrComplete,
-  markCycleComplete,
   startRunning,
   stopCycleRun,
   updateRunningSubphase,
@@ -92,15 +91,8 @@ describe("game cycle runtime", () => {
 
     const prComplete = markPrComplete(db, { id: created.record.id }, { ...cycleTransition, now: "2026-06-25T12:06:00.000Z" });
     expect(prComplete.view.phases.pr.completed_at).toBe("2026-06-25T12:06:00.000Z");
-    const complete = markCycleComplete(db, { id: created.record.id }, {
-      commandId: "command-cycle-complete",
-      actor: "operator",
-      ...cycleTransition,
-      now: "2026-06-25T12:07:00.000Z",
-    });
-    expect(complete.view.status).toBe("complete");
 
-    expect(complete.view.revision).toBe(7);
+    expect(prComplete.view.revision).toBe(6);
     const events = listGameEvents(db, { gameId: "melee" });
     expect(events.map((event) => event.eventType)).toEqual([
       "cycle.opened",
@@ -110,15 +102,8 @@ describe("game cycle runtime", () => {
       "cycle.pr_entered",
       "cycle.pr_final_build_completed",
       "cycle.pr_completed",
-      "cycle.complete",
     ]);
-    expect(complete.view.causedByEventId).toBe(events[7]!.eventId);
-    expect(events[7]).toMatchObject({
-      actor: "operator",
-      causationId: "command-cycle-complete",
-      correlationId: "cycle-uuid",
-    });
-    expect(events[7]!.payload).toEqual({ from_status: "active", to_status: "complete" });
+    expect(prComplete.view.causedByEventId).toBe(events[6]!.eventId);
     db.close();
   });
 

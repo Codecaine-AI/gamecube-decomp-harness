@@ -261,7 +261,9 @@ async function storedReportReuseKey(path: string): Promise<string | null> {
   }
 }
 
-export async function forceReportRun(repoRoot: string, options: ReportRunOptions = {}): Promise<ReportRunResult> {
+const reportRuns = new Map<string, Promise<unknown>>();
+
+async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = {}): Promise<ReportRunResult> {
   const buildDir = resolve(repoRoot, "build/GALE01");
   const reportPath = resolve(buildDir, "report.json");
   const baselinePath = resolve(buildDir, "baseline.json");
@@ -309,4 +311,16 @@ export async function forceReportRun(repoRoot: string, options: ReportRunOptions
       reportChanges: await timestamp(reportChangesPath),
     },
   };
+}
+
+export function forceReportRun(repoRoot: string, options: ReportRunOptions = {}): Promise<ReportRunResult> {
+  const key = resolve(repoRoot);
+  const previous = reportRuns.get(key) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(() => runReportUnguarded(repoRoot, options));
+  let tracked: Promise<ReportRunResult>;
+  tracked = run.finally(() => {
+    if (reportRuns.get(key) === tracked) reportRuns.delete(key);
+  });
+  reportRuns.set(key, tracked);
+  return tracked;
 }

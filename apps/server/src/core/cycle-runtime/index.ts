@@ -30,7 +30,6 @@ import {
 } from "@server/core/cycle/store";
 import { now as currentTime } from "@server/core/orchestrator-state";
 import { completePreparing, setPreparingSubphase, startRunningFromPreparing } from "./phases/preparing/index.js";
-import { completeCycle } from "./phases/complete/index.js";
 import { completeFinalBuild, completePr, enterPrPhase, setPrSubphase } from "./phases/pr/index.js";
 import { blockRunning, setRunningSubphase, stopRunning, unblockStoppedRunning } from "./phases/running/index.js";
 
@@ -456,27 +455,6 @@ export function markPrComplete(
   const record = requireCycle(db, selector);
   const at = options.now ?? currentTime();
   return acceptStatusPreservingTransition(db, record, completePr(record, at, options.completion), "cycle.pr_completed", { ...options, now: at });
-}
-
-export function markCycleComplete(
-  db: Database,
-  selector: CycleSelector,
-  options: {
-    completedBy?: string;
-    completedReason?: string;
-    finalSavePoint?: Record<string, unknown>;
-    settledPrCounts?: Record<string, unknown>;
-  } & CycleRuntimeTransitionOptions,
-): CycleRuntimeResult {
-  const record = requireCycle(db, selector);
-  const at = options.now ?? currentTime();
-  return acceptStatusTransition(
-    db,
-    record,
-    completeCycle(record, at, options),
-    "cycle.complete",
-    { ...options, now: at },
-  );
 }
 
 function text(value: unknown, fallback = ""): string {

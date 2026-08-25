@@ -234,7 +234,6 @@ export function cycleGates(record: CycleRecord): CycleGates {
     can_start_workers: record.status === "active" && record.phase === "preparing" && record.preparing_state_json.status === "complete" && !activeBlockers,
     can_prepare_prs: record.status === "active" && (record.phase === "running" || record.phase === "pr") && runningStopped && !activeBlockers,
     can_publish_prs: record.status === "active" && record.phase === "pr" && finalBuildComplete && !unresolvedPrBlockers,
-    can_mark_complete: record.status === "active" && record.phase === "pr" && record.pr_state_json.status === "complete" && !unresolvedPrBlockers,
     can_start_next: record.status === "closed",
     force_to_pr_available:
       (record.status === "active" || record.status === "blocked") &&

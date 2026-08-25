@@ -415,7 +415,6 @@ export interface CycleGates {
   can_start_workers: boolean;
   can_prepare_prs: boolean;
   can_publish_prs: boolean;
-  can_mark_complete: boolean;
   can_start_next: boolean;
   force_to_pr_available: boolean;
 }
