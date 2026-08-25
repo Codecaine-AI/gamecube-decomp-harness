@@ -68,6 +68,7 @@ import { readRegressionReport } from "@server/core/validation/objdiff/report";
 import { createManagedProcessController, type ManagedProcessController, type ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
 import { createCycleProcessMirror } from "@server/core/cycle/process-mirror";
 import { getActiveCycle, getCycleByUuid, updateCycle } from "@server/core/cycle/store";
+import { canonicalCycleSessionId } from "@server/core/cycle/session.js";
 import { openState } from "@server/core/orchestrator-state";
 import { createUiCommandRunner } from "@server/infrastructure/shell/ui-command-runner";
 import { localFontResponse } from "@server/infrastructure/http/local-fonts";
@@ -412,7 +413,12 @@ const prRecords = createPrRecordsService({
     const store = openState(stateDir);
     try {
       const run = runId ? getRun(store, runId) : null;
-      return run?.cycleUuid ?? (run?.gameId ? getActiveCycle(store.db, run.gameId)?.cycle_uuid : null) ?? "";
+      return canonicalCycleSessionId({
+        db: store.db,
+        gameId: run?.gameId,
+        cycleUuid: run?.cycleUuid,
+        fallback: "",
+      });
     } finally {
       store.db.close();
     }

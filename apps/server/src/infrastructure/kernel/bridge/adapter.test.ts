@@ -49,6 +49,8 @@ import {
   meleeIntakeItemContainerId,
   meleeIntakeKnowledgeContainerId,
   meleeIntakePostmortemContainerId,
+  meleeKnowledgeContainerId,
+  meleeKnowledgeJobContainerId,
   meleePrepareContainerId,
   meleePrContainerId,
   meleePrPublicationContainerId,
@@ -659,6 +661,7 @@ describe("container identity has one authority", () => {
     prId: "2764",
     reviewId: "slice-001",
     repairId: "repair-7",
+    jobKey: "job-9",
   };
 
   // Every kind, so a new MeleeContainerKind that forgets its describe case is
@@ -671,6 +674,8 @@ describe("container identity has one authority", () => {
     "intake-item",
     "intake-postmortem",
     "intake-knowledge",
+    "knowledge",
+    "knowledge-job",
     "baseline",
     "run",
     "epoch",
@@ -722,10 +727,71 @@ describe("container identity has one authority", () => {
       ["pr-split", meleePrSplitContainerId(prRef)],
       ["pr-review", meleePrReviewContainerId({ ...prRef, reviewId: "slice-001" })],
       ["pr-repair", meleePrRepairContainerId({ ...prRef, repairId: "repair-7" })],
+      ["knowledge", meleeKnowledgeContainerId(ref)],
+      ["knowledge-job", meleeKnowledgeJobContainerId({ ...ref, jobKey: "job-9" })],
     ];
     for (const [kind, id] of expected) {
       expect(describeMeleeContainer(kind, ref, fullMetadata).id).toBe(id);
     }
+  });
+
+  test("the knowledge lane hangs off the cycle root, not off the run or prepare", () => {
+    const lane = describeMeleeContainer("knowledge", ref, {});
+    expect(lane.id).toBe(`${meleeRootContainerId(ref)}:knowledge`);
+    expect(lane.parentContainerId).toBe(meleeRootContainerId(ref));
+    expect(lane.label).toBe("Knowledge");
+
+    const job = describeMeleeContainer("knowledge-job", ref, { jobKey: "job-9" });
+    expect(job.parentContainerId).toBe(meleeKnowledgeContainerId(ref));
+    expect(job.id.startsWith(`${meleeKnowledgeContainerId(ref)}:`)).toBe(true);
+  });
+
+  test("two knowledge jobs never collapse onto one container", () => {
+    const first = describeMeleeContainer("knowledge-job", ref, { jobKey: "job-9" });
+    const second = describeMeleeContainer("knowledge-job", ref, { jobKey: "job-10" });
+    expect(first.id).not.toBe(second.id);
+  });
+
+  test("a knowledge job names itself by queue id, then batch, then worker state", () => {
+    const byJobId = describeMeleeContainer("knowledge-job", ref, {
+      jobId: "queued-1",
+      batchId: "batch-1",
+    });
+    expect(byJobId.id).toBe(meleeKnowledgeJobContainerId({ ...ref, jobKey: "queued-1" }));
+    const byBatch = describeMeleeContainer("knowledge-job", ref, { batchId: "batch-1" });
+    expect(byBatch.id).toBe(meleeKnowledgeJobContainerId({ ...ref, jobKey: "batch-1" }));
+    const byWorkerState = describeMeleeContainer("knowledge-job", ref, {
+      workerStateId: "ws-3",
+    });
+    expect(byWorkerState.id).toBe(meleeKnowledgeJobContainerId({ ...ref, jobKey: "ws-3" }));
+  });
+
+  // The regression this whole lane exists to prevent: curation used to reuse
+  // the run container's id, and the upsert overwrites label/phase on conflict.
+  test("librarian curation no longer lands on the run container", () => {
+    const curation = createMeleeKernelSpawnContext({
+      kind: "knowledge-curation",
+      gameId: "melee",
+      sessionId: "cycle-uuid-1",
+      runId: "run-1",
+      jobId: "batch-7",
+      jobKind: "Curator review",
+      phase: "knowledge-curation",
+    });
+    const runId = meleeRunContainerId({ gameId: "melee", sessionId: "cycle-uuid-1", runId: "run-1" });
+    const lineage = curation.containerLineage ?? [];
+    expect(curation.containerId).not.toBe(runId);
+    expect(lineage.some((container) => container.id === runId)).toBe(false);
+    expect(lineage.map((container) => container.id)).toEqual([
+      meleeRootContainerId({ gameId: "melee", sessionId: "cycle-uuid-1" }),
+      meleeKnowledgeContainerId({ gameId: "melee", sessionId: "cycle-uuid-1" }),
+      meleeKnowledgeJobContainerId({
+        gameId: "melee",
+        sessionId: "cycle-uuid-1",
+        jobKey: "batch-7",
+      }),
+    ]);
+    expect(lineage.at(-1)?.label).toBe("Curator review batch-7");
   });
 
   test("spawn contexts and the descriptor agree on id, label, parent and phase", () => {

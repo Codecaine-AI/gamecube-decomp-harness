@@ -31,6 +31,7 @@ import {
   stringArg,
   type GlobalArgs,
 } from "@server/core/game-registry/runtime-options.js";
+import { knowledgeCycleSessionId } from "./cycle-session.js";
 import { openState, type StateStore } from "@server/core/cycle-runtime/run-state";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
@@ -523,8 +524,10 @@ async function executeBatch(options: {
       kernelContext: createMeleeKernelSpawnContext({
         kind: "knowledge-curation",
         gameId: globals.game?.gameId ?? globals.gameId,
-        sessionId: runId || batch.batch_id,
+        sessionId: knowledgeCycleSessionId({ globals, fallback: runId || batch.batch_id }),
         runId: runId || batch.batch_id,
+        jobId: batch.batch_id,
+        jobKind: "Backfill",
         phase: "knowledge-curation",
         workingDir: globals.repoRoot,
         metadata: { source: batch.source, batchId: batch.batch_id },

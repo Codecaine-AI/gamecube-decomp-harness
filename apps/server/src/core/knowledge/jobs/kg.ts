@@ -42,6 +42,7 @@ import { addPiSession } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/cycle-runtime/run-state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { booleanArg, numberArg, gameMetadata, stringArg } from "@server/core/game-registry/runtime-options.js";
+import { knowledgeCycleSessionId } from "./cycle-session.js";
 
 export interface SpawnSummary {
   tool?: string;
@@ -933,8 +934,10 @@ async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, strin
       kernelContext: createMeleeKernelSpawnContext({
         kind: "knowledge-curation",
         gameId: globals.game?.gameId ?? globals.gameId,
-        sessionId: runId || "knowledge-curation",
+        sessionId: knowledgeCycleSessionId({ globals, fallback: runId || "knowledge-curation" }),
         runId: runId || "knowledge-curation",
+        jobId: `${runId || "knowledge-curation"}-batch-${index + 1}`,
+        jobKind: "Curator review",
         phase: "knowledge-curation",
         workingDir: globals.repoRoot,
         metadata: {

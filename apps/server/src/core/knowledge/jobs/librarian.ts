@@ -16,6 +16,7 @@ import {
   type LearningScope,
 } from "@server/core/knowledge/ledger.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { knowledgeCycleSessionId } from "./cycle-session.js";
 import { stringArg } from "@server/core/game-registry/runtime-options.js";
 import { addPiSession, openState, type StateStore } from "@server/core/cycle-runtime/run-state";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
@@ -378,8 +379,14 @@ export async function kgLibrarianCondense(
       kernelContext: createMeleeKernelSpawnContext({
         kind: "knowledge-curation",
         gameId: globals.game?.gameId ?? globals.gameId,
-        sessionId: runId || workerStateId,
+        sessionId: knowledgeCycleSessionId({
+          globals,
+          db: store.db,
+          fallback: runId || workerStateId,
+        }),
         runId: runId || workerStateId,
+        jobId: workerStateId,
+        jobKind: "Condense",
         phase: "knowledge-curation",
         workingDir: globals.repoRoot,
         metadata: {

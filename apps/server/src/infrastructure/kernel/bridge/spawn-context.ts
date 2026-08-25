@@ -37,6 +37,10 @@ export interface MeleeKernelSpawnContextInput {
   prId?: string | null;
   reviewId?: string | null;
   repairId?: string | null;
+  /** Names one knowledge job so two jobs never land on the same container. */
+  jobId?: string | null;
+  /** Human label for a knowledge job ("Curator review", "Backfill", ...). */
+  jobKind?: string | null;
   phase?: string | null;
   workingDir?: string | null;
   metadata?: Record<string, unknown>;
@@ -158,6 +162,9 @@ function containerLineage(
   const claimId = nonEmpty(input.claimId);
   const itemId = nonEmpty(input.itemId) ?? nonEmpty(input.prId) ?? nonEmpty(input.targetId) ?? claimId ?? runId;
   const claimSegment = claimId ?? nonEmpty(input.itemId) ?? "none";
+  // A knowledge job names itself by its queue id when it has one; operator CLI
+  // invocations fall back to the batch/item they were pointed at, then the run.
+  const jobKey = nonEmpty(input.jobId) ?? nonEmpty(input.itemId) ?? runId;
   const root = describedRecord({ kind: "session", ref, appSessionId, workingDir });
   const run = describedRecord({
     kind: "run",
@@ -193,19 +200,29 @@ function containerLineage(
   switch (input.kind) {
     case "run":
       return [root, run];
-    case "knowledge-curation":
+    case "knowledge-curation": {
+      // Knowledge curation used to relabel the *run* container in place. The
+      // upsert overwrites label and phase on id conflict, so a librarian spawn
+      // renamed whatever run it happened to share an id with. Curation now
+      // lives in its own lane off the cycle root, one container per job.
+      const lane = describedRecord({ kind: "knowledge", ref, appSessionId, workingDir });
+      const jobMetadata = {
+        jobKey,
+        ...(nonEmpty(input.jobKind) ? { jobKind: nonEmpty(input.jobKind) } : {}),
+        runId,
+      };
       return [
         root,
-        {
-          ...run,
-          label: `Knowledge curation ${runId}`,
-          phase: "knowledge-curation",
-          metadata: {
-            ...run.metadata,
-            containerKind: "knowledge-curation",
-          },
-        },
+        lane,
+        describedRecord({
+          kind: "knowledge-job",
+          ref,
+          appSessionId,
+          workingDir,
+          metadata: jobMetadata,
+        }),
       ];
+    }
     case "worker": {
       const epoch = describedRecord({
         kind: "epoch",

@@ -15,6 +15,8 @@ export type MeleeContainerKind =
   | "intake-item"
   | "intake-postmortem"
   | "intake-knowledge"
+  | "knowledge"
+  | "knowledge-job"
   | "baseline"
   | "run"
   | "epoch"
@@ -41,6 +43,8 @@ export const MELEE_PHASE_VOCABULARY = [
   "intake",
   "intake-item",
   "knowledge-intake",
+  "knowledge",
+  "knowledge-job",
   "knowledge-curation",
   "baseline",
   "run",
@@ -83,6 +87,10 @@ export interface MeleeEpochRef extends MeleeRunRef {
 export interface MeleeClaimRef extends MeleeEpochRef {
   claimId: string;
   targetId?: string;
+}
+
+export interface MeleeKnowledgeJobRef extends MeleeCycleRef {
+  jobKey: string;
 }
 
 export interface MeleePrRef extends MeleeCycleRef {
@@ -201,6 +209,20 @@ export function meleeIntakeKnowledgeContainerId(ref: MeleeIntakePrRef): string {
   return `${meleeIntakeItemContainerId(ref)}:knowledge-intake`;
 }
 
+/**
+ * The knowledge lane is a cycle-level sibling of the run, not a phase of it.
+ * Knowledge work outlives any single run (background jobs, backfills, operator
+ * CLI invocations), so its lane hangs off the cycle root and every job gets its
+ * own child rather than borrowing the run container's row.
+ */
+export function meleeKnowledgeContainerId(ref: MeleeCycleRef): string {
+  return `${meleeRootContainerId(ref)}:knowledge`;
+}
+
+export function meleeKnowledgeJobContainerId(ref: MeleeKnowledgeJobRef): string {
+  return `${meleeKnowledgeContainerId(ref)}:${cleanSegment(ref.jobKey)}`;
+}
+
 export function meleeBaselineContainerId(ref: MeleeCycleRef): string {
   return `${meleePrepareContainerId(ref)}:baseline`;
 }
@@ -297,6 +319,22 @@ function meleeWorkflowPrId(metadata: Record<string, unknown>): string {
   return metaId(metadata, "prId") ?? "session";
 }
 
+/**
+ * Knowledge jobs are keyed by whatever the caller can name them by: a queued
+ * job id when the background processor runs one, otherwise the batch or worker
+ * state the operator CLI is chewing through. Two jobs must never collapse onto
+ * one container, so an unnamed job degrades to "job" and nothing finer.
+ */
+function meleeKnowledgeJobKey(metadata: Record<string, unknown>): string {
+  return (
+    metaId(metadata, "jobKey") ??
+    metaId(metadata, "jobId") ??
+    metaId(metadata, "batchId") ??
+    metaId(metadata, "workerStateId") ??
+    "job"
+  );
+}
+
 export function describeMeleeContainer(
   kind: MeleeContainerKind,
   ref: MeleeCycleRef,
@@ -383,6 +421,29 @@ export function describeMeleeContainer(
         label: prId.startsWith("#") ? `${prId} knowledge intake` : `PR #${prId} knowledge intake`,
         phase: "knowledge-intake",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
+      };
+    }
+    case "knowledge":
+      return {
+        id: meleeKnowledgeContainerId(ref),
+        kind,
+        appSessionId,
+        parentContainerId: rootId,
+        label: "Knowledge",
+        phase: "knowledge",
+        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
+      };
+    case "knowledge-job": {
+      const jobKey = meleeKnowledgeJobKey(metadata);
+      const jobKind = metaId(metadata, "jobKind");
+      return {
+        id: meleeKnowledgeJobContainerId({ ...ref, jobKey }),
+        kind,
+        appSessionId,
+        parentContainerId: meleeKnowledgeContainerId(ref),
+        label: jobKind ? `${jobKind} ${jobKey}` : `Knowledge job ${jobKey}`,
+        phase: "knowledge-job",
+        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, jobKey },
       };
     }
     case "baseline":

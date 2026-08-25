@@ -39,7 +39,7 @@ import {
   type WorkspaceExec,
 } from "@server/infrastructure/shell";
 import { addPiSession } from "@server/core/cycle-runtime/run-state";
-import { getActiveCycle } from "@server/core/cycle";
+import { canonicalCycleSessionId } from "@server/core/cycle/session.js";
 import {
   addEvent,
   appendWorkerSessionId,
@@ -1230,7 +1230,12 @@ export async function runWorkerCycleFromTask(
     if (!run) throw new Error(`Run not found: ${task.run_id}`);
     assertSchedulableRun(run, "worker-task");
     const cycleGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId;
-    const sessionId = run.cycleUuid ?? (cycleGameId ? getActiveCycle(store.db, cycleGameId)?.cycle_uuid : null) ?? task.run_id;
+    const sessionId = canonicalCycleSessionId({
+      db: store.db,
+      gameId: cycleGameId,
+      cycleUuid: run.cycleUuid,
+      fallback: task.run_id,
+    });
     const claimed = reconstructClaimedWorkerTask(store, task);
     const provider = deps.sandboxProvider ?? new DaytonaSandboxProvider();
     const rawSandboxHandle = await provider.get(task.sandbox_id);
@@ -1503,7 +1508,9 @@ async function executeClaimedWorker(params: {
           kernelContext: createMeleeKernelSpawnContext({
             kind: "worker",
             gameId: game?.gameId ?? globals.gameId,
-            sessionId: runId,
+            // The cycle-derived session id, not the run id: a worker belongs to
+            // the cycle its run belongs to, and the two differ.
+            sessionId,
             runId,
             epochId: claimed.epochId,
             claimId: claimed.claimId,

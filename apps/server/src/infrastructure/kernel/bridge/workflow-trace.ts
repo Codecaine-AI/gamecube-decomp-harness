@@ -38,6 +38,8 @@ export interface SubmitMeleeWorkflowTraceEventInput {
     | "intake-item"
     | "intake-postmortem"
     | "intake-knowledge"
+    | "knowledge"
+    | "knowledge-job"
     | "baseline"
     | "run"
     | "pr"
@@ -204,6 +206,22 @@ function childContainerLineage(input: {
       metadata: childMetadata,
     });
     return [root, pr, child];
+  }
+
+  // The knowledge lane hangs off the cycle root, not off prepare, so its
+  // lineage skips the prepare container entirely.
+  if (input.kind === "knowledge" || input.kind === "knowledge-job") {
+    const lane = buildMeleeContainer({
+      kind: "knowledge",
+      ref: input.ref,
+      workingDir: input.workingDir,
+      worktreePath: input.worktreePath,
+      metadata: input.kind === "knowledge" ? childMetadata : undefined,
+    });
+    if (input.kind === "knowledge") {
+      return [root, withEventStatus(lane, input.status, input.timestamp)];
+    }
+    return [root, lane, child];
   }
 
   if (input.kind === "sync-intake" || input.kind === "baseline") {

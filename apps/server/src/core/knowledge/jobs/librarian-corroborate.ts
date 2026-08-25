@@ -21,6 +21,7 @@ import { appendLearnings, defaultLedgerPath, type LearningRecord } from "../ledg
 import { validateLibrarianReport, learningRecord } from "./librarian";
 import { mapLimit } from "./kg";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options";
+import { knowledgeCycleSessionId } from "./cycle-session.js";
 
 interface SubjectGroup {
   subject_key: string;
@@ -236,8 +237,10 @@ export async function kgLibrarianCorroborate(globals: GlobalArgs, args: Map<stri
         kernelContext: createMeleeKernelSpawnContext({
           kind: "knowledge-curation",
           gameId: globals.game?.gameId ?? globals.gameId,
-          sessionId: `corroborate-${batch.batch_id}`,
+          sessionId: knowledgeCycleSessionId({ globals, fallback: `corroborate-${batch.batch_id}` }),
           runId: runId,
+          jobId: `corroborate-${batch.batch_id}`,
+          jobKind: "Corroborate",
           phase: "knowledge-curation",
           workingDir: globals.repoRoot,
           metadata: { source: "corroboration", batchId: batch.batch_id },
