@@ -249,6 +249,45 @@ describe("startJobConsumer", () => {
     await consumer.stop();
   });
 
+  test("onJobClaimed fires before the handler and is awaited", async () => {
+    const kernel = kernelFor([job("one")]);
+    const order: string[] = [];
+    const onJobClaimed = mock(async (value: JobRecord) => {
+      await Bun.sleep(1);
+      order.push(`claimed:${value.jobId}`);
+    });
+    const handler = mock(async () => {
+      order.push("handled");
+      return {};
+    });
+    const consumer = startJobConsumer(store, inlineDescriptor(handler), kernel, {
+      intervalMs: 1,
+      onJobClaimed,
+    });
+    await until(() => handler.mock.calls.length === 1);
+    expect(order).toEqual(["claimed:one", "handled"]);
+    await consumer.stop();
+  });
+
+  // Emission is observational: a broken observer must not cost a job.
+  test("a rejecting onJobClaimed is logged and the job still runs", async () => {
+    const kernel = kernelFor([job("one")]);
+    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+    const handler = mock(async () => ({}));
+    const consumer = startJobConsumer(store, inlineDescriptor(handler), kernel, {
+      intervalMs: 1,
+      onJobClaimed: async () => {
+        throw new Error("kernel unreachable");
+      },
+    });
+    await until(() => kernel.completeJob.mock.calls.length === 1);
+    expect(handler).toHaveBeenCalled();
+    expect(kernel.failJob).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalled();
+    await consumer.stop();
+    warning.mockRestore();
+  });
+
   test("cancelAll cancels known dispatched handles and waits for settlement", async () => {
     const kernel = kernelFor([job("one")]);
     const handle = { executorId: "memory", handleId: "one" } as TaskHandle;

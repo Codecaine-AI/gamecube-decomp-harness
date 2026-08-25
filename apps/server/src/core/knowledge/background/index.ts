@@ -15,6 +15,7 @@ import type {
   JobResult,
 } from "@server/core/job-queue/types.js";
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
+import type { BackgroundKnowledgeTraceHooks } from "./trace.js";
 
 const KIND = "knowledge_absorption" as const;
 const CONCURRENCY_LIMIT = 2;
@@ -399,14 +400,29 @@ function descriptor(
 export function startBackgroundKnowledgeProcessor(
   store: StateStore,
   processor: BackgroundKnowledgeProcessor,
-  options: { intervalMs?: number; leaseMs?: number } = {},
+  options: {
+    intervalMs?: number;
+    leaseMs?: number;
+    /**
+     * Trace observer for the knowledge lane. Opt-in: callers that want the
+     * lane visible pass `createBackgroundKnowledgeTraceHooks(store)`. Left
+     * unset, the queue behaves exactly as it did before it could be traced.
+     */
+    trace?: BackgroundKnowledgeTraceHooks;
+  } = {},
 ): (options?: { maxWaitMs?: number }) => Promise<void> {
   catchUpBackgroundKnowledge(store);
   const consumer = startJobConsumer(
     store,
     descriptor(processor, options.leaseMs ?? DEFAULT_LEASE_MS),
     kernelOps,
-    { intervalMs: options.intervalMs ?? 1_000, actor: "runner" },
+    {
+      intervalMs: options.intervalMs ?? 1_000,
+      actor: "runner",
+      ...(options.trace
+        ? { onJobClaimed: options.trace.onJobClaimed, onJobSettled: options.trace.onJobSettled }
+        : {}),
+    },
   );
   return async (stopOptions = {}) => {
     const stopping = consumer.stop();

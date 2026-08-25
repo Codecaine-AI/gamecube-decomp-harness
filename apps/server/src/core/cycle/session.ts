@@ -33,7 +33,18 @@ export interface CanonicalCycleSessionInput {
 export function canonicalCycleSessionId(input: CanonicalCycleSessionInput): string {
   const held = nonEmpty(input.cycleUuid);
   if (held) return held;
-  const gameId = nonEmpty(input.gameId);
-  const active = gameId ? nonEmpty(getActiveCycle(input.db, gameId)?.cycle_uuid) : undefined;
-  return active ?? input.fallback;
+  return activeCycleSessionId(input.db, input.gameId) ?? input.fallback;
+}
+
+/**
+ * The active cycle's uuid, or null when there is none.
+ *
+ * Callers that write kernel containers need the distinction: a fallback id is
+ * fine for naming an agent's session, but filing containers under one invents
+ * a cycle that no reader can open. Those callers skip instead.
+ */
+export function activeCycleSessionId(db: Database, gameId?: string | null): string | null {
+  const game = nonEmpty(gameId);
+  if (!game) return null;
+  return nonEmpty(getActiveCycle(db, game)?.cycle_uuid) ?? null;
 }

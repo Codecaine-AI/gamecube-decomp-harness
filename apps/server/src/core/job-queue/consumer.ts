@@ -15,6 +15,12 @@ export interface JobConsumerOptions {
   actor?: JobActor;
   now?: () => string;
   shouldClaim?: () => boolean;
+  /**
+   * Fires after a job is claimed and before its handler runs. Awaited, so an
+   * observer can open a trace container the handler's own events belong to;
+   * a rejection is logged and the job proceeds regardless.
+   */
+  onJobClaimed?: (job: JobRecord) => void | Promise<void>;
   onJobSettled?: (
     job: JobRecord,
     settle: { status: "succeeded" | "failed"; error?: string; outcome?: TaskOutcome },
@@ -155,10 +161,23 @@ export function startJobConsumer(
     }
   };
 
-  const execute = (job: JobRecord, token: ClaimToken): Promise<void> =>
-    descriptor.execution.mode === "inline"
+  // Observing a claim must never cost the job. A hook that throws or hangs
+  // rejects into the same warn-and-continue path a settlement hook does.
+  const announceClaim = async (job: JobRecord): Promise<void> => {
+    if (!options.onJobClaimed) return;
+    try {
+      await options.onJobClaimed(job);
+    } catch (cause) {
+      console.warn(`Job consumer ${descriptor.kind} claim hook failed: ${errorMessage(cause)}`);
+    }
+  };
+
+  const execute = async (job: JobRecord, token: ClaimToken): Promise<void> => {
+    await announceClaim(job);
+    return descriptor.execution.mode === "inline"
       ? executeInline(job, token)
       : executeDispatched(job, token);
+  };
 
   const tick = (): void => {
     if (stopped || activeTick) return;

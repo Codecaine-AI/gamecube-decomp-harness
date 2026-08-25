@@ -56,6 +56,7 @@ import {
 import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
 import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
 import { startBackgroundKnowledgeProcessor } from "@server/core/knowledge/background/index.js";
+import { createBackgroundKnowledgeTraceHooks } from "@server/core/knowledge/background/trace.js";
 import { recoverActiveClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { workerTtlSeconds } from "@server/core/cycle-runtime/phases/running/worker-ttl.js";
 import { runEpochBoundary } from "./epoch-boundary.js";
@@ -389,13 +390,19 @@ export async function runRunLoop(
   deps: RunLoopDeps = {},
 ): Promise<RunLoopResult> {
   const store = openState(globals.stateDir);
-  const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(store, async (backgroundJob) => {
-    const publication = await kgLibrarianCondense(globals, new Map<string, string | true>([
-      ["--worker-state-id", backgroundJob.workerStateId],
-      ["--run-id", typeof backgroundJob.provenance.run_id === "string" ? backgroundJob.provenance.run_id : ""],
-    ]));
-    return publication;
-  });
+  const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(
+    store,
+    async (backgroundJob) => {
+      const publication = await kgLibrarianCondense(globals, new Map<string, string | true>([
+        ["--worker-state-id", backgroundJob.workerStateId],
+        ["--run-id", typeof backgroundJob.provenance.run_id === "string" ? backgroundJob.provenance.run_id : ""],
+      ]));
+      return publication;
+    },
+    // The run loop is a CLI process with no DashboardKernelRuntimeService, so
+    // the hooks reach the kernel through the default runtime directly.
+    { trace: createBackgroundKnowledgeTraceHooks(store) },
+  );
   let observedRunId = "";
   const workerResults: WorkerResultSummary[] = [];
   const workerErrors: WorkerError[] = [];
