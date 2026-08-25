@@ -13,14 +13,12 @@ const form = {
 
 const canonicalActionIds = [
   "run.start", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
-  "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign",
-  "pr.abandon_campaign", "pr.campaign_recover", "sync.start", "sync.resolve_conflict",
-  "sync.publish", "sync.cancel", "sync.recover", "cycle.save_point", "cycle.close",
-  "knowledge.process",
+  "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
+  "cycle.save_point", "cycle.close", "knowledge.process",
 ] as const;
 
 describe("canonical HarnessState DTO", () => {
-  test("preserves canonical summaries, all 20 actions, and compatibility separation", () => {
+  test("preserves canonical summaries, all 13 actions, and compatibility separation", () => {
     const action = (action_id: string) => ({
       action_id,
       subject_kind: action_id.split(".")[0],
@@ -48,7 +46,6 @@ describe("canonical HarnessState DTO", () => {
           requested_at: "2026-08-14T10:02:00Z", requested_by: "operator",
         }],
         run: null,
-        pr_work: [{ workflow_id: "pr-1", status: "in_review" }, { workflow_id: "pr-2", status: "working" }],
         knowledge: {
           published_revision: "knowledge-381", queued: 6, processing: 1, waiting: 2, failed: 1,
           oldest_pending_at: "2026-08-14T09:00:00Z",
@@ -69,7 +66,6 @@ describe("canonical HarnessState DTO", () => {
     expect(state?.harness_revision).toBe(1842);
     expect(state?.active_workflow?.headline).toBe("Run waits for claims");
     expect(state?.queued_dispatch_requests[0]?.requested_by).toBe("operator");
-    expect(state?.pr_work.map((campaign) => campaign.workflow_id)).toEqual(["pr-1", "pr-2"]);
     expect(state?.knowledge.active_lease?.fence).toBe(7);
     expect(state?.knowledge.retry?.next_attempt_at).toBe("2026-08-14T10:03:00Z");
     expect(state?.knowledge.recent_failures[0]?.attempts).toBe(3);
@@ -425,114 +421,6 @@ describe("workspace cycle view", () => {
       new_head: "new-head",
       knowledge_revision: "knowledge-30",
       invalidated_ids: ["target-30"],
-    });
-  });
-
-  test("projects the PR campaign, batches, pending work, activation, and campaign actions", () => {
-    const series = {
-      series_id: "series-1",
-      batch_index: 0,
-      status: "changes_requested",
-      branch: "codex/split-01-player",
-      upstream_pr_number: 1234,
-      target_units: ["src/melee/player.c"],
-      last_validation: { status: "passed" },
-      blockers: [],
-      work_items: [{
-        item_id: "item-1",
-        series_id: "series-1",
-        source_kind: "github_review",
-        source_id: "review-1",
-        status: "pending",
-        summary: "Address reviewer note",
-        created_at: "2026-08-13T12:00:00.000Z",
-        resolved_at: null,
-      }],
-    };
-    const dashboard = {
-      harnessState: {
-        revision: 31,
-        active_workflow: null,
-        queued_dispatch_requests: [],
-        cycle: null,
-        run: null,
-        pr_work: [{
-          workflow_id: "campaign-31",
-          status: "in_review",
-          source_anchor: { save_point_id: "save-31", source_revision: "head-31" },
-          publication_policy: { batch_size: 4 },
-          blockers: [],
-          series: [series],
-          series_by_status: { changes_requested: [series] },
-          next_batch: {
-            batch_index: 1,
-            series_ids: ["series-2"],
-            validation_state: "blocked",
-            blockers: [{
-              code: "pr_series_unvalidated",
-              message: "Series 2 is not validated.",
-              source_kind: "pr_series",
-              source_id: "series-2",
-              recoverable: true,
-            }],
-            series: [{ ...series, series_id: "series-2", batch_index: 1, status: "prepared", upstream_pr_number: null }],
-          },
-          pending_work_items: {
-            count: 1,
-            items: [{ ...series.work_items[0], series_branch: series.branch }],
-          },
-          activation: {
-            active: false,
-            queued: false,
-            lease_id: null,
-            status: null,
-            blockers: [],
-          },
-        }],
-        sync: null,
-        latest_event_sequence: 31,
-        available_actions: [{
-          action_id: "pr.activate",
-          subject_kind: "pr_campaign",
-          subject_id: "campaign-31",
-          enabled: true,
-          blocked_by: [],
-          expected_transition: "in_review → working",
-          confirmation_required: false,
-        }],
-      },
-    } as unknown as Dashboard;
-
-    const state = harnessStateReadModel(dashboard);
-
-    expect(state?.pr_work[0]).toMatchObject({
-      workflow_id: "campaign-31",
-      status: "in_review",
-      source_anchor: { save_point_id: "save-31", source_revision: "head-31" },
-      publication_policy: { batch_size: 4 },
-      series: [{
-        series_id: "series-1",
-        upstream_pr_number: 1234,
-        work_items: [{ item_id: "item-1", series_branch: "codex/split-01-player" }],
-      }],
-      next_batch: {
-        batch_index: 1,
-        validation_state: "blocked",
-        series_ids: ["series-2"],
-        blockers: [{ code: "pr_series_unvalidated" }],
-      },
-      pending_work_items: {
-        count: 1,
-        items: [{ item_id: "item-1", series_branch: "codex/split-01-player" }],
-      },
-      activation: { active: false, queued: false, lease_id: null, status: null },
-    });
-    expect(state?.pr_work[0]?.series_by_status.changes_requested).toHaveLength(1);
-    expect(state?.pr_work[0]?.series_by_status.prepared).toEqual([]);
-    expect(harnessStateAction(state, "pr.activate")).toMatchObject({
-      subject_kind: "pr_campaign",
-      enabled: true,
-      confirmation_required: false,
     });
   });
 

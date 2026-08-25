@@ -16,11 +16,6 @@ import { initialForm, saveRunSettings, schedulingForWorkers } from "@/components
 import { useHotReload } from "@/components/app/_lib/useHotReload";
 import { RUN_CONTROL_ACTION_IDS, RUN_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedRunControls";
 import {
-  PR_CAMPAIGN_ACTION_IDS,
-  PR_CAMPAIGN_ENDPOINTS,
-  prCampaignConfirmationMessage,
-} from "@/components/app/_lib/projectedPrCampaignControls";
-import {
   SYNC_CONTROL_ACTION_IDS,
   SYNC_CONTROL_ENDPOINTS,
   syncControlRequestPatch,
@@ -29,7 +24,6 @@ import {
 import { PR_COMPATIBILITY_ACTION_IDS, PR_COMPATIBILITY_ENDPOINTS } from "@/components/app/_lib/projectedCompatibilityControls";
 import { KNOWLEDGE_CONTROL_ACTION_IDS, KNOWLEDGE_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedKnowledgeControls";
 import { CYCLE_CONTROL_ACTION_IDS, cycleConfirmationMessage } from "@/components/app/_lib/projectedCycleControls";
-import { PrCampaignAuthorityProvider } from "@/pages/workspace/cycles/active/subphases/pr/components/PrStageCard";
 
 type Action = DashboardAction;
 const PROCESS_CONFIG_VERSION = 2;
@@ -38,8 +32,7 @@ const DEFAULT_THINKING_LEVEL = "xhigh";
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prOpenCampaign", "prActivate", "prPublishBatch", "prRelease", "prCloseCampaign", "prAbandonCampaign", "prCampaignRecover", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
-const legacyPublicationActions: ReadonlySet<Action> = new Set(["openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
 
 function newCycleBody(body: JsonObject): JsonObject {
   const next = { ...body };
@@ -370,20 +363,11 @@ export function App() {
   const runAction = useCallback(
     async (requestedAction: Action, payload?: Record<string, unknown>) => {
       const harnessState = harnessStateReadModel(currentDashboard);
-      const nextAction: Action = (harnessState?.pr_work.length ?? 0) > 0 && legacyPublicationActions.has(requestedAction)
-        ? "prPublishBatch"
-        : requestedAction;
+      const nextAction = requestedAction;
       const projectedRunActionId = RUN_CONTROL_ACTION_IDS[nextAction];
       const projectedRunAction = projectedRunActionId
         ? harnessStateAction(harnessState, projectedRunActionId)
         : null;
-      const projectedPrActionId = PR_CAMPAIGN_ACTION_IDS[nextAction];
-      const projectedPrAction = projectedPrActionId
-        ? harnessStateAction(harnessState, projectedPrActionId)
-        : null;
-      const projectedCampaign = projectedPrAction?.subject_id
-        ? harnessState?.pr_work.find((candidate) => candidate.workflow_id === projectedPrAction.subject_id) ?? null
-        : harnessState?.pr_work[0] ?? null;
       const compatibilityActionId = PR_COMPATIBILITY_ACTION_IDS[nextAction];
       const compatibilityAction = compatibilityActionId
         ? harnessStateCompatibilityAction(harnessState, compatibilityActionId)
@@ -403,11 +387,6 @@ export function App() {
         projectedRunAction?.confirmation_required &&
         !(await requestConfirm(`${projectedRunActionId}?\n\n${projectedRunAction.expected_transition}`))
       ) return;
-      if (projectedPrAction?.confirmation_required) {
-        const confirmation = prCampaignConfirmationMessage(nextAction, projectedCampaign) ??
-          `${projectedPrActionId}?\n\n${projectedPrAction.expected_transition}`;
-        if (!(await requestConfirm(confirmation))) return;
-      }
       if (projectedSyncAction?.confirmation_required) {
         const confirmation = syncConfirmationMessage(syncControlAction, harnessState?.sync ?? null) ??
           `${projectedSyncActionId}?\n\n${projectedSyncAction.expected_transition}`;
@@ -442,12 +421,7 @@ export function App() {
         const body = { ...formBody(form, currentDashboard), ...payload };
         if (projectedRunAction?.subject_id) body.runId = projectedRunAction.subject_id;
         if (projectedRunAction?.confirmation_required) body.confirmed = true;
-        if (
-          projectedPrAction?.subject_id &&
-          projectedCampaign?.workflow_id === projectedPrAction.subject_id
-        ) body.campaignId = projectedPrAction.subject_id;
         if (compatibilityAction?.subject_id) body.campaignId = compatibilityAction.subject_id;
-        if (projectedPrAction?.confirmation_required) body.confirmed = true;
         if (
           projectedSyncAction?.subject_id &&
           harnessState?.sync?.workflow_id === projectedSyncAction.subject_id
@@ -471,11 +445,6 @@ export function App() {
           });
         };
         if (nextAction === "refresh") {
-          await manualRefresh();
-        } else if (projectedPrActionId) {
-          const endpoint = PR_CAMPAIGN_ENDPOINTS[nextAction];
-          if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
-          await postJson(endpoint, body);
           await manualRefresh();
         } else if (compatibilityActionId) {
           const endpoint = PR_COMPATIBILITY_ENDPOINTS[nextAction];
@@ -597,9 +566,6 @@ export function App() {
           await postJson("/api/pr/qa", body);
           await manualRefresh();
         } else if (nextAction === "qaRepair") {
-          const campaign = harnessState?.pr_work[0];
-          const leaseId = campaign?.activation.lease_id;
-          if (leaseId) Object.assign(body, { campaignId: campaign.workflow_id, leaseId, lease_id: leaseId });
           await postJson("/api/pr/qa-repair", body);
           await manualRefresh();
         } else if (nextAction === "reconcile") {
@@ -700,8 +666,7 @@ export function App() {
       className={`app-shell ${styleEffectClass(grainSettings)} ${detailsResizing ? "app-shell-resizing" : ""} grid h-screen min-h-[620px] bg-ink text-fg max-[1180px]:h-auto max-[780px]:block max-[780px]:min-h-0`}
       style={shellStyle}
     >
-      <PrCampaignAuthorityProvider authoritative={(harnessStateReadModel(currentDashboard)?.pr_work.length ?? 0) > 0}>
-        <GameWorkspace
+      <GameWorkspace
           busy={busy}
           collapsed={sidebarCollapsed}
           config={config}
@@ -729,8 +694,7 @@ export function App() {
           runDetails={runDetails}
           view={view}
           workMode={workMode}
-        />
-      </PrCampaignAuthorityProvider>
+      />
       <DetailsRail
         busy={busy}
         collapsed={detailsCollapsed}

@@ -4,10 +4,6 @@ import type {
   PrFlowRecord,
   HarnessStateActionProjection,
   HarnessStateBlocker,
-  HarnessStatePrSeriesStatus,
-  HarnessStatePrSeriesSummary,
-  HarnessStatePrWorkItem,
-  HarnessStatePrReadModel,
   HarnessStateReadModel,
   HarnessStateRepoSyncReadModel,
   HarnessStateRunRecoveryPoint,
@@ -109,48 +105,6 @@ function harnessStateActionProjection(value: unknown): HarnessStateActionProject
     blocked_by: asArray(action.blocked_by).map(harnessStateBlocker),
     expected_transition: text(action.expected_transition),
     confirmation_required: booleanValue(action.confirmation_required),
-  };
-}
-
-const HARNESS_STATE_PR_SERIES_STATUSES = [
-  "prepared",
-  "published",
-  "changes_requested",
-  "revising",
-  "approved",
-  "merged",
-  "closed",
-] as const satisfies readonly HarnessStatePrSeriesStatus[];
-
-function harnessStatePrWorkItem(value: unknown, seriesBranch = ""): HarnessStatePrWorkItem {
-  const item = asObject(value);
-  return {
-    item_id: text(item.item_id),
-    series_id: text(item.series_id),
-    series_branch: text(item.series_branch, seriesBranch),
-    source_kind: text(item.source_kind),
-    source_id: text(item.source_id),
-    status: text(item.status) as HarnessStatePrWorkItem["status"],
-    summary: text(item.summary),
-    created_at: text(item.created_at),
-    resolved_at: text(item.resolved_at) || null,
-  };
-}
-
-function harnessStatePrSeries(value: unknown): HarnessStatePrSeriesSummary {
-  const series = asObject(value);
-  const branch = text(series.branch);
-  const lastValidation = asObject(series.last_validation);
-  return {
-    series_id: text(series.series_id),
-    batch_index: numberValue(series.batch_index),
-    status: text(series.status) as HarnessStatePrSeriesStatus,
-    branch,
-    upstream_pr_number: nullableNumber(series.upstream_pr_number),
-    target_units: asArray(series.target_units).map((unit) => text(unit)).filter(Boolean),
-    last_validation: Object.keys(lastValidation).length > 0 ? lastValidation : null,
-    blockers: asArray(series.blockers).map(harnessStateBlocker),
-    work_items: asArray(series.work_items).map((item) => harnessStatePrWorkItem(item, branch)),
   };
 }
 
@@ -266,54 +220,6 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
       }
     : null;
 
-  const parsePr = (prRaw: JsonObject): HarnessStatePrReadModel => {
-    const prSourceAnchorRaw = asObject(prRaw.source_anchor);
-    const prPublicationPolicyRaw = asObject(prRaw.publication_policy);
-    const prSeriesByStatusRaw = asObject(prRaw.series_by_status);
-    const prNextBatchRaw = asObject(prRaw.next_batch);
-    const prPendingWorkItemsRaw = asObject(prRaw.pending_work_items);
-    const prActivationRaw = asObject(prRaw.activation);
-    return {
-        workflow_id: text(prRaw.workflow_id),
-        status: text(prRaw.status) as HarnessStatePrReadModel["status"],
-        source_anchor: {
-          save_point_id: text(prSourceAnchorRaw.save_point_id),
-          source_revision: text(prSourceAnchorRaw.source_revision),
-        },
-        publication_policy: {
-          batch_size: numberValue(prPublicationPolicyRaw.batch_size),
-        },
-        blockers: asArray(prRaw.blockers).map(harnessStateBlocker),
-        series: asArray(prRaw.series).map(harnessStatePrSeries),
-        series_by_status: Object.fromEntries(
-          HARNESS_STATE_PR_SERIES_STATUSES.map((status) => [
-            status,
-            asArray(prSeriesByStatusRaw[status]).map(harnessStatePrSeries),
-          ]),
-        ) as HarnessStatePrReadModel["series_by_status"],
-        next_batch: Object.keys(prNextBatchRaw).length > 0
-          ? {
-              batch_index: numberValue(prNextBatchRaw.batch_index),
-              series_ids: asArray(prNextBatchRaw.series_ids).map((id) => text(id)).filter(Boolean),
-              validation_state: text(prNextBatchRaw.validation_state),
-              blockers: asArray(prNextBatchRaw.blockers).map(harnessStateBlocker),
-              series: asArray(prNextBatchRaw.series).map(harnessStatePrSeries),
-            }
-          : null,
-        pending_work_items: {
-          count: numberValue(prPendingWorkItemsRaw.count),
-          items: asArray(prPendingWorkItemsRaw.items).map((item) => harnessStatePrWorkItem(item)),
-        },
-        activation: {
-          active: booleanValue(prActivationRaw.active),
-          queued: booleanValue(prActivationRaw.queued),
-          lease_id: text(prActivationRaw.lease_id) || null,
-          status: text(prActivationRaw.status) || null,
-          blockers: asArray(prActivationRaw.blockers).map(harnessStateBlocker),
-        },
-      };
-  };
-
   const sync = Object.keys(syncRaw).length > 0
     ? {
         workflow_id: text(syncRaw.workflow_id),
@@ -408,7 +314,6 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
     cycle,
     run,
     repo_sync: repoSync,
-    pr_work: asArray(raw.pr_work).map((value) => parsePr(asObject(value))),
     knowledge: {
       ...knowledgeRaw,
       published_revision: text(knowledgeRaw.published_revision) || null,

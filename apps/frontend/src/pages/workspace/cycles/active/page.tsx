@@ -3,14 +3,13 @@ import {
   cycleTabForSubPage,
   type CycleSubPage,
 } from "@/routing";
-import { PageHeader } from "@/components/primitives";
+import { PageHeader, PanelSection } from "@/components/primitives";
 import { prettyStatus } from "@/pages/workspace/_lib/model";
 import { activeCycleFocus } from "@/pages/workspace/cycles/_lib/cycleRoute";
 import type { CyclesPageProps } from "@/pages/workspace/cycles/_lib/types";
 import { AttemptDetailPage } from "@/pages/workspace/cycles/active/details/attempt";
 import { EpochDetailPage } from "@/pages/workspace/cycles/active/details/epoch";
 import { SyncStageDetailPage } from "@/pages/workspace/cycles/active/details/sync-stage";
-import { PrModePage } from "@/pages/workspace/cycles/active/subphases/pr";
 import { RunModePage } from "@/pages/workspace/cycles/active/subphases/run";
 import { SyncModePage } from "@/pages/workspace/cycles/active/subphases/sync";
 import { CycleHistoryPage } from "@/pages/workspace/cycles/active/subphases/history";
@@ -33,11 +32,9 @@ export function ActiveCyclePage(props: CyclesPageProps) {
       : harnessState?.repo_sync?.needs_sync
         ? "sync needed"
         : "idle",
-    pr: harnessState?.pr_work[0]
-      ? prettyStatus(harnessState.pr_work[0].status)
-      : props.view.prRecords.length
-        ? `${props.view.prRecords.length} slices`
-        : "idle",
+    pr: props.view.canonicalPhase === "pr"
+      ? prettyStatus(props.view.canonicalSubphase || "active")
+      : "idle",
   };
 
   return (
@@ -194,14 +191,13 @@ function ActiveCycleContent(
     );
   }
   return (
-    <PrModePage
-      busy={props.busy}
-      dashboard={props.dashboard}
-      onAction={props.onAction}
-      onOpenPr={props.onOpenPr}
-      onPrepareLocalPr={props.onPrepareLocalPr}
-      onSetReviewState={props.onSetReviewState}
-      view={props.view}
-    />
+    <PanelSection>
+      <div className="grid gap-1 text-sm">
+        <span className="text-dim">Phase</span>
+        <span className="text-fg">{prettyStatus(props.view.canonicalPhase || "pr")}</span>
+        <span className="mt-2 text-dim">Subphase</span>
+        <span className="text-fg">{prettyStatus(props.view.canonicalSubphase || "active")}</span>
+      </div>
+    </PanelSection>
   );
 }

@@ -90,7 +90,7 @@ describe("game event workflow selection", () => {
     expect(chooseGameEventCorrelation([], "run-1")).toBeNull();
   });
 
-  test("offers only run, sync, campaign, and cycle workflows inferred from accepted evidence", () => {
+  test("offers only run, sync, and cycle workflows inferred from accepted evidence", () => {
     const options = gameEventWorkflowOptions([
       event(1, "command-only", {
         event_type: "knowledge.revision_advanced",
@@ -101,16 +101,6 @@ describe("game event workflow selection", () => {
         event_type: "pr.campaign_opened",
         subject_kind: "campaign" as never,
         subject_id: "not-a-server-subject-kind",
-      }),
-      event(2, "campaign-1", {
-        event_type: "pr.series_prepared",
-        subject_kind: "pr_series",
-        subject_id: "series-1",
-      }),
-      event(3, "campaign-1", {
-        event_type: "pr.campaign_opened",
-        subject_kind: "pr_campaign",
-        subject_id: "campaign-1",
       }),
       event(4, "cycle-1", {
         event_type: "cycle.opened",
@@ -133,7 +123,6 @@ describe("game event workflow selection", () => {
     }))).toEqual([
       { workflow_kind: "sync", workflow_id: "sync-dispatch", correlation_id: "sync-dispatch", event_count: 1 },
       { workflow_kind: "cycle", workflow_id: "cycle-1", correlation_id: "cycle-1", event_count: 1 },
-      { workflow_kind: "campaign", workflow_id: "campaign-1", correlation_id: "campaign-1", event_count: 2 },
     ]);
   });
 

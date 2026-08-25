@@ -14,7 +14,7 @@ export interface GameEventWorkflowOption {
   last_sequence: number;
 }
 
-export type GameEventWorkflowKind = "run" | "sync" | "campaign" | "cycle";
+export type GameEventWorkflowKind = "run" | "sync" | "cycle";
 
 export interface GameEventTimelineItem {
   event_id: string;
@@ -84,14 +84,13 @@ interface GameEventWorkflowAccumulator {
 
 function workflowKindFromDispatch(value: unknown): GameEventWorkflowKind | null {
   if (value === "run" || value === "sync" || value === "cycle") return value;
-  if (value === "pr" || value === "pr_campaign" || value === "campaign") return "campaign";
   return null;
 }
 
 function workflowKindFromSubject(value: string): GameEventWorkflowKind | null {
   if (value === "run" || value === "cycle") return value;
   if (value === "sync_workflow") return "sync";
-  return value === "pr_campaign" ? "campaign" : null;
+  return null;
 }
 
 function payloadText(event: GameEventDto, key: string): string | null {

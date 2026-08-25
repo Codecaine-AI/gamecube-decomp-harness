@@ -90,8 +90,6 @@ export type GameEventSubjectKind =
   | "sync_workflow"
   | "sync_push"
   | "cycle"
-  | "pr_campaign"
-  | "pr_series"
   | "knowledge_job"
   | "game_knowledge";
 

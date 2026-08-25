@@ -26,13 +26,6 @@ export type DashboardAction =
   | "syncRecover"
   | "syncRecoverDiscard"
   | "syncRevalidate"
-  | "prOpenCampaign"
-  | "prActivate"
-  | "prPublishBatch"
-  | "prRelease"
-  | "prCloseCampaign"
-  | "prAbandonCampaign"
-  | "prCampaignRecover"
   | "prAdoptLegacy"
   | "knowledgeProcess"
   | "start"
@@ -186,81 +179,6 @@ export interface HarnessStateRepoSyncReadModel {
   needs_sync: boolean;
 }
 
-export type HarnessStatePrCampaignStatus =
-  | "preparing"
-  | "in_review"
-  | "working"
-  | "completed"
-  | "abandoned";
-
-export type HarnessStatePrSeriesStatus =
-  | "prepared"
-  | "published"
-  | "changes_requested"
-  | "revising"
-  | "approved"
-  | "merged"
-  | "closed";
-
-export type HarnessStatePrWorkItemStatus = "pending" | "in_progress" | "resolved" | "declined";
-
-export interface HarnessStatePrWorkItem {
-  item_id: string;
-  series_id: string;
-  series_branch: string;
-  source_kind: string;
-  source_id: string;
-  status: HarnessStatePrWorkItemStatus;
-  summary: string;
-  created_at: string;
-  resolved_at: string | null;
-}
-
-export interface HarnessStatePrSeriesSummary {
-  series_id: string;
-  batch_index: number;
-  status: HarnessStatePrSeriesStatus;
-  branch: string;
-  upstream_pr_number: number | null;
-  target_units: string[];
-  last_validation: JsonObject | null;
-  blockers: HarnessStateBlocker[];
-  work_items: HarnessStatePrWorkItem[];
-}
-
-export interface HarnessStatePrReadModel {
-  workflow_id: string;
-  status: HarnessStatePrCampaignStatus;
-  source_anchor: {
-    save_point_id: string;
-    source_revision: string;
-  };
-  publication_policy: {
-    batch_size: number;
-  };
-  blockers: HarnessStateBlocker[];
-  series: HarnessStatePrSeriesSummary[];
-  series_by_status: Record<HarnessStatePrSeriesStatus, HarnessStatePrSeriesSummary[]>;
-  next_batch: {
-    batch_index: number;
-    series_ids: string[];
-    validation_state: string;
-    blockers: HarnessStateBlocker[];
-    series: HarnessStatePrSeriesSummary[];
-  } | null;
-  pending_work_items: {
-    count: number;
-    items: HarnessStatePrWorkItem[];
-  };
-  activation: {
-    active: boolean;
-    queued: boolean;
-    lease_id: string | null;
-    status: string | null;
-    blockers: HarnessStateBlocker[];
-  };
-}
-
 export interface HarnessStateDispatchHandoff {
   target_kind: "run" | "pr" | "sync";
   target_workflow_id: string;
@@ -358,7 +276,6 @@ export interface HarnessStateReadModel {
   queued_dispatch_requests: HarnessStateQueuedDispatchRequest[];
   cycle: HarnessStateCycleReadModel | null;
   run: HarnessStateRunReadModel | null;
-  pr_work: HarnessStatePrReadModel[];
   knowledge: HarnessStateKnowledgeFreshness;
   sync: HarnessStateSyncReadModel | null;
   repo_sync: HarnessStateRepoSyncReadModel | null;

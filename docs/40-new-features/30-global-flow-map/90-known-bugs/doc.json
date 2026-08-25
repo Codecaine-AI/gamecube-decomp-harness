@@ -46,7 +46,7 @@
 						"medium",
 						"kernel bridge session-mapping.ts:380-389",
 						"pr-qa and pr-handoff container kinds hit the default branch of describeMeleeContainer (bare-string labels, re-parented to root; only pr-publication gets the pr parent injected at workflow-trace.ts:214). Confirmed but LATENT: no production code emits either kind today.",
-						"fixed (0779e559)"
+						"resolved-by-removal (pr cleanout)"
 					],
 					[
 						"medium",
@@ -73,12 +73,6 @@
 						"resolved (condense rewrite + eeb1226f)"
 					],
 					[
-						"low",
-						"docs 50-workflows/30-pr/20-score-gate-and-handoff",
-						"Outline is a converted transcript of prCycleReview and needs a re-diff against pr-cycle-review.ts:1504.",
-						"open (chapter doc 20-score-gate unrewritten)"
-					],
-					[
 						"medium",
 						"core/cycle-runtime/index.ts (command switch) + api/cycle/routes.ts",
 						"markCycleComplete is unreachable: /api/cycle/complete routes to the close command and nothing in the command switch reaches the terminal complete transition.",
@@ -98,12 +92,6 @@
 					],
 					[
 						"low",
-						"docs 30-pr/30-qa-ship-gate vs core/validation/qa/repair-lane.ts:361-406",
-						"Old outline says one repair item per finding; code queues one item per candidate source file carrying all its findings, and llm_review warnings are advisory, never mandatory.",
-						"open (chapter doc 30-qa-ship-gate still says per finding)"
-					],
-					[
-						"low",
 						"docs 40-knowledge/40-processing/20-job-lifecycle-and-leasing vs core/job-queue/kernel.ts:435",
 						"Docs say jobs are claimed under a fenced lease; the lease is a visibility timeout (lease-UUID + expiry), and the monotonic guard is the row revision used as optimistic CAS. Docs also insert waiting between queued and claimed; waiting is only re-entry from backoff or a lapsed lease.",
 						"open (chapter doc still says fenced)"
@@ -117,20 +105,20 @@
 					[
 						"medium",
 						"phases/pr/jobs/verify-ship-set.ts (check-issues lint)",
-						"A missing Docker daemon makes the check-issues lint report unavailable, and unavailable PASSES the ship-set gate \u2014 lint issues then only surface in upstream CI.",
+						"A missing Docker daemon makes the check-issues lint report unavailable, and unavailable PASSES the ship-set gate — lint issues then only surface in upstream CI.",
 						"open"
 					],
 					[
 						"low",
 						"phases/pr/jobs/pr-cycle-review.ts (exit code)",
 						"Cycle review exit code reflects only agent errors and regression-command infrastructure failures; ledger findings never make the run exit nonzero.",
-						"open"
+						"resolved-by-removal"
 					],
 					[
 						"medium",
 						"knowledge lane (core/knowledge/**) vs kernel bridge",
-						"The knowledge queue and publication path emit no workflow trace events at all \u2014 enqueue, claim, lease lapse, retry, completion, and revision publication are trace-invisible; only Librarian agent spawns appear (as Knowledge curation containers).",
-						"fixed (7b805315 \u2014 claim/settle emission behind never-fail guards)"
+						"The knowledge queue and publication path emit no workflow trace events at all — enqueue, claim, lease lapse, retry, completion, and revision publication are trace-invisible; only Librarian agent spawns appear (as Knowledge curation containers).",
+						"fixed (7b805315 — claim/settle emission behind never-fail guards)"
 					],
 					[
 						"medium",
@@ -141,8 +129,8 @@
 					[
 						"medium",
 						"bridge/session-mapping.ts sync-intake + workflow-trace.ts syncProjectIntake",
-						"The sync-intake kernel container path has zero production callers (test fixture only, flagged inert in project-state-slice-3); Sync never appears as a container in kernel traces \u2014 its real emissions are sync.*/knowledge.*/game.dispatch_* game events.",
-						"fixed (977bca8a \u2014 nine sync milestones now emit)"
+						"The sync-intake kernel container path has zero production callers (test fixture only, flagged inert in project-state-slice-3); Sync never appears as a container in kernel traces — its real emissions are sync.*/knowledge.*/game.dispatch_* game events.",
+						"fixed (977bca8a — nine sync milestones now emit)"
 					],
 					[
 						"low",
@@ -153,26 +141,26 @@
 					[
 						"medium",
 						"session-mapping.ts pr-index kind + preparing/subphases/knowledge-refresh.ts:22",
-						"The pr-index container kind is defined but never constructed (the PR indexer agent spawns as postmortem/intake-postmortem instead), and refreshKnowledgeForPrepare has zero callers \u2014 dead code; prepare-phase PR-index and knowledge-refresh never appear in traces.",
+						"The pr-index container kind is defined but never constructed (the PR indexer agent spawns as postmortem/intake-postmortem instead), and refreshKnowledgeForPrepare has zero callers — dead code; prepare-phase PR-index and knowledge-refresh never appear in traces.",
 						"resolved-by-removal (67c55671)"
 					],
 					[
 						"high",
 						"core/knowledge/background/index.ts:21 vs jobs/librarian.ts:90",
-						"Knowledge job lease is 60s but the librarian defaults to a 600s timeout and inline execution never heartbeats \u2014 the lease expires mid-flight, claimNextJob steals the row, duplicate concurrent librarian runs process the same worker state, and the original completion is silently dropped as a stale token.",
+						"Knowledge job lease is 60s but the librarian defaults to a 600s timeout and inline execution never heartbeats — the lease expires mid-flight, claimNextJob steals the row, duplicate concurrent librarian runs process the same worker state, and the original completion is silently dropped as a stale token.",
 						"open"
 					],
 					[
 						"medium",
 						"jobs/librarian.ts:402-416",
-						"A librarian timeout returns a synthetic digest (timeout:<id>) that SUCCEEDS the job while the agent session may remain active \u2014 timeouts are masked as successes.",
+						"A librarian timeout returns a synthetic digest (timeout:<id>) that SUCCEEDS the job while the agent session may remain active — timeouts are masked as successes.",
 						"open"
 					],
 					[
 						"medium",
 						"bridge/spawn-context.ts:131-133 + librarian spawn sessionIds",
 						"knowledge-curation containers reuse the run container id (no dedicated id) and librarian runs derive separate app sessions (runId/batch ids), so they render as orphan Game session roots outside the cycle tree; corroboration fragments one session per batch.",
-						"fixed forward (245417ad \u2014 historical rows stay orphaned)"
+						"fixed forward (245417ad — historical rows stay orphaned)"
 					],
 					[
 						"medium",
@@ -183,8 +171,14 @@
 					[
 						"low",
 						"core/agent-catalog/kernel-catalog.ts:317 (pr-fixer)",
-						"The pr-fixer agent is registered in the kernel catalog but has zero runtime call sites \u2014 no container is ever created for it.",
-						"open"
+						"The pr-fixer agent is registered in the kernel catalog but has zero runtime call sites — no container is ever created for it.",
+						"resolved-by-removal (step 1)"
+					],
+					[
+						"low",
+						"bun test (repo root)",
+						"bun test run from the repo root crawls games/ and ai_docs/ during discovery (~23k open dirs) and dies on fd exhaustion; run from apps/server",
+						"open (workaround documented)"
 					]
 				]
 			},
