@@ -31,6 +31,38 @@ export type MeleeContainerKind =
   | "pr-repair"
   | "pr-publication";
 
+/**
+ * Every phase either writer emits, in rough cycle order. Both container writers
+ * share this list so a container's phase menu does not depend on which writer
+ * created the row.
+ */
+export const MELEE_PHASE_VOCABULARY = [
+  "session",
+  "prepare",
+  "setup",
+  "intake",
+  "intake-item",
+  "knowledge-intake",
+  "knowledge-curation",
+  "knowledge-refresh",
+  "pr-index",
+  "baseline",
+  "run",
+  "epoch",
+  "worker",
+  "integration",
+  "postmortem",
+  "pr",
+  "handoff",
+  "qa",
+  "pr-split",
+  "pr-review",
+  "review",
+  "repair",
+  "reconcile",
+  "publication",
+];
+
 export interface MeleeCycleRef {
   gameId: string;
   sessionId: string;
@@ -233,6 +265,50 @@ export function meleePrPublicationContainerId(ref: MeleePrRef): string {
   return `${meleePrContainerId(ref)}:publication`;
 }
 
+/**
+ * Metadata fields are the only channel a caller has for the ids that make a
+ * container identity (runId, epochId, claimId, ...). Numbers are accepted
+ * because epoch ids arrive as both.
+ */
+function metaId(metadata: Record<string, unknown>, key: string): string | undefined {
+  const value = metadata[key];
+  if (typeof value === "number") return String(value);
+  if (typeof value !== "string") return undefined;
+  const text = value.trim();
+  return text ? text : undefined;
+}
+
+/**
+ * Degraded-but-deterministic fallbacks. These mirror `spawn-context.ts` exactly
+ * so both writers land on the same container row for the same inputs; a missing
+ * field degrades to the same literal spawn-context uses ("active", "none",
+ * "review", "repair", the session id) rather than an opaque hash bucket.
+ */
+function meleeRunId(ref: MeleeCycleRef, metadata: Record<string, unknown>): string {
+  return metaId(metadata, "runId") ?? ref.sessionId;
+}
+
+function meleeEpochId(metadata: Record<string, unknown>): string {
+  return metaId(metadata, "epochId") ?? "active";
+}
+
+function meleeClaimId(metadata: Record<string, unknown>): string {
+  return metaId(metadata, "claimId") ?? metaId(metadata, "itemId") ?? "none";
+}
+
+/**
+ * PR id for kinds spawn-context also writes: `prId ?? runId ?? sessionId`.
+ * The `pr` / `pr-publication` / `pr-handoff` / `pr-qa` kinds keep the older
+ * `prId ?? "session"` fallback so their existing ids stay stable.
+ */
+function meleeSpawnPrId(ref: MeleeCycleRef, metadata: Record<string, unknown>): string {
+  return metaId(metadata, "prId") ?? meleeRunId(ref, metadata);
+}
+
+function meleeWorkflowPrId(metadata: Record<string, unknown>): string {
+  return metaId(metadata, "prId") ?? "session";
+}
+
 export function describeMeleeContainer(
   kind: MeleeContainerKind,
   ref: MeleeCycleRef,
@@ -248,7 +324,7 @@ export function describeMeleeContainer(
         kind,
         appSessionId,
         parentContainerId: null,
-        label: `Game session ${ref.sessionId}`,
+        label: `Cycle ${ref.sessionId}`,
         phase: "session",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
       };
@@ -352,14 +428,16 @@ export function describeMeleeContainer(
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
       };
     case "pr": {
-      const prId = typeof metadata.prId === "string" && metadata.prId ? metadata.prId : "session";
+      const prId = meleeWorkflowPrId(metadata);
       const prRef = { ...ref, prId };
       return {
         id: meleePrContainerId(prRef),
         kind,
         appSessionId,
+        // "PR mode" is the label for the id-less session-wide PR container;
+        // a real PR id names itself (spawn-context's label, now the only one).
         parentContainerId: rootId,
-        label: "PR mode",
+        label: prId === "session" ? "PR mode" : `PR ${prId}`,
         phase: "pr",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
@@ -377,16 +455,176 @@ export function describeMeleeContainer(
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
     }
-    default:
+    case "run": {
+      const runId = meleeRunId(ref, metadata);
       return {
-        id: `${rootId}:${kind}:${cleanSegment(metadata.id as string | undefined)}`,
+        id: meleeRunContainerId({ ...ref, runId }),
         kind,
         appSessionId,
         parentContainerId: rootId,
-        label: kind,
-        phase: kind,
-        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
+        label: `Run ${runId}`,
+        phase: "run",
+        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, runId },
       };
+    }
+    case "epoch": {
+      const runId = meleeRunId(ref, metadata);
+      const epochId = meleeEpochId(metadata);
+      return {
+        id: meleeEpochContainerId({ ...ref, runId, epochId }),
+        kind,
+        appSessionId,
+        parentContainerId: meleeRunContainerId({ ...ref, runId }),
+        label: `Epoch ${epochId}`,
+        phase: "epoch",
+        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, runId, epochId },
+      };
+    }
+    case "worker": {
+      const runId = meleeRunId(ref, metadata);
+      const epochId = meleeEpochId(metadata);
+      const claimId = meleeClaimId(metadata);
+      return {
+        id: meleeWorkerContainerId({ ...ref, runId, epochId, claimId }),
+        kind,
+        appSessionId,
+        parentContainerId: meleeEpochContainerId({ ...ref, runId, epochId }),
+        label: `Worker claim ${claimId}`,
+        phase: "worker",
+        metadata: {
+          ...metadata,
+          gameId: ref.gameId,
+          sessionId: ref.sessionId,
+          runId,
+          epochId,
+          claimId,
+        },
+      };
+    }
+    case "worker-integration": {
+      const runId = meleeRunId(ref, metadata);
+      const epochId = meleeEpochId(metadata);
+      const claimId = meleeClaimId(metadata);
+      return {
+        id: meleeWorkerIntegrationContainerId({ ...ref, runId, epochId, claimId }),
+        kind,
+        appSessionId,
+        parentContainerId: meleeEpochContainerId({ ...ref, runId, epochId }),
+        label: `Worker integration ${claimId}`,
+        phase: "integration",
+        metadata: {
+          ...metadata,
+          gameId: ref.gameId,
+          sessionId: ref.sessionId,
+          runId,
+          epochId,
+          claimId,
+        },
+      };
+    }
+    case "postmortem": {
+      const runId = meleeRunId(ref, metadata);
+      const epochId = meleeEpochId(metadata);
+      const claimId = meleeClaimId(metadata);
+      return {
+        id: meleePostmortemContainerId({ ...ref, runId, epochId, claimId }),
+        kind,
+        appSessionId,
+        parentContainerId: meleeEpochContainerId({ ...ref, runId, epochId }),
+        // A claim-less postmortem is an epoch-level retro, not a claim's.
+        label: metaId(metadata, "claimId")
+          ? `Postmortem claim ${claimId}`
+          : `Postmortem ${claimId}`,
+        phase: "postmortem",
+        metadata: {
+          ...metadata,
+          gameId: ref.gameId,
+          sessionId: ref.sessionId,
+          runId,
+          epochId,
+          claimId,
+        },
+      };
+    }
+    case "pr-handoff": {
+      const prId = meleeWorkflowPrId(metadata);
+      const prRef = { ...ref, prId };
+      return {
+        id: meleePrHandoffContainerId(prRef),
+        kind,
+        appSessionId,
+        parentContainerId: meleePrContainerId(prRef),
+        label: "PR handoff",
+        phase: "handoff",
+        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
+      };
+    }
+    case "pr-qa": {
+      const prId = meleeWorkflowPrId(metadata);
+      const prRef = { ...ref, prId };
+      return {
+        id: meleePrQaContainerId(prRef),
+        kind,
+        appSessionId,
+        parentContainerId: meleePrContainerId(prRef),
+        label: "PR QA",
+        phase: "qa",
+        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
+      };
+    }
+    case "pr-split": {
+      const prId = meleeSpawnPrId(ref, metadata);
+      const prRef = { ...ref, prId };
+      return {
+        id: meleePrSplitContainerId(prRef),
+        kind,
+        appSessionId,
+        parentContainerId: meleePrContainerId(prRef),
+        label: `PR split ${prId}`,
+        phase: "pr-split",
+        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
+      };
+    }
+    case "pr-review": {
+      const prId = meleeSpawnPrId(ref, metadata);
+      const prRef = { ...ref, prId };
+      const reviewId = metaId(metadata, "reviewId") ?? "review";
+      return {
+        id: meleePrReviewContainerId({ ...prRef, reviewId }),
+        kind,
+        appSessionId,
+        parentContainerId: meleePrContainerId(prRef),
+        label: `PR review ${reviewId}`,
+        phase: "pr-review",
+        metadata: {
+          ...metadata,
+          gameId: ref.gameId,
+          sessionId: ref.sessionId,
+          prId,
+          reviewId,
+        },
+      };
+    }
+    case "pr-repair": {
+      const prId = meleeSpawnPrId(ref, metadata);
+      const prRef = { ...ref, prId };
+      const repairId = metaId(metadata, "repairId") ?? "repair";
+      return {
+        id: meleePrRepairContainerId({ ...prRef, repairId }),
+        kind,
+        appSessionId,
+        parentContainerId: meleePrContainerId(prRef),
+        label: `PR repair ${repairId}`,
+        phase: "repair",
+        metadata: {
+          ...metadata,
+          gameId: ref.gameId,
+          sessionId: ref.sessionId,
+          prId,
+          repairId,
+        },
+      };
+    }
   }
 }
 
@@ -405,24 +643,7 @@ export function buildMeleeContainer(input: BuildMeleeContainerInput): NewContain
     status: input.status ?? "running",
     workingDir: input.workingDir ?? null,
     phase: input.phase ?? descriptor.phase,
-    phaseVocabulary: [
-      "prepare",
-      "intake",
-      "intake-item",
-      "setup",
-      "pr-index",
-      "knowledge-refresh",
-      "knowledge-intake",
-      "baseline",
-      "run",
-      "epoch",
-      "worker",
-      "postmortem",
-      "pr",
-      "review",
-      "repair",
-      "publication",
-    ],
+    phaseVocabulary: MELEE_PHASE_VOCABULARY,
     metadata: {
       ...descriptor.metadata,
       appSessionId: descriptor.appSessionId,

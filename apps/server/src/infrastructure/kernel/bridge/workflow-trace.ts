@@ -191,7 +191,13 @@ function childContainerLineage(input: {
     input.timestamp,
   );
 
-  if (input.kind === "pr-publication") {
+  // Every PR-scoped child hangs off the PR container, so the PR container has
+  // to be in the lineage or nothing ever upserts it and the child is an orphan.
+  if (
+    input.kind === "pr-publication" ||
+    input.kind === "pr-handoff" ||
+    input.kind === "pr-qa"
+  ) {
     const pr = buildMeleeContainer({
       kind: "pr",
       ref: input.ref,

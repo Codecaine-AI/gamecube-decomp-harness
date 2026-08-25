@@ -33,8 +33,18 @@ import {
 import { createMeleeKernelRuntime } from "./runtime.js";
 import {
   buildMeleeContainer,
+  describeMeleeContainer,
   meleeAppSessionId,
   meleeBaselineContainerId,
+  meleeEpochContainerId,
+  meleePrHandoffContainerId,
+  meleePrQaContainerId,
+  meleePrRepairContainerId,
+  meleePrReviewContainerId,
+  meleePrSplitContainerId,
+  meleeRunContainerId,
+  meleeWorkerIntegrationContainerId,
+  type MeleeContainerKind,
   meleeIntakeContainerId,
   meleeIntakeItemContainerId,
   meleeIntakeKnowledgeContainerId,
@@ -638,6 +648,244 @@ describe("trace writer", () => {
   });
 });
 
+describe("container identity has one authority", () => {
+  const ref = { gameId: "melee", sessionId: "run-1" };
+  const fullMetadata = {
+    runId: "run-1",
+    epochId: 2,
+    claimId: "claim-A",
+    itemId: "item-A",
+    targetId: "target-A",
+    prId: "2764",
+    reviewId: "slice-001",
+    repairId: "repair-7",
+  };
+
+  // Every kind, so a new MeleeContainerKind that forgets its describe case is
+  // caught here as well as by the (now total) switch failing to compile.
+  const ALL_KINDS: MeleeContainerKind[] = [
+    "session",
+    "prepare",
+    "sync-intake",
+    "intake",
+    "intake-item",
+    "intake-postmortem",
+    "intake-knowledge",
+    "pr-index",
+    "knowledge-refresh",
+    "baseline",
+    "run",
+    "epoch",
+    "worker",
+    "worker-integration",
+    "postmortem",
+    "pr",
+    "pr-handoff",
+    "pr-qa",
+    "pr-split",
+    "pr-review",
+    "pr-repair",
+    "pr-publication",
+  ];
+
+  test("describes every container kind without falling back to a bare-kind id", () => {
+    const root = meleeRootContainerId(ref);
+    const ids = new Set<string>();
+    for (const kind of ALL_KINDS) {
+      const descriptor = describeMeleeContainer(kind, ref, fullMetadata);
+      expect(descriptor.kind).toBe(kind);
+      expect(descriptor.id.startsWith(root)).toBe(true);
+      // The old default branch minted `<root>:<kind>:none-<sha>` with the raw
+      // kind as the label and the root as the parent.
+      expect(descriptor.id).not.toBe(`${root}:${kind}:none`);
+      expect(descriptor.id).not.toContain(`:${kind}:none-`);
+      expect(descriptor.label).not.toBe(kind);
+      expect(descriptor.phase).toBeTruthy();
+      if (kind === "session") expect(descriptor.parentContainerId).toBeNull();
+      else expect(descriptor.parentContainerId).toBeTruthy();
+      ids.add(descriptor.id);
+    }
+    expect(ids.size).toBe(ALL_KINDS.length);
+  });
+
+  test("describes the ids the id helpers already publish", () => {
+    const runRef = { ...ref, runId: "run-1" };
+    const epochRef = { ...runRef, epochId: 2 };
+    const claimRef = { ...epochRef, claimId: "claim-A" };
+    const prRef = { ...ref, prId: "2764" };
+    const expected: Array<[MeleeContainerKind, string]> = [
+      ["run", meleeRunContainerId(runRef)],
+      ["epoch", meleeEpochContainerId(epochRef)],
+      ["worker", meleeWorkerContainerId(claimRef)],
+      ["worker-integration", meleeWorkerIntegrationContainerId(claimRef)],
+      ["postmortem", meleePostmortemContainerId(claimRef)],
+      ["pr-handoff", meleePrHandoffContainerId(prRef)],
+      ["pr-qa", meleePrQaContainerId(prRef)],
+      ["pr-split", meleePrSplitContainerId(prRef)],
+      ["pr-review", meleePrReviewContainerId({ ...prRef, reviewId: "slice-001" })],
+      ["pr-repair", meleePrRepairContainerId({ ...prRef, repairId: "repair-7" })],
+    ];
+    for (const [kind, id] of expected) {
+      expect(describeMeleeContainer(kind, ref, fullMetadata).id).toBe(id);
+    }
+  });
+
+  test("spawn contexts and the descriptor agree on id, label, parent and phase", () => {
+    const cases: Array<{
+      kind: MeleeContainerKind;
+      spawn: Parameters<typeof createMeleeKernelSpawnContext>[0];
+      metadata: Record<string, unknown>;
+    }> = [
+      {
+        kind: "run",
+        spawn: { kind: "run", gameId: "melee", sessionId: "run-1", runId: "run-1" },
+        metadata: { runId: "run-1" },
+      },
+      {
+        kind: "worker",
+        spawn: {
+          kind: "worker",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          epochId: 2,
+          claimId: "claim-A",
+          targetId: "target-A",
+        },
+        metadata: { runId: "run-1", epochId: 2, claimId: "claim-A", targetId: "target-A" },
+      },
+      {
+        kind: "worker-integration",
+        spawn: {
+          kind: "worker-integration",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          epochId: 2,
+          claimId: "claim-A",
+        },
+        metadata: { runId: "run-1", epochId: 2, claimId: "claim-A" },
+      },
+      {
+        kind: "postmortem",
+        spawn: {
+          kind: "postmortem",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          epochId: 2,
+          claimId: "claim-A",
+        },
+        metadata: { runId: "run-1", epochId: 2, claimId: "claim-A" },
+      },
+      {
+        kind: "postmortem",
+        spawn: {
+          kind: "postmortem",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          epochId: 2,
+          itemId: "item-A",
+        },
+        metadata: { runId: "run-1", epochId: 2, itemId: "item-A" },
+      },
+      {
+        kind: "pr",
+        spawn: { kind: "pr", gameId: "melee", sessionId: "run-1", runId: "run-1", prId: "2764" },
+        metadata: { runId: "run-1", prId: "2764" },
+      },
+      {
+        kind: "pr-split",
+        spawn: {
+          kind: "pr-split",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          prId: "2764",
+        },
+        metadata: { runId: "run-1", prId: "2764" },
+      },
+      {
+        kind: "pr-review",
+        spawn: {
+          kind: "pr-review",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          prId: "2764",
+          reviewId: "slice-001",
+        },
+        metadata: { runId: "run-1", prId: "2764", reviewId: "slice-001" },
+      },
+      {
+        kind: "pr-repair",
+        spawn: {
+          kind: "pr-repair",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          prId: "2764",
+          repairId: "repair-7",
+        },
+        metadata: { runId: "run-1", prId: "2764", repairId: "repair-7" },
+      },
+      {
+        kind: "intake-postmortem",
+        spawn: {
+          kind: "intake-postmortem",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          prId: "2764",
+          itemId: "pr-2764",
+        },
+        metadata: { runId: "run-1", prId: "2764", itemId: "pr-2764" },
+      },
+      {
+        kind: "intake-knowledge",
+        spawn: {
+          kind: "intake-knowledge",
+          gameId: "melee",
+          sessionId: "run-1",
+          runId: "run-1",
+          prId: "2764",
+          itemId: "pr-2764",
+        },
+        metadata: { runId: "run-1", prId: "2764", itemId: "pr-2764" },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const context = createMeleeKernelSpawnContext(testCase.spawn);
+      const descriptor = describeMeleeContainer(testCase.kind, ref, testCase.metadata);
+      const spawned = context.containerLineage?.at(-1);
+      expect(context.containerId).toBe(descriptor.id);
+      expect(spawned?.id).toBe(descriptor.id);
+      expect(spawned?.label).toBe(descriptor.label);
+      expect(spawned?.parentContainerId).toBe(descriptor.parentContainerId);
+      expect(spawned?.phase).toBe(descriptor.phase);
+    }
+  });
+
+  test("spawn lineage parents are the containers the lineage actually carries", () => {
+    const context = createMeleeKernelSpawnContext({
+      kind: "worker",
+      gameId: "melee",
+      sessionId: "run-1",
+      runId: "run-1",
+      epochId: 2,
+      claimId: "claim-A",
+    });
+    const lineage = context.containerLineage ?? [];
+    const ids = new Set(lineage.map((container) => container.id));
+    for (const container of lineage) {
+      if (!container.parentContainerId) continue;
+      expect(ids.has(container.parentContainerId)).toBe(true);
+    }
+  });
+});
+
 describe("workflow trace helper", () => {
   test("upserts non-agent workflow phase containers and emits app events", async () => {
     const ref = { gameId: "melee", sessionId: "run-1" };
@@ -762,7 +1010,7 @@ describe("workflow trace helper", () => {
       meleeSyncIntakeContainerId(ref),
     ]);
     expect((upsertedContexts[1] as any).containerLineage.map((container: NewContainer) => container.label)).toEqual([
-      "Game session run-1",
+      "Cycle run-1",
       "Prepare",
       "Sync Intake",
     ]);
@@ -866,6 +1114,83 @@ describe("workflow trace helper", () => {
         caused_by_event_id: null,
       });
     }
+  });
+
+  test("hangs PR handoff and QA containers off the PR container", async () => {
+    const ref = { gameId: "melee", sessionId: "run-1" };
+    const upsertedContexts: any[] = [];
+    const runtime = {
+      upsertSpawnContainers: async (context: unknown) => {
+        upsertedContexts.push(context);
+      },
+      traceWriter: {
+        createAppEvent: (input: any) => ({
+          eventId: "55555555-5555-5555-8555-555555555555",
+          containerId: input.containerId!,
+          userId: "00000000-0000-0000-0000-000000000001",
+          type: input.type,
+          source: TraceSource.APP,
+          traceLevel: input.traceLevel ?? TraceLevel.PROCESSING,
+          eventData: input.eventData,
+          timestamp: "2026-06-24T18:00:00.000Z",
+        }),
+        submit: async () => 1,
+      },
+    };
+    const linkage = {
+      correlationId: "run-1",
+      gameEventId: "game-event-1",
+      causedByEventId: null,
+    };
+
+    const handoff = await submitMeleeWorkflowTraceEvent({
+      runtime,
+      kind: "pr-handoff",
+      gameId: ref.gameId,
+      sessionId: ref.sessionId,
+      prId: "draft-1",
+      operation: "handOffPrToReview",
+      status: "started",
+      ...linkage,
+    });
+    const qa = await submitMeleeWorkflowTraceEvent({
+      runtime,
+      kind: "pr-qa",
+      gameId: ref.gameId,
+      sessionId: ref.sessionId,
+      prId: "draft-1",
+      operation: "runPrQa",
+      status: "completed",
+      ...linkage,
+    });
+
+    const prId = meleePrContainerId({ ...ref, prId: "draft-1" });
+    expect(handoff.containerId).toBe(
+      meleePrHandoffContainerId({ ...ref, prId: "draft-1" }),
+    );
+    expect(qa.containerId).toBe(meleePrQaContainerId({ ...ref, prId: "draft-1" }));
+    expect(handoff.containers.map((container) => container.id)).toEqual([
+      meleeRootContainerId(ref),
+      prId,
+      handoff.containerId,
+    ]);
+    expect(qa.containers.map((container) => container.id)).toEqual([
+      meleeRootContainerId(ref),
+      prId,
+      qa.containerId,
+    ]);
+    // The parent must be a container the same upsert carries, or the child is
+    // an orphan the viewer cannot place.
+    for (const submitted of [handoff, qa]) {
+      const ids = new Set(submitted.containers.map((container) => container.id));
+      for (const container of submitted.containers) {
+        if (!container.parentContainerId) continue;
+        expect(ids.has(container.parentContainerId)).toBe(true);
+      }
+    }
+    expect(handoff.containers.at(-1)?.phase).toBe("handoff");
+    expect(qa.containers.at(-1)?.phase).toBe("qa");
+    expect(upsertedContexts).toHaveLength(2);
   });
 });
 
