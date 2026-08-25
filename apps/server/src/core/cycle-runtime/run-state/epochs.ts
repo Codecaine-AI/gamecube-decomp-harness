@@ -14,7 +14,7 @@ import {
   reprioritizeJob,
 } from "@server/core/job-queue/kernel.js";
 
-export type EpochStatus = "active" | "completed" | "error" | "exhausted" | "paused";
+export type EpochStatus = "active" | "completed" | "error" | "paused";
 
 export interface SchedulerEpochConfig {
   workerPoolSize: number;
@@ -28,7 +28,6 @@ export interface SchedulerEpochRecord {
   status: string;
   admittedCount: number;
   finishedCount: number;
-  fastRefreshCount: number;
   boundaryStatus: string | null;
   routingSummary: Record<string, unknown>;
   createdAt: string;
@@ -86,7 +85,6 @@ export interface EpochProgressSummary {
   claimed: number;
   finished: number;
   remaining: number;
-  fastRefreshCount: number;
   boundaryStatus: string | null;
   routingSummary: Record<string, unknown>;
 }
@@ -156,7 +154,6 @@ function rowToEpoch(row: Record<string, unknown>): SchedulerEpochRecord {
     status: String(row.status),
     admittedCount: Number(row.admitted_count ?? 0),
     finishedCount: Number(row.finished_count ?? 0),
-    fastRefreshCount: Number(row.fast_refresh_count ?? 0),
     boundaryStatus: row.boundary_status == null ? null : String(row.boundary_status),
     routingSummary,
     createdAt: String(row.created_at),
@@ -437,12 +434,6 @@ export function refreshEpochTargetPriorities(
   });
 }
 
-export function recordSchedulerEpochFastRefresh(store: StateStore, epochId: string): number {
-  store.db.query("UPDATE epochs SET fast_refresh_count = fast_refresh_count + 1 WHERE id = ?").run(epochId);
-  const row = store.db.query("SELECT fast_refresh_count FROM epochs WHERE id = ?").get(epochId) as Record<string, unknown> | undefined;
-  return Number(row?.fast_refresh_count ?? 0);
-}
-
 function refreshEpochFinishedCount(store: StateStore, epochId: string): void {
   store.db
     .query(
@@ -531,7 +522,6 @@ export function schedulerEpochProgress(store: StateStore, epochId: string): Epoc
     claimed,
     finished,
     remaining: Math.max(0, admitted - finished),
-    fastRefreshCount: record.fastRefreshCount,
     boundaryStatus: record.boundaryStatus,
     routingSummary: record.routingSummary,
   };

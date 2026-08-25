@@ -409,7 +409,6 @@ export const epochs = sqliteTable(
     status: text("status").notNull(),
     admittedCount: integer("admitted_count").notNull().default(0),
     finishedCount: integer("finished_count").notNull().default(0),
-    fastRefreshCount: integer("fast_refresh_count").notNull().default(0),
     boundaryStatus: text("boundary_status"),
     routingSummaryJson: text("routing_summary_json", { mode: "json" }).$type<JsonObject>().notNull(),
     createdAt: text("created_at").notNull(),

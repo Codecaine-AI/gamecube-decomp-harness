@@ -52,7 +52,6 @@ export interface SchedulerEpochEnsureResult {
   availabilityRefresh: EpochAvailabilityRefreshResult;
   priorityRefreshes: number;
   progress: EpochProgressSummary;
-  boardExhausted: boolean;
 }
 
 function nonNegativeInt(value: number): number {
@@ -82,7 +81,6 @@ export function ensureSchedulerEpochFromBoard(params: {
   const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
     graphDbPath: params.graphDbPath,
   });
-  const boardExhausted = board.candidates.length === 0;
   if (progress.admitted === 0) {
     admission = admitEpochTargets(params.store, {
       epochId: epoch.id,
@@ -103,7 +101,7 @@ export function ensureSchedulerEpochFromBoard(params: {
   });
   epoch = activeSchedulerEpoch(params.store, params.runId) ?? epoch;
   progress = schedulerEpochProgress(params.store, epoch.id);
-  return { epoch, admission, availabilityRefresh, priorityRefreshes, progress, boardExhausted };
+  return { epoch, admission, availabilityRefresh, priorityRefreshes, progress };
 }
 
 export async function runSchedulerTick(

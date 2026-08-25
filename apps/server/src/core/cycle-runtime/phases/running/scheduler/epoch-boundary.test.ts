@@ -60,7 +60,6 @@ function params(
       epochLinkPaths: [],
       epochPauseThreshold: 12,
       epochRequeueLimit: 32,
-      epochRetryMs: 60_000,
       cycleDraftPrEnabled: false,
       fullKgMaintenanceMode: "skip",
       writeSetFlags: { writeSetWidening: "off" },
@@ -91,7 +90,7 @@ describe("runEpochBoundary", () => {
     try {
       const outcome = await runEpochBoundary(params(value));
 
-      expect(outcome).toMatchObject({ ok: true, reconciled: false, paused: false, exhausted: false, retryAtMs: null });
+      expect(outcome).toMatchObject({ ok: true, reconciled: false, paused: false });
       expect(outcome.boundaryResult).toBeUndefined();
       expect(outcome.nextEpoch?.progress).toMatchObject({ ordinal: 2, admitted: 1, available: 1 });
       expect(value.store.db.query("SELECT status, boundary_status FROM epochs WHERE id = ?").get(value.epochId)).toEqual({
@@ -131,7 +130,7 @@ describe("runEpochBoundary", () => {
       );
 
       expect(cycleCalls).toBe(0);
-      expect(outcome).toMatchObject({ ok: true, reconciled: true, paused: false, exhausted: false });
+      expect(outcome).toMatchObject({ ok: true, reconciled: true, paused: false });
       expect(outcome.nextEpoch?.progress.ordinal).toBe(2);
       const closed = value.store.db
         .query("SELECT status, boundary_status, routing_summary_json FROM epochs WHERE id = ?")
@@ -148,18 +147,17 @@ describe("runEpochBoundary", () => {
     }
   });
 
-  test("closes an empty post-boundary epoch as board exhausted", async () => {
+  test("leaves an empty post-boundary epoch active for the normal boundary flow", async () => {
     const value = fixture([]);
     try {
       const outcome = await runEpochBoundary(params(value));
 
-      expect(outcome).toMatchObject({ ok: true, reconciled: false, paused: false, exhausted: true });
-      expect(outcome.retryAtMs).toBeNumber();
+      expect(outcome).toMatchObject({ ok: true, reconciled: false, paused: false });
       expect(value.store.db.query("SELECT status, boundary_status FROM epochs WHERE id = ?").get(outcome.nextEpoch?.epoch.id ?? "")).toEqual({
-        status: "exhausted",
-        boundary_status: "board_exhausted",
+        status: "active",
+        boundary_status: null,
       });
-      expect(activeSchedulerEpoch(value.store, value.runId)).toBeNull();
+      expect(activeSchedulerEpoch(value.store, value.runId)?.id).toBe(outcome.nextEpoch?.epoch.id);
     } finally {
       value.store.db.close();
     }

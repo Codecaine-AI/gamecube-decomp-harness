@@ -48,7 +48,6 @@ export interface EpochBoundaryParams {
     epochLinkPaths: string[];
     epochPauseThreshold: number;
     epochRequeueLimit: number;
-    epochRetryMs: number;
     cycleDraftPrEnabled: boolean;
     fullKgMaintenanceMode: string;
     writeSetFlags: WriteSetIntegrationFlags;
@@ -67,8 +66,6 @@ export interface EpochBoundaryOutcome {
   reconciled: boolean;
   paused: boolean;
   nextEpoch?: ReturnType<typeof ensureSchedulerEpochFromBoardDefault>;
-  exhausted: boolean;
-  retryAtMs: number | null;
   knowledgeMaintenanceRun?: Record<string, unknown>;
 }
 
@@ -131,7 +128,6 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
   let reconciled = false;
   let knowledgeMaintenanceRun: Record<string, unknown> | undefined;
   let nextEpoch: ReturnType<typeof ensureSchedulerEpochFromBoardDefault> | undefined;
-  let exhausted = false;
 
   try {
     if (globals.dryRunAgents) {
@@ -206,7 +202,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             save_point_id: result.savePointId,
             created_by: "run-loop",
           });
-          console.error(`[run-loop] epoch ${epochOrdinal}: paused on regressions; retrying in ${Math.round(config.epochRetryMs / 1000)}s`);
+          console.error(`[run-loop] epoch ${epochOrdinal}: paused on regressions`);
           if (schedulerEpochId) {
             closeSchedulerEpochWithEvidence(store, schedulerEpochId, {
               status: "paused",
@@ -239,8 +235,6 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             boundaryResult,
             reconciled,
             paused: true,
-            exhausted: false,
-            retryAtMs: Date.now() + config.epochRetryMs,
           };
         }
       }
@@ -335,38 +329,19 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       `[run-loop] epoch ${nextEpoch.progress.ordinal}: admitted ${nextEpoch.progress.admitted} targets, ` +
         `${nextEpoch.progress.available} available, ${nextEpoch.priorityRefreshes} refreshed`,
     );
-    exhausted =
-      (nextEpoch.progress.admitted === 0 || nextEpoch.progress.remaining === 0) &&
-      nextEpoch.progress.available === 0 &&
-      nextEpoch.progress.claimed === 0;
-    if (exhausted) {
-      closeSchedulerEpoch(store, nextEpoch.epoch.id, {
-        status: "exhausted",
-        boundaryStatus: "board_exhausted",
-        routingSummary: { trigger: "post_boundary_admission", board_exhausted: nextEpoch.boardExhausted },
-      });
-      addEvent(store, runId, "epoch_exhausted", "run-loop", {
-        epoch_id: nextEpoch.epoch.id,
-        ordinal: nextEpoch.progress.ordinal,
-        created_by: "run-loop",
-      });
-    } else {
-      addEvent(store, runId, "epoch_admitted", "run-loop", {
-        epoch_id: nextEpoch.epoch.id,
-        ordinal: nextEpoch.progress.ordinal,
-        admitted: nextEpoch.progress.admitted,
-        available: nextEpoch.progress.available,
-        created_by: "run-loop",
-      });
-    }
+    addEvent(store, runId, "epoch_admitted", "run-loop", {
+      epoch_id: nextEpoch.epoch.id,
+      ordinal: nextEpoch.progress.ordinal,
+      admitted: nextEpoch.progress.admitted,
+      available: nextEpoch.progress.available,
+      created_by: "run-loop",
+    });
     return {
       ok: true,
       boundaryResult,
       reconciled,
       paused: false,
       nextEpoch,
-      exhausted,
-      retryAtMs: exhausted ? Date.now() + config.epochRetryMs : null,
       knowledgeMaintenanceRun,
     };
   } catch (error) {
@@ -391,8 +366,6 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       reconciled,
       paused: false,
       nextEpoch,
-      exhausted,
-      retryAtMs: Date.now() + config.epochRetryMs,
       knowledgeMaintenanceRun,
     };
   }

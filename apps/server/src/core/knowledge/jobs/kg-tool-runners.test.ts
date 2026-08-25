@@ -174,7 +174,6 @@ test("epoch boundary refreshes the successful cycle worktree and keeps failed ru
       progress: { ordinal: 2, admitted: 1, available: 1, claimed: 0, remaining: 1 },
       epoch: { id: "next-epoch" },
       priorityRefreshes: 0,
-      boardExhausted: false,
     }),
   } as unknown as EpochBoundaryDependencies;
   const params: EpochBoundaryParams = {
@@ -191,7 +190,6 @@ test("epoch boundary refreshes the successful cycle worktree and keeps failed ru
       epochLinkPaths: [],
       epochPauseThreshold: 12,
       epochRequeueLimit: 32,
-      epochRetryMs: 60_000,
       cycleDraftPrEnabled: false,
       fullKgMaintenanceMode: "full",
       writeSetFlags: { writeSetWidening: "off" },

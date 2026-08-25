@@ -135,7 +135,6 @@ CREATE TABLE epochs (
         status TEXT NOT NULL,
         admitted_count INTEGER NOT NULL DEFAULT 0,
         finished_count INTEGER NOT NULL DEFAULT 0,
-        fast_refresh_count INTEGER NOT NULL DEFAULT 0,
         boundary_status TEXT,
         routing_summary_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL,

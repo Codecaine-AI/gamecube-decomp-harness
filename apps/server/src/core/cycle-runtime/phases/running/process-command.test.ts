@@ -88,7 +88,6 @@ describe("running process command", () => {
     expect(plan.command).not.toContain("--candidate-limit");
     expect(plan.command).not.toContain("--queue-target-size");
     expect(plan.command).not.toContain("--epoch-ready-queue-size");
-    expect(plan.command).not.toContain("--fast-kg-maintenance-interval-ms");
   });
 
   test("passes configured worker timeout to run-loop", () => {

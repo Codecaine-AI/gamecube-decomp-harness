@@ -4,7 +4,6 @@ export {
   admitEpochTargets,
   closeSchedulerEpoch,
   closeSchedulerEpochWithEvidence,
-  recordSchedulerEpochFastRefresh,
   refreshEpochTargetAvailability,
   refreshEpochTargetPriorities,
   schedulerEpochProgress,

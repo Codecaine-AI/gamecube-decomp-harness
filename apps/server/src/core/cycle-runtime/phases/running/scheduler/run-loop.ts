@@ -1,23 +1,18 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
+import { resourceGraphDbPath } from "@server/core/knowledge";
 import { heartbeatDispatch } from "@server/core/harness-state";
-import { loadExactTargetKeys } from "@server/core/cycle-runtime/phases/running/board/snapshot.js";
 import {
   activeWorkerCount,
   activeSchedulerEpoch,
   addEvent,
   blockingWorkerOutputIntegrationCount,
-  closeSchedulerEpoch,
   getLatestRun,
   getRun,
   markEventHandled,
   nextUnhandledEvent,
   openState,
   admittedTargetCount,
-  recordSchedulerEpochFastRefresh,
-  refreshEpochTargetPriorities,
-  refreshEpochTargetAvailability,
   schedulerEpochProgress,
   schedulableTargetCount,
   setRunSchedulerCondition,
@@ -43,7 +38,6 @@ import {
   ensureSchedulerEpochFromBoard,
   runSchedulerTick,
   schedulerEpochConfigFromArgs,
-  type SchedulerEpochEnsureResult,
   type SchedulerTickResult,
 } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
 import { resolveBaseRev } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
@@ -109,16 +103,6 @@ interface BoundaryErrorEpoch {
   finished: number;
 }
 
-export type FastKnowledgeMaintenanceAction = "defer" | "none" | "skip_no_new_reports" | "start";
-
-export interface FastKnowledgeMaintenanceDecision {
-  action: FastKnowledgeMaintenanceAction;
-  reason?: "interval" | "report_count" | "no_new_reports";
-  reportDue: boolean;
-  reportsSinceRefresh: number;
-  timeDue: boolean;
-}
-
 export interface RunLoopResult {
   runId: string;
   mode: "run_loop";
@@ -144,8 +128,6 @@ export interface RunLoopResult {
   workerErrors: WorkerError[];
   knowledgeMaintenanceRuns: Record<string, unknown>[];
   knowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
-  fastKnowledgeMaintenanceRuns: Record<string, unknown>[];
-  fastKnowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
   integrationResolverRuns: Record<string, unknown>[];
   integrationResolverErrors: IntegrationResolverError[];
   integrationDrains: number;
@@ -215,7 +197,6 @@ function boundaryErrorEpoch(store: StateStore, runId: string): BoundaryErrorEpoc
             FROM epochs
             WHERE run_id = ?
               AND admitted_count > 0
-              AND status != 'exhausted'
               AND COALESCE(boundary_status, '') NOT LIKE 'manual_discarded%'
             ORDER BY ordinal DESC
             LIMIT 1
@@ -237,7 +218,7 @@ export function epochBoundaryWorkPending(store: StateStore, runId: string): bool
   const activeEpoch = activeSchedulerEpoch(store, runId);
   if (activeEpoch) {
     const progress = schedulerEpochProgress(store, activeEpoch.id);
-    return progress.admitted > 0 && progress.remaining === 0 && progress.claimed === 0;
+    return progress.remaining === 0 && progress.claimed === 0;
   }
   const failedBoundary = boundaryErrorEpoch(store, runId);
   return failedBoundary !== null && failedBoundary.finished >= failedBoundary.admitted;
@@ -328,24 +309,6 @@ function knowledgeProgressReporter(
   };
 }
 
-export function evaluateFastKnowledgeMaintenanceDecision(params: {
-  intervalMs: number;
-  lastMaintenanceMs: number;
-  nowMs: number;
-  reportCountTrigger: number;
-  reportsSinceRefresh: number;
-  running: boolean;
-}): FastKnowledgeMaintenanceDecision {
-  const reportsSinceRefresh = Math.max(0, Math.floor(params.reportsSinceRefresh));
-  const timeDue = params.intervalMs > 0 && params.nowMs - params.lastMaintenanceMs >= params.intervalMs;
-  const reportDue = params.reportCountTrigger > 0 && reportsSinceRefresh >= params.reportCountTrigger;
-  if (!timeDue && !reportDue) return { action: "none", reportDue, reportsSinceRefresh, timeDue };
-  const reason = reportDue ? "report_count" : "interval";
-  if (params.running) return { action: "defer", reason, reportDue, reportsSinceRefresh, timeDue };
-  if (reportsSinceRefresh <= 0) return { action: "skip_no_new_reports", reason: "no_new_reports", reportDue, reportsSinceRefresh, timeDue };
-  return { action: "start", reason, reportDue, reportsSinceRefresh, timeDue };
-}
-
 function cloneArgs(args: Map<string, string | true>, entries: [string, string | true][]): Map<string, string | true> {
   const next = new Map(args);
   for (const [key, value] of entries) next.set(key, value);
@@ -383,65 +346,10 @@ function knowledgeMaintenanceArgs(args: Map<string, string | true>, runId: strin
   return next;
 }
 
-function fastKnowledgeMaintenanceArgs(args: Map<string, string | true>, runId: string): Map<string, string | true> {
-  const next = knowledgeMaintenanceArgs(args, runId, false);
-  next.set("--no-tool-runners", true);
-  if (!next.has("--run-pr-agent")) next.set("--no-run-pr-agent", true);
-  return next;
-}
-
 function knowledgeMaintenanceIntervalMs(globals: GlobalArgs, args: Map<string, string | true>): number {
   if (booleanArg(args, "--no-knowledge-maintenance")) return 0;
   const fallback = globals.dryRunAgents ? 0 : 5 * 60_000;
   return Math.max(0, Math.floor(numberArg(args, "--knowledge-maintenance-interval-ms", fallback)));
-}
-
-function fastKnowledgeMaintenanceIntervalMs(globals: GlobalArgs, args: Map<string, string | true>): number {
-  if (booleanArg(args, "--no-fast-kg-maintenance")) return 0;
-  const fallback = globals.dryRunAgents ? 0 : 3 * 60_000;
-  return Math.max(0, Math.floor(numberArg(args, "--fast-kg-maintenance-interval-ms", fallback)));
-}
-
-function fastKnowledgeMaintenanceReportCount(globals: GlobalArgs, args: Map<string, string | true>): number {
-  if (booleanArg(args, "--no-fast-kg-maintenance")) return 0;
-  return Math.max(0, Math.floor(numberArg(args, "--fast-kg-maintenance-report-count", 16)));
-}
-
-function workerStateCloseCountSince(store: StateStore, runId: string, sinceIso: string): number {
-  const row = withBusyRetry(
-    () =>
-      store.db
-        .query(
-          `
-            SELECT COUNT(*) AS count
-            FROM worker_state
-            WHERE run_id = ?
-              AND lifecycle_status != 'error'
-              AND ended_at > ?
-          `,
-        )
-        .get(runId, sinceIso) as Record<string, unknown> | undefined,
-  );
-  return Number(row?.count ?? 0);
-}
-
-function latestFastRefreshFinishedAt(store: StateStore, runId: string, fallbackIso: string): string {
-  const row = withBusyRetry(
-    () =>
-      store.db
-        .query(
-          `
-            SELECT created_at
-            FROM events
-            WHERE run_id = ?
-              AND event_type = 'epoch_fast_refresh_finished'
-            ORDER BY created_at DESC
-            LIMIT 1
-          `,
-        )
-        .get(runId) as Record<string, unknown> | undefined,
-  );
-  return row?.created_at == null ? fallbackIso : String(row.created_at);
 }
 
 async function waitForRestingTrigger(idleSleepMs: number, extras: Array<Promise<void> | null> = []): Promise<void> {
@@ -494,8 +402,6 @@ export async function runRunLoop(
   const schedulerResults: SchedulerTickResult[] = [];
   const knowledgeMaintenanceRuns: Record<string, unknown>[] = [];
   const knowledgeMaintenanceErrors: KnowledgeMaintenanceError[] = [];
-  const fastKnowledgeMaintenanceRuns: Record<string, unknown>[] = [];
-  const fastKnowledgeMaintenanceErrors: KnowledgeMaintenanceError[] = [];
   const integrationResolverRuns: Record<string, unknown>[] = [];
   const integrationResolverErrors: IntegrationResolverError[] = [];
   const runningIntegrationResolvers = new Map<string, Promise<void>>();
@@ -572,11 +478,9 @@ export async function runRunLoop(
       .filter(Boolean);
     const epochPauseThreshold = nonNegativeInt(numberArg(args, "--epoch-regression-pause-threshold", 12));
     const epochRequeueLimit = nonNegativeInt(numberArg(args, "--epoch-regression-requeue-limit", 32));
-    const epochRetryMs = nonNegativeInt(numberArg(args, "--epoch-retry-ms", 10 * 60_000));
     const cycleDraftPrEnabled = !booleanArg(args, "--no-cycle-draft-pr");
     const fullKgMaintenanceMode = stringArg(args, "--full-kg-maintenance-mode", "full").trim().toLowerCase();
     let runningEpoch: Promise<void> | null = null;
-    let nextEpochAllowedMs = 0;
     let epochCycles = 0;
     let epochPaused = false;
     let lastEpoch: EpochCycleResult | undefined;
@@ -588,12 +492,6 @@ export async function runRunLoop(
     let epochTargetsAdmitted = 0;
     let lastSchedulerEpoch: EpochProgressSummary | null = null;
     let lastKnowledgeMaintenanceMs = maintenanceIntervalMs > 0 ? 0 : Date.now();
-    const fastMaintenanceIntervalMs = fastKnowledgeMaintenanceIntervalMs(globals, args);
-    const fastMaintenanceReportCount = fastKnowledgeMaintenanceReportCount(globals, args);
-    let lastFastMaintenanceMs = Date.now();
-    let lastFastMaintenanceReportIso = latestFastRefreshFinishedAt(store, runId, run.createdAt);
-    let runningFastKnowledgeMaintenance: Promise<void> | null = null;
-    let pendingFastKnowledgeMaintenance = false;
     let schedulerBlocked = false;
     let runningIntegrationDrain: Promise<void> | null = null;
     let integrationFlushPending = false;
@@ -691,7 +589,6 @@ export async function runRunLoop(
           blocked: schedulerBlocked || epochPaused,
           boundary: Boolean(
             runningEpoch ||
-              runningFastKnowledgeMaintenance ||
               runningKnowledgeMaintenance ||
               runningIntegrationDrain ||
               runningIntegrationResolvers.size > 0,
@@ -729,7 +626,6 @@ export async function runRunLoop(
           });
           // A resolved conflict is committed harness-side; base new workers on it.
           if (resolveOutcome.committedSha) workerCtx.baseRev = resolveOutcome.committedSha;
-          nextEpochAllowedMs = 0;
         })
         .catch((error) => {
           const message = error instanceof Error ? error.message : String(error);
@@ -845,13 +741,7 @@ export async function runRunLoop(
         didWork = true;
       }
 
-      const targetPressureBefore = targetPressureSnapshotForRunLoop({
-        maxWorkers,
-        inFlightWorkers: workerConsumer.inFlight(),
-        runId,
-        store,
-      });
-      const nowMs = Date.now();
+      let emptyEpochBoundaryLaunched = false;
       const launchEpochCycle = (trigger: string, schedulerEpochId?: string): void => {
         syncSchedulerCondition("planning");
         const epochOrdinal = epochCycles + 1;
@@ -871,7 +761,6 @@ export async function runRunLoop(
             epochLinkPaths,
             epochPauseThreshold,
             epochRequeueLimit,
-            epochRetryMs,
             cycleDraftPrEnabled,
             fullKgMaintenanceMode,
             writeSetFlags,
@@ -895,7 +784,6 @@ export async function runRunLoop(
               epochPaused = outcome.boundaryResult.repair.paused;
             }
             if (outcome.error) epochErrors.push({ error: outcome.error });
-            if (outcome.retryAtMs !== null) nextEpochAllowedMs = outcome.retryAtMs;
             if (outcome.knowledgeMaintenanceRun) knowledgeMaintenanceRuns.push(outcome.knowledgeMaintenanceRun);
             if (outcome.nextEpoch) {
               const nextEpoch = outcome.nextEpoch;
@@ -904,7 +792,7 @@ export async function runRunLoop(
               epochTargetsAdmitted += nextEpoch.admission?.admitted ?? 0;
               epochTargetsMadeAvailable += nextEpoch.admission?.admitted ?? 0;
               epochPriorityRefreshes += nextEpoch.priorityRefreshes;
-              if (!outcome.exhausted && (nextEpoch.admission?.admitted ?? 0) > 0) {
+              if ((nextEpoch.admission?.admitted ?? 0) > 0) {
                 didWork = true;
               }
             }
@@ -914,125 +802,12 @@ export async function runRunLoop(
           });
         runningEpoch = task;
       };
-      if (
-        epochCycleEnabled &&
-        fastMaintenanceIntervalMs > 0 &&
-        !runningEpoch &&
-        runningIntegrationResolvers.size === 0 &&
-        !epochBoundaryWorkPending(store, runId) &&
-        blockingWorkerOutputIntegrationCount(store, runId) === 0
-      ) {
-        const reportsSinceFast = workerStateCloseCountSince(store, runId, lastFastMaintenanceReportIso);
-        const fastDecision = evaluateFastKnowledgeMaintenanceDecision({
-          intervalMs: fastMaintenanceIntervalMs,
-          lastMaintenanceMs: lastFastMaintenanceMs,
-          nowMs,
-          reportCountTrigger: fastMaintenanceReportCount,
-          reportsSinceRefresh: reportsSinceFast,
-          running: Boolean(runningFastKnowledgeMaintenance),
-        });
-        if (fastDecision.action !== "none") {
-          if (fastDecision.action === "defer") {
-            if (!pendingFastKnowledgeMaintenance) {
-              pendingFastKnowledgeMaintenance = true;
-              addEvent(store, runId, "epoch_fast_refresh_deferred", "run-loop", {
-                reason: fastDecision.reason,
-                reports_since_refresh: fastDecision.reportsSinceRefresh,
-                created_by: "run-loop",
-              });
-            }
-          } else if (fastDecision.action === "skip_no_new_reports") {
-            lastFastMaintenanceMs = nowMs;
-            addEvent(store, runId, "epoch_fast_refresh_skipped", "run-loop", {
-              reason: "no_new_reports",
-              created_by: "run-loop",
-            });
-          } else {
-            pendingFastKnowledgeMaintenance = false;
-            lastFastMaintenanceMs = nowMs;
-            const activeEpoch = activeSchedulerEpoch(store, runId);
-            console.error(
-              `[run-loop] epoch ${activeEpoch?.ordinal ?? "?"}: fast knowledge refresh started ` +
-                `(${fastDecision.reason}, ${fastDecision.reportsSinceRefresh} report(s) since refresh)`,
-            );
-            addEvent(store, runId, "epoch_fast_refresh_started", "run-loop", {
-              epoch_id: activeEpoch?.id ?? null,
-              reports_since_refresh: fastDecision.reportsSinceRefresh,
-              reason: fastDecision.reason,
-              created_by: "run-loop",
-            });
-            let task: Promise<void>;
-            task = runKnowledgeMaintenance(globals, fastKnowledgeMaintenanceArgs(args, runId), {
-              progress: knowledgeProgressReporter(store, runId, {
-                lane: "fast_run_evidence",
-                mode: "fast",
-                epochId: activeEpoch?.id ?? null,
-                epochOrdinal: activeEpoch?.ordinal ?? null,
-                repoRoot: globals.repoRoot,
-              }),
-            })
-              .then((result) => {
-                const completedAt = new Date().toISOString();
-                fastKnowledgeMaintenanceRuns.push({ ...result, lane: "fast_run_evidence" });
-                lastFastMaintenanceReportIso = completedAt;
-                const epoch = activeSchedulerEpoch(store, runId);
-                let progress: EpochProgressSummary | null = null;
-                let priorityRefreshes = 0;
-                if (epoch) {
-                  recordSchedulerEpochFastRefresh(store, epoch.id);
-                  const board = loadKnowledgeBoardSnapshot(globals.repoRoot, {
-                    graphDbPath,
-                  });
-                  priorityRefreshes = refreshEpochTargetPriorities(store, {
-                    epochId: epoch.id,
-                    runId,
-                    candidates: board.candidates,
-                  }).refreshed;
-                  refreshEpochTargetAvailability(store, epoch.id, {
-                    exactTargetKeys: loadExactTargetKeys(globals.repoRoot),
-                  });
-                  progress = schedulerEpochProgress(store, epoch.id);
-                  lastSchedulerEpoch = progress;
-                  epochPriorityRefreshes += priorityRefreshes;
-                }
-                addEvent(store, runId, "epoch_fast_refresh_finished", "run-loop", {
-                  epoch_id: epoch?.id ?? null,
-                  reports_since_refresh: fastDecision.reportsSinceRefresh,
-                  priority_refreshes: priorityRefreshes,
-                  progress,
-                  created_by: "run-loop",
-                });
-                console.error(
-                  `[run-loop] epoch ${epoch?.ordinal ?? "?"}: fast knowledge refresh finished; ` +
-                    `${priorityRefreshes} priorities refreshed`,
-                );
-              })
-              .catch((error) => {
-                const message = error instanceof Error ? error.message : String(error);
-                fastKnowledgeMaintenanceErrors.push({ error: message });
-                console.error(`[run-loop] fast knowledge refresh failed: ${message}`);
-                addEvent(store, runId, "epoch_fast_refresh_finished", "run-loop", {
-                  status: "error",
-                  error: message.slice(0, 2000),
-                  created_by: "run-loop",
-                });
-              })
-              .finally(() => {
-                if (runningFastKnowledgeMaintenance === task) runningFastKnowledgeMaintenance = null;
-              });
-            runningFastKnowledgeMaintenance = task;
-            syncSchedulerCondition("planning");
-            didWork = true;
-          }
-        }
-      }
-
       // A boundary must not launch while a worker-output drain is applying:
       // the same iteration that settles the last worker starts a drain, and
       // the boundary's blocking-integration check would then throw a spurious
       // error epoch. The drain finishes fast; the next iteration launches.
       if (epochCycleEnabled && runningIntegrationResolvers.size === 0 && !runningIntegrationDrain) {
-        if (!runningEpoch && nowMs >= nextEpochAllowedMs && !epochPaused) {
+        if (!runningEpoch && !epochPaused) {
           const boundaryError = boundaryErrorEpoch(store, runId);
           if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
             didWork = true;
@@ -1051,7 +826,6 @@ export async function runRunLoop(
             console.error(
               `[run-loop] epoch ${boundaryError.ordinal}: boundary is still failed but only ${boundaryError.finished}/${boundaryError.admitted} targets are finished; waiting before admitting a new epoch`,
             );
-            nextEpochAllowedMs = Date.now() + epochRetryMs;
           } else {
             const epochResult = ensureSchedulerEpochFromBoard({
               config: schedulerEpochConfig,
@@ -1061,6 +835,7 @@ export async function runRunLoop(
               store,
             });
             lastSchedulerEpoch = epochResult.progress;
+            epochAvailabilityRefreshes += 1;
             const admittedNow = epochResult.admission?.admitted ?? 0;
             const madeAvailableNow = epochResult.admission?.admitted ?? 0;
             if (admittedNow > 0) {
@@ -1086,20 +861,13 @@ export async function runRunLoop(
               });
             }
 
-            if (epochResult.progress.admitted === 0 && targetPressureBefore.activeWorkers === 0 && targetPressureBefore.admittedTargets === 0) {
-              closeSchedulerEpoch(store, epochResult.epoch.id, {
-                status: "exhausted",
-                boundaryStatus: "board_exhausted",
-                routingSummary: { trigger: "admission", board_exhausted: epochResult.boardExhausted },
-              });
-              addEvent(store, runId, "epoch_exhausted", "run-loop", {
-                epoch_id: epochResult.epoch.id,
-                ordinal: epochResult.progress.ordinal,
-                created_by: "run-loop",
-              });
-              nextEpochAllowedMs = Date.now() + epochRetryMs;
-            } else if (epochResult.progress.admitted > 0 && epochResult.progress.remaining === 0 && epochResult.progress.claimed === 0 && workerConsumer.inFlight() === 0) {
+            if (
+              epochResult.progress.remaining === 0 &&
+              epochResult.progress.claimed === 0 &&
+              workerConsumer.inFlight() === 0
+            ) {
               didWork = true;
+              emptyEpochBoundaryLaunched = epochResult.progress.admitted === 0;
               launchEpochCycle(`scheduler epoch ${epochResult.progress.ordinal} completed`, epochResult.epoch.id);
             }
           }
@@ -1120,6 +888,7 @@ export async function runRunLoop(
               epochTargetsAdmitted += admittedByTick;
             }
             epochTargetsMadeAvailable += result.epochAdmission?.admitted ?? 0;
+            if (result.epochAvailabilityRefresh) epochAvailabilityRefreshes += 1;
             epochPriorityRefreshes += result.epochPriorityRefreshes ?? 0;
           })
           .catch((error) => {
@@ -1138,7 +907,7 @@ export async function runRunLoop(
       }
 
       if (didWork || workerConsumer.inFlight() === 0) iterations += 1;
-      if (didWork || workerConsumer.inFlight() > 0 || runningEpoch || runningFastKnowledgeMaintenance || runningIntegrationDrain || runningIntegrationResolvers.size > 0) idleIterations = 0;
+      if (didWork || workerConsumer.inFlight() > 0 || runningEpoch || runningIntegrationDrain || runningIntegrationResolvers.size > 0) idleIterations = 0;
       else idleIterations += 1;
 
       if (maxIdleIterations > 0 && idleIterations >= maxIdleIterations && unhandledEventCount(store, runId) === 0) {
@@ -1152,9 +921,8 @@ export async function runRunLoop(
       syncSchedulerCondition("waiting");
       await waitForRestingTrigger(idleSleepMs, [
         settleWake,
-        runningEpoch,
+        emptyEpochBoundaryLaunched ? null : runningEpoch,
         runningIntegrationDrain,
-        runningFastKnowledgeMaintenance,
         runningKnowledgeMaintenance,
         runningScheduler,
         ...runningIntegrationResolvers.values(),
@@ -1196,7 +964,6 @@ export async function runRunLoop(
     if (runningEpoch) await runningEpoch;
     if (runningScheduler) await runningScheduler;
     if (runningIntegrationResolvers.size > 0) await Promise.allSettled([...runningIntegrationResolvers.values()]);
-    if (runningFastKnowledgeMaintenance) await runningFastKnowledgeMaintenance;
     if (runningKnowledgeMaintenance) await runningKnowledgeMaintenance;
     if (stoppedReason === "running") stoppedReason = "complete";
     const finalActiveSchedulerEpoch = activeSchedulerEpoch(store, runId);
@@ -1227,8 +994,6 @@ export async function runRunLoop(
       workerErrors,
       knowledgeMaintenanceRuns,
       knowledgeMaintenanceErrors,
-      fastKnowledgeMaintenanceRuns,
-      fastKnowledgeMaintenanceErrors,
       integrationResolverRuns,
       integrationResolverErrors,
       integrationDrains,
