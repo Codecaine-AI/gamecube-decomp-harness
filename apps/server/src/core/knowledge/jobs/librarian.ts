@@ -411,15 +411,7 @@ export async function kgLibrarianCondense(
       console.warn(
         `Librarian worker_state ${workerStateId} timed out after ${Date.now() - startedAt}ms; cooperative abort may not settle, so the underlying agent session may remain active`,
       );
-      return {
-        digest: `timeout:${workerStateId}`,
-        provenance: {
-          worker_state_id: workerStateId,
-          ledger_path: ledgerPath,
-          learning_ids: [],
-          output_path: null,
-        },
-      };
+      throw new Error(`librarian timed out after ${timeoutMs}ms`);
     }
 
     if (result.dryRun) {

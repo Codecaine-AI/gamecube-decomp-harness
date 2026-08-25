@@ -15,6 +15,7 @@ export const SYNC_STATUSES = [
 
 export type SyncStatus = (typeof SYNC_STATUSES)[number];
 
+// sync.pr_push_* events intentionally use subject_kind "sync_push", not this sync_workflow union.
 export const SYNC_WORKFLOW_EVENT_TYPES = [
   "sync.requested",
   "sync.observation_refreshed",

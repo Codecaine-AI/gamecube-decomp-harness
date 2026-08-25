@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe("librarian condense", () => {
-  test("returns a non-fatal outcome when the model runner hangs", async () => {
+  test("throws when the model runner hangs", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "librarian-timeout-"));
     tempDirs.push(stateDir);
     const store = openState(stateDir);
@@ -44,25 +44,18 @@ describe("librarian condense", () => {
     };
 
     const startedAt = Date.now();
-    const result = await kgLibrarianCondense(
-      globals,
-      new Map([
-        ["--worker-state-id", "worker-state-1"],
-        ["--run-id", "run-1"],
-        ["--ledger-path", resolve(stateDir, "ledger.jsonl")],
-      ]),
-      { runPiAgent: async () => new Promise<never>(() => {}) },
-    );
+    await expect(
+      kgLibrarianCondense(
+        globals,
+        new Map([
+          ["--worker-state-id", "worker-state-1"],
+          ["--run-id", "run-1"],
+          ["--ledger-path", resolve(stateDir, "ledger.jsonl")],
+        ]),
+        { runPiAgent: async () => new Promise<never>(() => {}) },
+      ),
+    ).rejects.toThrow("librarian timed out after 50ms");
 
     expect(Date.now() - startedAt).toBeLessThan(2_000);
-    expect(result).toEqual({
-      digest: "timeout:worker-state-1",
-      provenance: {
-        worker_state_id: "worker-state-1",
-        ledger_path: resolve(stateDir, "ledger.jsonl"),
-        learning_ids: [],
-        output_path: null,
-      },
-    });
   });
 });

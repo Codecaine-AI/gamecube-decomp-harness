@@ -100,11 +100,20 @@ export function startJobConsumer(
 
   const executeInline = async (job: JobRecord, token: ClaimToken): Promise<void> => {
     if (descriptor.execution.mode !== "inline") return;
+    const heartbeat = setInterval(() => {
+      try {
+        kernel.heartbeatJob(store, token, { leaseMs: descriptor.leaseMs, at: at() });
+      } catch {
+        // A stale token means another consumer stole the expired lease; let that path proceed.
+      }
+    }, intervalMs);
     try {
       const result = await descriptor.execution.handler(job, { store, token });
       complete(job, token, result);
     } catch (cause) {
       fail(job, token, cause);
+    } finally {
+      clearInterval(heartbeat);
     }
   };
 

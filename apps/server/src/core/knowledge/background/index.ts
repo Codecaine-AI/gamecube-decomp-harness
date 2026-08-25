@@ -4,6 +4,8 @@ import {
   completeJob,
   enqueueJob,
   failJob,
+  getJob,
+  heartbeatJob,
 } from "@server/core/job-queue/kernel.js";
 import { startJobConsumer } from "@server/core/job-queue/consumer.js";
 import type {
@@ -21,6 +23,7 @@ const KIND = "knowledge_absorption" as const;
 const CONCURRENCY_LIMIT = 2;
 const DEFAULT_LEASE_MS = 60_000;
 const DEFAULT_STOP_MAX_WAIT_MS = 15_000;
+const MAX_ATTEMPTS = 5;
 
 export type BackgroundKnowledgeJobStatus =
   | "queued"
@@ -207,31 +210,46 @@ async function processClaimedJob(
   job: JobRecord,
   processor: BackgroundKnowledgeProcessor,
 ): Promise<BackgroundKnowledgePublication> {
-  if (job.resultRef) return { digest: job.resultRef, provenance: {} };
+  // Legacy timeout digests were stored as successes; retry them through the failure path.
+  if (job.resultRef && !job.resultRef.startsWith("timeout:")) {
+    return { digest: job.resultRef, provenance: {} };
+  }
   return processor(backgroundJob(job));
 }
 
 export async function processBackgroundKnowledge(
   store: StateStore,
   processor: BackgroundKnowledgeProcessor,
-  options: { actor?: JobActor; leaseMs?: number } = {},
+  options: { actor?: JobActor; leaseMs?: number; intervalMs?: number } = {},
 ): Promise<ProcessBackgroundKnowledgeResult> {
   const actor = options.actor ?? "runner";
+  const leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
   const claimed = claimNextJob(store, {
     kind: KIND,
     concurrencyLimit: CONCURRENCY_LIMIT,
-    leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS,
+    leaseMs,
     actor,
   });
   if (!claimed) return { outcome: "empty", jobId: null, revision: null };
 
   let publication: BackgroundKnowledgePublication;
+  const heartbeat = setInterval(() => {
+    try {
+      heartbeatJob(store, claimed.token, { leaseMs });
+    } catch {
+      // A stale token means another consumer stole the expired lease; let that path proceed.
+    }
+  }, options.intervalMs ?? 1_000);
   try {
     publication = await processClaimedJob(claimed.job, processor);
   } catch (cause) {
     const error = message(cause);
     try {
-      const waiting = failJob(store, claimed.token, error, { actor });
+      const attempts = getJob(store, claimed.token.jobId)?.attempts ?? claimed.job.attempts;
+      const waiting = failJob(store, claimed.token, error, {
+        actor,
+        terminal: attempts >= MAX_ATTEMPTS,
+      });
       return {
         outcome: "failed",
         jobId: waiting.jobId,
@@ -246,6 +264,8 @@ export async function processBackgroundKnowledge(
         error,
       };
     }
+  } finally {
+    clearInterval(heartbeat);
   }
 
   try {
@@ -369,14 +389,18 @@ export function queryBackgroundKnowledgeSummary(
 const kernelOps: JobQueueKernelOps = {
   claimNextJob,
   completeJob,
-  failJob,
-  // Inline consumers never invoke these operations.
+  failJob: (store, token, error, input = {}) => {
+    const attempts = getJob(store, token.jobId)?.attempts ?? 0;
+    return failJob(store, token, error, {
+      ...input,
+      terminal: attempts >= MAX_ATTEMPTS,
+    });
+  },
+  // Inline consumers never mark jobs as running.
   markJobRunning: () => {
     throw new Error("knowledge absorption jobs execute inline");
   },
-  heartbeatJob: () => {
-    throw new Error("knowledge absorption jobs execute inline");
-  },
+  heartbeatJob,
 };
 
 function descriptor(
@@ -403,6 +427,8 @@ export function startBackgroundKnowledgeProcessor(
   options: {
     intervalMs?: number;
     leaseMs?: number;
+    gameId?: string;
+    shouldClaim?: () => boolean;
     /**
      * Trace observer for the knowledge lane. Opt-in: callers that want the
      * lane visible pass `createBackgroundKnowledgeTraceHooks(store)`. Left
@@ -411,7 +437,7 @@ export function startBackgroundKnowledgeProcessor(
     trace?: BackgroundKnowledgeTraceHooks;
   } = {},
 ): (options?: { maxWaitMs?: number }) => Promise<void> {
-  catchUpBackgroundKnowledge(store);
+  catchUpBackgroundKnowledge(store, options.gameId);
   const consumer = startJobConsumer(
     store,
     descriptor(processor, options.leaseMs ?? DEFAULT_LEASE_MS),
@@ -419,6 +445,7 @@ export function startBackgroundKnowledgeProcessor(
     {
       intervalMs: options.intervalMs ?? 1_000,
       actor: "runner",
+      shouldClaim: options.shouldClaim,
       ...(options.trace
         ? { onJobClaimed: options.trace.onJobClaimed, onJobSettled: options.trace.onJobSettled }
         : {}),

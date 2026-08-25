@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { resourceGraphDbPath } from "@server/core/knowledge";
-import { heartbeatDispatch } from "@server/core/harness-state";
+import { getHarnessState, heartbeatDispatch } from "@server/core/harness-state";
 import {
   activeWorkerCount,
   activeSchedulerEpoch,
@@ -390,6 +390,7 @@ export async function runRunLoop(
   deps: RunLoopDeps = {},
 ): Promise<RunLoopResult> {
   const store = openState(globals.stateDir);
+  const gameId = globals.game?.gameId ?? globals.gameId;
   const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(
     store,
     async (backgroundJob) => {
@@ -401,7 +402,11 @@ export async function runRunLoop(
     },
     // The run loop is a CLI process with no DashboardKernelRuntimeService, so
     // the hooks reach the kernel through the default runtime directly.
-    { trace: createBackgroundKnowledgeTraceHooks(store) },
+    {
+      gameId,
+      shouldClaim: () => getHarnessState(store, gameId)?.active_workflow?.kind !== "sync",
+      trace: createBackgroundKnowledgeTraceHooks(store),
+    },
   );
   let observedRunId = "";
   const workerResults: WorkerResultSummary[] = [];
@@ -661,7 +666,7 @@ export async function runRunLoop(
     while (!stopRequested) {
       const dispatchLease = heartbeatDispatch(store, {
         leaseId,
-        gameId: globals.game?.gameId ?? globals.gameId,
+        gameId,
       });
       schedulerBlocked = dispatchLease.status === "blocked";
       syncSchedulerCondition("planning");
