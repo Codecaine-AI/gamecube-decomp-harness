@@ -247,7 +247,7 @@
 						"text": "Manage the Run Loop child process",
 						"steps": [
 							{
-								"text": "The managed process controller starts, stops, drains, and reaps this child.",
+								"text": "The managed process controller starts, stops, and reaps this child.",
 								"kind": "note"
 							},
 							{
@@ -283,13 +283,16 @@
 								"text": "`POST /api/process/stop` tears the Run Loop down",
 								"steps": [
 									{
-										"text": "Send `SIGTERM` to the process group, `SIGKILL` after 5 seconds",
+										"text": "Send `SIGTERM` to the process group, `SIGKILL` after 35 seconds",
 										"steps": [
 											{
 												"text": "An orphan pid file from an earlier server life goes the same way. Liveness comes from probing the saved process group, not an in-memory child handle.",
 												"kind": "note"
 											}
 										]
+									},
+									{
+										"text": "Report `not_running` and skip recovery when the process group is already gone"
 									},
 									{
 										"text": "Run `recover-claims` once the process is down, unless opted out",
@@ -299,23 +302,6 @@
 												"kind": "note"
 											}
 										]
-									}
-								]
-							},
-							{
-								"text": "`POST /api/process/drain` signals `SIGUSR1` and sends no `SIGTERM`",
-								"steps": [
-									{
-										"text": "The Run Loop stays alive until its `Worker` processes finish. Drain returns not-running when the process group is already gone.",
-										"kind": "note"
-									}
-								]
-							},
-							{
-								"text": "`POST /api/process/finish-epoch` appends `epoch_force_finish_requested`",
-								"steps": [
-									{
-										"text": "`Run Loop scheduler` reads the event next tick and closes the Epoch"
 									}
 								]
 							},
@@ -352,7 +338,7 @@
 										"text": "Skip the tick when the claim gate says no",
 										"steps": [
 											{
-												"text": "The `Worker` consumer gates on drain requests, a paused provider, the iteration limit, and a blocked or paused Epoch.",
+												"text": "The `Worker` consumer gates on the iteration limit, a blocked dispatch lease, and a paused Epoch.",
 												"kind": "note"
 											}
 										]

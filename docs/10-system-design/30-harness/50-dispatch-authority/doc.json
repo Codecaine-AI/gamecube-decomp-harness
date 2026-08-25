@@ -74,7 +74,7 @@
 			"type": "state-shape",
 			"props": {
 				"description": "Fenced authority held by at most one run, PR, or sync workflow.",
-				"example": "{\n  \"kind\": \"run\",\n  \"workflow_id\": \"run-2026-08-11-01\",\n  \"lease_id\": \"lease-7f3b\",\n  \"status\": \"draining\",\n  \"acquired_at\": \"2026-08-11T18:00:00Z\",\n  \"heartbeat_at\": \"2026-08-11T18:42:08Z\",\n  \"requested_handoff\": {\n    \"target_kind\": \"sync\",\n    \"target_workflow_id\": \"sync-2026-08-11-02\",\n    \"reason\": \"upstream PRs merged\",\n    \"requested_at\": \"2026-08-11T18:41:30Z\"\n  },\n  \"blockers\": [\n    {\n      \"code\": \"active_claims\",\n      \"message\": \"Two worker claims must settle before sync.\",\n      \"source_kind\": \"run\",\n      \"source_id\": \"run-2026-08-11-01\",\n      \"recoverable\": true\n    }\n  ]\n}",
+				"example": "{\n  \"kind\": \"run\",\n  \"workflow_id\": \"run-2026-08-11-01\",\n  \"lease_id\": \"lease-7f3b\",\n  \"status\": \"blocked\",\n  \"acquired_at\": \"2026-08-11T18:00:00Z\",\n  \"heartbeat_at\": \"2026-08-11T18:42:08Z\",\n  \"requested_handoff\": {\n    \"target_kind\": \"sync\",\n    \"target_workflow_id\": \"sync-2026-08-11-02\",\n    \"reason\": \"upstream PRs merged\",\n    \"requested_at\": \"2026-08-11T18:41:30Z\"\n  },\n  \"blockers\": [\n    {\n      \"code\": \"active_claims\",\n      \"message\": \"Two worker claims must settle before sync.\",\n      \"source_kind\": \"run\",\n      \"source_id\": \"run-2026-08-11-01\",\n      \"recoverable\": true\n    }\n  ]\n}",
 				"fields": [
 					{
 						"name": "kind",
@@ -92,7 +92,7 @@
 					},
 					{
 						"name": "status",
-						"type": "\"acquiring\" | \"active\" | \"draining\" | \"blocked\" | \"releasing\""
+						"type": "\"acquiring\" | \"active\" | \"blocked\" | \"releasing\""
 					},
 					{
 						"name": "acquired_at",
@@ -193,11 +193,6 @@
 						"Every guarded action carries the current lease id."
 					],
 					[
-						"draining",
-						"No new domain work may start while active work settles.",
-						"The blocker list explains every remaining obligation."
-					],
-					[
 						"blocked",
 						"The workflow cannot settle or safely continue without recovery or operator action.",
 						"The lease remains owned; another workflow cannot start."
@@ -259,23 +254,6 @@
 						"returns": "DispatchLease | DispatchRequest"
 					},
 					{
-						"name": "beginDrain",
-						"description": "Stop new dispatch while the current owner settles obligations.",
-						"params": [
-							{
-								"name": "lease_id",
-								"type": "LeaseId",
-								"description": "Current dispatch fence."
-							},
-							{
-								"name": "reason",
-								"type": "string",
-								"description": "Why the owner is draining."
-							}
-						],
-						"returns": "DispatchLease"
-					},
-					{
 						"name": "releaseDispatch",
 						"description": "Commit final state and handoff evidence, then make authority free.",
 						"params": [
@@ -326,7 +304,7 @@
 			},
 			"text": [
 				{
-					"insert": "Acquire, Drain, Release, Succeed"
+					"insert": "Acquire, Stop, Release, Succeed"
 				}
 			],
 			"children": []
