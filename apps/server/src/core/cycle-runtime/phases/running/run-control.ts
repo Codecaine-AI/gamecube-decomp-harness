@@ -26,8 +26,6 @@ import {
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
 import { activateAcquiredSync } from "@server/core/cycle-runtime/phases/sync/activation.js";
-import { activateAcquiredPrCampaign } from "@server/core/cycle-runtime/phases/pr/campaign/activation.js";
-import { getPrCampaign } from "@server/core/cycle-runtime/phases/pr/campaign/state.js";
 import type { RunBlocker, RunRecord } from "@server/core/shared/types";
 
 interface ConfirmedRunControlInput {
@@ -271,29 +269,10 @@ export function settleStoppedRun(input: SettleStoppedRunInput): StoppedRunSettle
         spanId: successor.spanId,
       });
     }
-    if (
-      released.active_workflow?.kind === "pr" &&
-      getPrCampaign(input.store, released.active_workflow.workflow_id)
-    ) {
-      const successor = release.successorActivation;
-      if (
-        !successor || successor.kind !== "pr" ||
-        successor.workflowId !== released.active_workflow.workflow_id ||
-        successor.leaseId !== released.active_workflow.lease_id
-      ) {
-        throw new Error(`Run ${original.id} PR handoff is missing its accepted request activation context`);
-      }
-      activateAcquiredPrCampaign({
-        actor: successor.actor,
-        causationId: successor.causationId,
-        store: input.store,
-        gameId,
-        campaignId: successor.workflowId,
-        leaseId: successor.leaseId,
-        commandId: successor.commandId,
-        correlationId: successor.correlationId,
-        spanId: successor.spanId,
-      });
+    if (lease.requested_handoff?.target_kind === "pr") {
+      console.error(
+        `[run-control] released run ${original.id} without activating dormant PR successor ${lease.requested_handoff.target_workflow_id}`,
+      );
     }
     const run = transitionRun(input.store, original.id, {
       actor,

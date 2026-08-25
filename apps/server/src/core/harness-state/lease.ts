@@ -367,13 +367,15 @@ function durableWorkflowTrace(
   kind: DispatchLease["kind"],
   workflowId: string,
 ): string {
+  // PR dispatch remains a dormant compatibility kind. Campaign persistence is
+  // gone, so PR leases use the owning game's trace instead of requiring a
+  // campaign row.
+  if (kind === "pr") return state.trace_id;
   const row = (kind === "run"
     ? db.query("SELECT id AS workflow_id, game_id, trace_id FROM runs WHERE id = ?").get(workflowId)
-    : kind === "sync"
-      ? db.query("SELECT sync_id AS workflow_id, game_id, trace_id FROM sync_state WHERE sync_id = ?").get(workflowId)
-      : db.query("SELECT campaign_id AS workflow_id, game_id, trace_id FROM pr_campaigns WHERE campaign_id = ?").get(workflowId)
+    : db.query("SELECT sync_id AS workflow_id, game_id, trace_id FROM sync_state WHERE sync_id = ?").get(workflowId)
   ) as DurableWorkflowTraceRow | null;
-  const label = kind === "pr" ? "PR campaign" : kind;
+  const label = kind;
   if (!row) throw new Error(`Durable ${label} workflow ${workflowId} was not found for dispatch`);
   if (row.workflow_id !== workflowId) {
     throw new Error(`Durable ${label} workflow identity ${row.workflow_id} does not match dispatch workflow ${workflowId}`);
@@ -693,13 +695,19 @@ export function releaseDispatchDetailed(store: StateStore, input: ReleaseDispatc
       return { state: updateRevision(store, state, blockedEvent.eventId, at, { activeWorkflow: blocked }) };
     }
 
-    const handoff = lease.requested_handoff;
+    const requestedHandoff = lease.requested_handoff;
+    const ignoredPrHandoff = requestedHandoff?.target_kind === "pr" ? requestedHandoff : null;
+    const handoff = ignoredPrHandoff ? undefined : requestedHandoff;
     if (handoff) matchingQueuedHandoff(store, state, handoff);
     const successorTraceId = handoff
       ? durableWorkflowTrace(store.db, state, handoff.target_kind, handoff.target_workflow_id)
       : null;
     const handoffTargetTerminal = terminalPrDispatchTarget(store.db, handoff);
-    const queuedAfterRelease = handoffTargetTerminal && handoff
+    const queuedAfterRelease = ignoredPrHandoff
+      ? state.queued_dispatch_requests.filter(
+          (request) => !(request.kind === "pr" && request.workflow_id === ignoredPrHandoff.target_workflow_id),
+        )
+      : handoffTargetTerminal && handoff
       ? state.queued_dispatch_requests.filter(
           (request) => !(request.kind === handoff.target_kind && request.workflow_id === handoff.target_workflow_id),
         )
@@ -723,8 +731,21 @@ export function releaseDispatchDetailed(store: StateStore, input: ReleaseDispatc
         handoff_snapshot_id: snapshot?.snapshotId ?? null,
         handoff_snapshot_content_hash: snapshot?.contentHash ?? null,
         terminal_revision: snapshot?.terminalHarnessRevision ?? state.revision + 1,
-        requested_handoff: snapshot?.requestedHandoff ?? null,
-        handoff_result: handoffTargetTerminal ? "terminal_target_cancelled" : handoff ? "promoted" : "none",
+        requested_handoff: snapshot?.requestedHandoff ?? (ignoredPrHandoff
+          ? {
+              target_kind: ignoredPrHandoff.target_kind,
+              target_workflow_id: ignoredPrHandoff.target_workflow_id,
+              reason: ignoredPrHandoff.reason,
+              requested_at: ignoredPrHandoff.requested_at,
+              requested_by: ignoredPrHandoff.requested_by,
+              request_command_id: ignoredPrHandoff.request_command_id,
+              request_root_span_id: ignoredPrHandoff.request_root_span_id,
+              request_event_id: ignoredPrHandoff.request_event_id,
+            }
+          : null),
+        handoff_result: ignoredPrHandoff
+          ? "unsupported_target_released"
+          : handoffTargetTerminal ? "terminal_target_cancelled" : handoff ? "promoted" : "none",
       },
     });
     state = updateRevision(store, state, released.eventId, at, {

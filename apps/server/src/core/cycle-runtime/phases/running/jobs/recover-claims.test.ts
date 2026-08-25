@@ -4,10 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { initializeHarnessState, requestDispatch } from "@server/core/harness-state";
-import { createCycle } from "@server/core/cycle";
-import { recordSavePointAnchor } from "@server/core/cycle/timeline.js";
-import { openPrCampaign } from "@server/core/cycle-runtime/phases/pr/campaign";
-import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import {
   activeClaimsForRun,
   admitEpochTargets,
@@ -159,49 +155,15 @@ describe("recoverActiveClaims", () => {
         diffPath: patchPath,
         writeSet: ["src/a.c"],
       });
-      createCycle(store.db, {
-        actor: "operator",
-        baseSha: "base-test",
-        id: "cycle:cycle-pr",
-        gameId: "test",
-        cycleUuid: "cycle-pr",
-      });
-      const legacyCampaign = ensureCampaign(store, { gameId: "test" });
-      const savePoint = addSavePoint(store, {
-        campaignId: legacyCampaign.id,
-        triggerKind: "manual",
-        label: "stable PR handoff",
-        commitSha: "base-test",
-        committed: true,
-      });
-      recordSavePointAnchor(store, {
-        actor: "operator",
-        commandId: "command-anchor-pr",
-        correlationId: "cycle-pr",
-        commitSha: "base-test",
-        gameId: "test",
-        savePointId: savePoint.id,
-        triggerKind: "manual",
-      });
-      const campaign = openPrCampaign(store, {
-        actor: "operator",
-        campaignId: "campaign-recover-claims",
-        commandId: "command-open-pr",
-        correlationId: "campaign-recover-claims",
-        namedSavePointId: savePoint.id,
-        gameId: "test",
-        series: [{ batchIndex: 0, branch: "codex/test-pr", seriesId: "series-recover-claims", targetUnits: ["src/a.c"] }],
-        cycleUuid: "cycle-pr",
-      });
       initializeHarnessState(store, { gameId: "test", traceId: "trace-test" });
       const prDispatch = requestDispatch(store, {
         actor: "operator",
         commandId: "command-pr-1",
-        correlationId: campaign.campaign_id,
+        correlationId: "campaign-recover-claims",
         kind: "pr",
         gameId: "test",
         reason: "PR owns checkout",
-        workflowId: campaign.campaign_id,
+        workflowId: "campaign-recover-claims",
       });
       if (prDispatch.queued) throw new Error("expected PR dispatch lease");
 

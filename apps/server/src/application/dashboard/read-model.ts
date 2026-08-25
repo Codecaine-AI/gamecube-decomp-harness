@@ -28,26 +28,13 @@ import {
   eventsForSubject,
   getHarnessState,
   latestSequence,
-  STALE_DISPATCH_LEASE_MS,
   type Blocker,
   type DispatchLease,
   type QueuedDispatchRequest,
 } from "@server/core/harness-state";
 import { recentGameEvents, type GameEventDto } from "@server/core/harness-state/event-query";
 import type { RunRecord, RunSchedulerCondition, RunStatus } from "@server/core/shared/types";
-import { readPrRecordsArtifact } from "@server/core/cycle-runtime/phases/pr/pr-records.js";
 import { listSavePoints, type SavePointRecord } from "@server/core/cycle-runtime/phases/pr/state";
-import {
-  PR_SERIES_STATUSES,
-  getOpenPrCampaignForGame,
-  listPrSeriesForCampaign,
-  gamePrCampaignAction,
-  type PrCampaignActionId,
-  type PrCampaignState,
-  type PrSeriesState,
-  type PrSeriesStatus,
-  type PrWorkItem,
-} from "@server/core/cycle-runtime/phases/pr/campaign";
 import { gameToSummary as defaultGameToSummary, type GameRuntimeContext, type ResolvedGame } from "@server/core/game-registry";
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/cycle-runtime/phases/pr/artifacts";
 import {
@@ -107,9 +94,8 @@ export interface ActionProjection {
     | "cycle.close"
     | "cycle.save_point"
     | "knowledge.process"
-    | PrCampaignActionId
     | SyncActionId;
-  subject_kind: "run" | "cycle" | "sync" | "pr_campaign" | "game";
+  subject_kind: "run" | "cycle" | "sync" | "game";
   subject_id: string;
   enabled: boolean;
   blocked_by: Blocker[];
@@ -226,54 +212,6 @@ export interface GameSyncActionState {
   sync: DashboardSyncSummary | null;
 }
 
-export interface DashboardPrSeriesSummary {
-  series_id: string;
-  batch_index: number;
-  status: PrSeriesStatus;
-  branch: string;
-  upstream_pr_number: number | null;
-  target_units: string[];
-  last_validation: PrSeriesState["last_validation"];
-  blockers: Blocker[];
-}
-
-export interface DashboardPrWorkItemSummary extends PrWorkItem {
-  series_branch: string;
-}
-
-export interface DashboardPrSummary {
-  workflow_id: string;
-  status: PrCampaignState["status"];
-  source_anchor: PrCampaignState["source_anchor"];
-  publication_policy: PrCampaignState["publication_policy"];
-  blockers: Blocker[];
-  series: DashboardPrSeriesSummary[];
-  series_by_status: Record<PrSeriesStatus, DashboardPrSeriesSummary[]>;
-  next_batch: {
-    batch_index: number;
-    series_ids: string[];
-    validation_state: "validated" | "blocked";
-    blockers: Blocker[];
-    series: DashboardPrSeriesSummary[];
-  } | null;
-  pending_work_items: {
-    count: number;
-    items: DashboardPrWorkItemSummary[];
-  };
-  activation: {
-    active: boolean;
-    queued: boolean;
-    lease_id: string | null;
-    status: DispatchLease["status"] | null;
-    blockers: Blocker[];
-  };
-}
-
-export interface GamePrActionState {
-  availableActions: ActionProjection[];
-  pr: DashboardPrSummary | null;
-}
-
 const ALL_CYCLE_EVIDENCE_LIMIT = Number.MAX_SAFE_INTEGER;
 
 export interface DashboardHarnessState {
@@ -281,7 +219,8 @@ export interface DashboardHarnessState {
   active_workflow: DispatchLease | null;
   queued_dispatch_requests: QueuedDispatchRequest[];
   run: DashboardRunSummary | null;
-  pr: DashboardPrSummary | null;
+  /** Legacy compatibility key. PR campaign projection has been retired. */
+  pr: null;
   sync: DashboardSyncSummary | null;
   cycle: {
     cycle_uuid: string;
@@ -310,7 +249,8 @@ export interface HarnessStateView {
   active_workflow: (DispatchLease & { headline: string }) | null;
   queued_dispatch_requests: QueuedDispatchRequest[];
   run: DashboardRunSummary | null;
-  pr_work: DashboardPrSummary[];
+  /** Legacy compatibility key. PR campaign projection has been retired. */
+  pr_work: [];
   knowledge: {
     published_revision: string | null;
     queued: number;
@@ -991,171 +931,6 @@ export function gameRunActionState(
   };
 }
 
-const PR_ACTION_IDS: readonly PrCampaignActionId[] = [
-  "pr.open_campaign",
-  "pr.activate",
-  "pr.publish_batch",
-  "pr.release",
-  "pr.close_campaign",
-  "pr.abandon_campaign",
-  "pr.campaign_recover",
-  "pr.adopt_legacy",
-];
-
-function prSeriesSummary(series: PrSeriesState): DashboardPrSeriesSummary {
-  return {
-    series_id: series.series_id,
-    batch_index: series.batch_index,
-    status: series.status,
-    branch: series.branch,
-    upstream_pr_number: series.upstream_pr_number,
-    target_units: [...series.target_units],
-    last_validation: series.last_validation,
-    blockers: series.blockers.map((entry) => ({ ...entry })),
-  };
-}
-
-function hasLegacyPrRecords(stateDir: string): boolean {
-  return asArray(readPrRecordsArtifact(stateDir).records)
-    .map(asObject)
-    .some((record) => /^codex\/split-\d+(?:-|$)/.test(stringValue(record.branch)));
-}
-
-function nextPrBatch(
-  campaign: PrCampaignState,
-  series: PrSeriesState[],
-): PrSeriesState[] {
-  const prepared = series.filter((entry) => entry.status === "prepared");
-  if (prepared.length === 0) return [];
-  const batchIndex = Math.min(...prepared.map((entry) => entry.batch_index));
-  return prepared
-    .filter((entry) => entry.batch_index === batchIndex)
-    .sort((left, right) => left.series_id.localeCompare(right.series_id))
-    .slice(0, campaign.publication_policy.batch_size);
-}
-
-function prSummaryProjection(
-  store: ReturnType<typeof openState>,
-  gameId: string,
-  campaign: PrCampaignState,
-  availableActions: ActionProjection[],
-): DashboardPrSummary {
-  const canonicalSeries = listPrSeriesForCampaign(store, campaign.campaign_id);
-  const series = canonicalSeries.map(prSeriesSummary);
-  const seriesByStatus = Object.fromEntries(
-    PR_SERIES_STATUSES.map((status) => [status, series.filter((entry) => entry.status === status)]),
-  ) as Record<PrSeriesStatus, DashboardPrSeriesSummary[]>;
-  const selected = nextPrBatch(campaign, canonicalSeries);
-  const selectedIds = new Set(selected.map((entry) => entry.series_id));
-  const publishBlockers = availableActions.find((entry) => entry.action_id === "pr.publish_batch")?.blocked_by ?? [];
-  const validationBlockers = dedupeBlockers([
-    ...campaign.blockers,
-    ...selected.flatMap((entry) => entry.blockers),
-    ...publishBlockers.filter((entry) =>
-      entry.code === "pr_series_not_validated" ||
-      entry.code === "pr_series_sync_invalidated" ||
-      (entry.source_kind === "pr_series" && selectedIds.has(entry.source_id)) ||
-      entry.source_kind === "sync_invalidation"
-    ),
-  ]);
-  const pendingWorkItems = canonicalSeries.flatMap((entry) =>
-    entry.work_items
-      .filter((item) => item.status === "pending")
-      .map((item): DashboardPrWorkItemSummary => ({
-        ...item,
-        series_branch: entry.branch,
-      })),
-  );
-  const harnessState = getHarnessState(store, gameId);
-  const lease = harnessState?.active_workflow;
-  const ownLease = lease?.kind === "pr" && lease.workflow_id === campaign.campaign_id ? lease : null;
-  const queued = harnessState?.queued_dispatch_requests.some(
-    (request) => request.kind === "pr" && request.workflow_id === campaign.campaign_id,
-  ) ?? false;
-
-  return {
-    workflow_id: campaign.campaign_id,
-    status: campaign.status,
-    source_anchor: { ...campaign.source_anchor },
-    publication_policy: { ...campaign.publication_policy },
-    blockers: campaign.blockers.map((entry) => ({ ...entry })),
-    series,
-    series_by_status: seriesByStatus,
-    next_batch: selected.length > 0
-      ? {
-          batch_index: selected[0]!.batch_index,
-          series_ids: selected.map((entry) => entry.series_id),
-          validation_state: validationBlockers.length === 0 ? "validated" : "blocked",
-          blockers: validationBlockers,
-          series: selected.map(prSeriesSummary),
-        }
-      : null,
-    pending_work_items: {
-      count: pendingWorkItems.length,
-      items: pendingWorkItems,
-    },
-    activation: {
-      active: ownLease !== null,
-      queued,
-      lease_id: ownLease?.lease_id ?? null,
-      status: ownLease?.status ?? null,
-      blockers: ownLease?.blockers.map((entry) => ({ ...entry })) ?? [],
-    },
-  };
-}
-
-function prActionState(
-  store: ReturnType<typeof openState>,
-  gameId: string,
-  cycle: CycleRecord | null,
-  freshNamedSavePoint: SavePointRecord | null,
-  options: Pick<GameRunActionStateOptions, "hasActiveProcess" | "now">,
-): GamePrActionState {
-  const campaign = getOpenPrCampaignForGame(store, gameId);
-  const harnessState = getHarnessState(store, gameId);
-  const ownLease = campaign && harnessState?.active_workflow?.kind === "pr" &&
-      harnessState.active_workflow.workflow_id === campaign.campaign_id
-    ? harnessState.active_workflow
-    : null;
-  const heartbeatAt = ownLease ? Date.parse(ownLease.heartbeat_at) : NaN;
-  const now = options.now instanceof Date
-    ? options.now.getTime()
-    : typeof options.now === "number"
-      ? options.now
-      : typeof options.now === "string"
-        ? Date.parse(options.now)
-        : Date.now();
-  const activationStale = Number.isFinite(heartbeatAt) && Number.isFinite(now) &&
-    now - heartbeatAt > STALE_DISPATCH_LEASE_MS;
-  const context = {
-    activationStale,
-    hasLegacyRecords: hasLegacyPrRecords(store.stateDir),
-    namedSavePointId: freshNamedSavePoint?.id,
-    cycleUuid: cycle?.cycle_uuid,
-  };
-  const availableActions = PR_ACTION_IDS.map((actionId) =>
-    gamePrCampaignAction(store, gameId, actionId, campaign?.campaign_id, context) as ActionProjection,
-  );
-  return {
-    availableActions,
-    pr: campaign ? prSummaryProjection(store, gameId, campaign, availableActions) : null,
-  };
-}
-
-export function gamePrActionState(
-  store: ReturnType<typeof openState>,
-  gameId: string,
-  options: Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> = {},
-): GamePrActionState {
-  const cycle = getActiveCycle(store.db, gameId);
-  const timeline = cycle
-    ? listCycleTimeline(store.db, cycle.cycle_uuid, ALL_CYCLE_EVIDENCE_LIMIT)
-    : [];
-  const savePoints = listSavePoints(store, ALL_CYCLE_EVIDENCE_LIMIT);
-  const evidence = cycleEvidenceState(store, gameId, {}, cycle, timeline, savePoints);
-  return prActionState(store, gameId, cycle, evidence.freshNamedSavePoint, options);
-}
-
 const SYNC_ACTION_IDS: readonly SyncActionId[] = [
   "sync.start",
   "sync.resolve_conflict",
@@ -1370,14 +1145,13 @@ export function buildHarnessStateReadModel(
   const runState = gameRunActionState(store, gameId, options);
   const syncState = gameSyncActionState(store, gameId, cycle, options);
   const evidence = cycleEvidenceState(store, gameId, campaign, cycle, allTimeline, savePoints);
-  const prState = prActionState(store, gameId, cycle, evidence.freshNamedSavePoint, options);
 
   return {
     revision: canonical?.revision ?? 0,
     active_workflow: canonical?.active_workflow ?? null,
     queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
     run: runState.run,
-    pr: prState.pr,
+    pr: null,
     sync: syncState.sync,
     cycle: cycle
       ? {
@@ -1405,7 +1179,6 @@ export function buildHarnessStateReadModel(
     recent_events: recentGameEvents(store.db, gameId, 20),
     available_actions: [
       ...runState.availableActions,
-      ...prState.availableActions,
       ...syncState.availableActions,
       ...actions.availableActions,
     ],
@@ -1414,13 +1187,12 @@ export function buildHarnessStateReadModel(
 
 const CANONICAL_ACTION_IDS = [
   "run.start", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
-  "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
   "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
   "cycle.save_point", "cycle.close", "knowledge.process",
 ] as const;
 
 function workflowHeadline(lease: DispatchLease): string {
-  const label = lease.kind === "pr" ? "PR campaign" : lease.kind[0]!.toUpperCase() + lease.kind.slice(1);
+  const label = lease.kind[0]!.toUpperCase() + lease.kind.slice(1);
   return `${label} ${lease.workflow_id} is ${lease.status}.`;
 }
 
@@ -1515,14 +1287,12 @@ export function getHarnessStateView(
   const evidence = cycleEvidenceState(store, gameId, campaign, cycle, allTimeline, savePoints);
   const runState = gameRunActionState(store, gameId, options);
   const syncState = gameSyncActionState(store, gameId, cycle, options);
-  const prState = prActionState(store, gameId, cycle, evidence.freshNamedSavePoint, options);
   const cycleState = cycleActionStateInternal(store, gameId, campaign, cycle, allTimeline, savePoints);
   const knowledge = gameKnowledgeSummary(store, gameId);
   const knowledgeAction = knowledgeActionProjection(gameId, knowledge);
   const canonical = getHarnessState(store, gameId);
   const canonicalActions = [
     ...runState.availableActions,
-    ...prState.availableActions.filter((action) => action.action_id !== "pr.adopt_legacy"),
     ...syncState.availableActions,
     ...cycleState.availableActions,
     knowledgeAction,
@@ -1537,13 +1307,11 @@ export function getHarnessStateView(
     if (availableActions.some((action) => action.action_id === actionId)) continue;
     const missingKind = actionId.startsWith("run.")
       ? "run"
-      : actionId.startsWith("pr.")
-        ? "pr_campaign"
-        : actionId.startsWith("sync.")
-          ? "sync"
-          : actionId.startsWith("cycle.")
-            ? "cycle"
-            : "game";
+      : actionId.startsWith("sync.")
+        ? "sync"
+        : actionId.startsWith("cycle.")
+          ? "cycle"
+          : "game";
     const missingCode = missingKind === "game" ? "action_projection_unavailable" : `${missingKind}_not_found`;
     const missingMessage = missingKind === "game"
       ? `Action ${actionId} could not be projected.`
@@ -1555,10 +1323,9 @@ export function getHarnessStateView(
       enabled: false,
       blocked_by: [stateBlocker(missingCode, missingMessage, missingKind, gameId)],
       expected_transition: "state transition unavailable",
-      confirmation_required: ["run.hard_stop", "run.cancel", "run.recover", "pr.publish_batch", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover", "sync.publish", "sync.cancel", "sync.recover", "cycle.close"].includes(actionId),
+      confirmation_required: ["run.hard_stop", "run.cancel", "run.recover", "sync.publish", "sync.cancel", "sync.recover", "cycle.close"].includes(actionId),
     });
   }
-  const compatibility = prState.availableActions.filter((action) => action.action_id === "pr.adopt_legacy");
   const latestSavePoint = savePointByEntry(savePoints, allTimeline.find((entry) => entry.entry_kind === "save_point"));
   return {
     game_id: gameId,
@@ -1587,14 +1354,14 @@ export function getHarnessStateView(
     active_workflow: canonicalActiveWorkflow(canonical?.active_workflow ?? null),
     queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
     run: runState.run,
-    pr_work: prState.pr ? [prState.pr] : [],
+    pr_work: [],
     knowledge,
     sync: syncState.sync,
     repo_sync: repoSyncProjection(store, gameId, cycle, options.gameContext),
     active_operations: [],
     recent_events: recentGameEvents(store.db, gameId, 20),
     available_actions: availableActions,
-    compatibility_actions: compatibility,
+    compatibility_actions: [],
   };
 }
 

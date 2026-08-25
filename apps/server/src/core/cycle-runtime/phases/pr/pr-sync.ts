@@ -1,12 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { openState } from "@server/core/orchestrator-state";
-import {
-  observePrSeriesRemote,
-  type ObservePrSeriesRemoteInput,
-  type ObservePrSeriesRemoteResult,
-} from "@server/core/cycle-runtime/phases/pr/campaign";
 import type { JsonObject, PrRecordContext } from "@server/core/cycle-runtime/phases/pr/pr-records";
 
 export interface CliResult {
@@ -30,12 +24,6 @@ export interface PrSyncRecordsService {
   writePrRecords: (stateDir: string, payload: JsonObject) => JsonObject;
 }
 
-export type PrSyncCampaignObservationInput = Omit<ObservePrSeriesRemoteInput, "correlationId"> & {
-  approvalSourceIdentity?: string;
-  approvedRevision?: string;
-  approvingActor?: string;
-};
-
 export interface PrSyncServiceDeps<Context extends PrSyncGameContext> {
   appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   latestPrSplitPlanSummary: (stateDir: string, runId: string) => JsonObject | null;
@@ -45,8 +33,6 @@ export interface PrSyncServiceDeps<Context extends PrSyncGameContext> {
   resolveDashboardGame: (input: JsonObject, options?: { useDefaultGame?: boolean }) => Context;
   runCli: (command: string[], cwd?: string) => Promise<CliResult>;
   runGitQuiet?: (repoRoot: string, args: string[]) => CliResult;
-  openCampaignState?: typeof openState;
-  observeCampaignPr?: (stateDir: string, input: PrSyncCampaignObservationInput) => ObservePrSeriesRemoteResult;
 }
 
 function asObject(value: unknown): JsonObject {
@@ -68,12 +54,6 @@ function numberValue(value: unknown, fallback = 0): number {
     if (Number.isFinite(parsed)) return parsed;
   }
   return fallback;
-}
-
-function identityValue(value: unknown): string {
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  return "";
 }
 
 function stringArray(value: unknown): string[] {
@@ -194,28 +174,6 @@ export function createPrSyncService<Context extends PrSyncGameContext>(deps: PrS
     readPrRecords,
     writePrRecords,
   } = deps.records;
-  const observeCampaignPr = deps.observeCampaignPr ?? ((stateDir: string, input: PrSyncCampaignObservationInput) => {
-    const store = (deps.openCampaignState ?? openState)(stateDir);
-    try {
-      const rows = store.db.query(
-        `SELECT DISTINCT series.campaign_id
-         FROM pr_series AS series
-         JOIN pr_campaigns AS campaign ON campaign.campaign_id = series.campaign_id
-         WHERE series.upstream_pr_number = ?
-           AND campaign.status IN ('preparing', 'in_review', 'working')
-         ORDER BY series.campaign_id`,
-      ).all(input.upstreamPrNumber) as Array<{ campaign_id: string }>;
-      if (rows.length > 1) {
-        throw new Error(`Blocked PR observation for upstream PR #${input.upstreamPrNumber}: ambiguous open campaigns`);
-      }
-      const correlationId = rows[0]?.campaign_id;
-      if (!correlationId) return { feedbackItemIds: [], ignored: true, series: null };
-      return observePrSeriesRemote(store, { ...input, correlationId });
-    } finally {
-      store.db.close();
-    }
-  });
-
   function activeRunIdFromBody(body: JsonObject, stateDir: string): string {
     const runId = stringValue(body.runId) || deps.latestRunId(stateDir);
     if (!runId) throw new Error("No run found. Run init-run first.");
@@ -326,7 +284,7 @@ export function createPrSyncService<Context extends PrSyncGameContext>(deps: PrS
     return ["ready", "blocked", "dirty", "local_only"].includes(stringValue(local.status));
   }
 
-  async function hydratePrRecordFromGithub(record: JsonObject, pr: JsonObject, repoSlug: string, repoRoot: string, stateDir?: string): Promise<JsonObject> {
+  async function hydratePrRecordFromGithub(record: JsonObject, pr: JsonObject, repoSlug: string, repoRoot: string): Promise<JsonObject> {
     const prNumber = numberValue(pr.number, NaN);
     if (!Number.isFinite(prNumber)) return record;
     const reviewDecision = stringValue(pr.reviewDecision);
@@ -345,42 +303,10 @@ export function createPrSyncService<Context extends PrSyncGameContext>(deps: PrS
       },
     };
     const view = await deps.runCli(["gh", "pr", "view", String(prNumber), "--repo", repoSlug, "--json", "comments,reviews,statusCheckRollup,files"], repoRoot);
-    const reviewComments = await deps.runCli(
-      ["gh", "api", `repos/${repoSlug}/pulls/${prNumber}/comments`, "--paginate"],
-      repoRoot,
-    );
     let comments = numberValue(record.comments, 0);
-    let feedback: ObservePrSeriesRemoteInput["feedback"] = [];
-    let approvalSourceIdentity = "";
-    let approvingActor = "";
     if (view.exitCode === 0) {
       const detail = asObject(JSON.parse(view.stdout || "{}"));
       comments = asArray(detail.comments).length;
-      feedback = asArray(detail.comments).map(asObject).flatMap((comment) => {
-        const sourceId = identityValue(comment.id) || identityValue(comment.databaseId) || stringValue(comment.url);
-        const summary = stringValue(comment.body).trim();
-        return sourceId && summary ? [{ sourceKind: "issue_comment", sourceId, summary }] : [];
-      });
-      const reviews = asArray(detail.reviews).map(asObject);
-      feedback.push(...reviews.flatMap((review) => {
-        const sourceId = identityValue(review.id) || identityValue(review.databaseId) || stringValue(review.url);
-        const summary = stringValue(review.body).trim();
-        return sourceId && summary ? [{ sourceKind: "pull_request_review", sourceId, summary }] : [];
-      }));
-      const approvedReview = reviews
-        .filter((review) => stringValue(review.state).toUpperCase() === "APPROVED")
-        .sort((left, right) => {
-          const submittedAt = stringValue(right.submittedAt).localeCompare(stringValue(left.submittedAt));
-          if (submittedAt !== 0) return submittedAt;
-          return identityValue(right.id).localeCompare(identityValue(left.id));
-        })[0];
-      if (approvedReview) {
-        const sourceId = identityValue(approvedReview.id)
-          || identityValue(approvedReview.databaseId)
-          || stringValue(approvedReview.url);
-        if (sourceId) approvalSourceIdentity = `github-review:${sourceId}`;
-        approvingActor = stringValue(asObject(approvedReview.author).login);
-      }
       const ci = ciVerdict(detail.statusCheckRollup);
       update.comments = comments;
       update.ci = ci;
@@ -394,34 +320,8 @@ export function createPrSyncService<Context extends PrSyncGameContext>(deps: PrS
         comments,
       };
     }
-    if (reviewComments.exitCode === 0) {
-      feedback.push(...asArray(JSON.parse(reviewComments.stdout || "[]")).map(asObject).flatMap((comment) => {
-        const sourceId = identityValue(comment.id) || stringValue(comment.node_id) || stringValue(comment.html_url);
-        const summary = stringValue(comment.body).trim();
-        return sourceId && summary ? [{ sourceKind: "pull_request_review_comment", sourceId, summary }] : [];
-      }));
-    }
     const githubStatus = stringValue(update.status);
     update.review = deriveReviewSubState(asObject(record.review), githubStatus, reviewDecision, comments);
-    if (stateDir) {
-      observeCampaignPr(stateDir, {
-        ...(reviewDecision.toUpperCase() === "APPROVED"
-          ? {
-              approvalSourceIdentity,
-              approvedRevision: stringValue(pr.headRefOid),
-              approvingActor,
-            }
-          : {}),
-        branch: stringValue(record.branch, stringValue(pr.headRefName)),
-        commandId: `pr-sync:${prNumber}:${stringValue(pr.updatedAt, "observed")}`,
-        feedback,
-        mergedUpstreamRevision: stringValue(asObject(pr.mergeCommit).oid),
-        occurredAt: stringValue(pr.updatedAt) || undefined,
-        reviewDecision,
-        state: stringValue(pr.state),
-        upstreamPrNumber: prNumber,
-      });
-    }
     return mergePrRecord(record, update);
   }
 
@@ -538,7 +438,7 @@ export function createPrSyncService<Context extends PrSyncGameContext>(deps: PrS
     let warning = "";
     if (repoSlug) {
       const list = await deps.runCli(
-        ["gh", "pr", "list", "--repo", repoSlug, "--state", "all", "--limit", "100", "--json", "number,title,state,isDraft,url,headRefName,headRefOid,author,reviewDecision,updatedAt,mergeCommit"],
+        ["gh", "pr", "list", "--repo", repoSlug, "--state", "all", "--limit", "100", "--json", "number,title,state,isDraft,url,headRefName,author,reviewDecision,updatedAt"],
         repoRoot,
       );
       if (list.exitCode === 0) {
@@ -578,14 +478,14 @@ export function createPrSyncService<Context extends PrSyncGameContext>(deps: PrS
           const record = recordsByBranch.get(branch);
           const pr = byHead.get(branch);
           if (!record || !pr) continue;
-          recordsByBranch.set(branch, await hydratePrRecordFromGithub(record, pr, repoSlug, repoRoot, stateDir));
+          recordsByBranch.set(branch, await hydratePrRecordFromGithub(record, pr, repoSlug, repoRoot));
         }
 
         for (const [branch, record] of [...recordsByBranch.entries()]) {
           if (importHeads.has(branch)) continue;
           const pr = byHead.get(branch);
           if (!pr) continue;
-          recordsByBranch.set(branch, await hydratePrRecordFromGithub(record, pr, repoSlug, repoRoot, stateDir));
+          recordsByBranch.set(branch, await hydratePrRecordFromGithub(record, pr, repoSlug, repoRoot));
         }
 
         const trackedHeads = new Set([...recordsByBranch.values()].map((record) => stringValue(record.branch)));

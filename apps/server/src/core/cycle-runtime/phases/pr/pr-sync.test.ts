@@ -12,21 +12,11 @@ function createFixture() {
   let cliHandler: ((command: string[]) => typeof cliResult) | null = null;
   let originUrl = "";
   const cliCommands: string[][] = [];
-  const campaignObservations: JsonObject[] = [];
-  const campaignStateOpenAttempts: string[] = [];
   const deps: PrSyncServiceDeps<PrSyncGameContext> = {
     appendLog: () => {},
     latestPrSplitPlanSummary: () => plan,
     latestRunId: () => "run-1",
-    openCampaignState: (stateDir) => {
-      campaignStateOpenAttempts.push(stateDir);
-      throw new Error(`Unexpected campaign state open: ${stateDir}`);
-    },
     outputTail: (value) => value,
-    observeCampaignPr: (_stateDir, input) => {
-      campaignObservations.push(input as unknown as JsonObject);
-      return { feedbackItemIds: [], ignored: true, series: null };
-    },
     records: {
       deriveReviewSubState: (review) => review,
       normalizePrRecord: (record) => record,
@@ -62,8 +52,6 @@ function createFixture() {
     setPlan(value: JsonObject) { plan = value; },
     setPrevious(value: JsonObject) { previous = value; },
     written: () => written,
-    campaignObservations,
-    campaignStateOpenAttempts,
     cliCommands,
   };
 }
@@ -84,7 +72,7 @@ function matchPlan(supportPathspecs?: string[]): JsonObject {
 }
 
 describe("PR sync support manifests", () => {
-  test("forwards GitHub state and feedback through an injected campaign observer without opening state", async () => {
+  test("hydrates GitHub state without campaign machinery", async () => {
     const fixture = createFixture();
     fixture.setCliResult({
       exitCode: 0,
@@ -107,126 +95,15 @@ describe("PR sync support manifests", () => {
       },
       "doldecomp/melee",
       "/repo",
-      "/state",
     );
 
     expect(record).toMatchObject({ status: "changes_requested", comments: 1 });
-    expect(fixture.campaignStateOpenAttempts).toEqual([]);
-    expect(fixture.campaignObservations).toEqual([{
-      branch: "codex/split-01-alpha",
-      commandId: "pr-sync:2850:2026-08-13T12:00:00.000Z",
-      feedback: [{ sourceKind: "issue_comment", sourceId: "IC_123", summary: "Please use the game typedef." }],
-      mergedUpstreamRevision: "",
-      occurredAt: "2026-08-13T12:00:00.000Z",
-      reviewDecision: "CHANGES_REQUESTED",
-      state: "OPEN",
-      upstreamPrNumber: 2850,
-    }]);
+    expect(fixture.cliCommands).toEqual([[
+      "gh", "pr", "view", "2850", "--repo", "doldecomp/melee", "--json", "comments,reviews,statusCheckRollup,files",
+    ]]);
   });
 
-  test("forwards reviews and inline review comments with stable source ids", async () => {
-    const fixture = createFixture();
-    fixture.setCliHandler((command) => command[1] === "api"
-      ? {
-          exitCode: 0,
-          stdout: JSON.stringify([{ id: 991, body: "Please preserve the signed comparison." }]),
-          stderr: "",
-        }
-      : {
-          exitCode: 0,
-          stdout: JSON.stringify({
-            comments: [],
-            reviews: [{ id: "PRR_88", body: "The overall direction needs revision." }],
-            files: [],
-            statusCheckRollup: [],
-          }),
-          stderr: "",
-        });
-
-    await fixture.service.hydratePrRecordFromGithub(
-      { branch: "codex/split-01-alpha" },
-      { headRefName: "codex/split-01-alpha", number: 2850, state: "OPEN" },
-      "doldecomp/melee",
-      "/repo",
-      "/state",
-    );
-
-    expect(fixture.campaignObservations[0]?.feedback).toEqual([
-      { sourceKind: "pull_request_review", sourceId: "PRR_88", summary: "The overall direction needs revision." },
-      { sourceKind: "pull_request_review_comment", sourceId: "991", summary: "Please preserve the signed comparison." },
-    ]);
-  });
-
-  test("forwards durable approval evidence from the latest approved GitHub review", async () => {
-    const fixture = createFixture();
-    fixture.setCliHandler((command) => command[1] === "api"
-      ? { exitCode: 0, stdout: "[]", stderr: "" }
-      : {
-          exitCode: 0,
-          stdout: JSON.stringify({
-            comments: [],
-            reviews: [
-              {
-                id: "PRR_41",
-                author: { login: "earlier-reviewer" },
-                body: "",
-                state: "APPROVED",
-                submittedAt: "2026-08-13T11:00:00.000Z",
-              },
-              {
-                id: "PRR_42",
-                author: { login: "octocat" },
-                body: "",
-                state: "APPROVED",
-                submittedAt: "2026-08-13T12:00:00.000Z",
-              },
-              {
-                id: "PRR_43",
-                author: { login: "commenter" },
-                body: "",
-                state: "COMMENTED",
-                submittedAt: "2026-08-13T13:00:00.000Z",
-              },
-            ],
-            files: [],
-            statusCheckRollup: [],
-          }),
-          stderr: "",
-        });
-
-    await fixture.service.hydratePrRecordFromGithub(
-      { branch: "codex/split-01-alpha" },
-      {
-        author: { login: "pr-author" },
-        headRefName: "codex/split-01-alpha",
-        headRefOid: "head-sha-approved",
-        number: 2850,
-        reviewDecision: "APPROVED",
-        state: "OPEN",
-        updatedAt: "2026-08-13T13:30:00.000Z",
-      },
-      "doldecomp/melee",
-      "/repo",
-      "/state",
-    );
-
-    expect(fixture.campaignStateOpenAttempts).toEqual([]);
-    expect(fixture.campaignObservations).toEqual([{
-      approvalSourceIdentity: "github-review:PRR_42",
-      approvedRevision: "head-sha-approved",
-      approvingActor: "octocat",
-      branch: "codex/split-01-alpha",
-      commandId: "pr-sync:2850:2026-08-13T13:30:00.000Z",
-      feedback: [],
-      mergedUpstreamRevision: "",
-      occurredAt: "2026-08-13T13:30:00.000Z",
-      reviewDecision: "APPROVED",
-      state: "OPEN",
-      upstreamPrNumber: 2850,
-    }]);
-  });
-
-  test("requests the observed head revision in the GitHub PR list query", async () => {
+  test("requests the PR record fields in the GitHub PR list query", async () => {
     const fixture = createFixture();
     fixture.setOriginUrl("git@github.com:doldecomp/melee.git");
     fixture.setCliResult({ exitCode: 0, stdout: "[]", stderr: "" });
@@ -238,7 +115,7 @@ describe("PR sync support manifests", () => {
       "--repo", "doldecomp/melee",
       "--state", "all",
       "--limit", "100",
-      "--json", "number,title,state,isDraft,url,headRefName,headRefOid,author,reviewDecision,updatedAt,mergeCommit",
+      "--json", "number,title,state,isDraft,url,headRefName,author,reviewDecision,updatedAt",
     ]]);
   });
 

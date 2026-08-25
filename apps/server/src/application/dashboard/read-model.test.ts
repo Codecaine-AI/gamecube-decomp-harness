@@ -21,12 +21,6 @@ import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { createCycle, recordSavePointAnchor, recordSavePointFailureDurably } from "@server/core/cycle";
 import { initializeHarnessState, releaseDispatch, requestDispatch } from "@server/core/harness-state";
 import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
-import {
-  activateAcquiredPrCampaign,
-  ingestPrFeedback,
-  openPrCampaign,
-  transitionPrSeries,
-} from "@server/core/cycle-runtime/phases/pr/campaign";
 import { getSyncState, recordSyncRequested, transitionSync } from "@server/core/cycle-runtime/phases/sync";
 import {
   buildHarnessStateReadModel,
@@ -64,7 +58,7 @@ afterAll(() => {
 });
 
 describe("dashboard read model", () => {
-  test("canonical HarnessStateView always projects the 20 actions and isolates compatibility actions", () => {
+  test("canonical HarnessStateView projects the 13 retained actions", () => {
     const { store } = tempState();
     try {
       initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
@@ -74,15 +68,14 @@ describe("dashboard read model", () => {
       expect(view.run).toBeNull();
       expect(view.pr_work).toEqual([]);
       expect(view.knowledge).toMatchObject({ queued: 0, processing: 0, waiting: 0, failed: 0, active_lease: null });
-      expect(view.available_actions).toHaveLength(20);
+      expect(view.available_actions).toHaveLength(13);
       expect(view.available_actions.map((action) => action.action_id)).toEqual([
         "run.start", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
-        "pr.open_campaign", "pr.activate", "pr.publish_batch", "pr.release", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
         "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
         "cycle.save_point", "cycle.close", "knowledge.process",
       ]);
       expect(view.available_actions.every((action) => action.confirmation_required === [
-        "run.hard_stop", "run.cancel", "run.recover", "pr.publish_batch", "pr.close_campaign", "pr.abandon_campaign", "pr.campaign_recover",
+        "run.hard_stop", "run.cancel", "run.recover",
         "sync.publish", "sync.cancel", "sync.recover", "cycle.close",
       ].includes(action.action_id))).toBeTrue();
       expect(view.available_actions.find((action) => action.action_id === "run.start")?.blocked_by).toEqual([
@@ -91,9 +84,7 @@ describe("dashboard read model", () => {
       expect(view.available_actions.find((action) => action.action_id === "knowledge.process")?.blocked_by).toEqual([
         expect.objectContaining({ code: "knowledge_queue_empty" }),
       ]);
-      expect(view.compatibility_actions).toHaveLength(1);
-      expect(view.compatibility_actions[0]?.action_id).toBe("pr.adopt_legacy");
-      expect(view.available_actions.some((action) => action.action_id === "pr.adopt_legacy")).toBeFalse();
+      expect(view.compatibility_actions).toEqual([]);
       expect(view.repo_sync).toEqual({
         cycle_head: null,
         upstream_ref: "origin/master",
@@ -296,14 +287,6 @@ describe("dashboard read model", () => {
         "run.hard_stop",
         "run.cancel",
         "run.recover",
-        "pr.open_campaign",
-        "pr.activate",
-        "pr.publish_batch",
-        "pr.release",
-        "pr.close_campaign",
-        "pr.abandon_campaign",
-        "pr.campaign_recover",
-        "pr.adopt_legacy",
         "sync.start",
         "sync.resolve_conflict",
         "sync.publish",
@@ -330,347 +313,6 @@ describe("dashboard read model", () => {
       expect(view.available_actions.find((action) => action.action_id === "cycle.close")).toMatchObject({
         enabled: false,
         blocked_by: [expect.objectContaining({ code: "dispatch_lease_held" })],
-        confirmation_required: true,
-      });
-    } finally {
-      store.db.close();
-    }
-  });
-
-  test("projects the durable PR campaign, next batch, feedback queue, activation, and canonical actions", () => {
-    const { store } = tempState();
-    try {
-      createCycle(store.db, {
-        actor: "operator",
-        gameId: "melee",
-        cycleUuid: "session-pr",
-        id: "cycle:session-pr",
-        baseSha: "source-head",
-      });
-      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
-      const legacyCampaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
-      const savePoint = addSavePoint(store, {
-        campaignId: legacyCampaign.id,
-        triggerKind: "manual",
-        label: "campaign source",
-        commitSha: "source-head",
-      });
-      recordSavePointAnchor(store, {
-        actor: "operator",
-        commandId: "command-pr-anchor",
-        correlationId: "session-pr",
-        commitSha: "source-head",
-        gameId: "melee",
-        savePointId: savePoint.id,
-        triggerKind: "manual",
-      });
-      const campaign = openPrCampaign(store, {
-        actor: "operator",
-        campaignId: "pr-campaign-dashboard",
-        commandId: "command-pr-open",
-        correlationId: "pr-campaign-dashboard",
-        namedSavePointId: savePoint.id,
-        gameId: "melee",
-        publicationPolicy: { batch_size: 2 },
-        series: [
-          {
-            batchIndex: 0,
-            branch: "codex/split-01-alpha",
-            seriesId: "series-alpha",
-            targetUnits: ["src/alpha.c"],
-            lastValidation: {
-              result: "clean",
-              source_revision: "source-head",
-              validated_at: "2026-08-13T12:00:00.000Z",
-            },
-          },
-          {
-            batchIndex: 1,
-            branch: "codex/split-02-beta",
-            seriesId: "series-beta",
-            targetUnits: ["src/beta.c"],
-            lastValidation: {
-              result: "clean",
-              source_revision: "source-head",
-              validated_at: "2026-08-13T12:01:00.000Z",
-            },
-          },
-          {
-            batchIndex: 1,
-            branch: "codex/split-03-gamma",
-            seriesId: "series-gamma",
-            targetUnits: ["src/gamma.c"],
-          },
-        ],
-        cycleUuid: "session-pr",
-      });
-      const dispatch = requestDispatch(store, {
-        actor: "operator",
-        commandId: "command-pr-dispatch",
-        correlationId: campaign.campaign_id,
-        kind: "pr",
-        gameId: "melee",
-        reason: "work the campaign",
-        workflowId: campaign.campaign_id,
-      });
-      if (dispatch.queued) throw new Error("test PR lease was unexpectedly queued");
-      activateAcquiredPrCampaign({
-        campaignId: campaign.campaign_id,
-        commandId: "command-pr-activate",
-        correlationId: campaign.campaign_id,
-        leaseId: dispatch.leaseId,
-        gameId: "melee",
-        store,
-      });
-      const published = transitionPrSeries(store, "series-alpha", {
-        actor: "operator",
-        commandId: "command-publish-alpha",
-        correlationId: campaign.campaign_id,
-        eventType: "pr.series_published",
-        expectedRevision: 0,
-        patch: { status: "published", upstreamPrNumber: 2850 },
-        payload: {
-          upstream_pr_number: 2850,
-          branch: "codex/split-01-alpha",
-          batch_index: 0,
-        },
-      });
-      expect(published.status).toBe("published");
-      const feedback = ingestPrFeedback(store, {
-        commandId: "observation-alpha-review",
-        correlationId: campaign.campaign_id,
-        expectedRevision: published.revision,
-        items: [{
-          itemId: "work-item-alpha",
-          sourceKind: "review_comment",
-          sourceId: "review-comment-1",
-          summary: "Use the game typedef.",
-        }],
-        seriesId: published.series_id,
-      });
-      expect(feedback.series).toMatchObject({
-        revision: published.revision + 2,
-        status: "changes_requested",
-      });
-
-      const view = buildHarnessStateReadModel(store, "melee", {
-        aheadOfBase: 0,
-        head: { dirty: false },
-      });
-
-      expect(view.pr).toMatchObject({
-        workflow_id: "pr-campaign-dashboard",
-        status: "working",
-        source_anchor: {
-          save_point_id: savePoint.id,
-          source_revision: "source-head",
-        },
-        publication_policy: { batch_size: 2 },
-        activation: {
-          active: true,
-          queued: false,
-          lease_id: dispatch.leaseId,
-          status: "active",
-        },
-        next_batch: {
-          batch_index: 1,
-          series_ids: ["series-beta", "series-gamma"],
-          validation_state: "blocked",
-          blockers: [expect.objectContaining({ code: "pr_series_not_validated", source_id: "series-gamma" })],
-        },
-        pending_work_items: {
-          count: 1,
-          items: [{
-            item_id: "work-item-alpha",
-            series_id: "series-alpha",
-            series_branch: "codex/split-01-alpha",
-            status: "pending",
-            summary: "Use the game typedef.",
-            source_kind: "review_comment",
-            source_id: "review-comment-1",
-            resolved_at: null,
-            created_at: expect.any(String),
-          }],
-        },
-      });
-      expect(view.pr?.series_by_status.changes_requested).toEqual([
-        expect.objectContaining({ series_id: "series-alpha", upstream_pr_number: 2850 }),
-      ]);
-      expect(view.pr?.series_by_status.prepared.map((series) => series.series_id)).toEqual([
-        "series-beta",
-        "series-gamma",
-      ]);
-      expect(view.available_actions.find((action) => action.action_id === "pr.open_campaign")).toMatchObject({
-        enabled: false,
-        confirmation_required: false,
-        blocked_by: [expect.objectContaining({ code: "pr_campaign_open" })],
-      });
-      expect(view.available_actions.find((action) => action.action_id === "pr.activate")).toMatchObject({
-        enabled: false,
-        confirmation_required: false,
-        blocked_by: [expect.objectContaining({ code: "pr_already_active" })],
-      });
-      expect(view.available_actions.find((action) => action.action_id === "pr.publish_batch")).toMatchObject({
-        enabled: false,
-        confirmation_required: true,
-        blocked_by: [expect.objectContaining({ code: "pr_series_not_validated" })],
-      });
-      expect(view.available_actions.find((action) => action.action_id === "pr.release")).toMatchObject({
-        enabled: true,
-        confirmation_required: false,
-      });
-      expect(view.available_actions.find((action) => action.action_id === "pr.close_campaign")).toMatchObject({
-        enabled: false,
-        confirmation_required: true,
-      });
-      expect(
-        view.available_actions.find((action) => action.action_id === "pr.close_campaign")?.blocked_by,
-      ).toEqual(expect.arrayContaining([expect.objectContaining({ code: "pr_series_not_terminal" })]));
-      expect(view.available_actions.find((action) => action.action_id === "pr.abandon_campaign")).toMatchObject({
-        enabled: true,
-        confirmation_required: true,
-      });
-      expect(view.available_actions.find((action) => action.action_id === "pr.campaign_recover")).toMatchObject({
-        enabled: false,
-        confirmation_required: true,
-      });
-      expect(view.available_actions.find((action) => action.action_id === "pr.adopt_legacy")).toMatchObject({
-        enabled: false,
-        confirmation_required: false,
-      });
-    } finally {
-      store.db.close();
-    }
-  });
-
-  test("projects campaign opening, legacy adoption, run-stop activation, and stale activation recovery", () => {
-    const { dir, store } = tempState();
-    try {
-      createCycle(store.db, {
-        actor: "operator",
-        gameId: "melee",
-        cycleUuid: "session-pr-actions",
-        id: "cycle:session-pr-actions",
-        baseSha: "source-head",
-      });
-      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
-      const legacyCampaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
-      const savePoint = addSavePoint(store, {
-        campaignId: legacyCampaign.id,
-        triggerKind: "manual",
-        label: "campaign source",
-        commitSha: "source-head",
-      });
-      recordSavePointAnchor(store, {
-        actor: "operator",
-        commandId: "command-actions-anchor",
-        correlationId: "session-pr-actions",
-        commitSha: "source-head",
-        gameId: "melee",
-        savePointId: savePoint.id,
-        triggerKind: "manual",
-      });
-      writeActivityLog(resolve(dir, "pr_handoff/pr_records.json"), [{
-        schemaVersion: "session_pr_records_v2",
-        records: [{ branch: "codex/split-01-alpha", prNumber: 2850 }],
-      }]);
-
-      let view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
-      expect(view.pr).toBeNull();
-      expect(view.available_actions.find((action) => action.action_id === "pr.open_campaign")).toMatchObject({
-        enabled: true,
-        confirmation_required: false,
-      });
-      expect(view.available_actions.find((action) => action.action_id === "pr.adopt_legacy")).toMatchObject({
-        enabled: true,
-        confirmation_required: false,
-      });
-
-      const campaign = openPrCampaign(store, {
-        actor: "operator",
-        campaignId: "pr-campaign-actions",
-        commandId: "command-actions-open",
-        correlationId: "pr-campaign-actions",
-        namedSavePointId: savePoint.id,
-        gameId: "melee",
-        series: [{
-          batchIndex: 0,
-          branch: "codex/split-01-actions",
-          seriesId: "series-actions",
-          targetUnits: ["src/actions.c"],
-        }],
-        cycleUuid: "session-pr-actions",
-      });
-      const durableRun = createRun(
-        store,
-        "matched_code_percent",
-        100,
-        1,
-        { gameId: "melee" },
-        { baseRevision: "source-head", cycleUuid: "session-pr-actions" },
-      );
-      const runDispatch = requestDispatch(store, {
-        actor: "operator",
-        commandId: "command-actions-run",
-        correlationId: durableRun.id,
-        kind: "run",
-        gameId: "melee",
-        reason: "test stop projection",
-        workflowId: durableRun.id,
-      });
-      if (runDispatch.queued) throw new Error("test run lease was unexpectedly queued");
-      view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
-      expect(view.available_actions.find((action) => action.action_id === "pr.activate")).toMatchObject({
-        enabled: true,
-        expected_transition: "preparing/in_review → working after run stops",
-        confirmation_required: false,
-      });
-
-      releaseDispatch(store, {
-        actor: "operator",
-        commandId: "command-actions-run-release",
-        correlationId: durableRun.id,
-        leaseId: runDispatch.leaseId,
-        gameId: "melee",
-      });
-      const prDispatch = requestDispatch(store, {
-        actor: "operator",
-        commandId: "command-actions-pr",
-        correlationId: campaign.campaign_id,
-        kind: "pr",
-        gameId: "melee",
-        reason: "test recovery projection",
-        workflowId: campaign.campaign_id,
-      });
-      if (prDispatch.queued) throw new Error("test PR lease was unexpectedly queued");
-      activateAcquiredPrCampaign({
-        campaignId: campaign.campaign_id,
-        commandId: "command-actions-activate",
-        correlationId: campaign.campaign_id,
-        leaseId: prDispatch.leaseId,
-        gameId: "melee",
-        store,
-      });
-      const row = store.db
-        .query("SELECT active_workflow_json FROM harness_state WHERE game_id = ?")
-        .get("melee") as { active_workflow_json: string };
-      store.db
-        .query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?")
-        .run(
-          JSON.stringify({
-            ...JSON.parse(row.active_workflow_json),
-            heartbeat_at: "2026-08-13T12:00:00.000Z",
-          }),
-          "melee",
-        );
-      view = buildHarnessStateReadModel(
-        store,
-        "melee",
-        { aheadOfBase: 0, head: { dirty: false } },
-        { now: "2026-08-13T12:30:00.000Z" },
-      );
-      expect(view.available_actions.find((action) => action.action_id === "pr.campaign_recover")).toMatchObject({
-        enabled: true,
         confirmation_required: true,
       });
     } finally {

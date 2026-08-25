@@ -166,7 +166,7 @@ describe("game dispatch lease", () => {
     expect(decision.state.caused_by_event_id).toBe(events[1]?.eventId);
   });
 
-  test("uses the durable run, sync, and PR campaign trace for free acquisition and release", () => {
+  test("uses durable workflow traces and the game trace for dormant PR dispatch", () => {
     for (const fixture of [
       { kind: "run", workflowId: "run-trace" },
       { kind: "sync", workflowId: "sync-trace" },
@@ -183,10 +183,8 @@ describe("game dispatch lease", () => {
       if (decision.queued) throw new Error(`expected acquired ${fixture.kind} lease`);
 
       const acquiredEvents = listGameEvents(store.db);
-      expect(acquiredEvents.map((event) => event.traceId)).toEqual([
-        workflowTraceId(fixture.workflowId),
-        workflowTraceId(fixture.workflowId),
-      ]);
+      const expectedTraceId = fixture.kind === "pr" ? TRACE_ID : workflowTraceId(fixture.workflowId);
+      expect(acquiredEvents.map((event) => event.traceId)).toEqual([expectedTraceId, expectedTraceId]);
       expect(acquiredEvents.map((event) => event.correlationId)).toEqual([
         fixture.workflowId,
         fixture.workflowId,
@@ -200,7 +198,7 @@ describe("game dispatch lease", () => {
       expect(listGameEvents(store.db).at(-1)).toMatchObject({
         eventType: "game.dispatch_released",
         correlationId: fixture.workflowId,
-        traceId: workflowTraceId(fixture.workflowId),
+        traceId: expectedTraceId,
       });
     }
   });
@@ -379,7 +377,7 @@ describe("game dispatch lease", () => {
       "trace-run-1",
       "trace-run-1",
       "trace-sync-1",
-      "trace-pr-1",
+      TRACE_ID,
       "trace-run-1",
       "trace-sync-1",
     ]);

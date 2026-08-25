@@ -4,10 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { initializeHarnessState, releaseDispatch, requestDispatch, StaleLeaseError } from "@server/core/harness-state";
-import { createCycle } from "@server/core/cycle";
-import { recordSavePointAnchor } from "@server/core/cycle/timeline.js";
-import { openPrCampaign } from "@server/core/cycle-runtime/phases/pr/campaign";
-import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import { createRun } from "@server/core/cycle-runtime/run-state";
 import { enqueueWorkerOutputIntegration } from "@server/core/cycle-runtime/run-state/worker-output-integration.js";
 import { runCommand } from "@server/infrastructure/shell";
@@ -105,43 +101,6 @@ function acquireLease(store: StateStore, kind: "pr" | "run", workflowId: string)
   });
   if (decision.queued) throw new Error(`test dispatch unexpectedly queued behind ${decision.blockedBy.lease_id}`);
   return decision.leaseId;
-}
-
-function createCampaign(store: StateStore): ReturnType<typeof openPrCampaign> {
-  createCycle(store.db, {
-    actor: "operator",
-    baseSha: "base-test",
-    id: "cycle:cycle-pr",
-    gameId: "test",
-    cycleUuid: "cycle-pr",
-  });
-  const legacyCampaign = ensureCampaign(store, { gameId: "test" });
-  const savePoint = addSavePoint(store, {
-    campaignId: legacyCampaign.id,
-    triggerKind: "manual",
-    label: "stable PR handoff",
-    commitSha: "base-test",
-    committed: true,
-  });
-  recordSavePointAnchor(store, {
-    actor: "operator",
-    commandId: "command-anchor-pr",
-    correlationId: "cycle-pr",
-    commitSha: "base-test",
-    gameId: "test",
-    savePointId: savePoint.id,
-    triggerKind: "manual",
-  });
-  return openPrCampaign(store, {
-    actor: "operator",
-    campaignId: "campaign-worker-output",
-    commandId: "command-open-pr",
-    correlationId: "campaign-worker-output",
-    namedSavePointId: savePoint.id,
-    gameId: "test",
-    series: [{ batchIndex: 0, branch: "codex/test-pr", seriesId: "series-worker-output", targetUnits: ["src/a.c"] }],
-    cycleUuid: "cycle-pr",
-  });
 }
 
 describe("apply-on-accept worker output integration", () => {
@@ -278,8 +237,7 @@ describe("apply-on-accept worker output integration", () => {
         leaseId: staleLeaseId,
         gameId: "test",
       });
-      const campaign = createCampaign(store);
-      const prLeaseId = acquireLease(store, "pr", campaign.campaign_id);
+      const prLeaseId = acquireLease(store, "pr", "campaign-worker-output");
 
       await expect(
         processWorkerOutputIntegrationQueue({

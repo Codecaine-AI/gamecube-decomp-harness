@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, watch, type FSWatcher } from "node:fs";
 import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
@@ -15,10 +16,7 @@ import {
 } from "@server/application/dashboard/read-model";
 import { latestChildDirectory, latestPrSplitPlanSummary } from "@server/core/cycle-runtime/phases/pr/artifacts";
 import { createPrRecordsService } from "@server/core/cycle-runtime/phases/pr/pr-records";
-import { createPrSyncService } from "@server/core/cycle-runtime/phases/pr/pr-sync";
-import { createHandoffRuntime, localPrPreparationOperationRunning } from "@server/core/cycle-runtime/phases/pr/runtime";
 import { createSavePointRuntime } from "@server/core/cycle-runtime/phases/pr/save-points-runtime";
-import { createPrWorktreeService } from "@server/core/cycle-runtime/phases/pr/pr-worktrees";
 import { handleHandoffApiRoute } from "@server/api/routes/handoff";
 import { handleKernelApiRoute, handleKernelReadRoute } from "@server/api/routes/kernel";
 import { handleKnowledgeApiRoute } from "@server/api/routes/knowledge";
@@ -60,11 +58,9 @@ import { createPreparingRuntime } from "@server/core/cycle-runtime/phases/prepar
 import { handleCyclesApiRoute } from "@server/api/routes/cycles";
 import { handleSyncApiRoute } from "@server/api/routes/sync";
 import { createSyncRuntime } from "@server/core/cycle-runtime/phases/sync/runtime";
-import { handlePrApiRoute } from "@server/api/routes/pr";
-import { createPrCampaignRuntime } from "@server/core/cycle-runtime/phases/pr/campaign/runtime";
+import { activateRun } from "@server/core/cycle-runtime/phases/running/run-control";
 import { createValidationRuntime } from "@server/core/validation/runtime";
 import { handleValidationApiRoute } from "@server/api/routes/validation";
-import { readRegressionReport } from "@server/core/validation/objdiff/report";
 import { createManagedProcessController, type ManagedProcessController, type ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
 import { createCycleProcessMirror } from "@server/core/cycle/process-mirror";
 import { getActiveCycle, getCycleByUuid, updateCycle } from "@server/core/cycle/store";
@@ -425,32 +421,13 @@ const prRecords = createPrRecordsService({
       store.db.close();
     }
   },
-  localPrepOperationRunning: () => localPrPreparationOperationRunning(operationState.getOperation()),
-});
-
-const prSync = createPrSyncService({
-  appendLog,
-  latestPrSplitPlanSummary,
-  latestRunId,
-  outputTail: commandRunner.outputTail,
-  records: prRecords,
-  resolveDashboardGame: gameContext.resolveDashboardGame,
-  runCli: commandRunner.runCli,
-});
-
-const prWorktrees = createPrWorktreeService<GameRuntimeContext>({
-  appendLog,
-  branchExists: prSync.branchExists,
-  isLocalBranchPrRecord: prSync.isLocalBranchPrRecord,
-  localBranchDiffBase: prSync.localBranchDiffBase,
-  outputTail: commandRunner.outputTail,
-  prBranchPathSlug: prRecords.prBranchPathSlug,
-  prWorkspacePath: prRecords.prWorkspacePath,
-  readRegressionReport,
-  runCli: commandRunner.runCli,
-  runGit: commandRunner.runGit,
-  submitWorkflowEvent: kernelRuntime.submitWorkflowEvent,
-  updatePrRecord: prRecords.updatePrRecord,
+  localPrepOperationRunning: () => {
+    const operation = operationState.getOperation();
+    return Boolean(
+      operation?.status === "running"
+      && (operation.name === "prepare-local-pr" || operation.name === "prepare-local-batch"),
+    );
+  },
 });
 
 const preparingRuntime = createPreparingRuntime({
@@ -521,32 +498,6 @@ function runActionProjection(
     store.db.close();
   }
 }
-
-const handoffRuntime = createHandoffRuntime({
-  appendLog,
-  hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
-  operationState,
-  outputTail: commandRunner.outputTail,
-  prRecords,
-  prSync,
-  prWorktrees,
-  processControl: processControlRuntime,
-  gameToSummary,
-  resolveDashboardGame: gameContext.resolveDashboardGame,
-  runCli: commandRunner.runCli,
-  runGit: commandRunner.runGit,
-  savePoints,
-  serverJobPath,
-  submitWorkflowEvent: kernelRuntime.submitWorkflowEvent,
-});
-
-const prCampaignRuntime = createPrCampaignRuntime({
-  handoff: handoffRuntime,
-  prSync,
-  resolveDashboardGame: gameContext.resolveDashboardGame,
-  runGit: commandRunner.runGit,
-  stopManaged: (body) => processControlRuntime.stopManaged(body),
-});
 
 const standards = createStandardsService({
   appendLog,
@@ -641,6 +592,95 @@ function dashboardEvents(url: URL): Response {
   });
 }
 
+async function checkpointRun(body: JsonObject): Promise<JsonObject> {
+  const paths = gameContext.resolveDashboardGame(body, { useDefaultGame: true });
+  const runId = typeof body.runId === "string" && body.runId.trim()
+    ? body.runId.trim()
+    : latestRunId(paths.stateDir);
+  if (!runId) throw new Error("No run found. Initialize a run before creating a checkpoint.");
+  if (processController.hasActiveProcess(paths.stateDir).active) {
+    throw new Error("Checkpoint cannot start while the managed run process is active.");
+  }
+
+  const store = openState(paths.stateDir);
+  const run = (() => {
+    try {
+      return getRun(store, runId);
+    } finally {
+      store.db.close();
+    }
+  })();
+  if (!run) throw new Error(`Run not found: ${runId}`);
+  const cycleUuid = run.cycleUuid?.trim();
+  if (!cycleUuid) throw new Error(`Run ${runId} has no cycle UUID for its checkpoint save-point.`);
+
+  const command = ["bun", serverJobPath];
+  if (paths.game) command.push("--game", paths.game.gameId);
+  command.push(
+    "--repo-root",
+    paths.repoRoot,
+    "--state-dir",
+    paths.stateDir,
+    "checkpoint-run",
+    "--run-id",
+    runId,
+  );
+  const result = await commandRunner.runCli(command);
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `Run checkpoint failed (${result.exitCode}): ${commandRunner.outputTail(result.stderr || result.stdout, 800)}`,
+    );
+  }
+  const checkpoint = savePoints.parseCliJsonOutput(result.stdout);
+  const savePoint = await savePoints.boundarySavePoint(
+    paths,
+    "checkpoint",
+    cycleUuid,
+    `run ${runId} checkpoint`,
+  );
+  return {
+    game: paths.game ? gameToSummary(paths.game) : null,
+    ...checkpoint,
+    savePoint,
+  };
+}
+
+function resumeRun(body: JsonObject): JsonObject {
+  const paths = gameContext.resolveDashboardGame(body, { useDefaultGame: true });
+  const runId = typeof body.runId === "string" && body.runId.trim()
+    ? body.runId.trim()
+    : latestRunId(paths.stateDir);
+  if (!runId) throw new Error("No run found. Initialize a run before resuming.");
+  const store = openState(paths.stateDir);
+  try {
+    const currentRun = getRun(store, runId);
+    if (!currentRun) throw new Error(`Run not found: ${runId}`);
+    const gameId = paths.game?.gameId ?? currentRun.gameId;
+    if (!gameId) throw new Error(`Run ${runId} cannot resume without a game id`);
+    const commandId = typeof body.commandId === "string" && body.commandId.trim()
+      ? body.commandId.trim()
+      : `command-run-resume-${randomUUID()}`;
+    const { run } = activateRun({
+      actor: "operator",
+      commandId,
+      gameId,
+      reason: "operator resumed run",
+      runId,
+      store,
+    });
+    appendLog("ui", `run ${runId} resumed`);
+    return {
+      resumed: true,
+      game: paths.game ? gameToSummary(paths.game) : null,
+      repoRoot: paths.repoRoot,
+      stateDir: paths.stateDir,
+      run,
+    };
+  } finally {
+    store.db.close();
+  }
+}
+
 async function handleApi(req: Request, url: URL): Promise<Response> {
   const localFont = localFontResponse(req, url);
   if (localFont) return localFont;
@@ -652,24 +692,6 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     reconstructEvents: eventReadApi.reconstructEvents,
   });
   if (events) return events;
-
-  const prCampaign = await handlePrApiRoute(req, url, {
-    abandonCampaign: prCampaignRuntime.abandonCampaign,
-    action: prCampaignRuntime.action,
-    activate: prCampaignRuntime.activate,
-    adoptLegacy: prCampaignRuntime.adoptLegacy,
-    claimWorkItems: prCampaignRuntime.claimWorkItems,
-    closeCampaign: prCampaignRuntime.closeCampaign,
-    declineWorkItems: prCampaignRuntime.declineWorkItems,
-    json,
-    openCampaign: prCampaignRuntime.openCampaign,
-    publishBatch: prCampaignRuntime.publishBatch,
-    recoverCampaign: prCampaignRuntime.recoverCampaign,
-    release: prCampaignRuntime.release,
-    resolveWorkItems: prCampaignRuntime.resolveWorkItems,
-    reviseWorkItems: prCampaignRuntime.reviseWorkItems,
-  });
-  if (prCampaign) return prCampaign;
 
   const sync = await handleSyncApiRoute(req, url, {
     action: syncRuntime.action,
@@ -861,9 +883,9 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   if (processControl) return processControl;
 
   const handoff = await handleHandoffApiRoute(req, url, {
+    checkpointRun,
+    createSavePoint: savePoints.createSavePoint,
     json,
-    ...handoffRuntime,
-    runQaRepairForCampaign: prCampaignRuntime.runQaRepair,
   });
   if (handoff) return handoff;
 
@@ -876,7 +898,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     json,
     recoverRun: runControlRuntime.recover,
     resumeRun: async (body) => {
-      const resumed = handoffRuntime.resumeRunForPr(body);
+      const resumed = resumeRun(body);
       const response = await processControlRuntime.startManagedProcess(body);
       const process = (await response.json().catch(() => null)) as JsonObject | null;
       if (!response.ok) {

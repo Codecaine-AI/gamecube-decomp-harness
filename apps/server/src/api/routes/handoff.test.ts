@@ -3,49 +3,59 @@ import { describe, expect, test } from "bun:test";
 import { handleHandoffApiRoute, type HandoffApiRouteDeps } from "./handoff.js";
 
 describe("handleHandoffApiRoute", () => {
-  test("routes QA repair through the campaign command layer", async () => {
+  test("routes checkpoint requests", async () => {
     const received: Array<Record<string, unknown>> = [];
     const response = await handleHandoffApiRoute(
-      new Request("http://localhost/api/pr/qa-repair", {
+      new Request("http://localhost/api/run/checkpoint", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ leaseId: "lease-pr", gameId: "melee" }),
+        body: JSON.stringify({ runId: "run-1", reason: "manual" }),
       }),
-      new URL("http://localhost/api/pr/qa-repair"),
+      new URL("http://localhost/api/run/checkpoint"),
       {
         json: (data: unknown) => Response.json(data),
-        runQaRepairForCampaign: async (body: Record<string, unknown>) => {
+        checkpointRun: async (body: Record<string, unknown>) => {
           received.push(body);
-          return { status: "passed" };
+          return { checkpointId: "checkpoint-1" };
         },
       } as unknown as HandoffApiRouteDeps,
     );
 
-    expect(received).toEqual([{ leaseId: "lease-pr", gameId: "melee" }]);
+    expect(received).toEqual([{ runId: "run-1", reason: "manual" }]);
     expect(response?.status).toBe(200);
-    expect(await response?.json()).toEqual({ status: "passed" });
+    expect(await response?.json()).toEqual({ checkpointId: "checkpoint-1" });
   });
 
-  test("routes standalone ship-set verification through the handoff runtime", async () => {
+  test("routes save-point requests", async () => {
     const received: Array<Record<string, unknown>> = [];
     const response = await handleHandoffApiRoute(
-      new Request("http://localhost/api/pr/verify-ship-set", {
+      new Request("http://localhost/api/save-point", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ runId: "run-1", sourceRef: "HEAD" }),
+        body: JSON.stringify({ gameId: "melee", reason: "manual" }),
       }),
-      new URL("http://localhost/api/pr/verify-ship-set"),
+      new URL("http://localhost/api/save-point"),
       {
         json: (data: unknown) => Response.json(data),
-        verifyShipSet: async (body: Record<string, unknown>) => {
+        createSavePoint: async (body: Record<string, unknown>) => {
           received.push(body);
-          return { status: "pr_ready" };
+          return { savePointId: "save-point-1" };
         },
       } as unknown as HandoffApiRouteDeps,
     );
 
-    expect(received).toEqual([{ runId: "run-1", sourceRef: "HEAD" }]);
+    expect(received).toEqual([{ gameId: "melee", reason: "manual" }]);
     expect(response?.status).toBe(200);
-    expect(await response?.json()).toEqual({ status: "pr_ready" });
+    expect(await response?.json()).toEqual({ savePointId: "save-point-1" });
+  });
+
+  test("does not handle removed campaign routes", async () => {
+    const response = await handleHandoffApiRoute(
+      new Request("http://localhost/api/pr/qa-repair", { method: "POST" }),
+      new URL("http://localhost/api/pr/qa-repair"),
+      {} as HandoffApiRouteDeps,
+    );
+
+    expect(response).toBeNull();
   });
 });
