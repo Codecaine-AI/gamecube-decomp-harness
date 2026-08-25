@@ -169,7 +169,7 @@ def _load_history(
     conn = pao.open_db_readonly(db_path)
     try:
         epoch_rows = conn.execute(
-            "SELECT id, ordinal, status, size_mode, closed_at "
+            "SELECT id, ordinal, status, closed_at "
             "FROM epochs WHERE run_id = ? ORDER BY ordinal",
             (run_id,),
         ).fetchall()
@@ -193,8 +193,7 @@ def _load_history(
         for row in epoch_rows:
             ordinal = int(row["ordinal"])
             if (
-                row["size_mode"] == "full"
-                and row["closed_at"] is not None
+                row["closed_at"] is not None
                 and row["status"] != "active"
                 and ordinal < active_ordinal
                 and row["id"] in epoch_ids_with_targets
@@ -204,7 +203,7 @@ def _load_history(
         history_ordinals = sorted(id_of)
         if not history_ordinals:
             warnings_out.append(
-                "run has no eligible closed full-board history epochs; "
+                "run has no eligible closed history epochs; "
                 "using cold-start history features"
             )
         outcomes = {

@@ -13,12 +13,9 @@ function runInputs(configuration: Record<string, unknown> = {}): RunInputs {
     starting_knowledge_revision: "kg-test",
     configuration_snapshot: {
       agent_timeout_seconds: 1800,
-      candidate_rerank: "priority",
-      candidate_window: 64,
       desired_workers: 4,
       dry_run_agents: false,
       epoch_configure_command: "",
-      epoch_size: { mode: "fixed", value: 64 },
       goal_kind: "matched_code_percent",
       goal_value: 100,
       integration_resolver_concurrency: 4,
@@ -53,10 +50,6 @@ describe("running process command", () => {
       ]);
   });
 
-  test("matches scalar request epoch size against the stored structured snapshot", () => {
-    expect(runningProcessConfigurationConflicts({ epochSize: "64" }, runInputs(), "run-1")).toEqual([]);
-  });
-
   test("builds the run-loop command owned by the running phase", () => {
     const plan = buildRunningProcessCommand({
       body: {
@@ -68,12 +61,10 @@ describe("running process command", () => {
       },
       graphDbPath: "/state/graph.sqlite",
       noRefillBatch: false,
-      game: { gameId: "melee", processName: "melee-live", dashboard: { epochSize: "64", candidateWindow: "128", candidateRerank: "opseq_hot_lane" } },
+      game: { gameId: "melee", processName: "melee-live" },
       repoRoot: "/repo",
       runId: "run-1",
       runInputs: runInputs({
-        candidate_rerank: "opseq_hot_lane",
-        candidate_window: 128,
         dry_run_agents: true,
         model: "gpt-5.5",
         thinking_level: "medium",
@@ -90,16 +81,6 @@ describe("running process command", () => {
     expect(plan.command).toContain("--dry-run-agents");
     expect(plan.command).toContain("--run-id");
     expect(plan.command).toContain("run-1");
-    expect(plan.command).toContain("--epoch-size");
-    expect(plan.command).toContain("64");
-    expect(plan.command.slice(plan.command.indexOf("--candidate-window"), plan.command.indexOf("--candidate-window") + 2)).toEqual([
-      "--candidate-window",
-      "128",
-    ]);
-    expect(plan.command.slice(plan.command.indexOf("--candidate-rerank"), plan.command.indexOf("--candidate-rerank") + 2)).toEqual([
-      "--candidate-rerank",
-      "opseq_hot_lane",
-    ]);
     expect(plan.command.slice(plan.command.indexOf("--integration-resolver-concurrency"), plan.command.indexOf("--integration-resolver-concurrency") + 2)).toEqual([
       "--integration-resolver-concurrency",
       "4",
@@ -180,11 +161,9 @@ describe("running process command", () => {
     ]);
   });
 
-  test("forwards candidate window and rerank while ignoring deprecated queue overrides", () => {
+  test("ignores deprecated queue overrides", () => {
     const plan = buildRunningProcessCommand({
       body: {
-        candidateWindow: 256,
-        candidateRerank: "opseq-hot-lane",
         epochReadyQueueSize: 64,
         maxWorkers: 64,
         queueLowWatermark: 64,
@@ -195,7 +174,7 @@ describe("running process command", () => {
       game: { gameId: "melee", processName: "melee-live" },
       repoRoot: "/repo",
       runId: "run-1",
-      runInputs: runInputs({ candidate_rerank: "opseq_hot_lane", candidate_window: 256, desired_workers: 64 }),
+      runInputs: runInputs({ desired_workers: 64 }),
       serverJobPath: "/orch/apps/server/src/job-runner.ts",
       stateDir: "/state",
     });
@@ -203,14 +182,6 @@ describe("running process command", () => {
     expect(plan.command).not.toContain("--queue-target-size");
     expect(plan.command).not.toContain("--queue-low-watermark");
     expect(plan.command).not.toContain("--epoch-ready-queue-size");
-    expect(plan.command.slice(plan.command.indexOf("--candidate-window"), plan.command.indexOf("--candidate-window") + 2)).toEqual([
-      "--candidate-window",
-      "256",
-    ]);
-    expect(plan.command.slice(plan.command.indexOf("--candidate-rerank"), plan.command.indexOf("--candidate-rerank") + 2)).toEqual([
-      "--candidate-rerank",
-      "opseq_hot_lane",
-    ]);
   });
 
   test("uses game dashboard worker timeout default", () => {

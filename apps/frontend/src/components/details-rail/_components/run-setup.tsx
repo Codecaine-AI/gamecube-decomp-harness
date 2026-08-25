@@ -22,11 +22,6 @@ import {
   SelectField,
 } from "@/components/primitives";
 import {
-  candidateRerankOptions,
-  candidateRerankTooltip,
-  candidateWindowOptions,
-  candidateWindowTooltip,
-  epochSizeOptions,
   resolverConcurrencyOptions,
   resolverConcurrencyTooltip,
   schedulingForWorkers,
@@ -331,35 +326,6 @@ export function RunSetupSection({
                     }
                     options={[...workerCountOptions]}
                     value={form.maxWorkers}
-                  />
-                  <SelectField
-                    className="mb-0"
-                    label="Epoch size"
-                    onChange={(event) =>
-                      setForm({ epochSize: event.currentTarget.value })
-                    }
-                    options={[...epochSizeOptions]}
-                    value={form.epochSize}
-                  />
-                  <SelectField
-                    className="mb-0"
-                    label="Candidate window"
-                    onChange={(event) =>
-                      setForm({ candidateWindow: event.currentTarget.value })
-                    }
-                    options={[...candidateWindowOptions]}
-                    title={candidateWindowTooltip}
-                    value={form.candidateWindow}
-                  />
-                  <SelectField
-                    className="mb-0"
-                    label="Rerank"
-                    onChange={(event) =>
-                      setForm({ candidateRerank: event.currentTarget.value })
-                    }
-                    options={[...candidateRerankOptions]}
-                    title={candidateRerankTooltip}
-                    value={form.candidateRerank}
                   />
                   <SelectField
                     className="mb-0"

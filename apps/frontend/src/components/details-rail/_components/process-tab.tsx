@@ -7,11 +7,6 @@ import { processView } from "@/lib/processView";
 import { workerTimeoutMinutes, workerTimeoutSecondsFromMinutes } from "@/lib/workerConfig";
 import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
 import {
-  candidateRerankOptions,
-  candidateRerankTooltip,
-  candidateWindowOptions,
-  candidateWindowTooltip,
-  epochSizeOptions,
   resolverConcurrencyOptions,
   resolverConcurrencyTooltip,
   schedulingForWorkers,
@@ -186,9 +181,6 @@ export function ProcessTab({ busy, dashboard, form, onAction, setForm }: Process
         <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Start Config</div>
         <div className="grid grid-cols-2 gap-2">
           <SelectField className="mb-0" label="Workers" onChange={(event) => setForm(schedulingForWorkers(Number(event.currentTarget.value)))} options={[...workerCountOptions]} value={form.maxWorkers} />
-          <SelectField className="mb-0" label="Epoch" onChange={(event) => setForm({ epochSize: event.currentTarget.value })} options={[...epochSizeOptions]} value={form.epochSize} />
-          <SelectField className="mb-0" label="Window" onChange={(event) => setForm({ candidateWindow: event.currentTarget.value })} options={[...candidateWindowOptions]} title={candidateWindowTooltip} value={form.candidateWindow} />
-          <SelectField className="mb-0" label="Rerank" onChange={(event) => setForm({ candidateRerank: event.currentTarget.value })} options={[...candidateRerankOptions]} title={candidateRerankTooltip} value={form.candidateRerank} />
           <SelectField className="mb-0" label="Resolvers" onChange={(event) => setForm({ integrationResolverConcurrency: Number(event.currentTarget.value) })} options={[...resolverConcurrencyOptions]} title={resolverConcurrencyTooltip} value={form.integrationResolverConcurrency} />
           <Field className="mb-0" label="Timeout min" min={1} onChange={(event) => setForm({ agentTimeoutSeconds: workerTimeoutSecondsFromMinutes(event.currentTarget.value) })} step={1} type="number" value={timeoutMinutes} />
           <SelectField className="mb-0" label="Thinking" onChange={(event) => setForm({ thinkingLevel: event.currentTarget.value })} options={["xhigh", "high", "medium", "low"]} value={form.thinkingLevel} />

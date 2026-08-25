@@ -12,8 +12,22 @@ import {
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import { parse } from "../src/core/game-registry/runtime-options.js";
 import { buildPrSplitPlanFromChanges } from "../src/core/cycle-runtime/phases/pr/jobs/pr-split-plan.js";
-import { agentNoteSignalsToolError, workerAttemptRepairReasons } from "../src/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import {
+  agentNoteSignalsToolError,
+  resolveBaseRev,
+  runWorkerCycleFromTask,
+  workerAttemptRepairReasons,
+  type WorkerCycleResult,
+} from "../src/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { workerKernelOps, type WorkerJobRunContext } from "../src/core/cycle-runtime/phases/running/workers/worker-job.js";
 import { activateRun } from "../src/core/cycle-runtime/phases/running/run-control.js";
+import { settleRunOnExit } from "../src/core/cycle-runtime/phases/running/jobs/settle-supervised-run.js";
+import { runRunLoop, type RunLoopResult } from "../src/core/cycle-runtime/phases/running/scheduler/run-loop.js";
+import { LocalProcessExecutor } from "../src/core/job-queue/executor.js";
+import { completeJob, markJobRunning } from "../src/core/job-queue/kernel.js";
+import { FakeSandboxProvider } from "../src/core/job-queue/sandbox.js";
+import type { TaskHandle, TaskOutcome, TaskStatus } from "../src/core/job-queue/types.js";
+import { getHarnessState } from "../src/core/harness-state/index.js";
 import { loadKnowledgeBoardSnapshot, openKnowledgeGraph } from "@server/core/knowledge";
 import { planRegressionRepair } from "@server/core/cycle-runtime/phases/running/epochs";
 import { evaluatePrPromotion, readRegressionReport } from "@server/core/validation/objdiff/report";
@@ -51,6 +65,10 @@ interface AssertionRecord {
   passed: boolean;
 }
 
+type SmokeWorkerResult = WorkerCycleResult & Required<
+  Pick<WorkerCycleResult, "workerOutput" | "workerSystemPrompt" | "workerUserPrompt">
+>;
+
 const packageRoot = resolve(import.meta.dir, "../../..");
 const fixtureRoot = resolve(packageRoot, "apps/server/testdata/smoke_repo");
 const TEST_WORKER_TIMEOUT_SECONDS = 1800;
@@ -68,6 +86,216 @@ function closeWorkerState(store: StateStore, input: Omit<Parameters<typeof close
 
 function recordWorkerCheckpoint(store: StateStore, input: Omit<Parameters<typeof recordWorkerCheckpointRaw>[1], "authority">) {
   return recordWorkerCheckpointRaw(store, { ...input, authority: { host: "server-smoke" } });
+}
+
+async function runDryWorkerTask(params: {
+  commonFlags: string[];
+  dispatchLeaseId: string;
+  graphDbPath: string;
+  runId: string;
+}): Promise<SmokeWorkerResult> {
+  const globals = parse([...params.commonFlags, "status"]).globals;
+  const store = openState(globals.stateDir);
+  const sandboxProvider = new FakeSandboxProvider();
+  const sandbox = await sandboxProvider.create({
+    snapshot: "server-smoke",
+    labels: { run_id: params.runId },
+    resources: { cpu: 2, memoryGiB: 4, diskGiB: 5 },
+    ttlMinutes: 60,
+  });
+  const context: WorkerJobRunContext = {
+    store,
+    globals,
+    runId: params.runId,
+    dispatchLeaseId: params.dispatchLeaseId,
+    baseRev: resolveBaseRev(globals.repoRoot, "HEAD"),
+    ttlSeconds: TEST_WORKER_TIMEOUT_SECONDS,
+    sandboxSleep: false,
+    sandboxSleepDebounceMs: 0,
+    concurrencyLimit: 1,
+    thinkingLevel: globals.thinkingLevel,
+    postReturnCheckCommand: "",
+    workerConfigureCommand: "",
+    graphDbPath: params.graphDbPath,
+    writeSetFlags: { writeSetWidening: "off" },
+    workerIdPrefix: "smoke-worker",
+  };
+  const claimed = workerKernelOps(context).claimNextJob(store, {
+    kind: "worker",
+    concurrencyLimit: 1,
+    leaseMs: TEST_WORKER_TIMEOUT_SECONDS * 1000,
+  });
+  if (!claimed) {
+    store.db.close();
+    throw new Error(`No worker job was claimable for smoke run ${params.runId}`);
+  }
+  markJobRunning(store, claimed.token, {
+    actor: "runner",
+    taskHandle: { executorId: "server-smoke", handleId: claimed.job.jobId },
+  });
+  const workerId = String(claimed.job.payload.worker_id ?? "");
+  const targetClaimId = String(claimed.job.payload.target_claim_id ?? "");
+  const workerStateId = String(claimed.job.payload.worker_state_id ?? "");
+  const baseRev = String(claimed.job.payload.base_rev ?? context.baseRev);
+  const targetSourcePath = String(
+    (store.db.query("SELECT source_path FROM epoch_targets WHERE id = ?").get(String(claimed.job.payload.claimed_epoch_target_id ?? "")) as { source_path?: unknown } | null)?.source_path ?? "",
+  );
+  if (targetSourcePath) {
+    const sourceFile = resolve(globals.repoRoot, targetSourcePath);
+    await sandbox.uploadFile(sourceFile, sourceFile);
+  }
+  const artifactDir = String(
+    (store.db.query("SELECT artifact_dir FROM worker_state WHERE id = ?").get(workerStateId) as { artifact_dir?: unknown } | null)?.artifact_dir ?? "",
+  );
+  const taskFile = resolve(artifactDir, "task_spec.json");
+  await mkdir(artifactDir, { recursive: true });
+  await writeFile(
+    taskFile,
+    JSON.stringify(
+      {
+        version: 1,
+        run_id: params.runId,
+        worker_id: workerId,
+        job_id: claimed.job.jobId,
+        claim_token: claimed.token,
+        target_claim_id: targetClaimId,
+        worker_state_id: workerStateId,
+        base_rev: baseRev,
+        artifact_dir: artifactDir,
+        ttl_seconds: TEST_WORKER_TIMEOUT_SECONDS,
+        sandbox_sleep: false,
+        sandbox_sleep_debounce_ms: 0,
+        thinking_level: globals.thinkingLevel,
+        post_return_check_command: "",
+        worker_configure_command: "",
+        graph_db_path: params.graphDbPath,
+        write_set_flags: context.writeSetFlags,
+        execution_class: "sandbox",
+        sandbox_id: sandbox.sandboxId,
+        workspace_root: globals.repoRoot,
+      },
+      null,
+      2,
+    ),
+  );
+  store.db.close();
+
+  const result = await runWorkerCycleFromTask(
+    globals,
+    new Map([["--task-file", taskFile]]),
+    { sandboxProvider },
+  );
+  if (!result.workerOutput || !result.workerSystemPrompt || !result.workerUserPrompt) {
+    throw new Error(`Dry-run worker task ${claimed.job.jobId} did not produce all prompt artifacts`);
+  }
+  const settlementStore = openState(globals.stateDir);
+  try {
+    completeJob(settlementStore, claimed.token, { resultRef: result.workerStateId }, { actor: "runner" });
+  } finally {
+    settlementStore.db.close();
+  }
+  return result as SmokeWorkerResult;
+}
+
+async function runLoopWithFakeWorkerTasks(params: {
+  args: Map<string, string | true>;
+  globals: ReturnType<typeof parse>["globals"];
+  sandboxProvider: FakeSandboxProvider;
+}): Promise<RunLoopResult> {
+  const originalSubmit = LocalProcessExecutor.prototype.submit;
+  const originalPoll = LocalProcessExecutor.prototype.poll;
+  const originalCollect = LocalProcessExecutor.prototype.collect;
+  const originalCancel = LocalProcessExecutor.prototype.cancel;
+  const tasks = new Map<string, { outcome: Promise<TaskOutcome>; state: TaskStatus["state"] }>();
+
+  LocalProcessExecutor.prototype.submit = async (task): Promise<TaskHandle> => {
+    const handleId = crypto.randomUUID();
+    const startedAt = new Date().toISOString();
+    const record: { outcome: Promise<TaskOutcome>; state: TaskStatus["state"] } = {
+      outcome: Promise.resolve({
+        exitCode: 1,
+        signal: null,
+        stdout: "",
+        stderr: "worker task did not start",
+        timedOut: false,
+        startedAt,
+        endedAt: startedAt,
+      }),
+      state: "running",
+    };
+    record.outcome = (async (): Promise<TaskOutcome> => {
+      try {
+        const parsed = parse(task.command.slice(2));
+        const result = await runWorkerCycleFromTask(parsed.globals, parsed.args, {
+          sandboxProvider: params.sandboxProvider,
+        });
+        return {
+          exitCode: 0,
+          signal: null,
+          stdout: JSON.stringify(result),
+          stderr: "",
+          timedOut: false,
+          startedAt,
+          endedAt: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          exitCode: 1,
+          signal: null,
+          stdout: "",
+          stderr: error instanceof Error ? error.message : String(error),
+          timedOut: false,
+          startedAt,
+          endedAt: new Date().toISOString(),
+        };
+      } finally {
+        record.state = "exited";
+      }
+    })();
+    tasks.set(handleId, record);
+    return { executorId: "server-smoke", handleId, startedAt };
+  };
+  LocalProcessExecutor.prototype.poll = async (handle): Promise<TaskStatus> => {
+    const record = tasks.get(handle.handleId);
+    if (!record) throw new Error(`Unknown server smoke task: ${handle.handleId}`);
+    return { state: record.state };
+  };
+  LocalProcessExecutor.prototype.collect = async (handle): Promise<TaskOutcome> => {
+    const record = tasks.get(handle.handleId);
+    if (!record) throw new Error(`Unknown server smoke task: ${handle.handleId}`);
+    try {
+      return await record.outcome;
+    } finally {
+      tasks.delete(handle.handleId);
+    }
+  };
+  LocalProcessExecutor.prototype.cancel = async (handle): Promise<void> => {
+    const record = tasks.get(handle.handleId);
+    if (!record) return;
+    await record.outcome;
+    tasks.delete(handle.handleId);
+  };
+
+  const leaseId = String(params.args.get("--lease-id") ?? "");
+  let stoppedReason = "error";
+  try {
+    const result = await runRunLoop(params.globals, params.args, {
+      sandboxProvider: params.sandboxProvider,
+    });
+    stoppedReason = result.stoppedReason;
+    return result;
+  } finally {
+    LocalProcessExecutor.prototype.submit = originalSubmit;
+    LocalProcessExecutor.prototype.poll = originalPoll;
+    LocalProcessExecutor.prototype.collect = originalCollect;
+    LocalProcessExecutor.prototype.cancel = originalCancel;
+    await settleRunOnExit({
+      globals: params.globals,
+      args: params.args,
+      leaseId,
+      stoppedReason,
+    });
+  }
 }
 
 function assertSmoke(name: string, condition: unknown): void {
@@ -543,7 +771,7 @@ async function main(): Promise<void> {
   const workerStateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-worker-state-smoke-"));
   const workerStateStore = openState(workerStateDir);
   try {
-    const run = createRun(workerStateStore, "matched_code_percent", 100, 4);
+    const run = createRun(workerStateStore, "matched_code_percent", 100, 4, { gameId: "melee" });
     const candidate = (index: number, sourcePath: string, priority: number): TargetCandidate => ({
       unit: `unit_${index}`,
       symbol: `fn_${index}`,
@@ -554,15 +782,12 @@ async function main(): Promise<void> {
       reason: `synthetic refill candidate ${index}`,
     });
     const epoch = startSchedulerEpoch(workerStateStore, run.id, {
-      size: { mode: "fixed", value: 3 },
       workerPoolSize: 2,
-      candidateWindow: 8,
     });
     const admission = admitEpochTargets(workerStateStore, {
       epochId: epoch.id,
       runId: run.id,
       candidates: [candidate(1, "src/shared.c", 100), candidate(2, "src/shared.c", 99), candidate(3, "src/b.c", 98)],
-      size: { mode: "fixed", value: 3 },
       workerPoolSize: 2,
     });
     assertSmoke("epoch admission records fixed worker-state batch", admission.admitted === 3);
@@ -587,7 +812,7 @@ async function main(): Promise<void> {
       workerId: "worker-state-smoke-2",
       baseRev: "smoke-base",
     });
-    assertSmoke("same-source epoch target can claim concurrently", Boolean(secondClaim) && firstClaim?.writeSet[0] === secondClaim?.writeSet[0]);
+    assertSmoke("claim selection prefers a source without an active claim", Boolean(secondClaim) && firstClaim?.writeSet[0] !== secondClaim?.writeSet[0]);
     assertSmoke("worker-state smoke tracks active claims", activeClaimsForRun(workerStateStore, run.id).length === 2);
     const selected = recordWorkerCheckpoint(workerStateStore, {
       workerStateId: firstClaim?.workerStateId ?? "",
@@ -609,7 +834,7 @@ async function main(): Promise<void> {
       errorSummary: "synthetic smoke worker-state error",
       summary: { selected_checkpoint_id: selected.id },
     });
-    addEvent(workerStateStore, run.id, "worker_error", "smoke", {
+    addEvent(workerStateStore, run.id, "worker_error", "test", {
       worker_state_id: firstClaim?.workerStateId ?? "",
       target_claim_id: firstClaim?.claimId ?? "",
     });
@@ -710,7 +935,7 @@ async function main(): Promise<void> {
   } finally {
     rankingGraph.db.close();
   }
-  const rankedBoard = loadKnowledgeBoardSnapshot(rankingRepo, 2, { graphDbPath: rankingGraphPath });
+  const rankedBoard = loadKnowledgeBoardSnapshot(rankingRepo, { graphDbPath: rankingGraphPath });
   const infoRichRank = rankedBoard.candidates.find((candidate) => candidate.symbol === "infoRich")?.rank;
   const closeHighRank = rankedBoard.candidates.find((candidate) => candidate.symbol === "closeHigh")?.rank;
   assertSmoke("graph information gain can outrank higher fuzzy local score", rankedBoard.candidates[0]?.symbol === "infoRich");
@@ -727,7 +952,7 @@ async function main(): Promise<void> {
   assertSmoke("board rank spreads no-information closeness fallback", Number(closeHighRank?.closeness_fallback_score ?? 0) > 0);
 
   stateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-smoke-"));
-  const commonFlags = ["--repo-root", fixtureRoot, "--state-dir", stateDir, "--dry-run-agents"];
+  const commonFlags = ["--game", "melee", "--repo-root", fixtureRoot, "--state-dir", stateDir, "--dry-run-agents"];
   const smokeGraphSources = "code_graph,past_prs,agent_shared_state,mismatch_patterns";
   const smokeCuratedGraphSources = `${smokeGraphSources},curator_enrichment`;
   const graphDb = join(stateDir, "knowledge-graph.sqlite");
@@ -793,25 +1018,29 @@ async function main(): Promise<void> {
   assertSmoke("kg-rank-features returns fixture candidate features", kgRank.features.length === 1);
 
   const init = parseJson<{ run: { id: string }; targetCount: number }>(
-    await runCli([...commonFlags, "init-run", "--desired-workers", "1", "--candidate-limit", "8", "--goal-kind", "matched_code_percent", "--goal-value", "72"]),
+    await runCli([...commonFlags, "init-run", "--desired-workers", "1", "--goal-kind", "matched_code_percent", "--goal-value", "72"]),
   );
   assertSmoke("init-run snapshots only the imperfect fixture candidate", init.targetCount === 1);
 
+  const initStore = openState(stateDir);
+  let dispatchLeaseId = "";
+  try {
+    dispatchLeaseId = activateRun({ reason: "smoke tick", runId: init.run.id, store: initStore }).leaseId;
+  } finally {
+    initStore.db.close();
+  }
+
   const tick = parseJson<{ handledEvent: string; schedulerTargetUpdates: number; epochAdmission?: { admitted: number } }>(
-    await runCli([...commonFlags, "tick", "--run-id", init.run.id, "--candidate-limit", "8"]),
+    await runCli([...commonFlags, "tick", "--run-id", init.run.id]),
   );
   assertSmoke("scheduler tick handles the run-start wake event", Boolean(tick.handledEvent));
   assertSmoke("scheduler tick admits the first epoch target", tick.epochAdmission?.admitted === 1);
-  const worker = parseJson<{
-    claimId: string;
-    workerStateId: string;
-    epochTargetId: string;
-    workerOutput: string;
-    workerSystemPrompt: string;
-    workerUserPrompt: string;
-    workerStatePath: string;
-    wakeEvent: string;
-  }>(await runCli([...commonFlags, "worker", "--run-id", init.run.id, "--worker-id", "smoke-worker-1"]));
+  const worker = await runDryWorkerTask({
+    commonFlags,
+    dispatchLeaseId,
+    graphDbPath: graphDb,
+    runId: init.run.id,
+  });
   const status = parseJson<Record<string, unknown>>(await runCli([...commonFlags, "status"]));
   const curatorOutput = join(stateDir, "knowledge_curator_updates.jsonl");
   const kgCurate = parseJson<{ records_written: number; worker_lessons: number; pr_lessons: number }>(
@@ -921,9 +1150,7 @@ async function main(): Promise<void> {
       await writeFile(params.validationPath, JSON.stringify(validation, null, 2));
 
       const epoch = startSchedulerEpoch(checkpointSeedStore, init.run.id, {
-        size: { mode: "fixed", value: 16 },
         workerPoolSize: 16,
-        candidateWindow: 16,
       });
       admitEpochTargets(checkpointSeedStore, {
         epochId: epoch.id,
@@ -939,7 +1166,6 @@ async function main(): Promise<void> {
             reason: `synthetic ${params.key} checkpoint target`,
           },
         ],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
       const workerArtifactDir = join(checkpointFixtureDir, params.key);
@@ -1150,24 +1376,22 @@ async function main(): Promise<void> {
 
   const pausedStore = openState(stateDir);
   try {
-    const pausedRun = updateRunStatus(pausedStore, init.run.id, "paused", "smoke");
+    const pausedRun = updateRunStatus(pausedStore, init.run.id, "paused", "test");
     assertSmoke("run pause sets non-schedulable paused status", pausedRun.status === "paused");
-    const resumedRun = updateRunStatus(pausedStore, init.run.id, "active", "smoke");
+    const resumedRun = updateRunStatus(pausedStore, init.run.id, "active", "test");
     assertSmoke("run resume restores active status", resumedRun.status === "active");
   } finally {
     pausedStore.db.close();
   }
 
   const recoveryStateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-recover-smoke-"));
-  const recoveryFlags = ["--repo-root", fixtureRoot, "--state-dir", recoveryStateDir, "--dry-run-agents"];
+  const recoveryFlags = ["--game", "melee", "--repo-root", fixtureRoot, "--state-dir", recoveryStateDir, "--dry-run-agents"];
   const recoveryInit = parseJson<{ run: { id: string } }>(
     await runCli([
       ...recoveryFlags,
       "init-run",
       "--desired-workers",
       "1",
-      "--candidate-limit",
-      "8",
       "--goal-kind",
       "matched_code_percent",
       "--goal-value",
@@ -1179,9 +1403,7 @@ async function main(): Promise<void> {
   let recoveryWorkerStateId = "";
   try {
     const recoveryEpoch = startSchedulerEpoch(recoveryStore, recoveryInit.run.id, {
-      size: { mode: "fixed", value: 1 },
       workerPoolSize: 1,
-      candidateWindow: 4,
     });
     admitEpochTargets(recoveryStore, {
       epochId: recoveryEpoch.id,
@@ -1197,7 +1419,6 @@ async function main(): Promise<void> {
           reason: "synthetic recovery claim",
         },
       ],
-      size: { mode: "fixed", value: 1 },
       workerPoolSize: 1,
     });
     const claimed = claimNextEpochTarget({
@@ -1230,9 +1451,7 @@ async function main(): Promise<void> {
     assertSmoke("recover-claims leaves no active claims", count(recoveredStore, "SELECT COUNT(*) AS count FROM target_claims WHERE status = 'active'") === 0);
 
     const nextRecoveryEpoch = startSchedulerEpoch(recoveredStore, recoveryInit.run.id, {
-      size: { mode: "fixed", value: 1 },
       workerPoolSize: 1,
-      candidateWindow: 4,
     });
     admitEpochTargets(recoveredStore, {
       epochId: nextRecoveryEpoch.id,
@@ -1248,7 +1467,6 @@ async function main(): Promise<void> {
           reason: "synthetic same-path recovery claim",
         },
       ],
-      size: { mode: "fixed", value: 1 },
       workerPoolSize: 1,
     });
     const released = claimNextEpochTarget({
@@ -1263,63 +1481,68 @@ async function main(): Promise<void> {
   }
 
   const triggerStateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-trigger-smoke-"));
-  const triggerFlags = ["--repo-root", fixtureRoot, "--state-dir", triggerStateDir, "--dry-run-agents"];
+  const triggerFlags = [
+    "--game",
+    "melee",
+    "--repo-root",
+    fixtureRoot,
+    "--state-dir",
+    triggerStateDir,
+    "--dry-run-agents",
+    "--agent-timeout-seconds",
+    String(TEST_WORKER_TIMEOUT_SECONDS),
+  ];
   const triggerInit = parseJson<{ run: { id: string } }>(
     await runCli([
       ...triggerFlags,
       "init-run",
       "--desired-workers",
       "1",
-      "--candidate-limit",
-      "8",
       "--goal-kind",
       "matched_code_percent",
       "--goal-value",
       "72",
     ]),
   );
-  const triggerRun = parseJson<{
-    mode: string;
-    stoppedReason: string;
-    schedulerTicks: number;
-    workersStarted: number;
-    workerResults: unknown[];
-    workerErrors: unknown[];
-    finalStatus: { activeWorkers: number; admittedTargets: number; unhandledEvents: number };
-  }>(
-    await (async () => {
-      const store = openState(triggerStateDir);
-      try {
-        const active = activateRun({ reason: "smoke run-loop", runId: triggerInit.run.id, store });
-        return await runCli([
-          ...triggerFlags,
-          "run-loop",
-          "--lease-id",
-          active.leaseId,
-          "--run-id",
-          triggerInit.run.id,
-          "--max-workers",
-          "1",
-          "--max-iterations",
-          "16",
-          "--max-idle-iterations",
-          "1",
-          "--idle-sleep-ms",
-          "1",
-          "--candidate-limit",
-          "8",
-          "--graph-db",
-          graphDb,
-        ]);
-      } finally {
-        store.db.close();
-      }
-    })(),
-  );
+  const triggerRun = await (async () => {
+    const store = openState(triggerStateDir);
+    let leaseId = "";
+    try {
+      leaseId = activateRun({ reason: "smoke run-loop", runId: triggerInit.run.id, store }).leaseId;
+    } finally {
+      store.db.close();
+    }
+    const parsed = parse([
+      ...triggerFlags,
+      "run-loop",
+      "--lease-id",
+      leaseId,
+      "--run-id",
+      triggerInit.run.id,
+      "--max-workers",
+      "1",
+      "--max-iterations",
+      "16",
+      "--max-idle-iterations",
+      "20",
+      "--idle-sleep-ms",
+      "100",
+      "--graph-db",
+      graphDb,
+    ]);
+    if (parsed.globals.game) {
+      parsed.globals.game.sandbox.snapshot_baked_rev = resolveBaseRev(parsed.globals.repoRoot, "HEAD");
+    }
+    return runLoopWithFakeWorkerTasks({
+      args: parsed.args,
+      globals: parsed.globals,
+      sandboxProvider: new FakeSandboxProvider(),
+    });
+  })();
   const triggerStore = openState(triggerStateDir);
   try {
     assertSmoke("run-loop reports run_loop mode", triggerRun.mode === "run_loop");
-    assertSmoke("run-loop rests after bounded idle", triggerRun.stoppedReason === "idle");
+    assertSmoke("run-loop stops at the bounded iteration limit", triggerRun.stoppedReason === "max_iterations");
     assertSmoke("run-loop handles wake events deterministically", triggerRun.schedulerTicks >= 3);
     assertSmoke("run-loop starts bounded workers for fixture target", triggerRun.workersStarted > 0 && triggerRun.workersStarted <= 16);
     assertSmoke("run-loop captures every worker result", triggerRun.workerResults.length === triggerRun.workersStarted);
@@ -1329,7 +1552,7 @@ async function main(): Promise<void> {
     assertSmoke("run-loop does not record director cycles", count(triggerStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", triggerInit.run.id) === 0);
     assertSmoke("run-loop records one worker state per started worker", count(triggerStore, "SELECT COUNT(*) AS count FROM worker_state WHERE run_id = ?", triggerInit.run.id) === triggerRun.workersStarted);
     assertSmoke("run-loop handled all wake events", count(triggerStore, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", triggerInit.run.id) === 0);
-    assertSmoke("run-loop settles its dispatch lease on exit", count(triggerStore, "SELECT COUNT(*) AS count FROM dispatch_leases WHERE status = 'active'") === 0);
+    assertSmoke("run-loop settles its dispatch lease on exit", getHarnessState(triggerStore, "melee")?.active_workflow == null);
   } finally {
     triggerStore.db.close();
   }
@@ -1352,7 +1575,7 @@ async function main(): Promise<void> {
   assertSmoke("worker system prompt is compact", workerSystemPrompt.length < 12000);
   assertSmoke(
     "worker system prompt keeps process-oriented workflow phases",
-    workerSystemPrompt.includes("<workflow>") &&
+    workerSystemPrompt.includes("<workflow_context>") &&
       workerSystemPrompt.includes('<phase id="1" name="holistic_file_understanding">') &&
       workerSystemPrompt.includes('<phase id="3" name="hypothesis_generation">'),
   );
@@ -1363,7 +1586,7 @@ async function main(): Promise<void> {
   assertSmoke("worker system prompt leaves follow-up decisions to runner", workerSystemPrompt.includes("the runner owns the follow-up decision"));
   assertSmoke(
     "worker user prompt includes complete target and baseline JSON instead of current state JSON",
-    workerUserPrompt.includes("<target>") &&
+    workerUserPrompt.includes("<target ") &&
       workerUserPrompt.includes("<baseline") &&
       workerUserPrompt.includes("<details_json>") &&
       workerUserPrompt.includes('"source_path": "src/melee/ft/chara/ftDemo.c"') &&
@@ -1386,7 +1609,7 @@ async function main(): Promise<void> {
   assertSmoke("worker system prompt describes attempt evaluation", workerSystemPrompt.includes("Evaluate attempts"));
   assertSmoke(
     "worker user prompt includes compact target file XML",
-    workerUserPrompt.includes("<target>") &&
+    workerUserPrompt.includes("<target ") &&
       workerUserPrompt.includes("<target_file") &&
       workerUserPrompt.includes('path="src/melee/ft/chara/ftDemo.c"') &&
       workerUserPrompt.includes("baseline_match_percent") &&
@@ -1395,20 +1618,20 @@ async function main(): Promise<void> {
   assertSmoke(
     "worker user prompt includes available tools XML",
     workerUserPrompt.includes("<available_tools>") &&
-      workerUserPrompt.includes('<tool_group provider="code_graph" type="target_context">') &&
-      workerUserPrompt.includes('name="code_graph_file_card"') &&
+      workerUserPrompt.includes('<tool name="code_graph_file_card"') &&
+      workerUserPrompt.includes('provider="code_graph" type="target_context"') &&
       workerUserPrompt.includes('use_when="Get the file card for a specific source file."'),
   );
   assertSmoke(
     "worker user prompt injects compact target graph file card",
-    workerUserPrompt.includes("<target_graph_file_card>") &&
+    workerUserPrompt.includes("<target_graph_file_card ") &&
       workerUserPrompt.includes('"source": "code_graph_file_card"') &&
       workerUserPrompt.includes('"editability"') &&
       workerUserPrompt.includes('"search_leads"') &&
       workerUserPrompt.includes('"symbols"') &&
       workerUserPrompt.includes('"target_symbol"') &&
       workerUserPrompt.includes('"past_prs"') &&
-      workerUserPrompt.includes('"path_facts"') &&
+      !workerUserPrompt.includes('"path_facts"') &&
       workerUserPrompt.includes('"follow_up_queries"') &&
       !workerUserPrompt.includes("path_facts_resolve") &&
       !workerUserPrompt.includes('"scheduling_signals"') &&
@@ -1484,13 +1707,12 @@ async function main(): Promise<void> {
     kernelWorkerPrompt.includes("=== SYSTEM PROMPT ===") &&
       !kernelWorkerPrompt.includes("=== INITIAL USER PROMPT ===") &&
       !kernelWorkerPrompt.includes("for this claimed target") &&
-      kernelWorkerContext.includes("<target>") &&
+      kernelWorkerContext.includes("<target ") &&
       kernelWorkerContext.includes("<baseline") &&
       kernelWorkerContext.includes("<target_graph_file_card") &&
       kernelWorkerContext.includes("<details_json>") &&
       kernelWorkerContext.includes('"source": "code_graph_file_card"') &&
       kernelWorkerContext.includes('"source_path": "src/melee/ft/chara/ftDemo.c"') &&
-      kernelWorkerContext.includes('"editability"') &&
       kernelWorkerContext.includes('"search_leads"') &&
       kernelWorkerContext.includes('"symbols"') &&
       kernelWorkerContext.includes('"target_symbol"') &&
@@ -1521,7 +1743,7 @@ async function main(): Promise<void> {
     "external_symbol_lookup",
     "path_facts_resolve",
   ];
-  assertSmoke("worker dry-run uses gpt-5.5", workerOutput.includes("model: gpt-5.5"));
+  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));

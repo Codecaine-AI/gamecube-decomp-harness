@@ -3,7 +3,7 @@ import { DEFAULT_WORKER_TIMEOUT_SECONDS } from "@/lib/workerConfig";
 
 const RUN_SETTINGS_KEY = "runSettings.v1";
 const THINKING_LEVEL_SETTINGS_VERSION = 2;
-// Bump to invalidate saved maxWorkers/epochSize/model when their defaults change.
+// Bump to invalidate saved maxWorkers/model when their defaults change.
 const RUN_SETTINGS_VERSION = 3;
 const DEFAULT_THINKING_LEVEL = "xhigh";
 
@@ -20,9 +20,6 @@ type SavedRunSettings = Pick<
   | "provider"
   | "model"
   | "thinkingLevel"
-  | "epochSize"
-  | "candidateWindow"
-  | "candidateRerank"
   | "integrationResolverConcurrency"
   | "agentTimeoutSeconds"
 > & {
@@ -37,7 +34,7 @@ function loadRunSettings(): Partial<SavedRunSettings> {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const settings: Partial<SavedRunSettings> = {};
     // Saved values written before the current settings version predate the
-    // full-epoch/12-worker/gpt-5.6-sol defaults; drop them so the new
+    // 12-worker/gpt-5.6-sol defaults; drop them so the new
     // defaults win until the user saves again.
     const currentVersion = parsed.settingsVersion === RUN_SETTINGS_VERSION;
     if (currentVersion && typeof parsed.maxWorkers === "number" && parsed.maxWorkers > 0) settings.maxWorkers = Math.trunc(parsed.maxWorkers);
@@ -49,9 +46,6 @@ function loadRunSettings(): Partial<SavedRunSettings> {
           ? DEFAULT_THINKING_LEVEL
           : parsed.thinkingLevel;
     }
-    if (currentVersion && typeof parsed.epochSize === "string" && parsed.epochSize) settings.epochSize = parsed.epochSize;
-    if (typeof parsed.candidateWindow === "string" && parsed.candidateWindow) settings.candidateWindow = parsed.candidateWindow;
-    if (typeof parsed.candidateRerank === "string" && parsed.candidateRerank) settings.candidateRerank = parsed.candidateRerank;
     if (typeof parsed.integrationResolverConcurrency === "number" && parsed.integrationResolverConcurrency > 0) {
       settings.integrationResolverConcurrency = Math.trunc(parsed.integrationResolverConcurrency);
     }
@@ -71,9 +65,6 @@ export function saveRunSettings(form: FormState) {
       thinkingLevel: form.thinkingLevel,
       thinkingLevelVersion: THINKING_LEVEL_SETTINGS_VERSION,
       settingsVersion: RUN_SETTINGS_VERSION,
-      epochSize: form.epochSize,
-      candidateWindow: form.candidateWindow,
-      candidateRerank: form.candidateRerank,
       integrationResolverConcurrency: form.integrationResolverConcurrency,
       agentTimeoutSeconds: form.agentTimeoutSeconds,
     };
@@ -101,9 +92,6 @@ const defaultForm: FormState = {
   graphDbPath: "",
   processName: "melee-live",
   ...schedulingForWorkers(12),
-  epochSize: "full",
-  candidateWindow: "128",
-  candidateRerank: "opseq_hot_lane",
   integrationResolverConcurrency: 4,
   goalValue: 100,
   provider: "codex-lb",

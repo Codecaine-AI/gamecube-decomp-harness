@@ -735,9 +735,7 @@ describe("dashboard read model", () => {
       const active = updateRunStatus(store, ready.id, "active", "operator");
       setRunSchedulerCondition(store, active.id, "dispatching");
       const epoch = startSchedulerEpoch(store, active.id, {
-        size: { mode: "fixed", value: 3 },
         workerPoolSize: 3,
-        candidateWindow: 3,
       });
       admitEpochTargets(store, {
         epochId: epoch.id,
@@ -747,7 +745,6 @@ describe("dashboard read model", () => {
           { unit: "unit-b", symbol: "fn_b", sourcePath: "src/b.c", size: 64, fuzzy: 81, priority: 2, reason: "test" },
           { unit: "unit-c", symbol: "fn_c", sourcePath: "src/c.c", size: 64, fuzzy: 82, priority: 1, reason: "test" },
         ],
-        size: { mode: "fixed", value: 3 },
         workerPoolSize: 3,
       });
       const claim = claimNextEpochTarget({
@@ -1343,28 +1340,22 @@ describe("dashboard read model", () => {
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const oldEpoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       });
       admitEpochTargets(store, {
         epochId: oldEpoch.id,
         runId: run.id,
         candidates: [{ unit: "unit", symbol: "old_fn", sourcePath: "src/old.c", size: 64, fuzzy: 91, priority: 2, reason: "test" }],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
       closeSchedulerEpoch(store, oldEpoch.id, { status: "completed" });
       const activeEpoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       });
       admitEpochTargets(store, {
         epochId: activeEpoch.id,
         runId: run.id,
         candidates: [{ unit: "unit", symbol: "active_fn", sourcePath: "src/active.c", size: 64, fuzzy: 90, priority: 1, reason: "test" }],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
     } finally {
@@ -1397,9 +1388,7 @@ describe("dashboard read model", () => {
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const epoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 6 },
         workerPoolSize: 1,
-        candidateWindow: 6,
       });
       admitEpochTargets(store, {
         epochId: epoch.id,
@@ -1412,7 +1401,6 @@ describe("dashboard read model", () => {
           { unit: "unit", symbol: "tool_fn", sourcePath: "src/tool.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
           { unit: "unit", symbol: "banked_fn", sourcePath: "src/banked.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
         ],
-        size: { mode: "fixed", value: 6 },
         workerPoolSize: 1,
       });
 
@@ -1513,15 +1501,12 @@ describe("dashboard read model", () => {
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       runId = run.id;
       const epoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       });
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
         candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
 

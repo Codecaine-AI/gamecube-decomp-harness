@@ -188,7 +188,7 @@ const allEpochs = db
   .query(
     `
       SELECT id, run_id, ordinal, status, admitted_count, finished_count,
-             worker_pool_size, candidate_window, created_at, closed_at
+             worker_pool_size, created_at, closed_at
       FROM epochs
       WHERE run_id = ?
       ORDER BY ordinal
@@ -203,7 +203,6 @@ const allEpochs = db
     admittedCount: Number(row.admitted_count ?? 0),
     finishedCount: Number(row.finished_count ?? 0),
     workerPoolSize: Number(row.worker_pool_size ?? 0),
-    candidateWindow: Number(row.candidate_window ?? 0),
     createdAt: String(row.created_at),
     closedAt: row.closed_at == null ? null : String(row.closed_at),
   }));

@@ -1,13 +1,9 @@
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
-import { modelAdmissionCap, refreshBoardRerankMode } from "@server/core/cycle-runtime/phases/running/board";
-import { loadExactTargetKeys, normalizeCandidateRerankMode } from "@server/core/cycle-runtime/phases/running/board/snapshot.js";
-import type { CandidateRerankMode } from "@server/core/shared/types/board.js";
+import { loadExactTargetKeys } from "@server/core/cycle-runtime/phases/running/board/snapshot.js";
 import {
   activeWorkerCount,
   activeSchedulerEpoch,
-  admitExistingEpochTargets,
   admitEpochTargets,
-  parseEpochSize,
   refreshEpochTargetPriorities,
   refreshEpochTargetAvailability,
   schedulerEpochProgress,
@@ -20,10 +16,8 @@ import {
   openState,
   targetPressureSnapshot,
   type EpochAdmissionResult,
-  type ExistingEpochAdmissionResult,
   type EpochProgressSummary,
   type EpochAvailabilityRefreshResult,
-  type EpochSizeSpec,
   type SchedulerEpochConfig,
   type SchedulerEpochRecord,
   type StateStore,
@@ -40,17 +34,12 @@ export interface SchedulerTickResult {
   eventCreatedAt?: string;
   schedulerTargetUpdates?: number;
   schedulerEpoch?: EpochProgressSummary;
-  existingEpochAdmission?: ExistingEpochAdmissionResult;
   epochAdmission?: EpochAdmissionResult;
   epochAvailabilityRefresh?: EpochAvailabilityRefreshResult;
   epochPriorityRefreshes?: number;
   targetPressure?: {
     activeWorkers: number;
     admittedTargets: number;
-    admissionTargetSize: number;
-    candidateLimit: number;
-    candidateRerank: CandidateRerankMode;
-    candidateWindow: number;
     schedulableTargets: number;
     unhandledEvents: number;
   };
@@ -60,13 +49,10 @@ export interface SchedulerTickResult {
 export interface SchedulerEpochEnsureResult {
   epoch: SchedulerEpochRecord;
   admission?: EpochAdmissionResult;
-  existingAdmission?: ExistingEpochAdmissionResult;
   availabilityRefresh: EpochAvailabilityRefreshResult;
   priorityRefreshes: number;
   progress: EpochProgressSummary;
-  candidateWindow: number;
   boardExhausted: boolean;
-  admissionCap: { mode: CandidateRerankMode; candidateCount: number; cap: number } | null;
 }
 
 function nonNegativeInt(value: number): number {
@@ -74,86 +60,13 @@ function nonNegativeInt(value: number): number {
   return Math.max(0, Math.floor(value));
 }
 
-function rawEpochSize(globals: GlobalArgs, args: Map<string, string | true>, fallback: string | number): string | number {
-  const explicit = args.get("--epoch-size");
-  if (typeof explicit === "string") return explicit;
-  return globals.game?.dashboard.epochSize ?? fallback;
-}
-
-function positiveInt(value: unknown, fallback: number): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return Math.max(1, Math.floor(fallback));
-  return Math.max(1, Math.floor(parsed));
-}
-
-export function derivedSchedulerCandidateWindow(globals: GlobalArgs, args: Map<string, string | true>, workerPoolSize: number): number {
-  const explicit = args.get("--candidate-window");
-  if (typeof explicit === "string") return Math.max(workerPoolSize, positiveInt(explicit, workerPoolSize));
-  const gameDefault = globals.game?.dashboard.candidateWindow;
-  if (gameDefault !== undefined) return Math.max(workerPoolSize, positiveInt(gameDefault, workerPoolSize));
-  const size = parseEpochSize(rawEpochSize(globals, args, "64"));
-  if (size.mode === "fixed") return Math.max(workerPoolSize, size.value ?? workerPoolSize);
-  return Math.max(workerPoolSize, 64);
-}
-
-export function schedulerCandidateRerankFromArgs(globals: GlobalArgs, args: Map<string, string | true>): CandidateRerankMode {
-  const explicit = args.get("--candidate-rerank");
-  return normalizeCandidateRerankMode(typeof explicit === "string" ? explicit : globals.game?.dashboard.candidateRerank);
-}
-
 export function schedulerEpochConfigFromArgs(
-  globals: GlobalArgs,
-  args: Map<string, string | true>,
-  params: { candidateWindow: number; workerPoolSize: number },
+  _globals: GlobalArgs,
+  _args: Map<string, string | true>,
+  params: { workerPoolSize: number },
 ): SchedulerEpochConfig {
   const workerPoolSize = Math.max(1, nonNegativeInt(params.workerPoolSize));
-  const size = parseEpochSize(rawEpochSize(globals, args, "64"));
-  return {
-    size,
-    workerPoolSize,
-    candidateWindow: Math.max(1, params.candidateWindow),
-    candidateRerank: schedulerCandidateRerankFromArgs(globals, args),
-  };
-}
-
-function remainingFixedAdmission(size: EpochSizeSpec, progress: EpochProgressSummary): number {
-  if (size.mode === "full") return Number.POSITIVE_INFINITY;
-  return Math.max(0, (size.value ?? 0) - progress.admitted);
-}
-
-function combineEpochAdmissions(previous: EpochAdmissionResult | undefined, next: EpochAdmissionResult): EpochAdmissionResult {
-  if (!previous) return next;
-  return {
-    ...next,
-    admitted: previous.admitted + next.admitted,
-    candidateCount: previous.candidateCount + next.candidateCount,
-    skippedExisting: previous.skippedExisting + next.skippedExisting,
-    skippedMissingSource: previous.skippedMissingSource + next.skippedMissingSource,
-  };
-}
-
-function previousEpochTargetKeyCount(store: StateStore, runId: string, epochId: string): number {
-  const row = store.db
-    .query(
-      `
-        SELECT COUNT(DISTINCT epoch_targets.target_key) AS count
-        FROM epoch_targets
-        JOIN epochs ON epochs.id = epoch_targets.epoch_id
-        WHERE epoch_targets.run_id = ?
-          AND epochs.ordinal = (
-            SELECT MAX(previous.ordinal)
-            FROM epochs AS previous
-            JOIN epochs AS current
-              ON current.run_id = previous.run_id
-            WHERE current.id = ?
-              AND previous.ordinal < current.ordinal
-          )
-      `,
-    )
-    .get(runId, epochId) as
-    | Record<string, unknown>
-    | undefined;
-  return nonNegativeInt(Number(row?.count ?? 0));
+  return { workerPoolSize };
 }
 
 export function ensureSchedulerEpochFromBoard(params: {
@@ -164,68 +77,33 @@ export function ensureSchedulerEpochFromBoard(params: {
   store: StateStore;
 }): SchedulerEpochEnsureResult {
   let epoch = activeSchedulerEpoch(params.store, params.runId) ?? startSchedulerEpoch(params.store, params.runId, params.config);
-  let candidateWindow = Math.max(1, params.config.candidateWindow);
   let progress = schedulerEpochProgress(params.store, epoch.id);
   let admission: EpochAdmissionResult | undefined;
-  let existingAdmission: ExistingEpochAdmissionResult | undefined;
-  let boardExhausted = false;
-  let admissionCap: { mode: CandidateRerankMode; candidateCount: number; cap: number } | null = null;
-
-  const remaining = progress.admitted === 0 ? remainingFixedAdmission(params.config.size, progress) : 0;
-  if (remaining > 0) {
-    const admissionWindow = params.config.size.mode === "full" ? candidateWindow : Math.max(candidateWindow, remaining);
-    const admissionCandidateWindow =
-      params.config.size.mode === "full" ? admissionWindow : admissionWindow + previousEpochTargetKeyCount(params.store, params.runId, epoch.id);
-    const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, admissionCandidateWindow, {
-      candidateRerank: params.config.candidateRerank,
-      graphDbPath: params.graphDbPath,
-      predictorDbPath: params.store.path,
-      predictorRunId: params.runId,
+  const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
+    graphDbPath: params.graphDbPath,
+  });
+  const boardExhausted = board.candidates.length === 0;
+  if (progress.admitted === 0) {
+    admission = admitEpochTargets(params.store, {
+      epochId: epoch.id,
+      runId: params.runId,
+      candidates: board.candidates,
+      workerPoolSize: params.config.workerPoolSize,
     });
-    if (params.config.size.mode === "full" && board.modelScoring) {
-      if (board.modelScoring.applied) {
-        const cap = modelAdmissionCap(params.config.candidateRerank, board.candidates.length);
-        if (cap != null) {
-          admissionCap = { mode: params.config.candidateRerank!, candidateCount: board.candidates.length, cap };
-          console.error(`[scheduler] epoch admission capped ${board.candidates.length} -> ${cap} (${params.config.candidateRerank})`);
-        }
-      } else {
-        console.error(
-          `[scheduler] model rerank unavailable (${board.modelScoring.warning ?? "scorer failed"}); falling back to priority order without cap`,
-        );
-      }
-    }
-    const passSize: EpochSizeSpec = params.config.size.mode === "full" ? params.config.size : { mode: "fixed", value: remaining };
-    admission = combineEpochAdmissions(
-      admission,
-      admitEpochTargets(params.store, {
-        epochId: epoch.id,
-        runId: params.runId,
-        candidates: board.candidates,
-        size: passSize,
-        workerPoolSize: params.config.workerPoolSize,
-        admissionCap: admissionCap?.cap ?? null,
-      }),
-    );
-    boardExhausted = board.candidates.length < admissionCandidateWindow;
     progress = schedulerEpochProgress(params.store, epoch.id);
   }
 
-  const refreshBoard = loadKnowledgeBoardSnapshot(params.globals.repoRoot, candidateWindow, {
-    candidateRerank: refreshBoardRerankMode(params.config.candidateRerank),
-    graphDbPath: params.graphDbPath,
-  });
   const priorityRefreshes = refreshEpochTargetPriorities(params.store, {
     epochId: epoch.id,
     runId: params.runId,
-    candidates: refreshBoard.candidates,
+    candidates: board.candidates,
   }).refreshed;
   const availabilityRefresh = refreshEpochTargetAvailability(params.store, epoch.id, {
     exactTargetKeys: loadExactTargetKeys(params.globals.repoRoot),
   });
   epoch = activeSchedulerEpoch(params.store, params.runId) ?? epoch;
   progress = schedulerEpochProgress(params.store, epoch.id);
-  return { epoch, admission, existingAdmission, availabilityRefresh, priorityRefreshes, progress, candidateWindow, boardExhausted, admissionCap };
+  return { epoch, admission, availabilityRefresh, priorityRefreshes, progress, boardExhausted };
 }
 
 export async function runSchedulerTick(
@@ -259,14 +137,11 @@ export async function runSchedulerTick(
     }
 
     const workerPoolSize = Math.max(1, nonNegativeInt(run.desiredWorkers));
-    const candidateLimit = workerPoolSize;
-    const admissionTargetSize = workerPoolSize;
-    const requestedCandidateWindow = derivedSchedulerCandidateWindow(globals, args, workerPoolSize);
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     let epochResult: SchedulerEpochEnsureResult | null = null;
     if (!booleanArg(args, "--no-start-epoch") || activeSchedulerEpoch(store, runId)) {
       epochResult = ensureSchedulerEpochFromBoard({
-        config: schedulerEpochConfigFromArgs(globals, args, { candidateWindow: requestedCandidateWindow, workerPoolSize }),
+        config: schedulerEpochConfigFromArgs(globals, args, { workerPoolSize }),
         globals,
         graphDbPath,
         runId,
@@ -282,19 +157,14 @@ export async function runSchedulerTick(
       eventType,
       eventProducer: String(event.producer ?? ""),
       eventCreatedAt: String(event.createdAt ?? event.created_at ?? ""),
-      schedulerTargetUpdates: (epochResult?.admission?.admitted ?? 0) + (epochResult?.availabilityRefresh.inserted ?? 0) + (epochResult?.priorityRefreshes ?? 0),
+      schedulerTargetUpdates: (epochResult?.admission?.admitted ?? 0) + (epochResult?.priorityRefreshes ?? 0),
       schedulerEpoch: epochResult?.progress,
-      existingEpochAdmission: epochResult?.existingAdmission,
       epochAdmission: epochResult?.admission,
       epochAvailabilityRefresh: epochResult?.availabilityRefresh,
       epochPriorityRefreshes: epochResult?.priorityRefreshes,
       targetPressure: {
         activeWorkers: activeWorkerCount(store, runId),
         admittedTargets: targetPressure.admittedTargets,
-        admissionTargetSize,
-        candidateLimit,
-        candidateRerank: schedulerCandidateRerankFromArgs(globals, args),
-        candidateWindow: epochResult?.candidateWindow ?? requestedCandidateWindow,
         schedulableTargets: targetPressure.schedulableTargets,
         unhandledEvents: targetPressure.unhandledEvents,
       },

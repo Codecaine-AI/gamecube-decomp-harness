@@ -32,9 +32,7 @@ function fixture(): { store: StateStore; claimed: ClaimedTarget; token: ClaimTok
   const store = openState(dir);
   const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
-    candidateWindow: 1,
   });
   const candidate: TargetCandidate = {
     unit: "unit_1",
@@ -49,7 +47,6 @@ function fixture(): { store: StateStore; claimed: ClaimedTarget; token: ClaimTok
     epochId: epoch.id,
     runId: run.id,
     candidates: [candidate],
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
   });
   const jobClaim = claimNextJob(store, { kind: "worker", concurrencyLimit: 1, leaseMs: 60_000 });

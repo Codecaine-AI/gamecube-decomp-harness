@@ -28,17 +28,13 @@ export function admitPriorityTargets(store: StateStore, runId: string, candidate
   const epoch =
     activeSchedulerEpoch(store, runId) ??
     startSchedulerEpoch(store, runId, {
-      size: { mode: "fixed", value: Math.max(1, eligible.length) },
       workerPoolSize: Math.max(1, eligible.length),
-      candidateWindow: Math.max(1, eligible.length),
     });
   const result = admitEpochTargets(store, {
     epochId: epoch.id,
     runId,
     candidates: eligible,
-    size: { mode: "fixed", value: eligible.length },
     workerPoolSize: eligible.length,
-    allowPreviouslyFinished: true,
   });
   return result.admitted;
 }

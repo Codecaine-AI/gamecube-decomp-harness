@@ -106,9 +106,7 @@ def load_rows(db_path: Path, epochs: list[int], include_active: bool) -> list[di
               e.id AS epoch_id,
               e.ordinal AS epoch_ordinal,
               e.status AS epoch_status,
-              e.size_value AS epoch_size,
               e.worker_pool_size,
-              e.candidate_window,
               e.created_at AS epoch_created_at,
               e.closed_at AS epoch_closed_at,
               et.id AS epoch_target_id,
@@ -183,8 +181,6 @@ def summarize_epochs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "epoch": int(ordinal),
                 "status": group[0]["epoch_status"],
-                "epoch_size": int(group[0].get("epoch_size") or 0),
-                "candidate_window": int(group[0].get("candidate_window") or 0),
                 "worker_pool_size": int(group[0].get("worker_pool_size") or 0),
                 "targets": len(group),
                 "workers": len(workers),
@@ -378,9 +374,8 @@ def recommendation(stats: dict[str, Any]) -> list[str]:
         f"{size_64.get('avg_exact_per_segment', 'n/a')} exacts and {size_64.get('avg_improved_per_segment', 'n/a')} improvements per slice.",
         "Use 32 only as an experiment when rebuild/checkpoint time is cheap. The observed 32-target slices averaged "
         f"{size_32.get('avg_exact_per_segment', 'n/a')} exacts, but that gives only about 1.6 waves for a 20-worker pool.",
-        "Avoid production 4/8/16 epochs until candidate-window decoupling is in place. The 16-target slices averaged "
+        "Avoid production 4/8/16 epochs. The 16-target slices averaged "
         f"{size_16.get('avg_exact_per_segment', 'n/a')} exacts and would underfill a 20-worker pool.",
-        "Keep the candidate window at least 128, preferably 256 for experiments, even when epoch size is 32 or 64. Otherwise small epochs only see the very front of the board.",
         "Do not treat raw priority as enough. Exact wins appeared across admission order and priority rank, and repeated source hot streaks show that strict one-per-source round-robin can push winners later in the epoch.",
     ]
 
@@ -426,8 +421,6 @@ def write_dataset(path: Path, rows: list[dict[str, Any]]) -> None:
     columns = [
         "epoch_ordinal",
         "epoch_status",
-        "epoch_size",
-        "candidate_window",
         "admission_index",
         "priority_rank",
         "claim_start_rank",
@@ -469,8 +462,6 @@ def render_markdown(stats: dict[str, Any]) -> str:
             [
                 "epoch",
                 "status",
-                "epoch_size",
-                "candidate_window",
                 "targets",
                 "workers",
                 "exact",

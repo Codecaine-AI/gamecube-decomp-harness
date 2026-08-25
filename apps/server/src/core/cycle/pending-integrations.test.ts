@@ -77,9 +77,7 @@ function fixture(): {
     now: "2026-08-12T12:00:00.000Z",
   });
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
-    candidateWindow: 1,
   });
   return { store, repoRoot, branch, parentSha, runId: run.id, epochId: epoch.id };
 }

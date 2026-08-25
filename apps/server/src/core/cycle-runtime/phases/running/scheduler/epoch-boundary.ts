@@ -332,12 +332,8 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       store,
     });
     console.error(
-      `[run-loop] epoch ${nextEpoch.progress.ordinal}: admitted ${nextEpoch.progress.admitted}/${nextEpoch.progress.size.mode === "full" ? "full" : nextEpoch.progress.size.value} ` +
-        `targets from candidate window ${config.schedulerEpochConfig.candidateWindow} (${config.schedulerEpochConfig.candidateRerank ?? "priority"}), ` +
-        `${nextEpoch.progress.available} available, ${nextEpoch.priorityRefreshes} refreshed` +
-        (nextEpoch.admissionCap
-          ? `, capped ${nextEpoch.admissionCap.candidateCount} -> ${nextEpoch.admissionCap.cap} (${nextEpoch.admissionCap.mode})`
-          : ""),
+      `[run-loop] epoch ${nextEpoch.progress.ordinal}: admitted ${nextEpoch.progress.admitted} targets, ` +
+        `${nextEpoch.progress.available} available, ${nextEpoch.priorityRefreshes} refreshed`,
     );
     exhausted =
       (nextEpoch.progress.admitted === 0 || nextEpoch.progress.remaining === 0) &&
@@ -352,7 +348,6 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       addEvent(store, runId, "epoch_exhausted", "run-loop", {
         epoch_id: nextEpoch.epoch.id,
         ordinal: nextEpoch.progress.ordinal,
-        size: nextEpoch.progress.size,
         created_by: "run-loop",
       });
     } else {
@@ -361,10 +356,6 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         ordinal: nextEpoch.progress.ordinal,
         admitted: nextEpoch.progress.admitted,
         available: nextEpoch.progress.available,
-        candidate_rerank: config.schedulerEpochConfig.candidateRerank ?? "priority",
-        candidate_window: config.schedulerEpochConfig.candidateWindow,
-        admission_cap: nextEpoch.admissionCap,
-        size: nextEpoch.progress.size,
         created_by: "run-loop",
       });
     }

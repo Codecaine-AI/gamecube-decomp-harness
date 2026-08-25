@@ -1,16 +1,11 @@
 import type { Blocker } from "@server/core/harness-state";
 import type { RunInputs } from "@server/core/shared/types";
-import { epochSizeLabel, parseEpochSize } from "@server/core/cycle-runtime/run-state";
-import { normalizeCandidateRerankMode } from "./board/index.js";
 
 export interface RunningProcessCommandBody {
   agentTimeoutSeconds?: unknown;
-  candidateRerank?: unknown;
-  candidateWindow?: unknown;
   commandId?: unknown;
   confirmed?: unknown;
   dryRunAgents?: unknown;
-  epochSize?: unknown;
   epochConfigureCommand?: unknown;
   goalKind?: unknown;
   goalValue?: unknown;
@@ -33,9 +28,6 @@ export interface RunningProcessCommandBody {
 export interface RunningProcessGameDefaults {
   dashboard?: {
     agentTimeoutSeconds?: unknown;
-    candidateRerank?: unknown;
-    candidateWindow?: unknown;
-    epochSize?: unknown;
     integrationResolverConcurrency?: unknown;
   };
   processName?: unknown;
@@ -78,11 +70,8 @@ export interface RunningProcessConfigurationConflict {
  */
 const POLICY_FIELDS = {
   agentTimeoutSeconds: "agent_timeout_seconds",
-  candidateRerank: "candidate_rerank",
-  candidateWindow: "candidate_window",
   dryRunAgents: "dry_run_agents",
   epochConfigureCommand: "epoch_configure_command",
-  epochSize: "epoch_size",
   goalKind: "goal_kind",
   goalValue: "goal_value",
   integrationResolverConcurrency: "integration_resolver_concurrency",
@@ -137,10 +126,6 @@ function boolValue(value: unknown): boolean {
   return value === true || value === "true";
 }
 
-function candidateWindowValue(value: unknown, fallback: unknown): number {
-  return intValue(value, intValue(fallback, 64, 1), 1);
-}
-
 function processName(value: unknown): string {
   const raw = text(value, "melee-live").trim() || "melee-live";
   return raw.replace(/[^A-Za-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "melee-live";
@@ -162,27 +147,13 @@ function canonicalJson(value: unknown): string {
 function normalizePolicyValue(field: RunningProcessPolicyField, value: unknown): unknown {
   switch (field) {
     case "agentTimeoutSeconds":
-    case "candidateWindow":
     case "integrationResolverConcurrency":
     case "maxWorkers":
       return intValue(value, 0, 1);
     case "goalValue":
       return numberValue(value, 0);
-    case "candidateRerank":
-      return normalizeCandidateRerankMode(value);
     case "dryRunAgents":
       return boolValue(value);
-    case "epochSize": {
-      if (value && typeof value === "object" && !Array.isArray(value)) {
-        const stored = value as Record<string, unknown>;
-        if (stored.mode === "full") return "full";
-        if (stored.mode === "fixed" && (typeof stored.value === "number" || typeof stored.value === "string")) {
-          return epochSizeLabel(parseEpochSize(stored.value));
-        }
-        throw new Error("Run configuration_snapshot has an invalid epoch_size");
-      }
-      return epochSizeLabel(parseEpochSize(typeof value === "number" ? value : text(value)));
-    }
     case "epochConfigureCommand":
     case "workerConfigureCommand":
       return text(value).trim();
@@ -253,9 +224,6 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   const model = text(policySnapshotValue("model", configuration));
   const thinkingLevel = text(policySnapshotValue("thinkingLevel", configuration));
   const maxWorkers = Number(policySnapshotValue("maxWorkers", configuration));
-  const epochSize = noRefillBatch ? "1" : String(policySnapshotValue("epochSize", configuration));
-  const candidateWindow = Number(policySnapshotValue("candidateWindow", configuration));
-  const candidateRerank = String(policySnapshotValue("candidateRerank", configuration));
   const integrationResolverConcurrency = Number(policySnapshotValue("integrationResolverConcurrency", configuration));
   const workerConfigureCommand = String(policySnapshotValue("workerConfigureCommand", configuration));
   const epochConfigureCommand = String(policySnapshotValue("epochConfigureCommand", configuration));
@@ -270,9 +238,6 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
     "run-loop",
     "--max-workers",
     String(maxWorkers),
-    "--epoch-size",
-    epochSize,
-    ...(noRefillBatch ? [] : ["--candidate-window", String(candidateWindow), "--candidate-rerank", candidateRerank]),
     "--integration-resolver-concurrency",
     String(integrationResolverConcurrency),
     "--graph-db",

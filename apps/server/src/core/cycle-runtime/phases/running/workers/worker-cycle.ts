@@ -1346,7 +1346,7 @@ async function executeClaimedWorker(params: {
     let currentEntries = [...claimed.writeSetEntries];
     const wideningIds: string[] = [];
     const game = gameMetadata(globals, { graphDbPath, repoRoot: workerRepoRoot });
-    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, 12, { graphDbPath });
+    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, { graphDbPath });
     const target = targetPacketTarget(claimed.target);
     const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""), graphDbPath);
     const initialBoardPath = resolve(globals.stateDir, "runs", runId, "snapshots", "initial_board.json");

@@ -481,9 +481,7 @@ describe("game cycle timeline", () => {
     });
     if (dispatch.queued) throw new Error("expected a free dispatch lease");
     const epoch = startSchedulerEpoch(store, "run-1", {
-      size: { mode: "fixed", value: 1 },
       workerPoolSize: 1,
-      candidateWindow: 1,
     });
     closeSchedulerEpochWithEvidence(store, epoch.id, {
       status: "completed",

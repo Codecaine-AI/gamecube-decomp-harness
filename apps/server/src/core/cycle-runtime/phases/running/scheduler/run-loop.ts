@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
 import { heartbeatDispatch } from "@server/core/harness-state";
 import { getActiveCycle } from "@server/core/cycle";
-import { refreshBoardRerankMode } from "@server/core/cycle-runtime/phases/running/board";
 import { loadExactTargetKeys } from "@server/core/cycle-runtime/phases/running/board/snapshot.js";
 import {
   activeClaimsForRun,
@@ -46,7 +45,6 @@ import {
 import { assertSchedulableRun } from "@server/core/cycle-runtime/phases/running/jobs/shared.js";
 import { settleRunOnExit } from "@server/core/cycle-runtime/phases/running/jobs/settle-supervised-run.js";
 import {
-  derivedSchedulerCandidateWindow,
   ensureSchedulerEpochFromBoard,
   runSchedulerTick,
   schedulerEpochConfigFromArgs,
@@ -103,9 +101,6 @@ interface IntegrationResolverError {
 interface TargetPressureSnapshot {
   admittedTargets: number;
   activeWorkers: number;
-  admissionTargetSize: number;
-  candidateLimit: number;
-  candidateWindow: number;
   maxWorkers: number;
   openSlots: number;
   runningWorkers: number;
@@ -261,9 +256,6 @@ export function sandboxSleepConfigFromArgs(args: Map<string, string | true>): {
 }
 
 function targetPressureSnapshotForRunLoop(params: {
-  admissionTargetSize: number;
-  candidateLimit: number;
-  candidateWindow: number;
   maxWorkers: number;
   inFlightWorkers: number;
   runId: string;
@@ -274,9 +266,6 @@ function targetPressureSnapshotForRunLoop(params: {
   return {
     admittedTargets: admittedTargetCount(params.store, params.runId),
     activeWorkers,
-    admissionTargetSize: params.admissionTargetSize,
-    candidateLimit: params.candidateLimit,
-    candidateWindow: params.candidateWindow,
     maxWorkers: params.maxWorkers,
     openSlots,
     runningWorkers: params.inFlightWorkers,
@@ -751,9 +740,6 @@ export async function runRunLoop(
           `Raise the run's desired_workers (or re-init with --desired-workers) to use the full pool.`,
       );
     }
-    const candidateLimit = maxWorkers;
-    const admissionTargetSize = maxWorkers;
-    const candidateWindow = derivedSchedulerCandidateWindow(globals, args, maxWorkers);
     const baseRev = resolveBaseRev(globals.repoRoot, stringArg(args, "--base-rev", "unknown"));
     const ttlSeconds = workerTtlSeconds(globals, args);
     const { sandboxSleep, sandboxSleepDebounceMs } = sandboxSleepConfigFromArgs(args);
@@ -772,8 +758,7 @@ export async function runRunLoop(
     const workerConfigureCommand = stringArg(args, "--worker-configure-command", defaultConfigureCommand(globals));
     const maintenanceIntervalMs = knowledgeMaintenanceIntervalMs(globals, args);
     const epochCycleEnabled = true;
-    const schedulerEpochConfig = schedulerEpochConfigFromArgs(globals, args, { candidateWindow, workerPoolSize: maxWorkers });
-    const workerPoolTargetSize = schedulerEpochConfig.workerPoolSize;
+    const schedulerEpochConfig = schedulerEpochConfigFromArgs(globals, args, { workerPoolSize: maxWorkers });
     const epochWorktreeDir = stringArg(args, "--epoch-worktree", resolve(globals.stateDir, "epoch_worktree"));
     const epochConfigureCommand = stringArg(args, "--epoch-configure-command", defaultConfigureCommand(globals));
     const epochLinkPaths = stringArg(args, "--epoch-link-paths", "orig")
@@ -1076,9 +1061,6 @@ export async function runRunLoop(
       }
 
       const targetPressureBefore = targetPressureSnapshotForRunLoop({
-        admissionTargetSize: workerPoolTargetSize,
-        candidateLimit,
-        candidateWindow,
         maxWorkers,
         inFlightWorkers: workerConsumer.inFlight(),
         runId,
@@ -1133,12 +1115,11 @@ export async function runRunLoop(
             if (outcome.nextEpoch) {
               const nextEpoch = outcome.nextEpoch;
               lastSchedulerEpoch = nextEpoch.progress;
-              epochAdmissions += (nextEpoch.admission?.admitted ?? 0) + (nextEpoch.existingAdmission?.admitted ?? 0);
-              epochAvailabilityRefreshes += nextEpoch.availabilityRefresh.inserted > 0 ? 1 : 0;
-              epochTargetsAdmitted += (nextEpoch.admission?.admitted ?? 0) + (nextEpoch.existingAdmission?.admitted ?? 0);
-              epochTargetsMadeAvailable += (nextEpoch.admission?.admitted ?? 0) + nextEpoch.availabilityRefresh.inserted;
+              epochAdmissions += nextEpoch.admission?.admitted ?? 0;
+              epochTargetsAdmitted += nextEpoch.admission?.admitted ?? 0;
+              epochTargetsMadeAvailable += nextEpoch.admission?.admitted ?? 0;
               epochPriorityRefreshes += nextEpoch.priorityRefreshes;
-              if (!outcome.exhausted && (nextEpoch.availabilityRefresh.inserted > 0 || (nextEpoch.admission?.admitted ?? 0) > 0)) {
+              if (!outcome.exhausted && (nextEpoch.admission?.admitted ?? 0) > 0) {
                 didWork = true;
               }
             }
@@ -1228,11 +1209,9 @@ export async function runRunLoop(
                 const epoch = activeSchedulerEpoch(store, runId);
                 let progress: EpochProgressSummary | null = null;
                 let priorityRefreshes = 0;
-                let availabilityRefreshInserted = 0;
                 if (epoch) {
                   recordSchedulerEpochFastRefresh(store, epoch.id);
-                  const board = loadKnowledgeBoardSnapshot(globals.repoRoot, schedulerEpochConfig.candidateWindow, {
-                    candidateRerank: refreshBoardRerankMode(schedulerEpochConfig.candidateRerank),
+                  const board = loadKnowledgeBoardSnapshot(globals.repoRoot, {
                     graphDbPath,
                   });
                   priorityRefreshes = refreshEpochTargetPriorities(store, {
@@ -1240,14 +1219,9 @@ export async function runRunLoop(
                     runId,
                     candidates: board.candidates,
                   }).refreshed;
-                  const availabilityRefresh = refreshEpochTargetAvailability(store, epoch.id, {
+                  refreshEpochTargetAvailability(store, epoch.id, {
                     exactTargetKeys: loadExactTargetKeys(globals.repoRoot),
                   });
-                  availabilityRefreshInserted = availabilityRefresh.inserted;
-                  if (availabilityRefreshInserted > 0) {
-                    epochAvailabilityRefreshes += 1;
-                    epochTargetsMadeAvailable += availabilityRefreshInserted;
-                  }
                   progress = schedulerEpochProgress(store, epoch.id);
                   lastSchedulerEpoch = progress;
                   epochPriorityRefreshes += priorityRefreshes;
@@ -1256,13 +1230,12 @@ export async function runRunLoop(
                   epoch_id: epoch?.id ?? null,
                   reports_since_refresh: fastDecision.reportsSinceRefresh,
                   priority_refreshes: priorityRefreshes,
-                  ready_refill_inserted: availabilityRefreshInserted,
                   progress,
                   created_by: "run-loop",
                 });
                 console.error(
                   `[run-loop] epoch ${epoch?.ordinal ?? "?"}: fast knowledge refresh finished; ` +
-                    `${priorityRefreshes} priorities refreshed, ${availabilityRefreshInserted} ready target(s) inserted`,
+                    `${priorityRefreshes} priorities refreshed`,
                 );
               })
               .catch((error) => {
@@ -1319,13 +1292,12 @@ export async function runRunLoop(
               store,
             });
             lastSchedulerEpoch = epochResult.progress;
-            const admittedNow = (epochResult.admission?.admitted ?? 0) + (epochResult.existingAdmission?.admitted ?? 0);
-            const madeAvailableNow = (epochResult.admission?.admitted ?? 0) + epochResult.availabilityRefresh.inserted;
+            const admittedNow = epochResult.admission?.admitted ?? 0;
+            const madeAvailableNow = epochResult.admission?.admitted ?? 0;
             if (admittedNow > 0) {
               epochAdmissions += 1;
               epochTargetsAdmitted += admittedNow;
             }
-            if (epochResult.availabilityRefresh.inserted > 0) epochAvailabilityRefreshes += 1;
             if (epochResult.priorityRefreshes > 0) epochPriorityRefreshes += epochResult.priorityRefreshes;
             if (madeAvailableNow > 0 || epochResult.priorityRefreshes > 0) didWork = true;
             epochTargetsMadeAvailable += madeAvailableNow;
@@ -1333,11 +1305,7 @@ export async function runRunLoop(
             if (admittedNow > 0) {
               console.error(
                 `[run-loop] epoch ${epochResult.progress.ordinal}: admitted ${admittedNow} new target(s); ` +
-                  `${epochResult.progress.admitted}/${epochResult.progress.size.mode === "full" ? "full" : epochResult.progress.size.value} admitted, ` +
-                  `${epochResult.progress.available} available, candidate window ${schedulerEpochConfig.candidateWindow}` +
-                  (epochResult.admissionCap
-                    ? `, capped ${epochResult.admissionCap.candidateCount} -> ${epochResult.admissionCap.cap} (${epochResult.admissionCap.mode})`
-                    : ""),
+                  `${epochResult.progress.admitted} admitted, ${epochResult.progress.available} available`,
               );
               addEvent(store, runId, "epoch_admitted", "run-loop", {
                 epoch_id: epochResult.epoch.id,
@@ -1345,10 +1313,6 @@ export async function runRunLoop(
                 admitted: epochResult.progress.admitted,
                 admitted_now: admittedNow,
                 available: epochResult.progress.available,
-                candidate_rerank: schedulerEpochConfig.candidateRerank ?? "priority",
-                candidate_window: schedulerEpochConfig.candidateWindow,
-                admission_cap: epochResult.admissionCap,
-                size: epochResult.progress.size,
                 created_by: "run-loop",
               });
             }
@@ -1362,7 +1326,6 @@ export async function runRunLoop(
               addEvent(store, runId, "epoch_exhausted", "run-loop", {
                 epoch_id: epochResult.epoch.id,
                 ordinal: epochResult.progress.ordinal,
-                size: epochResult.progress.size,
                 created_by: "run-loop",
               });
               nextEpochAllowedMs = Date.now() + epochRetryMs;
@@ -1408,13 +1371,12 @@ export async function runRunLoop(
           .then((result) => {
             schedulerResults.push(result);
             if (result.schedulerEpoch) lastSchedulerEpoch = result.schedulerEpoch;
-            const admittedByTick = (result.epochAdmission?.admitted ?? 0) + (result.existingEpochAdmission?.admitted ?? 0);
+            const admittedByTick = result.epochAdmission?.admitted ?? 0;
             if (admittedByTick > 0) {
               epochAdmissions += 1;
               epochTargetsAdmitted += admittedByTick;
             }
-            if ((result.epochAvailabilityRefresh?.inserted ?? 0) > 0) epochAvailabilityRefreshes += 1;
-            epochTargetsMadeAvailable += (result.epochAdmission?.admitted ?? 0) + (result.epochAvailabilityRefresh?.inserted ?? 0);
+            epochTargetsMadeAvailable += result.epochAdmission?.admitted ?? 0;
             epochPriorityRefreshes += result.epochPriorityRefreshes ?? 0;
           })
           .catch((error) => {

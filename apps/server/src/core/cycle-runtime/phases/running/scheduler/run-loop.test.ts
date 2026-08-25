@@ -36,7 +36,7 @@ describe("sandboxSleepConfigFromArgs", () => {
       sandboxSleep: true,
       sandboxSleepDebounceMs: 250,
     });
-    expect(sandboxSleepConfigFromArgs(new Map([
+    expect(sandboxSleepConfigFromArgs(new Map<string, string | true>([
       ["--no-sandbox-sleep", true],
       ["--sandbox-sleep-debounce-ms", "2750"],
     ]))).toEqual({
@@ -171,15 +171,12 @@ describe("epochBoundaryWorkPending", () => {
     try {
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       });
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
         candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
@@ -205,15 +202,12 @@ describe("epochBoundaryWorkPending", () => {
     try {
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       });
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
         candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
@@ -314,9 +308,7 @@ describe("forceFinishActiveEpoch", () => {
     try {
       const run = createRun(store, "matched_code_percent", 100, 3, { gameId: "test" }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 3 },
         workerPoolSize: 3,
-        candidateWindow: 3,
       });
       admitEpochTargets(store, {
         epochId: epoch.id,
@@ -326,7 +318,6 @@ describe("forceFinishActiveEpoch", () => {
           { unit: "unit", symbol: "queued_a", sourcePath: "src/a.c", size: 64, fuzzy: 90, priority: 2, reason: "test" },
           { unit: "unit", symbol: "queued_b", sourcePath: "src/b.c", size: 64, fuzzy: 89, priority: 1, reason: "test" },
         ],
-        size: { mode: "fixed", value: 3 },
         workerPoolSize: 3,
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
@@ -361,21 +352,16 @@ describe("forceFinishActiveEpoch", () => {
     try {
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
       const firstEpoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       });
       closeSchedulerEpoch(store, firstEpoch.id, { status: "completed" });
       const secondEpoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       });
       admitEpochTargets(store, {
         epochId: secondEpoch.id,
         runId: run.id,
         candidates: [{ unit: "unit", symbol: "new_epoch_fn", sourcePath: "src/new.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
 

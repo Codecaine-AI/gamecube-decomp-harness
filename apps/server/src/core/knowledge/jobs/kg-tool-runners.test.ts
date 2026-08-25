@@ -119,9 +119,7 @@ function boundaryFixture(): { dir: string; store: StateStore; globals: GlobalArg
   const store = openState(stateDir);
   const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
-    candidateWindow: 1,
   });
   return {
     dir,
@@ -173,11 +171,10 @@ test("epoch boundary refreshes the successful cycle worktree and keeps failed ru
     },
     publishCycleDraftPr: async () => ({ status: "skipped" }),
     ensureSchedulerEpochFromBoard: () => ({
-      progress: { ordinal: 2, admitted: 1, available: 1, claimed: 0, remaining: 1, size: { mode: "fixed", value: 1 } },
+      progress: { ordinal: 2, admitted: 1, available: 1, claimed: 0, remaining: 1 },
       epoch: { id: "next-epoch" },
       priorityRefreshes: 0,
       boardExhausted: false,
-      admissionCap: null,
     }),
   } as unknown as EpochBoundaryDependencies;
   const params: EpochBoundaryParams = {
@@ -198,7 +195,7 @@ test("epoch boundary refreshes the successful cycle worktree and keeps failed ru
       cycleDraftPrEnabled: false,
       fullKgMaintenanceMode: "full",
       writeSetFlags: { writeSetWidening: "off" },
-      schedulerEpochConfig: { size: { mode: "fixed", value: 1 }, workerPoolSize: 1, candidateWindow: 1 },
+      schedulerEpochConfig: { workerPoolSize: 1 },
       graphDbPath: resolve(value.dir, "missing-graph.sqlite"),
       epochWorktreeDir: worktreeDir,
     },

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { loadBoardSnapshot, normalizeCandidateRerankMode, type BoardRankFeature } from "./snapshot.js";
+import { loadBoardSnapshot, type BoardRankFeature } from "./snapshot.js";
 
 function writeJson(path: string, value: unknown): void {
   mkdirSync(resolve(path, ".."), { recursive: true });
@@ -10,15 +10,6 @@ function writeJson(path: string, value: unknown): void {
 }
 
 describe("loadBoardSnapshot", () => {
-  test("normalizes model candidate rerank modes", () => {
-    expect(normalizeCandidateRerankMode("model_win_95")).toBe("model_win_95");
-    expect(normalizeCandidateRerankMode("model-win95")).toBe("model_win_95");
-    expect(normalizeCandidateRerankMode("model_win_90")).toBe("model_win_90");
-    expect(normalizeCandidateRerankMode("Model Match Focus")).toBe("model_match_focus");
-    expect(normalizeCandidateRerankMode("opseq_hot_lane")).toBe("opseq_hot_lane");
-    expect(normalizeCandidateRerankMode("unknown")).toBe("priority");
-  });
-
   test("uses the cycle report as source of truth when objdiff is missing", () => {
     const root = mkdtempSync(join(tmpdir(), "board-current-report-"));
     try {
@@ -66,7 +57,7 @@ describe("loadBoardSnapshot", () => {
         ],
       });
 
-      const snapshot = loadBoardSnapshot(cycleCurrentRoot, 12);
+      const snapshot = loadBoardSnapshot(cycleCurrentRoot);
 
       expect(snapshot.reportPath).toBe(resolve(cycleCurrentRoot, "build/GALE01/report.json"));
       expect(snapshot.measures.matched_code_percent).toBe(77.52909);
@@ -108,7 +99,7 @@ describe("loadBoardSnapshot", () => {
         ],
       });
 
-      const snapshot = loadBoardSnapshot(cycleCurrentRoot, 12);
+      const snapshot = loadBoardSnapshot(cycleCurrentRoot);
 
       expect(snapshot.reportPath).toBe(resolve(upstreamRoot, "build/GALE01/report.json"));
       expect(snapshot.measures.matched_code_percent).toBe(76.066864);
@@ -118,7 +109,7 @@ describe("loadBoardSnapshot", () => {
     }
   });
 
-  test("counts unmatched targets from the code graph fallback", () => {
+  test("returns all unmatched targets from the code graph fallback", () => {
     const root = mkdtempSync(join(tmpdir(), "board-codegraph-"));
     try {
       const repoRoot = resolve(root, "repo");
@@ -129,19 +120,20 @@ describe("loadBoardSnapshot", () => {
           { unit: "a.o", sourcePath: "src/a.c", symbol: "matched", size: 100, fuzzy: 100 },
           { unit: "b.o", sourcePath: "src/b.c", symbol: "near", size: 80, fuzzy: 99.5 },
           { unit: "c.o", sourcePath: "src/c.c", symbol: "far", size: 20, fuzzy: 50 },
+          { unit: "d.o", sourcePath: "src/d.c", symbol: "middle", size: 40, fuzzy: 80 },
         ].map((row) => JSON.stringify(row)).join("\n"),
       );
 
-      const snapshot = loadBoardSnapshot(repoRoot, 12, { codeGraphFunctionsIndexPath: functionsIndex });
+      const snapshot = loadBoardSnapshot(repoRoot, { codeGraphFunctionsIndexPath: functionsIndex });
 
-      expect(snapshot.measures.unmatched_targets).toBe(2);
-      expect(snapshot.candidates.map((candidate) => candidate.symbol).sort()).toEqual(["far", "near"]);
+      expect(snapshot.measures.unmatched_targets).toBe(3);
+      expect(snapshot.candidates.map((candidate) => candidate.symbol).sort()).toEqual(["far", "middle", "near"]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test("can rerank matched opseq analogs from deeper in the candidate window", () => {
+  test("includes the matched opseq analog bonus in candidate ranking", () => {
     const root = mkdtempSync(join(tmpdir(), "board-opseq-rerank-"));
     try {
       const repoRoot = resolve(root, "repo");
@@ -154,8 +146,7 @@ describe("loadBoardSnapshot", () => {
         ].map((row) => JSON.stringify(row)).join("\n"),
       );
 
-      const snapshot = loadBoardSnapshot(repoRoot, 2, {
-        candidateRerank: "opseq_hot_lane",
+      const snapshot = loadBoardSnapshot(repoRoot, {
         codeGraphFunctionsIndexPath: functionsIndex,
         rankFeatureProvider: (candidate) =>
           featureFor(candidate.sourcePath, {
@@ -168,121 +159,13 @@ describe("loadBoardSnapshot", () => {
       });
 
       expect(snapshot.candidates[0]?.symbol).toBe("hotOpseq");
-      expect(snapshot.candidates[0]?.rank?.candidate_rerank_mode).toBe("opseq_hot_lane");
       expect(snapshot.candidates[0]?.rank?.opseq_best_matched_analog_score).toBe(0.97);
       expect(Number(snapshot.candidates[0]?.rank?.opseq_rerank_bonus ?? 0)).toBeGreaterThan(0);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
-
-  test("reranks candidates by model win score without changing priority values", () => {
-    const root = mkdtempSync(join(tmpdir(), "board-model-win-rerank-"));
-    try {
-      const { repoRoot, functionsIndex } = writeModelFixture(root);
-      const prioritySnapshot = loadBoardSnapshot(repoRoot, 3, {
-        candidateRerank: "priority",
-        codeGraphFunctionsIndexPath: functionsIndex,
-      });
-      const modelSnapshot = loadBoardSnapshot(repoRoot, 3, {
-        candidateRerank: "model_win_95",
-        codeGraphFunctionsIndexPath: functionsIndex,
-        predictorScorer: () => ({
-          "a.o::priorityFirst": { p_win: 0.1, p_match: 0.9 },
-          "b.o::priorityMiddle": { p_win: 0.9, p_match: 0.1 },
-          "c.o::priorityLast": { p_win: 0.5, p_match: 0.5 },
-        }),
-      });
-
-      expect(modelSnapshot.candidates.map((candidate) => candidate.symbol)).toEqual(["priorityMiddle", "priorityLast", "priorityFirst"]);
-      expect(modelSnapshot.candidates.map((candidate) => candidate.rank?.p_win)).toEqual([0.9, 0.5, 0.1]);
-      expect(modelSnapshot.candidates[0]?.rank?.candidate_rerank_mode).toBe("model_win_95");
-      expect(modelSnapshot.modelScoring).toEqual({
-        mode: "model_win_95",
-        applied: true,
-        score_key: "p_win",
-        scored_count: 3,
-        missing_count: 0,
-      });
-      expect(priorityBySymbol(modelSnapshot)).toEqual(priorityBySymbol(prioritySnapshot));
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("reranks match-focus candidates by p_match", () => {
-    const root = mkdtempSync(join(tmpdir(), "board-model-match-rerank-"));
-    try {
-      const { repoRoot, functionsIndex } = writeModelFixture(root);
-      const snapshot = loadBoardSnapshot(repoRoot, 3, {
-        candidateRerank: "model_match_focus",
-        codeGraphFunctionsIndexPath: functionsIndex,
-        predictorScorer: () => ({
-          "a.o::priorityFirst": { p_win: 0.9, p_match: 0.1 },
-          "b.o::priorityMiddle": { p_win: 0.1, p_match: 0.9 },
-          "c.o::priorityLast": { p_win: 0.5, p_match: 0.5 },
-        }),
-      });
-
-      expect(snapshot.candidates.map((candidate) => candidate.symbol)).toEqual(["priorityMiddle", "priorityLast", "priorityFirst"]);
-      expect(snapshot.candidates.map((candidate) => candidate.rank?.p_match)).toEqual([0.9, 0.5, 0.1]);
-      expect(snapshot.modelScoring?.score_key).toBe("p_match");
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("falls back to priority order when model scoring fails", () => {
-    const root = mkdtempSync(join(tmpdir(), "board-model-fail-safe-"));
-    try {
-      const { repoRoot, functionsIndex } = writeModelFixture(root);
-      const prioritySnapshot = loadBoardSnapshot(repoRoot, 3, {
-        candidateRerank: "priority",
-        codeGraphFunctionsIndexPath: functionsIndex,
-      });
-      const nullSnapshot = loadBoardSnapshot(repoRoot, 3, {
-        candidateRerank: "model_win_90",
-        codeGraphFunctionsIndexPath: functionsIndex,
-        predictorScorer: () => null,
-      });
-      const throwingSnapshot = loadBoardSnapshot(repoRoot, 3, {
-        candidateRerank: "model_win_90",
-        codeGraphFunctionsIndexPath: functionsIndex,
-        predictorScorer: () => {
-          throw new Error("predictor unavailable");
-        },
-      });
-
-      const priorityOrder = prioritySnapshot.candidates.map((candidate) => candidate.symbol);
-      expect(nullSnapshot.candidates.map((candidate) => candidate.symbol)).toEqual(priorityOrder);
-      expect(throwingSnapshot.candidates.map((candidate) => candidate.symbol)).toEqual(priorityOrder);
-      expect(nullSnapshot.modelScoring?.applied).toBe(false);
-      expect(nullSnapshot.modelScoring?.warning).toBeTruthy();
-      expect(throwingSnapshot.modelScoring?.applied).toBe(false);
-      expect(throwingSnapshot.modelScoring?.warning).toContain("predictor unavailable");
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
 });
-
-function writeModelFixture(root: string): { repoRoot: string; functionsIndex: string } {
-  const repoRoot = resolve(root, "repo");
-  const functionsIndex = resolve(root, "functions.jsonl");
-  writeFileSync(
-    functionsIndex,
-    [
-      { unit: "a.o", sourcePath: "src/a.c", symbol: "priorityFirst", size: 120, fuzzy: 99.9 },
-      { unit: "b.o", sourcePath: "src/b.c", symbol: "priorityMiddle", size: 80, fuzzy: 95 },
-      { unit: "c.o", sourcePath: "src/c.c", symbol: "priorityLast", size: 40, fuzzy: 70 },
-    ].map((row) => JSON.stringify(row)).join("\n"),
-  );
-  return { repoRoot, functionsIndex };
-}
-
-function priorityBySymbol(snapshot: ReturnType<typeof loadBoardSnapshot>): Record<string, number> {
-  return Object.fromEntries(snapshot.candidates.map((candidate) => [candidate.symbol, candidate.priority]));
-}
 
 function featureFor(sourcePath: string, overrides: Partial<BoardRankFeature> = {}): BoardRankFeature {
   return {

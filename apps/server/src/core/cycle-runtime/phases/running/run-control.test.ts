@@ -85,15 +85,12 @@ function activeRun(store: StateStore, dir: string) {
 
 function orphanedClaim(store: StateStore, runId: string) {
   const epoch = startSchedulerEpoch(store, runId, {
-    candidateWindow: 1,
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
   });
   admitEpochTargets(store, {
     candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99, priority: 1, reason: "test" }],
     epochId: epoch.id,
     runId,
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
   });
   const claim = claimNextEpochTarget({

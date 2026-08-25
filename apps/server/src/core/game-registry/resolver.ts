@@ -10,9 +10,6 @@ export interface GameValidationDefaults {
 }
 
 export interface GameDashboardDefaults {
-  epochSize?: number | string;
-  candidateWindow?: number | string;
-  candidateRerank?: string;
   integrationResolverConcurrency?: number;
   agentTimeoutSeconds?: number;
   goalValue?: number;
@@ -146,9 +143,6 @@ const defaultValidation: Required<GameValidationDefaults> = {
 };
 
 const defaultDashboard: Required<GameDashboardDefaults> = {
-  epochSize: 64,
-  candidateWindow: 128,
-  candidateRerank: "opseq_hot_lane",
   integrationResolverConcurrency: 4,
   agentTimeoutSeconds: 1800,
   goalValue: 100,
@@ -218,11 +212,6 @@ function numberField(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function stringOrNumberField(value: unknown): string | number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  return stringField(value);
-}
-
 function stringArrayField(value: unknown): string[] | undefined {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : undefined;
 }
@@ -240,9 +229,6 @@ function validationFromObject(value: unknown): GameValidationDefaults | undefine
 function dashboardFromObject(value: unknown): GameDashboardDefaults | undefined {
   if (!isObject(value)) return undefined;
   return {
-    epochSize: stringOrNumberField(value.epochSize),
-    candidateWindow: stringOrNumberField(value.candidateWindow),
-    candidateRerank: stringField(value.candidateRerank),
     integrationResolverConcurrency: numberField(value.integrationResolverConcurrency),
     agentTimeoutSeconds: numberField(value.agentTimeoutSeconds),
     goalValue: numberField(value.goalValue),

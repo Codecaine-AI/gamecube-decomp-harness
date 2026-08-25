@@ -21,9 +21,7 @@ describe("process control runtime", () => {
     const store = openState(stateDir);
     const run = createRun(store, "matched_code_percent", 100, 2, { gameId: "melee" }, { baseRevision: "base-test" });
     const epoch = startSchedulerEpoch(store, run.id, {
-      size: { mode: "fixed", value: 2 },
       workerPoolSize: 2,
-      candidateWindow: 2,
     });
     admitEpochTargets(store, {
       epochId: epoch.id,
@@ -32,7 +30,6 @@ describe("process control runtime", () => {
         { unit: "unit", symbol: "fn_a", sourcePath: "src/a.c", size: 64, fuzzy: 91, priority: 2, reason: "test" },
         { unit: "unit", symbol: "fn_b", sourcePath: "src/b.c", size: 64, fuzzy: 90, priority: 1, reason: "test" },
       ],
-      size: { mode: "fixed", value: 2 },
       workerPoolSize: 2,
     });
     store.db.close();
@@ -165,9 +162,6 @@ describe("process control runtime", () => {
 
     const response = await runtime.startManagedProcess({
       agentTimeoutSeconds: 1800,
-      candidateRerank: "priority",
-      candidateWindow: 64,
-      epochSize: "64",
       goalValue: 100,
       integrationResolverConcurrency: 4,
       maxWorkers: 2,
@@ -186,7 +180,6 @@ describe("process control runtime", () => {
     expect(payload.command.slice(repoRootFlag, repoRootFlag + 2)).toEqual(["--repo-root", cycleRepoRoot]);
     expect(payload.command.slice(graphDbFlag, graphDbFlag + 2)).toEqual(["--graph-db", cycleGraphDb]);
     expect(payload.command.slice(payload.command.indexOf("--max-workers"), payload.command.indexOf("--max-workers") + 2)).toEqual(["--max-workers", "2"]);
-    expect(payload.command.slice(payload.command.indexOf("--candidate-window"), payload.command.indexOf("--candidate-window") + 2)).toEqual(["--candidate-window", "64"]);
     expect(payload.command.slice(leaseFlag, leaseFlag + 2)).toEqual(["--lease-id", payload.leaseId]);
     expect(payload.command).toContain("run-loop");
     expect(payload.command).not.toContain("babysit");
@@ -230,12 +223,9 @@ describe("process control runtime", () => {
         baseRevision: "base-test",
         configurationSnapshot: {
           agent_timeout_seconds: 2100,
-          candidate_rerank: "opseq_hot_lane",
-          candidate_window: 96,
           desired_workers: 2,
           dry_run_agents: false,
           epoch_configure_command: "",
-          epoch_size: { mode: "fixed", value: 48 },
           goal_kind: "matched_code_percent",
           goal_value: 100,
           integration_resolver_concurrency: 3,
@@ -503,9 +493,9 @@ describe("process control runtime", () => {
       store.db
         .query(
           `INSERT INTO epochs (
-             id, run_id, ordinal, size_mode, worker_pool_size, candidate_window,
+             id, run_id, ordinal, worker_pool_size,
              status, routing_summary_json, created_at
-           ) VALUES ('epoch-startup', ?, 1, 'fixed', 2, 2, 'active', '{}', ?)`,
+           ) VALUES ('epoch-startup', ?, 1, 2, 'active', '{}', ?)`,
         )
         .run(run.id, new Date().toISOString());
       preparePendingIntegration(store, { branch, epochId: "epoch-startup", parentSha, runId: run.id });

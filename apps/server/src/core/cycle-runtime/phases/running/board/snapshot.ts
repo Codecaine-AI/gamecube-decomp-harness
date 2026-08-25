@@ -1,10 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import type { BoardMeasures, BoardRankBreakdown, BoardSnapshot, CandidateRerankMode, TargetCandidate } from "@server/core/shared/types/index.js";
-import type { BoardModelScoring } from "@server/core/shared/types/board.js";
+import type { BoardMeasures, BoardRankBreakdown, BoardSnapshot, TargetCandidate } from "@server/core/shared/types/index.js";
 import { candidateFromReportFunction, closenessPriority, closenessScore, objdiffSourceMap } from "./candidates.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
-import { spawnPredictorScorer, type ModelRerankMode, type PredictorScorer } from "./predictor.js";
 
 const HIGH_ACCURACY_BONUS_WEIGHT = 0.4;
 const ACCURACY_READINESS_READINESS_WEIGHT = 0.35;
@@ -18,11 +16,7 @@ function readJson(path: string): JsonObject {
 }
 
 export interface LoadBoardSnapshotOptions {
-  candidateRerank?: CandidateRerankMode;
   codeGraphFunctionsIndexPath?: string;
-  predictorDbPath?: string;
-  predictorScorer?: PredictorScorer;
-  predictorRunId?: string;
   rankFeatureProvider?: BoardRankFeatureProvider;
 }
 
@@ -74,7 +68,7 @@ function cycleBaselineRepoRoot(repoRoot: string): string | null {
   return resolve(dirname(cyclesRoot), "upstream-current");
 }
 
-export function loadBoardSnapshot(repoRoot: string, limit: number, options: LoadBoardSnapshotOptions = {}): BoardSnapshot {
+export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOptions = {}): BoardSnapshot {
   let reportPath = resolve(repoRoot, "build/GALE01/report.json");
   let objdiffPath = resolve(repoRoot, "objdiff.json");
   if (!existsSync(reportPath)) {
@@ -85,7 +79,7 @@ export function loadBoardSnapshot(repoRoot: string, limit: number, options: Load
       reportPath = baselineReportPath;
       objdiffPath = baselineObjdiffPath;
     } else {
-      return loadBoardSnapshotFromCodeGraphIndex(limit, reportPath, objdiffPath, options);
+      return loadBoardSnapshotFromCodeGraphIndex(reportPath, objdiffPath, options);
     }
   }
 
@@ -109,17 +103,15 @@ export function loadBoardSnapshot(repoRoot: string, limit: number, options: Load
     }
   }
 
-  rankBoardCandidates(candidates, options.rankFeatureProvider, options.candidateRerank ?? "priority");
+  rankBoardCandidates(candidates, options.rankFeatureProvider);
   candidates.sort((left, right) => right.priority - left.priority);
-  const modelScoring = applyModelRerank(candidates, options);
   const measures = asObject(report.measures) as BoardMeasures;
   return {
     generatedAt: new Date().toISOString(),
     reportPath,
     objdiffPath,
     measures,
-    candidates: candidates.slice(0, limit),
-    ...(modelScoring ? { modelScoring } : {}),
+    candidates,
   };
 }
 
@@ -149,7 +141,6 @@ export function loadExactTargetKeys(repoRoot: string): Set<string> {
 }
 
 function loadBoardSnapshotFromCodeGraphIndex(
-  limit: number,
   reportPath: string,
   objdiffPath: string,
   options: LoadBoardSnapshotOptions = {},
@@ -194,9 +185,8 @@ function loadBoardSnapshotFromCodeGraphIndex(
     });
   }
 
-  rankBoardCandidates(candidates, options.rankFeatureProvider, options.candidateRerank ?? "priority");
+  rankBoardCandidates(candidates, options.rankFeatureProvider);
   candidates.sort((left, right) => right.priority - left.priority);
-  const modelScoring = applyModelRerank(candidates, options);
   const measures: BoardMeasures = {
     matched_functions_percent: percent(matchedFunctions, totalFunctions),
     matched_code_percent: percent(matchedBytes, totalBytes),
@@ -208,8 +198,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
     reportPath: functionsIndex,
     objdiffPath: "",
     measures,
-    candidates: candidates.slice(0, limit),
-    ...(modelScoring ? { modelScoring } : {}),
+    candidates,
   };
 }
 
@@ -227,124 +216,27 @@ function percent(part: number, whole: number): number {
   return Number(((part / whole) * 100).toFixed(5));
 }
 
-export function normalizeCandidateRerankMode(value: unknown): CandidateRerankMode {
-  const normalized = String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-  if (normalized === "opseq_hot_lane" || normalized === "opsec_hot_lane" || normalized === "opseq_matched" || normalized === "opsec_matched") {
-    return "opseq_hot_lane";
-  }
-  if (normalized === "model_win_95" || normalized === "model_win95") return "model_win_95";
-  if (normalized === "model_win_90" || normalized === "model_win90") return "model_win_90";
-  if (
-    normalized === "model_match_focus" ||
-    normalized === "model_matchfocus" ||
-    normalized === "model_match" ||
-    normalized === "model_match_30" ||
-    normalized === "model_match30"
-  ) {
-    return "model_match_focus";
-  }
-  return "priority";
-}
-
-export function isModelRerankMode(mode: CandidateRerankMode | undefined): mode is ModelRerankMode {
-  return mode === "model_win_95" || mode === "model_win_90" || mode === "model_match_focus";
-}
-
-export function modelRerankScoreKey(mode: ModelRerankMode): "p_win" | "p_match" {
-  return mode === "model_match_focus" ? "p_match" : "p_win";
-}
-
-export function modelAdmissionCap(mode: CandidateRerankMode | undefined, candidateCount: number): number | null {
-  if (!isModelRerankMode(mode) || candidateCount <= 0) return null;
-  const fraction = mode === "model_win_95" ? 0.8785 : mode === "model_win_90" ? 0.811 : 0.3;
-  return Math.ceil(fraction * candidateCount);
-}
-
-export function refreshBoardRerankMode(mode: CandidateRerankMode | undefined): CandidateRerankMode | undefined {
-  return isModelRerankMode(mode) ? "priority" : mode;
-}
-
-function applyModelRerank(candidates: TargetCandidate[], options: LoadBoardSnapshotOptions): BoardModelScoring | undefined {
-  const mode = options.candidateRerank;
-  if (!isModelRerankMode(mode)) return undefined;
-
-  let scores: ReturnType<PredictorScorer>;
-  try {
-    const scorer =
-      options.predictorScorer ??
-      spawnPredictorScorer({
-        dbPath: options.predictorDbPath,
-        runId: options.predictorRunId,
-      });
-    scores = scorer(candidates, mode);
-  } catch (error) {
-    const warning = `scorer threw: ${error instanceof Error ? error.message : String(error)}`;
-    console.error(`[board] model rerank unavailable (${warning}); falling back to priority order`);
-    return { mode, applied: false, warning };
-  }
-
-  if (!scores || Object.keys(scores).length === 0) {
-    const warning = scores ? "scorer returned an empty score map" : "scorer failed";
-    console.error(`[board] model rerank unavailable (${warning}); falling back to priority order`);
-    return { mode, applied: false, warning };
-  }
-
-  const scoreKey = modelRerankScoreKey(mode);
-  let scoredCount = 0;
-  let missingCount = 0;
-  for (const candidate of candidates) {
-    const rank = candidate.rank;
-    if (!rank) continue;
-    const score = scores[`${candidate.unit}::${candidate.symbol}`];
-    if (!score) {
-      rank.p_win = 0;
-      rank.p_match = 0;
-      missingCount += 1;
-      continue;
-    }
-    rank.p_win = score.p_win;
-    rank.p_match = score.p_match;
-    rank.explanation.push(`model_rerank=${mode} p_win=${score.p_win.toFixed(4)} p_match=${score.p_match.toFixed(4)}`);
-    scoredCount += 1;
-  }
-
-  candidates.sort((left, right) => {
-    const scoreDifference = (right.rank?.[scoreKey] ?? 0) - (left.rank?.[scoreKey] ?? 0);
-    return scoreDifference || right.priority - left.priority;
-  });
-  return {
-    mode,
-    applied: true,
-    score_key: scoreKey,
-    scored_count: scoredCount,
-    missing_count: missingCount,
-  };
-}
-
-function rankBoardCandidates(candidates: TargetCandidate[], rankFeatureProvider?: BoardRankFeatureProvider, candidateRerank: CandidateRerankMode = "priority"): void {
+function rankBoardCandidates(candidates: TargetCandidate[], rankFeatureProvider?: BoardRankFeatureProvider): void {
   if (!rankFeatureProvider || candidates.length === 0) {
-    for (const candidate of candidates) applyCandidateRank(candidate, undefined, candidateRerank);
+    for (const candidate of candidates) applyCandidateRank(candidate);
     return;
   }
   for (let index = candidates.length - 1; index >= 0; index -= 1) {
     const candidate = candidates[index];
     const feature = rankFeatureProvider(candidate);
     if (!feature) {
-      applyCandidateRank(candidate, undefined, candidateRerank);
+      applyCandidateRank(candidate);
       continue;
     }
     if (feature.editability === "read_only_complete" || feature.editability === "locked" || feature.editability === "blocked") {
       candidates.splice(index, 1);
       continue;
     }
-    applyCandidateRank(candidate, feature, candidateRerank);
+    applyCandidateRank(candidate, feature);
   }
 }
 
-function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature, candidateRerank: CandidateRerankMode = "priority"): void {
+function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature): void {
   const rawCloseness = closenessPriority(candidate.size, candidate.fuzzy);
   const localClosenessScore = closenessScore(candidate.size, candidate.fuzzy);
   const graphScore = graph?.priority_bonus ?? 0;
@@ -367,7 +259,7 @@ function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature
         ),
       )
     : 0;
-  const opseqRerankBonus = opseqHotLaneBonus(graph, candidateRerank);
+  const opseqRerankBonus = opseqHotLaneBonus(graph);
   const rank: BoardRankBreakdown = {
     raw_finishability_priority: roundScore(rawCloseness),
     finishability_score: localClosenessScore,
@@ -384,7 +276,6 @@ function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature
     opseq_exact_analog_count: graph?.opseq_exact_analog_count ?? 0,
     opseq_matched_analog_count: graph?.opseq_matched_analog_count ?? 0,
     opseq_rerank_bonus: opseqRerankBonus,
-    candidate_rerank_mode: candidateRerank,
     high_accuracy_bonus: highAccuracyBonus,
     accuracy_readiness_bonus: accuracyReadinessBonus,
     closeness_fallback_score: closenessFallbackScore,
@@ -395,7 +286,6 @@ function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature
       ? [
           ...graph.explanation,
           hasInformationSignals ? "information_signals=present" : "information_signals=absent",
-          candidateRerank !== "priority" ? `candidate_rerank=${candidateRerank}` : "",
           opseqRerankBonus > 0 ? `opseq_rerank_bonus=${opseqRerankBonus.toFixed(2)}` : "",
         ].filter(Boolean)
       : ["graph_db=unavailable"],
@@ -419,8 +309,8 @@ function applyCandidateRank(candidate: TargetCandidate, graph?: BoardRankFeature
   )}, risk ${rank.risk_penalty.toFixed(2)}`;
 }
 
-function opseqHotLaneBonus(graph: BoardRankFeature | undefined, candidateRerank: CandidateRerankMode): number {
-  if (candidateRerank !== "opseq_hot_lane" || !graph) return 0;
+function opseqHotLaneBonus(graph: BoardRankFeature | undefined): number {
+  if (!graph) return 0;
   const bestMatched = graph.opseq_best_matched_analog_score ?? 0;
   if (bestMatched <= 0) return 0;
   return roundScore(

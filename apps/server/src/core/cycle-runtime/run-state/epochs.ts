@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { CandidateRerankMode, TargetCandidate } from "@server/core/shared/types/index.js";
+import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import { immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
 import {
   recordEpochCompletedInTransaction,
@@ -14,28 +14,17 @@ import {
   reprioritizeJob,
 } from "@server/core/job-queue/kernel.js";
 
-export type EpochSizeMode = "fixed" | "full";
 export type EpochStatus = "active" | "completed" | "error" | "exhausted" | "paused";
 
-export interface EpochSizeSpec {
-  mode: EpochSizeMode;
-  value: number | null;
-}
-
 export interface SchedulerEpochConfig {
-  size: EpochSizeSpec;
   workerPoolSize: number;
-  candidateWindow: number;
-  candidateRerank?: CandidateRerankMode;
 }
 
 export interface SchedulerEpochRecord {
   id: string;
   runId: string;
   ordinal: number;
-  size: EpochSizeSpec;
   workerPoolSize: number;
-  candidateWindow: number;
   status: string;
   admittedCount: number;
   finishedCount: number;
@@ -73,24 +62,13 @@ export interface EpochAdmissionResult {
   admitted: number;
   skippedExisting: number;
   skippedMissingSource: number;
-  size: EpochSizeSpec;
-  admissionCap?: number | null;
-}
-
-export interface ExistingEpochAdmissionResult {
-  epochId: string;
-  admitted: number;
-  limit: number;
 }
 
 export interface EpochAvailabilityRefreshResult {
   epochId: string;
   availableBefore: number;
   availableAfter: number;
-  inserted: number;
   retiredExact: number;
-  workerPoolSize: number;
-  skippedLockedSource: number;
 }
 
 export interface EpochPriorityRefreshResult {
@@ -102,9 +80,7 @@ export interface EpochPriorityRefreshResult {
 export interface EpochProgressSummary {
   epochId: string;
   ordinal: number;
-  size: EpochSizeSpec;
   workerPoolSize: number;
-  candidateWindow: number;
   admitted: number;
   available: number;
   claimed: number;
@@ -113,29 +89,6 @@ export interface EpochProgressSummary {
   fastRefreshCount: number;
   boundaryStatus: string | null;
   routingSummary: Record<string, unknown>;
-}
-
-interface AdmissionCandidate {
-  candidate: TargetCandidate;
-  key: string;
-  sourcePath: string;
-}
-
-export function parseEpochSize(value: string | number): EpochSizeSpec {
-  if (typeof value === "number") {
-    const parsed = Math.floor(value);
-    if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(`Invalid epoch size: ${String(value)}`);
-    return { mode: "fixed", value: parsed };
-  }
-  const trimmed = value.trim().toLowerCase();
-  if (trimmed === "full") return { mode: "full", value: null };
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) throw new Error(`Invalid epoch size: ${value}`);
-  return { mode: "fixed", value: parsed };
-}
-
-export function epochSizeLabel(size: EpochSizeSpec): string {
-  return size.mode === "full" ? "full" : String(size.value);
 }
 
 function targetKey(unit: string, symbol: string): string {
@@ -147,65 +100,26 @@ function normalizePositiveInt(value: number, fallback: number): number {
   return Math.max(1, Math.floor(value));
 }
 
-function existingTargetKeys(
-  store: StateStore,
-  runId: string,
-  params: { epochId: string; allowPreviouslyFinished?: boolean },
-): Set<string> {
-  const rows = params.allowPreviouslyFinished
-    ? (store.db
-        .query(
-          `
-            SELECT target_key
-            FROM epoch_targets
-            WHERE run_id = ?
-              AND (status != 'finished' OR epoch_id = ?)
-          `,
-        )
-        .all(runId, params.epochId) as Record<string, unknown>[])
-    : (store.db
-        .query(
-          `
-            SELECT target_key
-            FROM epoch_targets
-            WHERE epoch_id = ?
-            UNION
-            SELECT epoch_targets.target_key
-            FROM epoch_targets
-            JOIN epochs ON epochs.id = epoch_targets.epoch_id
-            WHERE epoch_targets.run_id = ?
-              AND epochs.ordinal = (
-                SELECT MAX(previous.ordinal)
-                FROM epochs AS previous
-                JOIN epochs AS current
-                  ON current.run_id = previous.run_id
-                WHERE current.id = ?
-                  AND previous.ordinal < current.ordinal
-              )
-          `,
-        )
-        .all(params.epochId, runId, params.epochId) as Record<string, unknown>[]);
+function existingTargetKeys(store: StateStore, epochId: string): Set<string> {
+  const rows = store.db
+    .query("SELECT target_key FROM epoch_targets WHERE epoch_id = ?")
+    .all(epochId) as Record<string, unknown>[];
   return new Set(rows.map((row) => String(row.target_key)));
 }
 
 export function selectEpochAdmissionCandidates(params: {
   candidates: TargetCandidate[];
   existingKeys?: Set<string>;
-  size: EpochSizeSpec;
-  admissionCap?: number | null;
 }): {
   selected: TargetCandidate[];
   skippedExisting: number;
   skippedMissingSource: number;
 } {
   const existingKeys = params.existingKeys ?? new Set<string>();
-  let limit = params.size.mode === "full" ? Infinity : Math.max(0, params.size.value ?? 0);
-  if (params.admissionCap != null) limit = Math.min(limit, Math.max(0, Math.floor(params.admissionCap)));
-  const eligible: AdmissionCandidate[] = [];
+  const eligible: TargetCandidate[] = [];
   let skippedExisting = 0;
   let skippedMissingSource = 0;
   const seenKeys = new Set<string>();
-  const bySource = new Map<string, AdmissionCandidate[]>();
 
   for (const candidate of params.candidates) {
     const sourcePath = candidate.sourcePath.trim();
@@ -219,31 +133,13 @@ export function selectEpochAdmissionCandidates(params: {
       continue;
     }
     seenKeys.add(key);
-    const entry = { candidate, key, sourcePath };
-    eligible.push(entry);
-    const sourceEntries = bySource.get(sourcePath);
-    if (sourceEntries) sourceEntries.push(entry);
-    else bySource.set(sourcePath, [entry]);
+    eligible.push(candidate);
   }
 
-  const selected: AdmissionCandidate[] = [];
-  while (selected.length < limit && selected.length < eligible.length) {
-    let added = false;
-    for (const sourceEntries of bySource.values()) {
-      const next = sourceEntries.shift();
-      if (!next) continue;
-      selected.push(next);
-      added = true;
-      if (selected.length >= limit) break;
-    }
-    if (!added) break;
-  }
-
-  return { selected: selected.map((entry) => entry.candidate), skippedExisting, skippedMissingSource };
+  return { selected: eligible, skippedExisting, skippedMissingSource };
 }
 
 function rowToEpoch(row: Record<string, unknown>): SchedulerEpochRecord {
-  const sizeMode = String(row.size_mode) === "full" ? "full" : "fixed";
   const routingRaw = String(row.routing_summary_json ?? "{}");
   let routingSummary: Record<string, unknown> = {};
   try {
@@ -256,9 +152,7 @@ function rowToEpoch(row: Record<string, unknown>): SchedulerEpochRecord {
     id: String(row.id),
     runId: String(row.run_id),
     ordinal: Number(row.ordinal),
-    size: { mode: sizeMode, value: sizeMode === "full" ? null : Number(row.size_value ?? 0) },
     workerPoolSize: Number(row.worker_pool_size),
-    candidateWindow: Number(row.candidate_window),
     status: String(row.status),
     admittedCount: Number(row.admitted_count ?? 0),
     finishedCount: Number(row.finished_count ?? 0),
@@ -287,8 +181,7 @@ export function activeSchedulerEpoch(store: StateStore, runId: string): Schedule
 export function startSchedulerEpoch(store: StateStore, runId: string, config: SchedulerEpochConfig): SchedulerEpochRecord {
   const id = randomUUID();
   const createdAt = now();
-  const workerPoolSize = normalizePositiveInt(config.workerPoolSize, config.size.value ?? 1);
-  const candidateWindow = normalizePositiveInt(config.candidateWindow, workerPoolSize);
+  const workerPoolSize = normalizePositiveInt(config.workerPoolSize, 1);
   return immediateTransaction(store.db, () => {
     const active = activeSchedulerEpoch(store, runId);
     if (active) return active;
@@ -297,13 +190,13 @@ export function startSchedulerEpoch(store: StateStore, runId: string, config: Sc
       .query(
         `
           INSERT INTO epochs (
-            id, run_id, ordinal, size_mode, size_value, worker_pool_size,
-            candidate_window, status, routing_summary_json, created_at
+            id, run_id, ordinal, worker_pool_size, status,
+            routing_summary_json, created_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'active', '{}', ?)
+          VALUES (?, ?, ?, ?, 'active', '{}', ?)
         `,
       )
-      .run(id, runId, ordinal, config.size.mode, config.size.value, workerPoolSize, candidateWindow, createdAt);
+      .run(id, runId, ordinal, workerPoolSize, createdAt);
     const row = store.db.query("SELECT * FROM epochs WHERE id = ?").get(id) as Record<string, unknown>;
     return rowToEpoch(row);
   });
@@ -429,10 +322,7 @@ export function admitEpochTargets(
     epochId: string;
     runId: string;
     candidates: TargetCandidate[];
-    size: EpochSizeSpec;
     workerPoolSize: number;
-    allowPreviouslyFinished?: boolean;
-    admissionCap?: number | null;
   },
 ): EpochAdmissionResult {
   const insertTarget = store.db.query(
@@ -459,12 +349,7 @@ export function admitEpochTargets(
     const startIndex = Number(startIndexRow?.start_index ?? 0);
     const selected = selectEpochAdmissionCandidates({
       candidates: params.candidates,
-      existingKeys: existingTargetKeys(store, runId, {
-        epochId: params.epochId,
-        allowPreviouslyFinished: params.allowPreviouslyFinished,
-      }),
-      size: params.size,
-      admissionCap: params.admissionCap,
+      existingKeys: existingTargetKeys(store, params.epochId),
     });
     const admittedAt = now();
     selected.selected.forEach((candidate, index) => {
@@ -507,17 +392,8 @@ export function admitEpochTargets(
       admitted: selected.selected.length,
       skippedExisting: selected.skippedExisting,
       skippedMissingSource: selected.skippedMissingSource,
-      size: params.size,
-      admissionCap: params.admissionCap,
     };
   });
-}
-
-export function admitExistingEpochTargets(
-  _store: StateStore,
-  params: { epochId: string; runId: string; limit: number },
-): ExistingEpochAdmissionResult {
-  return { epochId: params.epochId, admitted: 0, limit: Math.max(0, Math.floor(params.limit)) };
 }
 
 export function refreshEpochTargetPriorities(
@@ -616,10 +492,7 @@ export function refreshEpochTargetAvailability(
     epochId,
     availableBefore: before,
     availableAfter: after,
-    inserted: 0,
     retiredExact,
-    workerPoolSize: after,
-    skippedLockedSource: 0,
   };
 }
 
@@ -652,9 +525,7 @@ export function schedulerEpochProgress(store: StateStore, epochId: string): Epoc
   return {
     epochId,
     ordinal: record.ordinal,
-    size: record.size,
     workerPoolSize: record.workerPoolSize,
-    candidateWindow: record.candidateWindow,
     admitted,
     available,
     claimed,

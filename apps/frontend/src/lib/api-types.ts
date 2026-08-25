@@ -37,9 +37,6 @@ export interface FormState {
   graphDbPath: string;
   processName: string;
   maxWorkers: number;
-  epochSize: string;
-  candidateWindow: string;
-  candidateRerank: string;
   integrationResolverConcurrency: number;
   agentTimeoutSeconds: number;
   goalValue: number;

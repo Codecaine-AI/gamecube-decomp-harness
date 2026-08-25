@@ -24,9 +24,7 @@ function fixture(units: unknown[]): { dir: string; store: StateStore; globals: G
   const store = openState(stateDir);
   const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
-    candidateWindow: 1,
   });
   return {
     dir,
@@ -67,9 +65,7 @@ function params(
       fullKgMaintenanceMode: "skip",
       writeSetFlags: { writeSetWidening: "off" },
       schedulerEpochConfig: {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       },
       graphDbPath: resolve(value.dir, "missing-graph.sqlite"),
       epochWorktreeDir: resolve(value.dir, "epoch-worktree"),

@@ -215,9 +215,6 @@ function activeCycleOrNull(paths: PreparingRuntimeGameContext, body: JsonObject)
 function workerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefined): JsonObject {
   return {
     workerCount: numberValue(body.maxWorkers, 16),
-    epochSize: stringValue(body.epochSize, dashboard?.epochSize == null ? "64" : String(dashboard.epochSize)),
-    candidateWindow: stringValue(body.candidateWindow, dashboard?.candidateWindow == null ? "128" : String(dashboard.candidateWindow)),
-    candidateRerank: stringValue(body.candidateRerank, dashboard?.candidateRerank == null ? "priority" : String(dashboard.candidateRerank)),
     agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 1800)),
   };
 }
@@ -260,22 +257,6 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
     "init-run",
     "--desired-workers",
     String(maxWorkers),
-    "--epoch-size",
-    stringValue(body.epochSize, game?.dashboard.epochSize == null ? "64" : String(game.dashboard.epochSize)),
-    "--candidate-window",
-    String(
-      Math.max(
-        1,
-        Math.trunc(
-          numberValue(
-            body.candidateWindow,
-            numberValue(game?.dashboard.candidateWindow, 128),
-          ),
-        ),
-      ),
-    ),
-    "--candidate-rerank",
-    stringValue(body.candidateRerank, game?.dashboard.candidateRerank == null ? "priority" : String(game.dashboard.candidateRerank)),
     "--integration-resolver-concurrency",
     String(numberValue(body.integrationResolverConcurrency, numberValue(game?.dashboard.integrationResolverConcurrency, 4))),
     "--goal-kind",

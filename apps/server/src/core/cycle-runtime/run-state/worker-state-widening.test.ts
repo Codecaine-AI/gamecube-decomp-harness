@@ -40,15 +40,12 @@ function setupClaim(store: StateStore) {
   };
   const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
-    candidateWindow: 1,
   });
   admitEpochTargets(store, {
     epochId: epoch.id,
     runId: run.id,
     candidates: [candidate],
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
   });
   const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1_800 });

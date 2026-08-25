@@ -251,16 +251,14 @@ def bool_series(series: pd.Series) -> pd.Series:
 
 def load_epoch_map(db_path: Path) -> pd.DataFrame:
     if not db_path.exists():
-        return pd.DataFrame(columns=["record_id", "epoch_ordinal", "epoch_size", "epoch_candidate_window"])
+        return pd.DataFrame(columns=["record_id", "epoch_ordinal"])
     conn = sqlite3.connect(str(db_path))
     try:
         return pd.read_sql_query(
             """
             SELECT
               ws.id AS record_id,
-              e.ordinal AS epoch_ordinal,
-              e.size_value AS epoch_size,
-              e.candidate_window AS epoch_candidate_window
+              e.ordinal AS epoch_ordinal
             FROM worker_state ws
             JOIN epochs e ON e.id = ws.epoch_id
             """,
@@ -282,7 +280,7 @@ def load_dataset(path: Path, db_path: Path) -> pd.DataFrame:
             epoch_map["record_id"] = epoch_map["record_id"].astype(str)
             df = df.merge(epoch_map, on="record_id", how="left")
 
-    for column in set(all_numeric_features() + existing_score_columns() + ["epoch_ordinal", "epoch_size", "epoch_candidate_window"]):
+    for column in set(all_numeric_features() + existing_score_columns() + ["epoch_ordinal"]):
         if column in df:
             df[column] = pd.to_numeric(df[column], errors="coerce")
     for column in CATEGORICAL_FEATURES + ["run_id", "source_path"]:
@@ -1002,7 +1000,6 @@ def render_markdown(stats: dict[str, Any]) -> str:
         "- The sweep reranks observed admitted rows; it does not replay every candidate available at historical rebuild time.",
         f"- {validation_note}",
         "- Current graph and OPSEC/opseq matched-neighbor features may contain information that was not available at older historical selection times.",
-        "- Batch/window simulations use persisted priority as the candidate-window prefilter when a window is specified.",
         "",
     ]
     return "\n".join(lines)

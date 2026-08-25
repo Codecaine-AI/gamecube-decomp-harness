@@ -2967,8 +2967,6 @@ function eventsForRun(stateDir: string, runId: string, limit = 40): JsonObject[]
         producer: row.producer,
         handledAt: row.handled_at,
         createdAt: row.created_at,
-        candidateRerank: payload.candidate_rerank,
-        candidateWindow: payload.candidate_window,
         claimId: payload.claim_id,
         epoch: payload.epoch,
         itemId: payload.item_id,

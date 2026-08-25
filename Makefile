@@ -29,7 +29,6 @@ GOAL_KIND ?= matched_code_percent
 GOAL ?= 100
 CANDIDATE_LIMIT ?= 64
 QUEUE_TARGET ?= $(CANDIDATE_LIMIT)
-CANDIDATE_WINDOW ?= 256
 IDLE_SLEEP_MS ?= 5000
 DRY_RUN ?= 0
 DRY_FLAG := $(if $(filter 1 true yes,$(DRY_RUN)),--dry-run-agents,)
@@ -148,7 +147,6 @@ start:
 	  --worker-thinking-level "$(WORKER_THINKING)" \
 	  --candidate-limit "$(CANDIDATE_LIMIT)" \
 	  --queue-target-size "$(QUEUE_TARGET)" \
-	  --candidate-window "$(CANDIDATE_WINDOW)" \
 	  --force-recover-leases
 
 dry-start:

@@ -371,9 +371,9 @@ describe("sync atomic publication", () => {
     const fixture = createFixture({ syncId: "sync-publish-epoch-target" });
     fixture.store.db.query(
       `INSERT INTO epochs (
-         id, run_id, ordinal, size_mode, size_value, worker_pool_size,
-         candidate_window, status, routing_summary_json, created_at
-       ) VALUES ('epoch-active', 'run-publication', 1, 'fixed', 1, 1, 1, 'active', '{}', ?)`,
+         id, run_id, ordinal, worker_pool_size, status,
+         routing_summary_json, created_at
+       ) VALUES ('epoch-active', 'run-publication', 1, 1, 'active', '{}', ?)`,
     ).run("2026-08-13T19:00:00.000Z");
     fixture.store.db.query(
       `INSERT INTO epoch_targets (

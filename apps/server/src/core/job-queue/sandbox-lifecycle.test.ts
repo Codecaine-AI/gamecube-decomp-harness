@@ -63,9 +63,7 @@ async function fixture(labelOverrides: Record<string, string> = {}): Promise<Fix
     { baseRevision: "base-test" },
   );
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
-    candidateWindow: 1,
   });
   admitEpochTargets(store, {
     epochId: epoch.id,
@@ -79,7 +77,6 @@ async function fixture(labelOverrides: Record<string, string> = {}): Promise<Fix
       priority: 10,
       reason: "test",
     }],
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
   });
   const target = claimNextEpochTarget({

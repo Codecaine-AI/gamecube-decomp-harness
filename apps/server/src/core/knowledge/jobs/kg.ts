@@ -764,21 +764,24 @@ export async function kgRankFeatures(globals: GlobalArgs, args: Map<string, stri
   const dbPath = await ensureGraphReady(globals, args);
   const limit = numberArg(args, "--limit", 50);
   const candidateLimit = numberArg(args, "--candidate-limit", limit);
-  const snapshot = loadKnowledgeBoardSnapshot(knowledgeRepoRoot(globals), candidateLimit, { graphDbPath: dbPath });
+  const snapshot = loadKnowledgeBoardSnapshot(knowledgeRepoRoot(globals), { graphDbPath: dbPath });
   const store = openKnowledgeGraph(dbPath);
   try {
-    const features = snapshot.candidates.slice(0, limit).map((candidate) => {
-      const graph = rankFeatureForSourcePath(store, candidate.sourcePath, {
-        source_path: candidate.sourcePath,
-        unit: candidate.unit,
-        symbol: candidate.symbol,
+    const features = snapshot.candidates
+      .slice(0, candidateLimit)
+      .slice(0, limit)
+      .map((candidate) => {
+        const graph = rankFeatureForSourcePath(store, candidate.sourcePath, {
+          source_path: candidate.sourcePath,
+          unit: candidate.unit,
+          symbol: candidate.symbol,
+        });
+        return {
+          candidate,
+          graph,
+          combined_priority: candidate.priority,
+        };
       });
-      return {
-        candidate,
-        graph,
-        combined_priority: candidate.priority,
-      };
-    });
     console.log(JSON.stringify({ graph_db: dbPath, generated_at: new Date().toISOString(), features }, null, 2));
   } finally {
     store.db.close();

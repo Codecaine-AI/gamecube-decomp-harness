@@ -2,7 +2,6 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { modelAdmissionCap } from "@server/core/cycle-runtime/phases/running/board/index.js";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
@@ -14,7 +13,6 @@ import {
   closeWorkerState as closeWorkerStateRaw,
   enqueueWorkerOutputIntegration,
   nextWorkerOutputIntegrationConflictForResolver,
-  parseEpochSize,
   recordWorkerCheckpoint as recordWorkerCheckpointRaw,
   refreshEpochTargetAvailability,
   refreshEpochTargetPriorities,
@@ -77,15 +75,12 @@ function candidate(index: number, sourcePath: string, priority = 100 - index): T
 function setupEpoch(store: StateStore, candidates: TargetCandidate[], desiredWorkers = 2) {
   const run = createRun(store, "matched_code_percent", 100, desiredWorkers, { gameId: "test" }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: candidates.length },
     workerPoolSize: desiredWorkers,
-    candidateWindow: 16,
   });
   const admission = admitEpochTargets(store, {
     epochId: epoch.id,
     runId: run.id,
     candidates,
-    size: { mode: "fixed", value: candidates.length },
     workerPoolSize: desiredWorkers,
   });
   return { run, epoch, admission };
@@ -138,29 +133,8 @@ function count(store: StateStore, sql: string, ...params: Array<string | number 
   return Number(row.count ?? 0);
 }
 
-describe("epoch size parsing", () => {
-  test("parses fixed and full epoch sizes", () => {
-    expect(parseEpochSize("32")).toEqual({ mode: "fixed", value: 32 });
-    expect(parseEpochSize(64)).toEqual({ mode: "fixed", value: 64 });
-    expect(parseEpochSize("Full")).toEqual({ mode: "full", value: null });
-  });
-
-  test("rejects invalid epoch sizes", () => {
-    expect(() => parseEpochSize("0")).toThrow();
-    expect(() => parseEpochSize("-1")).toThrow();
-    expect(() => parseEpochSize("half")).toThrow();
-  });
-});
-
 describe("epoch admission selection", () => {
-  test("computes model admission caps", () => {
-    expect(modelAdmissionCap("model_win_95", 435)).toBe(Math.ceil(0.8785 * 435));
-    expect(modelAdmissionCap("model_win_90", 200)).toBe(163);
-    expect(modelAdmissionCap("model_match_focus", 10)).toBe(3);
-    expect(modelAdmissionCap("priority", 435)).toBeNull();
-  });
-
-  test("round-robins targets by source file while admitting duplicates", () => {
+  test("admits every eligible candidate in board priority order", () => {
     const selected = selectEpochAdmissionCandidates({
       candidates: [
         candidate(1, "src/a.c", 500),
@@ -168,10 +142,9 @@ describe("epoch admission selection", () => {
         candidate(3, "src/b.c", 498),
         candidate(4, "src/c.c", 497),
       ],
-      size: { mode: "fixed", value: 3 },
     });
 
-    expect(selected.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_3", "fn_4"]);
+    expect(selected.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_2", "fn_3", "fn_4"]);
     expect(selected.skippedExisting).toBe(0);
   });
 
@@ -185,7 +158,6 @@ describe("epoch admission selection", () => {
         candidate(5, "src/b.c"),
       ],
       existingKeys: new Set(["unit_4::fn_4"]),
-      size: { mode: "fixed", value: 5 },
     });
 
     expect(selected.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_5"]);
@@ -193,28 +165,13 @@ describe("epoch admission selection", () => {
     expect(selected.skippedExisting).toBe(2);
   });
 
-  test("full mode admits every eligible board candidate without spinning on an empty board", () => {
+  test("handles an empty eligible board", () => {
     const full = selectEpochAdmissionCandidates({
       candidates: [candidate(1, "src/a.c"), candidate(2, "src/a.c"), candidate(3, "src/b.c")],
-      size: { mode: "full", value: null },
     });
-    expect(full.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_3", "fn_2"]);
+    expect(full.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_2", "fn_3"]);
 
-    const capped = selectEpochAdmissionCandidates({
-      candidates: [candidate(1, "src/a.c"), candidate(2, "src/a.c"), candidate(3, "src/b.c")],
-      size: { mode: "full", value: null },
-      admissionCap: 2,
-    });
-    expect(capped.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_3"]);
-
-    const uncapped = selectEpochAdmissionCandidates({
-      candidates: [candidate(1, "src/a.c"), candidate(2, "src/a.c"), candidate(3, "src/b.c")],
-      size: { mode: "full", value: null },
-      admissionCap: null,
-    });
-    expect(uncapped.selected.map((entry) => entry.symbol)).toEqual(["fn_1", "fn_3", "fn_2"]);
-
-    const empty = selectEpochAdmissionCandidates({ candidates: [], size: { mode: "full", value: null } });
+    const empty = selectEpochAdmissionCandidates({ candidates: [] });
     expect(empty.selected).toEqual([]);
   });
 });
@@ -258,7 +215,6 @@ describe("scheduler epoch and worker state lifecycle", () => {
         epochId: epoch.id,
         runId: run.id,
         candidates,
-        size: { mode: "fixed", value: candidates.length },
         workerPoolSize: 2,
       });
       expect(duplicate).toMatchObject({ admitted: 0, skippedExisting: 2 });
@@ -296,39 +252,35 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
-  test("caps persisted full-mode admissions", () => {
+  test("persists every eligible board candidate", () => {
     const { store } = tempState();
     try {
       const run = createRun(store, "matched_code_percent", 100, 2, { gameId: "test" }, { baseRevision: "base-test" });
       const epoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "full", value: null },
         workerPoolSize: 2,
-        candidateWindow: 16,
       });
       const admission = admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
         candidates: [candidate(1, "src/a.c"), candidate(2, "src/b.c"), candidate(3, "src/c.c")],
-        size: { mode: "full", value: null },
         workerPoolSize: 2,
-        admissionCap: 2,
       });
 
-      expect(admission).toMatchObject({ admitted: 2, candidateCount: 3, admissionCap: 2 });
-      expect(count(store, "SELECT COUNT(*) AS count FROM epoch_targets WHERE epoch_id = ?", epoch.id)).toBe(2);
-      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 2, available: 2, remaining: 2 });
+      expect(admission).toMatchObject({ admitted: 3, candidateCount: 3 });
+      expect(count(store, "SELECT COUNT(*) AS count FROM epoch_targets WHERE epoch_id = ?", epoch.id)).toBe(3);
+      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 3, available: 3, remaining: 3 });
     } finally {
       store.db.close();
     }
   });
 
-  test("persists fixed admission and claims admitted targets directly", () => {
+  test("claims admitted targets directly", () => {
     const { store } = tempState();
     try {
       const { run, epoch, admission } = setupEpoch(store, [candidate(1, "src/a.c"), candidate(2, "src/b.c"), candidate(3, "src/c.c")]);
 
       expect(admission.admitted).toBe(3);
-      expect(refreshEpochTargetAvailability(store, epoch.id)).toMatchObject({ inserted: 0, availableBefore: 3, availableAfter: 3 });
+      expect(refreshEpochTargetAvailability(store, epoch.id)).toMatchObject({ availableBefore: 3, availableAfter: 3 });
       expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ admitted: 3, available: 3, claimed: 0, finished: 0, remaining: 3 });
 
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
@@ -376,7 +328,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
-  test("board admission skips target keys from the immediately previous epoch", () => {
+  test("each new epoch re-admits every eligible board target", () => {
     const { store } = tempState();
     try {
       const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
@@ -390,121 +342,29 @@ describe("scheduler epoch and worker state lifecycle", () => {
       closeSchedulerEpoch(store, epoch.id, { status: "completed" });
 
       const nextEpoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 2 },
         workerPoolSize: 2,
-        candidateWindow: 2,
       });
       const admission = admitEpochTargets(store, {
         epochId: nextEpoch.id,
         runId: run.id,
         candidates: [candidate(1, "src/a.c"), candidate(2, "src/b.c")],
-        size: { mode: "fixed", value: 2 },
         workerPoolSize: 2,
       });
 
-      expect(admission).toMatchObject({ admitted: 1, skippedExisting: 1 });
-      const rows = store.db.query("SELECT target_key FROM epoch_targets WHERE epoch_id = ?").all(nextEpoch.id) as Record<string, unknown>[];
-      expect(rows.map((row) => row.target_key)).toEqual(["unit_2::fn_2"]);
-    } finally {
-      store.db.close();
-    }
-  });
-
-  test("board admission can revisit older epoch targets while guarding against the last epoch", () => {
-    const { store } = tempState();
-    try {
-      const { run, epoch: firstEpoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
-      const firstClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
-      expect(firstClaim).not.toBeNull();
-      closeWorkerState(store, {
-        workerStateId: firstClaim?.workerStateId ?? "",
-        lifecycleStatus: "finished",
-        summary: { source: "test" },
-      });
-      closeSchedulerEpoch(store, firstEpoch.id, { status: "completed" });
-
-      const secondEpoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
-        workerPoolSize: 1,
-        candidateWindow: 1,
-      });
-      admitEpochTargets(store, {
-        epochId: secondEpoch.id,
-        runId: run.id,
-        candidates: [candidate(2, "src/b.c")],
-        size: { mode: "fixed", value: 1 },
-        workerPoolSize: 1,
-      });
-      const secondClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-2", baseRev: "base" });
-      expect(secondClaim).not.toBeNull();
-      closeWorkerState(store, {
-        workerStateId: secondClaim?.workerStateId ?? "",
-        lifecycleStatus: "finished",
-        summary: { source: "test" },
-      });
-      closeSchedulerEpoch(store, secondEpoch.id, { status: "completed" });
-
-      const thirdEpoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 3 },
-        workerPoolSize: 3,
-        candidateWindow: 3,
-      });
-      const admission = admitEpochTargets(store, {
-        epochId: thirdEpoch.id,
-        runId: run.id,
-        candidates: [candidate(1, "src/a.c"), candidate(2, "src/b.c"), candidate(3, "src/c.c")],
-        size: { mode: "fixed", value: 3 },
-        workerPoolSize: 3,
-      });
-
-      expect(admission).toMatchObject({ admitted: 2, skippedExisting: 1 });
-      const rows = store.db.query("SELECT target_key FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index").all(thirdEpoch.id) as Record<
-        string,
-        unknown
-      >[];
-      expect(rows.map((row) => row.target_key)).toEqual(["unit_1::fn_1", "unit_3::fn_3"]);
-    } finally {
-      store.db.close();
-    }
-  });
-
-  test("repair admission can intentionally requeue a previously finished target once per epoch", () => {
-    const { store } = tempState();
-    try {
-      const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
-      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
-      expect(claim).not.toBeNull();
-      closeWorkerState(store, {
-        workerStateId: claim?.workerStateId ?? "",
-        lifecycleStatus: "finished",
-        summary: { source: "test" },
-      });
-      closeSchedulerEpoch(store, epoch.id, { status: "completed" });
-
-      const nextEpoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
-        workerPoolSize: 1,
-        candidateWindow: 1,
-      });
-      const admission = admitEpochTargets(store, {
-        epochId: nextEpoch.id,
-        runId: run.id,
-        candidates: [candidate(1, "src/a.c")],
-        size: { mode: "fixed", value: 1 },
-        workerPoolSize: 1,
-        allowPreviouslyFinished: true,
-      });
       const duplicateAdmission = admitEpochTargets(store, {
         epochId: nextEpoch.id,
         runId: run.id,
         candidates: [candidate(1, "src/a.c")],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        allowPreviouslyFinished: true,
       });
 
-      expect(admission).toMatchObject({ admitted: 1, skippedExisting: 0 });
+      expect(admission).toMatchObject({ admitted: 2, skippedExisting: 0 });
       expect(duplicateAdmission).toMatchObject({ admitted: 0, skippedExisting: 1 });
+      const rows = store.db.query("SELECT target_key FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index").all(nextEpoch.id) as Record<
+        string,
+        unknown
+      >[];
+      expect(rows.map((row) => row.target_key)).toEqual(["unit_1::fn_1", "unit_2::fn_2"]);
     } finally {
       store.db.close();
     }

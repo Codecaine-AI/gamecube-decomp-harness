@@ -30,9 +30,7 @@ function tempState(): { dir: string; store: StateStore } {
 function exactCheckpoint(store: StateStore, validationState: "tentative" | "confirmed" | "regressed") {
   const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
-    candidateWindow: 1,
   });
   admitEpochTargets(store, {
     epochId: epoch.id,
@@ -48,7 +46,6 @@ function exactCheckpoint(store: StateStore, validationState: "tentative" | "conf
         reason: "test target",
       },
     ],
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
   });
   const claim = claimNextEpochTarget({

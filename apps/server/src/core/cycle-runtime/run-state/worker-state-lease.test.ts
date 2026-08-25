@@ -25,9 +25,7 @@ describe("worker state transaction fencing", () => {
         { baseRevision: "base-test" },
       );
       const epoch = startSchedulerEpoch(store, run.id, {
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
-        candidateWindow: 1,
       });
       admitEpochTargets(store, {
         epochId: epoch.id,
@@ -43,7 +41,6 @@ describe("worker state transaction fencing", () => {
             reason: "test",
           },
         ],
-        size: { mode: "fixed", value: 1 },
         workerPoolSize: 1,
       });
       const claim = claimNextEpochTarget({

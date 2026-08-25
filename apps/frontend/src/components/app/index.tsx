@@ -74,9 +74,6 @@ function workerConfigBody(body: JsonObject): JsonObject {
     configVersion: PROCESS_CONFIG_VERSION,
     maxWorkers: body.maxWorkers,
     workerCount: body.maxWorkers,
-    epochSize: body.epochSize,
-    candidateWindow: body.candidateWindow,
-    candidateRerank: body.candidateRerank,
     integrationResolverConcurrency: body.integrationResolverConcurrency,
     agentTimeoutSeconds: body.agentTimeoutSeconds,
     provider: body.provider,
@@ -108,15 +105,6 @@ function cycleRunConfigPatch(cycle: JsonObject): Partial<FormState> | null {
   const patch: Partial<FormState> = {};
   const maxWorkers = positiveInteger(workerConfig.maxWorkers) ?? positiveInteger(workerConfig.workerCount);
   if (maxWorkers !== null) Object.assign(patch, schedulingForWorkers(maxWorkers));
-
-  const epochSize = stringConfigValue(workerConfig.epochSize);
-  if (epochSize !== null) patch.epochSize = epochSize;
-
-  const candidateWindow = stringConfigValue(workerConfig.candidateWindow);
-  if (candidateWindow !== null) patch.candidateWindow = candidateWindow;
-
-  const candidateRerank = stringConfigValue(workerConfig.candidateRerank);
-  if (candidateRerank !== null) patch.candidateRerank = candidateRerank;
 
   const integrationResolverConcurrency = positiveInteger(workerConfig.integrationResolverConcurrency);
   if (integrationResolverConcurrency !== null) patch.integrationResolverConcurrency = integrationResolverConcurrency;
@@ -291,9 +279,6 @@ export function App() {
           graphDbPath: loaded.defaultGraphDbPath,
           processName: String(gameDefaults.processName || current.processName),
           goalValue: Number(dashboardDefaults.goalValue || current.goalValue),
-          epochSize: String(dashboardDefaults.epochSize || current.epochSize),
-          candidateWindow: String(dashboardDefaults.candidateWindow || current.candidateWindow),
-          candidateRerank: String(dashboardDefaults.candidateRerank || current.candidateRerank),
           integrationResolverConcurrency: numberValue(dashboardDefaults.integrationResolverConcurrency, current.integrationResolverConcurrency),
           agentTimeoutSeconds: numberValue(dashboardDefaults.agentTimeoutSeconds, current.agentTimeoutSeconds),
         }));

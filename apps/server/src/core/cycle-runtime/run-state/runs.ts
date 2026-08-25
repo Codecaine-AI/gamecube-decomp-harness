@@ -570,12 +570,9 @@ export function createRun(
   if (!gameId) throw new Error("Run creation requires a game id or an active game cycle");
   const configurationSnapshot = options.configurationSnapshot ?? {
     agent_timeout_seconds: 1800,
-    candidate_rerank: "priority",
-    candidate_window: 64,
     desired_workers: Math.max(1, Math.trunc(desiredWorkers)),
     dry_run_agents: false,
     epoch_configure_command: "",
-    epoch_size: { mode: "fixed", value: 64 },
     goal_kind: goalKind,
     goal_value: goalValue,
     integration_resolver_concurrency: 4,

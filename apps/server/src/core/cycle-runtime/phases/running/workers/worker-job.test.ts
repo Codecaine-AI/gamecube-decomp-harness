@@ -52,15 +52,12 @@ function fixture() {
   };
   const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", stateDir }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
-    candidateWindow: 1,
   });
   admitEpochTargets(store, {
     epochId: epoch.id,
     runId: run.id,
     candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 90, priority: 10, reason: "test" }],
-    size: { mode: "fixed", value: 1 },
     workerPoolSize: 1,
   });
   initializeHarnessState(store, { gameId: "test", traceId: "trace-test" });

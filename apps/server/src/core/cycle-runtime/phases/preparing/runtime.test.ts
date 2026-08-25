@@ -67,11 +67,8 @@ describe("preparing runtime baseline", () => {
 
     const { command } = runtime.initRunCommand({
       agentTimeoutSeconds: 2400,
-      candidateRerank: "opseq_hot_lane",
-      candidateWindow: 96,
       dryRunAgents: true,
       epochConfigureCommand: "configure epoch",
-      epochSize: "48",
       goalKind: "matched_code_percent",
       goalValue: 88,
       integrationResolverConcurrency: 3,
@@ -89,9 +86,6 @@ describe("preparing runtime baseline", () => {
     expect(option("--thinking-level")).toBe("high");
     expect(option("--agent-timeout-seconds")).toBe("2400");
     expect(option("--desired-workers")).toBe("12");
-    expect(option("--epoch-size")).toBe("48");
-    expect(option("--candidate-window")).toBe("96");
-    expect(option("--candidate-rerank")).toBe("opseq_hot_lane");
     expect(option("--integration-resolver-concurrency")).toBe("3");
     expect(option("--goal-kind")).toBe("matched_code_percent");
     expect(option("--goal-value")).toBe("88");

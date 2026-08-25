@@ -197,7 +197,6 @@ describe("game cycle runtime", () => {
           workerConfig: {
             configVersion: 2,
             maxWorkers: 20,
-            epochSize: "128",
             agentTimeoutSeconds: 1800,
             provider: "codex-lb",
             model: "gpt-5.5",
@@ -209,7 +208,6 @@ describe("game cycle runtime", () => {
     expect(updated.view.phases.running.workers?.workerConfig).toEqual({
       configVersion: 2,
       maxWorkers: 20,
-      epochSize: "128",
       agentTimeoutSeconds: 1800,
       provider: "codex-lb",
       model: "gpt-5.5",
