@@ -1133,6 +1133,12 @@ describe("workflow trace helper", () => {
           operation: "syncProjectIntake",
           status: "completed",
           mergedPrs: [123],
+          // Sync's kernel/game-event join: without this the sync event log
+          // renders with no trace behind it, which is how sync ran for its
+          // whole life before it had a producer for this container kind.
+          correlation_id: "run-1",
+          game_event_id: "game-event-1",
+          caused_by_event_id: null,
         },
       },
       {

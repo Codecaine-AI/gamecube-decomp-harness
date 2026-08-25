@@ -11,6 +11,7 @@ import { settleStoppedRun } from "@server/core/cycle-runtime/phases/running/run-
 import { defaultSyncGitRunner } from "./git.js";
 import { getSyncState, recordSyncRequested, syncActionSpanId, transitionSync } from "./state.js";
 import { activateAcquiredSync } from "./activation.js";
+import { createSyncTraceEmitter, type SyncWorkflowEventInput } from "./trace.js";
 import {
   createSyncRuntime,
   gameSyncAction,
@@ -58,6 +59,7 @@ function fixture(
     processMergedPr: async ({ job }) => ({ pr: job.sourceId }),
     processCorpus: async ({ job }) => ({ batch: job.sourceId }),
   }),
+  extraDeps: Partial<SyncRuntimeDeps> = {},
 ) {
   const root = tempDir();
   const stateDir = resolve(root, "state");
@@ -97,6 +99,7 @@ function fixture(
     },
     sourceRoot: () => root,
     processors,
+    ...extraDeps,
   });
   return { paths, root, runtime, stateDir, stopCalls, store };
 }
@@ -122,6 +125,126 @@ function requested(store: ReturnType<typeof openState>, syncId = "sync-1") {
     },
   });
 }
+
+describe("S4 sync kernel trace", () => {
+  test("files each milestone into the cycle's sync-intake container with its game event", async () => {
+    const emitted: Array<{ paths: SyncRuntimeGameContext; input: SyncWorkflowEventInput }> = [];
+    const current = fixture(defaultSyncGitRunner, undefined, {
+      submitWorkflowEvent: async (paths, input) => {
+        emitted.push({ paths, input });
+        return { containerId: "container-sync-intake" };
+      },
+    });
+    requested(current.store, "sync-trace-milestones");
+    current.store.db.close();
+
+    const decision = await current.runtime.start({
+      commandId: "command-start-trace-milestones",
+      gameId: "melee",
+      syncId: "sync-trace-milestones",
+    });
+    expect(decision.sync.status).toBe("validated");
+
+    const store = openState(current.stateDir);
+    try {
+      const events = listGameEvents(store.db).filter((event) => event.subjectId === "sync-trace-milestones");
+      const ingesting = events.find((event) => event.eventType === "sync.ingesting");
+      const validated = events.find((event) => event.eventType === "sync.validated");
+      expect(ingesting?.eventId).toBeTruthy();
+      expect(validated?.eventId).toBeTruthy();
+
+      expect(emitted.map((entry) => [entry.input.operation, entry.input.status])).toEqual([
+        ["sync.start", "started"],
+        ["sync.ingest", "started"],
+        ["sync.validate", "completed"],
+      ]);
+      // Every milestone is filed under the sync's own cycle, never the run-id
+      // fallback the kernel would otherwise pick when it cannot see a cycle.
+      expect(new Set(emitted.map((entry) => entry.input.kind))).toEqual(new Set(["sync-intake"]));
+      expect(new Set(emitted.map((entry) => entry.input.sessionId))).toEqual(new Set(["cycle-melee"]));
+      // The join to the game event log is what makes the trace reachable from
+      // a sync event, so every emit carries a real game event id.
+      expect(emitted.map((entry) => entry.input.gameEventId)).toEqual([
+        ingesting!.eventId,
+        ingesting!.eventId,
+        validated!.eventId,
+      ]);
+      expect(new Set(emitted.map((entry) => entry.input.correlationId))).toEqual(
+        new Set(["sync-trace-milestones"]),
+      );
+      expect(emitted[2]!.input.metadata).toMatchObject({
+        milestone: "validated",
+        syncId: "sync-trace-milestones",
+        cycleUuid: "cycle-melee",
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a throwing trace emit never fails the sync step", async () => {
+    let attempts = 0;
+    const logs: string[] = [];
+    const current = fixture(defaultSyncGitRunner, undefined, {
+      appendLog: (_stream, text) => logs.push(text),
+      submitWorkflowEvent: async () => {
+        attempts += 1;
+        throw new Error("agent kernel is unreachable");
+      },
+    });
+    requested(current.store, "sync-trace-guarded");
+    current.store.db.close();
+
+    const decision = await current.runtime.start({
+      commandId: "command-start-trace-guarded",
+      gameId: "melee",
+      syncId: "sync-trace-guarded",
+    });
+    expect(decision.sync.status).toBe("validated");
+    expect(attempts).toBe(3);
+    expect(logs.some((line) => line.includes("sync trace emission failed"))).toBe(true);
+  });
+
+  test("skips emission, once, for a sync whose cycle cannot be resolved", async () => {
+    const emitted: SyncWorkflowEventInput[] = [];
+    const logs: string[] = [];
+    const current = fixture();
+    const sync = requested(current.store, "sync-trace-orphan");
+    current.store.db.close();
+    const emit = createSyncTraceEmitter<SyncRuntimeGameContext>({
+      appendLog: (_stream, text) => logs.push(text),
+      submitWorkflowEvent: async (_paths, input) => {
+        emitted.push(input);
+        return null;
+      },
+    });
+    const orphan = { ...sync, cycle_uuid: "cycle-that-never-existed" };
+
+    await emit(current.paths, orphan, "activation");
+    await emit(current.paths, orphan, "cancelled");
+
+    expect(emitted).toEqual([]);
+    expect(logs.filter((line) => line.includes("no resolvable cycle"))).toHaveLength(1);
+  });
+
+  test("skips a milestone with no durable game event behind it", async () => {
+    const emitted: SyncWorkflowEventInput[] = [];
+    const current = fixture();
+    const sync = requested(current.store, "sync-trace-unreached");
+    current.store.db.close();
+    const emit = createSyncTraceEmitter<SyncRuntimeGameContext>({
+      submitWorkflowEvent: async (_paths, input) => {
+        emitted.push(input);
+        return null;
+      },
+    });
+
+    // The sync has only ever been requested, so nothing published.
+    await emit(current.paths, sync, "published");
+
+    expect(emitted).toEqual([]);
+  });
+});
 
 describe("S4 sync operator runtime", () => {
   test("keeps the operator actor on the failure event for an operator-started action", async () => {

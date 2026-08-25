@@ -19,6 +19,7 @@ import { prepareWorktreePaths } from "@server/core/cycle-runtime/phases/preparin
 import type { ResolvedGame } from "@server/core/game-registry";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 import { activateAcquiredSync } from "./activation.js";
+import { createSyncTraceEmitter, type SubmitSyncWorkflowEvent } from "./trace.js";
 import {
   cancelSync,
   getSyncBlockedOriginStatus,
@@ -86,6 +87,11 @@ export interface SyncRuntimeDeps {
   ) => Promise<CliResult>;
   serverJobPath: string;
   stopManaged: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  /**
+   * Optional kernel workflow-trace writer. Absent in tests and CLI contexts,
+   * where sync behaves exactly as it did before the trace existed.
+   */
+  submitWorkflowEvent?: SubmitSyncWorkflowEvent<SyncRuntimeGameContext>;
   /** Injectable backoff delay for retries; defaults to setTimeout. */
   sleep?: (ms: number) => Promise<void>;
   sourceRoot: (sourceId: string) => string;
@@ -720,6 +726,25 @@ function defaultProcessors(
 }
 
 export function createSyncRuntime(deps: SyncRuntimeDeps) {
+  const emitSyncMilestone = createSyncTraceEmitter<SyncRuntimeGameContext>({
+    appendLog: deps.appendLog,
+    submitWorkflowEvent: deps.submitWorkflowEvent,
+  });
+
+  /** Files whichever terminal-ish milestone the sync actually landed on. */
+  async function emitSettledMilestone(
+    paths: SyncRuntimeGameContext,
+    sync: SyncState,
+    detail?: string,
+  ): Promise<void> {
+    if (sync.status === "blocked") {
+      await emitSyncMilestone(paths, sync, "blocked", {
+        detail: detail ?? (sync.blockers.map((entry) => entry.message).join("; ") || null),
+        metadata: { blockerCodes: sync.blockers.map((entry) => entry.code) },
+      });
+    }
+  }
+
   async function observe(body: Record<string, unknown>): Promise<SyncState> {
     const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
     const gameId = requiredGameId(paths, body);
@@ -812,6 +837,14 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       let sync = getSyncState(store, syncId);
       if (!sync) throw new Error(`Sync not found: ${syncId}`);
       if (sync.status !== "ingesting") return sync;
+      await emitSyncMilestone(paths, sync, "ingest", {
+        detail: `staging ${String(sync.intake.merged_pr_ids.length)} merged PR(s) and ${String(sync.intake.corpus_batch_ids.length)} corpus batch(es)`,
+        metadata: {
+          mergedPrIds: sync.intake.merged_pr_ids,
+          corpusBatchIds: sync.intake.corpus_batch_ids,
+          knowledgeOnly: sync.intake.knowledge_only,
+        },
+      });
       const context = syncLeaseContext(paths, store, sync, deps);
       context.actor = body.actor === "operator" ? "operator" : "runner";
       const revalidateOwnership = (): void => {
@@ -834,20 +867,31 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           appendLog: deps.appendLog,
         });
         sync = knowledge.sync;
-        if (sync.intake.knowledge_only || sync.status !== "ingesting") return sync;
+        if (sync.intake.knowledge_only || sync.status !== "ingesting") {
+          if (sync.status === "validated") await emitSyncMilestone(paths, sync, "validated");
+          await emitSettledMilestone(paths, sync);
+          return sync;
+        }
         sync = await reconcileSync({
           context,
           syncId: sync.sync_id,
           expectedRevision: sync.revision,
           commandId,
         });
-        if (sync.status !== "validating") return sync;
-        return await validateSync(context, {
+        await emitSyncMilestone(paths, sync, "reconciling");
+        if (sync.status !== "validating") {
+          await emitSettledMilestone(paths, sync);
+          return sync;
+        }
+        const validated = await validateSync(context, {
           syncId: sync.sync_id,
           expectedRevision: sync.revision,
           commandId,
           validate: deps.validate,
         });
+        if (validated.status === "validated") await emitSyncMilestone(paths, validated, "validated");
+        await emitSettledMilestone(paths, validated);
+        return validated;
       } catch (error) {
         let current = getSyncState(store, sync.sync_id) ?? sync;
         if (["ingesting", "reconciling", "validating", "validated"].includes(current.status)) {
@@ -868,6 +912,11 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
             );
           }
         }
+        await emitSettledMilestone(
+          paths,
+          current,
+          error instanceof Error ? error.message : String(error),
+        );
         throw new SyncWorkflowBlockedError(current, error);
       }
     } finally {
@@ -951,6 +1000,12 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     } finally {
       store.db.close();
     }
+    if (!decision.queued) {
+      await emitSyncMilestone(paths, decision.sync, "activation", {
+        detail: `operator started sync ${decision.sync.sync_id}`,
+        metadata: { leaseId: decision.lease_id },
+      });
+    }
     if (stopRunId) {
       await deps.stopManaged({
         ...body,
@@ -981,6 +1036,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
         expectedRevision: sync!.revision,
         commandId,
       });
+      await emitSyncMilestone(paths, next, "reconciling", { detail: "operator resolved staged conflicts" });
       if (next.status === "validating") {
         context.actor = "operator";
         next = await validateSync(context, {
@@ -989,7 +1045,9 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           commandId,
           validate: deps.validate,
         });
+        if (next.status === "validated") await emitSyncMilestone(paths, next, "validated");
       }
+      await emitSettledMilestone(paths, next);
       return next;
     } finally {
       store.db.close();
@@ -1012,6 +1070,27 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
         commandId: text(body.commandId, text(body.command_id)) || `command-sync-publish-${randomUUID()}`,
         confirmed: body.confirmed === true,
       });
+      // publishSync crosses validated -> publishing -> published inside one
+      // call, so both milestones are read back from the durable events it
+      // appended rather than from an intermediate return value. A sync still
+      // resting at validated never entered publishing, and must not borrow an
+      // earlier attempt's event.
+      if (published.status !== "validated") {
+        await emitSyncMilestone(paths, published, "publishing", {
+          detail: "operator confirmed publication",
+        });
+      }
+      if (published.status === "published") {
+        await emitSyncMilestone(paths, published, "published", {
+          detail: published.publication?.new_head ?? null,
+          metadata: {
+            priorHead: published.publication?.prior_head ?? null,
+            newHead: published.publication?.new_head ?? null,
+            knowledgeRevision: published.publication?.knowledge_revision ?? null,
+          },
+        });
+      }
+      await emitSettledMilestone(paths, published);
       const savePoint = published.status === "published" && published.publication?.remote_application_id
         ? store.db.query(
             `SELECT id, commit_sha, payload_json FROM save_points
@@ -1041,6 +1120,9 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
         syncId: sync!.sync_id,
         expectedRevision: sync!.revision,
         commandId: text(body.commandId, text(body.command_id)) || `command-sync-cancel-${randomUUID()}`,
+      });
+      await emitSyncMilestone(paths, cancelled, "cancelled", {
+        detail: text(body.reason, "operator cancelled sync"),
       });
       return cancelled;
     } finally {
@@ -1073,7 +1155,12 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           commandId,
           actor: "operator",
         });
-        if (sync.status === "published") return sync;
+        if (sync.status === "published") {
+          await emitSyncMilestone(paths, sync, "published", {
+            detail: "interrupted publication reconciled forward",
+          });
+          return sync;
+        }
         action = gameSyncAction(store, gameId, "sync.recover", sync.sync_id, syncActionOptions(paths, deps));
         if (!action.enabled) throw new SyncActionBlockedError(action);
       }
@@ -1099,7 +1186,12 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           recoveryReason,
         });
       }
+      await emitSyncMilestone(paths, recovered, "recovered", {
+        detail: recoveryReason,
+        metadata: { choice, resumeStatus: recovered.status },
+      });
       if (recovered.status === "cancelled") {
+        await emitSyncMilestone(paths, recovered, "cancelled", { detail: recoveryReason });
         return recovered;
       }
     } finally {
@@ -1120,6 +1212,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       } finally {
         resumedStore.db.close();
       }
+      await emitSyncMilestone(paths, recovered!, "reconciling", { detail: "resumed after recovery" });
     }
     if (recovered!.status === "validating") {
       const resumedStore = openState(paths.stateDir);
@@ -1135,6 +1228,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       } finally {
         resumedStore.db.close();
       }
+      if (recovered!.status === "validated") await emitSyncMilestone(paths, recovered!, "validated");
     }
     if (recovered!.status === "publishing") {
       const resumedStore = openState(paths.stateDir);
@@ -1149,7 +1243,14 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       } finally {
         resumedStore.db.close();
       }
+      await emitSyncMilestone(paths, recovered!, "publishing", { detail: "resumed after recovery" });
+      if (recovered!.status === "published") {
+        await emitSyncMilestone(paths, recovered!, "published", {
+          detail: recovered!.publication?.new_head ?? null,
+        });
+      }
     }
+    await emitSettledMilestone(paths, recovered!);
     return recovered!;
   }
 
@@ -1178,11 +1279,18 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     try {
       const sync = getNonTerminalSyncForGame(store, gameId);
       if (!sync || sync.status !== "publishing") return sync;
-      return await reconcileInterruptedSyncPublication({
+      const reconciled = await reconcileInterruptedSyncPublication({
         context: syncLeaseContext(paths, store, sync, deps),
         syncId: sync.sync_id,
         commandId: `command-sync-startup-reconcile-${randomUUID()}`,
       });
+      if (reconciled.status === "published") {
+        await emitSyncMilestone(paths, reconciled, "published", {
+          detail: "interrupted publication reconciled at startup",
+        });
+      }
+      await emitSettledMilestone(paths, reconciled);
+      return reconciled;
     } finally {
       store.db.close();
     }

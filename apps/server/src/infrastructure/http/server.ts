@@ -402,6 +402,8 @@ const syncRuntime = createSyncRuntime({
   serverJobPath,
   sourceRoot,
   stopManaged: (body) => processControlRuntime.stopManaged(body),
+  submitWorkflowEvent: (paths, input) =>
+    kernelRuntime.submitWorkflowEvent(paths as GameRuntimeContext, input),
 });
 
 const prRecords = createPrRecordsService({
