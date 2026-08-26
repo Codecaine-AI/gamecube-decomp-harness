@@ -51,6 +51,47 @@ export interface FormState {
   syncThinking: string;
 }
 
+export type ScoreTierRowState = "in_branch" | "in_upstream";
+
+export interface ScoreTierWin extends JsonObject {
+  symbol: string;
+  unit: string;
+  state?: ScoreTierRowState;
+  score?: number | null;
+  delta?: number | null;
+}
+
+export interface ScoreTierTimelinePoint {
+  savePointId: string;
+  commitSha: string;
+  score: number | null;
+  kind: "baseline" | "epoch_finish" | "pr_sync" | "legacy";
+  label: string;
+  createdAt: string;
+  measures?: JsonObject;
+}
+
+export interface DashboardScoreTiers {
+  baseline: {
+    score: number | null;
+    anchorRevision: string | null;
+    savePointId: string | null;
+    measures?: JsonObject;
+  };
+  confirmed: {
+    score: number | null;
+    delta: number | null;
+    savePointId: string | null;
+    matches: ScoreTierWin[];
+    improvements: ScoreTierWin[];
+  };
+  tentative: {
+    matches: ScoreTierWin[];
+    improvements: ScoreTierWin[];
+  };
+  timeline: ScoreTierTimelinePoint[];
+}
+
 export interface Dashboard {
   game: GameSummary | null;
   harnessState?: JsonObject | null;
@@ -81,6 +122,7 @@ export interface Dashboard {
   /** Closed worker states since the last epoch checkpoint vs the checkpoint interval. */
   checkpointProgress?: JsonObject | null;
   prs?: JsonObject | null;
+  scoreTiers?: DashboardScoreTiers;
 }
 
 /** Durable knowledge-job progress nested at `Dashboard.harnessState.sync.knowledge_jobs`. */

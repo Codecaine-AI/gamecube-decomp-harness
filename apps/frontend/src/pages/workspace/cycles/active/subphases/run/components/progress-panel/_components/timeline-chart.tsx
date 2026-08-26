@@ -4,6 +4,13 @@ import { MarkTooltip } from "./mark-tooltip";
 import { chartModel } from "../_lib/chart-model";
 import type { ChartMark } from "../_lib/types";
 
+function markerClass(mark: ChartMark): string {
+  if (mark.kind === "baseline") return "rounded-full border border-ink bg-fg";
+  if (mark.kind === "epoch_finish") return "rounded-full border border-ink bg-up";
+  if (mark.kind === "pr_sync") return "border border-up bg-card";
+  return "rotate-45 border border-soft bg-card";
+}
+
 function markLabelTransform(mark: ChartMark): string {
   if (mark.x < 8) return "translateX(0)";
   if (mark.x > 92) return "translateX(-100%)";
@@ -63,9 +70,7 @@ export function TimelineChart({ dashboard }: { dashboard: Dashboard | null }) {
               style={{ left: `${mark.x}%`, top: `${mark.y}%` }}
             >
               <span
-                className={`block h-2.5 w-2.5 rounded-full transition-transform group-hover:scale-150 ${
-                  mark.kind === "now" ? "border-2 border-up bg-card" : "border border-ink bg-up"
-                }`}
+                className={`block h-2.5 w-2.5 transition-transform group-hover:scale-150 ${markerClass(mark)}`}
               />
             </span>
             {showLabel[index] ? (
@@ -79,7 +84,7 @@ export function TimelineChart({ dashboard }: { dashboard: Dashboard | null }) {
           </Fragment>
         ))}
         {hovered !== null && model.marks[hovered] ? <MarkTooltip mark={model.marks[hovered]} /> : null}
-        {!model.hasRun ? <span className="absolute inset-0 flex items-center justify-center text-xs text-dim">No run yet.</span> : null}
+        {!model.hasData ? <span className="absolute inset-0 flex items-center justify-center text-xs text-dim">No cycle score history yet.</span> : null}
       </div>
   );
 }

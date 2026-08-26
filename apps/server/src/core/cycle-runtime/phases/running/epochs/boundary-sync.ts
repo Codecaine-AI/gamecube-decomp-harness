@@ -108,7 +108,15 @@ function normalizePath(path: string): string {
   return path.replace(/^\.\//, "").replace(/\\/g, "/");
 }
 
-const WORKER_INTEGRATION_SUBJECT = /^worker-integration\(job-[^)]+\):\s+(.+?)\s+\[checkpoint\s+[^\]]+\]$/;
+const WORKER_INTEGRATION_SUBJECT = /^worker-integration\(job-[^)]+\):\s+(.+?)\s+\[checkpoint\s+([^\]]+)\](?:\s+\(conflict resolved\))?$/;
+
+/** Shared parser for the branch-scoped worker-integration history. */
+export function parseWorkerIntegrationSubject(subject: string): { targetKey: string; checkpointPrefix: string } | null {
+  const match = WORKER_INTEGRATION_SUBJECT.exec(subject);
+  return match?.[1] && match[2]
+    ? { targetKey: match[1], checkpointPrefix: match[2] }
+    : null;
+}
 
 function sourcePathForIntegration(targetKey: string, changedFiles: string[]): string | null {
   const unit = targetKey.split("::", 1)[0]?.replace(/^main\//, "") ?? "";
@@ -138,21 +146,21 @@ async function discoverBranchTargets(input: {
     const tab = row.indexOf("\t");
     if (tab < 0) continue;
     const commitSha = row.slice(0, tab);
-    const match = WORKER_INTEGRATION_SUBJECT.exec(row.slice(tab + 1));
-    if (!match?.[1] || discovered.has(match[1])) continue;
+    const parsed = parseWorkerIntegrationSubject(row.slice(tab + 1));
+    if (!parsed || discovered.has(parsed.targetKey)) continue;
     const changed = lines(await checkedGit(
       input.runGit,
       input.repoRoot,
       ["show", "--format=", "--name-only", commitSha],
       `changed files for worker integration ${commitSha}`,
     ));
-    const sourcePath = sourcePathForIntegration(match[1], changed);
+    const sourcePath = sourcePathForIntegration(parsed.targetKey, changed);
     if (!sourcePath) continue;
-    const enrichment = enrichmentByKey.get(match[1]);
-    const [unit, symbol] = match[1].split("::", 2);
-    discovered.set(match[1], {
+    const enrichment = enrichmentByKey.get(parsed.targetKey);
+    const [unit, symbol] = parsed.targetKey.split("::", 2);
+    discovered.set(parsed.targetKey, {
       epochTargetId: enrichment?.epochTargetId,
-      targetKey: match[1],
+      targetKey: parsed.targetKey,
       sourcePath,
       unit: enrichment?.unit ?? unit ?? null,
       symbol: enrichment?.symbol ?? symbol ?? null,

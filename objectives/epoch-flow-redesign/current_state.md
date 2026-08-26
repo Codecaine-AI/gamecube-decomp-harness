@@ -13,6 +13,13 @@
   (anchor 89d8368d -> upstream 861a69b7), 9 upstream-taken files, 33 displaced
   targets w/ prior scores + ledger notes, no mutations. Tests 994/995 (known
   routes.test.ts:390 only failure).
+- Phase 2 IMPLEMENTED and gate-passed 2026-08-26: scoreTiers projection
+  (application/dashboard/score-tiers.ts) + frontend chart/panes. Real-cycle
+  output: baseline 90.7999 @ anchor 89d8368d, confirmed 91.0803 (+0.2805,
+  14 matches + 159 improvements listed), tentative empty w/o active run,
+  10-point typed timeline. Restage-invariance unit-tested. Server 997/998,
+  frontend 30/30. (Codex crashed on a provider error at final verification;
+  suites re-verified manually.)
 - Everything is stopped: no scheduler, no worker processes, zero Daytona
   sandboxes (all 30 deleted 2026-08-26 ~14:2xZ). No runs until Phase 1–2 land.
 </status>
@@ -39,9 +46,10 @@
 </in_progress>
 
 <next_actions>
-- Phase 2: three-tier score projection (read-model) + frontend, per
-  context/02 scope items 3 (backfill: yes) and 5.
-- Phase 3: draft-PR job. Phase 4: supervised live validation (needs Ford go).
+- Phase 3: align existing cycle-draft-pr publisher with decided contract
+  (spec: context/07_phase3_codex_spec.md), then live gate.
+- Phase 4: supervised live validation, width 8, two epochs (Ford pre-approved
+  running to objective completion 2026-08-26).
 </next_actions>
 
 <risks_or_open_questions>

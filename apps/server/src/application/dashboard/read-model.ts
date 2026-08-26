@@ -54,6 +54,7 @@ import {
 import { parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { quietGit } from "@server/core/cycle-runtime/phases/pr/pr-sync.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
+import { scoreTiersProjection, type DashboardScoreTiers } from "./score-tiers.js";
 
 export type JsonObject = Record<string, unknown>;
 type WorkerStateOutcome =
@@ -3581,13 +3582,17 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   let runCreatedAt = "";
   let runDesiredWorkers = 0;
   let cycle: JsonObject | null = null;
+  let cycleRecord: CycleRecord | null = null;
   try {
     status = statusSnapshot(store);
     const run = asObject(status.run);
     runId = stringValue(run.id);
     runCreatedAt = stringValue(run.createdAt);
     runDesiredWorkers = numberValue(run.desiredWorkers, 0);
-    if (paths.game) cycle = activeCycleProjection(store.db, paths.game.gameId) as unknown as JsonObject | null;
+    if (paths.game) {
+      cycleRecord = getActiveCycle(store.db, paths.game.gameId);
+      cycle = activeCycleProjection(store.db, paths.game.gameId) as unknown as JsonObject | null;
+    }
     cycle = enrichCycleBaseline(cycle);
     repoRoot = dashboardAuthorityRepoRoot(paths, cycle, status);
   } finally {
@@ -3645,9 +3650,16 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   const epochs = runningEpochHistory(stateDir);
   const gameId = paths.game?.gameId ?? stringValue(cycle?.gameId);
   let harnessState: HarnessStateView | null = null;
+  let scoreTiers: DashboardScoreTiers = {
+    baseline: { score: null, measures: {}, anchorRevision: null, savePointId: null },
+    confirmed: { score: null, measures: {}, delta: null, savePointId: null, matches: [], improvements: [] },
+    tentative: { matches: [], improvements: [] },
+    timeline: [],
+  };
   if (gameId) {
     const harnessStateStore = openState(stateDir);
     try {
+      scoreTiers = scoreTiersProjection(harnessStateStore, gameId, cycleRecord, repoRoot);
       harnessState = getHarnessStateView(harnessStateStore, gameId, {
         campaign,
         // The authority root (cycle worktree when present) is the tree whose
@@ -3683,6 +3695,7 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
       source: initialSource,
     },
     current: currentBoard,
+    scoreTiers,
     trustedReport,
     checkpoint,
     handoff,

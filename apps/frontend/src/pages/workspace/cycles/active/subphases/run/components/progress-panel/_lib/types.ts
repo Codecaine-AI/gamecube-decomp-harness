@@ -3,7 +3,7 @@ import type { JsonObject } from "@/lib/format";
 export interface ChartMark {
   x: number;
   y: number;
-  kind: "start" | "epoch" | "now";
+  kind: "baseline" | "epoch_finish" | "pr_sync" | "legacy";
   heading: string;
   when: string;
   matched: number;
@@ -14,7 +14,7 @@ export interface ChartMark {
 }
 
 export interface ChartModel {
-  hasRun: boolean;
+  hasData: boolean;
   hasLine: boolean;
   epochCount: number;
   linePoints: string;

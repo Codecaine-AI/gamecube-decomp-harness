@@ -18,6 +18,7 @@ import {
   rowItem,
   rowPath,
   rowScore,
+  rowUpstreamState,
   tentativeImprovementRows,
   tentativeMatchRows,
   tentativeRows,
@@ -96,15 +97,9 @@ function scoreTitle(entry: JsonObject): string {
   return `${parts.before} -> ${parts.after}${parts.delta ? ` (${parts.delta})` : ""}`;
 }
 
-function bytesTitle(entry: JsonObject): string {
-  const bytes = Number(entry.bytesDelta);
-  if (!Number.isFinite(bytes)) return rowDelta(entry);
-  return `${bytes >= 0 ? "+" : ""}${Math.round(bytes)}b`;
-}
-
 function itemTitle(entry: JsonObject, mode: ImprovedMode): string {
-  const deltaLabel = mode === "confirmed" ? "Bytes" : "Score delta";
-  return `${rowItem(entry)}\nScore: ${scoreTitle(entry)}\n${deltaLabel}: ${bytesTitle(entry)}`;
+  const state = mode === "confirmed" ? `\nUpstream state: ${rowUpstreamState(entry)}` : "";
+  return `${rowItem(entry)}\nScore: ${scoreTitle(entry)}${state}`;
 }
 
 export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTableProps) {
@@ -120,9 +115,9 @@ export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTabl
   const improvementCount = mode === "confirmed" ? confirmedImprovementRows(dashboard).length : tentativeImprovementRows(dashboard).length;
   const title = mode === "confirmed" ? "Confirmed" : "Tentative";
   const tentativeMode = mode === "tentative";
-  const symbolColumnWidth = mode === "confirmed" ? "w-[26%]" : "w-1/3";
-  const scoreColumnWidth = mode === "confirmed" ? "w-[56%]" : "w-1/3";
-  const deltaColumnWidth = mode === "confirmed" ? "w-[18%]" : "w-1/3";
+  const symbolColumnWidth = mode === "confirmed" ? "w-[30%]" : "w-1/3";
+  const scoreColumnWidth = mode === "confirmed" ? "w-[45%]" : "w-1/3";
+  const stateColumnWidth = mode === "confirmed" ? "w-[25%]" : "w-1/3";
   const columns = tentativeMode ? 2 : 3;
 
   function selectResultMode(nextMode: ImprovedResultMode) {
@@ -167,7 +162,7 @@ export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTabl
                 <>
                   <col className={symbolColumnWidth} />
                   <col className={scoreColumnWidth} />
-                  <col className={deltaColumnWidth} />
+                  <col className={stateColumnWidth} />
                 </>
               )}
             </colgroup>
@@ -178,8 +173,8 @@ export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTabl
                   <th className="text-center" title={deltaColumnTitle(mode)}>{deltaColumnLabel(mode)}</th>
                 ) : (
                   <>
-                    <th className="text-center">Score</th>
-                    <th className="text-right" title={deltaColumnTitle(mode)}>{deltaColumnLabel(mode)}</th>
+                    <th className="text-center" title={deltaColumnTitle(mode)}>{deltaColumnLabel(mode)}</th>
+                    <th className="text-right">Vs Upstream</th>
                   </>
                 )}
               </tr>
@@ -215,7 +210,7 @@ export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTabl
                     ) : (
                       <>
                         <td className="text-center"><ScoreCell entry={entry} /></td>
-                        <td className={`text-right ${rowDeltaClass(entry)}`} title={rowDeltaTitle(entry)}>{rowDelta(entry)}</td>
+                        <td className="text-right text-soft">{rowUpstreamState(entry)}</td>
                       </>
                     )}
                   </tr>
