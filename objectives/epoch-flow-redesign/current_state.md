@@ -45,9 +45,10 @@
 </next_actions>
 
 <risks_or_open_questions>
-- Rebase vs merge choice affects worktree/PR mechanics everywhere downstream.
-- cycleDraftPrEnabled flag's current behavior is unaudited.
-- Equal-score conflict precedence needs an explicit rule.
+- Real (non-dry-run) boundary-sync merge has not run yet — first live exercise
+  happens in Phase 4 under supervision.
+- The 33-target displacement against upstream 861a69b7 will fire on the first
+  real boundary sync; expect that requeue wave and the KG rebuild cost.
 - ~700 stale queued worker jobs from ramp runs still drain via claim-drop noise.
 </risks_or_open_questions>
 
