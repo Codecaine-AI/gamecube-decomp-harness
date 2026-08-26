@@ -1,13 +1,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { scoreTiersProjection, type DashboardScoreTiers } from "@server/application/dashboard/score-tiers.js";
+import { getCycleByUuid } from "@server/core/cycle";
 import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
 
 export const CYCLE_DRAFT_PR_ARTIFACT_TYPE = "cycle_draft_pr";
 export const CYCLE_DRAFT_PR_ARTIFACT_KEY = "current";
 export const CYCLE_DRAFT_PR_BRANCH_PREFIX = "orchestrator/cycle/";
-export const DEFAULT_CYCLE_DRAFT_PR_TITLE = "Work in Progress Cycle Run.";
-export const DEFAULT_CYCLE_DRAFT_PR_BODY =
-  "This is an active decomp orchestrator cycle. Changes here have not been final-QA'd or broken down for review. Please take from this what you want; it still needs to be split into reviewable pieces.\n";
+export const DEFAULT_CYCLE_DRAFT_PR_TITLE = "GCD decomp session";
+export const DEFAULT_CYCLE_DRAFT_PR_BODY = "Work in progress — AI decomp session.\n";
 
 export interface CycleDraftPrCommandResult {
   exitCode: number | null;
@@ -21,6 +22,7 @@ export interface CycleDraftPrPublishInput {
   baseRef?: string | null;
   body?: string;
   commitSha?: string | null;
+  epochOrdinal?: number | null;
   epochLabel?: string | null;
   matchedCodePercent?: number | null;
   gameId?: string | null;
@@ -36,6 +38,7 @@ export interface CycleDraftPrPublishInput {
 
 export interface CycleDraftPrPublishDeps {
   runCommand?: CycleDraftPrCommandRunner;
+  projectScoreTiers?: typeof scoreTiersProjection;
 }
 
 export interface CycleDraftPrPublishResult {
@@ -124,6 +127,46 @@ function cycleUuidFromBranch(branch: string): string {
   return branch.startsWith(CYCLE_DRAFT_PR_BRANCH_PREFIX) ? branch.slice(CYCLE_DRAFT_PR_BRANCH_PREFIX.length) : "";
 }
 
+function formattedNumber(value: number | null, suffix = ""): string {
+  if (value === null || !Number.isFinite(value)) return "unavailable";
+  return `${Number(value.toFixed(4))}${suffix}`;
+}
+
+function epochText(input: CycleDraftPrPublishInput): string {
+  if (input.epochOrdinal !== null && input.epochOrdinal !== undefined) return String(input.epochOrdinal);
+  const label = input.epochLabel?.trim();
+  if (!label) return "unknown";
+  const ordinal = label.match(/(?:^|[^0-9])(\d+)(?:[^0-9]|$)/)?.[1];
+  return ordinal ?? label;
+}
+
+function draftPrBody(input: CycleDraftPrPublishInput, tiers: DashboardScoreTiers): string {
+  const tentativeWins = tiers.tentative.matches.length + tiers.tentative.improvements.length;
+  const matches = tiers.confirmed.matches.length > 0
+    ? tiers.confirmed.matches.map((match) => `- \`${match.symbol}\` (\`${match.unit}\`): ${formattedNumber(match.score, "%")}`)
+    : ["- None"];
+  const improvements = tiers.confirmed.improvements.length > 0
+    ? tiers.confirmed.improvements.map((improvement) => `- \`${improvement.symbol}\` (\`${improvement.unit}\`): +${formattedNumber(improvement.delta)}`)
+    : ["- None"];
+  return [
+    DEFAULT_CYCLE_DRAFT_PR_BODY.trimEnd(),
+    "",
+    `Epoch: ${epochText(input)}`,
+    "",
+    "Tier scores",
+    `- Baseline: ${formattedNumber(tiers.baseline.score, "%")}`,
+    `- Confirmed: ${formattedNumber(tiers.confirmed.score, "%")}`,
+    `- Tentative: ${tentativeWins} win${tentativeWins === 1 ? "" : "s"} pending validation`,
+    "",
+    "Confirmed matches since baseline",
+    ...matches,
+    "",
+    "Improvements since baseline",
+    ...improvements,
+    "",
+  ].join("\n");
+}
+
 async function defaultRunCommand(cwd: string, command: string[]): Promise<CycleDraftPrCommandResult> {
   const proc = Bun.spawn(command, { cwd, stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
@@ -194,11 +237,11 @@ async function publishCycleDraftPrInner(
   const runCommand = deps.runCommand;
   const baseRef = input.baseRef?.trim() || "origin/master";
   const baseBranch = normalizeBaseBranch(baseRef);
-  const title = input.title?.trim() || DEFAULT_CYCLE_DRAFT_PR_TITLE;
 
   const branchResult = await runChecked(runCommand, input.repoRoot, ["git", "rev-parse", "--abbrev-ref", "HEAD"], "read current branch");
   const branch = branchResult.stdout.trim();
   const cycleUuid = cycleUuidFromBranch(branch);
+  const title = input.title?.trim() || (cycleUuid ? `${DEFAULT_CYCLE_DRAFT_PR_TITLE} ${cycleUuid.slice(0, 8)}` : DEFAULT_CYCLE_DRAFT_PR_TITLE);
   if (!cycleUuid) {
     return {
       baseBranch,
@@ -248,10 +291,11 @@ async function publishCycleDraftPrInner(
 
   await runChecked(runCommand, input.repoRoot, ["git", "push", "--force-with-lease", "-u", "fork", `HEAD:${branch}`], "push cycle branch");
   let pull = await findOpenPullRequest(runCommand, input.repoRoot, repoSlug, forkOwner, branch);
-  let bodyPath: string | null = null;
+  const cycle = getCycleByUuid(input.store.db, cycleUuid);
+  const tiers = deps.projectScoreTiers(input.store, input.gameId?.trim() || cycle?.game_id || "", cycle, input.repoRoot);
+  const bodyPath = await writeDefaultPrBody(input.stateDir, input.runId, input.body ?? draftPrBody(input, tiers));
   let created = false;
   if (!pull) {
-    bodyPath = await writeDefaultPrBody(input.stateDir, input.runId, input.body ?? DEFAULT_CYCLE_DRAFT_PR_BODY);
     const create = await runChecked(
       runCommand,
       input.repoRoot,
@@ -262,6 +306,13 @@ async function publishCycleDraftPrInner(
     const number = numberValue(url.match(/\/pull\/(\d+)/)?.[1]);
     pull = { draft: true, number, state: "open", url: url || null };
     created = true;
+  } else {
+    await runChecked(
+      runCommand,
+      input.repoRoot,
+      ["gh", "pr", "edit", String(pull.number ?? pull.url ?? ""), "--repo", repoSlug, "--title", title, "--body-file", bodyPath],
+      "gh pr edit",
+    );
   }
 
   return recordPublication(input, {
@@ -295,6 +346,7 @@ export async function publishCycleDraftPr(
 ): Promise<CycleDraftPrPublishResult> {
   const fullDeps: Required<CycleDraftPrPublishDeps> = {
     runCommand: deps.runCommand ?? defaultRunCommand,
+    projectScoreTiers: deps.projectScoreTiers ?? scoreTiersProjection,
   };
   try {
     return await publishCycleDraftPrInner(input, fullDeps);

@@ -298,15 +298,23 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         });
         boundaryResult = result;
         if (config.boundarySyncEnabled && result.commitSha) {
-          boundarySync = runBoundarySync
-            ? await runBoundarySync({ params, epochResult: result })
-            : await productionBoundarySync(params);
+          try {
+            boundarySync = runBoundarySync
+              ? await runBoundarySync({ params, epochResult: result })
+              : await productionBoundarySync(params);
+          } catch (error) {
+            if (config.cycleDraftPrEnabled) {
+              console.error(`[run-loop] epoch ${epochOrdinal}: cycle draft PR skipped (boundary_sync_failed)`);
+            }
+            throw error;
+          }
         }
         if (config.cycleDraftPrEnabled) {
           const publish = await publishCycleDraftPr({
             baseRef: globals.game?.baseRef,
-            commitSha: result.commitSha,
+            commitSha: boundarySync?.headSha ?? result.commitSha,
             epochLabel: result.label,
+            epochOrdinal,
             matchedCodePercent: result.matchedCodePercent,
             gameId: globals.game?.gameId ?? globals.gameId ?? null,
             qaGate: result.qaGate as unknown as Record<string, unknown> | null,

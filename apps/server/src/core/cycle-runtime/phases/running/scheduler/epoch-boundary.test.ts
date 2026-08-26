@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -104,6 +104,12 @@ describe("runEpochBoundary", () => {
             order.push("pr_sync");
             return { changed: true, headSha: "post-sync-head", plan: {} as never };
           },
+          publishCycleDraftPr: async (publishInput) => {
+            order.push("draft_pr");
+            expect(publishInput.commitSha).toBe("post-sync-head");
+            expect(publishInput.epochOrdinal).toBe(1);
+            return { status: "updated" } as never;
+          },
           ensureSchedulerEpochFromBoard: ((input: unknown) => {
             order.push("admission");
             return { epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 };
@@ -112,11 +118,54 @@ describe("runEpochBoundary", () => {
       });
       input.schedulerEpochId = undefined;
       input.config.boundarySyncEnabled = true;
+      input.config.cycleDraftPrEnabled = true;
       const outcome = await runEpochBoundary(input);
 
-      expect(order).toEqual(["epoch_finish", "pr_sync", "admission"]);
+      expect(order).toEqual(["epoch_finish", "pr_sync", "draft_pr", "admission"]);
       expect(outcome.boundaryHeadSha).toBe("post-sync-head");
     } finally {
+      value.store.db.close();
+    }
+  });
+
+  test("skips draft PR publication and logs the reason when boundary sync fails", async () => {
+    const value = fixture([]);
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      let publishCalls = 0;
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: async () => ({
+            commitSha: "epoch-head",
+            label: "epoch-1",
+            matchedCodePercent: 90,
+            qaGate: null,
+            regressions: { regressedFunctions: 0 },
+            repair: { paused: false, requeued: 0 },
+            durationMs: 1,
+          }) as never,
+          runBoundarySync: async () => {
+            throw new Error("boundary sync fetch failed: network unavailable");
+          },
+          publishCycleDraftPr: async () => {
+            publishCalls += 1;
+            return { status: "updated" } as never;
+          },
+        },
+      });
+      input.schedulerEpochId = undefined;
+      input.config.boundarySyncEnabled = true;
+      input.config.cycleDraftPrEnabled = true;
+
+      const outcome = await runEpochBoundary(input);
+
+      expect(outcome).toMatchObject({ ok: false, error: "boundary sync fetch failed: network unavailable" });
+      expect(publishCalls).toBe(0);
+      expect(errorLog.mock.calls.some(([message]) => String(message).includes("cycle draft PR skipped (boundary_sync_failed)"))).toBe(true);
+    } finally {
+      errorLog.mockRestore();
       value.store.db.close();
     }
   });
