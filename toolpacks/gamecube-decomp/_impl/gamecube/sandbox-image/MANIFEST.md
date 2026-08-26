@@ -70,15 +70,26 @@ The per-sandbox cache lives and dies with the sandbox.
 
 ```sh
 export ORCH_TOOL_PLATFORM=linux-i686
-export ORCH_GLOBAL_COMPILE_SLOTS=<sandbox-vCPU-count>
 export MWCC_CACHE_DIR=$MELEE_ROOT/build/mwcc-objcache
 ```
 
-Size `ORCH_GLOBAL_COMPILE_SLOTS` to the sandbox's allocated vCPU count. The
-filesystem admission locks described in
-`docs/40-new-features/10-daytona-sandbox-execution` are only VM-local in this
-deployment; they do not coordinate separate Daytona VMs. Dedicated CPU
-allocation and the per-VM slot count are therefore the compile admission limit.
+Daytona fixes CPU, memory, and disk when it creates a snapshot. Its API rejects
+a `resources` field when creating a sandbox from that snapshot. The current
+resource class is 2 vCPU, 4 GiB memory, and 5 GiB disk. Moving to 4 vCPU requires
+baking and registering a new snapshot. The permuter's automatic job count will
+scale to the new CPU count.
+
+## Toolpack + Python runtime
+
+The image must contain `/opt/toolpacks/gamecube-decomp` and its `.ready` content
+stamp. The Python 3 environment must have the pinned `tree-sitter`,
+`tree-sitter-c`, and `libclang` packages installed by the Dockerfile.
+
+Run these checks against a snapshot candidate:
+
+1. `python3 -c "import tree_sitter, tree_sitter_c, clang"` exits 0.
+2. `python3 /opt/toolpacks/gamecube-decomp/validation/checkdiff/api/status.py --repo-root /opt/melee --json` reports `ok`.
+3. `python3 /opt/toolpacks/gamecube-decomp/source_editing/source_permuter/api/run.py --repo-root /opt/melee --function <any exact fn> --max-iters 2 --timeout-seconds 60 --json` returns a structured payload without `missing_python_deps`.
 
 ## Snapshot acceptance checks
 
@@ -112,3 +123,18 @@ operators must rebake the snapshot rather than patch a live sandbox.
 overlays for transfer into an image build context. It does not make macOS native
 binaries Linux-compatible; the Linux image build must install the pinned Linux
 dtk/binutils and complete the objdiff TODO before passing these checks.
+
+### Rebake runbook
+
+```sh
+SANDBOX_IMAGE=toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image
+bash "$SANDBOX_IMAGE/build_image_bundle.sh" --harness-root "$PWD" --checkout games/melee/checkout --out /tmp/daytona-melee-image.tar.zst
+mkdir -p /tmp/daytona-melee-image
+tar --use-compress-program=unzstd -xf /tmp/daytona-melee-image.tar.zst -C /tmp/daytona-melee-image
+cp "$SANDBOX_IMAGE/Dockerfile" "$SANDBOX_IMAGE/.dockerignore" /tmp/daytona-melee-image/daytona-melee-image/
+docker build -t <registry>/daytona-melee:<revision> /tmp/daytona-melee-image/daytona-melee-image
+docker push <registry>/daytona-melee:<revision>
+# Register a new Daytona snapshot from that image with the required resource class.
+# Set games/melee/local.game.json snapshot_name to the registered snapshot name.
+# Set games/melee/local.game.json snapshot_baked_rev to the checkout revision baked above.
+```

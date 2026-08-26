@@ -67,6 +67,7 @@ LINUX_OBJDIFF="$OBJDIFF_DIR/objdiff-cli-linux-x86_64"
 CACHE_SHIM="$IMPL/tools/mwcc_objcache.py"
 CACHE_INSTALLER="$IMPL/tools/install_mwcc_cache.py"
 MWCC_ALLOC_DIR="$HARNESS_ROOT/toolpacks/gamecube-decomp/compiler/mwcc_alloc/sandbox"
+TOOLPACK_SOURCE="$HARNESS_ROOT/toolpacks/gamecube-decomp"
 
 require_file "$WIBO"
 require_file "$STOCK_WIBO"
@@ -79,6 +80,7 @@ require_file "$MWCC_ALLOC_DIR/allocator_snapshot.py"
 require_file "$MWCC_ALLOC_DIR/gdb_allocator_snapshot.py"
 require_file "$MWCC_ALLOC_DIR/compare_coloring_snapshots.py"
 require_file "$MWCC_ALLOC_DIR/mwcc_alloc_capture.py"
+require_dir "$TOOLPACK_SOURCE"
 require_file "$CHECKOUT/configure.py"
 require_file "$CHECKOUT/tools/download_tool.py"
 require_file "$CHECKOUT/build.ninja"
@@ -100,7 +102,7 @@ PAYLOAD="$TMP_ROOT/daytona-melee-image"
 SHALLOW_REPO="$TMP_ROOT/shallow"
 mkdir -p "$PAYLOAD/melee" "$PAYLOAD/provenance/wibo-1.2.0-opt1" \
   "$PAYLOAD/provenance/objdiff-cli-3.6.1-score" "$PAYLOAD/image-tools" \
-  "$PAYLOAD/melee/build/tools/mwcc-alloc"
+  "$PAYLOAD/melee/build/tools/mwcc-alloc" "$PAYLOAD/toolpacks/gamecube-decomp"
 
 echo "Copying configured Melee checkout..." >&2
 # Exclude measured local-development dead weight, including AI corpora that policy
@@ -117,6 +119,34 @@ tar -C "$CHECKOUT" \
   --exclude='./.git/fsmonitor--daemon.ipc' \
   -cf - . | \
   tar -C "$PAYLOAD/melee" -xf -
+
+echo "Copying gamecube-decomp toolpack..." >&2
+(
+  cd "$TOOLPACK_SOURCE"
+  find . \
+    \( -path './_impl/gamecube/mwcc_debug' \
+       -o -path './_impl/gamecube/sandbox-image' \
+       -o \( -type d \( -name tests -o -name __pycache__ \) \) \) -prune \
+    -o \( \( -type f -o -type l \) ! -name '*.pyc' \) -print0 | \
+    tar --null -T - -cf -
+) | \
+  tar -C "$PAYLOAD/toolpacks/gamecube-decomp" -xf -
+
+PAYLOAD_TOOLPACK="$PAYLOAD/toolpacks/gamecube-decomp"
+require_file "$PAYLOAD_TOOLPACK/validation/checkdiff/api/run.py"
+require_file "$PAYLOAD_TOOLPACK/_impl/gamecube/tools/checkdiff.py"
+require_file "$PAYLOAD_TOOLPACK/_impl/gamecube/tools/permute.py"
+require_file "$PAYLOAD_TOOLPACK/_impl/gamecube/tools/src_mutate.py"
+require_file "$PAYLOAD_TOOLPACK/_shared/toolpack_runtime.py"
+
+STAMP_INPUT="$TMP_ROOT/toolpack-stamp-input.txt"
+(
+  cd "$PAYLOAD_TOOLPACK"
+  find . -type f ! -path './.ready' | LC_ALL=C sort | while IFS= read -r file; do
+    printf '%s  %s\n' "$(sha256_file "$file")" "$file"
+  done
+) > "$STAMP_INPUT"
+printf '%s\n' "$(sha256_file "$STAMP_INPUT")" > "$PAYLOAD_TOOLPACK/.ready"
 
 BAKED_HEAD=$(git -C "$CHECKOUT" rev-parse --verify 'HEAD^{commit}')
 git clone --quiet --depth 1 --no-checkout "file://$CHECKOUT" "$SHALLOW_REPO"

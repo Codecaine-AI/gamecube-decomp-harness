@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 from pathlib import Path
 import sys
@@ -12,8 +13,10 @@ sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
 from toolpack_runtime import clamp_int, print_json, resolve_repo_root, run_tool_script
 
 
-DEFAULT_JOBS = 1
-MAX_JOBS = 1
+DEFAULT_JOBS = 0
+MAX_AUTO_JOBS = 8
+MAX_JOBS = 16
+MISSING_PYTHON_DEPS_HINT = "Rebake the sandbox image with tree-sitter, tree-sitter-c, and libclang."
 
 
 def split_symbols(values: list[str], joined: str | None) -> list[str]:
@@ -25,6 +28,29 @@ def split_symbols(values: list[str], joined: str | None) -> list[str]:
     return [value.strip() for value in raw if value.strip()]
 
 
+def resolve_auto_jobs() -> int:
+    """Prefer cgroup CPU quotas because containers can report the host CPU count."""
+
+    cpu_limit = None
+    try:
+        quota_text, period_text = Path("/sys/fs/cgroup/cpu.max").read_text().split()
+        if quota_text != "max":
+            quota = int(quota_text)
+            period = int(period_text)
+            if quota >= 0 and period > 0:
+                cpu_limit = (quota + period - 1) // period
+    except (OSError, ValueError):
+        try:
+            quota = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us").read_text())
+            period = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_period_us").read_text())
+            if quota != -1 and quota >= 0 and period > 0:
+                cpu_limit = (quota + period - 1) // period
+        except (OSError, ValueError):
+            pass
+
+    return min(max(cpu_limit or os.cpu_count() or 1, 1), MAX_AUTO_JOBS)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", help="Target project checkout root.")
@@ -33,7 +59,7 @@ def main() -> None:
     parser.add_argument("--mutate-functions", help="Comma- or space-separated mutation targets.")
     parser.add_argument("--max-iters", type=int, default=32, help="Maximum compiled candidates.")
     parser.add_argument("--timeout-seconds", type=int, default=90, help="Maximum search runtime.")
-    parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS, help="Worker threads for permutation.")
+    parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS, help="Worker threads for permutation; 0 selects up to eight sandbox cores.")
     parser.add_argument("--seed", type=int, default=0, help="Base random seed.")
     parser.add_argument("--keep-prob", type=float, default=0.25, help="Probability of stacking another mutation.")
     parser.add_argument("--no-narrow", action="store_true", help="Skip post-search diff minimization.")
@@ -43,7 +69,7 @@ def main() -> None:
     args = parser.parse_args()
 
     mutate_functions = split_symbols(args.mutate_function, args.mutate_functions)
-    jobs = clamp_int(args.jobs, default=DEFAULT_JOBS, minimum=1, maximum=MAX_JOBS)
+    jobs = resolve_auto_jobs() if args.jobs == DEFAULT_JOBS else clamp_int(args.jobs, default=1, minimum=1, maximum=MAX_JOBS)
     command_args = [
         args.function,
         *mutate_functions,
@@ -75,6 +101,9 @@ def main() -> None:
         operation="source_permuter:run",
         timeout_seconds=clamp_int(args.timeout_seconds + 120, default=210, minimum=30, maximum=1500),
     )
+    if payload.get("status") != "ok" and "ModuleNotFoundError" in str(payload.get("stderr", "")):
+        payload["status"] = "missing_python_deps"
+        payload["hint"] = MISSING_PYTHON_DEPS_HINT
     payload.update(
         {
             "function": args.function,

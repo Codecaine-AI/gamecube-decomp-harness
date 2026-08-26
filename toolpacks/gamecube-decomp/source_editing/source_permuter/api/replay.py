@@ -11,6 +11,9 @@ sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
 from toolpack_runtime import clamp_int, print_json, resolve_repo_root, run_tool_script
 
 
+MISSING_PYTHON_DEPS_HINT = "Rebake the sandbox image with tree-sitter, tree-sitter-c, and libclang."
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", help="Target project checkout root.")
@@ -34,6 +37,9 @@ def main() -> None:
         operation="source_permuter:replay",
         timeout_seconds=clamp_int(args.timeout_seconds, default=120, minimum=10, maximum=900),
     )
+    if payload.get("status") != "ok" and "ModuleNotFoundError" in str(payload.get("stderr", "")):
+        payload["status"] = "missing_python_deps"
+        payload["hint"] = MISSING_PYTHON_DEPS_HINT
     payload.update({"function": args.function, "replay": args.replay, "apply": args.apply})
     print_json(payload)
 
