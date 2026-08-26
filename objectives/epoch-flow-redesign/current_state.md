@@ -13,6 +13,10 @@
   (anchor 89d8368d -> upstream 861a69b7), 9 upstream-taken files, 33 displaced
   targets w/ prior scores + ledger notes, no mutations. Tests 994/995 (known
   routes.test.ts:390 only failure).
+- Phase 3 IMPLEMENTED 2026-08-26 (commit a1f33e2a): draft-PR contract (title
+  'GCD decomp session <cycle-short>', WIP body + tiers + win lists via
+  scoreTiersProjection), publish only after successful boundary sync, skip
+  logged on sync failure, post-sync head sha. Mocked-runner tests green.
 - Phase 2 IMPLEMENTED and gate-passed 2026-08-26: scoreTiers projection
   (application/dashboard/score-tiers.ts) + frontend chart/panes. Real-cycle
   output: baseline 90.7999 @ anchor 89d8368d, confirmed 91.0803 (+0.2805,
@@ -46,10 +50,15 @@
 </in_progress>
 
 <next_actions>
-- Phase 3: align existing cycle-draft-pr publisher with decided contract
-  (spec: context/07_phase3_codex_spec.md), then live gate.
 - Phase 4: supervised live validation, width 8, two epochs (Ford pre-approved
-  running to objective completion 2026-08-26).
+  running to completion). The Phase 3 live gate folds into Phase 4's first
+  boundary (real draft PR beats a scratch test). BLOCKED until the concurrent
+  cmux/codex session working the sandbox-profile feature finishes — its WIP
+  owns preparing/runtime + process-command and 2 currently-failing tests
+  (preparing/runtime.test.ts:66,:140) that are theirs to settle.
+- Before Phase 4 start: restart the server WITH ORCH_AGENT_KERNEL_REQUIRED=1
+  (the currently running server 33028 was restarted without it).
+- After Phase 4: docs chapter (scope item 6) via docs-writer lane.
 </next_actions>
 
 <risks_or_open_questions>
