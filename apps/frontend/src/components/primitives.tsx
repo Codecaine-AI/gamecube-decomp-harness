@@ -134,11 +134,11 @@ export function StackCell({ primary, secondary }: { primary: ReactNode; secondar
   );
 }
 
-export function StatCard({ label, tone = "text-soft", value }: { label: string; tone?: string; value: ReactNode }) {
+export function StatCard({ label, tone = "text-soft", value, wrap = false }: { label: string; tone?: string; value: ReactNode; wrap?: boolean }) {
   return (
     <div className="min-w-0 border border-line bg-card px-2.5 py-2">
       <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">{label}</div>
-      <div className={`mt-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm ${tone}`}>{value}</div>
+      <div className={`mt-1 min-w-0 text-sm ${wrap ? "break-all whitespace-normal" : "overflow-hidden text-ellipsis whitespace-nowrap"} ${tone}`}>{value}</div>
     </div>
   );
 }

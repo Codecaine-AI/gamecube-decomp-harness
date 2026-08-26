@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { ChevronDown, ChevronRight } from "@/icons";
 
-export type RailSectionId = "config" | "logs" | "navigator" | "process" | "state";
+export type RailSectionId = "actions" | "activity" | "config" | "pr" | "sync";
 
 function storageKey(id: RailSectionId): string {
   return `detailsRail.section.${id}`;

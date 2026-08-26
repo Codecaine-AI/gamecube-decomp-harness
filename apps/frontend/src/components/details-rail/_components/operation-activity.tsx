@@ -14,6 +14,9 @@ const operationStepGlyph: Record<string, { className: string; glyph: string }> =
 
 export function OperationActivity({ dashboard }: { dashboard: Dashboard | null }) {
   const operation = asObject(asObject(dashboard?.process).operation);
+  const sync = asObject(asObject(dashboard?.harnessState).sync);
+  const syncStatus = text(sync.status);
+  const syncRunning = ["requested", "ingesting", "reconciling", "validating", "validated", "publishing"].includes(syncStatus);
   const running = text(operation.status) === "running";
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -22,6 +25,14 @@ export function OperationActivity({ dashboard }: { dashboard: Dashboard | null }
     return () => clearInterval(interval);
   }, [running]);
   if (!operation.name) {
+    if (syncRunning) {
+      const syncId = text(sync.workflow_id);
+      return (
+        <div className="mb-3 border border-line bg-card px-2.5 py-2 text-xs text-fg">
+          Sync {syncStatus} in progress{syncId ? ` · ${syncId}` : ""}
+        </div>
+      );
+    }
     return <div className="mb-3 border border-line bg-card px-2.5 py-2 text-xs text-dim">No sync, handoff, or QA operation has run since the UI server started.</div>;
   }
 

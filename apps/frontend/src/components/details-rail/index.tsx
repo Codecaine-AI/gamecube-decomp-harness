@@ -1,24 +1,30 @@
-import { useEffect, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { ChevronLeft, ChevronRight } from "@/icons";
-import { asArray, asObject, text } from "@/lib/format";
+import { asObject, text } from "@/lib/format";
 
-import { OperationLogsTab } from "./_components/logs-tab";
-import { NavigatorSection, navigatorSectionHint } from "./_components/navigator-section";
-import { ProcessTab } from "./_components/process-tab";
+import { NowPanel } from "./_components/now-panel";
+import { OperationActivity } from "./_components/operation-activity";
+import { PrSection } from "./_components/pr-section";
 import { RailSection, type RailSectionId } from "./_components/rail-section";
-import { RunSetupSection, runSetupSummary } from "./_components/run-setup";
-import { StateSection, stateSectionHint } from "./_components/state-section";
+import { RunSetupSection } from "./_components/run-setup";
+import { RunActionsSection } from "./_components/run-actions-section";
+import { SyncSection } from "./_components/sync-section";
+import { SubtabStrip } from "./_components/subtab-strip";
+import { WorkflowTabs } from "./_components/workflow-tabs";
 import { detailsRailCycleFocus } from "./_lib/cycle-focus";
 import type { DetailsRailProps, DetailsTab } from "./_lib/types";
+import { defaultWorkflowSubTab, type SubTab } from "./_lib/workflow-subtabs";
+import { cycleTabForSubPage, type CycleTab } from "@/routing";
 
 export type { DetailsRailProps, DetailsTab } from "./_lib/types";
 
 function initialRequestedSection(): RailSectionId | null {
   try {
     const requested = new URLSearchParams(window.location.search).get("details");
-    if (requested === "run") return "navigator";
-    if (requested === "process" || requested === "logs") return requested;
+    if (requested === "run") return "config";
+    if (requested === "logs") return "activity";
+    if (requested === "process") return "activity";
     return null;
   } catch {
     return null;
@@ -30,8 +36,6 @@ export function DetailsRail({
   collapsed,
   dashboard,
   form,
-  loadRunDetails,
-  loadingRunDetails,
   onAction,
   onCollapsedChange,
   onNavigate,
@@ -39,25 +43,58 @@ export function DetailsRail({
   onResizeStart,
   onWidthChange,
   route,
-  runDetails,
   setForm,
   tabRequest,
   view,
 }: DetailsRailProps) {
   const requestedSection = initialRequestedSection();
-  const cycleFocus = detailsRailCycleFocus(dashboard);
+  const cycleFocus = detailsRailCycleFocus(view);
   const gameId = route.kind === "workspace" ? route.gameId : undefined;
-  const processHint = view.process.running ? "running" : view.process.pillState || "idle";
+  const routeSub = route.kind === "workspace" ? route.cycleSub : undefined;
+  const workflowTab = cycleTabForSubPage(routeSub ?? view.recommendedSub);
+  const [workflowSubtabs, setWorkflowSubtabs] = useState<Record<"sync" | "run", SubTab>>(() => ({
+    run: defaultWorkflowSubTab("run", view.harnessState),
+    sync: defaultWorkflowSubTab("sync", view.harnessState),
+  }));
+  const previousWorkflowTab = useRef(workflowTab);
   const operation = asObject(asObject(dashboard?.process).operation);
   const operationStatus = text(operation.status);
-  const logsHint = operationStatus || `${asArray(asObject(dashboard?.process).logs).length} lines`;
-  const navigatorRequest = tabRequest?.tab === "run" ? tabRequest.nonce : requestedSection === "navigator" ? 0 : undefined;
-  const processRequest = tabRequest?.tab === "process" ? tabRequest.nonce : requestedSection === "process" ? 0 : undefined;
-  const logsRequest = tabRequest?.tab === "logs" ? tabRequest.nonce : requestedSection === "logs" ? 0 : undefined;
+  const activityHint = operationStatus || "";
+  const activityRequest = tabRequest?.tab === "logs" || tabRequest?.tab === "process"
+    ? tabRequest.nonce
+    : requestedSection === "activity" ? 0 : undefined;
 
   useEffect(() => {
-    if (tabRequest) onCollapsedChange(false);
-  }, [onCollapsedChange, tabRequest]);
+    if (tabRequest || requestedSection) onCollapsedChange(false);
+  }, [onCollapsedChange, requestedSection, tabRequest]);
+
+  useEffect(() => {
+    const runRequested = tabRequest?.tab === "run" || requestedSection === "config";
+    if (!runRequested || workflowTab === "run") return;
+    onNavigate({
+      kind: "workspace",
+      section: "cycles",
+      gameId,
+      cycle: cycleFocus,
+      cycleSub: "run",
+    });
+  }, [cycleFocus, gameId, onNavigate, requestedSection, tabRequest, workflowTab]);
+
+  useEffect(() => {
+    if (workflowTab !== "run" && workflowTab !== "sync") return;
+    if (previousWorkflowTab.current === workflowTab) return;
+    previousWorkflowTab.current = workflowTab;
+    setWorkflowSubtabs((current) => ({
+      ...current,
+      [workflowTab]: defaultWorkflowSubTab(workflowTab, view.harnessState),
+    }));
+  }, [view.harnessState, workflowTab]);
+
+  useEffect(() => {
+    const runRequested = tabRequest?.tab === "run" || requestedSection === "config";
+    if (!runRequested) return;
+    setWorkflowSubtabs((current) => current.run === "config" ? current : { ...current, run: "config" });
+  }, [requestedSection, tabRequest]);
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -72,25 +109,13 @@ export function DetailsRail({
     window.addEventListener("pointerup", onUp);
   }
 
-  function openAttempt(workerStateId: string): void {
+  function selectWorkflowTab(tab: CycleTab): void {
     onNavigate({
       kind: "workspace",
       section: "cycles",
       gameId,
       cycle: cycleFocus,
-      cycleSub: "run",
-      cycleDetail: { kind: "attempt", id: workerStateId },
-    });
-  }
-
-  function openEpoch(epochId: string): void {
-    onNavigate({
-      kind: "workspace",
-      section: "cycles",
-      gameId,
-      cycle: cycleFocus,
-      cycleSub: "run",
-      cycleDetail: { kind: "epoch", id: epochId },
+      cycleSub: tab,
     });
   }
 
@@ -117,33 +142,36 @@ export function DetailsRail({
         </div>
       )}
       <div className={`details-rail-content ${collapsed ? "hidden" : ""} min-h-0 overflow-auto`}>
-        <RailSection
-          defaultOpen={requestedSection === null || requestedSection === "navigator"}
-          hint={navigatorSectionHint(dashboard, runDetails)}
-          id="navigator"
-          label="Navigator"
-          requestOpenNonce={navigatorRequest}
-        >
-          <NavigatorSection
-            dashboard={dashboard}
-            loadRunDetails={loadRunDetails}
-            loadingRunDetails={loadingRunDetails}
-            onSelectAttempt={openAttempt}
-            onSelectEpoch={openEpoch}
-            runDetails={runDetails}
-          />
-        </RailSection>
-        <RailSection hint={stateSectionHint(view)} id="state" label="State">
-          <StateSection dashboard={dashboard} view={view} />
-        </RailSection>
-        <RailSection hint={runSetupSummary(view)} id="config" label="Config">
-          <RunSetupSection busy={busy} form={form} onAction={onAction} setForm={setForm} view={view} />
-        </RailSection>
-        <RailSection hint={processHint} id="process" label="Process" requestOpenNonce={processRequest}>
-          <ProcessTab busy={busy} dashboard={dashboard} form={form} onAction={onAction} setForm={setForm} />
-        </RailSection>
-        <RailSection hint={logsHint} id="logs" label="Logs" requestOpenNonce={logsRequest} scrollOnRequest>
-          <OperationLogsTab dashboard={dashboard} />
+        <NowPanel busy={busy} dashboard={dashboard} onAction={onAction} view={view} />
+        <WorkflowTabs onSelect={selectWorkflowTab} route={route} view={view} />
+        {workflowTab === "run" ? (
+          <div aria-labelledby="details-workflow-tab-run" id="details-workflow-panel-run" role="tabpanel">
+            <SubtabStrip activeSubTab={workflowSubtabs.run} onSelect={(subtab) => setWorkflowSubtabs((current) => ({ ...current, run: subtab }))} workflow="run" />
+            <div aria-labelledby={`details-run-subtab-${workflowSubtabs.run}`} id={`details-run-subpanel-${workflowSubtabs.run}`} role="tabpanel">
+              {workflowSubtabs.run === "config" ? (
+                <RunSetupSection busy={busy} form={form} onAction={onAction} setForm={setForm} view={view} />
+              ) : null}
+              {workflowSubtabs.run === "actions" ? <RunActionsSection busy={busy} harnessState={view.harnessState} onAction={onAction} view={view} /> : null}
+            </div>
+          </div>
+        ) : null}
+        {workflowTab === "sync" ? (
+          <div aria-labelledby="details-workflow-tab-sync" id="details-workflow-panel-sync" role="tabpanel">
+            <SubtabStrip activeSubTab={workflowSubtabs.sync} onSelect={(subtab) => setWorkflowSubtabs((current) => ({ ...current, sync: subtab }))} workflow="sync" />
+            <div aria-labelledby={`details-sync-subtab-${workflowSubtabs.sync}`} id={`details-sync-subpanel-${workflowSubtabs.sync}`} role="tabpanel">
+              <SyncSection busy={busy} form={form} mode={workflowSubtabs.sync} onAction={onAction} setForm={setForm} view={view} />
+            </div>
+          </div>
+        ) : null}
+        {workflowTab === "pr" ? (
+          <div aria-labelledby="details-workflow-tab-pr" id="details-workflow-panel-pr" role="tabpanel">
+            <PrSection view={view} />
+          </div>
+        ) : null}
+        <RailSection hint={activityHint} id="activity" label="Activity" requestOpenNonce={activityRequest} scrollOnRequest>
+          <div className="p-3">
+            <OperationActivity dashboard={dashboard} />
+          </div>
         </RailSection>
       </div>
     </aside>

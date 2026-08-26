@@ -26,4 +26,3 @@ export interface DetailsRailProps {
 
 export type RunDetailsControls = Pick<DetailsRailProps, "loadRunDetails" | "loadingRunDetails" | "runDetails">;
 export type RunTabProps = Pick<DetailsRailProps, "dashboard" | "form" | "loadRunDetails" | "loadingRunDetails" | "runDetails">;
-export type ProcessTabProps = Pick<DetailsRailProps, "busy" | "dashboard" | "form" | "onAction" | "setForm">;

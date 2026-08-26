@@ -1,5 +1,5 @@
 import { MiniRows } from "@/components/primitives";
-import { asObject, num, shortId, text, type Dashboard } from "@/lib/format";
+import { asObject, num, pct, shortId, text, type Dashboard } from "@/lib/format";
 import type { CycleView } from "@/pages/workspace/_lib/types";
 
 function syncSnapshot(view: CycleView): { tone?: string; value: string } {
@@ -42,8 +42,16 @@ export function StateSection({ dashboard, view }: { dashboard: Dashboard | null;
             value: run ? `${text(run.status, "-")} · ${text(run.scheduler_condition, "-")}` : "-",
           },
           {
+            label: "Run id",
+            title: run?.workflow_id,
+            value: run?.workflow_id || "-",
+          },
+          {
             label: "Epoch",
-            value: run?.active_epoch ? `Epoch ${num(run.active_epoch.ordinal)}` : "-",
+            title: run?.active_epoch?.epoch_id,
+            value: run?.active_epoch
+              ? `Epoch ${num(run.active_epoch.ordinal)}${run.active_epoch.epoch_id ? ` · ${run.active_epoch.epoch_id}` : ""}`
+              : "-",
           },
           {
             label: "Queue",
@@ -54,6 +62,10 @@ export function StateSection({ dashboard, view }: { dashboard: Dashboard | null;
             value: run
               ? `${num(run.progress.confirmed_changes)} confirmed · ${num(run.progress.tentative_changes)} tentative · ${num(run.progress.regressed_changes)} regressed`
               : "-",
+          },
+          {
+            label: "Score",
+            value: run ? `baseline ${pct(run.progress.baseline_score)} -> confirmed ${pct(run.progress.confirmed_score)}` : "-",
           },
           { label: "Sync", tone: sync.tone, value: sync.value },
           {

@@ -27,6 +27,11 @@ function gateSummary(view: CycleView | undefined): string {
   const local = view.prRecords.filter((record) => ["ready", "blocked", "dirty"].includes(record.localStatus) && !["merged", "closed"].includes(record.status)).length;
   if (view.mode === "pr") return `PR Mode · ${num(slices)} PR slice(s) unresolved, ${num(local)} workspace(s) unresolved`;
   if (view.mode === "run") return `Run Mode · ${num(view.activeClaims)} active claim(s)`;
+  if (view.activeCycleId) {
+    const phase = view.canonicalPhase.replace(/_/g, " ");
+    const subphase = view.canonicalSubphase.replace(/_/g, " ");
+    return phase ? `Cycle · ${phase}${subphase ? ` / ${subphase}` : ""}` : "Cycle active";
+  }
   return "No active cycle";
 }
 

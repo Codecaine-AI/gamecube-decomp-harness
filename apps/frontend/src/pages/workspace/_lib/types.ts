@@ -131,6 +131,33 @@ export interface HarnessStateSyncReadModel {
     corpus_batches: string[];
     knowledge_only: boolean;
   };
+  knowledge_jobs?: {
+    jobs_total: number;
+    jobs_succeeded: number;
+    jobs_failed: number;
+    jobs_processing: number;
+    prs: HarnessStateSyncKnowledgeJobGroup;
+    discord: HarnessStateSyncKnowledgeJobGroup;
+  } | null;
+  discord: {
+    corpus?: {
+      batches_done: number;
+      messages_indexed: number;
+      through_month: string | null;
+    };
+    refresh: {
+      status: "running" | "ok" | "failed";
+      detail: string | null;
+      at: string | null;
+      messages_pulled: number | null;
+    } | null;
+    staged: {
+      batches: number;
+      messages: number;
+      days: number;
+      channels: number;
+    } | null;
+  } | null;
   staging: {
     epochs_applied: number;
     epochs_total: number;
@@ -165,6 +192,13 @@ export interface HarnessStateSyncReadModel {
     blocker: HarnessStateBlocker | null;
     revalidate_action_id: "sync.cancel" | null;
   };
+}
+
+export interface HarnessStateSyncKnowledgeJobGroup {
+  jobs_total: number;
+  jobs_succeeded: number;
+  jobs_failed: number;
+  jobs_processing: number;
 }
 
 // Server-owned repo state: what is our head vs the upstream branch, and do we

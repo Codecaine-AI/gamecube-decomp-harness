@@ -649,9 +649,13 @@ export function App() {
   // Fixed-length rail tracks (min() resolves to a length) so the
   // grid-template-columns transition can interpolate; minmax() tracks cannot.
   const railWidth = "min(300px, 26vw)";
-  const detailsRailWidth = `min(${detailsWidth}px, 56vw)`;
+  const sidebarTrack = sidebarCollapsed ? "52px" : railWidth;
+  // Keep the workspace usable while the details rail is open. The details
+  // track yields before the center track drops below 480px on desktop; the
+  // <=1180px layout already moves details out of the grid entirely.
+  const detailsRailWidth = `min(${detailsWidth}px, 56vw, calc(100vw - ${sidebarTrack} - 480px))`;
   const gridColumns = {
-    desktop: `${sidebarCollapsed ? "52px" : railWidth} minmax(0, 1fr) ${detailsCollapsed ? "52px" : detailsRailWidth}`,
+    desktop: `${sidebarTrack} minmax(0, 1fr) ${detailsCollapsed ? "52px" : detailsRailWidth}`,
     medium: `${sidebarCollapsed ? "52px" : "min(300px, 38vw)"} minmax(0, 1fr)`,
   };
   const shellStyle = {

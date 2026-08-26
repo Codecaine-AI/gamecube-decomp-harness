@@ -126,8 +126,20 @@ export function SyncStatusTag({
 }
 
 export function SyncIntakeStats({ sync }: { sync: HarnessStateSyncReadModel }) {
+  const discord = sync.discord;
   return (
     <>
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-soft">
+        <span>
+          Found {num(sync.intake.merged_pr_count)} merged PRs
+          {discord?.staged ? ` · ${num(discord.staged.days)} days of Discord (${num(discord.staged.messages)} messages)` : ""}
+        </span>
+        {discord?.refresh?.status === "failed" ? (
+          <span className="status-tag status-tag-warn" title={discord.refresh.detail ?? undefined}>
+            <AlertTriangle size={11} /> Discord refresh: {(discord.refresh.detail || "failed").slice(0, 80)}
+          </span>
+        ) : null}
+      </div>
       <div className="grid grid-cols-2 gap-2 @[760px]:grid-cols-4">
         <StatCard label="Upstream from" value={shortId(sync.intake.upstream_from)} />
         <StatCard label="Upstream to" value={shortId(sync.intake.upstream_to)} />
@@ -157,47 +169,7 @@ export function RepoSyncIdleCard({
 }) {
   return (
     <div className={repoSync?.needs_sync ? "border border-warn/40 bg-warn/10 p-3" : ""}>
-      <div className="grid grid-cols-2 gap-2 @[760px]:grid-cols-4">
-        <StatCard
-          label="Cycle head"
-          value={
-            <span title={repoSync?.cycle_head ?? undefined}>
-              {repoSync?.cycle_head ? shortId(repoSync.cycle_head) : "-"}
-            </span>
-          }
-        />
-        <StatCard
-          label="Upstream"
-          value={
-            <span title={repoSync?.upstream_anchor ?? undefined}>
-              {repoSync?.upstream_ref
-                ? `${repoSync.upstream_ref} @ ${repoSync.local_upstream_sha ? shortId(repoSync.local_upstream_sha) : "-"}`
-                : "-"}
-            </span>
-          }
-        />
-        <StatCard
-          label="Behind"
-          tone={
-            repoSync?.behind_count === null || !repoSync
-              ? "text-dim"
-              : repoSync.behind_count > 0
-                ? "text-warn"
-                : "text-up"
-          }
-          value={
-            !repoSync || repoSync.behind_count === null
-              ? "unknown"
-              : repoSync.behind_count === 0
-                ? "up to date"
-                : `${num(repoSync.behind_count)} commits behind`
-          }
-        />
-        <StatCard
-          label="Last synced"
-          value={repoSync?.last_synced_at ? `${ago(repoSync.last_synced_at)} ago` : "-"}
-        />
-      </div>
+      <RepoSyncStats repoSync={repoSync} />
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <span className="text-[11px] text-dim">
           {repoSync?.needs_sync
@@ -212,9 +184,259 @@ export function RepoSyncIdleCard({
           projection={startProjection}
           tone={repoSync?.needs_sync ? "primary" : undefined}
         >
-          Sync
+          {busy ? "Pulling things down…" : "Sync"}
         </SyncProjectedButton>
       </div>
+    </div>
+  );
+}
+
+export function RepoSyncStats({ repoSync }: { repoSync: HarnessStateRepoSyncReadModel | null }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 @[760px]:grid-cols-4">
+      <StatCard
+        label="Cycle head"
+        value={
+          <span title={repoSync?.cycle_head ?? undefined}>
+            {repoSync?.cycle_head ? shortId(repoSync.cycle_head) : "-"}
+          </span>
+        }
+      />
+      <StatCard
+        label="Upstream"
+        value={
+          <span title={repoSync?.upstream_anchor ?? undefined}>
+            {repoSync?.upstream_ref
+              ? `${repoSync.upstream_ref} @ ${repoSync.local_upstream_sha ? shortId(repoSync.local_upstream_sha) : "-"}`
+              : "-"}
+          </span>
+        }
+      />
+      <StatCard
+        label="Behind"
+        tone={
+          repoSync?.behind_count === null || !repoSync
+            ? "text-dim"
+            : repoSync.behind_count > 0
+              ? "text-warn"
+              : "text-up"
+        }
+        value={
+          !repoSync || repoSync.behind_count === null
+            ? "unknown"
+            : repoSync.behind_count === 0
+              ? "up to date"
+              : `${num(repoSync.behind_count)} commits behind`
+        }
+      />
+      <StatCard
+        label="Last synced"
+        value={repoSync?.last_synced_at ? `${ago(repoSync.last_synced_at)} ago` : "-"}
+      />
+    </div>
+  );
+}
+
+export function SyncKnowledgeProgress({
+  discordDays,
+  knowledgeJobs,
+  upstreamOpen,
+}: {
+  discordDays: number;
+  knowledgeJobs: HarnessStateSyncReadModel["knowledge_jobs"];
+  upstreamOpen: number | null;
+}) {
+  if (!knowledgeJobs || knowledgeJobs.jobs_total <= 0) return null;
+  if (knowledgeJobs.discord.jobs_total > 0) {
+    return (
+      <div className="mt-3 grid gap-3 border border-line bg-card p-3">
+        <SyncKnowledgeProgressRow
+          jobs={knowledgeJobs.prs}
+          label={`INGESTING PRS: ${knowledgeJobs.prs.jobs_succeeded}/${knowledgeJobs.prs.jobs_total}`}
+          progressLabel="PR ingestion"
+          trailing={upstreamOpen !== null ? `${upstreamOpen} open upstream` : null}
+        />
+        <SyncKnowledgeProgressRow
+          jobs={knowledgeJobs.discord}
+          label={`DISCORD: ${knowledgeJobs.discord.jobs_succeeded}/${knowledgeJobs.discord.jobs_total} batches · ${discordDays} days`}
+          progressLabel="Discord ingestion"
+          trailing={null}
+        />
+      </div>
+    );
+  }
+  const percent = progressPercent(knowledgeJobs.jobs_succeeded, knowledgeJobs.jobs_total);
+  return (
+    <div className="mt-3 border border-line bg-card p-3">
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-dim">
+        <span>Ingesting PRs: {knowledgeJobs.jobs_succeeded}/{knowledgeJobs.jobs_total}</span>
+        {upstreamOpen !== null ? <span className="text-soft">{upstreamOpen} open upstream</span> : null}
+      </div>
+      <div
+        aria-label={`PR ingestion ${percent}%`}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={percent}
+        className="h-1.5 overflow-hidden bg-raised"
+        role="progressbar"
+      >
+        <div className="h-full bg-up" style={{ width: `${percent}%` }} />
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-dim">
+        <span>{knowledgeJobs.jobs_processing} processing</span>
+        {knowledgeJobs.jobs_failed > 0 ? <span className="text-down">{knowledgeJobs.jobs_failed} failed</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function SyncKnowledgeProgressRow({
+  jobs,
+  label,
+  progressLabel,
+  trailing,
+}: {
+  jobs: { jobs_total: number; jobs_succeeded: number; jobs_processing: number; jobs_failed: number };
+  label: string;
+  progressLabel: string;
+  trailing: string | null;
+}) {
+  const percent = progressPercent(jobs.jobs_succeeded, jobs.jobs_total);
+  return (
+    <div>
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-dim">
+        <span>{label}</span>
+        {trailing ? <span className="text-soft">{trailing}</span> : null}
+      </div>
+      <div aria-label={`${progressLabel} ${percent}%`} aria-valuemax={100} aria-valuemin={0} aria-valuenow={percent} className="h-1.5 overflow-hidden bg-raised" role="progressbar">
+        <div className="h-full bg-up" style={{ width: `${percent}%` }} />
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-dim">
+        <span>{jobs.jobs_processing} processing</span>
+        {jobs.jobs_failed > 0 ? <span className="text-down">{jobs.jobs_failed} failed</span> : null}
+      </div>
+    </div>
+  );
+}
+
+type SyncIngestStepState = "active" | "done" | "pending";
+
+function SyncIngestStepMarker({ state, step }: { state: SyncIngestStepState; step: number }) {
+  if (state === "done") {
+    return (
+      <span className="flex size-5 items-center justify-center text-up" aria-label="Done">
+        <Check size={14} />
+      </span>
+    );
+  }
+  if (state === "active") {
+    return (
+      <span className="status-tag status-tag-warn flex size-5 items-center justify-center p-0" aria-label="Active">
+        <span className="lamp" />
+      </span>
+    );
+  }
+  return (
+    <span className="flex size-5 items-center justify-center rounded-full border border-line text-[10px] text-dim" aria-label="Pending">
+      {step}
+    </span>
+  );
+}
+
+function SyncIngestStepCard({
+  children,
+  label,
+  state,
+  step,
+}: {
+  children: ReactNode;
+  label: string;
+  state: SyncIngestStepState;
+  step: number;
+}) {
+  const tone = state === "done" ? "border-up/40 bg-up/10" : state === "active" ? "border-warn/40 bg-warn/10" : "border-line bg-card";
+  return (
+    <div className={`border p-3 ${tone}`}>
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-dim">
+        <SyncIngestStepMarker state={state} step={step} />
+        <span>{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function SyncIngestFlow({
+  busy,
+  sync,
+  upstreamOpen,
+}: {
+  busy: boolean;
+  sync: HarnessStateSyncReadModel;
+  upstreamOpen: number | null;
+}) {
+  const refresh = sync.discord?.refresh;
+  const staged = sync.discord?.staged;
+  const corpus = sync.discord?.corpus;
+  const knowledgeJobs = sync.knowledge_jobs;
+  const pullState: SyncIngestStepState = busy || refresh?.status === "running" ? "active" : "done";
+  const ingestState: SyncIngestStepState =
+    !knowledgeJobs || knowledgeJobs.jobs_total === 0
+      ? "pending"
+      : knowledgeJobs.jobs_succeeded === knowledgeJobs.jobs_total
+        ? "done"
+        : "active";
+
+  return (
+    <div className="grid gap-3">
+      <SyncIngestStepCard label="Pull / Discovery" state={pullState} step={1}>
+        <div className="text-[11px] text-soft">Discovered {num(sync.intake.merged_pr_count)} merged PRs</div>
+        {refresh?.status === "ok" ? (
+          <div className="mt-1.5 text-[11px] text-dim">
+            {(staged?.batches ?? 0) > 0
+              ? `Discord: ${num(refresh.messages_pulled ?? 0)} new messages · ${num(staged?.batches ?? 0)} batches staged (${num(staged?.days ?? 0)} days)`
+              : "No new Discord messages"}
+          </div>
+        ) : null}
+        {corpus ? (
+          <div className="mt-1.5 text-[11px] text-dim">
+            Indexed corpus: {num(corpus.messages_indexed)} messages · {num(corpus.batches_done)} batches · through {corpus.through_month ?? "—"}
+          </div>
+        ) : null}
+        {refresh?.status === "failed" ? (
+          <div className="mt-1.5">
+            <span className="status-tag status-tag-warn" title={refresh.detail ?? undefined}>
+              <AlertTriangle size={11} /> Discord refresh: {(refresh.detail || "failed").slice(0, 80)}
+            </span>
+          </div>
+        ) : null}
+        {pullState === "active" ? <div className="mt-1.5 text-[11px] text-warn">Pulling things down…</div> : null}
+      </SyncIngestStepCard>
+
+      <SyncIngestStepCard label="Ingestion" state={ingestState} step={2}>
+        {knowledgeJobs ? (
+          <div className="grid gap-3">
+            <SyncKnowledgeProgressRow
+              jobs={knowledgeJobs.prs}
+              label={`PRS: ${knowledgeJobs.prs.jobs_succeeded}/${knowledgeJobs.prs.jobs_total}`}
+              progressLabel="PR ingestion"
+              trailing={upstreamOpen !== null ? `${upstreamOpen} open upstream` : null}
+            />
+            {knowledgeJobs.discord.jobs_total > 0 ? (
+              <SyncKnowledgeProgressRow
+                jobs={knowledgeJobs.discord}
+                label={`DISCORD: ${knowledgeJobs.discord.jobs_succeeded}/${knowledgeJobs.discord.jobs_total} batches · ${num(staged?.days ?? 0)} days`}
+                progressLabel="Discord ingestion"
+                trailing={null}
+              />
+            ) : (
+              <div className="text-[11px] text-dim">Discord: nothing new to ingest</div>
+            )}
+          </div>
+        ) : (
+          <div className="text-[11px] text-dim">Waiting for ingestion jobs</div>
+        )}
+      </SyncIngestStepCard>
     </div>
   );
 }
@@ -252,11 +474,13 @@ export function SyncConflictList({
   busy,
   onAction,
   resolveConflictProjection,
+  readOnly = false,
   staging,
 }: {
   busy: boolean;
   onAction: (action: DashboardAction) => void;
   resolveConflictProjection: HarnessStateActionProjection | null;
+  readOnly?: boolean;
   staging: HarnessStateSyncReadModel["staging"];
 }) {
   if (!staging?.conflicts.length) return null;
@@ -267,15 +491,17 @@ export function SyncConflictList({
         {staging.conflicts.map((path) => (
           <li className="flex min-w-0 items-center justify-between gap-2 border border-warn/40 bg-warn/10 px-2.5 py-2" key={path}>
             <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-warn" title={path}>{path}</span>
-            <SyncProjectedButton
-              action="syncResolveConflict"
-              busy={busy}
-              icon={<Check size={12} />}
-              onAction={onAction}
-              projection={resolveConflictProjection}
-            >
-              Resolve
-            </SyncProjectedButton>
+            {!readOnly ? (
+              <SyncProjectedButton
+                action="syncResolveConflict"
+                busy={busy}
+                icon={<Check size={12} />}
+                onAction={onAction}
+                projection={resolveConflictProjection}
+              >
+                Resolve
+              </SyncProjectedButton>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -287,11 +513,13 @@ export function SyncStalenessCard({
   busy,
   cancelProjection,
   onAction,
+  readOnly = false,
   staleness,
 }: {
   busy: boolean;
   cancelProjection: HarnessStateActionProjection | null;
   onAction: (action: DashboardAction) => void;
+  readOnly?: boolean;
   staleness: HarnessStateSyncReadModel["staleness"];
 }) {
   if (!staleness.stale) return null;
@@ -299,7 +527,7 @@ export function SyncStalenessCard({
     <div className="mt-3 border border-warn/40 bg-warn/10 p-3 text-xs text-warn">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span>{staleness.blocker?.message || "Validated staging is stale."}</span>
-        {staleness.revalidate_action_id ? (
+        {staleness.revalidate_action_id && !readOnly ? (
           <SyncProjectedButton
             action="syncRevalidate"
             busy={busy}
@@ -329,7 +557,7 @@ export function SyncPublicationCard({ sync }: { sync: HarnessStateSyncReadModel 
       <div className="grid grid-cols-2 gap-2 @[760px]:grid-cols-4">
         <StatCard label="Prior head" value={shortId(sync.publication.prior_head)} />
         <StatCard label="New head" value={shortId(sync.publication.new_head)} />
-        <StatCard label="Knowledge" value={shortId(sync.publication.knowledge_revision)} />
+        <StatCard label="Knowledge" value={sync.publication.knowledge_revision} wrap />
         <StatCard label="Series pushed" value={num(sync.pr_reconciliation.pushed)} />
       </div>
       <div className="mt-1.5 text-[11px] text-dim">
@@ -360,10 +588,12 @@ export function syncActionProjections(harnessState: HarnessStateReadModel | null
 
 export function SyncActionsGrid({
   busy,
+  compact = false,
   onAction,
   projections,
 }: {
   busy: boolean;
+  compact?: boolean;
   onAction: (action: DashboardAction) => void;
   projections: SyncActionProjections;
 }) {
@@ -379,7 +609,7 @@ export function SyncActionsGrid({
     { action: "syncRecoverDiscard" as const, label: "Recover · Discard", icon: <Ban size={13} />, projection: projections.recover, tone: "danger" as const, note: "Cancels the sync and discards staged work." },
   ];
   return (
-    <div className="mt-4 grid gap-2 @[760px]:grid-cols-3" aria-label="Canonical sync actions">
+    <div className={`mt-4 grid gap-2 ${compact ? "grid-cols-1" : "@[760px]:grid-cols-3"}`} aria-label="Canonical sync actions">
       {controls.map((control) => (
         <div className="border border-line bg-card p-2" key={control.action}>
           <SyncProjectedButton action={control.action} busy={busy} icon={control.icon} onAction={onAction} projection={control.projection} tone={"tone" in control ? control.tone : undefined}>{control.label}</SyncProjectedButton>
@@ -396,15 +626,17 @@ export function SyncActionsGrid({
 export function SyncStagePipeline({
   lastKnownStage,
   onSelectStage,
+  orientation = "horizontal",
   status,
 }: {
   lastKnownStage?: SyncStageId;
   onSelectStage: (stage: string) => void;
+  orientation?: "horizontal" | "vertical";
   status: HarnessStateSyncStatus;
 }) {
   const states = syncStageStates(status, lastKnownStage);
   return (
-    <div className="pipeline">
+    <div className={`pipeline${orientation === "vertical" ? " pipeline-vertical" : ""}`}>
       {SYNC_STAGES.map((stage, index) => {
         const state = states[stage.id];
         return (

@@ -59,6 +59,15 @@ export interface AttemptDetailPageProps {
   workerStateId: string;
 }
 
+export interface AttemptInspectorProps {
+  dashboard: Dashboard | null;
+  form: FormState;
+  loadRunDetails: () => void;
+  loadingRunDetails: boolean;
+  runDetails: RunDetails | null;
+  workerStateId: string;
+}
+
 function findWorkerState(records: JsonObject[], workerStateId: string): JsonObject | null {
   return records.find((record) => workerStateKey(record) === workerStateId) ?? null;
 }
@@ -163,18 +172,26 @@ function ModelAttempts({ attempts }: { attempts: JsonObject[] }) {
   );
 }
 
-export function AttemptDetailPage(props: AttemptDetailPageProps) {
-  const [trace, setTrace] = useState<JsonObject>({});
-  const [traceError, setTraceError] = useState("");
-  const [loadingTrace, setLoadingTrace] = useState(false);
-  const loadAttemptedFor = useRef("");
+function resolveAttemptRecord(props: AttemptInspectorProps) {
   const activeClaim = (props.dashboard?.activeFiles ?? [])
     .map(asObject)
     .find((claim) => text(claim.workerStateId) === props.workerStateId) ?? null;
   const recentReport = findWorkerState((props.dashboard?.workerStates ?? []).map(asObject), props.workerStateId);
   const fullReport = findWorkerState(asArray(props.runDetails?.workerStates).map(asObject), props.workerStateId);
   const report = fullReport ?? recentReport;
-  const record = activeClaim ? mergeActiveWorkerState(activeClaim, report) : report;
+  return {
+    activeClaim,
+    record: activeClaim ? mergeActiveWorkerState(activeClaim, report) : report,
+    report,
+  };
+}
+
+export function AttemptInspector(props: AttemptInspectorProps) {
+  const [trace, setTrace] = useState<JsonObject>({});
+  const [traceError, setTraceError] = useState("");
+  const [loadingTrace, setLoadingTrace] = useState(false);
+  const loadAttemptedFor = useRef("");
+  const { activeClaim, record, report } = resolveAttemptRecord(props);
   const runId = text(asObject(props.dashboard?.status?.run).id, text(props.runDetails?.runId));
 
   useEffect(() => {
@@ -208,17 +225,7 @@ export function AttemptDetailPage(props: AttemptDetailPageProps) {
   }, [Boolean(activeClaim), props.form, props.workerStateId, runId]);
 
   if (!record) {
-    return (
-      <div className="grid gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button icon={<ChevronLeft size={13} />} onClick={() => props.nav.goToCycle(props.cycleFocus, "run")} type="button">
-            Back to Run
-          </Button>
-          <h3 className="m-0 text-lg font-bold text-fg">Attempt {shortId(props.workerStateId)}</h3>
-        </div>
-        <AttemptPlaceholder {...props} />
-      </div>
-    );
+    return <AttemptPlaceholder {...props} />;
   }
 
   const target = asObject(record.target);
@@ -230,8 +237,6 @@ export function AttemptDetailPage(props: AttemptDetailPageProps) {
   const writeSet = asArray(record.writeSet).map((item) => text(item)).filter(Boolean);
   const reasons = reasonLines(record);
   const reportDelta = reportScoreDelta(record);
-  const title = text(target.symbol) || text(record.symbol) || text(target.sourcePath) || text(record.sourcePath) || `Attempt ${shortId(props.workerStateId)}`;
-  const sourcePath = text(target.sourcePath) || text(record.sourcePath) || text(target.unit);
   const outcomeLabel = loadedReport ? reportFinishLabel(record) : "active";
   const outcomeTitle = loadedReport ? reportOutcomeDescription(record) : "Active claim without a runner checkpoint report yet.";
   const result = loadedReport ? reportResult(record) : null;
@@ -242,17 +247,6 @@ export function AttemptDetailPage(props: AttemptDetailPageProps) {
   const validationStatus = text(record.validationStatus, text(asObject(record.runnerValidation).status, "-"));
 
   return (
-    <div className="grid gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button icon={<ChevronLeft size={13} />} onClick={() => props.nav.goToCycle(props.cycleFocus, "run")} type="button">
-          Back to Run
-        </Button>
-        <div className="min-w-0">
-          <h3 className="m-0 overflow-hidden text-ellipsis text-lg font-bold text-fg" title={title}>{title}</h3>
-          {sourcePath ? <div className="mt-0.5 break-all text-xs text-path" title={sourcePath}>{sourcePath}</div> : null}
-        </div>
-      </div>
-
       <article className={`border border-l-[3px] border-line ${loadedReport ? reportBorderClass(record) : "border-l-up"} bg-card p-4`}>
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -309,6 +303,31 @@ export function AttemptDetailPage(props: AttemptDetailPageProps) {
         {text(record.reason) ? <div className="mt-3 border border-line bg-inset p-2.5 text-xs leading-5 text-soft">reason: {text(record.reason)}</div> : null}
         {reasons.length > 0 ? <div className="mt-4 border-t border-line pt-3 text-xs leading-5 text-warn">{reasons.join(" / ")}</div> : null}
       </article>
+  );
+}
+
+export function AttemptDetailPage(props: AttemptDetailPageProps) {
+  const { record } = resolveAttemptRecord(props);
+  const target = asObject(record?.target);
+  const title = record
+    ? text(target.symbol) || text(record.symbol) || text(target.sourcePath) || text(record.sourcePath) || `Attempt ${shortId(props.workerStateId)}`
+    : `Attempt ${shortId(props.workerStateId)}`;
+  const sourcePath = record
+    ? text(target.sourcePath) || text(record.sourcePath) || text(target.unit)
+    : "";
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button icon={<ChevronLeft size={13} />} onClick={() => props.nav.goToCycle(props.cycleFocus, "run")} type="button">
+          Back to Run
+        </Button>
+        <div className="min-w-0">
+          <h3 className="m-0 overflow-hidden text-ellipsis text-lg font-bold text-fg" title={title}>{title}</h3>
+          {sourcePath ? <div className="mt-0.5 break-all text-xs text-path" title={sourcePath}>{sourcePath}</div> : null}
+        </div>
+      </div>
+      <AttemptInspector {...props} />
     </div>
   );
 }

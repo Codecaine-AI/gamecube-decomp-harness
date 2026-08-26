@@ -40,11 +40,6 @@ export function schedulingForWorkers(
 
 export const workerCountOptions = [1, 2, 4, 8, 12, 16, 20, 32, 64] as const;
 
-export const resolverConcurrencyOptions = [1, 2, 4, 8] as const;
-
-export const resolverConcurrencyTooltip =
-  "How many integration resolver agents may run at once. Same-file conflicts stay serialized; different-file conflicts can resolve in parallel.";
-
 export function statusClass(value: unknown): string {
   const status = text(value);
   if (status === "passed" || status === "pr_ready" || status === "passing" || status === "merged" || status === "ready") return "text-up";
@@ -121,6 +116,12 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
   const activeEpochRaw = asObject(runRaw.active_epoch);
   const progressRaw = asObject(runRaw.progress);
   const syncIntakeRaw = asObject(syncRaw.intake);
+  const syncKnowledgeJobsRaw = asObject(syncRaw.knowledge_jobs);
+  const syncKnowledgePrJobsRaw = asObject(syncKnowledgeJobsRaw.prs);
+  const syncKnowledgeDiscordJobsRaw = asObject(syncKnowledgeJobsRaw.discord);
+  const syncDiscordRaw = asObject(syncRaw.discord);
+  const syncDiscordRefreshRaw = asObject(syncDiscordRaw.refresh);
+  const syncDiscordStagedRaw = asObject(syncDiscordRaw.staged);
   const syncStagingRaw = asObject(syncRaw.staging);
   const syncPrRaw = asObject(syncRaw.pr_reconciliation);
   const syncPublishPreviewRaw = asObject(syncRaw.publish_preview);
@@ -232,6 +233,46 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
           corpus_batches: asArray(syncIntakeRaw.corpus_batches).map((id) => text(id)).filter(Boolean),
           knowledge_only: booleanValue(syncIntakeRaw.knowledge_only),
         },
+        knowledge_jobs: Object.keys(syncKnowledgeJobsRaw).length > 0
+          ? {
+              jobs_total: numberValue(syncKnowledgeJobsRaw.jobs_total),
+              jobs_succeeded: numberValue(syncKnowledgeJobsRaw.jobs_succeeded),
+              jobs_failed: numberValue(syncKnowledgeJobsRaw.jobs_failed),
+              jobs_processing: numberValue(syncKnowledgeJobsRaw.jobs_processing),
+              prs: {
+                jobs_total: numberValue(syncKnowledgePrJobsRaw.jobs_total),
+                jobs_succeeded: numberValue(syncKnowledgePrJobsRaw.jobs_succeeded),
+                jobs_failed: numberValue(syncKnowledgePrJobsRaw.jobs_failed),
+                jobs_processing: numberValue(syncKnowledgePrJobsRaw.jobs_processing),
+              },
+              discord: {
+                jobs_total: numberValue(syncKnowledgeDiscordJobsRaw.jobs_total),
+                jobs_succeeded: numberValue(syncKnowledgeDiscordJobsRaw.jobs_succeeded),
+                jobs_failed: numberValue(syncKnowledgeDiscordJobsRaw.jobs_failed),
+                jobs_processing: numberValue(syncKnowledgeDiscordJobsRaw.jobs_processing),
+              },
+            }
+          : null,
+        discord: Object.keys(syncDiscordRaw).length > 0
+          ? {
+              refresh: Object.keys(syncDiscordRefreshRaw).length > 0
+                ? {
+                    status: text(syncDiscordRefreshRaw.status) as "running" | "ok" | "failed",
+                    detail: text(syncDiscordRefreshRaw.detail) || null,
+                    at: text(syncDiscordRefreshRaw.at) || null,
+                    messages_pulled: nullableNumber(syncDiscordRefreshRaw.messages_pulled),
+                  }
+                : null,
+              staged: Object.keys(syncDiscordStagedRaw).length > 0
+                ? {
+                    batches: numberValue(syncDiscordStagedRaw.batches),
+                    messages: numberValue(syncDiscordStagedRaw.messages),
+                    days: numberValue(syncDiscordStagedRaw.days),
+                    channels: numberValue(syncDiscordStagedRaw.channels),
+                  }
+                : null,
+            }
+          : null,
         staging: Object.keys(syncStagingRaw).length > 0
           ? {
               epochs_applied: numberValue(syncStagingRaw.epochs_applied),

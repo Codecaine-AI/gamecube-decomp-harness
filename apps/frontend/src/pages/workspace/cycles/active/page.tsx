@@ -1,9 +1,7 @@
-import {
-  CYCLE_TABS,
-  cycleTabForSubPage,
-  type CycleSubPage,
-} from "@/routing";
+import { useEffect, useState } from "react";
+import { cycleTabForSubPage, type CycleSubPage } from "@/routing";
 import { PageHeader, PanelSection } from "@/components/primitives";
+import { asArray } from "@/lib/format";
 import { prettyStatus } from "@/pages/workspace/_lib/model";
 import { activeCycleFocus } from "@/pages/workspace/cycles/_lib/cycleRoute";
 import type { CyclesPageProps } from "@/pages/workspace/cycles/_lib/types";
@@ -15,35 +13,40 @@ import { SyncModePage } from "@/pages/workspace/cycles/active/subphases/sync";
 import { CycleHistoryPage } from "@/pages/workspace/cycles/active/subphases/history";
 import { ActiveCycleSummary } from "@/pages/workspace/cycles/active/components/ActiveCycleSummary";
 import { ReviewSubPage } from "@/pages/workspace/cycles/active/components/ReviewSubPage";
+import { CycleAgentsBrowser } from "@/pages/workspace/cycles/active/components/agents-browser";
 
 const leaseWarningStatuses = new Set(["blocked", "releasing"]);
 
 export function ActiveCyclePage(props: CyclesPageProps) {
+  const [agentsOpen, setAgentsOpen] = useState(false);
   const sub = props.route.cycleSub ?? props.view.recommendedSub;
-  const tab = cycleTabForSubPage(sub);
   const cycleFocus = activeCycleFocus(props.view);
   const harnessState = props.view.harnessState;
   const activeWorkflow = harnessState?.active_workflow ?? null;
+  const runningAgents = (props.dashboard?.activeFiles ?? []).length;
+  const fullWorkerStates = asArray(props.runDetails?.workerStates);
+  const totalAgents = fullWorkerStates.length > 0 ? fullWorkerStates.length : (props.dashboard?.workerStates ?? []).length;
 
-  const tabHints = {
-    run: harnessState?.run ? prettyStatus(harnessState.run.status) : "no run",
-    sync: harnessState?.sync
-      ? prettyStatus(harnessState.sync.status)
-      : harnessState?.repo_sync?.needs_sync
-        ? "sync needed"
-        : "idle",
-    pr: props.view.canonicalPhase === "pr"
-      ? prettyStatus(props.view.canonicalSubphase || "active")
-      : "idle",
-  };
+  useEffect(() => {
+    setAgentsOpen(false);
+  }, [props.route.cycleDetail, props.route.cycleSub]);
 
   return (
     <>
       <PageHeader
         kicker={props.view.game?.displayName ?? "No game selected"}
         right={
-          props.view.cycleStageStates.done === "done" || activeWorkflow ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                aria-pressed={agentsOpen}
+                className={`status-tag cursor-pointer border hover:border-line2 hover:bg-raised ${runningAgents > 0 ? "status-tag-live" : ""}`}
+                onClick={() => setAgentsOpen((open) => !open)}
+                title={agentsOpen ? "Close agents browser" : "Open agents browser"}
+                type="button"
+              >
+                <span className="lamp" />
+                Agents · {runningAgents} active / {totalAgents}
+              </button>
               {props.view.cycleStageStates.done === "done" ? (
                 <span className="status-tag status-tag-live">
                   <span className="lamp" />
@@ -60,38 +63,15 @@ export function ActiveCyclePage(props: CyclesPageProps) {
                 </span>
               ) : null}
             </div>
-          ) : undefined
         }
         title="Active Cycle"
       />
       <div className="@container grid min-h-0 flex-1 content-start gap-4 overflow-auto p-4">
-        <nav className="flex flex-wrap gap-1.5 border-b border-line pb-2" role="tablist" aria-label="Cycle workflow">
-          {CYCLE_TABS.map((item) => {
-            const active = item.id === tab;
-            const syncWarning = item.id === "sync"
-              && (harnessState?.sync?.status === "blocked" || (!harnessState?.sync && harnessState?.repo_sync?.needs_sync));
-            return (
-              <button
-                aria-selected={active}
-                className={`flex min-h-8 items-center gap-2 border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
-                  active
-                    ? "border-line2 bg-raised text-fg"
-                    : "border-line bg-card text-dim hover:border-line2 hover:text-soft"
-                }`}
-                key={item.id}
-                onClick={() => props.nav.goToCycle(cycleFocus, item.id)}
-                role="tab"
-                type="button"
-              >
-                <span>{item.label}</span>
-                <span className={`text-[10px] font-medium normal-case tracking-normal ${syncWarning ? "text-warn" : "text-dim"}`}>
-                  {tabHints[item.id]}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-        <ActiveCycleContent {...props} cycleFocus={cycleFocus} sub={sub} />
+        {agentsOpen ? (
+          <CycleAgentsBrowser {...props} cycleFocus={cycleFocus} onClose={() => setAgentsOpen(false)} />
+        ) : (
+          <ActiveCycleContent {...props} cycleFocus={cycleFocus} sub={sub} />
+        )}
       </div>
     </>
   );
@@ -154,14 +134,10 @@ function ActiveCycleContent(
   if (props.sub === "run") {
     return (
       <RunModePage
-        busy={props.busy}
         dashboard={props.dashboard}
-        form={props.form}
         improvedMode={props.improvedMode}
         improvedPage={props.improvedPage}
-        onAction={props.onAction}
         onSelectAttempt={(id) => props.nav.goToCycle(props.cycleFocus, "run", { kind: "attempt", id })}
-        setForm={props.setForm}
         setImprovedMode={props.setImprovedMode}
         setImprovedPage={props.setImprovedPage}
         setWorkMode={props.setWorkMode}
@@ -175,7 +151,6 @@ function ActiveCycleContent(
       <SyncModePage
         busy={props.busy}
         dashboard={props.dashboard}
-        onAction={props.onAction}
         onSelectStage={(stage) => props.nav.goToCycle(props.cycleFocus, "sync", { kind: "stage", id: stage })}
         view={props.view}
       />

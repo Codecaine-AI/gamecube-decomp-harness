@@ -3,8 +3,8 @@ import { DEFAULT_WORKER_TIMEOUT_SECONDS } from "@/lib/workerConfig";
 
 const RUN_SETTINGS_KEY = "runSettings.v1";
 const THINKING_LEVEL_SETTINGS_VERSION = 2;
-// Bump to invalidate saved maxWorkers/model when their defaults change.
-const RUN_SETTINGS_VERSION = 3;
+// Bump to invalidate saved maxWorkers/model/syncIngestConcurrency when their defaults change.
+const RUN_SETTINGS_VERSION = 4;
 const DEFAULT_THINKING_LEVEL = "xhigh";
 
 export function schedulingForWorkers(workers: number) {
@@ -22,6 +22,10 @@ type SavedRunSettings = Pick<
   | "thinkingLevel"
   | "integrationResolverConcurrency"
   | "agentTimeoutSeconds"
+  | "syncIngestConcurrency"
+  | "syncProvider"
+  | "syncModel"
+  | "syncThinking"
 > & {
   thinkingLevelVersion?: number;
   settingsVersion?: number;
@@ -34,7 +38,7 @@ function loadRunSettings(): Partial<SavedRunSettings> {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const settings: Partial<SavedRunSettings> = {};
     // Saved values written before the current settings version predate the
-    // 12-worker/gpt-5.6-sol defaults; drop them so the new
+    // 12-worker/gpt-5.6-sol/16-way sync-ingest defaults; drop them so the new
     // defaults win until the user saves again.
     const currentVersion = parsed.settingsVersion === RUN_SETTINGS_VERSION;
     if (currentVersion && typeof parsed.maxWorkers === "number" && parsed.maxWorkers > 0) settings.maxWorkers = Math.trunc(parsed.maxWorkers);
@@ -50,6 +54,12 @@ function loadRunSettings(): Partial<SavedRunSettings> {
       settings.integrationResolverConcurrency = Math.trunc(parsed.integrationResolverConcurrency);
     }
     if (typeof parsed.agentTimeoutSeconds === "number" && parsed.agentTimeoutSeconds > 0) settings.agentTimeoutSeconds = Math.trunc(parsed.agentTimeoutSeconds);
+    if (currentVersion && typeof parsed.syncIngestConcurrency === "number" && parsed.syncIngestConcurrency > 0) {
+      settings.syncIngestConcurrency = Math.trunc(parsed.syncIngestConcurrency);
+    }
+    if (typeof parsed.syncProvider === "string" && parsed.syncProvider) settings.syncProvider = parsed.syncProvider;
+    if (typeof parsed.syncModel === "string" && parsed.syncModel) settings.syncModel = parsed.syncModel;
+    if (typeof parsed.syncThinking === "string" && parsed.syncThinking) settings.syncThinking = parsed.syncThinking;
     return settings;
   } catch {
     return {};
@@ -67,6 +77,10 @@ export function saveRunSettings(form: FormState) {
       settingsVersion: RUN_SETTINGS_VERSION,
       integrationResolverConcurrency: form.integrationResolverConcurrency,
       agentTimeoutSeconds: form.agentTimeoutSeconds,
+      syncIngestConcurrency: form.syncIngestConcurrency,
+      syncProvider: form.syncProvider,
+      syncModel: form.syncModel,
+      syncThinking: form.syncThinking,
     };
     localStorage.setItem(RUN_SETTINGS_KEY, JSON.stringify(settings));
   } catch {
@@ -98,4 +112,9 @@ const defaultForm: FormState = {
   model: "gpt-5.6-sol",
   thinkingLevel: DEFAULT_THINKING_LEVEL,
   agentTimeoutSeconds: DEFAULT_WORKER_TIMEOUT_SECONDS,
+  // Sync knowledge-agent defaults mirror the job-runner's pi defaults.
+  syncIngestConcurrency: 16,
+  syncProvider: "codex-lb",
+  syncModel: "gpt-5.6-sol",
+  syncThinking: "medium",
 };

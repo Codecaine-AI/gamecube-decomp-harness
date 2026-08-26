@@ -43,6 +43,12 @@ export interface FormState {
   provider: string;
   model: string;
   thinkingLevel: string;
+  /** Sync knowledge-agent overrides: sent with every sync command body and
+   * consumed by the sync runtime's librarian/intake subprocesses. */
+  syncIngestConcurrency: number;
+  syncProvider: string;
+  syncModel: string;
+  syncThinking: string;
 }
 
 export interface Dashboard {
@@ -75,6 +81,43 @@ export interface Dashboard {
   /** Closed worker states since the last epoch checkpoint vs the checkpoint interval. */
   checkpointProgress?: JsonObject | null;
   prs?: JsonObject | null;
+}
+
+/** Durable knowledge-job progress nested at `Dashboard.harnessState.sync.knowledge_jobs`. */
+export interface DashboardSyncKnowledgeJobsSummary {
+  jobs_total: number;
+  jobs_succeeded: number;
+  jobs_failed: number;
+  jobs_processing: number;
+  prs: DashboardSyncKnowledgeJobGroupSummary;
+  discord: DashboardSyncKnowledgeJobGroupSummary;
+}
+
+export interface DashboardSyncKnowledgeJobGroupSummary {
+  jobs_total: number;
+  jobs_succeeded: number;
+  jobs_failed: number;
+  jobs_processing: number;
+}
+
+export interface DashboardSyncDiscordSummary {
+  corpus?: {
+    batches_done: number;
+    messages_indexed: number;
+    through_month: string | null;
+  };
+  refresh: {
+    status: "running" | "ok" | "failed";
+    detail: string | null;
+    at: string | null;
+    messages_pulled: number | null;
+  } | null;
+  staged: {
+    batches: number;
+    messages: number;
+    days: number;
+    channels: number;
+  } | null;
 }
 
 export type GameEventActor =

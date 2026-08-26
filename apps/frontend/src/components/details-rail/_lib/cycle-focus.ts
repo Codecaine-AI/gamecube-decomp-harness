@@ -1,6 +1,6 @@
-import { asObject, text, type Dashboard } from "@/lib/format";
-import { harnessStateReadModel } from "@/pages/workspace/_lib/model";
+import { activeCycleFocus } from "@/pages/workspace/cycles/_lib/cycleRoute";
+import type { CycleView } from "@/pages/workspace/_lib/types";
 
-export function detailsRailCycleFocus(dashboard: Dashboard | null): string {
-  return harnessStateReadModel(dashboard)?.cycle?.cycle_uuid || text(asObject(dashboard?.cycle).cycleUuid) || "active";
+export function detailsRailCycleFocus(view: CycleView): string {
+  return activeCycleFocus(view);
 }

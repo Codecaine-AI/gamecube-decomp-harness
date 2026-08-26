@@ -308,6 +308,8 @@ describe("workspace cycle view", () => {
         conflicts_awaiting_operator: 1,
         conflicts: ["src/melee/example.c"],
       },
+      knowledge_jobs: null,
+      discord: null,
       pr_reconciliation: {
         total: 2,
         clean: 1,

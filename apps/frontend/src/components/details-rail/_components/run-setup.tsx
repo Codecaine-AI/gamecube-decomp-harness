@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import {
   Hammer,
-  Play,
   Settings,
 } from "@/icons";
 import {
@@ -22,8 +21,6 @@ import {
   SelectField,
 } from "@/components/primitives";
 import {
-  resolverConcurrencyOptions,
-  resolverConcurrencyTooltip,
   schedulingForWorkers,
   workerCountOptions,
 } from "@/pages/workspace/_lib/model";
@@ -191,15 +188,6 @@ export function RunSetupSection({
     view.operationActive ||
     view.process.running ||
     view.activeClaims > 0;
-  const startBlocked = view.prepareState.readyToStartRun
-    ? ""
-    : view.operationActive
-      ? `${view.operationLabel} is in progress.`
-      : view.process.running
-        ? "Workers are already running."
-        : !view.prepareState.baselineDone
-          ? "Baseline is not ready."
-          : "Preparation is not ready.";
   const baselineStatus = text(view.prepareState.baseline.status);
   const baselineFailed = baselineStatus === "failed";
   const baselineError = text(view.prepareState.baseline.error);
@@ -327,20 +315,6 @@ export function RunSetupSection({
                     options={[...workerCountOptions]}
                     value={form.maxWorkers}
                   />
-                  <SelectField
-                    className="mb-0"
-                    label="Resolvers"
-                    onChange={(event) =>
-                      setForm({
-                        integrationResolverConcurrency: Number(
-                          event.currentTarget.value,
-                        ),
-                      })
-                    }
-                    options={[...resolverConcurrencyOptions]}
-                    title={resolverConcurrencyTooltip}
-                    value={form.integrationResolverConcurrency}
-                  />
                   <Field
                     className="mb-0"
                     label="Timeout (min)"
@@ -360,19 +334,35 @@ export function RunSetupSection({
                 </div>
               </div>
             </GateCard>
-          </div>
-          <div className="flex justify-center">
-            <Button
-              className="min-w-[180px]"
-              disabled={busy || !view.prepareState.readyToStartRun}
-              icon={<Play size={14} />}
-              onClick={() => onAction("startWork")}
-              title={startBlocked || "Initialize the run and start workers."}
-              tone={view.prepareState.readyToStartRun ? "primary" : undefined}
-              type="button"
+            <GateCard
+              icon={<Settings size={15} />}
+              label="Worker Agent"
+              state={configState}
             >
-              Start Run
-            </Button>
+              <div className="grid grid-cols-1 gap-2">
+                <Field
+                  className="mb-0"
+                  label="Provider"
+                  onChange={(event) => setForm({ provider: event.currentTarget.value })}
+                  spellCheck={false}
+                  value={form.provider}
+                />
+                <Field
+                  className="mb-0"
+                  label="Model"
+                  onChange={(event) => setForm({ model: event.currentTarget.value })}
+                  spellCheck={false}
+                  value={form.model}
+                />
+                <SelectField
+                  className="mb-0"
+                  label="Thinking"
+                  onChange={(event) => setForm({ thinkingLevel: event.currentTarget.value })}
+                  options={["xhigh", "high", "medium", "low"]}
+                  value={form.thinkingLevel}
+                />
+              </div>
+            </GateCard>
           </div>
     </div>
   );
