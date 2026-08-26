@@ -5,11 +5,6 @@ import { dirname, join, resolve } from "node:path";
 
 import type { ExtensionContext, ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import {
-  ensureKernelObservabilitySchema as ensureLiveKernelSqliteSchema,
-  openKernelDatabase,
-  upsertContainer as upsertLiveKernelContainer,
-} from "@agent-kernel/db";
-import {
   createKernel as createLiveKernel,
   type CreateKernelConfig,
 } from "@agent-kernel/kernel";
@@ -26,7 +21,7 @@ import {
   type CreateSpawnContextParams,
   type SpawnContext,
 } from "@agent-kernel/kernel/context";
-import { EventType, type TraceEvent } from "@agent-kernel/protocol";
+import type { TraceEvent } from "@agent-kernel/protocol";
 import type { PiRunResult } from "@server/core/shared/types";
 import type { PiRunOptions } from "@server/infrastructure/agent-runtime/runtime";
 import { applyProcessEnvPatch } from "@server/infrastructure/agent-runtime/runtime/process-env";
@@ -42,8 +37,6 @@ import { createMeleeLoaderCatalog } from "./loaders.js";
 export type BuildMeleeKernelToolFactories = (
   piOptions: PiRunOptions,
 ) => ExtensionFactory[];
-
-export const MELEE_KERNEL_MANAGED_RUN_MARKER_FIELD = "kernelManagedRun";
 
 export interface MeleeKernelPipelineSpawnOptions extends KernelSpawnOptions {
   /**
@@ -164,23 +157,8 @@ function traceWriterSink(
   writer: KernelTraceWriterSinkLike | undefined,
 ): KernelSpawnOptions["traceWriter"] {
   if (typeof writer?.submit !== "function") return undefined;
-  // The harness-owned transcript tailer deliberately preserves the legacy
-  // Melee mapper. Drop live-emitter copies of the same JSONL-derived events so
-  // the two paths cannot persist duplicate semantic traces with different ids.
-  const transcriptRecoveredTypes = new Set<string>([
-    EventType.AGENT_SESSION_START,
-    EventType.USER_MESSAGE,
-    EventType.ASSISTANT_MESSAGE,
-    EventType.TOOL_CALL_START,
-    EventType.TOOL_CALL_END,
-    EventType.PI_AGENT_START,
-    EventType.PI_AGENT_END,
-    EventType.PI_TURN_START,
-    EventType.PI_TURN_END,
-  ]);
   return {
     submit(event) {
-      if (transcriptRecoveredTypes.has(event.type)) return;
       Promise.resolve(writer.submit?.(event)).catch((error) => {
         console.warn(
           `Agent Kernel trace event submit failed during spawn: ${
@@ -300,14 +278,12 @@ function buildKernelSpawnOptions({
     // container/run identity authoritative. Keep the app fields above in the
     // harness marker until Melee completes that identity migration.
     sessionDir: appSessionDir,
-    // The live snapshot writer persists blobs through SQLite actions. This
-    // compatibility path keeps observability in the harness Postgres plane,
-    // so it must not emit references to its transient SQLite control DB.
     captureRequestSnapshots: false,
     traceWriter: traceWriterSink(runtime.traceWriter),
     piSessionsDir: runtime.config.piSessionsDir,
     piAgentDir: metadataString(metadata, "piAgentDir") ?? defaultPiAgentDir(),
     containerId: context.containerId,
+    trigger: "system",
     phase: context.phase ?? piOptions.role,
     displayLabel: leaf?.label ?? piOptions.role,
   };
@@ -465,39 +441,14 @@ const defaultCreateSpawnAgent: KernelSpawnAgentFactoryPort = (adapters) => {
     const contextResolver = await adapters.loadAgentResolver(name);
     const privateRegisterFactory = await adapters.buildPrivateRegisterFactory(name);
     const runtimeCatalog = await writeRuntimeCatalog(parsedAgent, contextResolver);
-    const sqliteHandle = openKernelDatabase({
-      path: join(runtimeCatalog.root, "kernel-control.sqlite"),
-    });
     let kernel: ReturnType<typeof createLiveKernel> | null = null;
     try {
-      // Live createKernel owns SQLite-only registry/session/run actions. Keep
-      // those mechanics in a transient control DB while the harness writer
-      // and transcript tailer retain the shared Postgres observability plane.
-      await ensureLiveKernelSqliteSchema(sqliteHandle.db);
       if (!opts.containerId) {
         throw new Error("Kernel createSpawnAgent strategy requires opts.containerId");
       }
-      const now = new Date().toISOString();
-      await upsertLiveKernelContainer(sqliteHandle.db, {
-        id: opts.containerId,
-        kernelId: MELEE_KERNEL_ID,
-        kind: opts.phase ?? name,
-        appKey: [opts.containerId],
-        label: opts.displayLabel ?? name,
-        status: "running",
-        phase: opts.phase ?? name,
-        workingDir: opts.workingDir ?? null,
-        metadata: {
-          appSessionId: opts.appSessionId,
-          appSessionSlug: opts.appSessionSlug,
-          transientControlDb: true,
-        },
-        createdAt: now,
-        startedAt: now,
-      });
       kernel = createLiveKernel({
         id: MELEE_KERNEL_ID,
-        db: sqliteHandle.db,
+        db: adapters.getDb() as CreateKernelConfig["db"],
         catalog: { roots: [{ path: runtimeCatalog.root, listed: false }] },
         loaders: liveKernelLoaders(adapters),
         sharedTools: (config) => [
@@ -516,7 +467,6 @@ const defaultCreateSpawnAgent: KernelSpawnAgentFactoryPort = (adapters) => {
       return await kernel.spawnAgent(name, prompt, ctx, opts);
     } finally {
       kernel?.dispose();
-      sqliteHandle.close();
       if (runtimeCatalog.resolverToken) {
         runtimeContextResolvers().delete(runtimeCatalog.resolverToken);
       }

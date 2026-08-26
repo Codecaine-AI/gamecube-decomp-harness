@@ -3,6 +3,8 @@ import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSyn
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { runMeleeTranscriptBackfill } from "./bridge/transcript-backfill.js";
+
 type PackageJson = {
   name?: string;
   workspaces?: string[];
@@ -20,8 +22,6 @@ const coreRoot = join(repoRoot, "..", "Core");
 const chosenKernelRoot = join(coreRoot, "agent-kernel");
 const installedKernelRoot = fileURLToPath(new URL("../../../../../node_modules/@agent-kernel/kernel", import.meta.url));
 const docsKernelRoot = join(repoRoot, "ai_docs", "agent-kernel");
-const tailerBridgePath = join(repoRoot, "apps", "server", "src", "infrastructure", "kernel", "bridge", "tailer.ts");
-const tailerRuntimeRoot = join(repoRoot, "apps", "server", "src", "infrastructure", "kernel", "bridge", "tailer-runtime");
 
 const expectedKernelPackages = [
   "@agent-kernel/db",
@@ -224,16 +224,6 @@ function collectBoundaryFailures(): string[] {
     }
   }
 
-  assert(entryExists(tailerRuntimeRoot), "the removed kernel tailer machinery must live in bridge/tailer-runtime");
-  if (entryExists(tailerRuntimeRoot)) {
-    assert(!lstatSync(tailerRuntimeRoot).isSymbolicLink(), "bridge/tailer-runtime must be harness-owned source, not a symlink");
-  }
-  if (existsSync(tailerBridgePath)) {
-    const tailerBridge = readFileSync(tailerBridgePath, "utf8");
-    assert(tailerBridge.includes("./tailer-runtime"), "bridge/tailer.ts must consume the harness-owned tailer runtime");
-    assert(!tailerBridge.includes("@agent-kernel/tailer"), "bridge/tailer.ts must not restore the removed @agent-kernel/tailer package");
-  }
-
   const harnessNeedles = ["@decomp-orchestrator/", "gamecube-decomp-harness", "apps/frontend", "apps/server"];
   for (const file of walkSourceFiles(join(chosenKernelRoot, "packages"))) {
     const text = readFileSync(file, "utf8");
@@ -285,6 +275,8 @@ function collectBoundaryFailures(): string[] {
 }
 
 describe("agent-kernel package boundaries", () => {
+  test("exports the Melee transcript backfill stub", () => expect(runMeleeTranscriptBackfill).toBeFunction());
+
   test("keeps the harness on package exports and the kernel source isolated", () => {
     expect(collectBoundaryFailures()).toEqual([]);
   });

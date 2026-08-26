@@ -1,11 +1,7 @@
 import {
-  type AgentRun,
   type Container,
   type KernelTraceReadRows,
-  type NewAgentRun,
   type NewContainer,
-  type NewPiAgentSession,
-  type PiAgentSession,
 } from "@agent-kernel/db";
 import * as schema from "@agent-kernel/db/schema/pg";
 import { createKernelTraceReadApi } from "@agent-kernel/kernel/read-api";
@@ -25,9 +21,7 @@ import {
 import {
   ensureKernelObservabilitySchema,
   insertMeleeTraceEventsBatch,
-  upsertMeleeAgentRun,
   upsertMeleeContainer,
-  upsertMeleePiAgentSession,
   DEFAULT_AGENT_KERNEL_DATABASE_URL,
   meleeKernelDatabaseUrlFromEnv,
   meleeKernelRuntimeRequiredFromEnv,
@@ -50,12 +44,6 @@ import {
   type KernelRegistrationUpsertPort,
 } from "./registration.js";
 import {
-  createMeleeTraceTailer,
-  type CreateMeleeTraceTailerOptions,
-  type MeleeTraceTailer,
-  type MeleeTraceTailerStatus,
-} from "./tailer.js";
-import {
   createMeleeTraceWriter,
   type MeleeTraceWriter,
 } from "./trace-writer.js";
@@ -70,16 +58,6 @@ export type TraceEventsInsertPort = (
   events: TraceEvent[],
 ) => Promise<number>;
 
-export type PiAgentSessionUpsertPort = (
-  db: unknown,
-  data: NewPiAgentSession,
-) => Promise<PiAgentSession | NewPiAgentSession>;
-
-export type AgentRunUpsertPort = (
-  db: unknown,
-  data: NewAgentRun,
-) => Promise<AgentRun | NewAgentRun>;
-
 export interface MeleeKernelRuntime {
   config: MeleeKernelBridgeConfig;
   databaseUrl: string | null;
@@ -89,10 +67,6 @@ export interface MeleeKernelRuntime {
   readRows: KernelTraceRowsReader;
   traceWriter: MeleeTraceWriter;
   upsertSpawnContainers: (context: MeleeKernelSpawnContext) => Promise<void>;
-  startTraceTailer: () => Promise<void>;
-  flushTraceTailer: () => Promise<void>;
-  stopTraceTailer: () => Promise<void>;
-  traceTailerStatus: () => MeleeTraceTailerStatus | null;
   close: () => Promise<void>;
 }
 
@@ -107,12 +81,6 @@ export interface CreateMeleeKernelRuntimeOptions {
   upsertRegistration?: KernelRegistrationUpsertPort;
   upsertContainer?: ContainerUpsertPort;
   insertTraceEvents?: TraceEventsInsertPort;
-  upsertPiAgentSession?: PiAgentSessionUpsertPort;
-  upsertAgentRun?: AgentRunUpsertPort;
-  tailer?: Omit<
-    CreateMeleeTraceTailerOptions,
-    "db" | "config" | "insertTraceEvents" | "upsertPiAgentSession" | "upsertAgentRun"
-  > | false;
   readRows?: KernelTraceRowsReader;
   listRows?: KernelTraceRowsLister;
   resolveIdentity?: KernelTraceIdentityResolver;
@@ -289,25 +257,6 @@ export async function createMeleeKernelRuntime(
   });
   const readApi = createKernelTraceReadApi(readService);
   const upsertContainer = options.upsertContainer ?? upsertMeleeContainer;
-  const upsertPiAgentSession = options.upsertPiAgentSession ?? upsertMeleePiAgentSession;
-  const upsertAgentRun = options.upsertAgentRun ?? upsertMeleeAgentRun;
-  let traceTailer: MeleeTraceTailer | null = null;
-  let traceTailerStartPromise: Promise<void> | null = null;
-
-  const getTraceTailer = (): MeleeTraceTailer | null => {
-    if (options.tailer === false) return null;
-    if (!traceTailer) {
-      traceTailer = createMeleeTraceTailer({
-        db,
-        config,
-        insertTraceEvents,
-        upsertPiAgentSession,
-        upsertAgentRun,
-        ...(options.tailer ?? {}),
-      });
-    }
-    return traceTailer;
-  };
 
   return {
     config,
@@ -319,28 +268,7 @@ export async function createMeleeKernelRuntime(
     traceWriter,
     upsertSpawnContainers: (context) =>
       upsertMeleeSpawnContextContainers({ context, db, upsert: upsertContainer }),
-    startTraceTailer: async () => {
-      const tailer = getTraceTailer();
-      if (!tailer) return;
-      traceTailerStartPromise ??= tailer.start().finally(() => {
-        traceTailerStartPromise = null;
-      });
-      await traceTailerStartPromise;
-    },
-    flushTraceTailer: async () => {
-      await traceTailerStartPromise?.catch(() => {});
-      await traceTailer?.flush();
-    },
-    stopTraceTailer: async () => {
-      await traceTailerStartPromise?.catch(() => {});
-      await traceTailer?.stop();
-    },
-    traceTailerStatus: () => traceTailer?.status() ?? null,
-    close: async () => {
-      await traceTailerStartPromise?.catch(() => {});
-      await traceTailer?.stop();
-      await handle.close();
-    },
+    close: () => handle.close(),
   };
 }
 
@@ -409,5 +337,9 @@ export async function closeDefaultMeleeKernelRuntime(): Promise<void> {
   defaultRuntimePromise = null;
   defaultRuntimeWarningShown = false;
   const runtime = await runtimePromise?.catch(() => null);
-  await runtime?.close();
+  try {
+    await runtime?.traceWriter.flush();
+  } finally {
+    await runtime?.close();
+  }
 }

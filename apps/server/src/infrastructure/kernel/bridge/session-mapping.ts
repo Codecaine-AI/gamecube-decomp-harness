@@ -10,6 +10,7 @@ const MELEE_WORKFLOW_TRACE_EVENT_NAMESPACE = "ced83bd4-c12c-5a72-9ae8-507d0da283
 export type MeleeContainerKind =
   | "session"
   | "prepare"
+  | "sync"
   | "sync-intake"
   | "intake"
   | "intake-item"
@@ -39,6 +40,7 @@ export type MeleeContainerKind =
 export const MELEE_PHASE_VOCABULARY = [
   "session",
   "prepare",
+  "sync",
   "setup",
   "intake",
   "intake-item",
@@ -185,6 +187,64 @@ export function meleeRootContainerId(ref: MeleeCycleRef): string {
   return `melee:${meleeAppSessionId(ref)}:session`;
 }
 
+export function meleeSyncContainerId(ref: MeleeCycleRef): string {
+  return `${meleeRootContainerId(ref)}:sync`;
+}
+
+export function meleeSyncWorkflowContainerId(ref: MeleeCycleRef, syncId: string): string {
+  return `${meleeSyncContainerId(ref)}:${cleanSegment(syncId)}`;
+}
+
+export function meleeSyncWorkflowIntakeContainerId(
+  ref: MeleeCycleRef,
+  syncId: string,
+): string {
+  return `${meleeSyncWorkflowContainerId(ref, syncId)}:intake`;
+}
+
+export function meleeSyncWorkflowIntakeItemContainerId(
+  ref: MeleeCycleRef,
+  syncId: string,
+  prId: string | number,
+): string {
+  return `${meleeSyncWorkflowIntakeContainerId(ref, syncId)}:pr:${cleanSegment(prId)}`;
+}
+
+export function meleeSyncWorkflowIntakePostmortemContainerId(
+  ref: MeleeCycleRef,
+  syncId: string,
+  prId: string | number,
+): string {
+  return `${meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)}:postmortem`;
+}
+
+export function meleeSyncWorkflowIntakeKnowledgeContainerId(
+  ref: MeleeCycleRef,
+  syncId: string,
+  prId: string | number,
+): string {
+  return `${meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)}:knowledge-intake`;
+}
+
+export function meleeSyncWorkflowKnowledgeContainerId(
+  ref: MeleeCycleRef,
+  syncId: string,
+): string {
+  return `${meleeSyncWorkflowContainerId(ref, syncId)}:knowledge`;
+}
+
+export function meleeSyncWorkflowKnowledgeJobContainerId(
+  ref: MeleeCycleRef,
+  syncId: string,
+  jobKey: string,
+): string {
+  return `${meleeSyncWorkflowKnowledgeContainerId(ref, syncId)}:${cleanSegment(jobKey)}`;
+}
+
+/**
+ * Legacy id prefix retained so existing child rows keep stable ids when they
+ * move under the Sync container.
+ */
 export function meleePrepareContainerId(ref: MeleeCycleRef): string {
   return `${meleeRootContainerId(ref)}:prepare`;
 }
@@ -210,13 +270,19 @@ export function meleeIntakeKnowledgeContainerId(ref: MeleeIntakePrRef): string {
 }
 
 /**
- * The knowledge lane is a cycle-level sibling of the run, not a phase of it.
- * Knowledge work outlives any single run (background jobs, backfills, operator
- * CLI invocations), so its lane hangs off the cycle root and every job gets its
- * own child rather than borrowing the run container's row.
+ * Legacy cycle-global knowledge lane for sync-less operator and CLI work.
+ * Sync-scoped jobs use `meleeSyncWorkflowKnowledgeContainerId` instead.
  */
 export function meleeKnowledgeContainerId(ref: MeleeCycleRef): string {
   return `${meleeRootContainerId(ref)}:knowledge`;
+}
+
+export function meleeRunKnowledgeContainerId(ref: MeleeRunRef): string {
+  return `${meleeRunContainerId(ref)}:knowledge`;
+}
+
+export function meleeRunKnowledgeJobContainerId(ref: MeleeRunRef & { jobKey: string }): string {
+  return `${meleeRunKnowledgeContainerId(ref)}:${cleanSegment(ref.jobKey)}`;
 }
 
 export function meleeKnowledgeJobContainerId(ref: MeleeKnowledgeJobRef): string {
@@ -298,6 +364,16 @@ function meleeRunId(ref: MeleeCycleRef, metadata: Record<string, unknown>): stri
   return metaId(metadata, "runId") ?? ref.sessionId;
 }
 
+function meleeSyncWorkflowId(metadata: Record<string, unknown>): string | undefined {
+  const runId = metaId(metadata, "runId");
+  return runId && /^sync-/.test(runId) ? runId : undefined;
+}
+
+function meleeSyncWorkflowLabel(syncId: string): string {
+  const uuidPart = syncId.replace(/^sync-/, "");
+  return `Sync ${uuidPart.slice(0, 8) || syncId.slice(0, 8)}`;
+}
+
 function meleeEpochId(metadata: Record<string, unknown>): string {
   return metaId(metadata, "epochId") ?? "active";
 }
@@ -329,6 +405,8 @@ function meleeKnowledgeJobKey(metadata: Record<string, unknown>): string {
   return (
     metaId(metadata, "jobKey") ??
     metaId(metadata, "jobId") ??
+    metaId(metadata, "subjectId") ??
+    metaId(metadata, "subject_id") ??
     metaId(metadata, "batchId") ??
     metaId(metadata, "workerStateId") ??
     "job"
@@ -342,6 +420,7 @@ export function describeMeleeContainer(
 ): MeleeContainerDescriptor {
   const appSessionId = meleeAppSessionId(ref);
   const rootId = meleeRootContainerId(ref);
+  const syncId = meleeSyncWorkflowId(metadata);
 
   switch (kind) {
     case "session":
@@ -364,6 +443,18 @@ export function describeMeleeContainer(
         phase: "prepare",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
       };
+    case "sync":
+      return {
+        id: syncId
+          ? meleeSyncWorkflowContainerId(ref, syncId)
+          : meleeSyncContainerId(ref),
+        kind,
+        appSessionId,
+        parentContainerId: rootId,
+        label: syncId ? meleeSyncWorkflowLabel(syncId) : "Sync",
+        phase: "sync",
+        metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
+      };
     case "sync-intake":
       return {
         id: meleeSyncIntakeContainerId(ref),
@@ -376,10 +467,14 @@ export function describeMeleeContainer(
       };
     case "intake":
       return {
-        id: meleeIntakeContainerId(ref),
+        id: syncId
+          ? meleeSyncWorkflowIntakeContainerId(ref, syncId)
+          : meleeIntakeContainerId(ref),
         kind,
         appSessionId,
-        parentContainerId: meleePrepareContainerId(ref),
+        parentContainerId: syncId
+          ? meleeSyncWorkflowContainerId(ref, syncId)
+          : meleePrepareContainerId(ref),
         label: "Intake",
         phase: "intake",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
@@ -388,10 +483,14 @@ export function describeMeleeContainer(
       const prId = typeof metadata.prId === "string" && metadata.prId ? metadata.prId : "item";
       const intakeRef = { ...ref, prId };
       return {
-        id: meleeIntakeItemContainerId(intakeRef),
+        id: syncId
+          ? meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
+          : meleeIntakeItemContainerId(intakeRef),
         kind,
         appSessionId,
-        parentContainerId: meleeIntakeContainerId(ref),
+        parentContainerId: syncId
+          ? meleeSyncWorkflowIntakeContainerId(ref, syncId)
+          : meleeIntakeContainerId(ref),
         label: prId.startsWith("#") ? `${prId} intake` : `PR #${prId} intake`,
         phase: "intake-item",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
@@ -401,10 +500,14 @@ export function describeMeleeContainer(
       const prId = typeof metadata.prId === "string" && metadata.prId ? metadata.prId : "item";
       const intakeRef = { ...ref, prId };
       return {
-        id: meleeIntakePostmortemContainerId(intakeRef),
+        id: syncId
+          ? meleeSyncWorkflowIntakePostmortemContainerId(ref, syncId, prId)
+          : meleeIntakePostmortemContainerId(intakeRef),
         kind,
         appSessionId,
-        parentContainerId: meleeIntakeItemContainerId(intakeRef),
+        parentContainerId: syncId
+          ? meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
+          : meleeIntakeItemContainerId(intakeRef),
         label: prId.startsWith("#") ? `${prId} postmortem` : `PR #${prId} postmortem`,
         phase: "postmortem",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
@@ -414,21 +517,35 @@ export function describeMeleeContainer(
       const prId = typeof metadata.prId === "string" && metadata.prId ? metadata.prId : "item";
       const intakeRef = { ...ref, prId };
       return {
-        id: meleeIntakeKnowledgeContainerId(intakeRef),
+        id: syncId
+          ? meleeSyncWorkflowIntakeKnowledgeContainerId(ref, syncId, prId)
+          : meleeIntakeKnowledgeContainerId(intakeRef),
         kind,
         appSessionId,
-        parentContainerId: meleeIntakeItemContainerId(intakeRef),
+        parentContainerId: syncId
+          ? meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
+          : meleeIntakeItemContainerId(intakeRef),
         label: prId.startsWith("#") ? `${prId} knowledge intake` : `PR #${prId} knowledge intake`,
         phase: "knowledge-intake",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
     }
     case "knowledge":
+      const knowledgeRunId = meleeRunId(ref, metadata);
+      const runScopedKnowledge = Boolean(metaId(metadata, "runId") && !syncId);
       return {
-        id: meleeKnowledgeContainerId(ref),
+        id: syncId
+          ? meleeSyncWorkflowKnowledgeContainerId(ref, syncId)
+          : runScopedKnowledge
+            ? meleeRunKnowledgeContainerId({ ...ref, runId: knowledgeRunId })
+            : meleeKnowledgeContainerId(ref),
         kind,
         appSessionId,
-        parentContainerId: rootId,
+        parentContainerId: syncId
+          ? meleeSyncWorkflowContainerId(ref, syncId)
+          : runScopedKnowledge
+            ? meleeRunContainerId({ ...ref, runId: knowledgeRunId })
+            : rootId,
         label: "Knowledge",
         phase: "knowledge",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
@@ -436,12 +553,27 @@ export function describeMeleeContainer(
     case "knowledge-job": {
       const jobKey = meleeKnowledgeJobKey(metadata);
       const jobKind = metaId(metadata, "jobKind");
+      const knowledgeRunId = meleeRunId(ref, metadata);
+      const runScopedKnowledge = Boolean(metaId(metadata, "runId") && !syncId);
+      const targetKey = metaId(metadata, "targetKey");
       return {
-        id: meleeKnowledgeJobContainerId({ ...ref, jobKey }),
+        id: syncId
+          ? meleeSyncWorkflowKnowledgeJobContainerId(ref, syncId, jobKey)
+          : runScopedKnowledge
+            ? meleeRunKnowledgeJobContainerId({ ...ref, runId: knowledgeRunId, jobKey })
+            : meleeKnowledgeJobContainerId({ ...ref, jobKey }),
         kind,
         appSessionId,
-        parentContainerId: meleeKnowledgeContainerId(ref),
-        label: jobKind ? `${jobKind} ${jobKey}` : `Knowledge job ${jobKey}`,
+        parentContainerId: syncId
+          ? meleeSyncWorkflowKnowledgeContainerId(ref, syncId)
+          : runScopedKnowledge
+            ? meleeRunKnowledgeContainerId({ ...ref, runId: knowledgeRunId })
+            : meleeKnowledgeContainerId(ref),
+        label: targetKey
+          ? `Condense ${targetKey}`
+          : jobKind
+            ? `${jobKind} ${jobKey}`
+            : `Knowledge job ${jobKey}`,
         phase: "knowledge-job",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, jobKey },
       };

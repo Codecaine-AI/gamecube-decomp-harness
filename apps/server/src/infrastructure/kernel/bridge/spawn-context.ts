@@ -156,7 +156,8 @@ function containerLineage(
   appSessionId: string,
 ): NewContainer[] {
   const workingDir = nonEmpty(input.workingDir);
-  const runId = nonEmpty(input.runId) ?? ref.sessionId;
+  const explicitRunId = nonEmpty(input.runId);
+  const runId = explicitRunId ?? ref.sessionId;
   const prId = nonEmpty(input.prId) ?? runId;
   const epochId = nonEmpty(input.epochId) ?? "active";
   const claimId = nonEmpty(input.claimId);
@@ -180,8 +181,24 @@ function containerLineage(
     workingDir,
     metadata: { runId, prId },
   });
+  const syncId = explicitRunId && /^sync-/.test(explicitRunId) ? explicitRunId : undefined;
+  const syncMetadata = syncId ? { runId: syncId } : undefined;
+  const knowledgeMetadata = explicitRunId ? { runId: explicitRunId } : undefined;
   const prepare = describedRecord({ kind: "prepare", ref, appSessionId, workingDir });
-  const intake = describedRecord({ kind: "intake", ref, appSessionId, workingDir });
+  const sync = describedRecord({
+    kind: "sync",
+    ref,
+    appSessionId,
+    workingDir,
+    metadata: syncMetadata,
+  });
+  const intake = describedRecord({
+    kind: "intake",
+    ref,
+    appSessionId,
+    workingDir,
+    metadata: syncMetadata,
+  });
   const intakeItemPrId = nonEmpty(input.prId) ?? nonEmpty(input.targetId) ?? itemId;
   const intakeItemMetadata = {
     runId,
@@ -204,24 +221,28 @@ function containerLineage(
       // Knowledge curation used to relabel the *run* container in place. The
       // upsert overwrites label and phase on id conflict, so a librarian spawn
       // renamed whatever run it happened to share an id with. Curation now
-      // lives in its own lane off the cycle root, one container per job.
-      const lane = describedRecord({ kind: "knowledge", ref, appSessionId, workingDir });
+      // lives in its own scoped lane, one container per job.
+      const lane = describedRecord({
+        kind: "knowledge",
+        ref,
+        appSessionId,
+        workingDir,
+        metadata: knowledgeMetadata,
+      });
       const jobMetadata = {
+        ...(input.metadata ?? {}),
         jobKey,
         ...(nonEmpty(input.jobKind) ? { jobKind: nonEmpty(input.jobKind) } : {}),
-        runId,
+        ...(explicitRunId ? { runId: explicitRunId } : {}),
       };
-      return [
-        root,
-        lane,
-        describedRecord({
-          kind: "knowledge-job",
-          ref,
-          appSessionId,
-          workingDir,
-          metadata: jobMetadata,
-        }),
-      ];
+      const job = describedRecord({
+        kind: "knowledge-job",
+        ref,
+        appSessionId,
+        workingDir,
+        metadata: jobMetadata,
+      });
+      return syncId ? [root, sync, lane, job] : explicitRunId ? [root, run, lane, job] : [root, lane, job];
     }
     case "worker": {
       const epoch = describedRecord({
@@ -296,7 +317,7 @@ function containerLineage(
     case "intake-postmortem":
       return [
         root,
-        prepare,
+        syncId ? sync : prepare,
         intake,
         intakeItem,
         describedRecord({
@@ -310,7 +331,7 @@ function containerLineage(
     case "intake-knowledge":
       return [
         root,
-        prepare,
+        syncId ? sync : prepare,
         intake,
         intakeItem,
         describedRecord({
@@ -380,6 +401,14 @@ function containerLineage(
 export function createMeleeKernelSpawnContext(
   input: MeleeKernelSpawnContextInput,
 ): MeleeKernelSpawnContext {
+  if (!nonEmpty(input.sessionId)) {
+    const fallbackSessionId = nonEmpty(input.runId) ?? nonEmpty(input.prId);
+    if (fallbackSessionId && /^sync-/.test(fallbackSessionId)) {
+      console.warn(
+        `[melee-kernel] spawn-context kind "${input.kind}": sessionId fell back to workflow id "${fallbackSessionId}" — containers will file under a fabricated session root`,
+      );
+    }
+  }
   const ref = baseRef(input);
   const appSessionId = meleeAppSessionId(ref);
   const runId = nonEmpty(input.runId);

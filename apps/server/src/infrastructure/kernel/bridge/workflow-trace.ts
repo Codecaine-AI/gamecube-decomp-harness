@@ -32,7 +32,7 @@ export interface SubmitMeleeWorkflowTraceEventInput {
   kind: Extract<
     MeleeContainerKind,
     | "session"
-    | "prepare"
+    | "sync"
     | "sync-intake"
     | "intake"
     | "intake-item"
@@ -42,6 +42,7 @@ export interface SubmitMeleeWorkflowTraceEventInput {
     | "knowledge-job"
     | "baseline"
     | "run"
+    | "epoch"
     | "pr"
     | "pr-handoff"
     | "pr-qa"
@@ -93,6 +94,40 @@ function requiredText(value: string, label: string): string {
   return normalized;
 }
 
+function optionalText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized || undefined;
+}
+
+function syncWorkflowId(input: {
+  kind: SubmitMeleeWorkflowTraceEventInput["kind"];
+  correlationId: string;
+  metadata?: Record<string, unknown>;
+}): string | undefined {
+  if (
+    input.kind !== "sync" &&
+    input.kind !== "sync-intake" &&
+    !input.kind.startsWith("intake") &&
+    !input.kind.startsWith("knowledge")
+  ) {
+    return undefined;
+  }
+  const metadata = input.metadata ?? {};
+  for (const candidate of [
+    metadata.syncId,
+    metadata.sync_id,
+    metadata.subjectId,
+    metadata.subject_id,
+    metadata.runId,
+    input.correlationId,
+  ]) {
+    const value = optionalText(candidate);
+    if (value && /^sync-/.test(value)) return value;
+  }
+  return undefined;
+}
+
 function withEventStatus(
   container: NewContainer,
   status: MeleeWorkflowTraceStatus,
@@ -128,19 +163,30 @@ function childContainerLineage(input: {
   });
   if (input.kind === "session") return [withEventStatus(root, input.status, input.timestamp)];
 
+  const childMetadata: Record<string, unknown> = {
+    ...(input.metadata ?? {}),
+    ...(input.prId ? { prId: input.prId } : {}),
+  };
+  const runId = optionalText(childMetadata.runId);
+  const syncId = runId && /^sync-/.test(runId) ? runId : undefined;
+  const sync = buildMeleeContainer({
+    kind: "sync",
+    ref: input.ref,
+    workingDir: input.workingDir,
+    worktreePath: input.worktreePath,
+    metadata: syncId ? childMetadata : input.kind === "sync" ? childMetadata : undefined,
+  });
+  if (input.kind === "sync") return [root, withEventStatus(sync, input.status, input.timestamp)];
+  if (input.kind === "sync-intake" && syncId) {
+    return [root, withEventStatus(sync, input.status, input.timestamp)];
+  }
+
   const prepare = buildMeleeContainer({
     kind: "prepare",
     ref: input.ref,
     workingDir: input.workingDir,
     worktreePath: input.worktreePath,
-    metadata: input.kind === "prepare" ? input.metadata : undefined,
   });
-  if (input.kind === "prepare") return [root, withEventStatus(prepare, input.status, input.timestamp)];
-
-  const childMetadata = {
-    ...(input.metadata ?? {}),
-    ...(input.prId ? { prId: input.prId } : {}),
-  };
   if (
     input.kind === "intake" ||
     input.kind === "intake-item" ||
@@ -152,9 +198,11 @@ function childContainerLineage(input: {
       ref: input.ref,
       workingDir: input.workingDir,
       worktreePath: input.worktreePath,
-      metadata: input.kind === "intake" ? childMetadata : undefined,
+      metadata: childMetadata,
     });
-    if (input.kind === "intake") return [root, prepare, withEventStatus(intake, input.status, input.timestamp)];
+    if (input.kind === "intake") {
+      return [root, syncId ? sync : prepare, withEventStatus(intake, input.status, input.timestamp)];
+    }
 
     const item = buildMeleeContainer({
       kind: "intake-item",
@@ -163,7 +211,14 @@ function childContainerLineage(input: {
       worktreePath: input.worktreePath,
       metadata: childMetadata,
     });
-    if (input.kind === "intake-item") return [root, prepare, intake, withEventStatus(item, input.status, input.timestamp)];
+    if (input.kind === "intake-item") {
+      return [
+        root,
+        syncId ? sync : prepare,
+        intake,
+        withEventStatus(item, input.status, input.timestamp),
+      ];
+    }
 
     const child = withEventStatus(
       buildMeleeContainer({
@@ -176,7 +231,7 @@ function childContainerLineage(input: {
       input.status,
       input.timestamp,
     );
-    return [root, prepare, intake, item, child];
+    return [root, syncId ? sync : prepare, intake, item, child];
   }
 
   const child = withEventStatus(
@@ -208,24 +263,37 @@ function childContainerLineage(input: {
     return [root, pr, child];
   }
 
-  // The knowledge lane hangs off the cycle root, not off prepare, so its
-  // lineage skips the prepare container entirely.
+  // Sync jobs use their workflow node. Operator and CLI jobs keep the
+  // cycle-global lane because they have no sync run id.
   if (input.kind === "knowledge" || input.kind === "knowledge-job") {
     const lane = buildMeleeContainer({
       kind: "knowledge",
       ref: input.ref,
       workingDir: input.workingDir,
       worktreePath: input.worktreePath,
-      metadata: input.kind === "knowledge" ? childMetadata : undefined,
+      metadata: childMetadata,
     });
     if (input.kind === "knowledge") {
-      return [root, withEventStatus(lane, input.status, input.timestamp)];
+      return syncId
+        ? [root, sync, withEventStatus(lane, input.status, input.timestamp)]
+        : [root, withEventStatus(lane, input.status, input.timestamp)];
     }
-    return [root, lane, child];
+    return syncId ? [root, sync, lane, child] : [root, lane, child];
   }
 
   if (input.kind === "sync-intake" || input.kind === "baseline") {
     return [root, prepare, child];
+  }
+
+  if (input.kind === "epoch") {
+    const run = buildMeleeContainer({
+      kind: "run",
+      ref: input.ref,
+      workingDir: input.workingDir,
+      worktreePath: input.worktreePath,
+      metadata: childMetadata,
+    });
+    return [root, run, child];
   }
 
   return [root, child];
@@ -245,8 +313,17 @@ export async function submitMeleeWorkflowTraceEvent(
   const status = input.status ?? "completed";
   const ref = { gameId, sessionId };
   const appSessionId = meleeAppSessionId(ref);
-  const protectedMetadata = {
+  const syncId = syncWorkflowId({
+    kind: input.kind,
+    correlationId,
+    metadata: input.metadata,
+  });
+  const scopedMetadata = {
     ...(input.metadata ?? {}),
+    ...(syncId ? { runId: syncId } : {}),
+  };
+  const protectedMetadata = {
+    ...scopedMetadata,
     gameId,
     sessionId,
     correlation_id: correlationId,
@@ -267,7 +344,7 @@ export async function submitMeleeWorkflowTraceEvent(
   if (!container) throw new Error("Unable to build Melee workflow trace container lineage");
   const phase = String(container.phase ?? input.kind);
   const eventData: EventData = {
-    ...(input.metadata ?? {}),
+    ...scopedMetadata,
     phase,
     status,
     operation,

@@ -14,6 +14,7 @@ import {
 } from "@server/infrastructure/kernel/bridge/workflow-trace";
 import type { GameRuntimeContext } from "@server/core/game-registry";
 import { openState } from "@server/core/orchestrator-state";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import {
   getCycleByUuid,
   mergeCycleKernelTrace,
@@ -46,15 +47,12 @@ export interface DashboardKernelRuntimeService {
   readApiResponse: (req: Request) => Promise<Response>;
   runtime: () => Promise<MeleeKernelRuntime | null>;
   sessionId: (paths: GameRuntimeContext, input: Pick<DashboardKernelWorkflowEventInput, "sessionId" | "runId">) => string;
-  startTraceTailer: () => Promise<void>;
   status: () => Promise<JsonObject>;
   submitWorkflowEvent: (paths: GameRuntimeContext, input: DashboardKernelWorkflowEventInput) => Promise<JsonObject | null>;
 }
 
 export interface DashboardKernelRuntimeServiceDeps {
   activeCycleUuid?: (stateDir: string, gameId: string) => string | null;
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
-  defaultStateDir: string;
   env: Record<string, string | undefined>;
   json: JsonResponder;
   latestRunId: (stateDir: string) => string;
@@ -256,7 +254,6 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         config: {
           workingDir: deps.packageRoot,
           piSessionsDir: resolve(deps.packageRoot, ".pi-sessions"),
-          cursorSnapshotPath: resolve(deps.defaultStateDir, "agent-kernel-tailer-cursors.json"),
           appBaseUrl: kernelAppBaseUrl,
           appTraceUrlTemplate: `${kernelAppBaseUrl}/trace?containerId={containerId}`,
           genericTraceUrlTemplate: kernelObserverUrl ? `${kernelObserverUrl}/containers/{containerId}` : null,
@@ -270,7 +267,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         },
       }).catch((error) => {
         kernelRuntimePromise = null;
-        deps.appendLog("stderr", `agent-kernel init failed: ${error instanceof Error ? error.message : String(error)}`);
+        uiLog("stderr", `agent-kernel init failed: ${error instanceof Error ? error.message : String(error)}`);
         if (kernelRuntimeRequired) throw error;
         return null;
       });
@@ -309,7 +306,6 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         kernelId: current?.config.kernelId ?? null,
         piSessionsDir: current?.config.piSessionsDir ?? null,
         readApiPrefix: "/kernel",
-        tailer: current?.traceTailerStatus() ?? null,
         registration: current?.registration
           ? {
               kernelId: current.registration.kernelId,
@@ -448,7 +444,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         gameEventId: linkage.gameEventId,
       };
     } catch (error) {
-      deps.appendLog(
+      uiLog(
         "stderr",
         `agent-kernel workflow trace failed (${input.kind}/${input.operation}): ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -457,15 +453,6 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
       }
       return null;
     }
-  }
-
-  async function startTraceTailer(): Promise<void> {
-    const current = await runtime();
-    if (!current) return;
-    deps.appendLog("ui", `agent-kernel registered: ${current.config.kernelId}`);
-    await current.startTraceTailer();
-    const traceStatus = current.traceTailerStatus();
-    deps.appendLog("ui", `agent-kernel tailer watching: ${traceStatus?.watchDir ?? current.config.piSessionsDir}`);
   }
 
   return {
@@ -477,7 +464,6 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
     readApiResponse,
     runtime,
     sessionId,
-    startTraceTailer,
     status,
     submitWorkflowEvent,
   };

@@ -8,6 +8,5 @@ export * from "./registration.js";
 export * from "./runtime.js";
 export * from "./session-mapping.js";
 export * from "./spawn-context.js";
-export * from "./tailer.js";
 export * from "./trace-writer.js";
 export * from "./workflow-trace.js";

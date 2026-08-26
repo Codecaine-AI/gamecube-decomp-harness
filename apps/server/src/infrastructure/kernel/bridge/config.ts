@@ -17,7 +17,6 @@ export const MELEE_KERNEL_MARKER_CONFIG = Object.freeze({
 } satisfies MeleeKernelMarkerConfig);
 
 export const DEFAULT_PI_SESSIONS_DIR_NAME = ".pi-sessions";
-export const DEFAULT_TAILER_CURSOR_PATH = ".decomp-orchestrator-state/agent-kernel-tailer-cursors.json";
 
 export interface MeleeKernelBridgeConfig {
   kernelId: string;
@@ -25,7 +24,6 @@ export interface MeleeKernelBridgeConfig {
   processName: string;
   workingDir: string;
   piSessionsDir: string;
-  cursorSnapshotPath: string;
   markerConfig: MeleeKernelMarkerConfig;
   appBaseUrl?: string | null;
   appTraceUrlTemplate?: string | null;
@@ -39,7 +37,6 @@ export interface CreateMeleeKernelBridgeConfigInput {
   processName?: string;
   workingDir?: string;
   piSessionsDir?: string;
-  cursorSnapshotPath?: string;
   markerConfig?: Partial<MeleeKernelMarkerConfig>;
   appBaseUrl?: string | null;
   appTraceUrlTemplate?: string | null;
@@ -52,8 +49,6 @@ export function createMeleeKernelBridgeConfig(
 ): MeleeKernelBridgeConfig {
   const workingDir = input.workingDir ?? process.cwd();
   const piSessionsDir = input.piSessionsDir ?? resolve(workingDir, DEFAULT_PI_SESSIONS_DIR_NAME);
-  const cursorSnapshotPath =
-    input.cursorSnapshotPath ?? resolve(workingDir, DEFAULT_TAILER_CURSOR_PATH);
 
   return {
     kernelId: input.kernelId ?? MELEE_KERNEL_ID,
@@ -61,7 +56,6 @@ export function createMeleeKernelBridgeConfig(
     processName: input.processName ?? MELEE_DASHBOARD_PROCESS_NAME,
     workingDir,
     piSessionsDir,
-    cursorSnapshotPath,
     markerConfig: {
       ...MELEE_KERNEL_MARKER_CONFIG,
       ...input.markerConfig,

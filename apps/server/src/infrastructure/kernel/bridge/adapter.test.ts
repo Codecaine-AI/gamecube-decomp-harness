@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 
@@ -12,13 +12,10 @@ import type {
   KernelTraceReadOptions,
   KernelTraceReadRows,
   NewContainer,
-  NewAgentRun,
-  NewPiAgentSession,
   PiAgentSessionWithEventCount,
   TraceEventRow as KernelTraceEventRow,
 } from "@agent-kernel/db";
 import { EventType, TraceLevel, TraceSource } from "@agent-kernel/protocol";
-import type { PiEvent } from "@agent-kernel/kernel/transcript-recovery";
 
 import { createMeleeKernelBridgeConfig, MELEE_KERNEL_ID } from "./config.js";
 import { ensureKernelObservabilitySchema } from "./database.js";
@@ -34,6 +31,7 @@ import { createMeleeKernelRuntime } from "./runtime.js";
 import {
   buildMeleeContainer,
   describeMeleeContainer,
+  MELEE_PHASE_VOCABULARY,
   meleeAppSessionId,
   meleeBaselineContainerId,
   meleeEpochContainerId,
@@ -51,12 +49,19 @@ import {
   meleeIntakePostmortemContainerId,
   meleeKnowledgeContainerId,
   meleeKnowledgeJobContainerId,
-  meleePrepareContainerId,
   meleePrContainerId,
   meleePrPublicationContainerId,
   meleePostmortemContainerId,
+  meleePrepareContainerId,
   meleeRootContainerId,
+  meleeRunKnowledgeContainerId,
+  meleeRunKnowledgeJobContainerId,
+  meleeSyncContainerId,
   meleeSyncIntakeContainerId,
+  meleeSyncWorkflowContainerId,
+  meleeSyncWorkflowIntakeKnowledgeContainerId,
+  meleeSyncWorkflowKnowledgeContainerId,
+  meleeSyncWorkflowKnowledgeJobContainerId,
   meleeWorkerContainerId,
   meleeWorkflowTraceEventId,
 } from "./session-mapping.js";
@@ -69,9 +74,7 @@ import {
   type MeleeKernelPiRunOptions,
 } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import type { PiRunOptions } from "@server/infrastructure/agent-runtime/runtime";
-import { createMeleeEventMapperOptions, createMeleeTailerConfig, createMeleeTraceTailer } from "./tailer.js";
 import { createMeleeTraceWriter } from "./trace-writer.js";
-import { MELEE_KERNEL_MANAGED_RUN_MARKER_FIELD } from "./spawn-agent.js";
 import { submitMeleeWorkflowTraceEvent } from "./workflow-trace.js";
 
 const UUID_RE =
@@ -406,8 +409,11 @@ describe("session and container mapping", () => {
     );
   });
 
-  test("maps prepare intake containers under the Prepare tree", () => {
+  test("keeps sync-less intake and baseline containers under Prepare", () => {
     const ref = { gameId: "melee", sessionId: "session-1" };
+    const sync = buildMeleeContainer({ kind: "sync", ref });
+    const intake = buildMeleeContainer({ kind: "intake", ref });
+    const baseline = buildMeleeContainer({ kind: "baseline", ref });
     const item = buildMeleeContainer({
       kind: "intake-item",
       ref,
@@ -427,6 +433,11 @@ describe("session and container mapping", () => {
       workingDir: "/repo",
     });
 
+    expect(sync.parentContainerId).toBe(meleeRootContainerId(ref));
+    expect(sync.label).toBe("Sync");
+    expect(intake.parentContainerId).toBe(meleePrepareContainerId(ref));
+    expect(baseline.parentContainerId).toBe(meleePrepareContainerId(ref));
+    expect(baseline.label).toBe("Baseline and rebuild");
     expect(item.id).toBe(meleeIntakeItemContainerId({ ...ref, prId: "2764" }));
     expect(item.parentContainerId).toBe(meleeIntakeContainerId(ref));
     expect(postmortem.id).toBe(meleeIntakePostmortemContainerId({ ...ref, prId: "2764" }));
@@ -538,7 +549,7 @@ describe("spawn context mapping", () => {
     });
   });
 
-  test("builds prepare intake agent spawn contexts under the PR intake item", () => {
+  test("builds sync-less intake agent contexts under the legacy Prepare item", () => {
     const context = createMeleeKernelSpawnContext({
       kind: "intake-postmortem",
       gameId: "melee",
@@ -577,6 +588,41 @@ describe("spawn context mapping", () => {
       meleeIntakeItemContainerId({ gameId: "melee", sessionId: "session-1", prId: "2764" }),
       meleeIntakePostmortemContainerId({ gameId: "melee", sessionId: "session-1", prId: "2764" }),
     ]);
+  });
+
+  test("warns only when a sync workflow id becomes an implicit session id", () => {
+    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      createMeleeKernelSpawnContext({
+        kind: "intake-knowledge",
+        gameId: "melee",
+        runId: "sync-0ccce0b7-x",
+        prId: "2764",
+      });
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning.mock.calls[0]?.[0]).toContain('kind "intake-knowledge"');
+      expect(warning.mock.calls[0]?.[0]).toContain('workflow id "sync-0ccce0b7-x"');
+
+      warning.mockClear();
+      createMeleeKernelSpawnContext({
+        kind: "intake-knowledge",
+        gameId: "melee",
+        sessionId: "sync-explicit",
+        runId: "sync-0ccce0b7-x",
+        prId: "2764",
+      });
+      expect(warning).not.toHaveBeenCalled();
+
+      createMeleeKernelSpawnContext({
+        kind: "intake-knowledge",
+        gameId: "melee",
+        runId: "pr-knowledge-intake-123",
+        prId: "2764",
+      });
+      expect(warning).not.toHaveBeenCalled();
+    } finally {
+      warning.mockRestore();
+    }
   });
 
   test("builds PR review context under the PR container tree", () => {
@@ -648,6 +694,35 @@ describe("trace writer", () => {
       },
     });
   });
+
+  test("flush waits for outstanding inserts", async () => {
+    let finishInsert: (() => void) | undefined;
+    const writer = createMeleeTraceWriter({
+      insertBatch: (events) =>
+        new Promise<number>((resolve) => {
+          finishInsert = () => resolve(events.length);
+        }),
+    });
+
+    void writer.submit(
+      writer.createAppEvent({
+        appSessionId: "11111111-1111-5111-8111-111111111111",
+        type: "melee:test",
+        eventData: {},
+      }),
+    );
+    let flushed = false;
+    const flush = writer.flush().then(() => {
+      flushed = true;
+    });
+
+    await Promise.resolve();
+    expect(flushed).toBe(false);
+
+    finishInsert?.();
+    await flush;
+    expect(flushed).toBe(true);
+  });
 });
 
 describe("container identity has one authority", () => {
@@ -668,7 +743,7 @@ describe("container identity has one authority", () => {
   // caught here as well as by the (now total) switch failing to compile.
   const ALL_KINDS: MeleeContainerKind[] = [
     "session",
-    "prepare",
+    "sync",
     "sync-intake",
     "intake",
     "intake-item",
@@ -727,15 +802,15 @@ describe("container identity has one authority", () => {
       ["pr-split", meleePrSplitContainerId(prRef)],
       ["pr-review", meleePrReviewContainerId({ ...prRef, reviewId: "slice-001" })],
       ["pr-repair", meleePrRepairContainerId({ ...prRef, repairId: "repair-7" })],
-      ["knowledge", meleeKnowledgeContainerId(ref)],
-      ["knowledge-job", meleeKnowledgeJobContainerId({ ...ref, jobKey: "job-9" })],
+      ["knowledge", meleeRunKnowledgeContainerId(runRef)],
+      ["knowledge-job", meleeRunKnowledgeJobContainerId({ ...runRef, jobKey: "job-9" })],
     ];
     for (const [kind, id] of expected) {
       expect(describeMeleeContainer(kind, ref, fullMetadata).id).toBe(id);
     }
   });
 
-  test("the knowledge lane hangs off the cycle root, not off the run or prepare", () => {
+  test("the sync-less knowledge lane hangs off the cycle root", () => {
     const lane = describeMeleeContainer("knowledge", ref, {});
     expect(lane.id).toBe(`${meleeRootContainerId(ref)}:knowledge`);
     expect(lane.parentContainerId).toBe(meleeRootContainerId(ref));
@@ -758,6 +833,13 @@ describe("container identity has one authority", () => {
       batchId: "batch-1",
     });
     expect(byJobId.id).toBe(meleeKnowledgeJobContainerId({ ...ref, jobKey: "queued-1" }));
+    const bySubject = describeMeleeContainer("knowledge-job", ref, {
+      subjectId: "knowledge-job-2",
+      batchId: "batch-1",
+    });
+    expect(bySubject.id).toBe(
+      meleeKnowledgeJobContainerId({ ...ref, jobKey: "knowledge-job-2" }),
+    );
     const byBatch = describeMeleeContainer("knowledge-job", ref, { batchId: "batch-1" });
     expect(byBatch.id).toBe(meleeKnowledgeJobContainerId({ ...ref, jobKey: "batch-1" }));
     const byWorkerState = describeMeleeContainer("knowledge-job", ref, {
@@ -781,17 +863,58 @@ describe("container identity has one authority", () => {
     const runId = meleeRunContainerId({ gameId: "melee", sessionId: "cycle-uuid-1", runId: "run-1" });
     const lineage = curation.containerLineage ?? [];
     expect(curation.containerId).not.toBe(runId);
-    expect(lineage.some((container) => container.id === runId)).toBe(false);
+    expect(lineage.some((container) => container.id === runId)).toBe(true);
     expect(lineage.map((container) => container.id)).toEqual([
       meleeRootContainerId({ gameId: "melee", sessionId: "cycle-uuid-1" }),
-      meleeKnowledgeContainerId({ gameId: "melee", sessionId: "cycle-uuid-1" }),
-      meleeKnowledgeJobContainerId({
+      runId,
+      meleeRunKnowledgeContainerId({ gameId: "melee", sessionId: "cycle-uuid-1", runId: "run-1" }),
+      meleeRunKnowledgeJobContainerId({
         gameId: "melee",
         sessionId: "cycle-uuid-1",
+        runId: "run-1",
         jobKey: "batch-7",
       }),
     ]);
     expect(lineage.at(-1)?.label).toBe("Curator review batch-7");
+  });
+
+  test("keeps legacy sync-less child ids and parents", () => {
+    const root = meleeRootContainerId(ref);
+    expect(meleeSyncIntakeContainerId(ref)).toBe(`${root}:prepare:sync-intake`);
+    expect(meleeBaselineContainerId(ref)).toBe(`${root}:prepare:baseline`);
+    expect(describeMeleeContainer("sync-intake", ref).parentContainerId).toBe(
+      meleePrepareContainerId(ref),
+    );
+    expect(describeMeleeContainer("baseline", ref).parentContainerId).toBe(
+      meleePrepareContainerId(ref),
+    );
+  });
+
+  test("phase vocabulary covers both writers and the legacy Prepare phase", () => {
+    const emittedPhases = new Set(
+      ALL_KINDS.map((kind) => describeMeleeContainer(kind, ref, fullMetadata).phase),
+    );
+    for (const input of [
+      { kind: "knowledge-curation" as const, phase: undefined },
+      { kind: "reconcile" as const, phase: undefined },
+    ]) {
+      const context = createMeleeKernelSpawnContext({
+        ...input,
+        gameId: ref.gameId,
+        sessionId: ref.sessionId,
+        runId: "run-1",
+        prId: "2764",
+      });
+      if (context.phase) emittedPhases.add(context.phase);
+      for (const container of context.containerLineage ?? []) {
+        if (container.phase) emittedPhases.add(container.phase);
+      }
+    }
+    for (const phase of emittedPhases) {
+      expect(MELEE_PHASE_VOCABULARY).toContain(phase);
+    }
+    expect(MELEE_PHASE_VOCABULARY).toContain("sync");
+    expect(MELEE_PHASE_VOCABULARY).toContain("prepare");
   });
 
   test("spawn contexts and the descriptor agree on id, label, parent and phase", () => {
@@ -951,6 +1074,63 @@ describe("container identity has one authority", () => {
 });
 
 describe("workflow trace helper", () => {
+  test("routes epoch events through their run and ignores sync-shaped correlations for run events", async () => {
+    const ref = { gameId: "melee", sessionId: "cycle-1" };
+    const contexts: any[] = [];
+    const runtime = {
+      upsertSpawnContainers: async (context: unknown) => {
+        contexts.push(context);
+      },
+      traceWriter: {
+        createAppEvent: (input: any) => ({
+          eventId: "55555555-5555-5555-8555-555555555555",
+          containerId: input.containerId,
+          userId: "00000000-0000-0000-0000-000000000001",
+          type: input.type,
+          source: TraceSource.APP,
+          traceLevel: input.traceLevel,
+          eventData: input.eventData,
+          timestamp: "2026-06-24T18:00:00.000Z",
+        }),
+        submit: async () => 1,
+      },
+    };
+
+    const epoch = await submitMeleeWorkflowTraceEvent({
+      runtime,
+      kind: "epoch",
+      ...ref,
+      correlationId: "sync-shaped-correlation",
+      gameEventId: "epoch-event-1",
+      causedByEventId: null,
+      operation: "epoch.started",
+      status: "started",
+      metadata: { runId: "run-7", epochId: "epoch-3" },
+    });
+    const run = await submitMeleeWorkflowTraceEvent({
+      runtime,
+      kind: "run",
+      ...ref,
+      correlationId: "sync-phantom",
+      gameEventId: "run-event-1",
+      causedByEventId: null,
+      operation: "run.started",
+      status: "started",
+      metadata: { runId: "run-real" },
+    });
+
+    expect(epoch.containerId).toBe(
+      meleeEpochContainerId({ ...ref, runId: "run-7", epochId: "epoch-3" }),
+    );
+    expect(epoch.containers.map((container) => container.id)).toEqual([
+      meleeRootContainerId(ref),
+      meleeRunContainerId({ ...ref, runId: "run-7" }),
+      meleeEpochContainerId({ ...ref, runId: "run-7", epochId: "epoch-3" }),
+    ]);
+    expect(run.containerId).toBe(meleeRunContainerId({ ...ref, runId: "run-real" }));
+    expect(contexts[1].metadata.runId).toBe("run-real");
+  });
+
   test("upserts non-agent workflow phase containers and emits app events", async () => {
     const ref = { gameId: "melee", sessionId: "run-1" };
     const upsertedContexts: unknown[] = [];
@@ -986,12 +1166,12 @@ describe("workflow trace helper", () => {
       causedByEventId: null,
     };
 
-    const prepare = await submitMeleeWorkflowTraceEvent({
+    const sync = await submitMeleeWorkflowTraceEvent({
       runtime,
-      kind: "prepare",
+      kind: "sync",
       gameId: ref.gameId,
       sessionId: ref.sessionId,
-      operation: "prepareSession",
+      operation: "syncSession",
       status: "started",
       workingDir: "/repo",
       ...linkage,
@@ -1050,7 +1230,7 @@ describe("workflow trace helper", () => {
       ...linkage,
     });
 
-    expect(prepare.containerId).toBe(meleePrepareContainerId(ref));
+    expect(sync.containerId).toBe(meleeSyncContainerId(ref));
     expect(setup.containerId).toBe(meleeSyncIntakeContainerId(ref));
     expect(baseline.containerId).toBe(meleeBaselineContainerId(ref));
     expect(intakeKnowledge.containerId).toBe(
@@ -1066,7 +1246,7 @@ describe("workflow trace helper", () => {
     ).size).toBe(5);
     expect((upsertedContexts[0] as any).containerLineage.map((container: NewContainer) => container.id)).toEqual([
       meleeRootContainerId(ref),
-      meleePrepareContainerId(ref),
+      meleeSyncContainerId(ref),
     ]);
     expect((upsertedContexts[1] as any).containerLineage.map((container: NewContainer) => container.id)).toEqual([
       meleeRootContainerId(ref),
@@ -1117,11 +1297,11 @@ describe("workflow trace helper", () => {
     });
     expect(traceInputs).toMatchObject([
       {
-        type: "melee:prepare_started",
-        containerId: meleePrepareContainerId(ref),
+        type: "melee:sync_started",
+        containerId: meleeSyncContainerId(ref),
         eventData: {
-          phase: "prepare",
-          operation: "prepareSession",
+          phase: "sync",
+          operation: "syncSession",
           status: "started",
         },
       },
@@ -1184,6 +1364,168 @@ describe("workflow trace helper", () => {
         caused_by_event_id: null,
       });
     }
+  });
+
+  test("workflow traces and spawn contexts agree on Sync lane lineages", async () => {
+    const ref = { gameId: "melee", sessionId: "cycle-1" };
+    const runtime = {
+      upsertSpawnContainers: async () => undefined,
+      traceWriter: {
+        createAppEvent: (input: any) => ({
+          eventId: "55555555-5555-5555-8555-555555555555",
+          containerId: input.containerId,
+          userId: "00000000-0000-0000-0000-000000000001",
+          type: input.type,
+          source: TraceSource.APP,
+          traceLevel: input.traceLevel,
+          eventData: input.eventData,
+          timestamp: "2026-06-24T18:00:00.000Z",
+        }),
+        submit: async () => 1,
+      },
+    };
+    const linkage = {
+      correlationId: "sync-1",
+      gameEventId: "game-event-parity",
+      causedByEventId: null,
+    };
+    const intakeTrace = await submitMeleeWorkflowTraceEvent({
+      runtime,
+      kind: "intake-knowledge",
+      ...ref,
+      prId: "2764",
+      operation: "intakeKnowledge",
+      ...linkage,
+    });
+    const intakeSpawn = createMeleeKernelSpawnContext({
+      kind: "intake-knowledge",
+      ...ref,
+      runId: "sync-1",
+      prId: "2764",
+      itemId: "pr-2764",
+    });
+    const knowledgeTrace = await submitMeleeWorkflowTraceEvent({
+      runtime,
+      kind: "knowledge-job",
+      ...ref,
+      operation: "curateKnowledge",
+      metadata: { jobKey: "batch-7", jobKind: "Curator review", runId: "sync-1" },
+      ...linkage,
+    });
+    const knowledgeSpawn = createMeleeKernelSpawnContext({
+      kind: "knowledge-curation",
+      ...ref,
+      runId: "sync-1",
+      jobId: "batch-7",
+      jobKind: "Curator review",
+    });
+    const identity = (containers: NewContainer[]) =>
+      containers.map(({ id, parentContainerId }) => ({ id, parentContainerId }));
+
+    expect(intakeTrace.containerId).toBe(
+      meleeSyncWorkflowIntakeKnowledgeContainerId(ref, "sync-1", "2764"),
+    );
+    expect(identity(intakeTrace.containers)).toEqual(
+      identity(intakeSpawn.containerLineage ?? []),
+    );
+    expect(identity(knowledgeTrace.containers)).toEqual(
+      identity(knowledgeSpawn.containerLineage ?? []),
+    );
+    for (const lineage of [
+      intakeTrace.containers,
+      knowledgeTrace.containers,
+      intakeSpawn.containerLineage ?? [],
+      knowledgeSpawn.containerLineage ?? [],
+    ]) {
+      expect(lineage.map((container) => container.id)).toContain(
+        meleeSyncWorkflowContainerId(ref, "sync-1"),
+      );
+      expect(lineage.map((container) => container.id)).not.toContain(
+        `${meleeRootContainerId(ref)}:prepare`,
+      );
+    }
+  });
+
+  test("files each sync mirror into a disjoint workflow tree", async () => {
+    const ref = { gameId: "melee", sessionId: "cycle-1" };
+    const runtime = {
+      upsertSpawnContainers: async () => undefined,
+      traceWriter: {
+        createAppEvent: (input: any) => ({
+          eventId: "55555555-5555-5555-8555-555555555555",
+          containerId: input.containerId,
+          userId: "00000000-0000-0000-0000-000000000001",
+          type: input.type,
+          source: TraceSource.APP,
+          traceLevel: input.traceLevel,
+          eventData: input.eventData,
+          timestamp: "2026-06-24T18:00:00.000Z",
+        }),
+        submit: async () => 1,
+      },
+    };
+    const emit = (
+      input: Omit<Parameters<typeof submitMeleeWorkflowTraceEvent>[0], "runtime" | "gameId" | "sessionId">,
+    ) => submitMeleeWorkflowTraceEvent({ runtime, ...ref, ...input });
+
+    const first = await emit({
+      kind: "sync-intake",
+      correlationId: "sync-aaaaaaaa-bbbb",
+      gameEventId: "event-first",
+      causedByEventId: null,
+      operation: "sync.ingest",
+    });
+    const second = await emit({
+      kind: "sync-intake",
+      correlationId: "command-second",
+      gameEventId: "event-second",
+      causedByEventId: null,
+      operation: "sync.ingest",
+      metadata: { syncId: "sync-cccccccc-dddd" },
+    });
+    const knowledge = await emit({
+      kind: "knowledge-job",
+      correlationId: "knowledge-job-1",
+      gameEventId: "event-knowledge",
+      causedByEventId: null,
+      operation: "knowledge.absorb",
+      metadata: {
+        runId: "sync-aaaaaaaa-bbbb",
+        jobKey: "corpus-1",
+        jobKind: "Corpus",
+      },
+    });
+    const operatorKnowledge = await emit({
+      kind: "knowledge-job",
+      correlationId: "operator-backfill",
+      gameEventId: "event-operator",
+      causedByEventId: null,
+      operation: "knowledge.backfill",
+      metadata: { runId: "manual-backfill", jobKey: "corpus-1" },
+    });
+
+    expect(first.containerId).toBe(
+      meleeSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
+    );
+    expect(second.containerId).toBe(
+      meleeSyncWorkflowContainerId(ref, "sync-cccccccc-dddd"),
+    );
+    expect(first.containerId).not.toBe(second.containerId);
+    expect(knowledge.containers.map((container) => container.id)).toEqual([
+      meleeRootContainerId(ref),
+      meleeSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
+      meleeSyncWorkflowKnowledgeContainerId(ref, "sync-aaaaaaaa-bbbb"),
+      meleeSyncWorkflowKnowledgeJobContainerId(
+        ref,
+        "sync-aaaaaaaa-bbbb",
+        "corpus-1",
+      ),
+    ]);
+    expect(operatorKnowledge.containers.map((container) => container.id)).toEqual([
+      meleeRootContainerId(ref),
+      meleeRunKnowledgeContainerId({ ...ref, runId: "manual-backfill" }),
+      meleeRunKnowledgeJobContainerId({ ...ref, runId: "manual-backfill", jobKey: "corpus-1" }),
+    ]);
   });
 
   test("hangs PR handoff and QA containers off the PR container", async () => {
@@ -1323,284 +1665,6 @@ describe("kernel runtime composition", () => {
       workingDir: "/repo",
     });
     expect(traceEvents).toHaveLength(1);
-  });
-});
-
-describe("tailer wrapper", () => {
-  test("uses registration marker names for mapper options and config paths", () => {
-    const config = createMeleeKernelBridgeConfig({
-      workingDir: "/repo",
-      markerConfig: {
-        sessionBinding: "melee:bind",
-        lifecycle: "melee:lifecycle",
-        subagentLink: "melee:subagent-link",
-      },
-    });
-
-    const tailerConfig = createMeleeTailerConfig(config, { batchSize: 32 });
-    const mapperOptions = createMeleeEventMapperOptions(config);
-
-    expect(tailerConfig.watchDir).toBe("/repo/.pi-sessions");
-    expect(tailerConfig.snapshotPath).toBe(
-      "/repo/.decomp-orchestrator-state/agent-kernel-tailer-cursors.json",
-    );
-    expect(tailerConfig.batchSize).toBe(32);
-    expect(mapperOptions.sessionBinding?.customType).toBe("melee:bind");
-    expect(mapperOptions.lifecycleCustomType).toBe("melee:lifecycle");
-    expect(mapperOptions.subagentLinkCustomType).toBe("melee:subagent-link");
-  });
-
-  test("buffers Pi JSONL events until binding, then upserts session and run before trace insert", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-tailer-"));
-    const appSessionId = "11111111-1111-5111-8111-111111111111";
-    const piSessionId = "22222222-2222-5222-8222-222222222222";
-    const kernelRunId = "33333333-3333-5333-8333-333333333333";
-    const operations: string[] = [];
-    const piSessions: NewPiAgentSession[] = [];
-    const agentRuns: NewAgentRun[] = [];
-    const traceEvents: unknown[] = [];
-    const tailer = createMeleeTraceTailer({
-      db: {},
-      config: {
-        workingDir: tempDir,
-        piSessionsDir: join(tempDir, ".pi-sessions"),
-        cursorSnapshotPath: join(tempDir, "cursors.json"),
-      },
-      tailer: {
-        batchSize: 100,
-        flushIntervalMs: 60_000,
-        maxRetries: 1,
-      },
-      upsertContainer: async (_db, data) => {
-        operations.push("container");
-        return data as any;
-      },
-      upsertPiAgentSession: async (_db, data) => {
-        operations.push("pi-session");
-        piSessions.push(data);
-        return data as any;
-      },
-      upsertAgentRun: async (_db, data) => {
-        operations.push("agent-run");
-        agentRuns.push(data);
-        return data as any;
-      },
-      insertTraceEvents: async (_db, events) => {
-        operations.push("trace-events");
-        traceEvents.push(...events);
-        return events.length;
-      },
-      sleep: async () => {},
-    });
-    const filePath = join(tempDir, ".pi-sessions", "worker", "cycle.jsonl");
-    const preBindingEvents: PiEvent[] = [
-      {
-        type: "session",
-        version: 1,
-        id: piSessionId,
-        timestamp: "2026-06-24T18:00:00.000Z",
-        cwd: "/repo",
-      },
-      {
-        type: "model_change",
-        id: "model-1",
-        parentId: null,
-        timestamp: "2026-06-24T18:00:01.000Z",
-        provider: "codex-lb",
-        modelId: "gpt-5.5",
-      },
-      {
-        type: "message",
-        id: "message-1",
-        parentId: null,
-        timestamp: "2026-06-24T18:00:02.000Z",
-        message: {
-          role: "user",
-          content: [{ type: "text", text: "match ftDemo_KernelViewerSample" }],
-          timestamp: Date.parse("2026-06-24T18:00:02.000Z"),
-        },
-      },
-    ];
-
-    tailer.ingestEvents(filePath, preBindingEvents);
-    await tailer.flush();
-
-    expect(traceEvents).toHaveLength(0);
-    expect(piSessions).toHaveLength(0);
-    expect(agentRuns).toHaveLength(0);
-
-    tailer.ingestEvents(filePath, [
-      {
-        type: "custom",
-        customType: "agent-kernel:session-binding",
-        id: "binding-1",
-        parentId: null,
-        timestamp: "2026-06-24T18:00:03.000Z",
-        data: {
-          appSessionId,
-          appSessionSlug: "run-1",
-          appSessionDir: "/state/runs/run-1",
-          containerId: "melee:worker",
-          phase: "worker",
-          agentName: "worker",
-          displayLabel: "Worker claim A",
-          runId: kernelRunId,
-          runNumber: 2,
-        },
-      },
-    ]);
-    await tailer.flush();
-
-    expect(operations).toEqual(["container", "pi-session", "agent-run", "trace-events"]);
-    expect(piSessions[0]).toMatchObject({
-      id: piSessionId,
-      agentName: "worker",
-      containerId: "melee:worker",
-      phase: "worker",
-      displayLabel: "Worker claim A",
-      model: "gpt-5.5",
-      status: "active",
-      createdAt: "2026-06-24T18:00:00.000Z",
-    });
-    expect(agentRuns[0]).toMatchObject({
-      id: kernelRunId,
-      piSessionId,
-      agentName: "worker",
-      containerId: "melee:worker",
-      phase: "worker",
-      displayLabel: "Worker claim A",
-      trigger: "system",
-      status: "running",
-      startedAt: "2026-06-24T18:00:00.000Z",
-    });
-    expect(agentRuns[0]?.id).toMatch(UUID_RE);
-    expect(traceEvents).toHaveLength(2);
-    expect(traceEvents).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          appSessionId,
-          piSessionUuid: piSessionId,
-          containerId: "melee:worker",
-          runId: kernelRunId,
-        }),
-      ]),
-    );
-    expect(tailer.status()).toMatchObject({
-      fileCount: 1,
-      piSessionCount: 1,
-      mappedEventCount: 2,
-      insertedEventCount: 2,
-    });
-  });
-
-  test("does not synthesize an agent run for kernel-managed session bindings", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-tailer-managed-"));
-    const appSessionId = "11111111-1111-5111-8111-111111111111";
-    const piSessionId = "22222222-2222-5222-8222-222222222222";
-    const operations: string[] = [];
-    const piSessions: NewPiAgentSession[] = [];
-    const agentRuns: NewAgentRun[] = [];
-    const traceEvents: unknown[] = [];
-    const tailer = createMeleeTraceTailer({
-      db: {},
-      config: {
-        workingDir: tempDir,
-        piSessionsDir: join(tempDir, ".pi-sessions"),
-        cursorSnapshotPath: join(tempDir, "cursors.json"),
-      },
-      tailer: {
-        batchSize: 100,
-        flushIntervalMs: 60_000,
-        maxRetries: 1,
-      },
-      upsertContainer: async (_db, data) => {
-        operations.push("container");
-        return data as any;
-      },
-      upsertPiAgentSession: async (_db, data) => {
-        operations.push("pi-session");
-        piSessions.push(data);
-        return data as any;
-      },
-      upsertAgentRun: async (_db, data) => {
-        operations.push("agent-run");
-        agentRuns.push(data);
-        return data as any;
-      },
-      insertTraceEvents: async (_db, events) => {
-        operations.push("trace-events");
-        traceEvents.push(...events);
-        return events.length;
-      },
-      sleep: async () => {},
-    });
-    const filePath = join(tempDir, ".pi-sessions", "worker", "cycle.jsonl");
-
-    tailer.ingestEvents(filePath, [
-      {
-        type: "session",
-        version: 1,
-        id: piSessionId,
-        timestamp: "2026-06-24T18:00:00.000Z",
-        cwd: "/repo",
-      },
-      {
-        type: "model_change",
-        id: "model-1",
-        parentId: null,
-        timestamp: "2026-06-24T18:00:01.000Z",
-        provider: "codex-lb",
-        modelId: "gpt-5.5",
-      },
-      {
-        type: "custom",
-        customType: "agent-kernel:session-binding",
-        id: "binding-1",
-        parentId: null,
-        timestamp: "2026-06-24T18:00:02.000Z",
-        data: {
-          appSessionId,
-          containerId: "melee:worker",
-          phase: "worker",
-          agentName: "worker",
-          displayLabel: "Worker claim A",
-          [MELEE_KERNEL_MANAGED_RUN_MARKER_FIELD]: true,
-        },
-      },
-      {
-        type: "message",
-        id: "message-1",
-        parentId: null,
-        timestamp: "2026-06-24T18:00:03.000Z",
-        message: {
-          role: "assistant",
-          content: [{ type: "text", text: "kernel-managed run event" }],
-          timestamp: Date.parse("2026-06-24T18:00:03.000Z"),
-        },
-      },
-    ]);
-    await tailer.flush();
-
-    expect(operations).toEqual(["container", "pi-session", "trace-events"]);
-    expect(piSessions[0]).toMatchObject({
-      id: piSessionId,
-      agentName: "worker",
-      containerId: "melee:worker",
-      phase: "worker",
-      status: "active",
-      createdAt: "2026-06-24T18:00:00.000Z",
-    });
-    expect(agentRuns).toHaveLength(0);
-    expect(traceEvents).not.toHaveLength(0);
-    expect(traceEvents).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          appSessionId,
-          piSessionUuid: piSessionId,
-          containerId: "melee:worker",
-        }),
-      ]),
-    );
   });
 });
 
@@ -1948,6 +2012,17 @@ describe("kernel Pi runtime bridge", () => {
   test("passes a bundle without kernel context unchanged through kernel createSpawnAgent", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-spawn-"));
     const outputDir = join(tempDir, "out");
+    const transcriptEventTypes = [
+      EventType.AGENT_SESSION_START,
+      EventType.USER_MESSAGE,
+      EventType.ASSISTANT_MESSAGE,
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_END,
+      EventType.PI_AGENT_START,
+      EventType.PI_AGENT_END,
+      EventType.PI_TURN_START,
+      EventType.PI_TURN_END,
+    ];
     const traceInputs: unknown[] = [];
     const submittedTraceEvents: unknown[] = [];
     const kernelCalls: unknown[] = [];
@@ -1960,6 +2035,18 @@ describe("kernel Pi runtime bridge", () => {
         return async (name, prompt, _ctx, opts) => {
           const parsed = adapters.loadAgent(name);
           const binding = adapters.createAppSessionBinding?.(opts ?? {});
+          for (const [index, type] of transcriptEventTypes.entries()) {
+            opts?.traceWriter?.submit({
+              eventId: `kernel-event-${index}`,
+              containerId: opts.containerId!,
+              userId: "00000000-0000-0000-0000-000000000001",
+              type,
+              source: TraceSource.KERNEL,
+              traceLevel: TraceLevel.PROCESSING,
+              eventData: {},
+              timestamp: "2026-06-24T18:00:00.000Z",
+            });
+          }
           bindings.push(binding);
           kernelCalls.push({
             name,
@@ -2048,11 +2135,14 @@ describe("kernel Pi runtime bridge", () => {
       opts: {
         appSessionId: "11111111-1111-5111-8111-111111111111",
         appSessionSlug: "run-1",
+        captureRequestSnapshots: false,
         containerId: "melee:worker",
+        displayLabel: "worker",
         phase: "worker",
         workingDir: tempDir,
         piSessionsDir: join(tempDir, ".pi-sessions"),
         piAgentDir: join(tempDir, ".pi-agent"),
+        trigger: "system",
       },
       parsed: {
         body: "worker system prompt",
@@ -2066,11 +2156,10 @@ describe("kernel Pi runtime bridge", () => {
         agentName: "worker",
       },
     });
-    expect((bindings[0] as { data?: Record<string, unknown> })?.data).not.toHaveProperty(
-      MELEE_KERNEL_MANAGED_RUN_MARKER_FIELD,
-    );
     expect(traceInputs).toHaveLength(2);
-    expect(submittedTraceEvents).toHaveLength(0);
+    expect(
+      submittedTraceEvents.map((event) => (event as { type: string }).type),
+    ).toEqual(transcriptEventTypes);
   });
 
   test("normalizes live-kernel provider throws as artifact-backed failures", async () => {

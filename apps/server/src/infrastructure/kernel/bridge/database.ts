@@ -118,7 +118,7 @@ async function kernelObservabilitySchemaCurrent(database: KernelSchemaExecutor):
  * `ALTER TABLE trace_events ...` statements on every call, each taking an
  * ACCESS EXCLUSIVE lock. The advisory lock serializes bootstraps against
  * each other, but that DDL still queues behind live traffic (the server's
- * trace tailer writes trace_events continuously) and can fail under
+ * live kernel emitter writes trace_events continuously) and can fail under
  * contention, so the steady-state path must run zero DDL: probe first, and
  * only fall through to the locked bootstrap when the schema is not current.
  * Waiters re-probe after acquiring the lock so they skip the DDL the winner

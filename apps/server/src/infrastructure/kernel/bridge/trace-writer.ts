@@ -35,6 +35,7 @@ export class MeleeTraceWriter {
   private readonly userId: string;
   private readonly now: () => string;
   private readonly createId: () => string;
+  private readonly outstandingInserts = new Set<Promise<number>>();
 
   constructor(options: CreateMeleeTraceWriterOptions) {
     this.insertBatch = options.insertBatch;
@@ -66,7 +67,21 @@ export class MeleeTraceWriter {
 
   async submit(events: TraceEvent | TraceEvent[]): Promise<number> {
     const batch = Array.isArray(events) ? events : [events];
-    return this.insertBatch(batch);
+    const insert = this.insertBatch(batch);
+    this.outstandingInserts.add(insert);
+    try {
+      return await insert;
+    } finally {
+      this.outstandingInserts.delete(insert);
+    }
+  }
+
+  async flush(): Promise<void> {
+    const results = await Promise.allSettled(this.outstandingInserts);
+    const failed = results.find(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (failed) throw failed.reason;
   }
 
   async submitAppEvent(input: AppTraceEventInput): Promise<TraceEvent> {

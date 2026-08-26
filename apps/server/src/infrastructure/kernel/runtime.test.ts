@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TraceSource, type TraceEvent } from "@agent-kernel/protocol";
+import type { NewContainer } from "@agent-kernel/db";
 
 import { openState } from "@server/core/orchestrator-state";
 import {
@@ -14,6 +15,10 @@ import {
 import type { GameRuntimeContext } from "@server/core/game-registry";
 import type { MeleeKernelRuntime } from "./bridge/runtime.js";
 import { createMeleeTraceWriter } from "./bridge/trace-writer.js";
+import {
+  meleeRootContainerId,
+  meleeSyncWorkflowContainerId,
+} from "./bridge/session-mapping.js";
 import {
   createDashboardKernelRuntimeService,
   KernelTraceCursorPersistenceError,
@@ -177,6 +182,78 @@ describe("dashboard kernel trace linkage persistence", () => {
     ).toThrow("has cross-game causation");
   });
 
+  test("files a sync milestone on its explicit workflow node", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-sync-workflow-"));
+    tempDirs.push(stateDir);
+    const store = openState(stateDir);
+    const created = createCycle(store.db, {
+      actor: "operator",
+      id: "cycle:sync-workflow",
+      gameId: "melee",
+      cycleUuid: "cycle-sync-workflow",
+    });
+    const milestone = transitionCycle(store.db, created.id, {
+      actor: "runner",
+      causationId: created.caused_by_event_id!,
+      commandId: "command-sync-workflow",
+      correlationId: created.cycle_uuid,
+      eventType: "cycle.running_started",
+      expectedRevision: created.revision,
+      patch: {},
+    });
+    store.db.close();
+
+    const lineages: NewContainer[][] = [];
+    const kernelRuntime = {
+      config: {
+        kernelId: "test-kernel",
+        piSessionsDir: "/tmp/pi-sessions",
+      },
+      traceWriter: createMeleeTraceWriter({ insertBatch: async (events) => events.length }),
+      upsertSpawnContainers: async (context: { containerLineage?: NewContainer[] }) => {
+        lineages.push(context.containerLineage ?? []);
+      },
+      close: async () => {},
+    } as unknown as MeleeKernelRuntime;
+    const service = createDashboardKernelRuntimeService({
+      createKernelRuntime: async () => kernelRuntime,
+      env: { ORCH_AGENT_KERNEL_DATABASE_URL: "postgres://kernel.invalid/test" },
+      json: (data, init) => Response.json(data, init),
+      latestRunId: () => "",
+      packageRoot: "/repo",
+      persistCycleKernelTraceLinkage: () => {},
+      port: 8787,
+    });
+    const paths: GameRuntimeContext = {
+      graphDbPath: "/repo/graph.db",
+      game: null,
+      repoRoot: "/repo",
+      stateDir,
+      usePathOverrides: true,
+    };
+    const ref = { gameId: "melee", sessionId: created.cycle_uuid };
+
+    const result = await service.submitWorkflowEvent(paths, {
+      kind: "sync-intake",
+      operation: "sync.ingest",
+      status: "started",
+      sessionId: created.cycle_uuid,
+      correlationId: created.cycle_uuid,
+      gameEventId: milestone.caused_by_event_id!,
+      causedByEventId: created.caused_by_event_id!,
+      metadata: { syncId: "sync-aaaaaaaa-bbbb", milestone: "ingest" },
+    });
+
+    expect(result?.containerId).toBe(
+      meleeSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
+    );
+    expect(lineages[0]?.map((container) => container.id)).toEqual([
+      meleeRootContainerId(ref),
+      meleeSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
+    ]);
+    await service.closeForTests();
+  });
+
   test("throws cursor failures and retries the same kernel event id", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-retry-"));
     tempDirs.push(stateDir);
@@ -212,11 +289,8 @@ describe("dashboard kernel trace linkage persistence", () => {
       upsertSpawnContainers: async () => {},
       close: async () => {},
     } as unknown as MeleeKernelRuntime;
-    const logs: string[] = [];
     const service = createDashboardKernelRuntimeService({
-      appendLog: (_stream, text) => logs.push(text),
       createKernelRuntime: async () => kernelRuntime,
-      defaultStateDir: stateDir,
       env: { ORCH_AGENT_KERNEL_DATABASE_URL: "postgres://kernel.invalid/test" },
       json: (data, init) => Response.json(data, init),
       latestRunId: () => "",
@@ -266,7 +340,6 @@ describe("dashboard kernel trace linkage persistence", () => {
         caused_by_event_id: null,
       },
     });
-    expect(logs.filter((line) => line.includes("cursor persistence failed"))).toHaveLength(2);
     await service.closeForTests();
   });
 });
