@@ -22,6 +22,7 @@
 				"b-sync-reconciliation-publication-framing",
 				"b-10-sync-baseline-preparation-9",
 				"b-sync-reconciliation-process-outline",
+				"b-sync-discord-observation-semantics",
 				"b-10-sync-confirmed-publication-45",
 				"b-10-sync-validated-is-the-stabl-46",
 				"b-10-sync-a-knowledge-only-publica-53",
@@ -61,13 +62,13 @@
 						"text": "Prepare and record the baseline comparison point",
 						"steps": [
 							{
-								"text": "Fetch the configured remote and record prior and observed revisions"
+								"text": "Fetch the configured remote and discover prior and observed revisions plus merged PR identities"
+							},
+							{
+								"text": "Record the sync request immediately with merged PR ids and any operator-supplied corpus batch ids"
 							},
 							{
 								"text": "Confirm the cycle tree is clean at the recorded prior head"
-							},
-							{
-								"text": "Capture merged PR identities and classified external corpus batches"
 							}
 						]
 					},
@@ -75,7 +76,13 @@
 						"text": "Stage the requested inputs",
 						"steps": [
 							{
-								"text": "Pull Discord and other classified corpus batches into sync staging"
+								"text": "Request a best-effort Discord mirror refresh, then continue against the on-disk archive whether the pull succeeds or fails"
+							},
+							{
+								"text": "Plan incremental Discord batches of at most 400 messages from watermarks in the shared backfill manifest, reusing failed batch ids"
+							},
+							{
+								"text": "Freeze each planned Discord batch as a staged artifact and refresh intake with its discord-<hash> identity"
 							},
 							{
 								"text": "Pull merged-PR evidence into staging"
@@ -154,6 +161,17 @@
 					}
 				]
 			},
+			"children": []
+		},
+		"b-sync-discord-observation-semantics": {
+			"id": "b-sync-discord-observation-semantics",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Discord refresh is best effort. A failed mirror pull is recorded as observation evidence, but it does not stop Sync from planning against the archive already on disk. The planner reads the same backfill manifest as the standalone backfill command, so completed ranges stay skipped and failed batches retain their identities. Freezing each planned payload during observation gives later knowledge jobs one stable input even if the archive changes before ingestion. An empty refresh still records the refresh, staging, and observation-refresh sequence with zero counts."
+				}
+			],
 			"children": []
 		},
 		"b-10-sync-confirmed-publication-45": {

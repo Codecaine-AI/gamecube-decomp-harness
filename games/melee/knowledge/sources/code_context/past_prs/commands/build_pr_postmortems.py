@@ -337,7 +337,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--orchestrator-prepare-intake",
         action="store_true",
-        help="Attach kernel-backed PR indexer runs to the Prepare > Intake > PR item trace tree.",
+        help="Attach kernel-backed PR indexer runs to the sync-scoped intake trace tree.",
     )
     return parser.parse_args()
 

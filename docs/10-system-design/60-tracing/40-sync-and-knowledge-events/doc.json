@@ -15,6 +15,7 @@
 				"b-sync-ingestion-sequence",
 				"b-index-observation-and-staged-p-5",
 				"b-sync-ingestion-sequence-diagram",
+				"b-sync-discord-observation-events",
 				"b-sync-observation-shape",
 				"b-sync-progress-events",
 				"b-index-blocking-recovery-and-10",
@@ -117,6 +118,41 @@
 					"insert": "Observation and Staged Progress"
 				}
 			],
+			"children": []
+		},
+		"b-sync-discord-observation-events": {
+			"id": "b-sync-discord-observation-events",
+			"type": "structured-table",
+			"props": {
+				"title": "Discord observation facts",
+				"columns": [
+					"Event",
+					"When it fires",
+					"Durable facts",
+					"Authority"
+				],
+				"rows": [
+					[
+						"sync.discord_refresh_requested",
+						"Immediately after sync.requested and before the best-effort mirror pull begins.",
+						"No event-specific facts; the sync_workflow subject and envelope lineage bind the request to its observation.",
+						"operator, runner"
+					],
+					[
+						"sync.discord_refresh_completed",
+						"After the mirror pull returns or fails, before incremental archive staging proceeds.",
+						"ok, detail, duration_ms, and nullable messages_pulled derived from per-channel pull-state deltas.",
+						"operator, runner"
+					],
+					[
+						"sync.discord_staged",
+						"After watermark planning freezes the incremental batches for this observation, including when no new content exists.",
+						"batches, messages, days (distinct UTC dates), channels, and nullable first_message_at and last_message_at bounds.",
+						"operator, runner"
+					]
+				],
+				"density": "compact"
+			},
 			"children": []
 		},
 		"b-sync-observation-shape": {

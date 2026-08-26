@@ -196,6 +196,11 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Agent Kernel database URL forwarded to kernel-backed postmortem agent runs.",
     )
+    parser.add_argument(
+        "--orchestrator-prepare-intake",
+        action="store_true",
+        help="Attach kernel-backed PR indexer runs to the sync-scoped intake trace tree.",
+    )
     return parser.parse_args()
 
 
@@ -578,6 +583,8 @@ def build_postmortems(
         cmd.extend(["--orchestrator-project-id", args.orchestrator_project_id])
     if args.orchestrator_kernel_database_url:
         cmd.extend(["--orchestrator-kernel-database-url", args.orchestrator_kernel_database_url])
+    if args.orchestrator_prepare_intake:
+        cmd.append("--orchestrator-prepare-intake")
     if args.postmortem_limit is not None:
         cmd.extend(["--limit", str(args.postmortem_limit)])
     if args.postmortem_rerun_existing:
