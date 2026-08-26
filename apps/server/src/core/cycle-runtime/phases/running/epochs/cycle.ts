@@ -19,6 +19,9 @@ import { addEvent } from "@server/core/cycle-runtime/run-state/events.js";
 import { activeLockedSourcePaths, admitPriorityTargets } from "@server/core/cycle-runtime/run-state/targets.js";
 import { processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import { requireLease } from "@server/core/harness-state";
+import { activeCycleSessionId } from "@server/core/cycle/session.js";
+import { getDefaultMeleeKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime.js";
+import { submitMeleeWorkflowTraceEvent } from "@server/infrastructure/kernel/bridge/workflow-trace.js";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import {
   isHostToolPlatform,
@@ -555,6 +558,43 @@ function epochProgress(
   });
 }
 
+async function submitEpochWorkflowEvent(input: {
+  store: StateStore;
+  gameId?: string | null;
+  runId: string;
+  epochId?: string;
+  gameEventId: string;
+  status: "started" | "completed" | "failed";
+  detail?: string;
+}): Promise<void> {
+  try {
+    const gameId = input.gameId?.trim();
+    const epochId = input.epochId?.trim();
+    if (!gameId || !epochId) return;
+    const sessionId = activeCycleSessionId(input.store.db, gameId);
+    if (!sessionId) return;
+    const runtime = await getDefaultMeleeKernelRuntime();
+    if (!runtime) return;
+    await submitMeleeWorkflowTraceEvent({
+      runtime,
+      kind: "epoch",
+      gameId,
+      sessionId,
+      correlationId: input.runId,
+      gameEventId: input.gameEventId,
+      causedByEventId: null,
+      operation: `epoch.${input.status}`,
+      status: input.status,
+      detail: input.detail,
+      metadata: { runId: input.runId, epochId },
+    });
+  } catch (error) {
+    console.warn(
+      `Epoch trace emission failed for ${input.epochId ?? "unknown"} (${input.status}): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 /**
  * One epoch checkpoint: commit validated work (excluding in-flight worker
  * files), rebuild the full objdiff report in the trailing worktree, publish
@@ -565,22 +605,48 @@ function epochProgress(
 export async function runEpochCycle(store: StateStore, runId: string, repoRoot: string, stateDir: string, options: EpochCycleOptions): Promise<EpochCycleResult> {
   // Bracket the cycle with events so observers (the dashboard) can tell an
   // in-flight checkpoint build apart from one that is merely due.
-  addEvent(store, runId, "epoch_started", "epoch-cycle", { label: options.label ?? null, created_by: "epoch-cycle" });
+  const startedEventId = addEvent(store, runId, "epoch_started", "epoch-cycle", { label: options.label ?? null, created_by: "epoch-cycle" });
+  await submitEpochWorkflowEvent({
+    store,
+    gameId: options.gameId,
+    runId,
+    epochId: options.epochId,
+    gameEventId: startedEventId,
+    status: "started",
+  });
   try {
     const result = await runEpochCycleInner(store, runId, repoRoot, stateDir, options);
-    addEvent(store, runId, "epoch_finished", "epoch-cycle", {
+    const finishedEventId = addEvent(store, runId, "epoch_finished", "epoch-cycle", {
       label: options.label ?? null,
       status: result.repair.paused ? "paused" : "success",
       matched_code_percent: result.matchedCodePercent,
       created_by: "epoch-cycle",
     });
+    await submitEpochWorkflowEvent({
+      store,
+      gameId: options.gameId,
+      runId,
+      epochId: options.epochId,
+      gameEventId: finishedEventId,
+      status: "completed",
+      detail: result.repair.paused ? "epoch paused for regression repair" : undefined,
+    });
     return result;
   } catch (error) {
-    addEvent(store, runId, "epoch_finished", "epoch-cycle", {
+    const finishedEventId = addEvent(store, runId, "epoch_finished", "epoch-cycle", {
       label: options.label ?? null,
       status: "error",
       error: (error instanceof Error ? error.message : String(error)).slice(0, 2000),
       created_by: "epoch-cycle",
+    });
+    await submitEpochWorkflowEvent({
+      store,
+      gameId: options.gameId,
+      runId,
+      epochId: options.epochId,
+      gameEventId: finishedEventId,
+      status: "failed",
+      detail: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }

@@ -576,7 +576,7 @@ export function createRun(
     thinking_level: "xhigh",
     worker_configure_command: "",
   };
-  const baseRevision = options.baseRevision?.trim() || cycle?.baseRevision || gitHead(game?.repoRoot) || "";
+  const baseRevision = options.baseRevision?.trim() || cycle?.headRevision || cycle?.baseRevision || gitHead(game?.repoRoot) || "";
   const createdAt = now();
   const traceId = `trace-run-${id}`;
   const actor = options.actor ?? "runner";

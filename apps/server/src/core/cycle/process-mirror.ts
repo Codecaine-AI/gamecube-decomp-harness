@@ -3,6 +3,7 @@ import { cycleProcessState } from "./process-state.js";
 import { getActiveCycle, getOrCreateActiveCycle, updateCycle } from "./store.js";
 import { openState } from "@server/core/cycle-runtime/run-state";
 import type { GameSummary, ResolvedGame } from "@server/core/game-registry";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 type GameIdentity = {
   baseRef: string | null;
@@ -11,10 +12,6 @@ type GameIdentity = {
   repoRoot: string | null;
   stateDir: string | null;
 };
-
-export interface CycleProcessMirrorDeps {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
-}
 
 export interface CycleProcessMirror {
   mirrorProcessStateToCycle: (params: {
@@ -38,7 +35,7 @@ function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
-export function createCycleProcessMirror(deps: CycleProcessMirrorDeps): CycleProcessMirror {
+export function createCycleProcessMirror(): CycleProcessMirror {
   function gameIdentity(game: ResolvedGame | GameSummary | null | undefined): GameIdentity | null {
     if (!game) return null;
     const candidate = game as Partial<ResolvedGame & GameSummary>;
@@ -93,7 +90,7 @@ export function createCycleProcessMirror(deps: CycleProcessMirrorDeps): CyclePro
         }),
       });
     } catch (error) {
-      deps.appendLog("stderr", `cycle process mirror failed: ${error instanceof Error ? error.message : String(error)}`);
+      uiLog("stderr", `cycle process mirror failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       store.db.close();
     }

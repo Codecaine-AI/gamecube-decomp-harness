@@ -65,8 +65,10 @@ describe("preparing runtime baseline", () => {
       serverJobPath: resolve(root, "job-runner.ts"),
     } as unknown as PreparingRuntimeDeps);
 
-    const { command } = runtime.initRunCommand({
+    const explicitCycleRepoRoot = resolve(root, "explicit-cycle-worktree");
+    const { command, repoRoot } = runtime.initRunCommand({
       agentTimeoutSeconds: 2400,
+      cycleRepoRoot: explicitCycleRepoRoot,
       dryRunAgents: true,
       epochConfigureCommand: "configure epoch",
       goalKind: "matched_code_percent",
@@ -91,6 +93,56 @@ describe("preparing runtime baseline", () => {
     expect(option("--goal-value")).toBe("88");
     expect(option("--worker-configure-command")).toBe("configure worker");
     expect(option("--epoch-configure-command")).toBe("configure epoch");
+    expect(repoRoot).toBe(explicitCycleRepoRoot);
+    expect(option("--repo-root")).toBe(explicitCycleRepoRoot);
+  });
+
+  test("stages init-run from the active cycle worktree when cycleRepoRoot is empty", () => {
+    const root = tempDir();
+    const stateDir = resolve(root, "state");
+    const cycleCurrentWorktreePath = resolve(root, "worktrees/cycle-current");
+    const store = openState(stateDir);
+    try {
+      const created = createNewCycle(store.db, {
+        actor: "operator",
+        id: "cycle:cycle-uuid",
+        gameId: "melee",
+        cycleUuid: "cycle-uuid",
+      });
+      updatePreparingSubphase(store.db, { id: created.record.id }, "baseline", {
+        correlationId: created.record.cycle_uuid,
+        data: {
+          sync: {
+            status: "complete",
+            completedAt: "2026-08-26T12:00:00.000Z",
+            cycleCurrentWorktreePath,
+          },
+        },
+      });
+    } finally {
+      store.db.close();
+    }
+
+    const paths: PreparingRuntimeGameContext = {
+      graphDbPath: resolve(root, "graph.sqlite"),
+      game: {
+        gameId: "melee",
+        dashboard: {},
+      } as PreparingRuntimeGameContext["game"],
+      repoRoot: resolve(root, "repo"),
+      stateDir,
+    };
+    const runtime = createPreparingRuntime({
+      resolveDashboardGame: () => paths,
+      serverJobPath: resolve(root, "job-runner.ts"),
+    } as unknown as PreparingRuntimeDeps);
+
+    for (const cycleRepoRoot of [undefined, ""]) {
+      const result = runtime.initRunCommand({ cycleRepoRoot });
+      const repoRootFlag = result.command.indexOf("--repo-root");
+      expect(result.repoRoot).toBe(cycleCurrentWorktreePath);
+      expect(result.command[repoRootFlag + 1]).toBe(cycleCurrentWorktreePath);
+    }
   });
 
   test("persists failed baseline status when report generation fails", async () => {
@@ -137,7 +189,6 @@ describe("preparing runtime baseline", () => {
     const traceInputs: PreparingRuntimeWorkflowEventInput[] = [];
     const runtime = createPreparingRuntime({
       activeCyclePrBlockers: () => [],
-      appendLog: () => undefined,
       beginOperation: () => undefined,
       boundarySavePoint: async () => ({ ok: true, savePointId: "save-point-1", blockerRaised: false }),
       endOperation: () => undefined,

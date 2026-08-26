@@ -7,7 +7,8 @@ import {
   runningProcessConfigurationConflicts,
   type RunningProcessCommandPlan,
 } from "@server/core/cycle-runtime/phases/running/process-command";
-import { type ManagedProcessController, type ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
+import { type ManagedProcessController } from "@server/infrastructure/process-control/managed-process-controller";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import {
   getLatestRun,
   getRun,
@@ -36,7 +37,6 @@ export interface ProcessControlGameContext {
 }
 
 export interface ProcessControlRuntimeDeps {
-  appendLog: (stream: ProcessLogLine["stream"], text: string) => void;
   json: JsonResponder;
   processController: ManagedProcessController;
   processStatus: (stateDir?: string, game?: ResolvedGame | null) => JsonObject;
@@ -186,7 +186,7 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
               runId,
               store,
             });
-            if (repair) deps.appendLog("stderr", repair.message);
+            if (repair) uiLog("stderr", repair.message);
           }
           let currentRun = getRun(store, runId) ?? run;
           if (currentRun && currentRun.status !== "ready" && currentRun.status !== "active") {
@@ -214,7 +214,7 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
           spawnCausationId = currentRun.status === "active"
             ? startCommandId
             : (activation.run.causedByEventId ?? startCommandId);
-          deps.appendLog("ui", `run ${currentRun.id} activated under dispatch lease ${acquiredLease.leaseId}`);
+          uiLog("ui", `run ${currentRun.id} activated under dispatch lease ${acquiredLease.leaseId}`);
         } finally {
           store.db.close();
         }

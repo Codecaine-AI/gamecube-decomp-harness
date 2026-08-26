@@ -3,7 +3,6 @@ import { createPrRecordsService } from "./pr-records.js";
 
 function service(cycleUuidForRun: () => string) {
   return createPrRecordsService({
-    appendLog: () => {},
     latestChildDirectory: () => "",
     latestPrSplitPlanSummary: () => null,
     latestRunId: () => "run-1",

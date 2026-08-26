@@ -16,6 +16,7 @@ import {
   createSyncRuntime,
   gameSyncAction,
   runSyncCliWithRetry,
+  syncAgentFlags,
   syncIngestConcurrency,
   type SyncRuntimeDeps,
   type SyncRuntimeGameContext,
@@ -55,7 +56,7 @@ afterEach(() => {
 
 function fixture(
   runGit: SyncRuntimeDeps["runGit"] = defaultSyncGitRunner,
-  processors: NonNullable<SyncRuntimeDeps["processors"]> = () => ({
+  processors: NonNullable<SyncRuntimeDeps["processors"]> | null = () => ({
     processMergedPr: async ({ job }) => ({ pr: job.sourceId }),
     processCorpus: async ({ job }) => ({ batch: job.sourceId }),
   }),
@@ -98,13 +99,23 @@ function fixture(
       return { stopped: true };
     },
     sourceRoot: () => root,
-    processors,
+    refreshDiscordMirror: async () => ({ ok: true, detail: "discord mirror test fixture" }),
+    stageDiscordSyncBatches: () => ({
+      corpusBatchIds: [], staged: 0, messageCount: 0, days: 0, channels: 0,
+      firstMessageAt: null, lastMessageAt: null,
+    }),
+    ...(processors ? { processors } : {}),
     ...extraDeps,
   });
   return { paths, root, runtime, stateDir, stopCalls, store };
 }
 
-function requested(store: ReturnType<typeof openState>, syncId = "sync-1") {
+function requested(
+  store: ReturnType<typeof openState>,
+  syncId = "sync-1",
+  corpusBatchIds: string[] = [],
+  mergedPrIds: string[] = [],
+) {
   const cycleHead = (store.db.query(
     "SELECT head_revision FROM cycles WHERE cycle_uuid = 'cycle-melee'",
   ).get() as { head_revision: string }).head_revision;
@@ -119,8 +130,8 @@ function requested(store: ReturnType<typeof openState>, syncId = "sync-1") {
     intake: {
       upstream_from: cycleHead,
       upstream_to: cycleHead,
-      merged_pr_ids: [],
-      corpus_batch_ids: [],
+      merged_pr_ids: mergedPrIds,
+      corpus_batch_ids: corpusBatchIds,
       knowledge_only: true,
     },
   });
@@ -184,9 +195,7 @@ describe("S4 sync kernel trace", () => {
 
   test("a throwing trace emit never fails the sync step", async () => {
     let attempts = 0;
-    const logs: string[] = [];
     const current = fixture(defaultSyncGitRunner, undefined, {
-      appendLog: (_stream, text) => logs.push(text),
       submitWorkflowEvent: async () => {
         attempts += 1;
         throw new Error("agent kernel is unreachable");
@@ -202,17 +211,14 @@ describe("S4 sync kernel trace", () => {
     });
     expect(decision.sync.status).toBe("validated");
     expect(attempts).toBe(3);
-    expect(logs.some((line) => line.includes("sync trace emission failed"))).toBe(true);
   });
 
   test("skips emission, once, for a sync whose cycle cannot be resolved", async () => {
     const emitted: SyncWorkflowEventInput[] = [];
-    const logs: string[] = [];
     const current = fixture();
     const sync = requested(current.store, "sync-trace-orphan");
     current.store.db.close();
     const emit = createSyncTraceEmitter<SyncRuntimeGameContext>({
-      appendLog: (_stream, text) => logs.push(text),
       submitWorkflowEvent: async (_paths, input) => {
         emitted.push(input);
         return null;
@@ -224,7 +230,6 @@ describe("S4 sync kernel trace", () => {
     await emit(current.paths, orphan, "cancelled");
 
     expect(emitted).toEqual([]);
-    expect(logs.filter((line) => line.includes("no resolvable cycle"))).toHaveLength(1);
   });
 
   test("skips a milestone with no durable game event behind it", async () => {
@@ -247,6 +252,99 @@ describe("S4 sync kernel trace", () => {
 });
 
 describe("S4 sync operator runtime", () => {
+  test("marks sync merged-PR postmortems for the intake lineage", async () => {
+    const commands: string[][] = [];
+    const current = fixture(defaultSyncGitRunner, null, {
+      runCli: async (command) => {
+        commands.push(command);
+        if (command[0] === "python3") {
+          const dumpRootIndex = command.indexOf("--dump-root");
+          expect(dumpRootIndex).toBeGreaterThan(-1);
+          write(command[dumpRootIndex + 1]!, "prs/pr-41/postmortem/postmortem.json", "{}");
+        }
+        return { exitCode: 0, stdout: "{}", stderr: "" };
+      },
+    });
+    requested(current.store, "sync-prepare-intake", [], ["41"]);
+    current.store.db.close();
+
+    await current.runtime.start({ gameId: "melee", syncId: "sync-prepare-intake" });
+
+    expect(commands).toHaveLength(2);
+    expect(commands[0]).toEqual(expect.arrayContaining([
+      "--orchestrator-run-id",
+      "sync-prepare-intake",
+      "--orchestrator-prepare-intake",
+      "--pr",
+      "41",
+    ]));
+    expect(commands[1]).toContain("kg-knowledge-intake-agent");
+  });
+
+  test("dispatches staged Discord corpus through kg-librarian-batch", async () => {
+    const commands: string[][] = [];
+    const current = fixture(defaultSyncGitRunner, null, {
+      runCli: async (command) => {
+        commands.push(command);
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({ command: "kg-librarian-batch", batch_id: "batch-17", failed: false }),
+          stderr: "",
+        };
+      },
+    });
+    const source = resolve(current.stateDir, "staged_corpora", "discord-batch-17.json");
+    mkdirSync(resolve(source, ".."), { recursive: true });
+    writeFileSync(source, JSON.stringify({
+      batch: { batch_id: "batch-17", source: "discord" },
+      payload: { kind: "discord_backfill", messages: [] },
+    }), "utf8");
+    requested(current.store, "sync-discord-corpus", ["discord-batch-17"]);
+    current.store.db.close();
+
+    await current.runtime.start({ gameId: "melee", syncId: "sync-discord-corpus" });
+
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toEqual([
+      "bun",
+      resolve(current.root, "job-runner.ts"),
+      "--game",
+      "melee",
+      "--repo-root",
+      current.paths.repoRoot,
+      "--state-dir",
+      current.stateDir,
+      "kg-librarian-batch",
+      "--batch-file",
+      source,
+      "--run-id",
+      "sync-discord-corpus",
+      "--output-dir",
+      expect.stringContaining("/agent"),
+      "--manifest-path",
+      resolve(current.stateDir, "knowledge_librarian", "backfill", "discord", "manifest.jsonl"),
+    ]);
+  });
+
+  test("keeps plain staged corpus on the JSON passthrough path", async () => {
+    const commands: string[][] = [];
+    const current = fixture(defaultSyncGitRunner, null, {
+      runCli: async (command) => {
+        commands.push(command);
+        return { exitCode: 0, stdout: "{}", stderr: "" };
+      },
+    });
+    const source = resolve(current.stateDir, "staged_corpora", "notes-17.json");
+    mkdirSync(resolve(source, ".."), { recursive: true });
+    writeFileSync(source, JSON.stringify({ title: "plain corpus", records: [1, 2] }), "utf8");
+    requested(current.store, "sync-plain-corpus", ["notes-17"]);
+    current.store.db.close();
+
+    await current.runtime.start({ gameId: "melee", syncId: "sync-plain-corpus" });
+
+    expect(commands).toEqual([]);
+  });
+
   test("keeps the operator actor on the failure event for an operator-started action", async () => {
     const current = fixture(defaultSyncGitRunner, () => ({
       processMergedPr: async () => { throw new Error("injected operator ingest failure"); },
@@ -319,7 +417,7 @@ describe("S4 sync operator runtime", () => {
     });
 
     expect(refreshed).toMatchObject({
-      revision: 1,
+      revision: 2,
       status: "requested",
       intake: {
         upstream_from: priorUpstream,
@@ -344,6 +442,65 @@ describe("S4 sync operator runtime", () => {
         observation_source_identity: "origin/master",
         state_revision: 1,
       });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test.each([
+    { ok: true, detail: "refresh complete", staged: 0, batchIds: [] as string[] },
+    { ok: false, detail: "refresh unavailable; using mirror", staged: 1, batchIds: ["discord-fixture"] },
+  ])("records the complete Discord observation sequence when refresh ok=$ok", async (scenario) => {
+    const emitted: SyncWorkflowEventInput[] = [];
+    const current = fixture(async (_repoRoot, args) => {
+      if (args[0] === "fetch") return { exitCode: 0, stdout: "", stderr: "" };
+      if (args[0] === "rev-parse") return { exitCode: 0, stdout: "observed-head\n", stderr: "" };
+      if (args[0] === "branch") return { exitCode: 0, stdout: "master\n", stderr: "" };
+      if (args[0] === "log") return { exitCode: 0, stdout: "Merge pull request #41 from sync\n", stderr: "" };
+      throw new Error(`Unexpected git command: ${args.join(" ")}`);
+    }, undefined, {
+      refreshDiscordMirror: async () => ({ ok: scenario.ok, detail: scenario.detail }),
+      stageDiscordSyncBatches: () => ({
+        corpusBatchIds: scenario.batchIds,
+        staged: scenario.staged,
+        messageCount: scenario.staged * 12,
+        days: scenario.staged * 2,
+        channels: scenario.staged,
+        firstMessageAt: scenario.staged ? "2026-08-20T00:00:00.000Z" : null,
+        lastMessageAt: scenario.staged ? "2026-08-21T00:00:00.000Z" : null,
+      }),
+      submitWorkflowEvent: async (_paths, input) => {
+        emitted.push(input);
+        return { containerId: "discord-sync-intake" };
+      },
+    });
+    current.store.db.close();
+
+    const sync = await current.runtime.observe({ gameId: "melee", syncId: `sync-discord-${String(scenario.ok)}` });
+    expect(sync.intake.corpus_batch_ids).toEqual(scenario.batchIds);
+    const store = openState(current.stateDir);
+    try {
+      const events = listGameEvents(store.db).filter((event) => event.subjectId === sync.sync_id);
+      expect(events.map((event) => event.eventType)).toEqual([
+        "sync.requested",
+        "sync.discord_refresh_requested",
+        "sync.discord_refresh_completed",
+        "sync.discord_staged",
+        "sync.observation_refreshed",
+      ]);
+      expect(events[2]?.payload).toMatchObject({ ok: scenario.ok, detail: scenario.detail });
+      expect(events[3]?.payload).toMatchObject({
+        batches: scenario.staged,
+        messages: scenario.staged * 12,
+        days: scenario.staged * 2,
+        channels: scenario.staged,
+      });
+      expect(emitted.map((event) => [event.operation, event.status])).toEqual([
+        ["sync.discord_refresh", scenario.ok ? "completed" : "failed"],
+        ["sync.discord_stage", "completed"],
+      ]);
+      expect(emitted[0]?.metadata).toMatchObject({ ok: scenario.ok, detail: scenario.detail });
+      expect(emitted[1]?.metadata).toMatchObject({ batches: scenario.staged, days: scenario.staged * 2 });
     } finally {
       store.db.close();
     }
@@ -874,10 +1031,8 @@ describe("sync subprocess retry", () => {
   test("retries a transient nonzero exit and returns the eventual success", async () => {
     const attempts: string[][] = [];
     const delays: number[] = [];
-    const logs: string[] = [];
     const result = await runSyncCliWithRetry(
       {
-        appendLog: (_stream, text) => logs.push(text),
         packageRoot: "/tmp/package-root",
         runCli: async (command) => {
           attempts.push(command);
@@ -894,9 +1049,6 @@ describe("sync subprocess retry", () => {
     expect(result.exitCode).toBe(0);
     expect(attempts).toHaveLength(2);
     expect(delays).toHaveLength(1);
-    expect(logs).toHaveLength(1);
-    expect(logs[0]).toContain("Merged PR #7 staged knowledge intake attempt 1/3 failed (exit 1)");
-    expect(logs[0]).toContain("initialized kernel runtime DB");
   });
 
   test("gives up after three attempts and returns the final failure", async () => {
@@ -923,11 +1075,9 @@ describe("sync subprocess retry", () => {
     const root = tempDir();
     const postmortem = resolve(root, "prs", "pr-3021", "postmortem", "postmortem.json");
     const attempts: string[][] = [];
-    const logs: string[] = [];
     const fetchCommand = (scope: string) => ["python3", "fetch_recent_pr_dump.py", "--postmortem-scope", scope, "--pr", "3021"];
     const result = await runSyncCliWithRetry(
       {
-        appendLog: (_stream, text) => logs.push(text),
         packageRoot: root,
         runCli: async (command) => {
           attempts.push(command);
@@ -949,19 +1099,41 @@ describe("sync subprocess retry", () => {
     expect(attempts).toHaveLength(2);
     expect(attempts[0]).toContain("fetched");
     expect(attempts[1]).toContain("all");
-    expect(logs).toHaveLength(1);
-    expect(logs[0]).toContain("Merged PR #3021 staged fetch attempt 1/3 failed (postmortem.json was not produced)");
   });
 });
 
 describe("syncIngestConcurrency", () => {
-  test("defaults to 4 and honors ORCH_SYNC_INGEST_CONCURRENCY when it is a positive integer", () => {
-    expect(syncIngestConcurrency({})).toBe(4);
+  test("defaults to 16 and honors ORCH_SYNC_INGEST_CONCURRENCY when it is a positive integer", () => {
+    expect(syncIngestConcurrency({})).toBe(16);
     expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "2" })).toBe(2);
     expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "1" })).toBe(1);
-    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "0" })).toBe(4);
-    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "-3" })).toBe(4);
-    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "not-a-number" })).toBe(4);
-    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "" })).toBe(4);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "0" })).toBe(16);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "-3" })).toBe(16);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "not-a-number" })).toBe(16);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "" })).toBe(16);
+  });
+
+  test("a positive integer body override wins over env; anything else falls through", () => {
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "2" }, 6)).toBe(6);
+    expect(syncIngestConcurrency({}, 1)).toBe(1);
+    expect(syncIngestConcurrency({ ORCH_SYNC_INGEST_CONCURRENCY: "2" }, 0)).toBe(2);
+    expect(syncIngestConcurrency({}, -4)).toBe(16);
+    expect(syncIngestConcurrency({}, 2.5)).toBe(16);
+    expect(syncIngestConcurrency({}, "not-a-number")).toBe(16);
+    expect(syncIngestConcurrency({}, undefined)).toBe(16);
+  });
+});
+
+describe("syncAgentFlags", () => {
+  test("maps sync body overrides to job-runner global flags, skipping absent values", () => {
+    expect(syncAgentFlags({})).toEqual([]);
+    expect(syncAgentFlags({ syncProvider: "codex-lb", syncModel: "gpt-5.6-sol", syncThinking: "medium" })).toEqual([
+      "--provider", "codex-lb",
+      "--model", "gpt-5.6-sol",
+      "--thinking-level", "medium",
+    ]);
+    expect(syncAgentFlags({ syncModel: "gpt-5.6-sol" })).toEqual(["--model", "gpt-5.6-sol"]);
+    expect(syncAgentFlags({ syncProvider: "", syncThinking: "" })).toEqual([]);
+    expect(syncAgentFlags({ syncProvider: 42 })).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { listGames, gameToSummary, resolveGame, type GameRuntimeContext, type GameSummary, type ResolvedGame } from "@server/core/game-registry";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 type JsonObject = Record<string, unknown>;
 
@@ -12,7 +13,6 @@ export interface DashboardGameContextService {
 }
 
 export interface DashboardGameContextServiceDeps {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   defaultRepoRoot: string;
   defaultStateDir: string;
   packageRoot: string;
@@ -44,7 +44,7 @@ export function createDashboardGameContextService(deps: DashboardGameContextServ
     try {
       return listGames({ orchestratorRoot: deps.packageRoot });
     } catch (error) {
-      deps.appendLog("stderr", `game list failed: ${error instanceof Error ? error.message : String(error)}`);
+      uiLog("stderr", `game list failed: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
   }

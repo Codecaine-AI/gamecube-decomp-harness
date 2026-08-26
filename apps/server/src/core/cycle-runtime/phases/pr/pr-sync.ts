@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { JsonObject, PrRecordContext } from "@server/core/cycle-runtime/phases/pr/pr-records";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 export interface CliResult {
   exitCode: number | null;
@@ -25,7 +26,6 @@ export interface PrSyncRecordsService {
 }
 
 export interface PrSyncServiceDeps<Context extends PrSyncGameContext> {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   latestPrSplitPlanSummary: (stateDir: string, runId: string) => JsonObject | null;
   latestRunId: (stateDir: string) => string;
   outputTail: (textValue: string, maxLength?: number) => string;
@@ -499,7 +499,7 @@ export function createPrSyncService<Context extends PrSyncGameContext>(deps: PrS
 
     const records = [...recordsByBranch.values()].map((record) => normalizePrRecord(record)).sort(splitSeriesSort);
     const payload = writePrRecords(stateDir, { records, upstreamOpen, repo: repoSlug, syncedAt: new Date().toISOString(), ...(warning ? { warning } : {}) });
-    deps.appendLog("ui", `PR sync: ${records.length} tracked record(s)${Number.isFinite(Number(upstreamOpen)) ? `, ${upstreamOpen} other open upstream` : ""}${warning ? ` - ${warning}` : ""}`);
+    uiLog("ui", `PR sync: ${records.length} tracked record(s)${Number.isFinite(Number(upstreamOpen)) ? `, ${upstreamOpen} other open upstream` : ""}${warning ? ` - ${warning}` : ""}`);
     return payload;
   }
 

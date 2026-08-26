@@ -9,6 +9,7 @@ import { forceReportRun } from "@server/core/validation/report";
 import { canonicalProcessName } from "@server/core/cycle/process-identity";
 import type { ResolvedGame } from "@server/core/game-registry";
 import { now as currentTime } from "@server/core/orchestrator-state";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { withDispatchLease } from "@server/core/cycle-runtime/dispatch-guard";
 import {
   resolveGameEventTraceLinkage,
@@ -240,7 +241,10 @@ export function compactCheckpointResult(result: RunCheckpointResult): JsonObject
 function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command: string[]; repoRoot: string; stateDir: string; graphDbPath: string; game: ResolvedGame | null } {
   const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
   const { graphDbPath, game, stateDir } = paths;
-  const repoRoot = stringValue(body.cycleRepoRoot, paths.repoRoot);
+  const requestedRepoRoot = stringValue(body.cycleRepoRoot);
+  const repoRoot = requestedRepoRoot.trim()
+    ? requestedRepoRoot
+    : prepareCycleWorktreeRoot(paths, activeCycleOrNull(paths, body));
   const commandPaths = { ...paths, repoRoot };
   const { maxWorkers } = runningScheduling(body.maxWorkers);
   const command = [
@@ -553,7 +557,7 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
         try {
           if (run.status !== "completed") {
             run = updateRunStatus(store, runId, "completed", "ui");
-            deps.appendLog("ui", `run ${runId} marked complete`);
+            uiLog("ui", `run ${runId} marked complete`);
           }
           completeRunLinkage = traceLinkageForEvent(
             stateDir,
@@ -623,23 +627,10 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
         gameIdFromContext(gamePaths, body),
         cycle.causedByEventId,
       );
-      await deps.submitWorkflowEvent(init, {
-        kind: "run",
-        operation: "prepare.startRun",
-        status: "started",
-        sessionId: cycleUuid,
-        detail: "initialize run",
-        metadata: {
-          repoRoot: init.repoRoot,
-          cycleRepoRoot,
-          workerConfig: workerConfigFromBody(body, init.game?.dashboard),
-        },
-        ...cycleTraceLinkage,
-      });
-      deps.appendLog("ui", `init-run started: ${command.join(" ")}`);
+      uiLog("ui", `init-run started: ${command.join(" ")}`);
       try {
         const result = await deps.runCli(command);
-        deps.appendLog("ui", `init-run exit=${result.exitCode}`);
+        uiLog("ui", `init-run exit=${result.exitCode}`);
         if (result.exitCode !== 0) {
           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
         }

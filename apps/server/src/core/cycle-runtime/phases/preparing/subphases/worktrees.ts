@@ -74,7 +74,7 @@ function linkMissingFiles(sourceDir: string, targetDir: string): number {
   return linked;
 }
 
-function linkGameAssets(repoRoot: string, worktreePath: string): number {
+export function linkGameAssets(repoRoot: string, worktreePath: string): number {
   const origSource = resolve(repoRoot, "orig");
   if (!existsSync(origSource)) return 0;
   return linkMissingFiles(origSource, resolve(worktreePath, "orig"));

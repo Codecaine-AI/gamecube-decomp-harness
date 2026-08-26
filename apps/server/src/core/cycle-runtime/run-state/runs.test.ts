@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { casRunEnvelope } from "@server/core/orchestrator-state";
+import { createCycle } from "@server/core/cycle/store.js";
 import { eventsForSubject } from "@server/core/harness-state";
 import { initializeHarnessState, requestDispatch } from "@server/core/harness-state";
 import type { RunInputs } from "@server/core/shared/types";
@@ -76,6 +77,21 @@ afterEach(() => {
 });
 
 describe("run state contract", () => {
+  test("uses the active cycle head revision as the default base revision", () => {
+    const { store } = testStore();
+    const cycle = createCycle(store.db, {
+      actor: "operator",
+      gameId: "melee",
+      cycleUuid: "cycle-head-default",
+      baseSha: "cycle-base",
+    });
+    store.db.query("UPDATE cycles SET head_revision = ? WHERE id = ?").run("cycle-head", cycle.id);
+
+    const run = createRun(store, "matched_code_percent", 100, 4, { gameId: "melee" });
+
+    expect(run.inputs?.base_revision).toBe("cycle-head");
+  });
+
   test("creates draft then accepts ready, and activates through one-event CAS transitions", () => {
     const { store } = testStore();
     const ready = readyRun(store);

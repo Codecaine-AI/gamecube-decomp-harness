@@ -32,8 +32,11 @@ import {
   DEFAULT_PI_THINKING_LEVEL,
 } from "@server/core/game-registry/runtime-defaults.js";
 import {
+  listGameEventCorrelations,
   queryGameEvents,
+  queryGameEventsDescending,
   reconstructGameEvents,
+  type GameEventDescendingQueryInput,
   type GameEventQueryInput,
   type GameEventReconstructionPageOptions,
 } from "@server/core/harness-state/event-query";
@@ -61,7 +64,8 @@ import { createSyncRuntime } from "@server/core/cycle-runtime/phases/sync/runtim
 import { activateRun } from "@server/core/cycle-runtime/phases/running/run-control";
 import { createValidationRuntime } from "@server/core/validation/runtime";
 import { handleValidationApiRoute } from "@server/api/routes/validation";
-import { createManagedProcessController, type ManagedProcessController, type ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
+import { createManagedProcessController, type ManagedProcessController } from "@server/infrastructure/process-control/managed-process-controller";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { createCycleProcessMirror } from "@server/core/cycle/process-mirror";
 import { getActiveCycle, getCycleByUuid, updateCycle } from "@server/core/cycle/store";
 import { canonicalCycleSessionId } from "@server/core/cycle/session.js";
@@ -161,10 +165,6 @@ function staticFile(path: string): Response {
   });
 }
 
-function appendLog(stream: ProcessLogLine["stream"], textValue: string): void {
-  processController.appendLog(stream, textValue);
-}
-
 function sendHotReloadEvent(controller: ReadableStreamDefaultController<Uint8Array>, event: string, data: JsonObject = {}): void {
   controller.enqueue(hotReloadEncoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
 }
@@ -203,7 +203,7 @@ function ensureHotReloadWatcher(): void {
     const watchRoot = existsSync(builtStaticRoot) ? builtStaticRoot : staticRoot;
     hotReloadWatcher = watch(watchRoot, { persistent: false }, (_eventType, filename) => scheduleHotReload(filename));
   } catch (error) {
-    appendLog("stderr", `hot reload watcher failed: ${error instanceof Error ? error.message : String(error)}`);
+    uiLog("stderr", `hot reload watcher failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -240,13 +240,12 @@ function hotReloadEvents(): Response {
 }
 
 const gameContext = createDashboardGameContextService({
-  appendLog,
   defaultRepoRoot,
   defaultStateDir,
   packageRoot,
 });
 
-const cycleProcessMirror = createCycleProcessMirror({ appendLog });
+const cycleProcessMirror = createCycleProcessMirror();
 
 processController = createManagedProcessController({
   packageRoot,
@@ -258,13 +257,11 @@ processController = createManagedProcessController({
     }),
 });
 
-const commandRunner = createUiCommandRunner({ appendLog, packageRoot });
+const commandRunner = createUiCommandRunner({ packageRoot });
 const operationState = createOperationStateService();
 
 const kernelRuntime = createDashboardKernelRuntimeService({
   activeCycleUuid,
-  appendLog,
-  defaultStateDir,
   env: Bun.env as Record<string, string | undefined>,
   json,
   latestRunId,
@@ -343,6 +340,12 @@ const eventReadApi = {
   queryEvents(stateDir: string, input: GameEventQueryInput) {
     return readGameEventDatabase(stateDir, (db) => queryGameEvents(db, input));
   },
+  queryEventsDescending(stateDir: string, input: GameEventDescendingQueryInput) {
+    return readGameEventDatabase(stateDir, (db) => queryGameEventsDescending(db, input));
+  },
+  listCorrelations(stateDir: string, gameId: string) {
+    return readGameEventDatabase(stateDir, (db) => listGameEventCorrelations(db, gameId));
+  },
   async reconstructEvents(
     stateDir: string,
     gameId: string,
@@ -373,13 +376,11 @@ export async function reconcileSyncStartup(): Promise<void> {
 }
 
 const campaignStatus = createCampaignStatusService({
-  appendLog,
   outputTail: commandRunner.outputTail,
   runGit: commandRunner.runGit,
 });
 
 const savePoints = createSavePointRuntime({
-  appendLog,
   invalidateCampaignCache: campaignStatus.invalidateCampaignCache,
   outputTail: commandRunner.outputTail,
   resolveDashboardGame: gameContext.resolveDashboardGame,
@@ -388,7 +389,6 @@ const savePoints = createSavePointRuntime({
 });
 
 const syncRuntime = createSyncRuntime({
-  appendLog,
   kernelEnabled: kernelRuntime.enabled,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   packageRoot,
@@ -398,12 +398,12 @@ const syncRuntime = createSyncRuntime({
   serverJobPath,
   sourceRoot,
   stopManaged: (body) => processControlRuntime.stopManaged(body),
+  withOperation: operationState.withOperation,
   submitWorkflowEvent: (paths, input) =>
     kernelRuntime.submitWorkflowEvent(paths as GameRuntimeContext, input),
 });
 
 const prRecords = createPrRecordsService({
-  appendLog,
   latestChildDirectory,
   latestPrSplitPlanSummary,
   latestRunId,
@@ -432,7 +432,6 @@ const prRecords = createPrRecordsService({
 
 const preparingRuntime = createPreparingRuntime({
   activeCyclePrBlockers: prRecords.activeCyclePrBlockers,
-  appendLog,
   beginOperation: operationState.beginOperation,
   boundarySavePoint: (paths, trigger, cycleUuid, label) =>
     savePoints.boundarySavePoint(paths as GameRuntimeContext, trigger, cycleUuid, label),
@@ -461,7 +460,6 @@ const processStatusService = createProcessStatusService({
 });
 
 const processControlRuntime = createProcessControlRuntime({
-  appendLog,
   json,
   processController,
   processStatus: processStatusService.processStatus,
@@ -500,19 +498,16 @@ function runActionProjection(
 }
 
 const standards = createStandardsService({
-  appendLog,
   gameDefaults: gameContext.gameDefaults,
   gameToSummary,
 });
 
 const validationRuntime = createValidationRuntime({
-  appendLog,
   gameToSummary,
   resolveDashboardGame: gameContext.resolveDashboardGame,
 });
 
 const dashboardReadModel = createDashboardReadModel({
-  appendLog,
   buildPrRecordsView: prRecords.buildPrRecordsView,
   campaignStatus: campaignStatus.campaignStatus,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
@@ -668,7 +663,7 @@ function resumeRun(body: JsonObject): JsonObject {
       runId,
       store,
     });
-    appendLog("ui", `run ${runId} resumed`);
+    uiLog("ui", `run ${runId} resumed`);
     return {
       resumed: true,
       game: paths.game ? gameToSummary(paths.game) : null,
@@ -689,6 +684,8 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     json,
     gameContext,
     queryEvents: eventReadApi.queryEvents,
+    queryEventsDescending: eventReadApi.queryEventsDescending,
+    listCorrelations: eventReadApi.listCorrelations,
     reconstructEvents: eventReadApi.reconstructEvents,
   });
   if (events) return events;
@@ -952,9 +949,6 @@ export function serveServer(): ReturnType<typeof Bun.serve> {
   const server = Bun.serve({
     port,
     fetch: fetchServer,
-  });
-  void kernelRuntime.startTraceTailer().catch((error) => {
-    appendLog("stderr", `agent-kernel tailer start failed: ${error instanceof Error ? error.message : String(error)}`);
   });
   console.log(`decomp-orchestrator UI listening on http://localhost:${port}${hotReloadEnabled ? " (hot reload enabled)" : ""}`);
   return server;

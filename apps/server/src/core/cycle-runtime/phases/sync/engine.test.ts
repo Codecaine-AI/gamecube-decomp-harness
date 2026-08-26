@@ -10,6 +10,7 @@ import { eventsForSubject } from "@server/core/harness-state/events.js";
 import { getHarnessState, initializeHarnessState, requestDispatch } from "@server/core/harness-state/lease.js";
 import {
   cancelSync,
+  createSyncStagingWorkspace,
   inspectSyncStaging,
   markSyncRecoveryRequired,
   reconcileSync,
@@ -18,6 +19,7 @@ import {
   refreshSyncUpstreamObservation,
   resolveSyncConflict,
   syncStagingPaths,
+  syncValidationPolicy,
   transitionSync,
   validateSync,
   type SyncEngineContext,
@@ -242,6 +244,29 @@ afterEach(() => {
 });
 
 describe("staged sync reconciliation", () => {
+  test("links canonical game assets into a newly created sync staging worktree", async () => {
+    const fixture = conflictFixture("sync-links-assets", false);
+    writeFileSync(resolve(fixture.cycle, ".git/info/exclude"), "orig/\n", "utf8");
+    const source = resolve(fixture.cycle, "orig/GALE01/sys/main.dol");
+    write(fixture.cycle, "orig/GALE01/sys/main.dol", "fixture dol\n");
+
+    const sync = await createSyncStagingWorkspace({
+      context: fixture.context,
+      syncId: fixture.sync.sync_id,
+      expectedRevision: fixture.sync.revision,
+      commandId: "command-create-staging-with-assets",
+    });
+
+    const linked = resolve(sync.staging!.workspace_path!, "orig/GALE01/sys/main.dol");
+    expect(lstatSync(linked).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(linked)).toBe(source);
+  }, 30_000);
+
+  test("adopts upstream only when no local epochs were applied", () => {
+    expect(syncValidationPolicy({ epochs_applied: 0 })).toEqual({ adoptUpstream: true, resetBaseline: true });
+    expect(syncValidationPolicy({ epochs_applied: 1 })).toEqual({ adoptUpstream: false, resetBaseline: false });
+  });
+
   test("excludes a lingering merged split branch from durable PR series selection", async () => {
     const fixture = conflictFixture("sync-terminal-pr-record");
     const recordsPath = resolve(fixture.stateDir, "pr_handoff/pr_records.json");
@@ -365,11 +390,14 @@ describe("staged sync reconciliation", () => {
       syncId: sync.sync_id,
       expectedRevision: sync.revision,
       commandId: "command-validate",
-      validate: async () => ({
-        result: "passed",
-        whatRan: [{ name: "fixture baseline gate", command: ["fixture", "gate"] }],
-        details: { regressions: 0 },
-      }),
+      validate: async (_worktreePath, _context, stagingProgress) => {
+        expect(stagingProgress).toMatchObject({ epochs_applied: 2, epochs_total: 2 });
+        return {
+          result: "passed",
+          whatRan: [{ name: "fixture baseline gate", command: ["fixture", "gate"] }],
+          details: { regressions: 0 },
+        };
+      },
     });
     expect(sync.status).toBe("validated");
     expect(sync.staging?.validation_evidence).toMatchObject({

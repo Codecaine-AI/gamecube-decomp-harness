@@ -20,8 +20,16 @@ import {
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { createCycle, recordSavePointAnchor, recordSavePointFailureDurably } from "@server/core/cycle";
 import { initializeHarnessState, releaseDispatch, requestDispatch } from "@server/core/harness-state";
+import { appendGameEvent, type JsonObject as GameEventJsonObject } from "@server/core/harness-state/events";
 import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
-import { getSyncState, recordSyncRequested, transitionSync } from "@server/core/cycle-runtime/phases/sync";
+import { defaultBackfillManifestPath } from "@server/core/knowledge/jobs/librarian-backfill.js";
+import {
+  appendSyncKnowledgeEventInTransaction,
+  getSyncState,
+  recordSyncRequested,
+  syncActionSpanId,
+  transitionSync,
+} from "@server/core/cycle-runtime/phases/sync";
 import {
   buildHarnessStateReadModel,
   createDashboardReadModel,
@@ -784,6 +792,269 @@ describe("dashboard read model", () => {
       expect(view.available_actions.find((action) => action.action_id === "sync.start")).toMatchObject({
         subject_id: "sync:new:melee",
         enabled: true,
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("projects current sync knowledge job progress from durable events", () => {
+    const { store } = tempState();
+    try {
+      createCycle(store.db, {
+        actor: "operator",
+        gameId: "melee",
+        cycleUuid: "session-sync-knowledge-progress",
+        id: "cycle:session-sync-knowledge-progress",
+        baseSha: "session-head",
+      });
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
+      const sync = recordSyncRequested(store, {
+        gameId: "melee",
+        cycleUuid: "session-sync-knowledge-progress",
+        syncId: "sync-knowledge-progress",
+        commandId: "command-sync-knowledge-progress",
+        correlationId: "sync-knowledge-progress",
+        actor: "external_observer",
+        intake: {
+          upstream_from: "upstream-old",
+          upstream_to: "upstream-new",
+          merged_pr_ids: ["301", "302", "303"],
+          corpus_batch_ids: ["corpus-progress"],
+          knowledge_only: false,
+        },
+      });
+
+      const appendJobEvent = (
+        jobId: string,
+        eventType: "knowledge.job_enqueued" | "knowledge.job_processing" | "knowledge.job_succeeded" | "knowledge.job_failed",
+      ): void => {
+        const commandId = `command-${jobId}-${eventType}`;
+        const sourceId = jobId === "knowledge-job-discord" ? "discord-batch-1" : jobId;
+        const sourceKind = jobId === "knowledge-job-pr" ? "merged_pr" : "corpus";
+        const common = {
+          gameId: "melee",
+          subjectId: jobId,
+          traceId: sync.trace_id,
+          actor: "runner" as const,
+          causationId: commandId,
+          correlationId: sync.sync_id,
+          spanId: syncActionSpanId(commandId),
+        };
+        if (eventType === "knowledge.job_enqueued") {
+          appendSyncKnowledgeEventInTransaction(store.db, {
+            ...common,
+            eventType,
+            payload: {
+              source_class: "sync_stage",
+              provenance: { source_id: sourceId, source_kind: sourceKind },
+              execution_class: "sync_stage",
+            },
+          });
+          return;
+        }
+        const payload = {
+          source_class: "sync_stage" as const,
+          provenance: { pull_request_id: jobId },
+          execution_class: "sync_stage" as const,
+          sync_id: sync.sync_id,
+          source_id: sourceId,
+          source_kind: sourceKind,
+          from_status: "processing" as const,
+          to_status: eventType.slice("knowledge.job_".length) as "processing" | "succeeded" | "failed",
+        };
+        if (eventType === "knowledge.job_processing") {
+          appendSyncKnowledgeEventInTransaction(store.db, {
+            ...common,
+            eventType,
+            payload: { ...payload, from_status: "queued", to_status: "processing" },
+          });
+        } else if (eventType === "knowledge.job_succeeded") {
+          appendSyncKnowledgeEventInTransaction(store.db, {
+            ...common,
+            eventType,
+            payload: { ...payload, to_status: "succeeded", staged_digest: `sha256:${jobId}` },
+          });
+        } else {
+          appendSyncKnowledgeEventInTransaction(store.db, {
+            ...common,
+            eventType,
+            payload: { ...payload, to_status: "failed", error: "test failure" },
+          });
+        }
+      };
+
+      store.db.exec("BEGIN IMMEDIATE");
+      try {
+        for (const jobId of ["knowledge-job-pr", "knowledge-job-discord", "knowledge-job-corpus"]) {
+          appendJobEvent(jobId, "knowledge.job_enqueued");
+          appendJobEvent(jobId, "knowledge.job_processing");
+        }
+        appendJobEvent("knowledge-job-pr", "knowledge.job_succeeded");
+        appendJobEvent("knowledge-job-discord", "knowledge.job_failed");
+        store.db.exec("COMMIT");
+      } catch (error) {
+        store.db.exec("ROLLBACK");
+        throw error;
+      }
+
+      const view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
+      expect(view.sync?.knowledge_jobs).toEqual({
+        jobs_total: 3,
+        jobs_succeeded: 1,
+        jobs_failed: 1,
+        jobs_processing: 1,
+        prs: {
+          jobs_total: 1,
+          jobs_succeeded: 1,
+          jobs_failed: 0,
+          jobs_processing: 0,
+        },
+        discord: {
+          jobs_total: 1,
+          jobs_succeeded: 0,
+          jobs_failed: 1,
+          jobs_processing: 0,
+        },
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("projects Discord refresh, staging, and corpus state", () => {
+    const { dir, store } = tempState();
+    try {
+      createCycle(store.db, {
+        actor: "operator",
+        gameId: "melee",
+        cycleUuid: "session-sync-discord-projection",
+        id: "cycle:session-sync-discord-projection",
+        baseSha: "session-head",
+      });
+      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
+
+      const requestSync = (syncId: string) => recordSyncRequested(store, {
+        gameId: "melee",
+        cycleUuid: "session-sync-discord-projection",
+        syncId,
+        commandId: `command-${syncId}`,
+        correlationId: syncId,
+        actor: "external_observer",
+        intake: {
+          upstream_from: "session-head",
+          upstream_to: "session-head",
+          merged_pr_ids: [],
+          corpus_batch_ids: [],
+          knowledge_only: true,
+        },
+      });
+      const appendDiscordEvent = (
+        sync: ReturnType<typeof requestSync>,
+        eventType: "sync.discord_refresh_requested" | "sync.discord_refresh_completed" | "sync.discord_staged",
+        payload: GameEventJsonObject,
+        occurredAt: string,
+      ) => {
+        const causationId = `command-${sync.sync_id}-${eventType}`;
+        return appendGameEvent(store.db, {
+          eventType,
+          gameId: "melee",
+          subjectKind: "sync_workflow",
+          subjectId: sync.sync_id,
+          correlationId: sync.sync_id,
+          causationId,
+          traceId: sync.trace_id,
+          spanId: syncActionSpanId(causationId),
+          parentSpanId: null,
+          actor: "runner",
+          occurredAt,
+          payload,
+        });
+      };
+
+      const legacy = requestSync("sync-discord-legacy");
+      expect(buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } }).sync?.discord).toEqual({
+        refresh: null,
+        staged: null,
+        corpus: { batches_done: 0, messages_indexed: 0, through_month: null },
+      });
+
+      const manifestPath = defaultBackfillManifestPath(dir, "discord");
+      mkdirSync(resolve(manifestPath, ".."), { recursive: true });
+      writeFileSync(manifestPath, [
+        {
+          batch_id: "discord-2026-05",
+          source: "discord",
+          status: "done",
+          attempts: 1,
+          updated_at: "2026-08-25T09:00:00.000Z",
+          descriptor: { month: "2026-05", message_count: 11 },
+        },
+        {
+          batch_id: "discord-2026-07",
+          source: "discord",
+          status: "done",
+          attempts: 1,
+          updated_at: "2026-08-25T09:01:00.000Z",
+          descriptor: { month: "2026-07", message_count: 29 },
+        },
+        {
+          batch_id: "discord-2026-08",
+          source: "discord",
+          status: "failed",
+          attempts: 1,
+          updated_at: "2026-08-25T09:02:00.000Z",
+          descriptor: { month: "2026-08", message_count: 101 },
+        },
+      ].map((row) => JSON.stringify(row)).join("\n") + "\n");
+
+      const running = legacy;
+      appendDiscordEvent(running, "sync.discord_refresh_requested", {}, "2026-08-25T10:00:00.000Z");
+      expect(buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } }).sync?.discord).toEqual({
+        refresh: { status: "running", detail: null, at: "2026-08-25T10:00:00.000Z", messages_pulled: null },
+        staged: null,
+        corpus: { batches_done: 2, messages_indexed: 40, through_month: "2026-07" },
+      });
+
+      appendDiscordEvent(running, "sync.discord_refresh_completed", {
+        ok: true,
+        detail: "pulled",
+        duration_ms: 25,
+        messages_pulled: 17,
+      }, "2026-08-25T10:00:01.000Z");
+      appendDiscordEvent(running, "sync.discord_staged", {
+        batches: 3,
+        messages: 17,
+        days: 2,
+        channels: 4,
+        first_message_at: "2026-08-24T10:00:00.000Z",
+        last_message_at: "2026-08-25T10:00:00.000Z",
+      }, "2026-08-25T10:00:02.000Z");
+      expect(buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } }).sync?.discord).toEqual({
+        refresh: { status: "ok", detail: "pulled", at: "2026-08-25T10:00:01.000Z", messages_pulled: 17 },
+        staged: { batches: 3, messages: 17, days: 2, channels: 4 },
+        corpus: { batches_done: 2, messages_indexed: 40, through_month: "2026-07" },
+      });
+
+      appendDiscordEvent(running, "sync.discord_refresh_requested", {}, "2026-08-25T11:00:00.000Z");
+      appendDiscordEvent(running, "sync.discord_refresh_completed", {
+        ok: false,
+        detail: "Discord unavailable",
+        duration_ms: 10,
+        messages_pulled: null,
+      }, "2026-08-25T11:00:01.000Z");
+      appendDiscordEvent(running, "sync.discord_staged", {
+        batches: 0,
+        messages: 0,
+        days: 0,
+        channels: 0,
+        first_message_at: null,
+        last_message_at: null,
+      }, "2026-08-25T11:00:02.000Z");
+      expect(buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } }).sync?.discord).toEqual({
+        refresh: { status: "failed", detail: "Discord unavailable", at: "2026-08-25T11:00:01.000Z", messages_pulled: null },
+        staged: { batches: 0, messages: 0, days: 0, channels: 0 },
+        corpus: { batches_done: 2, messages_indexed: 40, through_month: "2026-07" },
       });
     } finally {
       store.db.close();

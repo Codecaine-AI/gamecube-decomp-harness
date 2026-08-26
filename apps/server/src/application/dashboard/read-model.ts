@@ -6,6 +6,10 @@ import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/cor
 import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
 import { queryBackgroundKnowledgeSummary } from "@server/core/knowledge/background/index.js";
 import {
+  defaultBackfillManifestPath,
+  loadBackfillManifest,
+} from "@server/core/knowledge/jobs/librarian-backfill.js";
+import {
   activeSchedulerEpoch,
   activeWorkerCount,
   getRun,
@@ -49,6 +53,7 @@ import {
 } from "@server/core/cycle-runtime/phases/sync/runtime.js";
 import { parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { quietGit } from "@server/core/cycle-runtime/phases/pr/pr-sync.js";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 export type JsonObject = Record<string, unknown>;
 type WorkerStateOutcome =
@@ -161,6 +166,33 @@ export interface DashboardSyncSummary {
     corpus_batches: string[];
     knowledge_only: boolean;
   };
+  knowledge_jobs: {
+    jobs_total: number;
+    jobs_succeeded: number;
+    jobs_failed: number;
+    jobs_processing: number;
+    prs: DashboardKnowledgeJobCounts;
+    discord: DashboardKnowledgeJobCounts;
+  } | null;
+  discord: {
+    refresh: {
+      status: "running" | "ok" | "failed";
+      detail: string | null;
+      at: string | null;
+      messages_pulled: number | null;
+    } | null;
+    staged: {
+      batches: number;
+      messages: number;
+      days: number;
+      channels: number;
+    } | null;
+    corpus: {
+      batches_done: number;
+      messages_indexed: number;
+      through_month: string | null;
+    };
+  } | null;
   staging: {
     epochs_applied: number;
     epochs_total: number;
@@ -189,6 +221,13 @@ export interface DashboardSyncSummary {
     blocker: Blocker | null;
     revalidate_action_id: "sync.recover" | "sync.cancel" | null;
   };
+}
+
+interface DashboardKnowledgeJobCounts {
+  jobs_total: number;
+  jobs_succeeded: number;
+  jobs_failed: number;
+  jobs_processing: number;
 }
 
 /**
@@ -284,7 +323,6 @@ export interface HarnessStateViewOptions extends Pick<GameRunActionStateOptions,
 }
 
 export interface DashboardReadModelDependencies {
-  appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   buildPrRecordsView: (stateDir: string, runId: string) => JsonObject;
   campaignStatus: (repoRoot: string, stateDir: string, baseRefFallback: string) => JsonObject;
   hasActiveProcess?: (stateDir: string) => { active: boolean };
@@ -302,10 +340,6 @@ function dashboardDeps(): DashboardReadModelDependencies {
 
 function gameSummary(game: ResolvedGame): unknown {
   return readModelDependencies?.gameToSummary ? readModelDependencies.gameToSummary(game) : defaultGameToSummary(game);
-}
-
-function readModelLog(stream: "stdout" | "stderr" | "ui", text: string): void {
-  readModelDependencies?.appendLog?.(stream, text);
 }
 
 export function createDashboardReadModel(dependencies: DashboardReadModelDependencies): {
@@ -956,10 +990,151 @@ function latestSyncForGame(
 }
 
 function syncSummaryProjection(
+  store: ReturnType<typeof openState>,
   sync: SyncState,
   cycle: CycleRecord | null,
   availableActions: ActionProjection[],
 ): DashboardSyncSummary {
+  const knowledgeJobCounts = store.db
+    .query(
+      `SELECT
+         COUNT(*) AS jobs_total,
+         SUM(CASE WHEN events.event_type = 'knowledge.job_succeeded' THEN 1 ELSE 0 END) AS jobs_succeeded,
+         SUM(CASE WHEN events.event_type IN ('knowledge.job_failed', 'knowledge.job_cancelled') THEN 1 ELSE 0 END) AS jobs_failed,
+         SUM(CASE WHEN events.event_type IN ('knowledge.job_processing', 'knowledge.job_waiting') THEN 1 ELSE 0 END) AS jobs_processing,
+         SUM(CASE WHEN COALESCE(
+           json_extract(events.payload_json, '$.source_kind'),
+           json_extract(events.payload_json, '$.provenance.source_kind')
+         ) = 'merged_pr' THEN 1 ELSE 0 END) AS prs_total,
+         SUM(CASE WHEN COALESCE(
+           json_extract(events.payload_json, '$.source_kind'),
+           json_extract(events.payload_json, '$.provenance.source_kind')
+         ) = 'merged_pr' AND events.event_type = 'knowledge.job_succeeded' THEN 1 ELSE 0 END) AS prs_succeeded,
+         SUM(CASE WHEN COALESCE(
+           json_extract(events.payload_json, '$.source_kind'),
+           json_extract(events.payload_json, '$.provenance.source_kind')
+         ) = 'merged_pr' AND events.event_type IN ('knowledge.job_failed', 'knowledge.job_cancelled') THEN 1 ELSE 0 END) AS prs_failed,
+         SUM(CASE WHEN COALESCE(
+           json_extract(events.payload_json, '$.source_kind'),
+           json_extract(events.payload_json, '$.provenance.source_kind')
+         ) = 'merged_pr' AND events.event_type IN ('knowledge.job_processing', 'knowledge.job_waiting') THEN 1 ELSE 0 END) AS prs_processing,
+         SUM(CASE WHEN COALESCE(
+           json_extract(events.payload_json, '$.source_id'),
+           json_extract(events.payload_json, '$.provenance.source_id')
+         ) LIKE 'discord-%' THEN 1 ELSE 0 END) AS discord_total,
+         SUM(CASE WHEN COALESCE(
+           json_extract(events.payload_json, '$.source_id'),
+           json_extract(events.payload_json, '$.provenance.source_id')
+         ) LIKE 'discord-%' AND events.event_type = 'knowledge.job_succeeded' THEN 1 ELSE 0 END) AS discord_succeeded,
+         SUM(CASE WHEN COALESCE(
+           json_extract(events.payload_json, '$.source_id'),
+           json_extract(events.payload_json, '$.provenance.source_id')
+         ) LIKE 'discord-%' AND events.event_type IN ('knowledge.job_failed', 'knowledge.job_cancelled') THEN 1 ELSE 0 END) AS discord_failed,
+         SUM(CASE WHEN COALESCE(
+           json_extract(events.payload_json, '$.source_id'),
+           json_extract(events.payload_json, '$.provenance.source_id')
+         ) LIKE 'discord-%' AND events.event_type IN ('knowledge.job_processing', 'knowledge.job_waiting') THEN 1 ELSE 0 END) AS discord_processing
+       FROM game_events AS events
+       INNER JOIN (
+         SELECT subject_id, MAX(sequence) AS latest_sequence
+         FROM game_events
+         WHERE game_id = ?
+           AND correlation_id = ?
+           AND event_type LIKE 'knowledge.job\\_%' ESCAPE '\\'
+         GROUP BY subject_id
+       ) AS latest
+         ON latest.subject_id = events.subject_id
+        AND latest.latest_sequence = events.sequence
+       WHERE events.game_id = ?
+         AND events.correlation_id = ?`,
+    )
+    .get(sync.game_id, sync.sync_id, sync.game_id, sync.sync_id) as {
+      jobs_total: number;
+      jobs_succeeded: number | null;
+      jobs_failed: number | null;
+      jobs_processing: number | null;
+      prs_total: number | null;
+      prs_succeeded: number | null;
+      prs_failed: number | null;
+      prs_processing: number | null;
+      discord_total: number | null;
+      discord_succeeded: number | null;
+      discord_failed: number | null;
+      discord_processing: number | null;
+    };
+  const discordEvents = store.db
+    .query(
+      `SELECT event_type, occurred_at, payload_json, sequence
+       FROM game_events
+       WHERE game_id = ?
+         AND correlation_id = ?
+         AND event_type IN (
+           'sync.discord_refresh_requested',
+           'sync.discord_refresh_completed',
+           'sync.discord_staged'
+         )
+       ORDER BY sequence ASC`,
+    )
+    .all(sync.game_id, sync.sync_id) as Array<{
+      event_type: string;
+      occurred_at: string;
+      payload_json: string;
+      sequence: number;
+    }>;
+  const latestDiscordEvent = (eventType: string) => discordEvents.reduce<(typeof discordEvents)[number] | null>(
+    (latest, event) => event.event_type === eventType ? event : latest,
+    null,
+  );
+  const latestDiscordRequested = latestDiscordEvent("sync.discord_refresh_requested");
+  const latestDiscordCompleted = latestDiscordEvent("sync.discord_refresh_completed");
+  const latestDiscordStaged = latestDiscordEvent("sync.discord_staged");
+  const completedPayload = latestDiscordCompleted ? asObject(JSON.parse(latestDiscordCompleted.payload_json)) : null;
+  const stagedPayload = latestDiscordStaged ? asObject(JSON.parse(latestDiscordStaged.payload_json)) : null;
+  const refreshIsRunning = latestDiscordRequested !== null && (
+    latestDiscordCompleted === null || latestDiscordRequested.sequence > latestDiscordCompleted.sequence
+  );
+  const discordManifest = loadBackfillManifest(defaultBackfillManifestPath(store.stateDir, "discord"));
+  const discordCorpus = [...discordManifest.values()].reduce(
+    (corpus, row) => {
+      if (row.status !== "done") return corpus;
+      const descriptor = asObject(row.descriptor);
+      corpus.batches_done += 1;
+      corpus.messages_indexed += numberValue(descriptor.message_count);
+      if (typeof descriptor.month === "string" && (
+        corpus.through_month === null || descriptor.month > corpus.through_month
+      )) corpus.through_month = descriptor.month;
+      return corpus;
+    },
+    { batches_done: 0, messages_indexed: 0, through_month: null as string | null },
+  );
+  const discord = {
+    refresh: refreshIsRunning
+      ? {
+          status: "running" as const,
+          detail: null,
+          at: latestDiscordRequested?.occurred_at ?? null,
+          messages_pulled: null,
+        }
+      : latestDiscordCompleted && completedPayload
+        ? {
+            status: completedPayload.ok === true ? "ok" as const : "failed" as const,
+            detail: typeof completedPayload.detail === "string" ? completedPayload.detail : null,
+            at: latestDiscordCompleted.occurred_at,
+            messages_pulled: typeof completedPayload.messages_pulled === "number"
+              ? completedPayload.messages_pulled
+              : null,
+          }
+        : null,
+    staged: stagedPayload
+      ? {
+          batches: numberValue(stagedPayload.batches),
+          messages: numberValue(stagedPayload.messages),
+          days: numberValue(stagedPayload.days),
+          channels: numberValue(stagedPayload.channels),
+        }
+      : null,
+    corpus: discordCorpus,
+  };
   const reconciliationCounts = {
     clean: 0,
     auto_resolved: 0,
@@ -991,6 +1166,27 @@ function syncSummaryProjection(
       corpus_batches: [...sync.intake.corpus_batch_ids],
       knowledge_only: sync.intake.knowledge_only,
     },
+    knowledge_jobs: knowledgeJobCounts.jobs_total > 0
+      ? {
+          jobs_total: knowledgeJobCounts.jobs_total,
+          jobs_succeeded: knowledgeJobCounts.jobs_succeeded ?? 0,
+          jobs_failed: knowledgeJobCounts.jobs_failed ?? 0,
+          jobs_processing: knowledgeJobCounts.jobs_processing ?? 0,
+          prs: {
+            jobs_total: knowledgeJobCounts.prs_total ?? 0,
+            jobs_succeeded: knowledgeJobCounts.prs_succeeded ?? 0,
+            jobs_failed: knowledgeJobCounts.prs_failed ?? 0,
+            jobs_processing: knowledgeJobCounts.prs_processing ?? 0,
+          },
+          discord: {
+            jobs_total: knowledgeJobCounts.discord_total ?? 0,
+            jobs_succeeded: knowledgeJobCounts.discord_succeeded ?? 0,
+            jobs_failed: knowledgeJobCounts.discord_failed ?? 0,
+            jobs_processing: knowledgeJobCounts.discord_processing ?? 0,
+          },
+        }
+      : null,
+    discord,
     staging: sync.staging
       ? {
           epochs_applied: sync.staging.epochs_applied,
@@ -1042,7 +1238,7 @@ export function gameSyncActionState(
   const sync = latestSyncForGame(store, gameId);
   return {
     availableActions,
-    sync: sync ? syncSummaryProjection(sync, cycle, availableActions) : null,
+    sync: sync ? syncSummaryProjection(store, sync, cycle, availableActions) : null,
   };
 }
 
@@ -3120,7 +3316,7 @@ function mergedPrIntakeRows(graphDbPath: string): JsonObject[] {
       db.close();
     }
   } catch (error) {
-    readModelLog("stderr", `merged PR intake read failed: ${error instanceof Error ? error.message : String(error)}`);
+    uiLog("stderr", `merged PR intake read failed: ${error instanceof Error ? error.message : String(error)}`);
     return [];
   }
 }

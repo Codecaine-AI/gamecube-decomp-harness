@@ -7,7 +7,9 @@ import {
   PAYLOAD_SUMMARY_MAX_SERIALIZED_BYTES,
   PAYLOAD_SUMMARY_MAX_STRING_LENGTH,
   GameEventPayloadError,
+  listGameEventCorrelations,
   queryGameEvents,
+  queryGameEventsDescending,
   recentGameEvents,
   reconstructGameEvents,
 } from "./event-query.js";
@@ -18,6 +20,7 @@ interface FixtureEvent {
   correlationId?: string;
   eventId: string;
   eventType: string;
+  occurredAt?: string;
   payload?: Record<string, unknown>;
   payloadJson?: string;
   gameId?: string;
@@ -63,7 +66,7 @@ function insertEvent(db: Database, event: FixtureEvent): number {
     `span-${event.eventId}`,
     `parent-${event.eventId}`,
     event.actor ?? "operator",
-    "2026-08-13T12:00:00.000Z",
+    event.occurredAt ?? "2026-08-13T12:00:00.000Z",
     event.payloadJson ?? JSON.stringify(event.payload ?? { event_id: event.eventId }),
   );
   return Number(result.lastInsertRowid);
@@ -114,6 +117,155 @@ describe("game event query", () => {
       eventTypePrefix: "sync.",
     });
     expect(filtered.events.map((event) => event.sequence)).toEqual([4, 6]);
+  });
+
+  test("paginates newest windows in ascending order with an exclusive older cursor", () => {
+    const db = fixtureDatabase();
+    for (let index = 1; index <= 6; index += 1) {
+      insertEvent(db, {
+        correlationId: index % 2 === 0 ? "correlation-even" : "correlation-odd",
+        eventId: `descending-${index}`,
+        eventType: "run.epoch_integrated",
+        subjectId: "run-1",
+        subjectKind: "run",
+      });
+    }
+
+    const newest = queryGameEventsDescending(db, { gameId: "melee", limit: 2 });
+    expect(newest.events.map((event) => event.sequence)).toEqual([5, 6]);
+    expect(newest).toMatchObject({ has_more: true, next_before_sequence: 5 });
+
+    const older = queryGameEventsDescending(db, {
+      gameId: "melee",
+      beforeSequence: newest.next_before_sequence!,
+      limit: 2,
+    });
+    expect(older.events.map((event) => event.sequence)).toEqual([3, 4]);
+    expect(older).toMatchObject({ has_more: true, next_before_sequence: 3 });
+
+    const oldest = queryGameEventsDescending(db, {
+      gameId: "melee",
+      beforeSequence: older.next_before_sequence!,
+      limit: 2,
+    });
+    expect(oldest.events.map((event) => event.sequence)).toEqual([1, 2]);
+    expect(oldest).toMatchObject({ has_more: false, next_before_sequence: null });
+
+    const filtered = queryGameEventsDescending(db, {
+      gameId: "melee",
+      correlationId: "correlation-even",
+      limit: 2,
+    });
+    expect(filtered.events.map((event) => event.sequence)).toEqual([4, 6]);
+    expect(filtered).toMatchObject({ has_more: true, next_before_sequence: 4 });
+  });
+
+  test("rejects invalid descending queries", () => {
+    const db = fixtureDatabase();
+    expect(() => queryGameEventsDescending(db, { gameId: "melee", limit: 0 })).toThrow(
+      "between 1 and 200",
+    );
+    expect(() => queryGameEventsDescending(db, {
+      gameId: "melee",
+      beforeSequence: -1,
+    })).toThrow("non-negative");
+    expect(() => queryGameEventsDescending(db, { gameId: " " })).toThrow("nonblank");
+  });
+
+  test("lists correlation summaries newest first with unambiguous workflow identities", () => {
+    const db = fixtureDatabase();
+    insertEvent(db, {
+      correlationId: "no-workflow",
+      eventId: "no-workflow-1",
+      eventType: "game.note",
+      occurredAt: "2026-08-13T12:00:01.000Z",
+      subjectId: "melee",
+      subjectKind: "game",
+    });
+    insertEvent(db, {
+      correlationId: "no-workflow",
+      eventId: "no-workflow-2",
+      eventType: "game.note",
+      occurredAt: "2026-08-13T12:00:02.000Z",
+      subjectId: "melee",
+      subjectKind: "game",
+    });
+    insertEvent(db, {
+      correlationId: "sync-correlation",
+      eventId: "sync-1",
+      eventType: "sync.ingesting",
+      occurredAt: "2026-08-13T12:00:03.000Z",
+      subjectId: "sync-42",
+      subjectKind: "sync_workflow",
+    });
+    insertEvent(db, {
+      correlationId: "sync-correlation",
+      eventId: "sync-2",
+      eventType: "game.dispatch_released",
+      occurredAt: "2026-08-13T12:00:04.000Z",
+      subjectId: "melee",
+      subjectKind: "game",
+    });
+    insertEvent(db, {
+      correlationId: "ambiguous-correlation",
+      eventId: "ambiguous-run",
+      eventType: "run.drafted",
+      occurredAt: "2026-08-13T12:00:05.000Z",
+      subjectId: "run-1",
+      subjectKind: "run",
+    });
+    insertEvent(db, {
+      correlationId: "ambiguous-correlation",
+      eventId: "ambiguous-cycle",
+      eventType: "cycle.started",
+      occurredAt: "2026-08-13T12:00:06.000Z",
+      subjectId: "cycle-1",
+      subjectKind: "cycle",
+    });
+    insertEvent(db, {
+      correlationId: "cycle-correlation",
+      eventId: "cycle",
+      eventType: "cycle.started",
+      occurredAt: "2026-08-13T12:00:07.000Z",
+      subjectId: "cycle-2",
+      subjectKind: "cycle",
+    });
+
+    expect(listGameEventCorrelations(db, "melee")).toEqual([
+      {
+        correlation_id: "cycle-correlation",
+        event_count: 1,
+        first_sequence: 7,
+        last_sequence: 7,
+        latest_occurred_at: "2026-08-13T12:00:07.000Z",
+        workflow: { kind: "cycle", id: "cycle-2" },
+      },
+      {
+        correlation_id: "ambiguous-correlation",
+        event_count: 2,
+        first_sequence: 5,
+        last_sequence: 6,
+        latest_occurred_at: "2026-08-13T12:00:06.000Z",
+        workflow: null,
+      },
+      {
+        correlation_id: "sync-correlation",
+        event_count: 2,
+        first_sequence: 3,
+        last_sequence: 4,
+        latest_occurred_at: "2026-08-13T12:00:04.000Z",
+        workflow: { kind: "sync", id: "sync-42" },
+      },
+      {
+        correlation_id: "no-workflow",
+        event_count: 2,
+        first_sequence: 1,
+        last_sequence: 2,
+        latest_occurred_at: "2026-08-13T12:00:02.000Z",
+        workflow: null,
+      },
+    ]);
+    expect(() => listGameEventCorrelations(db, " ")).toThrow("nonblank");
   });
 
   test("joins workflow dispatch events into the virtual game subject exactly once", () => {

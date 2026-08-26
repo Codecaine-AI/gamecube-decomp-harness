@@ -195,6 +195,57 @@ describe("sandbox reconciliation", () => {
     expect(deletedEvents(f.store)).toHaveLength(1);
   });
 
+  test("treats a provider not-found response as a successful deletion", async () => {
+    const f = await fixture({ job_lease_id: "lease-stale" });
+    const warnings: unknown[] = [];
+    const provider: SandboxProvider = {
+      create: (params) => f.provider.create(params),
+      get: (sandboxId) => f.provider.get(sandboxId),
+      listByLabels: (labels) => f.provider.listByLabels(labels),
+      delete: async () => {
+        const error = new Error("sandbox is gone");
+        error.name = "DaytonaNotFoundError";
+        throw error;
+      },
+    };
+
+    expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: ACTIVE_AT }, {
+      sandboxProvider: provider,
+      warn: (...warning) => warnings.push(warning),
+    })).toEqual({ scanned: 1, kept: 0, deleted: 1, failed: 0 });
+    expect(warnings).toEqual([]);
+    expect(deletedEvents(f.store)).toHaveLength(1);
+  });
+
+  test("retries transient provider deletion failures with the configured waits", async () => {
+    const f = await fixture({ job_lease_id: "lease-stale" });
+    const waits: number[] = [];
+    let attempts = 0;
+    const provider: SandboxProvider = {
+      create: (params) => f.provider.create(params),
+      get: (sandboxId) => f.provider.get(sandboxId),
+      listByLabels: (labels) => f.provider.listByLabels(labels),
+      delete: async (sandboxId, reason) => {
+        attempts += 1;
+        if (attempts === 1) {
+          const error = new Error("state change in progress");
+          error.name = "DaytonaConflictError";
+          throw error;
+        }
+        if (attempts === 2) throw Object.assign(new Error("bad gateway"), { status: 502 });
+        await f.provider.delete(sandboxId, reason);
+      },
+    };
+
+    expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: ACTIVE_AT }, {
+      sandboxProvider: provider,
+      retryDelay: async (milliseconds) => { waits.push(milliseconds); },
+    })).toEqual({ scanned: 1, kept: 0, deleted: 1, failed: 0 });
+    expect(attempts).toBe(3);
+    expect(waits).toEqual([5_000, 15_000]);
+    expect(deletedEvents(f.store)).toHaveLength(1);
+  });
+
   test("deletes a stopped sandbox with an expired job lease", async () => {
     const f = await fixture();
     const handle = await f.provider.get(f.sandboxId);

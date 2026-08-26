@@ -13,6 +13,7 @@ import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
 import type { RegressionReport } from "@server/core/validation/objdiff/report";
 import type { DispatchLeaseRevalidator } from "@server/core/cycle-runtime/dispatch-guard";
 import type { GameEventTraceLinkage } from "@server/core/harness-state/kernel-links.js";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -36,7 +37,6 @@ export interface PrWorktreeGameContext {
   toolPlatform?: ToolPlatform;
 }
 
-type LogStream = "stdout" | "stderr" | "ui";
 type WorkflowStatus = "started" | "completed" | "failed" | "skipped";
 
 interface WorkflowEventInput extends GameEventTraceLinkage {
@@ -57,7 +57,6 @@ interface RunGitOptions {
 }
 
 export interface PrWorktreeServiceDeps<Context extends PrWorktreeGameContext> {
-  appendLog: (stream: LogStream, text: string) => void;
   branchExists: (repoRoot: string, branch: string) => boolean;
   codeIssuesChecker?: (worktreeDir: string) => Promise<CodeIssuesResult>;
   isLocalBranchPrRecord: (record: JsonObject) => boolean;
@@ -214,7 +213,6 @@ let dockerAvailable: boolean | null = null;
 
 export function createPrWorktreeService<Context extends PrWorktreeGameContext>(deps: PrWorktreeServiceDeps<Context>) {
   const {
-    appendLog,
     branchExists,
     isLocalBranchPrRecord,
     localBranchDiffBase,
@@ -251,7 +249,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     }
     if (!cached) {
       if (!existsSync(worktreeDir)) {
-        appendLog("ui", `baseline worktree add ${worktreeDir} @ ${baseSha.slice(0, 10)}`);
+        uiLog("ui", `baseline worktree add ${worktreeDir} @ ${baseSha.slice(0, 10)}`);
         revalidateLease?.();
         await runGit(repoRoot, ["worktree", "add", "--detach", worktreeDir, baseSha], { failureHint: "Unable to add the baseline worktree" });
       }
@@ -261,28 +259,28 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
       const origSource = resolve(repoRoot, "orig");
       if (existsSync(origSource)) {
         const linked = linkMissingFiles(origSource, resolve(worktreeDir, "orig"));
-        if (linked > 0) appendLog("ui", `baseline worktree linked ${linked} orig/ game asset file(s) from the main checkout`);
+        if (linked > 0) uiLog("ui", `baseline worktree linked ${linked} orig/ game asset file(s) from the main checkout`);
       }
       if (!existsSync(resolve(worktreeDir, "build.ninja"))) {
-        appendLog("ui", "baseline configure started");
+        uiLog("ui", "baseline configure started");
         const configure = await runCli(preferredConfigureCommand(paths, worktreeDir), worktreeDir);
         if (configure.exitCode !== 0) {
           throw new Error(`Baseline configure failed (${configure.exitCode}): ${outputTail(configure.stderr || configure.stdout, 4000)}`);
         }
       }
-      appendLog("ui", `baseline build started: ninja baseline @ ${baseSha.slice(0, 10)} (first build for this base SHA does a full build)`);
+      uiLog("ui", `baseline build started: ninja baseline @ ${baseSha.slice(0, 10)} (first build for this base SHA does a full build)`);
       const build = await runCli(["ninja", "baseline"], worktreeDir);
       if (build.exitCode !== 0) {
         throw new Error(`Baseline build failed (${build.exitCode}): ${outputTail(build.stderr || build.stdout, 4000)}`);
       }
-      appendLog("ui", "baseline build complete");
+      uiLog("ui", "baseline build complete");
     } else {
-      appendLog("ui", `baseline reused from cache for ${baseSha.slice(0, 10)}`);
+      uiLog("ui", `baseline reused from cache for ${baseSha.slice(0, 10)}`);
     }
     const baselinePath = resolve(repoRoot, "build/GALE01/baseline.json");
     mkdirSync(dirname(baselinePath), { recursive: true });
     copyFileSync(worktreeBaseline, baselinePath);
-    appendLog("ui", `production baseline installed at ${baselinePath}`);
+    uiLog("ui", `production baseline installed at ${baselinePath}`);
     const status = { baseRef, baseSha, worktreeDir, cached, baselinePath, installedAt: new Date().toISOString() };
     const statusPath = resolve(paths.handoffDir ?? resolve(paths.stateDir, "pr_handoff"), "baseline_status.json");
     mkdirSync(dirname(statusPath), { recursive: true });
@@ -332,7 +330,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     const traceLinkage = submitWorkflowEvent
       ? requiredProductionTraceLinkage(productionLinkage)
       : null;
-    appendLog("ui", `open draft: ${reason}; rebuilding production baseline`);
+    uiLog("ui", `open draft: ${reason}; rebuilding production baseline`);
     return rebuildProductionBaselineWithTrace(paths, revalidateLease, traceLinkage);
   }
 
@@ -379,7 +377,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
       let report: RegressionReport;
       let issues: CodeIssuesResult;
       try {
-        appendLog("ui", `ship-set round ${round}: applying ${pathspecs.length} match file(s) onto the baseline worktree`);
+        uiLog("ui", `ship-set round ${round}: applying ${pathspecs.length} match file(s) onto the baseline worktree`);
         options.revalidateLease?.();
         const apply = await runCli(["git", "apply", patchPath], worktreeDir);
         if (apply.exitCode !== 0) throw new Error(`Ship-set patch did not apply cleanly (${apply.exitCode}): ${outputTail(apply.stderr, 2000)}`);
@@ -388,8 +386,8 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
         report = await readRegressionReport(resolve(worktreeDir, "build/GALE01/report_changes.json"), "ship set", 0);
         // Upstream CI parity: the patched tree must also pass the Issues lint.
         issues = await checkCodeIssues(worktreeDir);
-        if (issues.status === "unavailable") appendLog("ui", `ship-set round ${round}: code-issues check skipped — ${outputTail(issues.output, 300)}`);
-        if (issues.status === "issues") appendLog("ui", `ship-set round ${round}: code issues in ${issues.files.join(", ") || "(unattributed)"}\n${outputTail(issues.output, 2000)}`);
+        if (issues.status === "unavailable") uiLog("ui", `ship-set round ${round}: code-issues check skipped — ${outputTail(issues.output, 300)}`);
+        if (issues.status === "issues") uiLog("ui", `ship-set round ${round}: code issues in ${issues.files.join(", ") || "(unattributed)"}\n${outputTail(issues.output, 2000)}`);
       } finally {
         // Restore the cached worktree to its pristine base state for reuse.
         options.revalidateLease?.();
@@ -417,7 +415,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
           patchPath,
           checkedAt: new Date().toISOString(),
         };
-        appendLog("ui", `ship-set verification: ${status.status} (${status.newMatches} confirmed matches, ${droppedFiles.size} file(s) dropped for rework)`);
+        uiLog("ui", `ship-set verification: ${status.status} (${status.newMatches} confirmed matches, ${droppedFiles.size} file(s) dropped for rework)`);
         return writeStatus(status);
       }
 
@@ -451,12 +449,12 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
           patchPath,
           checkedAt: new Date().toISOString(),
         };
-        appendLog("ui", "ship-set verification: blocked — regressions could not be attributed to a shippable file");
+        uiLog("ui", "ship-set verification: blocked — regressions could not be attributed to a shippable file");
         return writeStatus(status);
       }
       for (const file of droppable) {
         droppedFiles.set(file, offenders.get(file) ?? []);
-        appendLog("ui", `ship-set round ${round}: dropping ${file} (${(offenders.get(file) ?? []).join("; ")})`);
+        uiLog("ui", `ship-set round ${round}: dropping ${file} (${(offenders.get(file) ?? []).join("; ")})`);
       }
       pathspecs = pathspecs.filter((file) => !droppable.includes(file));
     }

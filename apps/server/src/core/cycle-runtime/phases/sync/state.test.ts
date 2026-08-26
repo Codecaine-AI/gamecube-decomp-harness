@@ -123,6 +123,9 @@ describe("SyncState", () => {
     expect(SYNC_EVENT_TYPES).toEqual([
       "sync.requested",
       "sync.observation_refreshed",
+      "sync.discord_refresh_requested",
+      "sync.discord_refresh_completed",
+      "sync.discord_staged",
       "sync.ingesting",
       "sync.reconciling",
       "sync.staging_progressed",

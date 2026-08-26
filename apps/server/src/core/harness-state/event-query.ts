@@ -47,6 +47,15 @@ export interface GameEventQueryInput {
   limit?: number;
 }
 
+export interface GameEventDescendingQueryInput {
+  gameId: string;
+  correlationId?: string;
+  subject?: GameEventSubjectFilter;
+  eventTypePrefix?: string;
+  beforeSequence?: number;
+  limit?: number;
+}
+
 export interface GameEventReconstructionPageOptions {
   afterSequence?: number;
   limit?: number;
@@ -74,6 +83,26 @@ export interface GameEventQueryPage {
   events: GameEventDto[];
   has_more: boolean;
   next_after_sequence: number | null;
+}
+
+export interface GameEventDescendingQueryPage {
+  events: GameEventDto[];
+  has_more: boolean;
+  next_before_sequence: number | null;
+}
+
+export interface GameEventCorrelationWorkflow {
+  kind: "run" | "sync" | "cycle";
+  id: string;
+}
+
+export interface GameEventCorrelationSummary {
+  correlation_id: string;
+  event_count: number;
+  first_sequence: number;
+  last_sequence: number;
+  latest_occurred_at: string;
+  workflow: GameEventCorrelationWorkflow | null;
 }
 
 export interface GameEventCauseEvent {
@@ -350,8 +379,28 @@ function validateQuery(input: GameEventQueryInput): number {
   return validatedLimit(input.limit);
 }
 
+function validateDescendingQuery(input: GameEventDescendingQueryInput): number {
+  if (!input.gameId.trim()) validationError("gameId must be a nonblank string");
+  if (input.correlationId !== undefined && !input.correlationId.trim()) {
+    validationError("correlationId must be a nonblank string");
+  }
+  if (input.eventTypePrefix !== undefined && !input.eventTypePrefix.trim()) {
+    validationError("eventTypePrefix must be a nonblank string");
+  }
+  if (input.subject) {
+    if (!subjectKindRegistered(input.subject.kind)) {
+      validationError("subject kind must be a registered game event subject kind");
+    }
+    if (!input.subject.id.trim()) validationError("subject id must be a nonblank string");
+  }
+  assertSequence("beforeSequence", input.beforeSequence);
+  return validatedLimit(input.limit);
+}
+
+type FilteredRowsInput = GameEventQueryInput & { beforeSequence?: number };
+
 function subjectClause(
-  input: GameEventQueryInput,
+  input: FilteredRowsInput,
   clauses: string[],
   bindings: SqlBinding[],
 ): void {
@@ -373,7 +422,7 @@ function subjectClause(
 
 function filteredRows(
   db: Database,
-  input: GameEventQueryInput,
+  input: FilteredRowsInput,
   order: "ASC" | "DESC",
   limit: number,
 ): GameEventRow[] {
@@ -400,6 +449,10 @@ function filteredRows(
     clauses.push("sequence > ?");
     bindings.push(input.afterSequence);
   }
+  if (input.beforeSequence !== undefined) {
+    clauses.push("sequence < ?");
+    bindings.push(input.beforeSequence);
+  }
   bindings.push(limit);
   return db.query(`
     SELECT ${EVENT_COLUMNS}
@@ -420,6 +473,87 @@ export function queryGameEvents(db: Database, input: GameEventQueryInput): GameE
     has_more: hasMore,
     next_after_sequence: hasMore && events.length > 0 ? events[events.length - 1]!.sequence : null,
   };
+}
+
+export function queryGameEventsDescending(
+  db: Database,
+  input: GameEventDescendingQueryInput,
+): GameEventDescendingQueryPage {
+  const limit = validateDescendingQuery(input);
+  const rows = filteredRows(db, input, "DESC", limit + 1);
+  const hasMore = rows.length > limit;
+  const events = rows.slice(0, limit).reverse().map(rowToDto);
+  return {
+    events,
+    has_more: hasMore,
+    next_before_sequence: hasMore && events.length > 0 ? events[0]!.sequence : null,
+  };
+}
+
+export function listGameEventCorrelations(
+  db: Database,
+  gameId: string,
+): GameEventCorrelationSummary[] {
+  if (!gameId.trim()) validationError("gameId must be a nonblank string");
+
+  const summaryRows = db.query(`
+    SELECT
+      grouped.correlation_id,
+      grouped.event_count,
+      grouped.first_sequence,
+      grouped.last_sequence,
+      latest.occurred_at AS latest_occurred_at
+    FROM (
+      SELECT
+        correlation_id,
+        COUNT(*) AS event_count,
+        MIN(sequence) AS first_sequence,
+        MAX(sequence) AS last_sequence
+      FROM game_events
+      WHERE game_id = ?
+      GROUP BY correlation_id
+    ) AS grouped
+    JOIN game_events AS latest
+      ON latest.game_id = ?
+      AND latest.correlation_id = grouped.correlation_id
+      AND latest.sequence = grouped.last_sequence
+    ORDER BY grouped.last_sequence DESC
+  `).all(gameId, gameId) as GameEventRow[];
+
+  const workflowRows = db.query(`
+    SELECT correlation_id, subject_kind, subject_id
+    FROM game_events
+    WHERE game_id = ?
+      AND subject_kind IN ('run', 'sync_workflow', 'cycle')
+    GROUP BY correlation_id, subject_kind, subject_id
+  `).all(gameId) as GameEventRow[];
+  const workflowsByCorrelation = new Map<string, GameEventCorrelationWorkflow[]>();
+  for (const row of workflowRows) {
+    const correlationId = String(row.correlation_id);
+    const subjectKind = String(row.subject_kind);
+    const workflow: GameEventCorrelationWorkflow = {
+      kind: subjectKind === "sync_workflow"
+        ? "sync"
+        : subjectKind as "run" | "cycle",
+      id: String(row.subject_id),
+    };
+    const workflows = workflowsByCorrelation.get(correlationId) ?? [];
+    workflows.push(workflow);
+    workflowsByCorrelation.set(correlationId, workflows);
+  }
+
+  return summaryRows.map((row) => {
+    const correlationId = String(row.correlation_id);
+    const workflows = workflowsByCorrelation.get(correlationId) ?? [];
+    return {
+      correlation_id: correlationId,
+      event_count: Number(row.event_count),
+      first_sequence: Number(row.first_sequence),
+      last_sequence: Number(row.last_sequence),
+      latest_occurred_at: String(row.latest_occurred_at),
+      workflow: workflows.length === 1 ? workflows[0]! : null,
+    };
+  });
 }
 
 export function recentGameEvents(db: Database, gameId: string, limit = 20): GameEventDto[] {

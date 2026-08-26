@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -38,12 +39,6 @@ export interface ManagedProcess {
   stateDir?: string;
   stderrPath: string;
   stdoutPath: string;
-}
-
-export interface ProcessLogLine {
-  at: string;
-  stream: "stdout" | "stderr" | "ui";
-  text: string;
 }
 
 export interface ProcessStatusInput {
@@ -156,17 +151,8 @@ function savedCommand(saved: JsonObject | undefined): string[] {
 
 export class ManagedProcessController {
   private managed: ManagedProcess | null = null;
-  private readonly processLogs: ProcessLogLine[] = [];
 
   constructor(private readonly deps: ManagedProcessControllerDeps) {}
-
-  appendLog(stream: ProcessLogLine["stream"], text: string): void {
-    for (const raw of text.split(/\r?\n/)) {
-      if (!raw.trim()) continue;
-      this.processLogs.push({ at: new Date().toISOString(), stream, text: raw });
-    }
-    if (this.processLogs.length > 500) this.processLogs.splice(0, this.processLogs.length - 500);
-  }
 
   pidFilePath(stateDir: string, name: string): string {
     return resolve(stateDir, "ui-processes", `${name}.json`);
@@ -280,7 +266,6 @@ export class ManagedProcessController {
       graphDbPath: activeGraphDbPath || null,
       stdoutPath: this.managed?.stdoutPath ?? (stringValue(activeSaved?.stdoutPath) || null),
       stderrPath: this.managed?.stderrPath ?? (stringValue(activeSaved?.stderrPath) || null),
-      logs: this.processLogs.slice(-220),
       knownProcesses,
       freshRunActive,
       gameSyncActive,
@@ -366,9 +351,9 @@ export class ManagedProcessController {
         state: proc.state,
         stateDir,
       });
-      this.appendLog("ui", `process exited code=${code ?? "null"} signal=${signal ?? "null"}`);
+      uiLog("ui", `process exited code=${code ?? "null"} signal=${signal ?? "null"}`);
     });
-    this.appendLog("ui", `started ${name} pid=${pid}: ${command.join(" ")}`);
+    uiLog("ui", `started ${name} pid=${pid}: ${command.join(" ")}`);
     return proc;
   }
 
@@ -391,21 +376,21 @@ export class ManagedProcessController {
         state: this.managed.state,
         stateDir,
       });
-      this.appendLog("ui", "stop requested");
+      uiLog("ui", "stop requested");
       if (this.managed.pid) {
         try {
           process.kill(-this.managed.pid, "SIGTERM");
         } catch (error) {
-          this.appendLog("stderr", `SIGTERM failed: ${error instanceof Error ? error.message : String(error)}`);
+          uiLog("stderr", `SIGTERM failed: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
       const graceful = await waitForExit(this.managed, GRACEFUL_STOP_TIMEOUT_MS);
       if (!graceful && this.managed.pid) {
         try {
           process.kill(-this.managed.pid, "SIGKILL");
-          this.appendLog("ui", "sent SIGKILL to process group");
+          uiLog("ui", "sent SIGKILL to process group");
         } catch (error) {
-          this.appendLog("stderr", `SIGKILL failed: ${error instanceof Error ? error.message : String(error)}`);
+          uiLog("stderr", `SIGKILL failed: ${error instanceof Error ? error.message : String(error)}`);
         }
         await waitForExit(this.managed, 2000);
       }
@@ -427,20 +412,20 @@ export class ManagedProcessController {
         state: "stopping",
         stateDir,
       });
-      this.appendLog("ui", `stop requested for saved process ${name} pid=${pid}`);
+      uiLog("ui", `stop requested for saved process ${name} pid=${pid}`);
       try {
         process.kill(-pid, "SIGTERM");
       } catch (error) {
-        this.appendLog("stderr", `SIGTERM failed: ${error instanceof Error ? error.message : String(error)}`);
+        uiLog("stderr", `SIGTERM failed: ${error instanceof Error ? error.message : String(error)}`);
       }
       let exited = await waitForProcessGroupExit(pid, GRACEFUL_STOP_TIMEOUT_MS);
       let signal = "SIGTERM";
       if (!exited) {
         try {
           process.kill(-pid, "SIGKILL");
-          this.appendLog("ui", `sent SIGKILL to saved process group ${pid}`);
+          uiLog("ui", `sent SIGKILL to saved process group ${pid}`);
         } catch (error) {
-          this.appendLog("stderr", `SIGKILL failed: ${error instanceof Error ? error.message : String(error)}`);
+          uiLog("stderr", `SIGKILL failed: ${error instanceof Error ? error.message : String(error)}`);
         }
         signal = "SIGKILL";
         exited = await waitForProcessGroupExit(pid, 2000);
@@ -467,7 +452,7 @@ export class ManagedProcessController {
     if (recoveryCommand && input.recoverClaims !== false) {
       const result = await runCommand(recoveryCommand);
       recovery = { command: recoveryCommand, ...result };
-      this.appendLog("ui", `recover-claims exit=${result.exitCode}`);
+      uiLog("ui", `recover-claims exit=${result.exitCode}`);
     }
     return { stopped, recovery, process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
   }

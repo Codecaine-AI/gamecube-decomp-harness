@@ -6,6 +6,8 @@ import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
 export interface KnowledgeCycleSessionInput {
   globals: GlobalArgs;
+  /** Explicit game id when the CLI invocation did not hydrate globals.game. */
+  gameId?: string | null;
   /**
    * Session id to use when the game has no active cycle. Operators run these
    * jobs against idle games, so every caller keeps the id it used before.
@@ -24,7 +26,8 @@ export interface KnowledgeCycleSessionInput {
  * is actually watching. They all resolve the active cycle through here now.
  */
 export function knowledgeCycleSessionId(input: KnowledgeCycleSessionInput): string {
-  const gameId = input.globals.game?.gameId ?? input.globals.gameId;
+  const explicitGameId = String(input.gameId ?? "").trim();
+  const gameId = explicitGameId || input.globals.game?.gameId || input.globals.gameId;
   if (input.db) {
     return canonicalCycleSessionId({ db: input.db, gameId, fallback: input.fallback });
   }

@@ -23,6 +23,7 @@ import {
 import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
 import { kgLibrarianCorroborate } from "@server/core/knowledge/jobs/librarian-corroborate.js";
 import { kgLibrarianBackfill } from "@server/core/knowledge/jobs/librarian-backfill.js";
+import { kgLibrarianBatch } from "@server/core/knowledge/jobs/librarian-batch.js";
 import { integrationResolve } from "@server/core/cycle-runtime/phases/running/integration/index.js";
 import { recoverClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { tick } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
@@ -62,6 +63,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "kg-librarian-condense") await kgLibrarianCondense(globals, args);
     else if (command === "kg-librarian-corroborate") await kgLibrarianCorroborate(globals, args);
     else if (command === "kg-librarian-backfill") await kgLibrarianBackfill(globals, args);
+    else if (command === "kg-librarian-batch") await kgLibrarianBatch(globals, args);
     else if (command === "kg-maintain") await kgMaintain(globals, args);
     else if (command === "kg-pr-indexer-agent") await kgPrIndexerAgent(globals, args);
     else if (command === "kg-knowledge-intake-agent") await kgKnowledgeIntakeAgent(globals, args);

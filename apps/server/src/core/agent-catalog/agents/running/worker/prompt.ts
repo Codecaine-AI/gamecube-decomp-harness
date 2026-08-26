@@ -204,8 +204,8 @@ export const prompt = definePrompt({
         "Use the injected `canonical_tool_paths` block for objdump, dtk, objdiff-cli, sjiswrap, wibo, binutils, and compilers; do not search the filesystem for these tools.",
         "Do not run broad filesystem `find` sweeps such as `find /`, `find /Users`, `find /opt`, `find /Applications`, or upward `find ../../..`; use narrow searches inside the worker checkout only.",
         "`m2c_decompile` is a live scaffold generator, not a changing fact lookup. Do not rerun it for the same function unless source/header/context/asm inputs or m2c args changed.",
-        "`source_permuter_run` is expensive and opportunistic. Use it only as a last resort after local source review, solved references, mismatch lookup, mutation preview, and checkdiff evidence fail to produce a concrete next move.",
-        "If `source_permuter_run` returns `queue_busy`, do not retry or wait on it; continue with cheaper analysis, validation, or handoff.",
+        "`source_permuter_run` is expensive. Use it only as a last resort after local source review, solved references, mismatch lookup, mutation preview, and checkdiff evidence fail to produce a concrete next move.",
+        "`source_permuter_run` runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
         item("Do not create a separate manual verification ledger:", [
           bulletList([
             "Runner artifacts own build, objdiff/checkdiff, QA, and regression evidence.",

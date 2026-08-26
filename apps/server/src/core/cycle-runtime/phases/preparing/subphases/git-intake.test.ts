@@ -26,7 +26,6 @@ describe("prepare git intake", () => {
     const calls: string[][] = [];
     let revParseCount = 0;
     const deps = {
-      appendLog: () => undefined,
       runGit: async (_repoRoot: string, args: string[]) => {
         calls.push(args);
         if (args[0] === "rev-parse" && args.at(-1) === "origin/master") {

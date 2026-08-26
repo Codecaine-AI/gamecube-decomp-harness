@@ -32,7 +32,6 @@ describe("boundary save points", () => {
     }
 
     const runtime = createSavePointRuntime({
-      appendLog: () => undefined,
       invalidateCampaignCache: () => undefined,
       outputTail: (value) => value,
       resolveDashboardGame: () => {
@@ -83,7 +82,6 @@ describe("boundary save points", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "boundary-save-point-no-cycle-"));
     cleanup.push(stateDir);
     const runtime = createSavePointRuntime({
-      appendLog: () => undefined,
       invalidateCampaignCache: () => undefined,
       outputTail: (value) => value,
       resolveDashboardGame: () => {
@@ -119,7 +117,6 @@ describe("boundary save points", () => {
     cleanup.push(stateDir);
     mkdirSync(join(stateDir, "orchestrator.sqlite"));
     const runtime = createSavePointRuntime({
-      appendLog: () => undefined,
       invalidateCampaignCache: () => undefined,
       outputTail: (value) => value,
       resolveDashboardGame: () => { throw new Error("not used"); },

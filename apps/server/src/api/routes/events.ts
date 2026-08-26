@@ -3,6 +3,9 @@ import {
   DEFAULT_EVENT_QUERY_LIMIT,
   MAX_EVENT_QUERY_LIMIT,
   GameEventQueryValidationError,
+  type GameEventCorrelationSummary,
+  type GameEventDescendingQueryInput,
+  type GameEventDescendingQueryPage,
   type GameEventQueryInput,
   type GameEventQueryPage,
   type GameEventReconstruction,
@@ -22,6 +25,14 @@ export interface EventsApiRouteDeps {
     stateDir: string,
     input: GameEventQueryInput,
   ) => GameEventQueryPage | Promise<GameEventQueryPage>;
+  queryEventsDescending: (
+    stateDir: string,
+    input: GameEventDescendingQueryInput,
+  ) => GameEventDescendingQueryPage | Promise<GameEventDescendingQueryPage>;
+  listCorrelations: (
+    stateDir: string,
+    gameId: string,
+  ) => GameEventCorrelationSummary[] | Promise<GameEventCorrelationSummary[]>;
   reconstructEvents: (
     stateDir: string,
     gameId: string,
@@ -159,6 +170,40 @@ function listInput(params: URLSearchParams, gameId: string): GameEventQueryInput
   };
 }
 
+function descendingListInput(
+  params: URLSearchParams,
+  gameId: string,
+): GameEventDescendingQueryInput {
+  for (const name of ["after_sequence", "from_sequence", "to_sequence"]) {
+    if (params.has(name)) {
+      throw new EventsApiInputError(`${name} cannot be used with order=desc`);
+    }
+  }
+  return {
+    gameId,
+    correlationId: nonblankParam(params, "correlation_id"),
+    subject: subjectFilter(params),
+    eventTypePrefix: nonblankParam(params, "event_type_prefix"),
+    beforeSequence: integerParam(params, "before_sequence", { minimum: 0 }),
+    limit: integerParam(params, "limit", {
+      defaultValue: DEFAULT_EVENT_QUERY_LIMIT,
+      minimum: 1,
+      maximum: MAX_EVENT_QUERY_LIMIT,
+    }),
+  };
+}
+
+function listOrder(params: URLSearchParams): "asc" | "desc" {
+  const order = params.get("order") ?? "asc";
+  if (order !== "asc" && order !== "desc") {
+    throw new EventsApiInputError('order must be "asc" or "desc"');
+  }
+  if (order !== "desc" && params.has("before_sequence")) {
+    throw new EventsApiInputError("before_sequence requires order=desc");
+  }
+  return order;
+}
+
 function inputErrorResponse(error: EventsApiInputError, deps: EventsApiRouteDeps): Response {
   return deps.json({ error: error.message }, { status: 400 });
 }
@@ -173,8 +218,13 @@ export async function handleEventsApiRoute(
   deps: EventsApiRouteDeps,
 ): Promise<Response | null> {
   const listPath = "/api/events";
+  const correlationsPath = "/api/events/correlations";
   const reconstructPath = "/api/events/reconstruct";
-  if (url.pathname !== listPath && url.pathname !== reconstructPath) return null;
+  if (
+    url.pathname !== listPath &&
+    url.pathname !== correlationsPath &&
+    url.pathname !== reconstructPath
+  ) return null;
   if (req.method !== "GET") {
     return deps.json(
       { error: "method not allowed" },
@@ -194,6 +244,20 @@ export async function handleEventsApiRoute(
     request = gameRequest(url, deps);
   } catch {
     return deps.json({ error: "Invalid game context" }, { status: 400 });
+  }
+
+  if (url.pathname === correlationsPath) {
+    try {
+      return deps.json({
+        game_id: request.gameId,
+        correlations: await deps.listCorrelations(request.stateDir, request.gameId),
+      });
+    } catch (error) {
+      if (error instanceof GameEventQueryValidationError) {
+        return deps.json({ error: error.message }, { status: 400 });
+      }
+      return readFailureResponse(deps);
+    }
   }
 
   if (url.pathname === reconstructPath) {
@@ -216,6 +280,31 @@ export async function handleEventsApiRoute(
           options,
         ),
       );
+    } catch (error) {
+      if (error instanceof GameEventQueryValidationError) {
+        return deps.json({ error: error.message }, { status: 400 });
+      }
+      return readFailureResponse(deps);
+    }
+  }
+
+  let order: "asc" | "desc";
+  try {
+    order = listOrder(url.searchParams);
+  } catch (error) {
+    if (error instanceof EventsApiInputError) return inputErrorResponse(error, deps);
+    return deps.json({ error: "Invalid game event request" }, { status: 400 });
+  }
+  if (order === "desc") {
+    let input: GameEventDescendingQueryInput;
+    try {
+      input = descendingListInput(url.searchParams, request.gameId);
+    } catch (error) {
+      if (error instanceof EventsApiInputError) return inputErrorResponse(error, deps);
+      return deps.json({ error: "Invalid game event request" }, { status: 400 });
+    }
+    try {
+      return deps.json(await deps.queryEventsDescending(request.stateDir, input));
     } catch (error) {
       if (error instanceof GameEventQueryValidationError) {
         return deps.json({ error: error.message }, { status: 400 });

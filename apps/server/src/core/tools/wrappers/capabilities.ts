@@ -425,7 +425,7 @@ export const sourcePermuterRunToolRegistration = knowledgeApiTool({
   label: "Source Permuter Run",
   purpose: "Run a bounded non-mutating source permutation search for one function.",
   description: "Search source-level mutations, compile candidates with MWCC, and return the best diff without applying it.",
-  guidance: "Use source_permuter_run only as a last-resort source-shape search after cheaper source review, reference matching, mismatch lookup, mutation preview, and checkdiff evidence are exhausted; it is expensive, opportunistic, and may return queue_busy instead of waiting.",
+  guidance: "Use source_permuter_run only as an expensive last-resort source-shape search after cheaper source review, reference matching, mismatch lookup, mutation preview, and checkdiff evidence are exhausted; it runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
   parameters: {
     type: "object",
     properties: {
@@ -442,34 +442,37 @@ export const sourcePermuterRunToolRegistration = knowledgeApiTool({
     required: ["function"],
     additionalProperties: false,
   },
-  args(params, context) {
-    const fn = stringParam(params, "function");
-    if (!fn) return { status: "missing_function" };
-    const args = [
-      "--repo-root",
-      context.repoRoot,
-      "--function",
-      fn,
-      "--max-iters",
-      String(boundedNumber(params.max_iters, 32, 1, 10_000)),
-      "--timeout-seconds",
-      String(boundedNumber(params.timeout_seconds, 90, 5, 900)),
-      "--jobs",
-      String(boundedNumber(params.jobs, 1, 1, 16)),
-      "--seed",
-      String(boundedNumber(params.seed, 0, 0, 2_147_483_647)),
-      "--apply",
-      "never",
-    ];
-    const mutateFunctions = stringListParam(params.mutate_functions);
-    for (const mutateFn of mutateFunctions) args.push("--mutate-function", mutateFn);
-    if (typeof params.keep_prob === "number") args.push("--keep-prob", String(params.keep_prob));
-    if (boolParam(params, "no_narrow")) args.push("--no-narrow");
-    const saveReplay = stringParam(params, "save_replay");
-    if (saveReplay) args.push("--save-replay", gamePath(context, saveReplay));
-    return args;
-  },
+  args: sourcePermuterRunArgs,
 });
+
+/** Build source-permuter arguments with sandbox auto-parallelism and serial host fallback. */
+export function sourcePermuterRunArgs(params: Record<string, unknown>, context: AgentToolRuntimeContext): string[] | Record<string, unknown> {
+  const fn = stringParam(params, "function");
+  if (!fn) return { status: "missing_function" };
+  const args = [
+    "--repo-root",
+    context.repoRoot,
+    "--function",
+    fn,
+    "--max-iters",
+    String(boundedNumber(params.max_iters, 32, 1, 10_000)),
+    "--timeout-seconds",
+    String(boundedNumber(params.timeout_seconds, 90, 5, 900)),
+    "--seed",
+    String(boundedNumber(params.seed, 0, 0, 2_147_483_647)),
+    "--apply",
+    "never",
+  ];
+  if (params.jobs !== undefined) args.push("--jobs", String(boundedNumber(params.jobs, 1, 1, 16)));
+  else if (!context.sandboxHandle) args.push("--jobs", "1");
+  const mutateFunctions = stringListParam(params.mutate_functions);
+  for (const mutateFn of mutateFunctions) args.push("--mutate-function", mutateFn);
+  if (typeof params.keep_prob === "number") args.push("--keep-prob", String(params.keep_prob));
+  if (boolParam(params, "no_narrow")) args.push("--no-narrow");
+  const saveReplay = stringParam(params, "save_replay");
+  if (saveReplay) args.push("--save-replay", gamePath(context, saveReplay));
+  return args;
+}
 
 /** Tool for replaying a saved source-permutation recipe without applying it. */
 export const sourcePermuterReplayToolRegistration = knowledgeApiTool({
@@ -479,7 +482,7 @@ export const sourcePermuterReplayToolRegistration = knowledgeApiTool({
   label: "Source Permuter Replay",
   purpose: "Replay a saved source-permutation recipe without writing source.",
   description: "Replay a permuter recipe against current source and return the resulting candidate diff/score.",
-  guidance: "Use source_permuter_replay when a previous candidate recipe needs validation against the current checkout; inspect the diff before applying anything, and treat queue_busy as a signal to continue without waiting.",
+  guidance: "Use source_permuter_replay when a previous candidate recipe needs validation against the current checkout; it is an expensive last-resort tool that runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue. Inspect the diff before applying anything.",
   parameters: {
     type: "object",
     properties: {

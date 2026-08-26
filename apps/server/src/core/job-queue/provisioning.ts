@@ -1,7 +1,8 @@
-import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { cp, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { posix, resolve } from "node:path";
+import { posix, relative, resolve } from "node:path";
+import { defaultToolpackId, toolpackRoot } from "@server/core/knowledge/paths.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { runCommand } from "@server/infrastructure/shell";
 import {
@@ -16,10 +17,118 @@ export interface ProvisionCommandResult { exitCode: number; stdout: string; stde
 export type ProvisionCommandRunner = (cwd: string, command: string[], options?: { timeoutMs?: number }) => Promise<ProvisionCommandResult>;
 
 const SETUP_TIMEOUT_MS = 20 * 60 * 1000;
+const TOOLPACK_SETUP_TIMEOUT_MS = 180_000;
 const SANDBOX_BUNDLE_PATH = "/tmp/melee-claim-seed.bundle";
 
 const defaultRunner: ProvisionCommandRunner = async (cwd, command, options) => runCommand(cwd, command, options);
 const outputTail = (text: string, maxChars = 2000) => text.length <= maxChars ? text : text.slice(-maxChars);
+
+function excludedToolpackPath(path: string): boolean {
+  const normalized = path.split(posix.sep).join("/");
+  const segments = normalized.split("/");
+  return normalized === "_impl/gamecube/mwcc_debug"
+    || normalized.startsWith("_impl/gamecube/mwcc_debug/")
+    || normalized === "_impl/gamecube/sandbox-image"
+    || normalized.startsWith("_impl/gamecube/sandbox-image/")
+    || segments.includes("tests")
+    || segments.includes("__pycache__")
+    || normalized.endsWith(".pyc");
+}
+
+async function payloadFiles(root: string, directory = root): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await payloadFiles(root, path));
+    else if (entry.isFile()) files.push(`./${relative(root, path).split(posix.sep).join("/")}`);
+  }
+  return files;
+}
+
+async function toolpackContentStamp(payloadRoot: string): Promise<string> {
+  const files = (await payloadFiles(payloadRoot)).filter((file) => file !== "./.ready");
+  files.sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+  let listing = "";
+  for (const file of files) {
+    const digest = createHash("sha256").update(await readFile(resolve(payloadRoot, file.slice(2)))).digest("hex");
+    listing += `${digest}  ${file}\n`;
+  }
+  return createHash("sha256").update(listing).digest("hex");
+}
+
+async function checkedToolpackExec(sandbox: SandboxHandle, command: string[], label: string): Promise<void> {
+  const result = await sandbox.exec(command, { timeoutMs: TOOLPACK_SETUP_TIMEOUT_MS });
+  if (result.exitCode !== 0) {
+    throw new Error(`${label} failed (${result.exitCode}): ${outputTail(result.stderr || result.stdout)}`);
+  }
+}
+
+export async function ensureSandboxToolpack(
+  sandbox: SandboxHandle,
+  params: { hostToolpackRoot: string; toolpackId: string },
+): Promise<void> {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), "sandbox-toolpack-"));
+  try {
+    const payloadRoot = resolve(tempRoot, "payload");
+    const payloadToolpackRoot = resolve(payloadRoot, "toolpacks", params.toolpackId);
+    await cp(params.hostToolpackRoot, payloadToolpackRoot, {
+      recursive: true,
+      filter: (source) => {
+        const path = relative(params.hostToolpackRoot, source).split(posix.sep).join("/");
+        return path === "" || !excludedToolpackPath(path);
+      },
+    });
+    const stamp = await toolpackContentStamp(payloadToolpackRoot);
+    const remoteToolpackRoot = `/opt/toolpacks/${params.toolpackId}`;
+    const readyPath = `${remoteToolpackRoot}/.ready`;
+    try {
+      if ((await sandbox.readFile(readyPath)).trim() === stamp) return;
+    } catch {}
+
+    const tarPath = resolve(tempRoot, `toolpack-${params.toolpackId}.tar`);
+    const tarResult = await runCommand(payloadRoot, [
+      "tar",
+      "-cf",
+      tarPath,
+      `--exclude=toolpacks/${params.toolpackId}/_impl/gamecube/mwcc_debug`,
+      `--exclude=toolpacks/${params.toolpackId}/_impl/gamecube/sandbox-image`,
+      "--exclude=*/tests",
+      "--exclude=*/tests/*",
+      "--exclude=*/__pycache__",
+      "--exclude=*/__pycache__/*",
+      "--exclude=*.pyc",
+      "toolpacks",
+    ], {
+      timeoutMs: TOOLPACK_SETUP_TIMEOUT_MS,
+    });
+    if (tarResult.exitCode !== 0) {
+      throw new Error(`sandbox toolpack archive creation failed (${tarResult.exitCode}): ${outputTail(tarResult.stderr || tarResult.stdout)}`);
+    }
+    const remoteTarPath = `/tmp/toolpack-${params.toolpackId}.tar`;
+    await sandbox.uploadFile(tarPath, remoteTarPath);
+    await checkedToolpackExec(
+      sandbox,
+      [
+        "bash",
+        "-lc",
+        'rm -rf "$1" && mkdir -p /opt/toolpacks && tar -xf "$2" -C /opt',
+        "--",
+        remoteToolpackRoot,
+        remoteTarPath,
+      ],
+      "sandbox toolpack extraction",
+    );
+    await sandbox.writeFile(readyPath, `${stamp}\n`);
+    await checkedToolpackExec(
+      sandbox,
+      ["bash", "-lc", 'rm -f "$1"', "--", remoteTarPath],
+      "sandbox toolpack archive cleanup",
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
 
 export interface SandboxProvisionLabels extends Record<string, string> {
   game_id: string;
@@ -160,6 +269,11 @@ export async function provisionSandboxWorkspace(params: {
       params.workspaceRoot,
       "sandbox detached checkout",
     );
+    const toolpackId = defaultToolpackId();
+    await ensureSandboxToolpack(sandbox, {
+      hostToolpackRoot: toolpackRoot(toolpackId),
+      toolpackId,
+    });
     for (const source of params.reportArtifactSources) {
       await sandbox.uploadFile(source.sourcePath, posix.resolve(params.workspaceRoot, source.relativePath));
     }

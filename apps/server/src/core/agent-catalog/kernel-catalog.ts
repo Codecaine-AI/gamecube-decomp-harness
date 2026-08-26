@@ -291,7 +291,12 @@ export const meleeKernelAgentCatalog = [
       "apps/server/src/core/agent-catalog/agents/knowledge/librarian/prompt.ts",
       "apps/server/src/core/agent-catalog/agents/knowledge/librarian/schema.json",
     ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "librarian-context"],
+    contextLoaderKinds: [
+      ...ROOT_CONTEXT_LOADERS,
+      "librarian-context",
+      "librarian-curation-context",
+      "librarian-pr-index-context",
+    ],
     resultContract: resultContract(
       "librarian_v1",
       "apps/server/src/core/agent-catalog/agents/knowledge/librarian/schema.json",

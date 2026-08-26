@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { listGameEvents } from "@server/core/harness-state/events.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
+  ensureSandboxToolpack,
   provisionSandboxWorkspace,
   type ProvisionCommandRunner,
   type SandboxProvisionLabels,
@@ -105,14 +106,19 @@ describe("provisionSandboxWorkspace", () => {
     expect(hostCalls[0]?.command).toEqual(["git", "update-ref", bundleRef!, "base-rev"]);
     expect(hostCalls[1]?.command).toEqual(["git", "bundle", "create", expect.any(String), "baked-rev..base-rev", bundleRef!]);
     expect(hostCalls[2]?.command).toEqual(["git", "update-ref", "-d", bundleRef!]);
-    expect(provider.execCalls.map(({ command, opts }) => ({ command, opts }))).toEqual([
+    expect(provider.execCalls.slice(0, 3).map(({ command, opts }) => ({ command, opts }))).toEqual([
       { command: ["git", "bundle", "verify", "/tmp/melee-claim-seed.bundle"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
       { command: ["git", "fetch", "/tmp/melee-claim-seed.bundle", "base-rev"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
       { command: ["git", "checkout", "--force", "--detach", "base-rev"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
-      { command: ["/bin/sh", "-c", "test -x build/tools/wibo-real && test -x build/tools/objdiff-cli && test -x build/tools/dtk"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },
     ]);
+    expect(provider.execCalls.at(-1)).toEqual({
+      sandboxId: "sandbox-1",
+      command: ["/bin/sh", "-c", "test -x build/tools/wibo-real && test -x build/tools/objdiff-cli && test -x build/tools/dtk"],
+      opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined },
+    });
     expect(provider.uploadCalls.map(({ remotePath }) => remotePath)).toEqual([
       "/tmp/melee-claim-seed.bundle",
+      "/tmp/toolpack-gamecube-decomp.tar",
       "/opt/melee/build/GALE01/report.json",
       "/opt/melee/build/GALE01/report_changes.json",
       "/opt/melee/build/GALE01/baseline.json",
@@ -153,11 +159,13 @@ describe("provisionSandboxWorkspace", () => {
     });
 
     expect(hostCalled).toBe(false);
-    expect(provider.uploadCalls).toEqual([]);
-    expect(provider.execCalls.map((call) => call.command)).toEqual([
+    expect(provider.uploadCalls.map((call) => call.remotePath)).toEqual(["/tmp/toolpack-gamecube-decomp.tar"]);
+    expect(provider.execCalls.slice(0, 2).map((call) => call.command)).toEqual([
       ["git", "rev-parse", "--verify", "same-rev^{commit}"],
       ["git", "checkout", "--force", "--detach", "same-rev"],
-      ["/bin/sh", "-c", "test -x build/tools/wibo-real && test -x build/tools/objdiff-cli && test -x build/tools/dtk"],
+    ]);
+    expect(provider.execCalls.at(-1)?.command).toEqual([
+      "/bin/sh", "-c", "test -x build/tools/wibo-real && test -x build/tools/objdiff-cli && test -x build/tools/dtk",
     ]);
     expect(provider.createdSandboxes[0]?.params.ttlMinutes).toBe(31);
   });
@@ -192,5 +200,48 @@ describe("provisionSandboxWorkspace", () => {
       job_id: "job-1",
       claim_id: "claim-1",
     });
+  });
+});
+
+describe("ensureSandboxToolpack", () => {
+  test("uploads an absent toolpack and skips it when the remote content stamp matches", async () => {
+    const root = await mkdtemp(resolve(tmpdir(), "provision-toolpack-"));
+    roots.push(root);
+    const hostToolpackRoot = resolve(root, "fixture-pack");
+    await mkdir(resolve(hostToolpackRoot, "api"), { recursive: true });
+    await writeFile(resolve(hostToolpackRoot, "api", "run.py"), "print('fixture')\n");
+    await mkdir(resolve(hostToolpackRoot, "tests"), { recursive: true });
+    await writeFile(resolve(hostToolpackRoot, "tests", "excluded.py"), "excluded\n");
+
+    const provider = new FakeSandboxProvider();
+    const sandbox = await provider.create({
+      snapshot: "fixture",
+      labels: {},
+      resources: { cpu: 1, memoryGiB: 1, diskGiB: 1 },
+      ttlMinutes: 1,
+    });
+    await ensureSandboxToolpack(sandbox, { hostToolpackRoot, toolpackId: "fixture-pack" });
+
+    expect(provider.uploadCalls.map((call) => call.remotePath)).toEqual(["/tmp/toolpack-fixture-pack.tar"]);
+    expect(provider.execCalls).toHaveLength(2);
+    expect(provider.execCalls.every((call) => call.opts.timeoutMs === 180_000)).toBeTrue();
+    expect(provider.execCalls[0]?.command).toEqual([
+      "bash",
+      "-lc",
+      'rm -rf "$1" && mkdir -p /opt/toolpacks && tar -xf "$2" -C /opt',
+      "--",
+      "/opt/toolpacks/fixture-pack",
+      "/tmp/toolpack-fixture-pack.tar",
+    ]);
+    const ready = await sandbox.readFile("/opt/toolpacks/fixture-pack/.ready");
+    expect(ready).toMatch(/^[0-9a-f]{64}\n$/);
+
+    provider.uploadCalls.splice(0);
+    provider.execCalls.splice(0);
+    await ensureSandboxToolpack(sandbox, { hostToolpackRoot, toolpackId: "fixture-pack" });
+
+    expect(provider.uploadCalls).toEqual([]);
+    expect(provider.execCalls).toEqual([]);
+    expect(await sandbox.readFile("/opt/toolpacks/fixture-pack/.ready")).toBe(ready);
   });
 });

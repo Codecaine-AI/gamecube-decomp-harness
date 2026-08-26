@@ -56,7 +56,6 @@ describe("process control runtime", () => {
     } as unknown as ResolvedGame;
 
     const runtime = createProcessControlRuntime({
-      appendLog: () => undefined,
       json: (data, init) => new Response(JSON.stringify(data), init),
       processController,
       processStatus: () => ({}),
@@ -179,7 +178,6 @@ describe("process control runtime", () => {
       graphDbPath: "/tmp/melee-graph.sqlite",
     } as unknown as ResolvedGame;
     const runtime = createProcessControlRuntime({
-      appendLog: () => undefined,
       json: (data, init) => new Response(JSON.stringify(data), init),
       processController,
       processStatus: () => ({}),
@@ -246,7 +244,6 @@ describe("process control runtime", () => {
     } as unknown as ResolvedGame;
 
     const runtime = createProcessControlRuntime({
-      appendLog: () => undefined,
       json: (data, init) => new Response(JSON.stringify(data), init),
       processController,
       processStatus: () => ({}),
@@ -316,7 +313,6 @@ describe("process control runtime", () => {
         graphDbPath: "/tmp/melee-graph.sqlite",
       } as unknown as ResolvedGame;
       const runtime = createProcessControlRuntime({
-        appendLog: () => undefined,
         json: (data, init) => new Response(JSON.stringify(data), init),
         processController,
         processStatus: () => ({}),
@@ -460,7 +456,6 @@ describe("process control runtime", () => {
         graphDbPath: join(stateDir, "graph.sqlite"),
       } as unknown as ResolvedGame;
       const runtime = createProcessControlRuntime({
-        appendLog: () => undefined,
         json: (data, init) => new Response(JSON.stringify(data), init),
         processController,
         processStatus: () => ({}),

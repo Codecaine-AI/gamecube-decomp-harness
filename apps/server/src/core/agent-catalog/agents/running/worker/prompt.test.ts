@@ -248,13 +248,13 @@ describe("workerPrompt", () => {
     expect(systemPrompt).toContain("Develop a few concrete hypotheses for what could be done");
     expect(systemPrompt).toContain("Test the hypotheses with targeted deeper analysis.");
     expect(systemPrompt).toContain(
-      "`source_permuter_run` is expensive and opportunistic. Use it only as a last resort",
+      "`source_permuter_run` is expensive. Use it only as a last resort",
     );
     expect(systemPrompt).toContain("Use the injected `canonical_tool_paths` block");
     expect(systemPrompt).toContain("Do not run broad filesystem `find` sweeps");
     expect(systemPrompt).toContain("Do not rerun it for the same function unless source/header/context/asm inputs or m2c args changed");
     expect(systemPrompt).toContain(
-      "If `source_permuter_run` returns `queue_busy`, do not retry or wait on it",
+      "`source_permuter_run` runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue",
     );
     expect(systemPrompt).toContain(
       "When a target is near exact, use mismatch-specific probes and source mutation previews first",

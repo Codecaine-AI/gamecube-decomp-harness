@@ -1,5 +1,6 @@
 import { recordReportRunDashboardArtifacts, type ReportRunResult } from "@server/core/validation/report";
 import { openState } from "@server/core/cycle-runtime/run-state";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import {
   outputTail,
   type JsonObject,
@@ -41,11 +42,11 @@ export async function resetReportBaselineForPrepare(
   artifactContext?: PrepareReportArtifactContext,
 ): Promise<JsonObject> {
   deps.operationStep("reset report baseline");
-  deps.appendLog("ui", "fresh report start reset started");
+  uiLog("ui", "fresh report start reset started");
   const rawResult = await runReport(repoRoot, { generateChanges: false, resetBaseline: true });
   await recordPrepareReportArtifacts(rawResult, artifactContext);
   const result = compactReportRunResult(rawResult);
-  deps.appendLog("ui", "fresh report start reset complete");
+  uiLog("ui", "fresh report start reset complete");
   return result;
 }
 
@@ -56,11 +57,11 @@ export async function reportAgainstNewBaselineForPrepare(
   artifactContext?: PrepareReportArtifactContext,
 ): Promise<JsonObject> {
   deps.operationStep("report against new baseline");
-  deps.appendLog("ui", "fresh report changes started");
+  uiLog("ui", "fresh report changes started");
   const rawResult = await runReport(repoRoot, { resetBaseline: false });
   await recordPrepareReportArtifacts(rawResult, artifactContext);
   const result = compactReportRunResult(rawResult);
-  deps.appendLog("ui", "fresh report changes complete");
+  uiLog("ui", "fresh report changes complete");
   return result;
 }
 

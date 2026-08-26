@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 export interface CliResult {
   exitCode: number | null;
@@ -13,7 +14,6 @@ export interface UiCommandRunner {
 }
 
 export interface UiCommandRunnerDeps {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   packageRoot: string;
 }
 
@@ -35,13 +35,13 @@ export function createUiCommandRunner(deps: UiCommandRunnerDeps): UiCommandRunne
     child.stdout?.on("data", (chunk) => {
       const value = String(chunk);
       stdoutChunks.push(value);
-      deps.appendLog("stdout", value);
+      uiLog("stdout", value);
     });
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk) => {
       const value = String(chunk);
       stderrChunks.push(value);
-      deps.appendLog("stderr", value);
+      uiLog("stderr", value);
     });
     const exitCode = await new Promise<number | null>((resolveExit) => child.on("close", (code) => resolveExit(code)));
     return { exitCode, stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") };

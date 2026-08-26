@@ -3,6 +3,7 @@ import { latestSavePoint } from "@server/core/cycle-runtime/phases/pr/state";
 import { openState } from "@server/core/cycle-runtime/run-state";
 import { parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/runtime";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 type JsonObject = Record<string, unknown>;
 
@@ -12,7 +13,6 @@ export interface CampaignStatusService {
 }
 
 export interface CampaignStatusServiceDeps {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   outputTail: (textValue: string, maxLength?: number) => string;
   runGit: (repoRoot: string, args: string[], options?: { check?: boolean; failureHint?: string }) => Promise<CliResult>;
 }
@@ -56,12 +56,12 @@ export function createCampaignStatusService(deps: CampaignStatusServiceDeps): Ca
           invalidateCampaignCache();
         } else {
           upstreamFetches.set(key, { at: lastAt, inFlight: false });
-          deps.appendLog("stderr", `background fetch ${remote} failed (${result.exitCode}): ${deps.outputTail(result.stderr || result.stdout, 400)}`);
+          uiLog("stderr", `background fetch ${remote} failed (${result.exitCode}): ${deps.outputTail(result.stderr || result.stdout, 400)}`);
         }
       })
       .catch((error) => {
         upstreamFetches.set(key, { at: lastAt, inFlight: false });
-        deps.appendLog("stderr", `background fetch ${remote} failed: ${error instanceof Error ? error.message : String(error)}`);
+        uiLog("stderr", `background fetch ${remote} failed: ${error instanceof Error ? error.message : String(error)}`);
       });
     return lastAt || null;
   }

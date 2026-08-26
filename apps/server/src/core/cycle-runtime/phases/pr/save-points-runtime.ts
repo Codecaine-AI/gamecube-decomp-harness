@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { recordSavePointFailureDurably } from "@server/core/cycle";
 import type { GameRuntimeContext } from "@server/core/game-registry";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 type JsonObject = Record<string, unknown>;
 
@@ -18,7 +19,6 @@ export interface SavePointRuntime {
 }
 
 export interface SavePointRuntimeDeps {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   invalidateCampaignCache: () => void;
   outputTail: (textValue: string, maxLength?: number) => string;
   resolveDashboardGame: (input: JsonObject, options?: { useDefaultGame?: boolean }) => GameRuntimeContext;
@@ -78,7 +78,7 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
         actor,
       });
     if (!result.blockerRaised) {
-      deps.appendLog(
+      uiLog(
         "stderr",
         `save-point (${trigger}) durable failure record failed: ${result.error ?? "unknown persistence error"}`,
       );
@@ -104,7 +104,7 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
       deps.invalidateCampaignCache();
       if (result.exitCode !== 0) {
         const message = `save-point (${trigger}) failed (${result.exitCode}): ${deps.outputTail(result.stderr || result.stdout, 800)}`;
-        deps.appendLog("stderr", message);
+        uiLog("stderr", message);
         return {
           ok: false,
           savePointId: null,
@@ -115,18 +115,18 @@ export function createSavePointRuntime(deps: SavePointRuntimeDeps): SavePointRun
       const savePointId = stringValue(asObject(parsed.savePoint).id) || null;
       if (!savePointId) {
         const message = `save-point (${trigger}) failed: command succeeded without a save-point id`;
-        deps.appendLog("stderr", message);
+        uiLog("stderr", message);
         return {
           ok: false,
           savePointId: null,
           blockerRaised: recordBoundaryFailure(paths, trigger, label, message, commandId, actor, workflowCorrelationId),
         };
       }
-      deps.appendLog("ui", `save-point (${trigger}) recorded`);
+      uiLog("ui", `save-point (${trigger}) recorded`);
       return { ok: true, savePointId, blockerRaised: false };
     } catch (error) {
       const message = `save-point (${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`;
-      deps.appendLog("stderr", message);
+      uiLog("stderr", message);
       return {
         ok: false,
         savePointId: null,

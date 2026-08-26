@@ -25,6 +25,7 @@ import type { EventActor, JsonObject, JsonValue } from "@server/core/harness-sta
 import { requireLease } from "@server/core/harness-state/lease.js";
 import { runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { syncStagingPaths } from "./git.js";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import {
   appendSyncKnowledgeEventInTransaction,
   getSyncState,
@@ -123,7 +124,6 @@ export interface StageSyncKnowledgeInput {
    */
   concurrency?: number;
   /** Optional per-job progress log sink; lines are prefixed with the source id. */
-  appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
 }
 
 export interface CompleteSyncKnowledgeIngestInput extends StageSyncKnowledgeInput {
@@ -1127,14 +1127,14 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
       const job = runnable[nextIndex]!;
       nextIndex += 1;
       inFlight += 1;
-      input.appendLog?.(
+      uiLog(
         "stdout",
         `[sync ${sync.sync_id}] knowledge job ${job.sourceId} started (${completedCount}/${runnable.length} done, ${inFlight} in flight)`,
       );
       try {
         await runJob(job);
         completedCount += 1;
-        input.appendLog?.(
+        uiLog(
           "stdout",
           `[sync ${sync.sync_id}] knowledge job ${job.sourceId} succeeded (${completedCount}/${runnable.length} done)`,
         );
@@ -1143,7 +1143,7 @@ export async function stageSyncKnowledge(input: StageSyncKnowledgeInput): Promis
           anyFailed = true;
           firstError = error;
         }
-        input.appendLog?.(
+        uiLog(
           "stderr",
           `[sync ${sync.sync_id}] knowledge job ${job.sourceId} failed: ${error instanceof Error ? error.message : String(error)}`,
         );

@@ -1028,6 +1028,61 @@ export function appendSyncKnowledgeEventInTransaction(
   });
 }
 
+type SyncDiscordEventInput = {
+  syncId: string;
+  commandId: string;
+  actor?: "operator" | "runner";
+  spanId?: string;
+  parentSpanId?: string;
+  occurredAt?: string;
+} & (
+  | { eventType: "sync.discord_refresh_requested"; payload: Record<never, never> }
+  | {
+      eventType: "sync.discord_refresh_completed";
+      payload: {
+        ok: boolean;
+        detail: string;
+        duration_ms: number;
+        messages_pulled: number | null;
+      };
+    }
+  | {
+      eventType: "sync.discord_staged";
+      payload: {
+        batches: number;
+        messages: number;
+        days: number;
+        channels: number;
+        first_message_at: string | null;
+        last_message_at: string | null;
+      };
+    }
+);
+
+/** Appends a Discord intake fact without revising the sync state envelope. */
+export function appendSyncDiscordEvent(
+  store: StateStore,
+  input: SyncDiscordEventInput,
+): AppendedGameEvent {
+  return immediateTransaction(store.db, () => {
+    const sync = getSyncState(store, requiredText(input.syncId, "syncId"));
+    if (!sync) throw new Error(`Sync not found: ${input.syncId}`);
+    return appendGameEvent(store.db, {
+      eventType: input.eventType,
+      gameId: sync.game_id,
+      subjectKind: "sync_workflow",
+      subjectId: sync.sync_id,
+      correlationId: sync.sync_id,
+      causationId: requiredText(input.commandId, "commandId"),
+      traceId: sync.trace_id,
+      ...eventSpan(input.parentSpanId ?? input.spanId ?? syncActionSpanId(input.commandId)),
+      actor: input.actor ?? "operator",
+      occurredAt: input.occurredAt ?? currentTime(),
+      payload: input.payload,
+    });
+  });
+}
+
 function requestedPayload(intake: SyncIntake): JsonObject {
   return {
     upstream_from: intake.upstream_from,

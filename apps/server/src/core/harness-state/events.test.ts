@@ -54,6 +54,42 @@ afterEach(() => {
 });
 
 describe("game event registry", () => {
+  test("validates Discord sync intake facts strictly", () => {
+    const store = openTestStore();
+    try {
+      const base = envelope("sync.discord_refresh_completed", "sync_workflow", {
+        ok: true,
+        detail: "pulled",
+        duration_ms: 42,
+        messages_pulled: null,
+      });
+      expect(() => appendGameEvent(store.db, base)).not.toThrow();
+      expect(() => appendGameEvent(store.db, {
+        ...base,
+        payload: { ...base.payload, ok: "yes" },
+      })).toThrow("payload fact ok must be boolean");
+      expect(() => appendGameEvent(store.db, envelope(
+        "sync.discord_staged",
+        "sync_workflow",
+        {
+          batches: 1,
+          messages: 10,
+          days: 2,
+          channels: 1,
+          first_message_at: null,
+          last_message_at: "2026-08-02T00:00:00.000Z",
+        },
+      ))).not.toThrow();
+      expect(() => appendGameEvent(store.db, envelope(
+        "sync.discord_refresh_requested",
+        "sync_workflow",
+        { unexpected: true },
+      ))).toThrow("unregistered facts");
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("rejects unknown event types, subject mismatches, and schema-version drift", () => {
     const store = openTestStore();
     try {

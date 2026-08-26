@@ -5,6 +5,7 @@ import {
   type GameEventTraceLinkage,
 } from "@server/core/harness-state/kernel-links.js";
 import { openState } from "@server/core/orchestrator-state";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import type { SyncState, SyncWorkflowEventType } from "./types.js";
 
 /** Trace status vocabulary shared with the kernel bridge, restated locally so
@@ -41,6 +42,8 @@ export type SubmitSyncWorkflowEvent<TPaths> = (
  */
 export type SyncMilestone =
   | "activation"
+  | "discord_refresh"
+  | "discord_staged"
   | "ingest"
   | "reconciling"
   | "validated"
@@ -59,6 +62,16 @@ interface SyncMilestoneDescriptor {
 
 const MILESTONES: Record<SyncMilestone, SyncMilestoneDescriptor> = {
   activation: { eventTypes: ["sync.ingesting"], operation: "sync.start", status: "started" },
+  discord_refresh: {
+    eventTypes: ["sync.discord_refresh_completed"],
+    operation: "sync.discord_refresh",
+    status: "completed",
+  },
+  discord_staged: {
+    eventTypes: ["sync.discord_staged"],
+    operation: "sync.discord_stage",
+    status: "completed",
+  },
   ingest: { eventTypes: ["sync.ingesting"], operation: "sync.ingest", status: "started" },
   reconciling: { eventTypes: ["sync.reconciling"], operation: "sync.reconcile", status: "started" },
   validated: { eventTypes: ["sync.validated"], operation: "sync.validate", status: "completed" },
@@ -97,7 +110,6 @@ function latestSyncEventId(
 }
 
 export interface SyncTraceEmitterDeps<TPaths> {
-  appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   submitWorkflowEvent?: SubmitSyncWorkflowEvent<TPaths>;
 }
 
@@ -149,6 +161,9 @@ export function createSyncTraceEmitter<TPaths extends { stateDir: string }>(
     const submit = deps.submitWorkflowEvent;
     if (!submit) return;
     const descriptor = MILESTONES[milestone];
+    const status = milestone === "discord_refresh" && options.metadata?.ok === false
+      ? "failed"
+      : descriptor.status;
     try {
       const cycleUuid = sync.cycle_uuid.trim();
       let linkage: GameEventTraceLinkage | null = null;
@@ -161,7 +176,7 @@ export function createSyncTraceEmitter<TPaths extends { stateDir: string }>(
         if (!cycle || cycle.game_id !== sync.game_id) {
           if (!missingCycleLogged) {
             missingCycleLogged = true;
-            deps.appendLog?.(
+            uiLog(
               "stderr",
               `sync trace emission skipped: sync ${sync.sync_id} has no resolvable cycle (${cycleUuid || "none"})`,
             );
@@ -182,7 +197,7 @@ export function createSyncTraceEmitter<TPaths extends { stateDir: string }>(
       await submit(paths, {
         kind: "sync-intake",
         operation: descriptor.operation,
-        status: descriptor.status,
+        status,
         sessionId: cycleUuid,
         detail: options.detail ?? null,
         metadata: {
@@ -196,9 +211,9 @@ export function createSyncTraceEmitter<TPaths extends { stateDir: string }>(
         ...linkage,
       });
     } catch (cause) {
-      deps.appendLog?.(
+      uiLog(
         "stderr",
-        `sync trace emission failed (${descriptor.operation}/${descriptor.status}) for ${sync.sync_id}: ${
+        `sync trace emission failed (${descriptor.operation}/${status}) for ${sync.sync_id}: ${
           cause instanceof Error ? cause.message : String(cause)
         }`,
       );

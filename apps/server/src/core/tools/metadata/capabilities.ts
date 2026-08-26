@@ -65,12 +65,12 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
   source_permuter_run: {
     provider: "source_permuter",
     type: "exploration",
-    useWhen: "Run last-resort bounded non-mutating source-shape search only after cheaper evidence is exhausted; may return queue_busy instead of waiting.",
+    useWhen: "Run an expensive last-resort bounded non-mutating source-shape search inside the claim sandbox after cheaper evidence is exhausted; jobs default to all sandbox cores, with no cross-worker queue.",
   },
   source_permuter_replay: {
     provider: "source_permuter",
     type: "exploration",
-    useWhen: "Replay a saved non-mutating source-permutation recipe against the current checkout when a slot is available; may return queue_busy instead of waiting.",
+    useWhen: "Replay a saved non-mutating source-permutation recipe as an expensive last-resort tool inside the claim sandbox; jobs default to all sandbox cores, with no cross-worker queue.",
   },
   source_mutation_preview: {
     provider: "source_permuter",

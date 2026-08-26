@@ -7,8 +7,9 @@ import {
 } from "../runtime-shared.js";
 import type { DispatchLeaseRevalidator } from "@server/core/cycle-runtime/dispatch-guard";
 import { ensurePrepareWorktrees } from "./worktrees.js";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
-type GitDiscoveryDeps = Pick<PreparingRuntimeDeps, "appendLog" | "runGit">;
+type GitDiscoveryDeps = Pick<PreparingRuntimeDeps, "runGit">;
 interface GitDiscoveryPaths {
   game: { baseRef?: string } | null;
   repoRoot: string;
@@ -66,10 +67,10 @@ export async function fetchUpstreamAndFindMergedPrs(
     },
   ];
 
-  deps.appendLog("ui", `git fetch ${remote} started`);
+  uiLog("ui", `git fetch ${remote} started`);
   revalidateLease?.();
   const fetch = await deps.runGit(paths.repoRoot, ["fetch", "--prune", remote], { failureHint: `Unable to fetch ${remote}` });
-  deps.appendLog("ui", `git fetch ${remote} complete`);
+  uiLog("ui", `git fetch ${remote} complete`);
   steps.push({ name: "git_fetch", command: ["git", "fetch", "--prune", remote], exitCode: fetch.exitCode, stdout: outputTail(fetch.stdout, 2000), stderr: outputTail(fetch.stderr, 2000) });
 
   const after = await deps.runGit(paths.repoRoot, ["rev-parse", "--verify", baseRef], { failureHint: `Unable to read ${baseRef} after sync` });
@@ -83,7 +84,7 @@ export async function fetchUpstreamAndFindMergedPrs(
   const range = `${beforeRef}..${afterRef}`;
   const log = await deps.runGit(paths.repoRoot, ["log", "--first-parent", "--format=%s%n%b", range], { failureHint: `Unable to inspect merged PRs in ${range}` });
   const mergedPrs = mergedPullRequestNumbers(log.stdout);
-  deps.appendLog("ui", mergedPrs.length ? `merged PRs newly landed: ${mergedPrs.map((number) => `#${number}`).join(", ")}` : "no merged PR numbers found in newly pulled commits");
+  uiLog("ui", mergedPrs.length ? `merged PRs newly landed: ${mergedPrs.map((number) => `#${number}`).join(", ")}` : "no merged PR numbers found in newly pulled commits");
   steps.push({ name: "discover_merged_prs", command: ["git", "log", "--first-parent", "--format=%s%n%b", range], exitCode: log.exitCode, stdout: outputTail(log.stdout, 4000), stderr: outputTail(log.stderr, 2000), mergedPrs });
   return { afterRef, baseRef, beforeRef, branch, mergedPrs, steps };
 }
@@ -98,11 +99,11 @@ export async function syncGameGitAndFindMergedPrs(
   const { afterRef, baseRef, beforeRef, branch, mergedPrs } = discovery;
   const steps = [...discovery.steps];
 
-  deps.appendLog("ui", `prepare upstream-current worktree update started: ${baseRef} @ ${afterRef.slice(0, 10)}`);
+  uiLog("ui", `prepare upstream-current worktree update started: ${baseRef} @ ${afterRef.slice(0, 10)}`);
   revalidateLease?.();
   const worktrees = await ensurePrepareWorktrees(deps, paths, afterRef, cycleUuid, revalidateLease);
-  deps.appendLog("ui", `prepare upstream-current worktree ready: ${worktrees.upstreamWorktreePath}`);
-  if (worktrees.cycleCurrentWorktreePath) deps.appendLog("ui", `prepare cycle current worktree ready: ${worktrees.cycleCurrentWorktreePath}`);
+  uiLog("ui", `prepare upstream-current worktree ready: ${worktrees.upstreamWorktreePath}`);
+  if (worktrees.cycleCurrentWorktreePath) uiLog("ui", `prepare cycle current worktree ready: ${worktrees.cycleCurrentWorktreePath}`);
   steps.push(...worktrees.steps);
   if (worktrees.linkedAssets > 0) {
     steps.push({ name: "link_orig_assets", linkedAssets: worktrees.linkedAssets });

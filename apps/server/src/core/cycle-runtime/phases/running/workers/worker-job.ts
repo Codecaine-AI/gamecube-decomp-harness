@@ -350,8 +350,13 @@ export function workerJobDescriptor(
       sandboxDeletionFired.add(job.jobId);
       const deletion = Promise.resolve()
         .then(() => deleteSandboxForJob(ctx.store, freshJob, "settlement", deps))
-        .then(() => undefined)
-        .catch((error) => console.warn(`[sandbox] settlement teardown failed for job ${job.jobId}`, error));
+        .then((deleted) => {
+          if (!deleted) sandboxDeletionFired.delete(job.jobId);
+        })
+        .catch((error) => {
+          sandboxDeletionFired.delete(job.jobId);
+          console.warn(`[sandbox] settlement teardown failed for job ${job.jobId}`, error);
+        });
       deps.trackSandboxDeletion?.(deletion);
     },
     onComplete: (job, result) => {

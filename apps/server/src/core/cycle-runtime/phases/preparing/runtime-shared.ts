@@ -5,7 +5,7 @@ import type {
 import type { PreparingPhaseState } from "@server/core/cycle";
 import { getLatestRun, openState } from "@server/core/cycle-runtime/run-state";
 import type { GameSummary, ResolvedGame } from "@server/core/game-registry";
-import type { ProcessLogLine } from "@server/infrastructure/process-control/managed-process-controller";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import type { ReportRunOptions, ReportRunResult } from "@server/core/validation/report";
 import type { BoundarySavePointResult } from "@server/core/cycle-runtime/phases/pr/save-points-runtime";
 
@@ -52,7 +52,6 @@ export interface PreparingRuntimeState {
 
 export interface PreparingRuntimeDeps {
   activeCyclePrBlockers: (stateDir: string) => string[];
-  appendLog: (stream: ProcessLogLine["stream"], text: string) => void;
   beginOperation: (name: string, label: string, stepNames: string[]) => void;
   boundarySavePoint: (paths: PreparingRuntimeGameContext, trigger: string, cycleUuid: string, label?: string) => Promise<BoundarySavePointResult>;
   endOperation: (error?: unknown) => void;
@@ -157,9 +156,9 @@ export async function prPostmortemMode(deps: PreparingRuntimeDeps, dryRunAgents:
   try {
     if (await deps.kernelEnabled()) return "pi";
   } catch (error) {
-    deps.appendLog("stderr", `agent-kernel status check failed; PR postmortems will use scaffold mode: ${error instanceof Error ? error.message : String(error)}`);
+    uiLog("stderr", `agent-kernel status check failed; PR postmortems will use scaffold mode: ${error instanceof Error ? error.message : String(error)}`);
   }
-  deps.appendLog("ui", "agent-kernel unavailable; PR postmortems will use scaffold mode");
+  uiLog("ui", "agent-kernel unavailable; PR postmortems will use scaffold mode");
   return "scaffold";
 }
 
@@ -170,9 +169,9 @@ export async function runFreshStep(
   command: string[],
   cwd: string,
 ): Promise<void> {
-  deps.appendLog("ui", `${name} started: ${command.join(" ")}`);
+  uiLog("ui", `${name} started: ${command.join(" ")}`);
   const result = await deps.runCli(command, cwd);
-  deps.appendLog("ui", `${name} exit=${result.exitCode}`);
+  uiLog("ui", `${name} exit=${result.exitCode}`);
   const step = {
     name,
     command,

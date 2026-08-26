@@ -579,7 +579,7 @@ export async function kgPrIndexerAgent(globals: GlobalArgs, args: Map<string, st
     kernelContext: createMeleeKernelSpawnContext({
       kind: prepareIntake ? "intake-postmortem" : "postmortem",
       gameId: kernelGameId || undefined,
-      sessionId: runId,
+      sessionId: knowledgeCycleSessionId({ globals, gameId: kernelGameId || undefined, fallback: runId }),
       runId,
       epochId,
       itemId,
@@ -683,7 +683,7 @@ export async function kgKnowledgeIntakeAgent(globals: GlobalArgs, args: Map<stri
     kernelContext: createMeleeKernelSpawnContext({
       kind: "intake-knowledge",
       gameId: kernelGameId || undefined,
-      sessionId: runId,
+      sessionId: knowledgeCycleSessionId({ globals, gameId: kernelGameId || undefined, fallback: runId }),
       runId,
       itemId,
       prId: prNumber || undefined,
@@ -900,6 +900,7 @@ async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, strin
   await mkdir(outputDir, { recursive: true });
   const deterministicRecordCount = countJsonlRecords(enrichmentPath);
   const runId = stringArg(args, "--run-id", "");
+  const kernelGameId = stringArg(args, "--kernel-project-id", globals.game?.gameId ?? globals.gameId ?? "");
   const reviewed = await mapLimit(batches, Math.min(jobs, batches.length || 1), async (batch, index) => {
     const result = await runPiAgent({
       role: "librarian",
@@ -933,9 +934,13 @@ async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, strin
       },
       kernelContext: createMeleeKernelSpawnContext({
         kind: "knowledge-curation",
-        gameId: globals.game?.gameId ?? globals.gameId,
-        sessionId: knowledgeCycleSessionId({ globals, fallback: runId || "knowledge-curation" }),
-        runId: runId || "knowledge-curation",
+        gameId: kernelGameId || undefined,
+        sessionId: knowledgeCycleSessionId({
+          globals,
+          gameId: kernelGameId || undefined,
+          fallback: runId || "knowledge-curation",
+        }),
+        runId: runId || undefined,
         jobId: `${runId || "knowledge-curation"}-batch-${index + 1}`,
         jobKind: "Curator review",
         phase: "knowledge-curation",
@@ -946,6 +951,8 @@ async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, strin
           batchIndex: index + 1,
           batchCount: batches.length,
           sampledRecords: batch.length,
+          recordCount: batch.length,
+          batchId: `${runId || "knowledge-curation"}-batch-${index + 1}`,
         },
       }),
     });

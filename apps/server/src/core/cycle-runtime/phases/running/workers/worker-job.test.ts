@@ -579,6 +579,41 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
+  test("poll watcher retries sandbox deletion after a provider failure", async () => {
+    const f = fixture();
+    try {
+      const backingProvider = new FakeSandboxProvider();
+      const result = await sandboxClaim(f, backingProvider);
+      let attempts = 0;
+      const provider: SandboxProvider = {
+        create: (params) => backingProvider.create(params),
+        get: (sandboxId) => backingProvider.get(sandboxId),
+        listByLabels: (labels) => backingProvider.listByLabels(labels),
+        delete: async (sandboxId, reason) => {
+          attempts += 1;
+          if (attempts === 1) throw new Error("provider unavailable");
+          await backingProvider.delete(sandboxId, reason);
+        },
+      };
+      const tracked: Promise<void>[] = [];
+      const descriptor = workerJobDescriptor(f.ctx, {
+        sandboxProvider: provider,
+        trackSandboxDeletion: (deletion) => tracked.push(deletion),
+      });
+      if (!descriptor.onPoll) throw new Error("Expected worker poll watcher");
+      f.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
+      f.store.db.query("UPDATE target_claims SET status = 'closed' WHERE id = ?").run(String(result.job.payload.target_claim_id));
+
+      descriptor.onPoll(result.job, { store: f.store });
+      await tracked[0];
+      descriptor.onPoll(result.job, { store: f.store });
+      await tracked[1];
+
+      expect(attempts).toBe(2);
+      expect(backingProvider.deletedSandboxes).toHaveLength(1);
+    } finally { f.store.db.close(); }
+  });
+
   test("poll watcher keeps an active sandbox while its worker state is open", async () => {
     const f = fixture();
     try {

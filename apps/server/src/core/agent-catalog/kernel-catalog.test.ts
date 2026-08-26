@@ -21,8 +21,9 @@ import {
   type KernelAgentId,
 } from "./kernel-catalog.js";
 import { loadKernelAgentsPayload } from "./kernel-preview.js";
-import { defaultKernelTurnPrompt } from "./kernel-context.js";
+import { defaultKernelTurnPrompt, ROOT_CONTEXT_LOADER_KIND } from "./kernel-context.js";
 import { defaultLibrarianToolProfile, resolveAgentToolIds } from "@server/core/tools/index.js";
+import { createMeleeLoaderCatalog } from "@server/infrastructure/kernel/bridge/loaders.js";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
 const sampleRepoRoot = resolve(repoRoot, "apps/server/testdata/smoke_repo");
@@ -110,6 +111,24 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
 }
 
 describe("meleeKernelAgentCatalog", () => {
+  test("registers every declared context loader kind", () => {
+    const catalog = createMeleeLoaderCatalog();
+
+    for (const entry of meleeKernelAgentCatalog) {
+      for (const kind of entry.contextLoaderKinds) {
+        expect(catalog.has(kind)).toBeTrue();
+      }
+    }
+  });
+
+  test("registers all librarian context loader kinds", () => {
+    const catalog = createMeleeLoaderCatalog();
+
+    expect(catalog.has("librarian-context")).toBeTrue();
+    expect(catalog.has("librarian-curation-context")).toBeTrue();
+    expect(catalog.has("librarian-pr-index-context")).toBeTrue();
+  });
+
   test("covers every registered backend agent exactly once", () => {
     const registeredIds = Object.keys(agentRegistry) as KernelAgentId[];
 
@@ -179,7 +198,16 @@ describe("meleeKernelAgentCatalog", () => {
           : bundle.userPrompt,
       );
       expect(converted.contextResolver).not.toBeNull();
-      expect(converted.contextResolver?.loaders.map((loader) => loader.kind)).toEqual(entry.contextLoaderKinds);
+      expect(converted.contextResolver?.loaders.map((loader) => loader.kind)).toEqual([
+        ROOT_CONTEXT_LOADER_KIND,
+        ...(bundle.kernelContext?.inputs.map((input) => input.loaderKind) ?? []),
+      ]);
+      for (const kind of [
+        ROOT_CONTEXT_LOADER_KIND,
+        ...(bundle.kernelContext?.inputs.map((input) => input.loaderKind) ?? []),
+      ]) {
+        expect(entry.contextLoaderKinds).toContain(kind);
+      }
       expect(`${converted.parsed.body}\n${converted.userPrompt}\n${bundle.userPrompt}`).not.toMatch(unresolvedPlaceholderPattern);
     }
   });
@@ -204,7 +232,16 @@ describe("meleeKernelAgentCatalog", () => {
         expect(viewerDefinition.renderedPrompt?.content).not.toContain("=== INITIAL USER PROMPT ===");
       }
       expect(viewerDefinition.renderedPrompt?.content).not.toMatch(unresolvedPlaceholderPattern);
-      expect(viewerDefinition.context?.inputs.map((input) => input.loaderKind)).toEqual(entry.contextLoaderKinds);
+      expect(viewerDefinition.context?.inputs.map((input) => input.loaderKind)).toEqual([
+        ROOT_CONTEXT_LOADER_KIND,
+        ...(bundle.kernelContext?.inputs.map((input) => input.loaderKind) ?? []),
+      ]);
+      for (const kind of [
+        ROOT_CONTEXT_LOADER_KIND,
+        ...(bundle.kernelContext?.inputs.map((input) => input.loaderKind) ?? []),
+      ]) {
+        expect(entry.contextLoaderKinds).toContain(kind);
+      }
       expect(viewerDefinition.context?.modulePath).toBe(entry.promptPaths.contextModulePath);
       expect(viewerDefinition.context?.renderedContext).toBe(bundle.kernelContext?.renderedContext ?? bundle.userPrompt);
     }

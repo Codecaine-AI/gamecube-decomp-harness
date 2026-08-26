@@ -13,6 +13,18 @@ import { resolveStateToolArtifact, resolveToolPlatform, type ToolPlatform } from
 import { runSandboxM2cFetchFirst } from "./wrappers/m2c-decompile.js";
 import { runSandboxTypeLayoutIndexFallback } from "./wrappers/type-layout-fetch.js";
 import { runSandboxMwccAllocCompare, runSandboxMwccAllocSnapshot } from "./wrappers/mwcc-alloc.js";
+import { commandPayload, runWorkspaceToolApi } from "./wrappers/workspace-tool-exec.js";
+
+export { SANDBOX_TOOLPACK_ROOT } from "./wrappers/workspace-tool-exec.js";
+
+const WORKSPACE_SURFACED_SCRIPTS: Record<string, "*" | readonly string[]> = {
+  checkdiff: "*",
+  objdiff_score: "*",
+  source_permuter: "*",
+  type_oracle: "*",
+  mwcc_debug: ["dump_function.py", "diagnose.py"],
+  review_lint: ["sdata2_order_helper.py"],
+};
 
 export interface ToolRuntimeContext {
   game?: RunGameMetadata;
@@ -317,39 +329,6 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
   };
 }
 
-function commandPayload(params: {
-  operation: string;
-  command: string[];
-  cwd: string;
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}): Record<string, unknown> {
-  let parsed: unknown = null;
-  let parse_error: string | null = null;
-  if (params.stdout.trim()) {
-    try {
-      parsed = JSON.parse(params.stdout);
-    } catch (error) {
-      parse_error = error instanceof Error ? error.message : String(error);
-    }
-  }
-  const failed = params.exitCode !== 0 || parse_error !== null;
-  return {
-    operation: params.operation,
-    cwd: params.cwd,
-    command: params.command,
-    exit_code: params.exitCode,
-    tool_error: failed ? true : undefined,
-    error_kind: failed ? (parse_error ? "tool_output_parse_error" : "command_failed") : undefined,
-    error_summary: failed ? parse_error ?? (params.stderr.trim() || `command exited ${params.exitCode}`) : undefined,
-    parsed,
-    parse_error,
-    stdout: parsed == null ? params.stdout : undefined,
-    stderr: params.stderr || undefined,
-  };
-}
-
 export async function runRegisteredToolApi(
   context: ToolRuntimeContext,
   toolId: string,
@@ -370,10 +349,6 @@ export async function runRegisteredToolApi(
   }
 
   const scriptPath = resolve(resolved.apiRoot, scriptName);
-  if (!existsSync(scriptPath)) {
-    return { status: "missing_api_script", tool_id: toolId, script_path: scriptPath, resolved_tool: resolvedTool };
-  }
-
   const cwd = packageRoot();
   const commandRunner = dependencies.runCommand ?? runCommand;
   if (toolId === "m2c_decomp" && scriptName === "decompile.py" && context.sandboxHandle) {
@@ -428,6 +403,24 @@ export async function runRegisteredToolApi(
       },
     });
     return { ...payload, resolved_tool: resolvedTool };
+  }
+
+  const surfacedScripts = WORKSPACE_SURFACED_SCRIPTS[toolId];
+  if (
+    context.sandboxHandle
+    && (surfacedScripts === "*" || surfacedScripts?.includes(scriptName))
+  ) {
+    return runWorkspaceToolApi({
+      sandboxHandle: context.sandboxHandle,
+      resolved,
+      resolvedTool,
+      scriptName,
+      args,
+    });
+  }
+
+  if (!existsSync(scriptPath)) {
+    return { status: "missing_api_script", tool_id: toolId, script_path: scriptPath, resolved_tool: resolvedTool };
   }
 
   const command = ["python3", scriptPath, ...args];

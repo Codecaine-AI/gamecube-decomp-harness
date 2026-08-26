@@ -12,8 +12,10 @@ import type { EventActor } from "@server/core/harness-state/events.js";
 import type { Blocker } from "@server/core/harness-state/types.js";
 import { readPrRecordsArtifact } from "@server/core/cycle-runtime/phases/pr/pr-records.js";
 import { fetchUpstreamAndFindMergedPrs, parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
+import { linkGameAssets } from "@server/core/cycle-runtime/phases/preparing/subphases/worktrees.js";
 import { readRegressionReport } from "@server/core/validation/objdiff/report.js";
 import { forceReportRun } from "@server/core/validation/report/index.js";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import {
   continueSyncRebaseAfterOperator,
   captureRecursiveWorktreeState,
@@ -65,7 +67,6 @@ export interface SyncEngineContext {
   game?: SyncGameContext | null;
   leaseId: string;
   runGit?: SyncGitRunner;
-  appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   now?: () => string;
   /** One actor owns every event emitted by the current action. */
   actor?: EventActor;
@@ -81,7 +82,11 @@ export interface ValidateSyncInput {
   syncId: string;
   expectedRevision: number;
   commandId: string;
-  validate?: (worktreePath: string, context: SyncEngineContext) => Promise<SyncValidationResult>;
+  validate?: (
+    worktreePath: string,
+    context: SyncEngineContext,
+    staging: SyncStagingProgress,
+  ) => Promise<SyncValidationResult>;
 }
 
 interface OpenPrSeries {
@@ -277,6 +282,11 @@ async function ensureCycleStaging(
     if (sync.staging.cycle_head_sha && sync.staging.cycle_head_sha !== head) {
       throw new Error(`Cycle head moved after sync staging was created (${sync.staging.cycle_head_sha} -> ${head})`);
     }
+    const workspacePath = sync.staging.workspace_path;
+    if (workspacePath && existsSync(workspacePath)) {
+      const linked = linkGameAssets(context.repoRoot, workspacePath);
+      uiLog("stdout", `sync ${sync.sync_id}: linked ${linked} game asset files into staging worktree`);
+    }
     return sync;
   }
   const paths = syncStagingPaths(context.stateDir, sync.sync_id);
@@ -285,6 +295,8 @@ async function ensureCycleStaging(
     if (existing.head !== head || existing.status.trim() || existing.rebaseInProgress) {
       throw new Error(`Unrecorded sync staging workspace is not a pristine snapshot of ${head}`);
     }
+    const linked = linkGameAssets(context.repoRoot, paths.cycleWorktree);
+    uiLog("stdout", `sync ${sync.sync_id}: linked ${linked} game asset files into staging worktree`);
   } else {
     await createDetachedSyncWorktree({
       repoRoot: context.repoRoot,
@@ -293,6 +305,8 @@ async function ensureCycleStaging(
       runGit: runner(context),
       revalidateLease: leaseGuard(context, sync),
     });
+    const linked = linkGameAssets(context.repoRoot, paths.cycleWorktree);
+    uiLog("stdout", `sync ${sync.sync_id}: linked ${linked} game asset files into staging worktree`);
   }
   const staging: SyncStagingProgress = {
     workspace_id: sync.sync_id,
@@ -322,7 +336,6 @@ async function discoverUpstream(context: SyncEngineContext, sync: SyncState) {
   const guard = leaseGuard(context, sync);
   return fetchUpstreamAndFindMergedPrs(
     {
-      appendLog: context.appendLog ?? (() => {}),
       runGit: runner(context),
     },
     { game: context.game ?? null, repoRoot: context.repoRoot },
@@ -403,7 +416,7 @@ async function reconcilePrSeries(
     if (series.prNumber === null) {
       const planned = await runner(context)(context.repoRoot, ["rev-parse", "--verify", series.branch], { check: false });
       if (planned.exitCode !== 0 || !planned.stdout.trim()) {
-        context.appendLog?.("stderr", `sync reconcile: skipping planned PR series with no branch or PR: ${series.branch}`);
+        uiLog("stderr", `sync reconcile: skipping planned PR series with no branch or PR: ${series.branch}`);
         continue;
       }
     }
@@ -758,7 +771,7 @@ async function pruneMootPrWorkspaces(
       continue;
     }
     droppedBranches.add(workspace.branch);
-    context.appendLog?.(
+    uiLog(
       "stderr",
       `sync ${sync.sync_id}: dropping staged PR workspace ${workspace.branch}: series merged/closed upstream`,
     );
@@ -950,9 +963,18 @@ export async function resolveSyncConflict(input: {
   });
 }
 
+export function syncValidationPolicy(staging: Pick<SyncStagingProgress, "epochs_applied">): {
+  adoptUpstream: boolean;
+  resetBaseline: boolean;
+} {
+  const adoptUpstream = staging.epochs_applied === 0;
+  return { adoptUpstream, resetBaseline: adoptUpstream };
+}
+
 async function defaultValidation(
   worktreePath: string,
   context: SyncEngineContext,
+  staging: SyncStagingProgress,
 ): Promise<SyncValidationResult> {
   const cycleWorktree = context.cycleWorktreePath;
   const cycleBuild = resolve(cycleWorktree, "build");
@@ -972,7 +994,24 @@ async function defaultValidation(
     const target = resolve(worktreePath, name);
     if (existsSync(source) && !existsSync(target)) copyFileSync(source, target, constants.COPYFILE_FICLONE);
   }
-  const report = await forceReportRun(worktreePath, { resetBaseline: false });
+  const { adoptUpstream, resetBaseline } = syncValidationPolicy(staging);
+  const report = await forceReportRun(worktreePath, { resetBaseline });
+  if (adoptUpstream) {
+    return {
+      result: "passed",
+      whatRan: report.steps.map((step) => ({ name: step.name, command: step.command, exit_code: step.exitCode })),
+      details: {
+        baseline_path: report.baselinePath,
+        report_changes_path: report.reportChangesPath,
+        reused_report: report.reusedReport ?? false,
+        incremental_cache_seeded_from: cycleWorktree,
+        upstream_adopted: true,
+        epochs_applied: staging.epochs_applied,
+        epochs_total: staging.epochs_total,
+        ...(report.summary ? { report_summary: report.summary as unknown as JsonObject } : {}),
+      },
+    };
+  }
   const regression = await readRegressionReport(report.reportChangesPath, "Sync staging validation", 0);
   const regressions = regression.regressions.length + regression.brokenMatches.length + regression.fuzzyRegressions.length;
   return {
@@ -1025,9 +1064,12 @@ export async function validateSync(context: SyncEngineContext, input: ValidateSy
     }
   }
 
+  const linked = linkGameAssets(context.repoRoot, sync.staging.workspace_path);
+  uiLog("stdout", `sync ${sync.sync_id}: linked ${linked} game asset files into staging worktree`);
+
   let result: SyncValidationResult;
   try {
-    result = await (input.validate ?? defaultValidation)(sync.staging.workspace_path, context);
+    result = await (input.validate ?? defaultValidation)(sync.staging.workspace_path, context, sync.staging);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     transitionSync(context.store, sync.sync_id, {

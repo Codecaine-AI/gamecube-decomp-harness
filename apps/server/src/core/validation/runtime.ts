@@ -2,6 +2,7 @@ import { compactReportRunResult } from "@server/core/cycle-runtime/phases/prepar
 import { forceReportRun, recordReportRunDashboardArtifacts } from "@server/core/validation/report";
 import { getLatestRun, getRun, openState } from "@server/core/cycle-runtime/run-state";
 import type { GameRuntimeContext, GameSummary, ResolvedGame } from "@server/core/game-registry";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 type JsonObject = Record<string, unknown>;
 
@@ -10,7 +11,6 @@ export interface ValidationRuntime {
 }
 
 export interface ValidationRuntimeDeps {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   gameToSummary: (game: ResolvedGame) => GameSummary;
   resolveDashboardGame: (input: JsonObject, options?: { useDefaultGame?: boolean }) => GameRuntimeContext;
 }
@@ -28,7 +28,7 @@ export function createValidationRuntime(deps: ValidationRuntimeDeps): Validation
     const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
     const repoRoot = paths.repoRoot;
     const resetBaseline = boolValue(body.resetBaseline);
-    deps.appendLog("ui", `report-run${resetBaseline ? " --reset-baseline" : ""} started`);
+    uiLog("ui", `report-run${resetBaseline ? " --reset-baseline" : ""} started`);
     const result = await forceReportRun(repoRoot, { resetBaseline });
     const store = openState(paths.stateDir);
     try {
@@ -44,7 +44,7 @@ export function createValidationRuntime(deps: ValidationRuntimeDeps): Validation
     } finally {
       store.db.close();
     }
-    deps.appendLog("ui", `report-run${resetBaseline ? " --reset-baseline" : ""} complete`);
+    uiLog("ui", `report-run${resetBaseline ? " --reset-baseline" : ""} complete`);
     return { game: paths.game ? deps.gameToSummary(paths.game) : null, ...compactReportRunResult(result) };
   }
 

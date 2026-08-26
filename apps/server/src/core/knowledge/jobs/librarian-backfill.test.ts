@@ -8,9 +8,12 @@ import {
   loadBackfillManifest,
   pendingPlannedBatches,
   planDiscordBatches,
+  planDiscordIncrementalBatches,
   planPastPrsBatches,
   planWorkerHistoryBatches,
+  workerHistorySpawnMetadata,
 } from "./librarian-backfill.js";
+import { meleeWorkerContainerId } from "@server/infrastructure/kernel/bridge/session-mapping";
 
 const tempDirs: string[] = [];
 
@@ -45,6 +48,32 @@ function workerPlannerFixture(): Database {
 }
 
 describe("librarian backfill batch planning", () => {
+  test("links worker-history metadata to its source worker containers", () => {
+    const db = new Database(":memory:");
+    db.run("CREATE TABLE runs (id TEXT PRIMARY KEY, cycle_uuid TEXT, game_id TEXT)");
+    db.run("CREATE TABLE worker_state (id TEXT PRIMARY KEY, run_id TEXT, epoch_id TEXT, target_claim_id TEXT)");
+    db.run("INSERT INTO runs VALUES ('run-1', 'cycle-1', 'melee')");
+    db.run("INSERT INTO worker_state VALUES ('worker-1', 'run-1', 'epoch-2', 'claim-3')");
+    const batch = {
+      batch_id: "batch-1",
+      source: "worker_history" as const,
+      descriptor: { target_key: "target-a", worker_state_ids: ["worker-1"] },
+    };
+    try {
+      expect(workerHistorySpawnMetadata(batch, db)).toEqual({
+        source: "worker_history",
+        batchId: "batch-1",
+        targetKey: "target-a",
+        workerStateIds: ["worker-1"],
+        workerContainerIds: [meleeWorkerContainerId({
+          gameId: "melee", sessionId: "cycle-1", runId: "run-1", epochId: "epoch-2", claimId: "claim-3",
+        })],
+      });
+    } finally {
+      db.close();
+    }
+  });
+
   test("groups checkpointed workers by target with deterministic ids and ordering", () => {
     const db = workerPlannerFixture();
     try {
@@ -142,6 +171,46 @@ describe("librarian backfill batch planning", () => {
 });
 
 describe("librarian backfill manifest", () => {
+  test("plans only the Discord tail after the highest completed line", () => {
+    const rawRoot = tempDir("librarian-incremental-discord-");
+    const channelDir = join(rawRoot, "channel-123");
+    const file = join(channelDir, "2026-08.jsonl");
+    mkdirSync(channelDir, { recursive: true });
+    writeFileSync(file, `${Array.from({ length: 11 }, (_, index) => JSON.stringify({ id: index })).join("\n")}\n`);
+    const completed = planDiscordBatches({ rawRoot, maxMessagesPerBatch: 4 }).slice(0, 2);
+    const manifest = new Map(completed.map((batch) => [batch.batch_id, {
+      batch_id: batch.batch_id, source: batch.source, status: "done" as const, attempts: 1,
+      updated_at: "2026-08-25T00:00:00.000Z", output_counts: null, descriptor: batch.descriptor,
+    }]));
+
+    const planned = planDiscordIncrementalBatches({ rawRoot, manifest, maxMessagesPerBatch: 4 });
+
+    expect(planned.map((batch) => batch.descriptor)).toEqual([{
+      channel_id: "channel-123", file, month: "2026-08", start_line: 8, end_line: 11, message_count: 3,
+    }]);
+  });
+
+  test("re-emits an uncovered failed Discord batch with its stored id", () => {
+    const rawRoot = tempDir("librarian-failed-discord-");
+    const channelDir = join(rawRoot, "channel-123");
+    const file = join(channelDir, "2026-08.jsonl");
+    mkdirSync(channelDir, { recursive: true });
+    writeFileSync(file, "{}\n{}\n");
+    const descriptor = { channel_id: "channel-123", file, month: "2026-08", start_line: 0, end_line: 2, message_count: 2 };
+    const manifest = new Map([["stored-id", {
+      batch_id: "stored-id", source: "discord" as const, status: "failed" as const, attempts: 2,
+      updated_at: "2026-08-25T00:00:00.000Z", output_counts: null, descriptor,
+    }]]);
+
+    expect(planDiscordIncrementalBatches({ rawRoot, manifest, maxMessagesPerBatch: 4 })[0]).toEqual({
+      batch_id: "stored-id", source: "discord", descriptor,
+    });
+  });
+
+  test("returns no incremental Discord batches for a missing root", () => {
+    expect(planDiscordIncrementalBatches({ rawRoot: join(tempDir("missing-discord-"), "absent"), manifest: new Map() })).toEqual([]);
+  });
+
   test("loads the last row per batch and filters completed batches from pending work", () => {
     const root = tempDir("librarian-backfill-manifest-");
     const manifestPath = join(root, "worker_history", "manifest.jsonl");

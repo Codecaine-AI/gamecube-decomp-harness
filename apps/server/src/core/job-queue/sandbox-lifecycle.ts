@@ -20,6 +20,7 @@ interface SandboxDeletionContext {
 export interface SandboxLifecycleDeps {
   sandboxProvider?: SandboxProvider;
   warn?: SandboxLifecycleWarning;
+  retryDelay?: (milliseconds: number) => Promise<void>;
 }
 
 export interface SandboxReconciliationResult {
@@ -39,6 +40,37 @@ function alreadyDeleted(store: StateStore, sandboxId: string): boolean {
     LIMIT 1`).get(sandboxId));
 }
 
+function providerError(error: unknown): {
+  name?: unknown;
+  message?: unknown;
+  status?: unknown;
+  statusCode?: unknown;
+  response?: { status?: unknown };
+} {
+  return error && typeof error === "object" ? error : {};
+}
+
+function isNotFound(error: unknown): boolean {
+  const candidate = providerError(error);
+  return candidate.name === "DaytonaNotFoundError"
+    || candidate.status === 404
+    || candidate.statusCode === 404
+    || candidate.response?.status === 404;
+}
+
+function isTransientDeleteFailure(error: unknown): boolean {
+  const candidate = providerError(error);
+  const status = candidate.status ?? candidate.statusCode ?? candidate.response?.status;
+  return status === 502
+    || (candidate.name === "DaytonaConflictError"
+      && typeof candidate.message === "string"
+      && candidate.message.toLowerCase().includes("state change in progress"));
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 async function deleteSandbox(
   store: StateStore,
   context: SandboxDeletionContext,
@@ -48,11 +80,22 @@ async function deleteSandbox(
   const provider = deps.sandboxProvider;
   if (!provider || alreadyDeleted(store, context.sandboxId)) return "skipped";
   const warn = deps.warn ?? ((message: string, error?: unknown) => console.warn(message, error));
-  try {
-    await provider.delete(context.sandboxId, reason);
-  } catch (error) {
-    warn(`[sandbox] failed to delete ${context.sandboxId} (${reason})`, error);
-    return "failed";
+  const retryDelay = deps.retryDelay ?? delay;
+  const retryWaits = [5_000, 15_000];
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await provider.delete(context.sandboxId, reason);
+      break;
+    } catch (error) {
+      if (isNotFound(error)) break;
+      const retryWait = retryWaits[attempt];
+      if (retryWait !== undefined && isTransientDeleteFailure(error)) {
+        await retryDelay(retryWait);
+        continue;
+      }
+      warn(`[sandbox] failed to delete ${context.sandboxId} (${reason})`, error);
+      return "failed";
+    }
   }
   try {
     emitSandboxDeletedEvent(store, {
@@ -166,7 +209,7 @@ export async function reconcileSandboxes(
       traceId: job?.traceId ?? nonempty(sandbox.labels.trace_id) ?? harness?.trace_id ?? `trace-sandbox-${sandbox.sandboxId}`,
       jobId,
       claimId,
-    }, "reconciliation", { sandboxProvider: provider, warn });
+    }, "reconciliation", { sandboxProvider: provider, warn, retryDelay: deps.retryDelay });
     if (deletion === "deleted" || deletion === "skipped") result.deleted += 1;
     else result.failed += 1;
   }

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { GameRuntimeContext } from "@server/core/game-registry";
 import type {
+  GameEventCorrelationSummary,
+  GameEventDescendingQueryInput,
+  GameEventDescendingQueryPage,
   GameEventQueryInput,
   GameEventQueryPage,
   GameEventReconstruction,
@@ -9,6 +12,8 @@ import type {
 import { handleEventsApiRoute, type EventsApiRouteDeps } from "./events.js";
 
 interface Calls {
+  correlations: Array<{ gameId: string; stateDir: string }>;
+  descendingQueries: Array<{ input: GameEventDescendingQueryInput; stateDir: string }>;
   queries: Array<{ input: GameEventQueryInput; stateDir: string }>;
   reconstructions: Array<{
     correlationId: string;
@@ -23,11 +28,32 @@ function routeDeps(options: {
   kernelTraces?: GameEventReconstruction["kernel_traces"];
   gameId?: string | null;
   queryError?: Error;
+  descendingQueryError?: Error;
+  correlationsError?: Error;
   reconstructionError?: Error;
   requestError?: Error;
 } = {}): { calls: Calls; deps: EventsApiRouteDeps } {
-  const calls: Calls = { queries: [], reconstructions: [], requestPaths: 0 };
+  const calls: Calls = {
+    correlations: [],
+    descendingQueries: [],
+    queries: [],
+    reconstructions: [],
+    requestPaths: 0,
+  };
   const page: GameEventQueryPage = { events: [], has_more: false, next_after_sequence: null };
+  const descendingPage: GameEventDescendingQueryPage = {
+    events: [],
+    has_more: true,
+    next_before_sequence: 101,
+  };
+  const correlations: GameEventCorrelationSummary[] = [{
+    correlation_id: "sync-1",
+    event_count: 12,
+    first_sequence: 101,
+    last_sequence: 140,
+    latest_occurred_at: "2026-08-25T12:00:00.000Z",
+    workflow: { kind: "sync", id: "sync-1" },
+  }];
   const reconstruction: GameEventReconstruction = {
     game_id: options.gameId ?? "melee",
     correlation_id: "sync-1",
@@ -62,6 +88,16 @@ function routeDeps(options: {
         if (options.queryError) throw options.queryError;
         calls.queries.push({ input, stateDir });
         return page;
+      },
+      queryEventsDescending: (stateDir, input) => {
+        if (options.descendingQueryError) throw options.descendingQueryError;
+        calls.descendingQueries.push({ input, stateDir });
+        return descendingPage;
+      },
+      listCorrelations: (stateDir, gameId) => {
+        if (options.correlationsError) throw options.correlationsError;
+        calls.correlations.push({ gameId, stateDir });
+        return correlations;
       },
       reconstructEvents: async (stateDir, gameId, correlationId, pageOptions) => {
         if (options.reconstructionError) throw options.reconstructionError;
@@ -102,6 +138,116 @@ describe("events API routes", () => {
       },
     }]);
     expect(await response?.json()).toEqual({ events: [], has_more: false, next_after_sequence: null });
+  });
+
+  test("delegates descending list requests with an exclusive cursor", async () => {
+    const { calls, deps } = routeDeps();
+    const url = new URL(
+      "http://localhost/api/events?order=desc&before_sequence=101&limit=25&correlation_id=sync-1",
+    );
+    const response = await handleEventsApiRoute(new Request(url), url, deps);
+
+    expect(response?.status).toBe(200);
+    expect(calls.descendingQueries).toEqual([{
+      stateDir: "/tmp/state",
+      input: {
+        gameId: "melee",
+        correlationId: "sync-1",
+        subject: undefined,
+        eventTypePrefix: undefined,
+        beforeSequence: 101,
+        limit: 25,
+      },
+    }]);
+    expect(calls.queries).toEqual([]);
+    expect(await response?.json()).toEqual({
+      events: [],
+      has_more: true,
+      next_before_sequence: 101,
+    });
+  });
+
+  test.each([
+    ["order=bogus", 'order must be "asc" or "desc"'],
+    ["order=desc&after_sequence=5", "after_sequence cannot be used with order=desc"],
+    ["before_sequence=5", "before_sequence requires order=desc"],
+    ["order=desc&from_sequence=1", "from_sequence cannot be used with order=desc"],
+  ])("rejects incompatible list ordering parameters: %s", async (query, error) => {
+    const { calls, deps } = routeDeps();
+    const url = new URL(`http://localhost/api/events?${query}`);
+    const response = await handleEventsApiRoute(new Request(url), url, deps);
+
+    expect(response?.status).toBe(400);
+    expect(await response?.json()).toEqual({ error });
+    expect(calls.queries).toEqual([]);
+    expect(calls.descendingQueries).toEqual([]);
+  });
+
+  test("lists correlations for the resolved game", async () => {
+    const { calls, deps } = routeDeps();
+    const url = new URL("http://localhost/api/events/correlations?gameId=melee");
+    const response = await handleEventsApiRoute(new Request(url), url, deps);
+
+    expect(response?.status).toBe(200);
+    expect(calls.correlations).toEqual([{ gameId: "melee", stateDir: "/tmp/state" }]);
+    expect(await response?.json()).toEqual({
+      game_id: "melee",
+      correlations: [{
+        correlation_id: "sync-1",
+        event_count: 12,
+        first_sequence: 101,
+        last_sequence: 140,
+        latest_occurred_at: "2026-08-25T12:00:00.000Z",
+        workflow: { kind: "sync", id: "sync-1" },
+      }],
+    });
+  });
+
+  test("rejects correlation path overrides before game resolution", async () => {
+    const { calls, deps } = routeDeps();
+    const url = new URL(
+      "http://localhost/api/events/correlations?gameId=melee&stateDir=/tmp/private",
+    );
+    const response = await handleEventsApiRoute(new Request(url), url, deps);
+
+    expect(response?.status).toBe(400);
+    expect(await response?.json()).toEqual({
+      error: "Game path and raw payload overrides are not supported",
+    });
+    expect(calls.requestPaths).toBe(0);
+    expect(calls.correlations).toEqual([]);
+  });
+
+  test("sanitizes correlation read failures", async () => {
+    const { deps } = routeDeps({
+      correlationsError: new Error("SQLITE_SCHEMA /private/orchestrator.sqlite"),
+    });
+    const url = new URL("http://localhost/api/events/correlations?gameId=melee");
+    const response = await handleEventsApiRoute(new Request(url), url, deps);
+
+    expect(response?.status).toBe(500);
+    expect(await response?.json()).toEqual({ error: "Game event read failed" });
+  });
+
+  test("returns Allow: GET for POST correlation requests", async () => {
+    const { calls, deps } = routeDeps();
+    const url = new URL("http://localhost/api/events/correlations?gameId=melee");
+    const response = await handleEventsApiRoute(
+      new Request(url, { method: "POST" }),
+      url,
+      deps,
+    );
+
+    expect(response?.status).toBe(405);
+    expect(response?.headers.get("Allow")).toBe("GET");
+    expect(await response?.json()).toEqual({ error: "method not allowed" });
+    expect(calls.requestPaths).toBe(0);
+  });
+
+  test("ignores unknown event API subpaths", async () => {
+    const { deps } = routeDeps();
+    const url = new URL("http://localhost/api/events/unknown");
+    expect(await handleEventsApiRoute(new Request(url), url, deps)).toBeNull();
   });
 
   const kernelTrace = {

@@ -1,12 +1,16 @@
 import { Database } from "bun:sqlite";
 import { immediateTransaction } from "../transaction.js";
 import { baselineMigration } from "./001-baseline.js";
+import { dropLegacyEpochColumnsMigration } from "./002-drop-legacy-epoch-columns.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
 export type { StorageMigration } from "./types.js";
 
-export const storageMigrations: readonly StorageMigration[] = Object.freeze([baselineMigration]);
+export const storageMigrations: readonly StorageMigration[] = Object.freeze([
+  baselineMigration,
+  dropLegacyEpochColumnsMigration,
+]);
 
 interface AppliedMigrationRow {
   version: number;
@@ -83,6 +87,13 @@ function applicationObjectCount(db: Database): number {
   return Number(row.count);
 }
 
+function bookkeepingMatchesMigrationPrefix(applied: AppliedMigrationRow[]): boolean {
+  return applied.every(
+    (row, index) =>
+      row.version === storageMigrations[index]?.version && row.name === storageMigrations[index]?.name,
+  );
+}
+
 function resetBaselineBookkeeping(db: Database): void {
   db.exec("DELETE FROM schema_migrations");
   db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
@@ -90,6 +101,23 @@ function resetBaselineBookkeeping(db: Database): void {
     baselineMigration.name,
     new Date().toISOString(),
   );
+}
+
+function applyPendingMigrations(db: Database): void {
+  const appliedVersions = new Set(
+    (db.query("SELECT version FROM schema_migrations").all() as Array<{ version: number }>).map(
+      ({ version }) => version,
+    ),
+  );
+  for (const migration of storageMigrations) {
+    if (appliedVersions.has(migration.version)) continue;
+    migration.up(db);
+    db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+      migration.version,
+      migration.name,
+      new Date().toISOString(),
+    );
+  }
 }
 
 export function runStorageMigrations(db: Database): void {
@@ -100,17 +128,18 @@ export function runStorageMigrations(db: Database): void {
       .query("SELECT version, name FROM schema_migrations ORDER BY version")
       .all() as AppliedMigrationRow[];
     if (
-      applied.length === 1 &&
-      applied[0]?.version === baselineMigration.version &&
-      applied[0]?.name === baselineMigration.name &&
+      applied.length > 0 &&
+      bookkeepingMatchesMigrationPrefix(applied) &&
       hasBaselineSentinels(db)
     ) {
+      applyPendingMigrations(db);
       return;
     }
 
     if (applicationObjectCount(db) === 0) {
       baselineMigration.up(db);
       resetBaselineBookkeeping(db);
+      applyPendingMigrations(db);
       return;
     }
 
@@ -128,5 +157,6 @@ export function runStorageMigrations(db: Database): void {
     ) {
       resetBaselineBookkeeping(db);
     }
+    applyPendingMigrations(db);
   });
 }

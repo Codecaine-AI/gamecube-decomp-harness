@@ -10,6 +10,7 @@ import {
   standardsSlicesRoot,
 } from "@server/core/knowledge/standards-files";
 import type { GameSummary, ResolvedGame } from "@server/core/game-registry";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -79,7 +80,6 @@ export interface StandardsService {
 }
 
 export interface StandardsServiceDeps {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   gameDefaults: (game: ResolvedGame | null) => JsonObject | null;
   gameToSummary: (game: ResolvedGame) => GameSummary;
 }
@@ -456,7 +456,7 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
     else records.push(merged);
     records.sort((a, b) => a.id.localeCompare(b.id));
     writeStandardsSlices(standardsRoot, records);
-    deps.appendLog("ui", `standards ${edit.id} ${existing ? "updated" : "created"} via Knowledge Base`);
+    uiLog("ui", `standards ${edit.id} ${existing ? "updated" : "created"} via Knowledge Base`);
     return { ok: true, savedId: edit.id, sourcePath: standardsRoot };
   }
 

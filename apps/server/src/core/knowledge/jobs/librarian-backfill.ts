@@ -36,6 +36,7 @@ import { openState, type StateStore } from "@server/core/cycle-runtime/run-state
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
+import { meleeWorkerContainerId } from "@server/infrastructure/kernel/bridge/session-mapping";
 
 export type BackfillSource = "worker_history" | "past_prs" | "discord";
 
@@ -106,7 +107,7 @@ interface SourcePlan {
 
 type PiAgentResult = Awaited<ReturnType<typeof runPiAgent>>;
 
-interface BatchOutcome {
+export interface BatchOutcome {
   batch: PlannedBatch;
   failed: boolean;
   records: LearningRecord[];
@@ -114,6 +115,43 @@ interface BatchOutcome {
   parseError: string | null;
   result: PiAgentResult | null;
   outputCounts: BackfillManifestRow["output_counts"];
+}
+
+export function workerHistorySpawnMetadata(
+  batch: PlannedBatch,
+  db: Database | null,
+  fallbackGameId?: string,
+): Record<string, unknown> {
+  if (batch.source !== "worker_history") return { source: batch.source, batchId: batch.batch_id };
+  const descriptor = batch.descriptor as WorkerHistoryDescriptor;
+  const workerContainerIds: string[] = [];
+  if (db && descriptor.worker_state_ids.length > 0) {
+    const placeholders = descriptor.worker_state_ids.map(() => "?").join(", ");
+    const rows = db.query(`
+      SELECT ws.id, ws.run_id, ws.epoch_id, ws.target_claim_id, r.cycle_uuid, r.game_id
+      FROM worker_state ws
+      LEFT JOIN runs r ON r.id = ws.run_id
+      WHERE ws.id IN (${placeholders})
+    `).all(...descriptor.worker_state_ids) as Array<Record<string, unknown>>;
+    const rowsById = new Map(rows.map((row) => [String(row.id), row]));
+    for (const workerStateId of descriptor.worker_state_ids) {
+      const row = rowsById.get(workerStateId);
+      const gameId = String(row?.game_id ?? fallbackGameId ?? "").trim();
+      const sessionId = String(row?.cycle_uuid ?? "").trim();
+      const runId = String(row?.run_id ?? "").trim();
+      const epochId = String(row?.epoch_id ?? "").trim();
+      const claimId = String(row?.target_claim_id ?? "").trim();
+      if (!gameId || !sessionId || !runId || !epochId || !claimId) continue;
+      workerContainerIds.push(meleeWorkerContainerId({ gameId, sessionId, runId, epochId, claimId }));
+    }
+  }
+  return {
+    source: batch.source,
+    batchId: batch.batch_id,
+    targetKey: descriptor.target_key,
+    workerStateIds: descriptor.worker_state_ids,
+    workerContainerIds,
+  };
 }
 
 const PAST_PR_DIFF_LIMIT_BYTES = 200 * 1024;
@@ -272,6 +310,103 @@ export function planDiscordBatches(options: {
   return batches;
 }
 
+export function planDiscordIncrementalBatches(options: {
+  rawRoot: string;
+  manifest: ReadonlyMap<string, BackfillManifestRow>;
+  maxMessagesPerBatch?: number;
+}): PlannedBatch[] {
+  const rawRoot = resolve(options.rawRoot);
+  if (!existsSync(rawRoot)) return [];
+  const maxMessagesPerBatch = Math.max(
+    1,
+    Math.floor(options.maxMessagesPerBatch ?? DEFAULT_DISCORD_MESSAGES_PER_BATCH),
+  );
+  const doneRows = [...options.manifest.values()].filter(
+    (row) => row.source === "discord" && row.status === "done",
+  );
+  const batches: PlannedBatch[] = [];
+
+  for (const row of options.manifest.values()) {
+    if (row.source !== "discord" || row.status !== "failed") continue;
+    const descriptor = row.descriptor as Partial<DiscordDescriptor>;
+    if (typeof descriptor.file !== "string" || !existsSync(descriptor.file)) continue;
+    if (
+      typeof descriptor.start_line !== "number" ||
+      typeof descriptor.end_line !== "number" ||
+      typeof descriptor.channel_id !== "string" ||
+      typeof descriptor.month !== "string" ||
+      typeof descriptor.message_count !== "number"
+    ) continue;
+    const covered = doneRows.some((done) => {
+      const doneDescriptor = done.descriptor as Partial<DiscordDescriptor>;
+      return typeof doneDescriptor.file === "string" &&
+        resolve(doneDescriptor.file) === resolve(descriptor.file as string) &&
+        typeof doneDescriptor.start_line === "number" &&
+        typeof doneDescriptor.end_line === "number" &&
+        doneDescriptor.start_line <= descriptor.start_line! &&
+        doneDescriptor.end_line >= descriptor.end_line!;
+    });
+    if (!covered) batches.push({ batch_id: row.batch_id, source: "discord", descriptor: descriptor as DiscordDescriptor });
+  }
+
+  const channelDirs = readdirSync(rawRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .sort((left, right) => left.name.localeCompare(right.name));
+  for (const channelDir of channelDirs) {
+    const channelRoot = resolve(rawRoot, channelDir.name);
+    const monthFiles = readdirSync(channelRoot, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && extname(entry.name) === ".jsonl")
+      .sort((left, right) => left.name.localeCompare(right.name));
+    for (const monthFile of monthFiles) {
+      const file = resolve(channelRoot, monthFile.name);
+      const watermark = doneRows.reduce((maximum, row) => {
+        const descriptor = row.descriptor as Partial<DiscordDescriptor>;
+        return typeof descriptor.file === "string" && resolve(descriptor.file) === file &&
+          typeof descriptor.end_line === "number"
+          ? Math.max(maximum, descriptor.end_line)
+          : maximum;
+      }, 0);
+      const messageCount = jsonlLines(file).length;
+      const failedRanges = batches
+        .filter((batch) => {
+          const descriptor = batch.descriptor as DiscordDescriptor;
+          return resolve(descriptor.file) === file;
+        })
+        .map((batch) => batch.descriptor as DiscordDescriptor)
+        .sort((left, right) => left.start_line - right.start_line);
+      for (let startLine = watermark; startLine < messageCount;) {
+        const coveringFailure = failedRanges.find(
+          (descriptor) => descriptor.start_line <= startLine && descriptor.end_line > startLine,
+        );
+        if (coveringFailure) {
+          startLine = coveringFailure.end_line;
+          continue;
+        }
+        const nextFailedStart = failedRanges.find((descriptor) => descriptor.start_line > startLine)?.start_line;
+        const endLine = Math.min(
+          startLine + maxMessagesPerBatch,
+          messageCount,
+          nextFailedStart ?? messageCount,
+        );
+        batches.push(plannedBatch("discord", {
+          channel_id: channelDir.name,
+          file,
+          month: monthFile.name.slice(0, -extname(monthFile.name).length),
+          start_line: startLine,
+          end_line: endLine,
+          message_count: endLine - startLine,
+        }));
+        startLine = endLine;
+      }
+    }
+  }
+  return batches.sort((left, right) => {
+    const a = left.descriptor as DiscordDescriptor;
+    const b = right.descriptor as DiscordDescriptor;
+    return a.channel_id.localeCompare(b.channel_id) || a.month.localeCompare(b.month) || a.start_line - b.start_line;
+  });
+}
+
 function isBackfillSource(value: unknown): value is BackfillSource {
   return value === "worker_history" || value === "past_prs" || value === "discord";
 }
@@ -313,10 +448,14 @@ export function pendingPlannedBatches(
   return batches.filter((batch) => manifest.get(batch.batch_id)?.status !== "done");
 }
 
-function appendManifestRows(manifestPath: string, rows: BackfillManifestRow[]): void {
+export function appendManifestRows(manifestPath: string, rows: BackfillManifestRow[]): void {
   if (rows.length === 0) return;
   mkdirSync(dirname(manifestPath), { recursive: true });
   appendFileSync(manifestPath, `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, "utf8");
+}
+
+export function defaultBackfillManifestPath(stateDir: string, source: BackfillSource): string {
+  return resolve(stateDir, "knowledge_librarian", "backfill", source, "manifest.jsonl");
 }
 
 function orchestratorDatabasePath(stateDir: string): string {
@@ -449,7 +588,7 @@ function pastPrsPayload(
   };
 }
 
-function discordPayload(batch: PlannedBatch): Record<string, unknown> {
+export function discordPayload(batch: PlannedBatch): Record<string, unknown> {
   const descriptor = batch.descriptor as DiscordDescriptor;
   const messages = jsonlLines(descriptor.file)
     .slice(descriptor.start_line, descriptor.end_line)
@@ -490,6 +629,49 @@ function buildBatchPayload(
   return discordPayload(batch);
 }
 
+export async function runLibrarianBatch(options: {
+  batch: PlannedBatch;
+  payload: Record<string, unknown>;
+  globals: GlobalArgs;
+  outputDir: string;
+  runId: string;
+  workerDb?: Database | null;
+}): Promise<BatchOutcome> {
+  const { batch, payload: librarianBatch, globals, outputDir, runId, workerDb = null } = options;
+  const descriptor = batch.source === "worker_history" ? batch.descriptor as WorkerHistoryDescriptor : null;
+  try {
+    const result = await runPiAgent({
+      role: "librarian", cwd: globals.repoRoot,
+      prompt: librarianPrompt({ librarianBatch, repoRoot: globals.repoRoot, stateDir: globals.stateDir, game: globals.game }),
+      outputDir, dryRun: globals.dryRunAgents, provider: globals.provider, model: globals.model,
+      thinkingLevel: globals.thinkingLevel,
+      timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
+      toolContext: { repoRoot: globals.repoRoot, stateDir: globals.stateDir, game: globals.game },
+      kernelContext: createMeleeKernelSpawnContext({
+        kind: "knowledge-curation", gameId: globals.game?.gameId ?? globals.gameId,
+        sessionId: knowledgeCycleSessionId({
+          globals,
+          gameId: globals.game?.gameId ?? globals.gameId,
+          fallback: runId || batch.batch_id,
+        }),
+        runId: runId || undefined, jobId: batch.batch_id,
+        jobKind: descriptor ? `Condense ${descriptor.target_key}` : "Backfill",
+        phase: "knowledge-curation", workingDir: globals.repoRoot,
+        metadata: workerHistorySpawnMetadata(batch, workerDb, globals.game?.gameId ?? globals.gameId),
+      }),
+    });
+    if (result.dryRun) return { batch, failed: false, records: [], validationErrors: [], parseError: null, result, outputCounts: null };
+    const parsed = result.failed ? { object: null, error: result.error ?? "agent failed" } : parseJsonObject(result.rawText);
+    const validation = parsed.object ? validateLibrarianReport(parsed.object) : { ok: false, errors: [], learnings: [] } satisfies LibrarianReportValidation;
+    const records = validation.learnings.map((learning) => learningRecord(learning, `librarian backfill ${batch.source} batch:${batch.batch_id}`));
+    const parseError = parsed.error ?? null;
+    return { batch, failed: Boolean(result.failed || parseError), records, validationErrors: validation.errors, parseError, result,
+      outputCounts: { learnings: records.length, validation_errors: validation.errors.length } };
+  } catch (error) {
+    return { batch, failed: true, records: [], validationErrors: [], parseError: error instanceof Error ? error.message : String(error), result: null, outputCounts: null };
+  }
+}
+
 async function executeBatch(options: {
   batch: PlannedBatch;
   globals: GlobalArgs;
@@ -501,76 +683,7 @@ async function executeBatch(options: {
   const { batch, globals, outputDir, runId, workerDb, pastPrIndexRows } = options;
   try {
     const librarianBatch = buildBatchPayload(batch, workerDb, pastPrIndexRows);
-    const result = await runPiAgent({
-      role: "librarian",
-      cwd: globals.repoRoot,
-      prompt: librarianPrompt({
-        librarianBatch,
-        repoRoot: globals.repoRoot,
-        stateDir: globals.stateDir,
-        game: globals.game,
-      }),
-      outputDir,
-      dryRun: globals.dryRunAgents,
-      provider: globals.provider,
-      model: globals.model,
-      thinkingLevel: globals.thinkingLevel,
-      timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
-      toolContext: {
-        repoRoot: globals.repoRoot,
-        stateDir: globals.stateDir,
-        game: globals.game,
-      },
-      kernelContext: createMeleeKernelSpawnContext({
-        kind: "knowledge-curation",
-        gameId: globals.game?.gameId ?? globals.gameId,
-        sessionId: knowledgeCycleSessionId({ globals, fallback: runId || batch.batch_id }),
-        runId: runId || batch.batch_id,
-        jobId: batch.batch_id,
-        jobKind: "Backfill",
-        phase: "knowledge-curation",
-        workingDir: globals.repoRoot,
-        metadata: { source: batch.source, batchId: batch.batch_id },
-      }),
-    });
-
-    if (result.dryRun) {
-      return {
-        batch,
-        failed: false,
-        records: [],
-        validationErrors: [],
-        parseError: null,
-        result,
-        outputCounts: null,
-      };
-    }
-
-    const parsed = result.failed
-      ? { object: null, error: result.error ?? "agent failed" }
-      : parseJsonObject(result.rawText);
-    const validation = parsed.object
-      ? validateLibrarianReport(parsed.object)
-      : { ok: false, errors: [], learnings: [] } satisfies LibrarianReportValidation;
-    const records = validation.learnings.map((learning) =>
-      learningRecord(
-        learning,
-        `librarian backfill ${batch.source} batch:${batch.batch_id}`,
-      ),
-    );
-    const parseError = parsed.error ?? null;
-    return {
-      batch,
-      failed: Boolean(result.failed || parseError),
-      records,
-      validationErrors: validation.errors,
-      parseError,
-      result,
-      outputCounts: {
-        learnings: records.length,
-        validation_errors: validation.errors.length,
-      },
-    };
+    return runLibrarianBatch({ batch, payload: librarianBatch, globals, outputDir, runId, workerDb });
   } catch (error) {
     return {
       batch,
@@ -614,7 +727,9 @@ export async function kgLibrarianBackfill(
       resolve(globals.stateDir, "knowledge_librarian", "backfill"),
     ),
   );
-  const manifestPath = resolve(manifestDir, source, "manifest.jsonl");
+  const manifestPath = stringArg(args, "--manifest-dir", "").trim()
+    ? resolve(manifestDir, source, "manifest.jsonl")
+    : defaultBackfillManifestPath(globals.stateDir, source);
   const runId = stringArg(args, "--run-id", "").trim();
   const ledgerPath = stringArg(
     args,
@@ -630,6 +745,12 @@ export async function kgLibrarianBackfill(
     }
     const sourcePlan = planSource(source, globals, workerDb);
     const manifest = loadBackfillManifest(manifestPath);
+    if (source === "discord") {
+      sourcePlan.batches = planDiscordIncrementalBatches({
+        rawRoot: resolve(sourceDataRoot("discord_raw"), "raw"),
+        manifest,
+      });
+    }
     const pending = pendingPlannedBatches(sourcePlan.batches, manifest);
     const selected = limit > 0 ? pending.slice(0, limit) : pending;
     const doneCount = sourcePlan.batches.length - pending.length;

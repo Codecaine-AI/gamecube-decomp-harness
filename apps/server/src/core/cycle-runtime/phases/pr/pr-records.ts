@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -15,7 +16,6 @@ export interface PrRecordContext {
 }
 
 export interface PrRecordsServiceDeps {
-  appendLog: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   latestChildDirectory: (root: string) => string;
   latestPrSplitPlanSummary: (stateDir: string, runId: string) => JsonObject | null;
   latestRunId: (stateDir: string) => string;
@@ -217,7 +217,7 @@ export function createPrRecordsService(deps: PrRecordsServiceDeps): {
       return record;
     });
     if (recovered === 0) return payload;
-    deps.appendLog("ui", `recovered ${recovered} stale in-flight local preparation record(s)`);
+    uiLog("ui", `recovered ${recovered} stale in-flight local preparation record(s)`);
     return writePrRecords(stateDir, { ...payload, records: next, syncedAt: stringValue(payload.syncedAt) || new Date().toISOString() });
   }
 

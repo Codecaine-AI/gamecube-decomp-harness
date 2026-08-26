@@ -43,7 +43,6 @@ function issuesOutput(messages: string[]): string {
 
 function createService(overrides: Partial<PrWorktreeServiceDeps<PrWorktreeGameContext>> = {}) {
   const deps: PrWorktreeServiceDeps<PrWorktreeGameContext> = {
-    appendLog: () => {},
     branchExists: () => true,
     codeIssuesChecker: async () => ({ status: "clean", output: "", files: [] }),
     isLocalBranchPrRecord: () => true,
@@ -130,7 +129,6 @@ describe("production baseline tracing", () => {
       stateDir: tempDir("pr-baseline-reject-state-"),
     };
     const service = createService({
-      appendLog: () => sideEffects.push("log"),
       runCli: async () => {
         sideEffects.push("cli");
         return successResult();

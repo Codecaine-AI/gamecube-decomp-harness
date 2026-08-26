@@ -523,7 +523,7 @@ function insertPublicationIntent(
 async function observedUpstream(context: SyncPublicationContext, sync: SyncState): Promise<string> {
   revalidatePublicationLease(context, sync);
   const discovery = await fetchUpstreamAndFindMergedPrs(
-    { appendLog: context.appendLog ?? (() => {}), runGit: runner(context) },
+    { runGit: runner(context) },
     { game: context.game ?? null, repoRoot: context.repoRoot },
     () => revalidatePublicationLease(context, sync),
     { upstreamFrom: sync.intake.upstream_from },

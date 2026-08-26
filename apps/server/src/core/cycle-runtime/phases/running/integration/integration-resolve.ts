@@ -18,6 +18,7 @@ import {
 } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/cycle-runtime/run-state";
 import { requireLease } from "@server/core/harness-state";
+import { knowledgeCycleSessionId } from "@server/core/knowledge/jobs/cycle-session.js";
 import { runCommand } from "@server/infrastructure/shell";
 import { integrationCommitMessage } from "./worker-output-queue.js";
 import { gameMetadata, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
@@ -239,7 +240,11 @@ export async function integrationResolve(globals: GlobalArgs, args: Map<string, 
     kernelContext: createMeleeKernelSpawnContext({
       kind: "worker-integration",
       gameId: globals.game?.gameId ?? globals.gameId,
-      sessionId: runId || `integration-${itemId}`,
+      sessionId: knowledgeCycleSessionId({
+        globals,
+        gameId: globals.game?.gameId ?? globals.gameId,
+        fallback: runId || `integration-${itemId}`,
+      }),
       runId: runId || undefined,
       epochId,
       claimId,

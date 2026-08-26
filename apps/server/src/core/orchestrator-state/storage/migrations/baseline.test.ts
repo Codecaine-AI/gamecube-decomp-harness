@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { configureConnection, ensureSchema } from "../ddl.js";
+import { dropLegacyEpochColumnsMigration } from "./002-drop-legacy-epoch-columns.js";
 import { FINAL_SCHEMA_DDL, SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import { runStorageMigrations } from "./index.js";
 
@@ -42,6 +43,7 @@ describe("squashed storage baseline", () => {
 
     expect(db.query("SELECT version, name FROM schema_migrations").all()).toEqual([
       { version: 1, name: "baseline" },
+      { version: 2, name: "drop_legacy_epoch_columns" },
     ]);
     expect(db.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -132,6 +134,7 @@ describe("squashed storage baseline", () => {
     expect(schemaInventory(db)).toEqual(before);
     expect(db.query("SELECT version, name FROM schema_migrations").all()).toEqual([
       { version: 1, name: "baseline" },
+      { version: 2, name: "drop_legacy_epoch_columns" },
     ]);
   });
 
@@ -146,5 +149,46 @@ describe("squashed storage baseline", () => {
     );
 
     expect(() => runStorageMigrations(db)).toThrow("Storage schema is not the squashed baseline");
+  });
+});
+
+describe("legacy epoch column migration", () => {
+  test("drops legacy columns from an old-shape epochs table", () => {
+    const db = database("storage-legacy-epochs");
+    db.exec(SCHEMA_MIGRATIONS_DDL);
+    db.exec(FINAL_SCHEMA_DDL);
+    db.exec("ALTER TABLE epochs ADD COLUMN size_mode TEXT NOT NULL DEFAULT 'fixed'");
+    db.exec("ALTER TABLE epochs ADD COLUMN size_value INTEGER");
+    db.exec("ALTER TABLE epochs ADD COLUMN candidate_window INTEGER NOT NULL DEFAULT 0");
+    db.exec("ALTER TABLE epochs ADD COLUMN fast_refresh_count INTEGER NOT NULL DEFAULT 0");
+    db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+      1,
+      "baseline",
+      "2026-08-25T00:00:00.000Z",
+    );
+
+    runStorageMigrations(db);
+
+    const columns = (db.query("PRAGMA table_info(epochs)").all() as Array<{ name: string }>).map(
+      ({ name }) => name,
+    );
+    expect(columns).not.toContain("size_mode");
+    expect(columns).not.toContain("size_value");
+    expect(columns).not.toContain("candidate_window");
+    expect(columns).not.toContain("fast_refresh_count");
+    expect(db.query("SELECT version, name FROM schema_migrations ORDER BY version").all()).toEqual([
+      { version: 1, name: "baseline" },
+      { version: 2, name: "drop_legacy_epoch_columns" },
+    ]);
+  });
+
+  test("no-ops when the epochs table is already clean", () => {
+    const db = database("storage-clean-epochs");
+    db.exec("CREATE TABLE epochs (id TEXT PRIMARY KEY, run_id TEXT NOT NULL)");
+    const before = db.query("SELECT sql FROM sqlite_schema WHERE name = 'epochs'").get();
+
+    dropLegacyEpochColumnsMigration.up(db);
+
+    expect(db.query("SELECT sql FROM sqlite_schema WHERE name = 'epochs'").get()).toEqual(before);
   });
 });

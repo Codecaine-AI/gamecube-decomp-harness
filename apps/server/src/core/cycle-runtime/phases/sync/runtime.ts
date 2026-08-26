@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import { immediateTransaction, openState, type StateStore } from "@server/core/orchestrator-state";
 import { getActiveCycle, getCycleByUuid } from "@server/core/cycle/store.js";
@@ -16,10 +16,15 @@ import { getRun } from "@server/core/cycle-runtime/run-state";
 import { runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { fetchUpstreamAndFindMergedPrs } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { prepareWorktreePaths } from "@server/core/cycle-runtime/phases/preparing/subphases/worktrees.js";
+import { defaultBackfillManifestPath } from "@server/core/knowledge/jobs/librarian-backfill.js";
+import { sourceDataRoot } from "@server/core/knowledge/paths.js";
 import type { ResolvedGame } from "@server/core/game-registry";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { activateAcquiredSync } from "./activation.js";
 import { createSyncTraceEmitter, type SubmitSyncWorkflowEvent } from "./trace.js";
+import { refreshDiscordMirror, stageDiscordSyncBatches } from "./discord.js";
+import { appendSyncDiscordEvent } from "./state.js";
 import {
   cancelSync,
   getSyncBlockedOriginStatus,
@@ -41,6 +46,7 @@ import {
   continueSyncPublication,
   type SyncEngineContext,
   type SyncKnowledgeProcessors,
+  type SyncStagingProgress,
   type SyncState,
   type SyncValidationResult,
 } from "./index.js";
@@ -70,7 +76,6 @@ export interface SyncRuntimeGameContext {
 }
 
 export interface SyncRuntimeDeps {
-  appendLog?: (stream: "stdout" | "stderr" | "ui", text: string) => void;
   kernelEnabled?: () => Promise<boolean>;
   hasActiveProcess?: (stateDir: string) => { active: boolean };
   now?: () => Date | number | string;
@@ -95,12 +100,19 @@ export interface SyncRuntimeDeps {
   /** Injectable backoff delay for retries; defaults to setTimeout. */
   sleep?: (ms: number) => Promise<void>;
   sourceRoot: (sourceId: string) => string;
+  refreshDiscordMirror?: typeof refreshDiscordMirror;
+  stageDiscordSyncBatches?: typeof stageDiscordSyncBatches;
+  withOperation?: <T>(name: string, label: string, stepNames: string[], fn: () => Promise<T>) => Promise<T>;
   processors?: (input: {
     body: Record<string, unknown>;
     paths: SyncRuntimeGameContext;
     sync: SyncState;
   }) => SyncKnowledgeProcessors;
-  validate?: (worktreePath: string, context: SyncEngineContext) => Promise<SyncValidationResult>;
+  validate?: (
+    worktreePath: string,
+    context: SyncEngineContext,
+    staging: SyncStagingProgress,
+  ) => Promise<SyncValidationResult>;
 }
 
 export interface SyncStartDecision {
@@ -141,6 +153,35 @@ function strings(value: unknown): string[] {
   return Array.isArray(value)
     ? [...new Set(value.map((item) => text(item)).filter(Boolean))]
     : [];
+}
+
+type DiscordPullState = Map<string, { lastMessageId: string | null; messagesWritten: number }>;
+
+function readDiscordPullState(): DiscordPullState | null {
+  try {
+    const stateRoot = resolve(sourceDataRoot("discord_raw"), "state");
+    const result: DiscordPullState = new Map();
+    for (const name of readdirSync(stateRoot).filter((entry) => entry.endsWith(".json")).sort()) {
+      const parsed = JSON.parse(readFileSync(resolve(stateRoot, name), "utf8")) as Record<string, unknown>;
+      const messagesWritten = parsed.messages_written_last_pull;
+      const lastMessageId = parsed.last_message_id;
+      if (typeof messagesWritten !== "number" || !Number.isFinite(messagesWritten)) return null;
+      if (lastMessageId !== null && typeof lastMessageId !== "string") return null;
+      result.set(name, { lastMessageId, messagesWritten: Math.max(0, Math.floor(messagesWritten)) });
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function discordMessagesPulled(before: DiscordPullState | null, after: DiscordPullState | null): number | null {
+  if (!before || !after) return null;
+  let total = 0;
+  for (const [channel, current] of after) {
+    if (before.get(channel)?.lastMessageId !== current.lastMessageId) total += current.messagesWritten;
+  }
+  return total;
 }
 
 function blocker(code: string, message: string, sourceKind: string, sourceId: string, recoverable = true): Blocker {
@@ -451,7 +492,6 @@ function syncLeaseContext(
     game: paths.game ? { baseRef: paths.game.baseRef } : null,
     leaseId: lease.lease_id,
     runGit: deps.runGit,
-    appendLog: deps.appendLog,
   };
 }
 
@@ -470,7 +510,6 @@ function requestedSyncContext(
     game: paths.game ? { baseRef: paths.game.baseRef } : null,
     leaseId: "requested-sync-has-no-lease",
     runGit: deps.runGit,
-    appendLog: deps.appendLog,
   };
 }
 
@@ -533,7 +572,7 @@ function cliExitFailure(result: CliResult): string | null {
  * caller treat a zero-exit result with missing outputs as a failure.
  * Exported for tests. */
 export async function runSyncCliWithRetry(
-  deps: Pick<SyncRuntimeDeps, "appendLog" | "packageRoot" | "runCli" | "sleep">,
+  deps: Pick<SyncRuntimeDeps, "packageRoot" | "runCli" | "sleep">,
   label: string,
   commandForAttempt: (attempt: number) => string[],
   failureFor: (result: CliResult) => string | null = cliExitFailure,
@@ -543,7 +582,7 @@ export async function runSyncCliWithRetry(
   let failure = failureFor(result);
   for (let attempt = 2; failure && attempt <= SYNC_CLI_MAX_ATTEMPTS; attempt += 1) {
     const delayMs = Math.round(SYNC_CLI_BACKOFF_BASE_MS * (attempt - 1) * (1 + Math.random()));
-    deps.appendLog?.(
+    uiLog(
       "stderr",
       `${label} attempt ${attempt - 1}/${SYNC_CLI_MAX_ATTEMPTS} failed (${failure}); retrying in ${delayMs}ms: ${failureOutput(result).slice(-FAILURE_TAIL_CHARS)}`,
     );
@@ -554,7 +593,7 @@ export async function runSyncCliWithRetry(
   return result;
 }
 
-const SYNC_INGEST_CONCURRENCY_DEFAULT = 4;
+const SYNC_INGEST_CONCURRENCY_DEFAULT = 16;
 
 /**
  * Pool size for per-PR knowledge ingest (fetch dump + intake subprocess per
@@ -564,9 +603,31 @@ const SYNC_INGEST_CONCURRENCY_DEFAULT = 4;
  * outside the sync surface, so the env var is the single knob. Exported for
  * tests.
  */
-export function syncIngestConcurrency(env: Record<string, string | undefined> = process.env): number {
+export function syncIngestConcurrency(
+  env: Record<string, string | undefined> = process.env,
+  override?: unknown,
+): number {
+  const requested = Number(override);
+  if (Number.isInteger(requested) && requested >= 1) return requested;
   const parsed = Number.parseInt(env.ORCH_SYNC_INGEST_CONCURRENCY ?? "", 10);
   return Number.isInteger(parsed) && parsed >= 1 ? parsed : SYNC_INGEST_CONCURRENCY_DEFAULT;
+}
+
+/**
+ * Operator overrides for the sync's knowledge agents (postmortem intake and
+ * librarian batches). The UI sends these with every sync command body, so
+ * start and recover both carry them; absent or empty values fall back to the
+ * job-runner defaults.
+ */
+export function syncAgentFlags(body: Record<string, unknown>): string[] {
+  const flags: string[] = [];
+  const provider = text(body.syncProvider);
+  const model = text(body.syncModel);
+  const thinking = text(body.syncThinking);
+  if (provider) flags.push("--provider", provider);
+  if (model) flags.push("--model", model);
+  if (thinking) flags.push("--thinking-level", thinking);
+  return flags;
 }
 
 let ghTokenEnvReady: Promise<void> | null = null;
@@ -583,7 +644,7 @@ const GH_TOKEN_RESOLUTION_TIMEOUT_MS = 15_000;
  * Deliberately avoids deps.runCli, which streams child stdout (the token)
  * into the sync log.
  */
-function ensureGhTokenEnv(appendLog?: SyncRuntimeDeps["appendLog"]): Promise<void> {
+function ensureGhTokenEnv(): Promise<void> {
   if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) return Promise.resolve();
   ghTokenEnvReady ??= new Promise<void>((resolveReady) => {
     let child: ReturnType<typeof spawn>;
@@ -608,7 +669,7 @@ function ensureGhTokenEnv(appendLog?: SyncRuntimeDeps["appendLog"]): Promise<voi
       if (code === 0 && token) {
         process.env.GH_TOKEN = token;
       } else {
-        appendLog?.("stderr", "gh auth token resolution failed; per-PR fetches fall back to gh keyring auth");
+        uiLog("stderr", "gh auth token resolution failed; per-PR fetches fall back to gh keyring auth");
       }
       resolveReady();
     });
@@ -629,11 +690,12 @@ function defaultProcessors(
   sync: SyncState,
 ): SyncKnowledgeProcessors {
   const dryRunAgents = body.dryRunAgents === true;
+  const agentFlags = syncAgentFlags(body);
   return {
     async processMergedPr({ artifactDirectory, job }) {
       const number = Number(job.sourceId.replace(/^pr-/, ""));
       if (!Number.isInteger(number) || number <= 0) throw new Error(`Invalid merged PR id: ${job.sourceId}`);
-      await ensureGhTokenEnv(deps.appendLog);
+      await ensureGhTokenEnv();
       const dataRoot = resolve(artifactDirectory, "data");
       const kernelEnabled = !dryRunAgents && await deps.kernelEnabled?.().catch(() => false);
       const fetchCommand = (postmortemScope: "fetched" | "all") => [
@@ -655,6 +717,7 @@ function defaultProcessors(
         sync.sync_id,
         "--orchestrator-project-id",
         sync.game_id,
+        "--orchestrator-prepare-intake",
         "--pr",
         String(number),
       ];
@@ -683,6 +746,7 @@ function defaultProcessors(
         "--state-dir",
         paths.stateDir,
         ...(dryRunAgents ? ["--dry-run-agents"] : []),
+        ...agentFlags,
         "kg-knowledge-intake-agent",
         "--postmortem",
         postmortem,
@@ -706,7 +770,7 @@ function defaultProcessors(
         curation: parseCliOutput(curated) as JsonValue,
       };
     },
-    async processCorpus({ job }) {
+    async processCorpus({ artifactDirectory, job }): Promise<JsonValue> {
       const stagedRoot = resolve(paths.stateDir, "staged_corpora");
       const candidates = [
         resolve(stagedRoot, `${job.sourceId}.json`),
@@ -716,18 +780,65 @@ function defaultProcessors(
       const source = candidates.find((candidate) => existsSync(candidate));
       if (!source) throw new Error(`Staged corpus batch ${job.sourceId} was not found below ${stagedRoot}`);
       const content = readFileSync(source, "utf8");
+      let parsed: JsonValue;
       try {
-        return { corpus_batch_id: job.sourceId, source_path: source, content: JSON.parse(content) as JsonValue };
+        parsed = JSON.parse(content) as JsonValue;
       } catch {
         return { corpus_batch_id: job.sourceId, source_path: source, content };
       }
+      const object = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+      const batch = object?.batch;
+      const payload = object?.payload;
+      const isDiscord = (
+        batch && typeof batch === "object" && !Array.isArray(batch) &&
+        (batch as Record<string, unknown>).source === "discord"
+      ) || (
+        payload && typeof payload === "object" && !Array.isArray(payload) &&
+        (payload as Record<string, unknown>).kind === "discord_backfill"
+      );
+      if (isDiscord) {
+          const command = [
+            "bun",
+            deps.serverJobPath,
+            ...(paths.game ? ["--game", paths.game.gameId] : []),
+            "--repo-root",
+            paths.repoRoot,
+            "--state-dir",
+            paths.stateDir,
+            ...(dryRunAgents ? ["--dry-run-agents"] : []),
+            ...agentFlags,
+            "kg-librarian-batch",
+            "--batch-file",
+            source,
+            "--run-id",
+            sync.sync_id,
+            "--output-dir",
+            resolve(artifactDirectory, "agent"),
+            "--manifest-path",
+            defaultBackfillManifestPath(paths.stateDir, "discord"),
+          ];
+          const librarian = await runSyncCliWithRetry(
+            deps,
+            `Discord corpus ${job.sourceId} librarian batch`,
+            () => command,
+          );
+          commandFailure(`Discord corpus ${job.sourceId} librarian batch`, librarian);
+        return {
+          corpus_batch_id: job.sourceId,
+          source_path: source,
+          kind: "discord_backfill",
+          librarian: parseCliOutput(librarian) as JsonValue,
+        };
+      }
+      return { corpus_batch_id: job.sourceId, source_path: source, content: parsed };
     },
   };
 }
 
 export function createSyncRuntime(deps: SyncRuntimeDeps) {
   const emitSyncMilestone = createSyncTraceEmitter<SyncRuntimeGameContext>({
-    appendLog: deps.appendLog,
     submitWorkflowEvent: deps.submitWorkflowEvent,
   });
 
@@ -770,7 +881,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       const upstreamFrom = anchor?.upstream_revision ?? cycle.base_sha ?? cycle.head_revision;
       if (!upstreamFrom) throw new Error(`Game cycle ${cycle.cycle_uuid} has no upstream anchor`);
       const discovery = await fetchUpstreamAndFindMergedPrs(
-        { appendLog: deps.appendLog ?? (() => {}), runGit: deps.runGit },
+        { runGit: deps.runGit },
         { game: paths.game, repoRoot: paths.repoRoot },
         undefined,
         { upstreamFrom },
@@ -778,11 +889,13 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       const syncId = text(body.syncId, text(body.sync_id)) || existing?.sync_id || `sync-${randomUUID()}`;
       const observationSourceIdentity = discovery.baseRef;
       if (!observationSourceIdentity?.trim()) throw new Error("Upstream discovery returned no baseRef identity");
-      return recordSyncRequested(store, {
+      const actor = body.actor === "external_observer" ? "external_observer" : "operator";
+      const bodyCorpusBatchIds = strings(body.corpusBatchIds ?? body.corpus_batch_ids);
+      let sync = recordSyncRequested(store, {
         gameId,
         cycleUuid: cycle.cycle_uuid,
         syncId,
-        actor: body.actor === "external_observer" ? "external_observer" : "operator",
+        actor,
         commandId,
         correlationId: syncId,
         spanId: actionSpanId,
@@ -791,10 +904,86 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           upstream_from: upstreamFrom,
           upstream_to: discovery.afterRef,
           merged_pr_ids: discovery.mergedPrs.map(String),
-          corpus_batch_ids: strings(body.corpusBatchIds ?? body.corpus_batch_ids),
+          corpus_batch_ids: bodyCorpusBatchIds,
           knowledge_only: upstreamFrom === discovery.afterRef,
         },
       });
+      appendSyncDiscordEvent(store, {
+        syncId,
+        eventType: "sync.discord_refresh_requested",
+        payload: {},
+        actor: actor === "external_observer" ? "runner" : actor,
+        commandId,
+        spanId: actionSpanId,
+      });
+      const discordBefore = readDiscordPullState();
+      const refreshStartedAt = Date.now();
+      const mirror = await (deps.refreshDiscordMirror ?? refreshDiscordMirror)({});
+      const durationMs = Math.max(0, Date.now() - refreshStartedAt);
+      const messagesPulled = discordMessagesPulled(discordBefore, readDiscordPullState());
+      uiLog(mirror.ok ? "stdout" : "stderr", mirror.detail);
+      appendSyncDiscordEvent(store, {
+        syncId,
+        eventType: "sync.discord_refresh_completed",
+        payload: {
+          ok: mirror.ok,
+          detail: mirror.detail,
+          duration_ms: durationMs,
+          messages_pulled: messagesPulled,
+        },
+        actor: actor === "external_observer" ? "runner" : actor,
+        commandId,
+        spanId: actionSpanId,
+      });
+      await emitSyncMilestone(paths, sync, "discord_refresh", {
+        detail: mirror.detail,
+        metadata: { ok: mirror.ok, detail: mirror.detail, messages_pulled: messagesPulled, duration_ms: durationMs },
+      });
+      const discord = (deps.stageDiscordSyncBatches ?? stageDiscordSyncBatches)({ stateDir: paths.stateDir });
+      appendSyncDiscordEvent(store, {
+        syncId,
+        eventType: "sync.discord_staged",
+        payload: {
+          batches: discord.staged,
+          messages: discord.messageCount,
+          days: discord.days,
+          channels: discord.channels,
+          first_message_at: discord.firstMessageAt,
+          last_message_at: discord.lastMessageAt,
+        },
+        actor: actor === "external_observer" ? "runner" : actor,
+        commandId,
+        spanId: actionSpanId,
+      });
+      await emitSyncMilestone(paths, sync, "discord_staged", {
+        detail: `staged ${String(discord.staged)} Discord batch(es)`,
+        metadata: {
+          batches: discord.staged,
+          messages: discord.messageCount,
+          days: discord.days,
+          channels: discord.channels,
+        },
+      });
+      const corpusBatchIds = [...new Set([...bodyCorpusBatchIds, ...discord.corpusBatchIds])]
+        .sort((left, right) => left.localeCompare(right));
+      sync = recordSyncRequested(store, {
+        gameId,
+        cycleUuid: cycle.cycle_uuid,
+        syncId,
+        actor,
+        commandId,
+        correlationId: syncId,
+        spanId: actionSpanId,
+        observationSourceIdentity,
+        intake: {
+          upstream_from: upstreamFrom,
+          upstream_to: discovery.afterRef,
+          merged_pr_ids: discovery.mergedPrs.map(String),
+          corpus_batch_ids: corpusBatchIds,
+          knowledge_only: upstreamFrom === discovery.afterRef,
+        },
+      });
+      return sync;
     } finally {
       store.db.close();
     }
@@ -863,8 +1052,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           actor: context.actor,
           processors: deps.processors?.({ body, paths, sync }) ?? defaultProcessors(deps, paths, body, sync),
           revalidateOwnership,
-          concurrency: syncIngestConcurrency(),
-          appendLog: deps.appendLog,
+          concurrency: syncIngestConcurrency(process.env, body.syncIngestConcurrency),
         });
         sync = knowledge.sync;
         if (sync.intake.knowledge_only || sync.status !== "ingesting") {
@@ -935,7 +1123,11 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     let action = gameSyncAction(store, gameId, "sync.start", sync?.sync_id, syncActionOptions(paths, deps));
     store.db.close();
     if (!action.enabled) throw new SyncActionBlockedError(action);
-    if (!sync) sync = await observe(actionBody);
+    if (!sync) {
+      sync = deps.withOperation
+        ? await deps.withOperation("sync-pull", "Pulling things down", ["Discovering intake"], () => observe(actionBody))
+        : await observe(actionBody);
+    }
 
     store = openState(paths.stateDir);
     let decision: SyncStartDecision;

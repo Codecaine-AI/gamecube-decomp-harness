@@ -38,14 +38,20 @@ function loadedInputRef(input: LoadedMap[number]): string {
 }
 
 export function renderLoadedKernelContext(loaded: LoadedMap, _ctx: SpawnContext): string {
+  const errors = loaded
+    .filter((input) => input.status === "error")
+    .map(
+      (input) =>
+        `${input.decl.kind} (${loadedInputRef(input)}): ${input.error ?? "Unknown error"}`,
+    );
+  if (errors.length > 0) {
+    throw new Error(`Kernel context load failed for required inputs:\n${errors.join("\n")}`);
+  }
+
   const sections: string[] = [];
   for (const input of loaded) {
     const tag = safeContextTag(input.decl.kind);
     const ref = loadedInputRef(input);
-    if (input.status === "error") {
-      sections.push(`<${tag} ref="${ref}" status="error">${input.error ?? ""}</${tag}>`);
-      continue;
-    }
     if (input.status === "empty" || !input.content) continue;
     sections.push(`<${tag} ref="${ref}">\n${input.content}\n</${tag}>`);
   }

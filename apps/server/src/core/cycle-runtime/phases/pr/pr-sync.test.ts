@@ -13,7 +13,6 @@ function createFixture() {
   let originUrl = "";
   const cliCommands: string[][] = [];
   const deps: PrSyncServiceDeps<PrSyncGameContext> = {
-    appendLog: () => {},
     latestPrSplitPlanSummary: () => plan,
     latestRunId: () => "run-1",
     outputTail: (value) => value,
