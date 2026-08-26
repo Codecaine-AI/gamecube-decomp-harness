@@ -88,8 +88,6 @@ interface IntegrationResolverError {
   error: string;
 }
 
-const SANDBOX_RECONCILE_INTERVAL_MS = 5 * 60 * 1_000;
-
 interface TargetPressureSnapshot {
   admittedTargets: number;
   activeWorkers: number;
@@ -450,7 +448,6 @@ export async function runRunLoop(
     if (sessionGameId) {
       await reconcileSandboxes(store, { gameId: sessionGameId }, { sandboxProvider });
     }
-    let lastReconcileAt = Date.now();
     observedRunId = runId;
     setRunSchedulerCondition(store, runId, "idle");
 
@@ -668,14 +665,6 @@ export async function runRunLoop(
     };
 
     while (!stopRequested) {
-      const now = Date.now();
-      if (sessionGameId && now - lastReconcileAt >= SANDBOX_RECONCILE_INTERVAL_MS) {
-        lastReconcileAt = now;
-        const result = await reconcileSandboxes(store, { gameId: sessionGameId }, { sandboxProvider });
-        if (result.deleted > 0 || result.failed > 0) {
-          console.error(`[run-loop] sandbox reconciliation deleted ${result.deleted}, failed ${result.failed}`);
-        }
-      }
       const dispatchLease = heartbeatDispatch(store, {
         leaseId,
         gameId,
