@@ -180,23 +180,18 @@ describe("sandbox reconciliation", () => {
     expect(deletedEvents(f.store)).toEqual([]);
   });
 
-  test("deletes an expired job lease and a second sweep is idempotent", async () => {
+  test("keeps a sandbox while its expired job lease is awaiting re-claim", async () => {
     const f = await fixture();
 
     expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: EXPIRED_AT }, {
       sandboxProvider: f.provider,
-    })).toEqual({ scanned: 1, kept: 0, deleted: 1, failed: 0 });
-    expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: EXPIRED_AT }, {
-      sandboxProvider: f.provider,
-    })).toEqual({ scanned: 0, kept: 0, deleted: 0, failed: 0 });
-    expect(f.provider.deletedSandboxes).toEqual([
-      expect.objectContaining({ sandboxId: f.sandboxId, reason: "reconciliation" }),
-    ]);
-    expect(deletedEvents(f.store)).toHaveLength(1);
+    })).toEqual({ scanned: 1, kept: 1, deleted: 0, failed: 0 });
+    expect(await f.provider.get(f.sandboxId)).not.toBeNull();
+    expect(deletedEvents(f.store)).toEqual([]);
   });
 
   test("treats a provider not-found response as a successful deletion", async () => {
-    const f = await fixture({ job_lease_id: "lease-stale" });
+    const f = await fixture({ job_id: "job-missing" });
     const warnings: unknown[] = [];
     const provider: SandboxProvider = {
       create: (params) => f.provider.create(params),
@@ -218,7 +213,7 @@ describe("sandbox reconciliation", () => {
   });
 
   test("retries transient provider deletion failures with the configured waits", async () => {
-    const f = await fixture({ job_lease_id: "lease-stale" });
+    const f = await fixture({ job_id: "job-missing" });
     const waits: number[] = [];
     let attempts = 0;
     const provider: SandboxProvider = {
@@ -246,7 +241,7 @@ describe("sandbox reconciliation", () => {
     expect(deletedEvents(f.store)).toHaveLength(1);
   });
 
-  test("deletes a stopped sandbox with an expired job lease", async () => {
+  test("keeps a stopped sandbox with an expired job lease awaiting re-claim", async () => {
     const f = await fixture();
     const handle = await f.provider.get(f.sandboxId);
     if (!handle) throw new Error("Expected sandbox handle");
@@ -255,24 +250,29 @@ describe("sandbox reconciliation", () => {
 
     expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: EXPIRED_AT }, {
       sandboxProvider: f.provider,
-    })).toEqual({ scanned: 1, kept: 0, deleted: 1, failed: 0 });
-    expect(await f.provider.get(f.sandboxId)).toBeNull();
-    expect(f.provider.deletedSandboxes).toEqual([
-      expect.objectContaining({ sandboxId: f.sandboxId, reason: "reconciliation" }),
-    ]);
-    expect(deletedEvents(f.store)).toHaveLength(1);
+    })).toEqual({ scanned: 1, kept: 1, deleted: 0, failed: 0 });
+    expect(await f.provider.get(f.sandboxId)).not.toBeNull();
+    expect(f.provider.deletedSandboxes).toEqual([]);
+    expect(deletedEvents(f.store)).toEqual([]);
   });
 
-  test("deletes a sandbox whose labeled job lease does not match the current lease", async () => {
-    const f = await fixture({ job_lease_id: "lease-stale" });
+  test("does not delete a sandbox whose job re-claimed with a new lease id", async () => {
+    const f = await fixture();
+    const reclaimed = claimNextJob(f.store, {
+      kind: "worker",
+      concurrencyLimit: 1,
+      leaseMs: 60_000,
+      at: EXPIRED_AT,
+    });
+    if (!reclaimed) throw new Error("Expected worker job to be re-claimed");
+    expect(reclaimed.job.jobId).toBe(f.jobId);
+    expect(reclaimed.token.leaseId).not.toBe(f.provider.createdSandboxes[0]!.labels.job_lease_id);
 
     expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: ACTIVE_AT }, {
       sandboxProvider: f.provider,
-    })).toEqual({ scanned: 1, kept: 0, deleted: 1, failed: 0 });
-    expect(f.provider.deletedSandboxes[0]).toMatchObject({
-      sandboxId: f.sandboxId,
-      reason: "reconciliation",
-    });
+    })).toEqual({ scanned: 1, kept: 1, deleted: 0, failed: 0 });
+    expect(await f.provider.get(f.sandboxId)).not.toBeNull();
+    expect(f.provider.deletedSandboxes).toEqual([]);
   });
 
   test("deletes a sandbox whose labeled job row is missing", async () => {
@@ -304,6 +304,34 @@ describe("sandbox reconciliation", () => {
     })).toEqual({ scanned: 1, kept: 0, deleted: 1, failed: 0 });
   });
 
+  test("run restarted with new dispatch lease keeps live claim sandboxes", async () => {
+    const f = await fixture();
+    releaseDispatch(f.store, {
+      leaseId: f.dispatchLeaseId,
+      commandId: `command-release-${f.runId}`,
+      correlationId: f.runId,
+      actor: "operator",
+      gameId: f.gameId,
+    });
+    const restarted = requestDispatch(f.store, {
+      kind: "run",
+      workflowId: f.runId,
+      reason: "restart sandbox lifecycle test run",
+      commandId: `command-restart-${f.runId}`,
+      correlationId: f.runId,
+      actor: "operator",
+      gameId: f.gameId,
+    });
+    if (restarted.queued) throw new Error("Expected restarted dispatch lease");
+    expect(restarted.leaseId).not.toBe(f.dispatchLeaseId);
+
+    expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: ACTIVE_AT }, {
+      sandboxProvider: f.provider,
+    })).toEqual({ scanned: 1, kept: 1, deleted: 0, failed: 0 });
+    expect(await f.provider.get(f.sandboxId)).not.toBeNull();
+    expect(f.provider.deletedSandboxes).toEqual([]);
+  });
+
   test("deletes a sandbox after its target claim closes", async () => {
     const f = await fixture();
     f.store.db.query("UPDATE target_claims SET status = 'closed' WHERE id = ?").run(f.claimId);
@@ -331,7 +359,7 @@ describe("sandbox reconciliation", () => {
   });
 
   test("continues deleting other orphans when one provider deletion fails", async () => {
-    const f = await fixture({ job_lease_id: "lease-stale" });
+    const f = await fixture({ job_id: "job-missing" });
     const second = await f.provider.create({
       ...f.provider.createdSandboxes[0]!.params,
       labels: {

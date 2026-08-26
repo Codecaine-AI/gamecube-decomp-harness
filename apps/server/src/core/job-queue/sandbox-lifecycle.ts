@@ -1,7 +1,7 @@
 import { getHarnessState, requireActiveLease } from "@server/core/harness-state";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { emitSandboxDeletedEvent } from "./sandbox-events.js";
-import { getJob, isCurrentClaimToken } from "./kernel.js";
+import { getJob } from "./kernel.js";
 import type { SandboxDeleteReason, SandboxProvider } from "./sandbox.js";
 import type { JobRecord } from "./types.js";
 
@@ -147,7 +147,6 @@ function isLiveSandbox(
   store: StateStore,
   sandbox: { sandboxId: string; labels: Record<string, string> },
   gameId: string,
-  at: string,
 ): { job: JobRecord; claimId: string } | null {
   const jobId = nonempty(sandbox.labels.job_id);
   const jobLeaseId = nonempty(sandbox.labels.job_lease_id);
@@ -157,13 +156,15 @@ function isLiveSandbox(
   if (!jobId || !jobLeaseId || !dispatchLeaseId || !claimId || !runId) return null;
 
   const job = getJob(store, jobId);
-  if (!isCurrentClaimToken(job, { jobId, kind: "worker", leaseId: jobLeaseId }, at)) return null;
+  if (!job || job.kind !== "worker" || !["claimed", "running", "waiting"].includes(job.status)) return null;
   if (job.gameId !== gameId || job.runId !== runId) return null;
-  if (job.payload.sandbox_id !== sandbox.sandboxId || job.payload.target_claim_id !== claimId) return null;
+  if (job.payload.sandbox_id !== sandbox.sandboxId) return null;
 
+  const activeLeaseId = getHarnessState(store, gameId)?.active_workflow?.lease_id;
+  if (!activeLeaseId) return null;
   let dispatch: ReturnType<typeof requireActiveLease>;
   try {
-    dispatch = requireActiveLease(store, dispatchLeaseId, gameId);
+    dispatch = requireActiveLease(store, activeLeaseId, gameId);
   } catch {
     return null;
   }
@@ -190,10 +191,9 @@ export async function reconcileSandboxes(
   result.scanned = sandboxes.length;
   if (sandboxes.length === 0) return result;
 
-  const at = input.at ?? new Date().toISOString();
   const harness = getHarnessState(store, input.gameId);
   for (const sandbox of sandboxes) {
-    const live = isLiveSandbox(store, sandbox, input.gameId, at);
+    const live = isLiveSandbox(store, sandbox, input.gameId);
     if (live) {
       result.kept += 1;
       continue;
