@@ -16,6 +16,7 @@ import {
   recordWorkerCheckpoint as recordWorkerCheckpointRaw,
   refreshEpochTargetAvailability,
   refreshEpochTargetPriorities,
+  requeueEpochTarget,
   schedulerEpochProgress,
   selectEpochAdmissionCandidates,
   startSchedulerEpoch,
@@ -177,6 +178,48 @@ describe("epoch admission selection", () => {
 });
 
 describe("scheduler epoch and worker state lifecycle", () => {
+  test("requeues a finished epoch target and its terminal worker job", () => {
+    const { store } = tempState();
+    try {
+      const { epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
+      const target = store.db
+        .query("SELECT id FROM epoch_targets WHERE epoch_id = ?")
+        .get(epoch.id) as { id: string };
+      const claimed = claimNextJob(store, { kind: "worker", concurrencyLimit: 1, leaseMs: 60_000 });
+      expect(claimed?.job.dedupeKey).toBe(target.id);
+      completeJob(store, claimed!.token, {});
+      store.db.query("UPDATE epoch_targets SET status = 'finished', finished_at = ? WHERE id = ?").run(new Date().toISOString(), target.id);
+      store.db.query("UPDATE epochs SET finished_count = 1 WHERE id = ?").run(epoch.id);
+
+      expect(requeueEpochTarget(store, { epochTargetId: target.id })).toMatchObject({
+        epochId: epoch.id,
+        epochTargetId: target.id,
+        targetKey: "unit_1::fn_1",
+      });
+      expect(getJobByDedupeKey(store, "worker", target.id)).toMatchObject({ status: "queued", attempts: 0 });
+      expect(
+        store.db.query("SELECT status, claimed_at, finished_at FROM epoch_targets WHERE id = ?").get(target.id),
+      ).toEqual({ status: "admitted", claimed_at: null, finished_at: null });
+      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ available: 1, finished: 0 });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("refuses to requeue an unfinished epoch target", () => {
+    const { store } = tempState();
+    try {
+      const { epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
+      const target = store.db
+        .query("SELECT id FROM epoch_targets WHERE epoch_id = ?")
+        .get(epoch.id) as { id: string };
+      expect(() => requeueEpochTarget(store, { epochTargetId: target.id })).toThrow("Only finished epoch targets can be requeued");
+      expect(getJobByDedupeKey(store, "worker", target.id)).toMatchObject({ status: "queued" });
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("admission enqueues one durable worker job per target without duplicates", () => {
     const { store } = tempState();
     try {

@@ -10,7 +10,19 @@ import {
   type StateStore,
 } from "@server/core/orchestrator-state";
 
-export type SavePointTrigger = "manual" | "init" | "pause" | "checkpoint" | "qa" | "ship" | "sync" | "fresh" | "epoch";
+export type SavePointTrigger =
+  | "manual"
+  | "init"
+  | "pause"
+  | "checkpoint"
+  | "qa"
+  | "ship"
+  | "sync"
+  | "fresh"
+  | "epoch"
+  | "baseline"
+  | "epoch_finish"
+  | "pr_sync";
 
 export interface CampaignRecord {
   id: string;

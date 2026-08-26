@@ -1081,7 +1081,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     savePoint = addSavePoint(store, {
       campaignId: campaign.id,
       runId,
-      triggerKind: "epoch",
+      triggerKind: "epoch_finish",
       label,
       commitSha: integrationCommit,
       branch: branch.ok ? branch.text : null,
@@ -1141,7 +1141,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       status: "recorded",
       savePointId: savePoint.id,
       commitSha: integrationCommit,
-      triggerKind: "epoch",
+      triggerKind: "epoch_finish",
       headlineScore: matchedCodePercent,
       artifactPaths: [
         resolve(artifactDir, "report.json"),
@@ -1168,7 +1168,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     console.error(`[epoch] failed to record save point: ${message}`);
     savePointEvidence = {
       status: "failed",
-      triggerKind: "epoch",
+      triggerKind: "epoch_finish",
       sourceKind: "epoch",
       sourceId: options.epochId ?? label ?? runId,
       message,

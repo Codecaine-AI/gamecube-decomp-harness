@@ -494,6 +494,7 @@ export async function runRunLoop(
     const epochPauseThreshold = nonNegativeInt(numberArg(args, "--epoch-regression-pause-threshold", 12));
     const epochRequeueLimit = nonNegativeInt(numberArg(args, "--epoch-regression-requeue-limit", 32));
     const cycleDraftPrEnabled = !booleanArg(args, "--no-cycle-draft-pr");
+    const boundarySyncEnabled = !booleanArg(args, "--no-boundary-sync");
     const fullKgMaintenanceMode = stringArg(args, "--full-kg-maintenance-mode", "full").trim().toLowerCase();
     let runningEpoch: Promise<void> | null = null;
     let epochCycles = 0;
@@ -785,6 +786,7 @@ export async function runRunLoop(
             epochPauseThreshold,
             epochRequeueLimit,
             cycleDraftPrEnabled,
+            boundarySyncEnabled,
             fullKgMaintenanceMode,
             writeSetFlags,
             schedulerEpochConfig,
@@ -798,8 +800,8 @@ export async function runRunLoop(
             // Compare-and-set: the boundary sha was captured at snapshot time,
             // so if an integration drain or resolver advanced baseRev during
             // the (long) report build, the newer value wins.
-            if (outcome.boundaryResult?.commitSha && workerCtx.baseRev === baseRevAtBoundaryStart) {
-              workerCtx.baseRev = outcome.boundaryResult.commitSha;
+            if (outcome.boundaryHeadSha && workerCtx.baseRev === baseRevAtBoundaryStart) {
+              workerCtx.baseRev = outcome.boundaryHeadSha;
             }
             if (globals.dryRunAgents || outcome.boundaryResult || outcome.reconciled) epochCycles += 1;
             if (outcome.boundaryResult) {

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCycle } from "@server/core/cycle";
 import { openState } from "@server/core/orchestrator-state";
-import { listSavePoints } from "../state/index.js";
+import { addSavePoint, ensureCampaign, listSavePoints, type SavePointTrigger } from "../state/index.js";
 import { savePoint } from "./save-point.js";
 
 const cleanup: string[] = [];
@@ -20,6 +20,22 @@ afterEach(() => {
 });
 
 describe("save-point evidence capture", () => {
+  test("stores the three epoch-flow marker kinds as typed triggers", () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "typed-save-point-state-"));
+    cleanup.push(stateDir);
+    const store = openState(stateDir);
+    try {
+      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
+      const triggers: SavePointTrigger[] = ["baseline", "epoch_finish", "pr_sync"];
+      for (const triggerKind of triggers) {
+        addSavePoint(store, { campaignId: campaign.id, triggerKind });
+      }
+      expect(listSavePoints(store, 3).map((savePoint) => savePoint.triggerKind).sort()).toEqual([...triggers].sort());
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("anchors the current HEAD without staging or committing dirty work", async () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "save-point-repo-"));
     const stateDir = mkdtempSync(join(tmpdir(), "save-point-state-"));

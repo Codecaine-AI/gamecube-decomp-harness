@@ -33,6 +33,7 @@ import { status } from "@server/core/cycle-runtime/phases/running/service/status
 import { workerTask } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { regressionCheck } from "@server/core/validation/jobs/regression-check.js";
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
+import { boundarySync } from "@server/application/jobs/boundary-sync.js";
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   loadLocalEnv();
@@ -46,7 +47,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   await configureGlobalCompileJobserver();
 
   try {
-    if (command === "init-run") await initRun(globals, args);
+    if (command === "boundary-sync") await boundarySync(globals, args);
+    else if (command === "init-run") await initRun(globals, args);
     else if (command === "tick") await tick(globals, args);
     else if (command === "worker-task") await workerTask(globals, args);
     else if (command === "run-loop") await runLoop(globals, args);

@@ -11,6 +11,7 @@ import {
   cancelJob,
   enqueueJob,
   getJobByDedupeKey,
+  requeueJob,
   reprioritizeJob,
 } from "@server/core/job-queue/kernel.js";
 
@@ -74,6 +75,13 @@ export interface EpochPriorityRefreshResult {
   epochId: string;
   candidateCount: number;
   refreshed: number;
+}
+
+export interface RequeueEpochTargetResult {
+  epochId: string;
+  epochTargetId: string;
+  jobId: string;
+  targetKey: string;
 }
 
 export interface EpochProgressSummary {
@@ -449,6 +457,43 @@ function refreshEpochFinishedCount(store: StateStore, epochId: string): void {
       `,
     )
     .run(epochId);
+}
+
+/** Reopens a finished epoch target and its terminal worker job for another attempt. */
+export function requeueEpochTarget(
+  store: StateStore,
+  params: {
+    epochTargetId: string;
+    actor?: Parameters<typeof requeueJob>[1]["actor"];
+    at?: string;
+  },
+): RequeueEpochTargetResult {
+  return immediateTransaction(store.db, () => {
+    const target = store.db
+      .query("SELECT id, epoch_id, target_key, status FROM epoch_targets WHERE id = ?")
+      .get(params.epochTargetId) as Record<string, unknown> | undefined;
+    if (!target) throw new Error(`Epoch target not found: ${params.epochTargetId}`);
+    if (target.status !== "finished") {
+      throw new Error(`Only finished epoch targets can be requeued: ${params.epochTargetId} is ${String(target.status)}`);
+    }
+    const job = requeueJob(store, {
+      kind: "worker",
+      dedupeKey: params.epochTargetId,
+      actor: params.actor ?? "runner",
+      at: params.at,
+    });
+    store.db
+      .query("UPDATE epoch_targets SET status = 'admitted', claimed_at = NULL, finished_at = NULL WHERE id = ?")
+      .run(params.epochTargetId);
+    const epochId = String(target.epoch_id);
+    refreshEpochFinishedCount(store, epochId);
+    return {
+      epochId,
+      epochTargetId: params.epochTargetId,
+      jobId: job.jobId,
+      targetKey: String(target.target_key),
+    };
+  });
 }
 
 export function refreshEpochTargetAvailability(

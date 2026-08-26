@@ -61,6 +61,7 @@ function params(
       epochPauseThreshold: 12,
       epochRequeueLimit: 32,
       cycleDraftPrEnabled: false,
+      boundarySyncEnabled: false,
       fullKgMaintenanceMode: "skip",
       writeSetFlags: { writeSetWidening: "off" },
       schedulerEpochConfig: {
@@ -79,6 +80,47 @@ afterAll(() => {
 });
 
 describe("runEpochBoundary", () => {
+  test("runs boundary sync after epoch finish and exposes the post-sync head before admission", async () => {
+    const value = fixture([]);
+    try {
+      const order: string[] = [];
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: async () => {
+            order.push("epoch_finish");
+            return {
+              commitSha: "epoch-head",
+              label: "epoch-1",
+              matchedCodePercent: 90,
+              qaGate: null,
+              regressions: { regressedFunctions: 0 },
+              repair: { paused: false, requeued: 0 },
+              durationMs: 1,
+            } as never;
+          },
+          runBoundarySync: async () => {
+            order.push("pr_sync");
+            return { changed: true, headSha: "post-sync-head", plan: {} as never };
+          },
+          ensureSchedulerEpochFromBoard: ((input: unknown) => {
+            order.push("admission");
+            return { epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 };
+          }) as never,
+        },
+      });
+      input.schedulerEpochId = undefined;
+      input.config.boundarySyncEnabled = true;
+      const outcome = await runEpochBoundary(input);
+
+      expect(order).toEqual(["epoch_finish", "pr_sync", "admission"]);
+      expect(outcome.boundaryHeadSha).toBe("post-sync-head");
+    } finally {
+      value.store.db.close();
+    }
+  });
+
   test("dry run closes the completed epoch and deterministically admits the next epoch", async () => {
     const value = fixture([
       {

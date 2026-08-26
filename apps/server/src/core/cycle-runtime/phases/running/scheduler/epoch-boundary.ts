@@ -1,12 +1,20 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
-import { reconcilePendingIntegrationAttempt as reconcilePendingIntegrationAttemptDefault } from "@server/core/cycle";
+import { appendLearnings, defaultLedgerPath } from "@server/core/knowledge/ledger.js";
+import { rebuildKnowledgeGraph } from "@server/core/knowledge/graph";
+import { forceReportRun } from "@server/core/validation/report";
+import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
+import { runBoundarySync as runBoundarySyncDefault, type BoundarySyncResult } from "@server/core/cycle-runtime/phases/running/epochs/boundary-sync.js";
+import { recordSavePointAnchor, reconcilePendingIntegrationAttempt as reconcilePendingIntegrationAttemptDefault } from "@server/core/cycle";
 import { runEpochCycle as runEpochCycleDefault, type EpochCycleResult } from "@server/core/cycle-runtime/phases/running/epochs";
 import { publishCycleDraftPr as publishCycleDraftPrDefault } from "@server/core/cycle-runtime/phases/running/epochs/cycle-draft-pr.js";
 import {
   addEvent,
   closeSchedulerEpoch,
   closeSchedulerEpochWithEvidence,
+  requeueEpochTarget,
   type SchedulerEpochConfig,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
@@ -25,6 +33,7 @@ type RunEpochCycle = typeof runEpochCycleDefault;
 type PublishCycleDraftPr = typeof publishCycleDraftPrDefault;
 type RunKnowledgeMaintenance = typeof runKnowledgeMaintenanceDefault;
 type EnsureSchedulerEpochFromBoard = typeof ensureSchedulerEpochFromBoardDefault;
+type RunBoundarySync = (input: { params: EpochBoundaryParams; epochResult: EpochCycleResult }) => Promise<BoundarySyncResult | undefined>;
 
 export interface EpochBoundaryDependencies {
   reconcilePendingIntegrationAttempt?: ReconcilePendingIntegrationAttempt;
@@ -32,6 +41,7 @@ export interface EpochBoundaryDependencies {
   publishCycleDraftPr?: PublishCycleDraftPr;
   runKnowledgeMaintenance?: RunKnowledgeMaintenance;
   ensureSchedulerEpochFromBoard?: EnsureSchedulerEpochFromBoard;
+  runBoundarySync?: RunBoundarySync;
 }
 
 export interface EpochBoundaryParams {
@@ -49,6 +59,7 @@ export interface EpochBoundaryParams {
     epochPauseThreshold: number;
     epochRequeueLimit: number;
     cycleDraftPrEnabled: boolean;
+    boundarySyncEnabled: boolean;
     fullKgMaintenanceMode: string;
     writeSetFlags: WriteSetIntegrationFlags;
     schedulerEpochConfig: SchedulerEpochConfig;
@@ -67,6 +78,123 @@ export interface EpochBoundaryOutcome {
   paused: boolean;
   nextEpoch?: ReturnType<typeof ensureSchedulerEpochFromBoardDefault>;
   knowledgeMaintenanceRun?: Record<string, unknown>;
+  boundarySync?: BoundarySyncResult;
+  boundaryHeadSha?: string;
+}
+
+function measuresAt(repoRoot: string, reportRelPath: string): Record<string, unknown> {
+  const parsed = JSON.parse(readFileSync(resolve(repoRoot, reportRelPath), "utf8")) as Record<string, unknown>;
+  return parsed.measures && typeof parsed.measures === "object" ? parsed.measures as Record<string, unknown> : {};
+}
+
+async function productionBoundarySync(params: EpochBoundaryParams): Promise<BoundarySyncResult | undefined> {
+  const gameId = params.globals.game?.gameId ?? params.globals.gameId;
+  if (!gameId) return undefined;
+  const run = params.store.db.query("SELECT cycle_uuid FROM runs WHERE id = ?").get(params.runId) as { cycle_uuid: string | null } | undefined;
+  if (!run?.cycle_uuid) return undefined;
+  const anchor = params.store.db
+    .query("SELECT upstream_revision FROM game_upstream_anchors WHERE game_id = ? AND cycle_uuid = ?")
+    .get(gameId, run.cycle_uuid) as { upstream_revision: string } | undefined;
+  if (!anchor?.upstream_revision) throw new Error(`boundary sync missing upstream anchor for ${gameId}/${run.cycle_uuid}`);
+  const cycle = params.store.db.query("SELECT id, head_revision FROM cycles WHERE cycle_uuid = ?").get(run.cycle_uuid) as { id: string; head_revision: string } | undefined;
+  if (!cycle?.head_revision) throw new Error(`boundary sync missing cycle head for ${run.cycle_uuid}`);
+  const rows = params.store.db.query(`
+    SELECT id, target_key, unit, symbol, source_path, baseline_score
+    FROM epoch_targets WHERE run_id = ? AND status = 'finished'
+  `).all(params.runId) as Array<Record<string, unknown>>;
+  const reportRelPath = params.globals.game?.validation.reportPath ?? "build/GALE01/report.json";
+  const campaign = ensureCampaign(params.store, { gameId, baseRef: params.globals.game?.baseRef });
+  let pendingAnchorSha: string | null = null;
+  return runBoundarySyncDefault({
+    repoRoot: params.globals.repoRoot,
+    anchorSha: anchor.upstream_revision,
+    upstreamRef: params.globals.game?.baseRef,
+    targets: rows.map((row) => ({
+      epochTargetId: String(row.id),
+      targetKey: String(row.target_key),
+      sourcePath: String(row.source_path),
+      unit: String(row.unit),
+      symbol: String(row.symbol),
+      priorKind: Number(row.baseline_score) >= 100 ? "match" as const : "improvement" as const,
+      priorScore: Number.isFinite(Number(row.baseline_score)) ? Number(row.baseline_score) : null,
+    })),
+    hooks: {
+      // The full boundary knowledge pass below owns merged-PR indexing. It is
+      // deliberately outside operator-sync publication and confirmation.
+      ingestMergedUpstream: async () => {},
+      appendOverrideNote: (item) => {
+        const id = createHash("sha256").update(`${run.cycle_uuid}:${item.targetKey}:${item.upstreamLandedSha}`).digest("hex");
+        appendLearnings(defaultLedgerPath(gameId), [{
+          id: `boundary-${id}`,
+          origin: "human_extracted",
+          subject: { scope: item.symbol ? "symbol" : "file", symbol: item.symbol ?? undefined, file: item.sourcePath },
+          statement: `${item.targetKey} was ${item.priorKind} locally at score ${item.priorScore ?? "unknown"}; upstream ${item.upstreamLandedSha} overrode it. ${item.verdict}`,
+          evidence: [{ type: "boundary_sync", ref: item.upstreamLandedSha }],
+          confidence: 1,
+          produced_by: "boundary-sync",
+          status: "corroborated",
+        }]);
+      },
+      requeueTarget: (item) => {
+        if (!item.epochTargetId) throw new Error(`boundary sync cannot requeue ${item.targetKey} without an epoch target id`);
+        requeueEpochTarget(params.store, { epochTargetId: item.epochTargetId });
+      },
+      rebuildKnowledgeGraph: async () => { rebuildKnowledgeGraph({ repoRoot: params.globals.repoRoot, dbPath: params.config.graphDbPath }); },
+      recomputeReport: async () => {
+        await forceReportRun(params.globals.repoRoot, { resetBaseline: false });
+        const measures = measuresAt(params.globals.repoRoot, reportRelPath);
+        const score = Number(measures.matched_code_percent);
+        return { measures, matchedCodePercent: Number.isFinite(score) ? score : null };
+      },
+      writePrSyncSavePoint: (value) => {
+        const savePoint = addSavePoint(params.store, {
+          campaignId: campaign.id,
+          runId: params.runId,
+          triggerKind: "pr_sync",
+          label: `epoch-${params.epochOrdinal}-pr-sync`,
+          commitSha: value.commitSha,
+          baseRef: params.globals.game?.baseRef,
+          baseSha: value.upstreamHeadSha,
+          matchedCodePercent: value.matchedCodePercent,
+          reportPath: resolve(params.globals.repoRoot, reportRelPath),
+          payload: { kind: value.kind, measures: value.measures, prior_anchor: value.anchorSha },
+        });
+        recordSavePointAnchor(params.store, {
+          gameId,
+          cycleUuid: run.cycle_uuid,
+          savePointId: savePoint.id,
+          commitSha: value.commitSha,
+          triggerKind: "pr_sync",
+          headlineScore: value.matchedCodePercent,
+          artifactPaths: [resolve(params.globals.repoRoot, reportRelPath)],
+          payload: { measures: value.measures, prior_anchor: value.anchorSha, upstream_revision: value.upstreamHeadSha },
+          commandId: `command-boundary-pr-sync-${randomUUID()}`,
+          correlationId: params.runId,
+          actor: "runner",
+        });
+      },
+      advanceAnchor: ({ upstreamHeadSha }) => {
+        pendingAnchorSha = upstreamHeadSha;
+      },
+      advanceCycleHead: ({ headSha }) => {
+        if (!pendingAnchorSha) throw new Error("boundary sync anchor advance was not prepared");
+        const at = new Date().toISOString();
+        params.store.db.transaction(() => {
+          const anchorChanged = params.store.db.query(`UPDATE game_upstream_anchors
+            SET upstream_revision = ?, sync_id = ?, caused_by_event_id = ?, updated_at = ?
+            WHERE game_id = ? AND cycle_uuid = ? AND upstream_revision = ?`)
+            .run(pendingAnchorSha, `boundary-${params.epochOrdinal}`, `boundary-${randomUUID()}`, at, gameId, run.cycle_uuid, anchor.upstream_revision);
+          if (anchorChanged.changes !== 1) throw new Error(`boundary sync anchor CAS failed for ${run.cycle_uuid}`);
+          const cycleChanged = params.store.db.query("UPDATE cycles SET head_revision = ?, revision = revision + 1, updated_at = ?, save_point_stale = 0 WHERE cycle_uuid = ? AND head_revision = ?")
+            .run(headSha, at, run.cycle_uuid, cycle.head_revision);
+          if (cycleChanged.changes !== 1) throw new Error(`boundary sync cycle head CAS failed for ${run.cycle_uuid}`);
+          const runChanged = params.store.db.query("UPDATE runs SET head_revision = ?, revision = revision + 1 WHERE id = ? AND cycle_uuid = ?")
+            .run(headSha, params.runId, run.cycle_uuid);
+          if (runChanged.changes !== 1) throw new Error(`boundary sync run head CAS failed for ${params.runId}`);
+        })();
+      },
+    },
+  });
 }
 
 function knowledgeMaintenanceArgs(args: Map<string, string | true>, runId: string): Map<string, string | true> {
@@ -124,10 +252,12 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
   const publishCycleDraftPr = params.dependencies?.publishCycleDraftPr ?? publishCycleDraftPrDefault;
   const runKnowledgeMaintenance = params.dependencies?.runKnowledgeMaintenance ?? runKnowledgeMaintenanceDefault;
   const ensureSchedulerEpochFromBoard = params.dependencies?.ensureSchedulerEpochFromBoard ?? ensureSchedulerEpochFromBoardDefault;
+  const runBoundarySync = params.dependencies?.runBoundarySync;
   let boundaryResult: EpochCycleResult | undefined;
   let reconciled = false;
   let knowledgeMaintenanceRun: Record<string, unknown> | undefined;
   let nextEpoch: ReturnType<typeof ensureSchedulerEpochFromBoardDefault> | undefined;
+  let boundarySync: BoundarySyncResult | undefined;
 
   try {
     if (globals.dryRunAgents) {
@@ -167,6 +297,11 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           worktreeDir: config.epochWorktreeDir,
         });
         boundaryResult = result;
+        if (config.boundarySyncEnabled && result.commitSha) {
+          boundarySync = runBoundarySync
+            ? await runBoundarySync({ params, epochResult: result })
+            : await productionBoundarySync(params);
+        }
         if (config.cycleDraftPrEnabled) {
           const publish = await publishCycleDraftPr({
             baseRef: globals.game?.baseRef,
@@ -217,7 +352,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
               integration: {
                 gameId: globals.game?.gameId ?? globals.gameId,
                 runId,
-                integrationCommit: result.commitSha!,
+                integrationCommit: boundarySync?.headSha ?? result.commitSha!,
                 scoreDelta: result.scoreDelta,
                 commandId: `command-epoch-integrated-${randomUUID()}`,
                 correlationId: runId,
@@ -297,7 +432,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           integration: {
             gameId: globals.game?.gameId ?? globals.gameId,
             runId,
-            integrationCommit: boundaryResult.commitSha,
+            integrationCommit: boundarySync?.headSha ?? boundaryResult.commitSha,
             scoreDelta: boundaryResult.scoreDelta,
             commandId: `command-epoch-integrated-${randomUUID()}`,
             correlationId: runId,
@@ -343,6 +478,8 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       paused: false,
       nextEpoch,
       knowledgeMaintenanceRun,
+      boundarySync,
+      boundaryHeadSha: boundarySync?.headSha ?? boundaryResult?.commitSha ?? undefined,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -367,6 +504,8 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       paused: false,
       nextEpoch,
       knowledgeMaintenanceRun,
+      boundarySync,
+      boundaryHeadSha: boundarySync?.headSha ?? boundaryResult?.commitSha ?? undefined,
     };
   }
 }

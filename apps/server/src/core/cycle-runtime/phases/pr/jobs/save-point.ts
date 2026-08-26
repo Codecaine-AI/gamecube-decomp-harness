@@ -17,7 +17,20 @@ import { loadTrustedReportFile } from "@server/core/validation/report";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { COMMIT_EXCLUDES } from "../boundary-commit.js";
 
-const SAVE_POINT_TRIGGERS: SavePointTrigger[] = ["manual", "init", "pause", "checkpoint", "qa", "ship", "sync", "fresh", "epoch"];
+const SAVE_POINT_TRIGGERS: SavePointTrigger[] = [
+  "manual",
+  "init",
+  "pause",
+  "checkpoint",
+  "qa",
+  "ship",
+  "sync",
+  "fresh",
+  "epoch",
+  "baseline",
+  "epoch_finish",
+  "pr_sync",
+];
 
 interface GitResult {
   ok: boolean;
