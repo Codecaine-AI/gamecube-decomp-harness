@@ -88,25 +88,7 @@ describe("publishCycleDraftPr", () => {
         stateDir,
         store,
       },
-      {
-        runCommand,
-        projectScoreTiers: () => ({
-          baseline: { score: 91.08, measures: {}, anchorRevision: "base", savePointId: "base-save" },
-          confirmed: {
-            score: 91.42,
-            measures: {},
-            delta: 0.34,
-            savePointId: "confirmed-save",
-            matches: [{ targetKey: "src/a.c::ExactFn", unit: "src/a.c", symbol: "ExactFn", score: 100, state: "in_branch" }],
-            improvements: [{ targetKey: "src/b.c::BetterFn", unit: "src/b.c", symbol: "BetterFn", delta: 4.25, state: "in_branch" }],
-          },
-          tentative: {
-            matches: [{ targetKey: "src/c.c::PendingFn", unit: "src/c.c", symbol: "PendingFn", score: 100, state: "in_branch" }],
-            improvements: [],
-          },
-          timeline: [],
-        }),
-      },
+      { runCommand },
     );
 
     expect(result.status).toBe("created");
@@ -116,13 +98,7 @@ describe("publishCycleDraftPr", () => {
     expect(result.title).toBe(title);
     expect(calls).toContain(`git push --force-with-lease -u fork HEAD:${branch}`);
     const body = readFileSync(bodyPath, "utf8");
-    expect(body.startsWith(DEFAULT_CYCLE_DRAFT_PR_BODY)).toBe(true);
-    expect(body).toContain("Epoch: 3");
-    expect(body).toContain("- Baseline: 91.08%");
-    expect(body).toContain("- Confirmed: 91.42%");
-    expect(body).toContain("- Tentative: 1 win pending validation");
-    expect(body).toContain("- `ExactFn` (`src/a.c`): 100%");
-    expect(body).toContain("- `BetterFn` (`src/b.c`): +4.25");
+    expect(body).toBe(`${DEFAULT_CYCLE_DRAFT_PR_BODY}\n`);
 
     const artifact = latestDashboardArtifactPayload(store, {
       artifactType: CYCLE_DRAFT_PR_ARTIFACT_TYPE,
@@ -168,7 +144,7 @@ describe("publishCycleDraftPr", () => {
     expect(result.prNumber).toBe(456);
     expect(calls.some((call) => call.startsWith("gh pr create"))).toBe(false);
     expect(calls).toContain(`gh pr edit 456 --repo doldecomp/melee --title ${title} --body-file ${bodyPath}`);
-    expect(readFileSync(bodyPath, "utf8")).toContain("Epoch: 2");
+    expect(readFileSync(bodyPath, "utf8")).toBe(`${DEFAULT_CYCLE_DRAFT_PR_BODY}\n`);
   });
 
   test("skips non-cycle branches without publishing", async () => {

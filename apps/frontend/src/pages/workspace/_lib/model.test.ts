@@ -620,5 +620,12 @@ describe("workspace cycle view", () => {
     expect(view.prepareState.readyToStartRun).toBe(true);
     expect(view.recommendedSub).toBe("run");
     expect(view.modeLabel).toBe("Not started");
+
+    const pendingBaselineDashboard = structuredClone(dashboard) as Dashboard;
+    const pendingPreparing = (pendingBaselineDashboard.cycle as Record<string, unknown>).phases as Record<string, Record<string, unknown>>;
+    pendingPreparing.preparing!.baseline = { status: "pending" };
+    const pendingBaselineView = deriveCycleView(pendingBaselineDashboard, null, form);
+    expect(pendingBaselineView.prepareState.baselineDone).toBe(false);
+    expect(pendingBaselineView.prepareState.readyToStartRun).toBe(true);
   });
 });

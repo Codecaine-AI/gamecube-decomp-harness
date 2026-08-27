@@ -14,6 +14,7 @@ export const agent = defineHarnessAgent({
       "knowledge_graph_search",
       "graph_related_functions",
       "past_prs_search",
+      "ledger_search",
       "mwcc_debug_lookup",
       "checkdiff_run",
       "checkdiff_summary",

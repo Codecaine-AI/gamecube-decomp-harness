@@ -24,6 +24,7 @@ import {
   validateWidenedChange,
   type WorkerChangeValidation,
 } from "@server/core/agent-catalog/agents/running/worker/change-validation";
+import type { WorkerMicroGateFlags } from "@server/core/agent-catalog/agents/running/worker/micro-gates";
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import {
   fileGraphCard,
@@ -465,6 +466,9 @@ const WORKER_PI_SESSION_RETRYABLE_PATTERNS = [
   /fetch failed/i,
   /network error/i,
   /temporarily unavailable/i,
+  /upstream[_ ]unavailable/i,
+  /request to upstream timed out/i,
+  /stream[_ ]idle[_ ]timeout/i,
   /\b50[234]\b/,
 ] as const;
 
@@ -604,6 +608,41 @@ export const WORKER_ATTEMPT_TAIL_POLICY = {
   followUpAttemptsAfterBest: 0,
   followUpAttemptsAfterGateFailedExact: 3,
 } as const;
+
+export const REPAIR_REQUEST_DIFF_INLINE_LIMIT = 30_000;
+export const REPAIR_REQUEST_OUTPUT_TAIL_LIMIT = 10_000;
+export const REPAIR_REQUEST_PATHS_NOTE =
+  "The *_path fields are host-side audit references and are NOT readable from the worker sandbox; use the inlined previous_return_gate / previous_post_attempt_diff / previous_agent_output_tail fields instead.";
+
+export async function buildRepairRequestInlineArtifacts(params: {
+  agentOutputPath: string;
+  returnGatePath: string;
+  postAttemptDiffPath: string;
+}): Promise<Record<string, unknown>> {
+  const artifacts: Record<string, unknown> = {};
+
+  try {
+    artifacts.previous_return_gate = JSON.parse(await readFile(params.returnGatePath, "utf8"));
+  } catch {}
+
+  try {
+    const diff = await readFile(params.postAttemptDiffPath, "utf8");
+    artifacts.previous_post_attempt_diff =
+      diff.length > REPAIR_REQUEST_DIFF_INLINE_LIMIT
+        ? `${diff.slice(0, REPAIR_REQUEST_DIFF_INLINE_LIMIT)}\n[truncated: showing first ${REPAIR_REQUEST_DIFF_INLINE_LIMIT} of ${diff.length} characters]`
+        : diff;
+  } catch {}
+
+  try {
+    const output = await readFile(params.agentOutputPath, "utf8");
+    artifacts.previous_agent_output_tail =
+      output.length > REPAIR_REQUEST_OUTPUT_TAIL_LIMIT
+        ? `[truncated: showing last ${REPAIR_REQUEST_OUTPUT_TAIL_LIMIT} of ${output.length} characters]\n${output.slice(-REPAIR_REQUEST_OUTPUT_TAIL_LIMIT)}`
+        : output;
+  } catch {}
+
+  return artifacts;
+}
 
 export interface WorkerContinuationDecision {
   policy: typeof WORKER_ATTEMPT_TAIL_POLICY.mode;
@@ -1369,6 +1408,11 @@ async function executeClaimedWorker(params: {
     let preAttemptDiffPath = resolve(validationDir, "pre_worker_write_set.diff");
     let preAttemptDiff = await captureWriteSetDiff(workspaceExec, currentWriteSet, preAttemptDiffPath);
     const preAttemptChangedPaths = await captureWorktreeChangedPaths(workspaceExec, resolve(validationDir, "pre_worker_changed_paths.txt"));
+    const microGateFlags: WorkerMicroGateFlags = {
+      sectionParity: globals.game?.validation?.workerSectionParityGate ?? true,
+      undefinedSymbols: globals.game?.validation?.workerUndefinedSymbolGate ?? true,
+      bannedIdioms: globals.game?.validation?.workerBannedIdiomGate ?? true,
+    };
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
       outputDir: validationDir,
@@ -1378,6 +1422,7 @@ async function executeClaimedWorker(params: {
       // report artifacts) join the QA snapshot so any worker edit to them is
       // visible to the L1 QA lint diff.
       extraPaths: preAttemptChangedPaths.filter((path) => !currentWriteSet.includes(path)),
+      captureUndefinedSymbols: microGateFlags.undefinedSymbols,
       workspaceExec,
     });
     const measuredBaselineScore = finiteNumber(workerChangeBaseline.snapshot?.targetScore);
@@ -1910,6 +1955,8 @@ async function executeClaimedWorker(params: {
         dryRun: globals.dryRunAgents,
         shouldRun: shouldRunRunnerValidation,
         claimedExact: true,
+        microGateFlags,
+        postAttemptDiffText: postAttemptDiff.stdout,
         workspaceExec,
       });
       const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")
@@ -1977,6 +2024,7 @@ async function executeClaimedWorker(params: {
           agent_note_parse_error: parsedAgentNote.error ?? null,
           review_lint: reviewLint,
           post_return_check: runnerValidation.postReturnCheck ?? null,
+          micro_gates: runnerValidation.microGates ?? null,
           worker_session_timed_out: workerSessionTimedOut,
           write_set_diff_changed: writeSetDiffChanged,
           write_set_entries: currentEntries,
@@ -2111,6 +2159,12 @@ async function executeClaimedWorker(params: {
         previous_agent_output_path: result.outputPath,
         previous_return_gate_path: attemptGatePath,
         previous_post_attempt_diff_path: postAttemptDiffPath,
+        paths_note: REPAIR_REQUEST_PATHS_NOTE,
+        ...(await buildRepairRequestInlineArtifacts({
+          agentOutputPath: result.outputPath,
+          returnGatePath: attemptGatePath,
+          postAttemptDiffPath,
+        })),
         reasons: repairReasons,
         continuation_policy: continuationDecision,
         ...(shouldExposeWideningDecisionToWorker(writeSetWideningMode)

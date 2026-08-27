@@ -22,7 +22,12 @@ import {
 } from "./kernel-catalog.js";
 import { loadKernelAgentsPayload } from "./kernel-preview.js";
 import { defaultKernelTurnPrompt, ROOT_CONTEXT_LOADER_KIND } from "./kernel-context.js";
-import { defaultLibrarianToolProfile, resolveAgentToolIds } from "@server/core/tools/index.js";
+import {
+  agentToolProfileSummary,
+  defaultLibrarianToolProfile,
+  defaultWorkerToolProfile,
+  resolveAgentToolIds,
+} from "@server/core/tools/index.js";
 import { createMeleeLoaderCatalog } from "@server/infrastructure/kernel/bridge/loaders.js";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
@@ -149,6 +154,11 @@ describe("meleeKernelAgentCatalog", () => {
       expect(entry.toolProfile).toBe(entry.role);
     }
 
+    expect(meleeKernelAgent("worker").tools).toEqual([...defaultWorkerToolProfile]);
+    expect(defaultWorkerToolProfile).toContain("ledger_search");
+    expect(
+      agentToolProfileSummary("worker").map((tool) => tool.id),
+    ).toContain("ledger_search");
     expect(meleeKernelAgent("librarian").tools).toEqual([...defaultLibrarianToolProfile]);
     expect(defaultLibrarianToolProfile).toEqual([
       "code_graph_search",

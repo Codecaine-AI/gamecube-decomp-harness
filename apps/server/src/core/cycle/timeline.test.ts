@@ -502,6 +502,8 @@ describe("game cycle timeline", () => {
         payload: { epoch_id: epoch.id, run_id: "run-1" },
       },
     });
+    const closedEpoch = store.db.query("SELECT status FROM epochs WHERE id = ?").get(epoch.id) as { status: string };
+    expect(closedEpoch.status).toBe("completed");
     releaseDispatch(store, {
       gameId: "melee",
       leaseId: dispatch.leaseId,

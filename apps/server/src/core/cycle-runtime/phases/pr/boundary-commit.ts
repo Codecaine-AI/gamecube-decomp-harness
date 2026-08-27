@@ -2,7 +2,14 @@ import { relative } from "node:path";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 import type { DispatchLeaseRevalidator } from "@server/core/cycle-runtime/dispatch-guard";
 
-export const COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state"] as const;
+/** Orchestrator/agent scratch written inside the target checkout; never part of the product branch. */
+export const ORCHESTRATOR_SCRATCH_EXCLUDES = ["active_session", ".pi-sessions"] as const;
+
+export const COMMIT_EXCLUDES = [
+  "decomp-orchestrator",
+  ".decomp-orchestrator-state",
+  ...ORCHESTRATOR_SCRATCH_EXCLUDES,
+] as const;
 
 export type BoundaryGitRunner = (
   repoRoot: string,

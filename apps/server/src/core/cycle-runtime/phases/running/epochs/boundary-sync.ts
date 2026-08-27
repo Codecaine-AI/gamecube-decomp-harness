@@ -51,14 +51,21 @@ export interface BoundarySyncHooks {
   appendOverrideNote(displacement: BoundaryDisplacement): Promise<void> | void;
   requeueTarget(displacement: BoundaryDisplacement): Promise<void> | void;
   rebuildKnowledgeGraph(): Promise<void>;
-  recomputeReport(): Promise<{ matchedCodePercent?: number | null; measures?: Record<string, unknown> }>;
+  recomputeReport(): Promise<{
+    matchedCodePercent?: number | null;
+    matchedDataPercent?: number | null;
+    measures?: Record<string, unknown>;
+    sectionMeasures?: Record<string, unknown>;
+  }>;
   writePrSyncSavePoint(input: {
     kind: "pr_sync";
     anchorSha: string;
     commitSha: string;
     upstreamHeadSha: string;
     matchedCodePercent: number | null;
+    matchedDataPercent?: number | null;
     measures: Record<string, unknown>;
+    sectionMeasures?: Record<string, unknown>;
   }): Promise<void> | void;
   advanceAnchor(input: { previousAnchorSha: string; upstreamHeadSha: string }): Promise<void> | void;
   advanceCycleHead(input: { previousHeadSha: string; headSha: string }): Promise<void> | void;
@@ -278,7 +285,9 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
     commitSha: headSha,
     upstreamHeadSha: plan.upstreamHeadSha,
     matchedCodePercent: report.matchedCodePercent ?? null,
+    matchedDataPercent: report.matchedDataPercent ?? null,
     measures: report.measures ?? {},
+    sectionMeasures: report.sectionMeasures ?? {},
   });
   await input.hooks.advanceAnchor({ previousAnchorSha: plan.anchorSha, upstreamHeadSha: plan.upstreamHeadSha });
   await input.hooks.advanceCycleHead({ previousHeadSha: plan.localHeadSha, headSha });

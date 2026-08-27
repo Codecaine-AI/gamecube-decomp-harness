@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map-45-epoch-boundary",
+  "title": "Epoch Boundary",
+  "root": "b-epoch-boundary-root-1",
+  "blocks": {
+    "b-epoch-boundary-root-1": {
+      "id": "b-epoch-boundary-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-epoch-boundary-abstract-2",
+        "b-epoch-boundary-trigger-heading-3",
+        "b-epoch-boundary-trigger-4",
+        "b-epoch-boundary-retry-5",
+        "b-epoch-boundary-shortcut-6",
+        "b-epoch-boundary-sequence-heading-7",
+        "b-epoch-boundary-sequence-intro-8",
+        "b-epoch-boundary-sequence-9",
+        "b-epoch-boundary-failures-heading-10",
+        "b-epoch-boundary-failures-intro-11",
+        "b-epoch-boundary-failures-table-12"
+      ]
+    },
+    "b-epoch-boundary-abstract-2": {
+      "id": "b-epoch-boundary-abstract-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        { "insert": "The epoch boundary is the serialized truth-rebuild, gate, publish, and re-admission pass that runs when an epoch's queue empties. It is agentless by design. It is currently the most failure-prone seam in the run loop." }
+      ],
+      "children": []
+    },
+    "b-epoch-boundary-trigger-heading-3": {
+      "id": "b-epoch-boundary-trigger-heading-3",
+      "type": "heading",
+      "props": { "level": 2 },
+      "text": [{ "insert": "Trigger and Retry" }],
+      "children": []
+    },
+    "b-epoch-boundary-trigger-4": {
+      "id": "b-epoch-boundary-trigger-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [{ "insert": "The scheduler enters the boundary when the epoch queue is empty. An empty epoch still reaches the boundary after no targets, claims, workers, or resolvers remain." }],
+      "children": []
+    },
+    "b-epoch-boundary-retry-5": {
+      "id": "b-epoch-boundary-retry-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [{ "insert": "A FAILED boundary retries snapshot, configure, and build in a tight loop. The retry path has no backoff and no attempt limit." }],
+      "children": []
+    },
+    "b-epoch-boundary-shortcut-6": {
+      "id": "b-epoch-boundary-shortcut-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [{ "insert": "The reconciliation shortcut in `apps/server/src/core/cycle/pending-integrations.ts` declares the boundary done when the integration commit already exists on the branch. It skips report rebuild, QA, the breakage gate, CI parity, draft-PR publication, and the `pr_sync` save point. Full knowledge maintenance still runs before admission. Known gross-bug candidate: this exact path left the confirmed tier and PR stale while admitting a new epoch." }],
+      "children": []
+    },
+    "b-epoch-boundary-sequence-heading-7": {
+      "id": "b-epoch-boundary-sequence-heading-7",
+      "type": "heading",
+      "props": { "level": 2 },
+      "text": [{ "insert": "The Step Sequence" }],
+      "children": []
+    },
+    "b-epoch-boundary-sequence-intro-8": {
+      "id": "b-epoch-boundary-sequence-intro-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [{ "insert": "`runEpochCycle` executes one ordered pass. Each named step consumes the evidence produced by the step before it, while gate failures decide whether the run pauses or only whether the PR moves." }],
+      "children": []
+    },
+    "b-epoch-boundary-sequence-9": {
+      "id": "b-epoch-boundary-sequence-9",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Run the epoch boundary in serialized order",
+            "steps": [
+              { "text": "integration_drain", "steps": [{ "text": "Drain accepted checkpoint evidence through the single-flight integration lane." }] },
+              { "text": "snapshot_commit", "steps": [{ "text": "Commit the boundary snapshot while excluding paths locked by workers. Boundary snapshot commits use `--no-verify` by design." }] },
+              { "text": "worktree_prepare", "steps": [{ "text": "Recreate `state/epoch_worktree`. Untracked `build/` and `build-ci/` directories survive recreation, and stale objects in them have defeated Ninja mtime checks.", "kind": "note" }] },
+              { "text": "configure", "steps": [{ "text": "Run `python3 configure.py --require-protos`. Add `--wrapper build/tools/wibo` when the boundary seeded a local Wibo binary." }] },
+              { "text": "report_build", "steps": [{ "text": "Force an incremental objdiff report build." }] },
+              { "text": "report_read", "steps": [{ "text": "Summarize regressions against the rolling baseline, which is the previous save point. Sync fallout therefore re-surfaces as regressions exactly once." }] },
+              { "text": "qa_scan", "steps": [{ "text": "Run repository lint. A failure records errors but does not block the boundary." }] },
+              { "text": "report_publish", "steps": [{ "text": "Copy `report.json` and `report_changes.json` back to the cycle worktree. A copy failure records a warning and does not block the boundary." }] },
+              { "text": "regression_repair planning", "steps": [{ "text": "Twelve regressed rows is the pause threshold. At or above 12, the planner halts repairs and latches the run. Below 12, it requeues failures into a fixed-size repair epoch and admits that epoch immediately." }, { "text": "Ford directive 2026-08-27: remove boundary repair epochs. Failures get a Librarian note and defer to next-epoch admission.", "kind": "note" }] },
+              { "text": "save_point", "steps": [{ "text": "Record a typed `epoch_finish` save point with measures and gate payloads." }] },
+              { "text": "boundary sync", "steps": [{ "text": "Merge upstream with upstream as gospel. Displaced targets receive ledger notes and defer to next-epoch admission; sync never mutates current-epoch rows." }, { "text": "Semantic merge breaks are possible and require manual repair. No build-repair lane exists.", "kind": "note" }] },
+              { "text": "master breakage gate", "steps": [{ "text": "Compare this report with the upstream-master CI report artifact at the anchor. Any function or data/BSS section moving from 100% to below 100% pauses the run." }, { "text": "Cross-TU EXACT rematches are exempt as moved. Scoring uses `functionRelocDiffs=data_value`; ad hoc objdiff runs without that flag report false regressions.", "kind": "note" }] },
+              { "text": "ci-parity gate", "steps": [{ "text": "Parse the game repository's `.github/workflows/build.yml` for the link and test configure arms. Run both in per-mode `build-ci/` directories, then run the Ninja diff scan, `check_complete`, and `pre-commit --all-files`." }, { "text": "A failure blocks only the PR push. The boundary continues.", "kind": "note" }] },
+              { "text": "draft-PR publish", "steps": [{ "text": "Publish the draft PR only when every push gate passes." }] },
+              { "text": "full knowledge maintenance", "steps": [{ "text": "Run the 10-source registry against the boundary worktree." }] },
+              { "text": "typed close via closeSchedulerEpochWithEvidence", "steps": [{ "text": "Record `run.epoch_integrated` with `correlationId` equal to the run ID and registered payload facts `ordinal`, `boundary_status`, and `save_point_id`." }, { "text": "The epoch update, event record, and cycle/run envelope updates share one transaction. A throw inside that transaction rolls them all back and strands the epoch in error. This happened twice before the 2026-08-27 fixes. Deferred save-point evidence records after the transaction.", "kind": "note" }] },
+              { "text": "admission of the next epoch from the recomputed board", "steps": [{ "text": "Recompute the board from published truth and admit the next epoch." }] }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-epoch-boundary-failures-heading-10": {
+      "id": "b-epoch-boundary-failures-heading-10",
+      "type": "heading",
+      "props": { "level": 2 },
+      "text": [{ "insert": "Failure Catalog (prune candidates)" }],
+      "children": []
+    },
+    "b-epoch-boundary-failures-intro-11": {
+      "id": "b-epoch-boundary-failures-intro-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [{ "insert": "These failure modes have occurred in live runs. Open rows remain prune or guard candidates; the two 2026-08-27 fixes are present in the worktree but uncommitted." }],
+      "children": []
+    },
+    "b-epoch-boundary-failures-table-12": {
+      "id": "b-epoch-boundary-failures-table-12",
+      "type": "structured-table",
+      "props": {
+        "title": "Failure Catalog (prune candidates)",
+        "columns": ["Failure", "Mechanism", "Status"],
+        "rows": [
+          ["Reconcile shortcut skips gates, PR, and pr_sync", "An existing integration commit skips truth rebuild and publication, runs full knowledge maintenance, then proceeds to admission.", "open"],
+          ["Board admission uses a missing or stale report", "Admission treats the board as current and admits everything. One run admitted 1,081 targets: 700 were already 100% and 258 were absent from the report.", "open; needs a fresh-report guard"],
+          ["Boundary repair epochs", "Regression planning creates and immediately admits a fixed-size repair epoch below the 12-row pause threshold.", "open; Ford directive to remove"],
+          ["Failed-boundary retry has no backoff or limit", "Snapshot, configure, and build retry in a tight loop after failure.", "open"],
+          ["Graceful stop holds the dispatch lease", "Recover or resume waits for the held lease to become stale after 15 minutes.", "open"],
+          ["Stale build-ci objects survive worktree recreation", "Untracked per-mode objects survive in the recreated epoch worktree and can defeat Ninja mtime checks.", "open; mitigated by deleting build-ci"],
+          ["Event correlation_id differs from the run ID", "The typed close must correlate `run.epoch_integrated` to the run container.", "fixed 2026-08-27; uncommitted"],
+          ["run.epoch_integrated payload facts are unregistered", "The event registry must accept `ordinal`, `boundary_status`, and `save_point_id`.", "fixed 2026-08-27; uncommitted"],
+          ["QA address_named_static_data false positives", "The QA rule flags intentional byte-exact data restorations.", "open; needs an exception mechanism"],
+          ["Attempt-retry sandbox leak", "Re-provision overwrites `payload.sandbox_id` and orphans the first sandbox until its 90-minute auto-destroy.", "open"]
+        ]
+      },
+      "children": []
+    }
+  }
+}

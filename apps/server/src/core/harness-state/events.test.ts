@@ -204,6 +204,15 @@ describe("game event registry", () => {
     }).toThrow();
   });
 
+  test("accepts registered epoch boundary facts on run.epoch_integrated", () => {
+    const contract = gameEventContract("run.epoch_integrated");
+    expect(contract.payloadFields).toMatchObject({
+      ordinal: { type: "integer", required: false, nullable: false },
+      boundary_status: { type: "string", required: false, nullable: false },
+      save_point_id: { type: "string", required: false, nullable: true },
+    });
+  });
+
   test("enforces required nonnullable from/to facts on every status transition", () => {
     for (const [eventType, contract] of Object.entries(GAME_EVENT_REGISTRY)) {
       if (contract.classification !== "status_transition") continue;

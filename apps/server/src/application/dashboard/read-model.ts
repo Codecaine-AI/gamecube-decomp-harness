@@ -55,6 +55,7 @@ import { parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/subpha
 import { quietGit } from "@server/core/cycle-runtime/phases/pr/pr-sync.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { scoreTiersProjection, type DashboardScoreTiers } from "./score-tiers.js";
+import { boundaryDashboardForRun, type BoundaryDashboard } from "./boundary-view.js";
 
 export type JsonObject = Record<string, unknown>;
 type WorkerStateOutcome =
@@ -3335,14 +3336,16 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
   const store = openState(stateDir);
   let status: JsonObject;
   let runId = explicitRunId;
+  let boundary: BoundaryDashboard = { current: null, recent: [] };
   try {
     status = statusSnapshot(store);
     const run = asObject(status.run);
     if (!runId) runId = stringValue(run.id);
+    if (runId) boundary = boundaryDashboardForRun(store.db, runId);
   } finally {
     store.db.close();
   }
-  if (!runId) return { game: game ? gameSummary(game) : null, stateDir, status, runId: "", summary: {}, timeline: [] };
+  if (!runId) return { game: game ? gameSummary(game) : null, stateDir, status, runId: "", summary: {}, timeline: [], boundary };
 
   const workerStates = workerStatesForRun(stateDir, runId, 0);
   const events = eventsForRun(stateDir, runId, 0);
@@ -3361,6 +3364,7 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
     runId,
     generatedAt: new Date().toISOString(),
     status,
+    boundary,
     summary: {
       workerStates: workerStates.length,
       workerStateOutcomeCounts: workerStateOutcomeCounts(workerStates),
@@ -3583,12 +3587,14 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   let runDesiredWorkers = 0;
   let cycle: JsonObject | null = null;
   let cycleRecord: CycleRecord | null = null;
+  let boundary: BoundaryDashboard = { current: null, recent: [] };
   try {
     status = statusSnapshot(store);
     const run = asObject(status.run);
     runId = stringValue(run.id);
     runCreatedAt = stringValue(run.createdAt);
     runDesiredWorkers = numberValue(run.desiredWorkers, 0);
+    if (runId) boundary = boundaryDashboardForRun(store.db, runId);
     if (paths.game) {
       cycleRecord = getActiveCycle(store.db, paths.game.gameId);
       cycle = activeCycleProjection(store.db, paths.game.gameId) as unknown as JsonObject | null;
@@ -3652,14 +3658,17 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   let harnessState: HarnessStateView | null = null;
   let scoreTiers: DashboardScoreTiers = {
     baseline: { score: null, measures: {}, anchorRevision: null, savePointId: null },
-    confirmed: { score: null, measures: {}, delta: null, savePointId: null, matches: [], improvements: [] },
+    confirmed: {
+      score: null, measures: {}, delta: null, savePointId: null, anchorRevision: null,
+      comparisonStatus: "baseline_unavailable", matches: [], improvements: [], breakages: [],
+    },
     tentative: { matches: [], improvements: [] },
     timeline: [],
   };
   if (gameId) {
     const harnessStateStore = openState(stateDir);
     try {
-      scoreTiers = scoreTiersProjection(harnessStateStore, gameId, cycleRecord, repoRoot);
+      scoreTiers = await scoreTiersProjection(harnessStateStore, gameId, cycleRecord, repoRoot);
       harnessState = getHarnessStateView(harnessStateStore, gameId, {
         campaign,
         // The authority root (cycle worktree when present) is the tree whose
@@ -3689,6 +3698,7 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
     graphDbPath: paths.graphDbPath,
     usePathOverrides: paths.usePathOverrides,
     status,
+    boundary,
     initial: {
       generatedAt: initialGeneratedAt,
       measures: initialMeasures,

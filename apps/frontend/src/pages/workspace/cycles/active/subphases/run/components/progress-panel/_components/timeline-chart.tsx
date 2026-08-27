@@ -21,7 +21,7 @@ export function TimelineChart({ dashboard }: { dashboard: Dashboard | null }) {
   const model = chartModel(dashboard);
   const [hovered, setHovered] = useState<number | null>(null);
   const areaGradientId = useId();
-  const markLabels = model.marks.map((mark) => mark.matched.toFixed(2));
+  const markLabels = model.marks.map((mark) => mark.matched.toFixed(3));
   const showLabel = model.marks.map(() => false);
   let lastVisibleLabel: { x: number; text: string } | null = null;
   model.marks.forEach((mark, index) => {

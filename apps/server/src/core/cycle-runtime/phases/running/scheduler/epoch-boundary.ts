@@ -1,12 +1,19 @@
 import { createHash, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
 import { appendLearnings, defaultLedgerPath } from "@server/core/knowledge/ledger.js";
 import { rebuildKnowledgeGraph } from "@server/core/knowledge/graph";
 import { forceReportRun } from "@server/core/validation/report";
-import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
+import {
+  runCiParityGate as runCiParityGateDefault,
+  runPreCommitGate as runPreCommitGateDefault,
+  type CiParityResult,
+} from "@server/core/validation/ci-parity/index.js";
+import { sectionMeasuresFromReport } from "@server/core/validation/objdiff/section-measures.js";
+import { addSavePoint, ensureCampaign, latestSavePointByTrigger, mergeSavePointPayload } from "@server/core/cycle-runtime/phases/pr/state";
 import { runBoundarySync as runBoundarySyncDefault, type BoundarySyncResult } from "@server/core/cycle-runtime/phases/running/epochs/boundary-sync.js";
+import { runMasterBreakageGate as runMasterBreakageGateDefault, type MasterBreakageGateResult } from "@server/core/cycle-runtime/phases/running/epochs/breakage-gate.js";
 import { recordSavePointAnchor, reconcilePendingIntegrationAttempt as reconcilePendingIntegrationAttemptDefault } from "@server/core/cycle";
 import { runEpochCycle as runEpochCycleDefault, type EpochCycleResult } from "@server/core/cycle-runtime/phases/running/epochs";
 import { publishCycleDraftPr as publishCycleDraftPrDefault } from "@server/core/cycle-runtime/phases/running/epochs/cycle-draft-pr.js";
@@ -14,7 +21,6 @@ import {
   addEvent,
   closeSchedulerEpoch,
   closeSchedulerEpochWithEvidence,
-  requeueEpochTarget,
   type SchedulerEpochConfig,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
@@ -34,6 +40,9 @@ type PublishCycleDraftPr = typeof publishCycleDraftPrDefault;
 type RunKnowledgeMaintenance = typeof runKnowledgeMaintenanceDefault;
 type EnsureSchedulerEpochFromBoard = typeof ensureSchedulerEpochFromBoardDefault;
 type RunBoundarySync = (input: { params: EpochBoundaryParams; epochResult: EpochCycleResult }) => Promise<BoundarySyncResult | undefined>;
+type ProductionRunBoundarySync = typeof runBoundarySyncDefault;
+type RecordSavePointAnchor = typeof recordSavePointAnchor;
+type CloseSchedulerEpochWithEvidence = typeof closeSchedulerEpochWithEvidence;
 
 export interface EpochBoundaryDependencies {
   reconcilePendingIntegrationAttempt?: ReconcilePendingIntegrationAttempt;
@@ -42,6 +51,12 @@ export interface EpochBoundaryDependencies {
   runKnowledgeMaintenance?: RunKnowledgeMaintenance;
   ensureSchedulerEpochFromBoard?: EnsureSchedulerEpochFromBoard;
   runBoundarySync?: RunBoundarySync;
+  productionRunBoundarySync?: ProductionRunBoundarySync;
+  recordSavePointAnchor?: RecordSavePointAnchor;
+  closeSchedulerEpochWithEvidence?: CloseSchedulerEpochWithEvidence;
+  runMasterBreakageGate?: typeof runMasterBreakageGateDefault;
+  runCiParityGate?: typeof runCiParityGateDefault;
+  runPreCommitGate?: typeof runPreCommitGateDefault;
 }
 
 export interface EpochBoundaryParams {
@@ -59,7 +74,10 @@ export interface EpochBoundaryParams {
     epochPauseThreshold: number;
     epochRequeueLimit: number;
     cycleDraftPrEnabled: boolean;
+    ciParityEnabled: boolean;
+    preCommitGateEnabled: boolean;
     boundarySyncEnabled: boolean;
+    breakageGateEnabled: boolean;
     fullKgMaintenanceMode: string;
     writeSetFlags: WriteSetIntegrationFlags;
     schedulerEpochConfig: SchedulerEpochConfig;
@@ -80,6 +98,7 @@ export interface EpochBoundaryOutcome {
   knowledgeMaintenanceRun?: Record<string, unknown>;
   boundarySync?: BoundarySyncResult;
   boundaryHeadSha?: string;
+  breakageGate?: MasterBreakageGateResult;
 }
 
 function measuresAt(repoRoot: string, reportRelPath: string): Record<string, unknown> {
@@ -92,6 +111,7 @@ async function productionBoundarySync(params: EpochBoundaryParams): Promise<Boun
   if (!gameId) return undefined;
   const run = params.store.db.query("SELECT cycle_uuid FROM runs WHERE id = ?").get(params.runId) as { cycle_uuid: string | null } | undefined;
   if (!run?.cycle_uuid) return undefined;
+  const cycleUuid = run.cycle_uuid;
   const anchor = params.store.db
     .query("SELECT upstream_revision FROM game_upstream_anchors WHERE game_id = ? AND cycle_uuid = ?")
     .get(gameId, run.cycle_uuid) as { upstream_revision: string } | undefined;
@@ -105,7 +125,9 @@ async function productionBoundarySync(params: EpochBoundaryParams): Promise<Boun
   const reportRelPath = params.globals.game?.validation.reportPath ?? "build/GALE01/report.json";
   const campaign = ensureCampaign(params.store, { gameId, baseRef: params.globals.game?.baseRef });
   let pendingAnchorSha: string | null = null;
-  return runBoundarySyncDefault({
+  const runBoundarySync = params.dependencies?.productionRunBoundarySync ?? runBoundarySyncDefault;
+  const writeSavePointAnchor = params.dependencies?.recordSavePointAnchor ?? recordSavePointAnchor;
+  return runBoundarySync({
     repoRoot: params.globals.repoRoot,
     anchorSha: anchor.upstream_revision,
     upstreamRef: params.globals.game?.baseRef,
@@ -136,17 +158,33 @@ async function productionBoundarySync(params: EpochBoundaryParams): Promise<Boun
         }]);
       },
       requeueTarget: (item) => {
-        if (!item.epochTargetId) throw new Error(`boundary sync cannot requeue ${item.targetKey} without an epoch target id`);
-        requeueEpochTarget(params.store, { epochTargetId: item.epochTargetId });
+        console.error(`[run-loop] boundary sync: ${item.targetKey} displaced by upstream; deferring to next-epoch admission`);
       },
       rebuildKnowledgeGraph: async () => { rebuildKnowledgeGraph({ repoRoot: params.globals.repoRoot, dbPath: params.config.graphDbPath }); },
       recomputeReport: async () => {
         await forceReportRun(params.globals.repoRoot, { resetBaseline: false });
         const measures = measuresAt(params.globals.repoRoot, reportRelPath);
         const score = Number(measures.matched_code_percent);
-        return { measures, matchedCodePercent: Number.isFinite(score) ? score : null };
+        const dataScore = Number(measures.matched_data_percent);
+        const sectionMeasures = sectionMeasuresFromReport(resolve(params.globals.repoRoot, reportRelPath));
+        return {
+          measures,
+          matchedCodePercent: Number.isFinite(score) ? score : null,
+          matchedDataPercent: Number.isFinite(dataScore) ? dataScore : null,
+          sectionMeasures,
+        };
       },
       writePrSyncSavePoint: (value) => {
+        const liveReportPath = resolve(params.globals.repoRoot, reportRelPath);
+        let reportPath = liveReportPath;
+        try {
+          const prSyncArtifactDir = resolve(params.globals.stateDir, "pr_sync_reports", `epoch-${params.epochOrdinal}-${randomUUID().slice(0, 8)}`);
+          mkdirSync(prSyncArtifactDir, { recursive: true });
+          reportPath = resolve(prSyncArtifactDir, "report.json");
+          copyFileSync(liveReportPath, reportPath);
+        } catch (error) {
+          console.error(`[run-loop] epoch ${params.epochOrdinal}: failed to copy pr_sync report artifact; using live report path: ${error instanceof Error ? error.message : String(error)}`);
+        }
         const savePoint = addSavePoint(params.store, {
           campaignId: campaign.id,
           runId: params.runId,
@@ -156,20 +194,32 @@ async function productionBoundarySync(params: EpochBoundaryParams): Promise<Boun
           baseRef: params.globals.game?.baseRef,
           baseSha: value.upstreamHeadSha,
           matchedCodePercent: value.matchedCodePercent,
-          reportPath: resolve(params.globals.repoRoot, reportRelPath),
-          payload: { kind: value.kind, measures: value.measures, prior_anchor: value.anchorSha },
+          reportPath,
+          payload: {
+            kind: value.kind,
+            measures: value.measures,
+            matched_data_percent: value.matchedDataPercent ?? null,
+            section_measures: value.sectionMeasures ?? {},
+            prior_anchor: value.anchorSha,
+          },
         });
-        recordSavePointAnchor(params.store, {
+        writeSavePointAnchor(params.store, {
           gameId,
-          cycleUuid: run.cycle_uuid,
+          cycleUuid,
           savePointId: savePoint.id,
           commitSha: value.commitSha,
           triggerKind: "pr_sync",
           headlineScore: value.matchedCodePercent,
-          artifactPaths: [resolve(params.globals.repoRoot, reportRelPath)],
-          payload: { measures: value.measures, prior_anchor: value.anchorSha, upstream_revision: value.upstreamHeadSha },
+          artifactPaths: [reportPath],
+          payload: {
+            measures: value.measures,
+            matched_data_percent: value.matchedDataPercent ?? null,
+            section_measures: value.sectionMeasures ?? {},
+            prior_anchor: value.anchorSha,
+            upstream_revision: value.upstreamHeadSha,
+          } as never,
           commandId: `command-boundary-pr-sync-${randomUUID()}`,
-          correlationId: params.runId,
+          correlationId: cycleUuid,
           actor: "runner",
         });
       },
@@ -247,17 +297,21 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
     config,
     reportKnowledgeProgress,
   } = params;
+  const run = store.db.query("SELECT cycle_uuid FROM runs WHERE id = ?").get(runId) as { cycle_uuid: string | null } | undefined;
+  const cycleCorrelationId = run?.cycle_uuid ?? runId;
   const reconcilePendingIntegrationAttempt = params.dependencies?.reconcilePendingIntegrationAttempt ?? reconcilePendingIntegrationAttemptDefault;
   const runEpochCycle = params.dependencies?.runEpochCycle ?? runEpochCycleDefault;
   const publishCycleDraftPr = params.dependencies?.publishCycleDraftPr ?? publishCycleDraftPrDefault;
   const runKnowledgeMaintenance = params.dependencies?.runKnowledgeMaintenance ?? runKnowledgeMaintenanceDefault;
   const ensureSchedulerEpochFromBoard = params.dependencies?.ensureSchedulerEpochFromBoard ?? ensureSchedulerEpochFromBoardDefault;
   const runBoundarySync = params.dependencies?.runBoundarySync;
+  const writeEpochEvidence = params.dependencies?.closeSchedulerEpochWithEvidence ?? closeSchedulerEpochWithEvidence;
   let boundaryResult: EpochCycleResult | undefined;
   let reconciled = false;
   let knowledgeMaintenanceRun: Record<string, unknown> | undefined;
   let nextEpoch: ReturnType<typeof ensureSchedulerEpochFromBoardDefault> | undefined;
   let boundarySync: BoundarySyncResult | undefined;
+  let breakageGate: MasterBreakageGateResult | undefined;
 
   try {
     if (globals.dryRunAgents) {
@@ -272,6 +326,17 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       if (retained.status === "completed") {
         reconciled = true;
         console.error(`[run-loop] epoch ${epochOrdinal}: pending integration attempt reconciled`);
+        addEvent(store, runId, "epoch_boundary_reconciled", "run-loop", {
+          epoch: epochOrdinal,
+          epoch_id: schedulerEpochId ?? label,
+          commit_sha: retained.completed.commitSha,
+          skipped_steps: [
+            "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+            "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
+            "boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish",
+          ],
+          created_by: "run-loop",
+        });
         if (schedulerEpochId) {
           closeSchedulerEpoch(store, schedulerEpochId, {
             status: "completed",
@@ -298,37 +363,227 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         });
         boundaryResult = result;
         if (config.boundarySyncEnabled && result.commitSha) {
+          const gameId = globals.game?.gameId ?? globals.gameId;
+          const anchor = gameId && run?.cycle_uuid
+            ? store.db.query("SELECT upstream_revision FROM game_upstream_anchors WHERE game_id = ? AND cycle_uuid = ?")
+                .get(gameId, run.cycle_uuid) as { upstream_revision: string | null } | undefined
+            : undefined;
+          addEvent(store, runId, "boundary_sync", "run-loop", {
+            epoch: epochOrdinal,
+            status: "started",
+            anchor_before: anchor?.upstream_revision ?? null,
+            created_by: "run-loop",
+          });
           try {
             boundarySync = runBoundarySync
               ? await runBoundarySync({ params, epochResult: result })
               : await productionBoundarySync(params);
+            if (!boundarySync || !boundarySync.plan.drifted) {
+              addEvent(store, runId, "boundary_sync", "run-loop", {
+                epoch: epochOrdinal,
+                status: "skipped",
+                reason: boundarySync ? "not_drifted" : "sync_unavailable",
+                created_by: "run-loop",
+              });
+            } else {
+              const plan = boundarySync.plan;
+              addEvent(store, runId, "boundary_sync", "run-loop", {
+                epoch: epochOrdinal,
+                status: "finished",
+                anchor_before: plan.anchorSha,
+                anchor_after: plan.upstreamHeadSha,
+                merge_commit_sha: boundarySync.headSha,
+                drifted: plan.drifted,
+                upstream_taken_file_count: plan.upstreamTakenFiles.length,
+                displaced_count: plan.targetsToRequeue.length,
+                displaced: plan.targetsToRequeue.slice(0, 100).map((target) => ({
+                  target_key: target.targetKey,
+                  unit: target.unit,
+                  symbol: target.symbol,
+                  prior_kind: target.priorKind,
+                  prior_score: target.priorScore,
+                  upstream_landed_sha: target.upstreamLandedSha,
+                })),
+                created_by: "run-loop",
+              });
+            }
           } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            addEvent(store, runId, "boundary_sync", "run-loop", {
+              epoch: epochOrdinal,
+              status: "failed",
+              anchor_before: anchor?.upstream_revision ?? null,
+              error: message.slice(0, 2000),
+              created_by: "run-loop",
+            });
             if (config.cycleDraftPrEnabled) {
               console.error(`[run-loop] epoch ${epochOrdinal}: cycle draft PR skipped (boundary_sync_failed)`);
+              addEvent(store, runId, "draft_pr_publish", "run-loop", {
+                epoch: epochOrdinal,
+                status: "skipped",
+                reason: "sync_failed",
+                created_by: "run-loop",
+              });
             }
             throw error;
           }
+        } else {
+          addEvent(store, runId, "boundary_sync", "run-loop", {
+            epoch: epochOrdinal,
+            status: "skipped",
+            reason: config.boundarySyncEnabled ? "missing_commit" : "sync_disabled",
+            created_by: "run-loop",
+          });
+        }
+        if (config.breakageGateEnabled && result.commitSha) {
+          const gameId = globals.game?.gameId ?? globals.gameId;
+          const anchor = gameId && run?.cycle_uuid
+            ? store.db.query("SELECT upstream_revision FROM game_upstream_anchors WHERE game_id = ? AND cycle_uuid = ?")
+                .get(gameId, run.cycle_uuid) as { upstream_revision: string | null } | undefined
+            : undefined;
+          const reportRelPath = globals.game?.validation.reportPath ?? "build/GALE01/report.json";
+          const gate = params.dependencies?.runMasterBreakageGate ?? runMasterBreakageGateDefault;
+          breakageGate = await gate({
+            repoRoot: globals.repoRoot,
+            stateDir: globals.stateDir,
+            worktreeDir: result.worktreeDir ?? null,
+            oursReportPath: boundarySync?.changed
+              ? resolve(globals.repoRoot, reportRelPath)
+              : resolve(result.artifactDir, "report.json"),
+            anchorSha: anchor?.upstream_revision ?? null,
+            reportRelPath,
+            changesOutPath: resolve(result.artifactDir, "master_breakage_changes.json"),
+            prSyncFallbackReportPath: latestSavePointByTrigger(store, "pr_sync")?.reportPath ?? null,
+          });
+          addEvent(store, runId, "boundary_breakage_gate", "run-loop", {
+            epoch: epochOrdinal,
+            status: breakageGate.status,
+            baseline_kind: breakageGate.baselineKind,
+            baseline_sha: breakageGate.baselineSha,
+            baseline_report_path: breakageGate.baselineReportPath,
+            ours_report_path: breakageGate.oursReportPath,
+            changes_path: breakageGate.changesPath,
+            breakages: breakageGate.breakages.slice(0, 50),
+            moved: breakageGate.moved.slice(0, 50),
+            reasons: breakageGate.reasons,
+            created_by: "run-loop",
+          });
+          if (result.savePointId) mergeSavePointPayload(store, result.savePointId, { master_breakage_gate: breakageGate });
+          for (const item of breakageGate.moved) {
+            console.error(`[run-loop] boundary breakage exempt (moved): ${item.unitName}::${item.itemName} -> ${item.movedToUnit}`);
+          }
+          if (breakageGate.status === "breakage") {
+            for (const item of breakageGate.breakages) {
+              console.error(`[run-loop] boundary breakage: ${item.unitName}::${item.itemName} ${item.fromPercent}% -> ${item.toPercent}% (${item.kind}, baseline ${breakageGate.baselineKind} ${breakageGate.baselineSha?.slice(0, 10) ?? "n/a"})`);
+            }
+            result.repair = {
+              ...result.repair,
+              paused: true,
+              reasons: [...(result.repair.reasons ?? []), `master breakage gate: ${breakageGate.breakages.length} item(s) went 100 -> <100 vs ${breakageGate.baselineKind}`],
+            };
+          } else if (breakageGate.status === "skipped" || breakageGate.status === "error") {
+            console.error(`[run-loop] epoch ${epochOrdinal}: master breakage gate ${breakageGate.status}: ${breakageGate.reasons.join("; ")}`);
+          }
         }
         if (config.cycleDraftPrEnabled) {
-          const publish = await publishCycleDraftPr({
-            baseRef: globals.game?.baseRef,
-            commitSha: boundarySync?.headSha ?? result.commitSha,
-            epochLabel: result.label,
-            epochOrdinal,
-            matchedCodePercent: result.matchedCodePercent,
-            gameId: globals.game?.gameId ?? globals.gameId ?? null,
-            qaGate: result.qaGate as unknown as Record<string, unknown> | null,
-            regressions: result.regressions as unknown as Record<string, unknown>,
-            repoRoot: globals.repoRoot,
-            runId,
-            savePointId: result.savePointId,
-            stateDir: globals.stateDir,
-            store,
-          });
-          console.error(
-            `[run-loop] epoch ${epochOrdinal}: cycle draft PR ${publish.status}` +
-              `${publish.url ? ` ${publish.url}` : publish.reason ? ` (${publish.reason})` : publish.error ? ` (${publish.error})` : ""}`,
+          const pushSha = boundarySync?.headSha ?? result.commitSha;
+          let ciParity: CiParityResult | undefined;
+          let preCommit: CiParityResult | undefined;
+          if (config.ciParityEnabled && result.worktreeDir && pushSha) {
+            const runCiParityGate = params.dependencies?.runCiParityGate ?? runCiParityGateDefault;
+            ciParity = await runCiParityGate({ worktreeDir: result.worktreeDir, sha: pushSha });
+          }
+          const gitSwitchFailed = ciParity?.status === "error"
+            && ciParity.steps.some((step) => step.name.toLowerCase().includes("git switch") && step.exitCode !== 0);
+          if (config.preCommitGateEnabled && result.worktreeDir && pushSha && !gitSwitchFailed) {
+            const runPreCommitGate = params.dependencies?.runPreCommitGate ?? runPreCommitGateDefault;
+            preCommit = await runPreCommitGate({
+              worktreeDir: result.worktreeDir,
+              cacheDir: resolve(globals.stateDir, "pre-commit-cache"),
+            });
+          }
+          if (config.ciParityEnabled || config.preCommitGateEnabled) {
+            const reasons = [...(ciParity?.reasons ?? []), ...(preCommit?.reasons ?? [])].slice(0, 20);
+            const gateSummary = {
+              epoch: epochOrdinal,
+              ci_parity_status: ciParity?.status ?? (config.ciParityEnabled ? "skipped" : "disabled"),
+              pre_commit_status: preCommit?.status ?? (config.preCommitGateEnabled ? "skipped" : "disabled"),
+              reasons,
+              steps: [
+                ...(ciParity?.steps ?? []).map((step) => ({ gate: "ci_parity", name: step.name, exit_code: step.exitCode })),
+                ...(preCommit?.steps ?? []).map((step) => ({ gate: "pre_commit", name: step.name, exit_code: step.exitCode })),
+              ],
+              created_by: "run-loop",
+            };
+            addEvent(store, runId, "ci_parity_gate", "run-loop", gateSummary);
+            if (result.savePointId) mergeSavePointPayload(store, result.savePointId, { ci_parity_gate: gateSummary });
+          }
+          const blockingGates = [ciParity, preCommit].filter(
+            (gate): gate is CiParityResult => gate?.status === "failed" || gate?.status === "error",
           );
+          if (blockingGates.length > 0) {
+            const reasons = blockingGates.flatMap((gate) => gate.reasons).slice(0, 20);
+            const reason = ciParity?.status === "failed" || ciParity?.status === "error"
+              ? "ci_parity_failed"
+              : "pre_commit_failed";
+            addEvent(store, runId, "draft_pr_publish", "run-loop", {
+              epoch: epochOrdinal,
+              status: "skipped",
+              reason,
+              created_by: "run-loop",
+            });
+            console.error(
+              `[run-loop] epoch ${epochOrdinal}: cycle draft PR skipped (ci_parity_failed: ${reasons.join("; ") || blockingGates.map((gate) => gate.status).join(", ")})`,
+            );
+          } else {
+            addEvent(store, runId, "draft_pr_publish", "run-loop", {
+              epoch: epochOrdinal,
+              status: "started",
+              created_by: "run-loop",
+            });
+            let publish;
+            try {
+              publish = await publishCycleDraftPr({
+                baseRef: globals.game?.baseRef,
+                commitSha: pushSha,
+                epochLabel: result.label,
+                epochOrdinal,
+                matchedCodePercent: result.matchedCodePercent,
+                gameId: globals.game?.gameId ?? globals.gameId ?? null,
+                qaGate: result.qaGate as unknown as Record<string, unknown> | null,
+                regressions: result.regressions as unknown as Record<string, unknown>,
+                repoRoot: globals.repoRoot,
+                runId,
+                savePointId: result.savePointId,
+                stateDir: globals.stateDir,
+                store,
+              });
+            } catch (error) {
+              addEvent(store, runId, "draft_pr_publish", "run-loop", {
+                epoch: epochOrdinal,
+                status: "failed",
+                error: (error instanceof Error ? error.message : String(error)).slice(0, 2000),
+                created_by: "run-loop",
+              });
+              throw error;
+            }
+            addEvent(store, runId, "draft_pr_publish", "run-loop", publish.status === "failed"
+              ? { epoch: epochOrdinal, status: "failed", error: publish.error ?? publish.reason ?? "draft PR publish failed", created_by: "run-loop" }
+              : publish.status === "skipped"
+                ? { epoch: epochOrdinal, status: "skipped", reason: publish.reason ?? "publisher_skipped", created_by: "run-loop" }
+                : { epoch: epochOrdinal, status: "finished", pr_url: publish.url ?? undefined, head_sha: publish.commitSha ?? pushSha ?? undefined, created_by: "run-loop" });
+            console.error(
+              `[run-loop] epoch ${epochOrdinal}: cycle draft PR ${publish.status}` +
+                `${publish.url ? ` ${publish.url}` : publish.reason ? ` (${publish.reason})` : publish.error ? ` (${publish.error})` : ""}`,
+            );
+          }
+        } else {
+          addEvent(store, runId, "draft_pr_publish", "run-loop", {
+            epoch: epochOrdinal,
+            status: "skipped",
+            reason: "draft_pr_disabled",
+            created_by: "run-loop",
+          });
         }
         console.error(
           `[run-loop] epoch ${epochOrdinal}: matched_code ${result.matchedCodePercent ?? "?"}%, ` +
@@ -347,7 +602,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           });
           console.error(`[run-loop] epoch ${epochOrdinal}: paused on regressions`);
           if (schedulerEpochId) {
-            closeSchedulerEpochWithEvidence(store, schedulerEpochId, {
+            writeEpochEvidence(store, schedulerEpochId, {
               status: "paused",
               boundaryStatus: "regression_pause",
               routingSummary: {
@@ -356,6 +611,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
                 regressions: result.regressions,
                 repair: result.repair,
                 qa_gate: result.qaGate,
+                breakage_gate: breakageGate ?? null,
               },
               integration: {
                 gameId: globals.game?.gameId ?? globals.gameId,
@@ -378,6 +634,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             boundaryResult,
             reconciled,
             paused: true,
+            breakageGate,
           };
         }
       }
@@ -431,9 +688,10 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         regressions: boundaryResult?.regressions ?? null,
         repair: boundaryResult?.repair ?? null,
         qa_gate: boundaryResult?.qaGate ?? null,
+        breakage_gate: breakageGate ?? null,
       };
       if (boundaryResult?.commitSha) {
-        closeSchedulerEpochWithEvidence(store, schedulerEpochId, {
+        writeEpochEvidence(store, schedulerEpochId, {
           status: "completed",
           boundaryStatus: "success",
           routingSummary,
@@ -488,6 +746,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       knowledgeMaintenanceRun,
       boundarySync,
       boundaryHeadSha: boundarySync?.headSha ?? boundaryResult?.commitSha ?? undefined,
+      breakageGate,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -514,6 +773,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       knowledgeMaintenanceRun,
       boundarySync,
       boundaryHeadSha: boundarySync?.headSha ?? boundaryResult?.commitSha ?? undefined,
+      breakageGate,
     };
   }
 }

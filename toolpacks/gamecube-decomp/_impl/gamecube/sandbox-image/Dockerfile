@@ -10,6 +10,7 @@ RUN apt-get update \
         python3 \
         python3-pip \
         qemu-user \
+        ripgrep \
         time \
     && rm -rf /var/lib/apt/lists/* \
     && pip3 install --break-system-packages \

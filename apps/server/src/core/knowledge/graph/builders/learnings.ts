@@ -3,9 +3,10 @@
  *
  * Reads games/melee/knowledge/ledger/learnings.jsonl (append-only;
  * latest record per id wins), anchors each learning against the current
- * function index / checkout (present-anchoring: a missing anchor marks the
+ * live build report, with a static function-index fallback (present-anchoring: a missing anchor marks the
  * learning stale rather than dropping it), and emits:
- *  - one `learning` entity per non-refuted learning,
+ *  - one `learning` entity per learning (refuted ones included — known dead
+ *    ends are communal knowledge; status/confidence label every record),
  *  - a HAS_LEARNING edge from the anchored function/file entity,
  *  - a `learning_profile` fact on the anchor entity,
  *  - a search chunk so learnings surface in graph search.
@@ -14,24 +15,35 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { defaultLedgerPath, type LearningRecord } from "../../ledger.js";
+import { sourceRoot } from "../../paths.js";
 import { fileEntityId, functionEntityId } from "./code-graph.js";
 import type { GraphEdge, GraphEntity, GraphFact, GraphRecords, SearchChunk } from "../types.js";
-import { filesFingerprint, shortHash } from "../util.js";
+import { arrayValue, filesFingerprint, objectValue, readJson, shortHash, stringValue } from "../util.js";
 
 export const LEARNINGS_SOURCE_ID = "knowledge_ledger";
 
 interface AnchorIndex {
   symbolToUnit: Map<string, string>;
-  checkoutRoot: string;
   repoRoot: string;
 }
 
-function buildAnchorIndex(repoRoot: string): AnchorIndex {
+function anchorIndexFromReport(reportPath: string): Map<string, string> {
   const symbolToUnit = new Map<string, string>();
-  const functionsIndex = resolve(
-    repoRoot,
-    "games/melee/knowledge/sources/code_context/code_graph/indexes/functions.jsonl",
-  );
+  const report = readJson(reportPath);
+  for (const unitValue of arrayValue(report.units)) {
+    const unit = objectValue(unitValue);
+    const unitName = stringValue(unit.name);
+    if (!unitName) continue;
+    for (const fnValue of arrayValue(unit.functions)) {
+      const symbol = stringValue(objectValue(fnValue).name);
+      if (symbol && !symbolToUnit.has(symbol)) symbolToUnit.set(symbol, unitName);
+    }
+  }
+  return symbolToUnit;
+}
+
+function anchorIndexFromJsonl(functionsIndex: string): Map<string, string> {
+  const symbolToUnit = new Map<string, string>();
   if (existsSync(functionsIndex)) {
     for (const line of readFileSync(functionsIndex, "utf8").split("\n")) {
       const trimmed = line.trim();
@@ -44,7 +56,21 @@ function buildAnchorIndex(repoRoot: string): AnchorIndex {
       }
     }
   }
-  return { symbolToUnit, checkoutRoot: resolve(repoRoot, "games/melee/checkout"), repoRoot };
+  return symbolToUnit;
+}
+
+// repoRoot is the game checkout (matching every other builder); the fallback
+// function index lives under the knowledge sources root, not the checkout.
+function buildAnchorIndex(repoRoot: string, functionsIndexPath?: string): AnchorIndex {
+  if (functionsIndexPath !== undefined) {
+    return { symbolToUnit: anchorIndexFromJsonl(functionsIndexPath), repoRoot };
+  }
+
+  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  const symbolToUnit = existsSync(reportPath)
+    ? anchorIndexFromReport(reportPath)
+    : anchorIndexFromJsonl(resolve(sourceRoot("code_graph"), "indexes/functions.jsonl"));
+  return { symbolToUnit, repoRoot };
 }
 
 function latestLearnings(ledgerPath: string): LearningRecord[] {
@@ -77,8 +103,7 @@ function anchorEntity(record: LearningRecord, index: AnchorIndex): { entityId: s
   if (scope === "file") {
     const file = String(subject.file ?? "");
     if (!file) return { entityId: null, exists: false };
-    const exists = existsSync(resolve(index.checkoutRoot, file)) || existsSync(resolve(index.repoRoot, file));
-    return { entityId: fileEntityId(file), exists };
+    return { entityId: fileEntityId(file), exists: existsSync(resolve(index.repoRoot, file)) };
   }
   return { entityId: null, exists: true };
 }
@@ -86,19 +111,19 @@ function anchorEntity(record: LearningRecord, index: AnchorIndex): { entityId: s
 export function buildLearningsGraphRecords(options: {
   repoRoot: string;
   ledgerPath?: string;
+  functionsIndexPath?: string;
 }): GraphRecords | null {
   const ledgerPath = options.ledgerPath ?? defaultLedgerPath();
   if (!existsSync(ledgerPath)) return null;
 
   const sourceVersionId = `source-version:${LEARNINGS_SOURCE_ID}:${shortHash(filesFingerprint([ledgerPath]))}`;
-  const anchorIndex = buildAnchorIndex(options.repoRoot);
+  const anchorIndex = buildAnchorIndex(options.repoRoot, options.functionsIndexPath);
   const entities: GraphEntity[] = [];
   const facts: GraphFact[] = [];
   const edges: GraphEdge[] = [];
   const chunks: SearchChunk[] = [];
 
   for (const record of latestLearnings(ledgerPath)) {
-    if (record.status === "refuted") continue;
     const subject = (record.subject ?? {}) as unknown as Record<string, unknown>;
     const scope = String(subject.scope ?? "general");
     const anchorLabel = String(subject.symbol ?? subject.file ?? subject.area ?? "general");
@@ -127,7 +152,7 @@ export function buildLearningsGraphRecords(options: {
       sourceVersionId,
       sourceId: LEARNINGS_SOURCE_ID,
       entityId: learningEntityId,
-      title: `learning — ${anchorLabel}`,
+      title: `learning (${status}) — ${anchorLabel}`,
       text: record.statement,
       evidenceRef: `ledger:${record.id}`,
       payload: { scope, origin: record.origin, status, confidence: record.confidence },
@@ -151,9 +176,11 @@ export function buildLearningsGraphRecords(options: {
         payload: {
           learning_id: record.id,
           statement: record.statement,
+          scope,
           origin: record.origin,
           status,
           confidence: record.confidence,
+          evidence_ref: `ledger:${record.id}`,
         } as GraphFact["payload"],
         confidence: typeof record.confidence === "number" ? record.confidence : 0.5,
         trustTier: record.origin === "human_extracted" ? "historical" : "tool_evidence",

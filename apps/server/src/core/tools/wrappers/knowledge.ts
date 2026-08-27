@@ -344,16 +344,17 @@ export const smashWikiGetPageToolRegistration = fixedSourceApiTool({
 /** Tool for corroborating candidate learnings against the game knowledge ledger. */
 export const ledgerSearchToolRegistration: AgentToolRegistration = {
   id: "ledger_search",
-  purpose: "Search past ledger learnings to corroborate or refute candidate statements before emitting them.",
-  allowedRoles: ["librarian"],
+  purpose: "Search the communal ledger of prior-attempt learnings to reuse what worked, avoid known dead ends, and corroborate candidate statements.",
+  allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_ledger", "learning_search"],
   create(context): PiToolDefinition {
     return {
       name: "ledger_search",
       label: "Knowledge Ledger Search",
-      description: "Search game ledger learnings and their subjects, provenance, status, and confidence.",
-      promptSnippet: "ledger_search: search past learnings to corroborate or refute a candidate statement by judgment.",
+      description: "Search the communal ledger of prior-attempt learnings by subject, provenance, status (corroborated/proposed/refuted), and confidence.",
+      promptSnippet: "ledger_search: search communal prior-attempt learnings for a target, its unit, or analog symbols, weighed by status and confidence.",
       promptGuidelines: [
+        "Search ledger learnings for your target, its unit, and opseq-analog solved symbols; weigh corroborated high-confidence entries above proposed ones and treat refuted entries as known dead ends.",
         "Use ledger_search before emitting a candidate learning so existing statements can corroborate, refute, or deduplicate it by judgment.",
       ],
       parameters: ledgerSearchParameters,

@@ -5,6 +5,8 @@ import { closenessScore } from "../board/candidates.js";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 import { runQaScanDiff, type QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 import { forceReportRun, trustedReportFromRegressionReport, type ReportRunResult } from "@server/core/validation/report";
+import { sectionMeasuresFromReport, type SectionMeasure } from "@server/core/validation/objdiff/section-measures.js";
+import { ORCHESTRATOR_SCRATCH_EXCLUDES } from "@server/core/cycle-runtime/phases/pr/boundary-commit.js";
 import { addSavePoint, ensureCampaign, type SavePointRecord } from "@server/core/cycle-runtime/phases/pr/state";
 import {
   epochIntegrationCommitMessage,
@@ -39,7 +41,7 @@ import {
 } from "./confirmation-pass.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
-const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state"];
+const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state", ...ORCHESTRATOR_SCRATCH_EXCLUDES];
 
 export interface EpochCycleOptions {
   baseRef?: string;
@@ -109,7 +111,9 @@ export interface EpochCycleResult {
   label: string | null;
   lockedPathsExcluded: string[];
   matchedCodePercent: number | null;
+  matchedDataPercent: number | null;
   measures: Record<string, unknown>;
+  sectionMeasures: Record<string, SectionMeasure>;
   /** QA scan verdict for this epoch's diff, or null when the scan was not requested. */
   qaGate: EpochQaGateSummary | null;
   regressions: EpochRegressionSummary;
@@ -149,7 +153,7 @@ function pathspecExcludes(paths: string[]): string[] {
  * half-finished attempt must not poison the checkpoint build. Work excluded
  * here simply lands in a later commit.
  */
-async function commitEpochSnapshot(params: {
+export async function commitEpochSnapshot(params: {
   store: StateStore;
   runId: string;
   epochId: string;
@@ -169,6 +173,18 @@ async function commitEpochSnapshot(params: {
     if (!ignored.ok) excludes.push(path);
   }
   params.revalidateLease();
+  const scratchCleanup = await git(params.repoRoot, [
+    "rm",
+    "-r",
+    "-q",
+    "--cached",
+    "--ignore-unmatch",
+    "--",
+    ...ORCHESTRATOR_SCRATCH_EXCLUDES,
+  ]);
+  if (!scratchCleanup.ok) {
+    console.error(`[epoch] failed to remove orchestrator scratch from the index: ${scratchCleanup.text}`);
+  }
   const add = await git(params.repoRoot, ["add", "-A", "--", ".", ...pathspecExcludes(excludes)]);
   if (!add.ok) {
     throw new Error(`epoch integration git add failed: ${add.text}`);
@@ -748,6 +764,13 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     revalidateLease,
   });
   revalidateLease();
+  epochProgress(store, runId, {
+    label,
+    phase: "worktree_prepare",
+    status: "finished",
+    message: "epoch worktree prepared",
+    worktree_dir: options.worktreeDir,
+  });
   const hasLocalWibo = await seedEpochWibo(options.worktreeDir, stateDir, toolPlatform);
   const configureCommand = hasLocalWibo
     ? configureCommandWithLocalWrapper(options.configureCommand ?? "python3 configure.py --require-protos", "build/tools/wibo")
@@ -1064,6 +1087,9 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   let savePointEvidence: DeferredSavePointEvidence;
   const integrationCommit = snapshot.commitSha;
   if (!integrationCommit) throw new Error("epoch integration commit is missing before save-point evidence");
+  const matchedDataValue = Number(measures.matched_data_percent);
+  const matchedDataPercent = Number.isFinite(matchedDataValue) ? matchedDataValue : null;
+  const sectionMeasures = sectionMeasuresFromReport(worktreeReportPath);
   try {
     epochProgress(store, runId, {
       label,
@@ -1095,7 +1121,9 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       payload: {
         commit_reason: snapshot.committed ? null : snapshot.warning ? "commit_failed" : "nothing_to_commit",
         epoch: true,
+        matched_data_percent: matchedDataPercent,
         measures,
+        section_measures: sectionMeasures,
         qa_gate: qaGate,
         regressions: plan.summary,
         repair,
@@ -1151,6 +1179,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
         committed: snapshot.committed,
         commit_reason: snapshot.committed ? null : snapshot.warning ? "commit_failed" : "nothing_to_commit",
         epoch_id: options.epochId ?? null,
+        matched_data_percent: matchedDataPercent,
         run_id: runId,
       },
     };
@@ -1195,7 +1224,9 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     label,
     lockedPathsExcluded: lockedPaths,
     matchedCodePercent,
+    matchedDataPercent,
     measures,
+    sectionMeasures,
     qaGate,
     regressions: plan.summary,
     repair,

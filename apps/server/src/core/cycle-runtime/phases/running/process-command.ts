@@ -16,6 +16,7 @@ export interface RunningProcessCommandBody {
   processName?: unknown;
   gameId?: unknown;
   provider?: unknown;
+  sandboxProfile?: unknown;
   reason?: unknown;
   repoRoot?: unknown;
   runId?: unknown;
@@ -78,6 +79,7 @@ const POLICY_FIELDS = {
   maxWorkers: "desired_workers",
   model: "model",
   provider: "provider",
+  sandboxProfile: "sandbox_profile",
   thinkingLevel: "thinking_level",
   workerConfigureCommand: "worker_configure_command",
 } as const;
@@ -159,6 +161,7 @@ function normalizePolicyValue(field: RunningProcessPolicyField, value: unknown):
       return text(value).trim();
     case "model":
     case "provider":
+    case "sandboxProfile":
     case "thinkingLevel":
     case "goalKind":
       return text(value);
@@ -171,6 +174,7 @@ function policySnapshotValue(
 ): unknown {
   const key = POLICY_FIELDS[field];
   const value = configurationSnapshot[key];
+  if (field === "sandboxProfile" && value === undefined) return "";
   if (value === undefined) throw new Error(`Run configuration_snapshot is missing policy field ${key}`);
   return normalizePolicyValue(field, value);
 }
@@ -223,6 +227,7 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   const provider = text(policySnapshotValue("provider", configuration));
   const model = text(policySnapshotValue("model", configuration));
   const thinkingLevel = text(policySnapshotValue("thinkingLevel", configuration));
+  const sandboxProfile = text(policySnapshotValue("sandboxProfile", configuration));
   const maxWorkers = Number(policySnapshotValue("maxWorkers", configuration));
   const integrationResolverConcurrency = Number(policySnapshotValue("integrationResolverConcurrency", configuration));
   const workerConfigureCommand = String(policySnapshotValue("workerConfigureCommand", configuration));
@@ -232,6 +237,7 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   const command = ["bun", serverJobPath];
   if (game?.gameId) command.push("--game", game.gameId);
   command.push("--repo-root", repoRoot, "--state-dir", stateDir, "--provider", provider, "--model", model, "--thinking-level", thinkingLevel);
+  if (sandboxProfile) command.push("--sandbox-profile", sandboxProfile);
   if (Boolean(policySnapshotValue("dryRunAgents", configuration))) command.push("--dry-run-agents");
   command.push("--agent-timeout-seconds", String(agentTimeoutSeconds));
   command.push(

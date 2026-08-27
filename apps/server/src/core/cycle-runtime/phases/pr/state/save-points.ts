@@ -195,6 +195,27 @@ export function latestSavePoint(store: StateStore): SavePointRecord | null {
   return row ? savePointFromRow(row) : null;
 }
 
+export function mergeSavePointPayload(store: StateStore, savePointId: string, patch: Record<string, unknown>): void {
+  const row = store.orm.select().from(savePoints).where(eq(savePoints.id, savePointId)).limit(1).get();
+  if (!row) return;
+  store.orm
+    .update(savePoints)
+    .set({ payloadJson: { ...row.payloadJson, ...patch } })
+    .where(eq(savePoints.id, savePointId))
+    .run();
+}
+
+export function latestSavePointByTrigger(store: StateStore, triggerKind: SavePointTrigger): SavePointRecord | null {
+  const row = store.orm
+    .select()
+    .from(savePoints)
+    .where(eq(savePoints.triggerKind, triggerKind))
+    .orderBy(desc(savePoints.createdAt))
+    .limit(1)
+    .get();
+  return row ? savePointFromRow(row) : null;
+}
+
 export function listSavePoints(store: StateStore, limit = 50): SavePointRecord[] {
   return store.orm
     .select()

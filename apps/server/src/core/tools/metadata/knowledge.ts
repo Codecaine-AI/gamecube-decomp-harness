@@ -50,6 +50,7 @@ export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata
   ledger_search: {
     provider: "knowledge_ledger",
     type: "history",
-    useWhen: "Corroborate or refute a candidate learning against existing ledger learnings before emitting it.",
+    useWhen:
+      "Search the communal ledger of prior-attempt learnings for your target, its unit, and opseq-analog symbols; entries carry status (corroborated/proposed/refuted) and confidence — weigh accordingly, and read refuted entries as what already failed.",
   },
 };

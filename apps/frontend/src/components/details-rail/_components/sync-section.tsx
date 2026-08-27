@@ -11,6 +11,10 @@ import {
 
 import type { DetailsRailProps } from "../_lib/types";
 import type { SubTab } from "../_lib/workflow-subtabs";
+import {
+  ConfigCard,
+  twoColumnConfigFieldClass,
+} from "./config-card";
 
 export function SyncSection({
   busy,
@@ -27,53 +31,52 @@ export function SyncSection({
 
   if (mode === "config") {
     return (
-        <div className="grid gap-3 p-3">
-          <div className="border border-line bg-card p-3">
-            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Knowledge Agents</div>
-            <div className="grid grid-cols-1 gap-2">
-              <Field
-                className="mb-0"
-                label="Provider"
-                onChange={(event) => setForm({ syncProvider: event.currentTarget.value })}
-                spellCheck={false}
-                value={form.syncProvider}
-              />
-              <Field
-                className="mb-0"
-                label="Model"
-                onChange={(event) => setForm({ syncModel: event.currentTarget.value })}
-                spellCheck={false}
-                value={form.syncModel}
-              />
-              <SelectField
-                className="mb-0"
-                label="Thinking"
-                onChange={(event) => setForm({ syncThinking: event.currentTarget.value })}
-                options={["xhigh", "high", "medium", "low"]}
-                value={form.syncThinking}
-              />
-              <SelectField
-                className="mb-0"
-                label="Ingest parallelism"
-                onChange={(event) => setForm({ syncIngestConcurrency: Number(event.currentTarget.value) })}
-                options={[1, 2, 4, 6, 8, 12, 16]}
-                title="How many merged PRs the sync ingests at once (librarian/intake agents run one per PR)."
-                value={form.syncIngestConcurrency}
-              />
-            </div>
-            <p className="mb-0 mt-2 text-[11px] leading-4 text-dim">
-              Applies to the librarian and intake agents the next time a sync starts or resumes.
-            </p>
+      <div className="grid gap-3 p-3">
+        <ConfigCard label="Knowledge Agents">
+          <div className="grid grid-cols-1 gap-2">
+            <Field
+              className={twoColumnConfigFieldClass}
+              label="Provider"
+              onChange={(event) => setForm({ syncProvider: event.currentTarget.value })}
+              spellCheck={false}
+              value={form.syncProvider}
+            />
+            <Field
+              className={twoColumnConfigFieldClass}
+              label="Model"
+              onChange={(event) => setForm({ syncModel: event.currentTarget.value })}
+              spellCheck={false}
+              value={form.syncModel}
+            />
+            <SelectField
+              className={twoColumnConfigFieldClass}
+              label="Thinking"
+              onChange={(event) => setForm({ syncThinking: event.currentTarget.value })}
+              options={["xhigh", "high", "medium", "low"]}
+              value={form.syncThinking}
+            />
+            <SelectField
+              className={twoColumnConfigFieldClass}
+              label="Ingest parallelism"
+              onChange={(event) => setForm({ syncIngestConcurrency: Number(event.currentTarget.value) })}
+              options={[1, 2, 4, 6, 8, 12, 16]}
+              title="How many merged PRs the sync ingests at once (librarian/intake agents run one per PR)."
+              value={form.syncIngestConcurrency}
+            />
           </div>
-          {sync ? (
-            <MiniRows rows={[
-              { label: "Intake", value: sync.intake.knowledge_only ? "knowledge only" : "source + knowledge" },
-              { label: "Upstream", value: repoSync?.upstream_ref ?? "-" },
-              { label: "From", title: sync.intake.upstream_from, value: shortId(sync.intake.upstream_from) },
-              { label: "To", title: sync.intake.upstream_to, value: shortId(sync.intake.upstream_to) },
-            ]} />
-          ) : null}
-        </div>
+          <p className="mb-0 mt-3 border-t border-line pt-3 text-[11px] leading-4 text-soft">
+            Applies to the librarian and intake agents the next time a sync starts or resumes.
+          </p>
+        </ConfigCard>
+        {sync ? (
+          <MiniRows rows={[
+            { label: "Intake", value: sync.intake.knowledge_only ? "knowledge only" : "source + knowledge" },
+            { label: "Upstream", value: repoSync?.upstream_ref ?? "-" },
+            { label: "From", title: sync.intake.upstream_from, value: shortId(sync.intake.upstream_from) },
+            { label: "To", title: sync.intake.upstream_to, value: shortId(sync.intake.upstream_to) },
+          ]} />
+        ) : null}
+      </div>
     );
   }
 

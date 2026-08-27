@@ -71,6 +71,7 @@ export function workerCommand(
   if (globals.gameId) command.splice(2, 0, "--game", globals.gameId);
   if (globals.dryRunAgents) command.push("--dry-run-agents");
   if (globals.agentTimeoutSeconds != null) command.push("--agent-timeout-seconds", String(globals.agentTimeoutSeconds));
+  if (globals.sandboxProfile) command.push("--sandbox-profile", globals.sandboxProfile);
   command.push("worker", "--run-id", params.runId, "--worker-id", params.workerId, "--base-rev", params.baseRev);
   if (params.postReturnCheckCommand) command.push("--post-return-check-command", params.postReturnCheckCommand);
   if (params.workerConfigureCommand) command.push("--worker-configure-command", params.workerConfigureCommand);

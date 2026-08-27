@@ -2,6 +2,294 @@
 <last_updated>2026-08-26</last_updated>
 
 <status>
+- EPOCH 3 STARTED AT SOL/LOW (2026-08-27 18:05Z): run 4a45af8a resumed via
+  /api/run/resume; scheduler pid 93138, lease lease-3765aa8e…, spawned with
+  --model gpt-5.6-sol --thinking-level low, 32 workers, 4-core profile.
+  NO ep2 boundary retry ran: epoch 2's row already had boundary_status=success
+  (closed 03:01:06Z — the 91.49569 epoch_finish 5cffbb68 + pr_sync 33c7bb2f
+  pair WAS its boundary); only epoch status was stuck 'error' from the
+  trailing "Event correlation_id must equal workflow identity <runId>" bug
+  (log :49193 — second occurrence; :48774 had the cycle-uuid variant).
+  Resume settled it to completed and admitted epoch 3 directly: 181 targets,
+  board base = Ford's 17:26Z sync save point (commit 63439be4, remote
+  application). Consequence: no upstream re-sync / breakage-gate / PR refresh
+  today — first live exercise of the new gates lands at epoch 3's boundary.
+  Micro-gate flags verified on in game.json (section parity / undefined
+  symbols / banned idioms). Librarian condense drained epoch-1/2 backlog into
+  the ledger at resume (learnings_appended in stdout log). FOLLOW-UP: the
+  correlation_id event bug (fails the epoch-finalize event emission).
+- EPOCH 3 FINISHED 181/181 (~19:11Z, ~66 min at sol/low; 8 exacts + ~40
+  improvements). BOUNDARY (save point 38092ef7 @ 91.52135 code / 96.62 data,
+  commit 1edb9164ca): MASTER BREAKAGE GATE FIRST LIVE RUN = CLEAN (0 breakages
+  vs upstream CI report at anchor 5108e9f6). Regression latch paused repairs
+  ("54 rows > threshold 12") — but ALL 9 broken-100 functions had sub-100
+  baselines at admission: the drops happened in Ford's 17:26Z upstream-wins
+  sync, and the rolling-baseline compare (pre-sync 03:01Z report as "from")
+  re-surfaces sync fallout as epoch regressions. Workers IMPROVED several of
+  them. QA gate failed (2 errors): worker-added address_named_static_data
+  lbl_8046E1B0 in gmresultplayer.c:191 — caught at boundary; NOT covered by
+  banned_idioms micro-gate (add the shape). Latch clear/resume = Ford's call.
+- BOUNDARY GATE CATCHES + CORRELATION FIX (19:2x–19:4xZ): CI-parity gate
+  FIRST LIVE CATCH — link arm fully green, test arm (--linkable) FAILED at
+  main.elf link: psNumCmdList + psTexGroupArray undefined from generator.o
+  (hsd_8039F05C) and psdisp.o (psDispParticles). Cause: particle.c:41-42
+  declares both STATIC while symbols.txt says scope:global; normal build
+  links original objects for those units, test arm links reworked ones →
+  exactly the orphaned-symbol class the gate was built for. Pre-commit gate
+  also failed (clang-format rewrap of psGenerateParticle0 calls in
+  particle.c). PR refresh correctly skipped (ci_parity_failed); boundary
+  continued. REPAIR NEEDED before PR push: de-static + header decl w/
+  byte-identical verify, plus clang-format; and the QA-gate error
+  (lbl_8046E1B0 address-named data, gmresultplayer.c:191) wants removal per
+  repair_hint. CORRELATION_ID BUG FIXED via codex (uncommitted):
+  epoch-boundary.ts:513+595 now pass correlationId: runId (timeline.ts
+  asserts runId; cycle evidence keeps its own lane); 51/51 tests
+  (epochs 24, timeline 14, epoch-boundary 13). Live scheduler pid 93138
+  still has OLD code — fix activates on next resume's fresh scheduler.
+  Epoch 3 row left status=error/boundary_status=error (transaction rollback
+  from the throw) — boundary retry on resume will re-run gates + KG
+  maintenance (which never ran this pass) and settle it properly.
+- EPOCH 5 (REAL) LIVE AT 21:36Z — 163 TARGETS: root cause of the 1,081
+  admission was the KG BOARD, not report.json alone — admission reads
+  loadKnowledgeBoardSnapshot(graphDbPath) (tick.ts:81), and the boundary KG
+  rebuild at 20:5x had anchored to the missing report. Second 1,081 admission
+  at 21:17 confirmed it; killed + rolled back same as the first (nothing
+  banked either time). Repair sequence executed: (1) pre-sync commit
+  680ee4b0 of boundary repairs + format pass; (2) merged upstream fc960bd7c0
+  (gmtitle renames #3235, gm_1BA8 link #3234, gmresultplayer matches #3232;
+  7 conflicts all upstream-wholesale — incl. gmresultplayer lbl_8046E1B0
+  overlay+order_bss superseded by upstream) as merge 8f8ca52e; (3) host
+  build green + report 91.68013; (4) kg:rebuild --repo-root cycle worktree
+  (43k entities/82k facts); (5) board preview via loadKnowledgeBoardSnapshot
+  = 166 candidates; (6) resume (scheduler pid 95212) → epoch 5 admitted 163.
+  Boundary of this epoch should deliver: PR #3223 refresh + pr_sync →
+  confirmed tier catch-up. NOTE: codex sandboxes cannot run wibo (wineserver
+  bind) nor download tools — build verification is host-side only.
+- EPOCH 5 (BOGUS×2) KILLED + ROLLED BACK PER FORD (~21:1xZ): the 20:56Z admission was
+  BOGUS — the board recompute ran with build/GALE01/report.json MISSING from
+  the cycle worktree (the first merge-repair codex's failed configure
+  disturbed build/), so it admitted 1,081 targets: 700 already at 100%, 258
+  not in the report, only ~123 real. Scheduler stopped 21:00Z; nothing was
+  banked (0 exacts / 0 selected checkpoints / cycle head untouched at
+  5fa2071cfe). Rollback executed: all 1,055 non-terminal worker jobs
+  cancelled, ep5 workers' 56 queued absorption jobs cancelled, epoch_targets
+  + epochs row for ordinal 5 DELETED (epochs 1-4 all completed). Cycle
+  worktree report rebuild running in background (configure + ninja + report
+  target) — MUST COMPLETE before the next resume so admission sees a real
+  board. Run parked: status active/blocked, scheduler dead, dispatch lease
+  goes stale 15 min after ~21:00Z heartbeat → recover then resume.
+  RESUME CHECKLIST: (1) verify report.json exists at ~91.5% in the cycle
+  worktree; (2) POST /api/run/recover then /api/run/resume (gameId melee,
+  runId 4a45af8a-9f8c-499b-b375-c0d8e93fc8fd, confirmed:true); (3) expect a
+  boundary pass then a fresh epoch (~123 legit targets) — verify admitted
+  count is SMALL before walking away; (4) PR #3223 refresh + pr_sync (which
+  updates the confirmed tier with epoch 3+4 wins) land on the first boundary
+  that passes gates — confirm the confirmed tier steps past 91.49569.
+  OPEN GROSS-BUG FIXES WANTED BY FORD: (a) reconcile shortcut must not skip
+  gates/PR/pr_sync; (b) admission must refuse a missing/stale report;
+  (c) remove boundary repair epochs (librarian note + next-epoch admission
+  instead); (d) boundary retry backoff; (e) lease force-release for dead
+  schedulers.
+- FORD BOUNDARY-AGENT POLICY (refined 2026-08-27 ~21:1xZ): boundary stays
+  agentless with ONE exception — a bounded codex build-fixer for mechanical
+  build breaks (naming conflicts, signature drift, residual shims; the class
+  hand-driven 3x today). Breakage/regression is NEVER agent-repaired at the
+  boundary: write the ledger/library entry, requeue the target, and the next
+  epoch's worker reads it in target context (existing displacement-deferral +
+  ledger-note + ledger_search mechanism). No librarian-driven repair, no
+  repair epochs. Integration-resolver agents at integration_drain stay as-is. Docs: codex building
+  docs/40-new-features/30-global-flow-map/45-epoch-boundary/doc.json
+  (as-built boundary doc + failure catalog) — verify links check passed.
+- EPOCH 5 LIVE AT 20:56Z — ALL EPOCH ROWS SETTLED (SUPERSEDED — see above): after the second
+  stop/recover/resume (scheduler pid 71926, fixed correlation + facts-registry
+  close code + concurrency 16), the boundary reconcile path settled epoch 3
+  → epochs 1-4 all completed, epoch 5 admitted with 1,081 targets from the
+  merged upstream board (anchor merge 5fa2071cfe / upstream 73e6414450 incl.
+  upstream's own gm_801BC00C match #3230). Second-merge semantic repairs via
+  codex (uncommitted, both worktrees, diffs identical): grbigblue
+  grBigBlue_801E6364 duplicated 30-car alloc block from bad merge + 2 uninit
+  index_ptr + pos->y; mndiagram3 residual HSD_JObjSetTranslateY_Fake shim
+  call (the ORIGINAL CI-incident symbol) replaced with real
+  HSD_JObjSetTranslateYWithMtxDirty per upstream; all _Fake refs now gone
+  from src/. Full ninja green through main.dol. Upstream merge also bumped
+  dtk to v1.8.3 (configure re-downloads; codex sandboxes have no network —
+  tool downloads must happen host-side). Stale build-ci in the recreated
+  epoch worktree caused a bogus repeat link failure at the 20:3x gate run —
+  build-ci deleted, first ci-parity run pays a clean rebuild. NEW BUG FIXED
+  (uncommitted): run.epoch_integrated event payload facts (ordinal,
+  boundary_status, save_point_id) were unregistered — registry now accepts
+  them (closed schema kept, 86/86 tests). PR #3223 refresh pending at epoch
+  5's boundary (reconcile path skips PR publish). FORD DESIGN DIRECTIVE
+  (2026-08-27): no repair epochs at the boundary — failures get a librarian
+  note and defer to next-epoch admission; not yet implemented.
+- PARTICLE REPAIR RESOLVED (19:4x–20:0xZ, 3 codex rounds): an epoch-3 worker
+  RE-ADDED `static` to psTexGroupArray/psNumCmdList in particle.c (upstream's
+  Linkable wave had made them global; board base 63439be4 == origin/master
+  byte-identical) — static hid in our report build (original objects linked
+  for non-Matching units) but broke the --linkable arm. Fix shipped: particle.c
+  reverted to board base in BOTH cycle + epoch worktrees (uncommitted; boundary
+  snapshot will commit), dropping the worker's hsd_8039930C fuzzy improvement
+  (93.2→77.0, back on next board). Verified: test-arm main.elf+main.dol link
+  green. The scary psInitDataBankLoad 100→99.72 "regression" was a SCORING
+  ARTIFACT: bytes identical, one reloc-name pair (...data.0 vs lbl_8040BFB0);
+  with the report config functionRelocDiffs=data_value (used by upstream CI
+  AND our report builds) it scores 100.0 — ad-hoc objdiff checks without that
+  flag mislead. gmresultplayer lbl_8046E1B0 QA error = FALSE POSITIVE on
+  Ford's own remediation commit ce13c74550 — left in place; needs a QA-rule
+  allowlist. FOLLOW-UP GATES: banned_idioms should catch "static added to a
+  previously-global symbol"; QA address_named_static_data needs an exception
+  mechanism. RESTART SEQUENCE: process/stop killed the scheduler but left the
+  dispatch lease held + run active (the documented graceful-stop gap, hit
+  live) — recover+resume gated on 15-min lease staleness (~20:12Z), waiter
+  armed. Absorption: priority 100 applied to the run's 359 queued jobs;
+  CONCURRENCY_LIMIT now 16 (Ford wants high knowledge throughput; activates
+  with the fresh scheduler).
+- FORD-FLAGGED INVESTIGATIONS (19:2xZ, 3 subagents, all resolved):
+  (a) knowledge_absorption backlog: NOT stuck — global FIFO with no run
+  filter + priority 0 puts ~2,183 dead-run jobs ahead of the active run's
+  359, and drain (2.5/min, CONCURRENCY_LIMIT=2, ~47s/job) < production
+  (2.9/min at 32-wide). Options: priority-bump active run's queued jobs
+  (UPDATE, stopgap), CONCURRENCY_LIMIT 2→6 (code + restart, clears all in
+  ~5.5h), optionally cancel 1,904 July-run jobs (Ford's call).
+  (b) provider errors: epoch 3 CLEAN (0 of 181 workers); dashboard shows
+  Aug-26 wave (117 failures / 65 workers, 70% retried in-place post-fix,
+  35 burned). codex-lb healthy (10k responses all-200 since 18:00Z).
+  Residual knob: retry budget 1/cycle.
+  (c) 5 live-but-dead sandboxes: retry-leak orphans — attempt-2 re-provision
+  OVERWRITES payload.sandbox_id, attempt-1 sandbox never deleted; all
+  auto-destroy (90-min TTL) by 20:23Z, 20/250 cores, no action. Durable fix:
+  delete old sandbox before overwriting payload.sandbox_id on re-provision.
+- EPOCH 3 WORKER-SIDE VERIFICATION (18:05–18:25Z, all confirmed live):
+  (1) micro-gates evaluate on every checkpoint (168/168 carry the micro_gates
+  block); first real catch: gm_1BA8::gm_801BC00C attempt 1 failed
+  section_parity (.data 100→64.9%, ~696/1984 bytes) AND banned_idioms
+  (K&R-style static inline decl) — exactly the PR-3223 damage class, rejected
+  at the worker, micro_gate:<name> reasons in failure_reasons_json; no mass
+  rejection (1 failure / 168). (2) ledger handoff v3: all worker system
+  prompts mention communal ledger + allowlist ledger_search; 181 ledger_search
+  calls in the first 20 min. (3) sandbox rg healthy: 263 grep calls, zero
+  "rg: command not found". (4) repair-packet inlining live: 217/308 rendered
+  contexts carry previous_return_gate inline, 172 carry output tail +
+  audit-reference note. RESIDUAL (benign): sol/low workers still probe the
+  host-side *_path audit references anyway — 43/69 sessions, ~108 failed
+  "file not found" reads, fail-fast, workers proceed on inline content;
+  consider stripping paths or hardening paths_note. Throughput at sol/low is
+  fast: 40/181 targets finished by 18:20Z (5 exacts banked in first 12 min,
+  attempt-tail closes on 99.x baselines in 5–12 min).
+- PHASE 4 BOUNDARY VALIDATED END-TO-END 2026-08-27 ~03:01Z. Final state:
+  DRAFT PR https://github.com/doldecomp/melee/pull/3223 OPEN (draft, title
+  "GCD decomp session 02a80f9b", head fjooord:orchestrator/cycle/02a80f9b…);
+  anchor advanced 89d8368d → 945f2814 (fresh upstream incl. the PRs Ford
+  flagged); cycle head 1450713f; typed save points epoch_finish 5cffbb68 +
+  pr_sync 33c7bb2f at 91.49569% (earlier pair at ad348c67 @ 91.24294);
+  confirmed tier 16 matches + 159 improvements @ 91.49569 (the 2 new epoch-1
+  matches processed in); tentative empty (no open epoch); timeline 14 points.
+  ~35-target displacement wave deferred with ledger notes ×2 sync passes.
+  Epoch 1 completed 176/176 (145 natural + force-ended per Ford). Run PAUSED
+  + scheduler parked = ready to start epoch 3 on Ford's go (resume is
+  instant — pause released the lease). Latch note: run paused on 10 regressed
+  functions (upstream-displacement fallout, deferred to next-epoch
+  admission — expected).
+- PR #3223 TRIAGE (2026-08-27 morning, 3 parallel agents): (a) freshness —
+  no sync bug; upstream landed 6 commits 02:55–08:38Z after our 02:40Z merge
+  ("Linkable" wave #3222–#3229 + 0a75cf70d9); PR now CONFLICTING in 3 files
+  (grbigblue.c, mndiagram3.c, particle.c — upstream independently matched
+  psInitDataBankLocate after our workers); next boundary sync absorbs.
+  (b) PR body reduced to the single WIP line — live PR edited + generator
+  fixed via codex (cycle-draft-pr.ts, 3/3 tests, uncommitted). (c) CI: game
+  build failure = worker commit d10e83a725 mninfo.c HSD_Joint** → void**
+  (-Werror on GCC native job); clang job also fails on sdata2-order hack
+  functions, bare short/long, non-const params, redundant casts;
+  clang-format ~15 TUs; editorconfig fails on LEAKED
+  active_session/integration_resolver scratch committed by boundary(init)
+  c6908e4956. The "5 data link breakages" = decomp-dev bot broken matches vs
+  master: gmresultplayer .bss 100→50 (job-af5e order_bss hack),
+  hsd_803A949C 100→95.06 (MERGE CLOBBER — our conflict resolution kept our
+  fuzzy over upstream's exact #3211 match, violating zero-epsilon),
+  hsd_3A94 .data 100→0, gm_1601 fn_80167638 100→99.54 (the manual conflict
+  repair dropped PAD_STACK(8)), mninfo .data 100→99.77. WHY MISSED: rolling
+  baseline is self-identical at boundary (gate can never fire), data
+  sections never gated (only matched_code per function), repairs authored
+  after measurement, no CI-equivalent local jobs (GCC native, clang-tidy,
+  clang-format, editorconfig), and no exclusion of orchestrator scratch from
+  boundary commits. GAUNTLET ADDITIONS RECOMMENDED: master-baseline
+  objdiff-cli changes gate incl. sections; gate matched_data_percent;
+  pre-commit run --all-files at boundary; clang-tidy idiom lint; native
+  build smoke; exclude active_session/ from boundary commits. Note: the
+  upstream diff CI job is set +e warning-only — the decomp-dev comment is
+  the real breakage signal.
+- PR #3223 REMEDIATION COMPLETE (2026-08-27 ~13:2xZ): branch merged with
+  upstream b7686b598d (merge a828914b0b, 17 conflict hunks upstream-side incl.
+  psInitDataBankLocate; worker matches in grbigblue/mndiagram3 dropped by
+  gospel rule — back on the next board). Repair commits 3472b75f16+741010f5f1:
+  mninfo void** cast (GCC -Werror), gm_1601 fn_80167638 rebuilt
+  PROTOTYPE-CLEAN byte-exact (old parent used the CI-banned K&R trick and
+  PAD_STACK restore ICE'd MWCC), grbigblue pos->y stitch fix, hsd_803A949C
+  restored byte-exact, active_session/ scratch removed, clang-format over
+  the 40 PR-touched files. Full build OK; report 91.21% code / 99.76% fuzzy;
+  PR mergeable:MERGEABLE at 741010f5f1; cycles.head_revision advanced.
+- BREAKAGE GATE SHIPPED (uncommitted, 2026-08-27): breakage-gate.ts +
+  wiring — boundary compares our report vs upstream-master CI report
+  artifact (per-anchor cache, pr_sync-report fallback, loud skip) via
+  objdiff-cli report changes; any function OR data/bss section 100→<100
+  pauses the run on the regression latch, logged per item + save-point
+  payload; cross-TU EXACT rematches exempt as "moved" (sections never,
+  99.x rematches never — Ford: "99% should not be allowed");
+  matched_data_percent + section measures now in save points;
+  active_session/.pi-sessions excluded from boundary commits + stripped
+  retroactively. Tests 57/57 touched, suite 1019/1 (known routes.test.ts:390).
+  PR body generator reduced to the single WIP line (Ford directive
+  overriding the Phase 0 win-list contract).
+- CI-PARITY GATE SHIPPED (uncommitted, 2026-08-27): audit found the local
+  gauntlet never linked at all (report/changes builds have no link edge) and
+  the default configure links ORIGINAL objects for non-Matching units — which
+  is exactly how the orphaned HSD_JObjSetTranslateY_Fake reference produced a
+  byte-identical main.dol locally while CI's --require-protos (link job) and
+  --linkable (test job) arms failed; PR pushes were also entirely ungated.
+  New apps/server/src/core/validation/ci-parity/: parses the game repo's OWN
+  .github/workflows/build.yml for the link/test configure flags (loud parser
+  failure on workflow reshape = can't rot), runs both parity builds
+  (per-mode build-ci/ dirs) + ninja diff ERROR scan + check_complete.py +
+  pre-commit --all-files, wired into the PR-push path — gate failure blocks
+  the push (records ci_parity_gate event + save-point payload), boundary
+  continues. Escape hatches --no-ci-parity / --no-pre-commit-gate, default
+  ON. Tests 35/35 + 94/94, tsc clean. Unmatched by choice: nix/native jobs
+  (container-bound, redundant w/ mwcc parity), --compilers path (tag-pinned
+  auto-download equivalent). First post-change boundary pays two full wibo
+  builds, then incremental.
+- WORKER MICRO-GATES SHIPPED (uncommitted, 2026-08-27): per-attempt hard
+  gates in agent-catalog worker validation (micro-gates.ts +
+  change-validation wiring): (1) section_parity — any non-.text section
+  exact-before/<exact-after in the rebuilt TU fails with byte delta (catches
+  the mninfo .data / gmresultplayer .bss class at the worker); (2)
+  undefined_symbols — sandbox python3 ELF parse of the rebuilt object vs
+  symbols.txt + pre-worker baseline, fail-open on infra breakage (catches
+  orphaned-shim calls before CI link); (3) banned_idioms diff scan
+  (section-order hacks, new unreferenced statics, bare short/long, K&R
+  decl shapes). Flags in game-registry defaults + games/melee/game.json,
+  default ON; failures feed the repair loop as micro_gate:<name> reasons.
+  Tests 395/0 across cycle-runtime. Deferred: per-attempt clang-tidy
+  (needs compile DB in-sandbox; L1 QA lint covers repo rules).
+- PR #3223 FULLY CLEAN (2026-08-27 ~late): head 3263adbe7e — all 10 CI
+  checks pass, MERGEABLE, decomp-dev bot shows ZERO broken matches (only 3
+  small fuzzy wobbles on unmatched items). Data repairs done IN PLACE, no
+  reverts: gmresultplayer .bss fixed by one-line full-size overlay-type decl
+  (codegen byte-identical, symbol 0x2510, fn_80179854 kept); mninfo .data
+  fixed by restoring named mnInfo_803EFC08 as a full MnInfoDataLayout struct
+  (worker function bodies kept, one fuzzy improved). Report: 91.207% code /
+  99.756 fuzzy, both sections 100.0. Defense stack now: worker micro-gates →
+  boundary breakage gate (vs upstream master) → CI-parity + pre-commit gate
+  on PR push. Cycle head 3263adbe7e; run still paused, epoch 3 one resume
+  away.
+- KNOWN GAPS from the live validation (follow-ups): baseline tier shows null
+  score until a save point exists at the NEW anchor (projection reads
+  save-point-at-anchor); regression-pause latch + boundary interplay OK but
+  boundary retry loops rebuild with no backoff/limit; no boundary
+  build-repair lane for semantic merge conflicts (Ford wants one — 2 manual
+  codex repairs this session: gm_1601/gm_1BA8, then 5 TUs after the second
+  merge); dispatch-lease 15-min staleness has no operator force-release for
+  provably-dead holders; graceful stop sometimes leaves lease held (hard
+  kills always do).
 - Objective created after Ford froze all running pending flow redesign.
 - Phase 0 COMPLETE: all design decisions made by Ford 2026-08-26 (canonical
   7-step flow + conflict/librarian/requeue mechanism + draft-PR naming +
@@ -29,6 +317,17 @@
 </status>
 
 <completed>
+- PHASE 4 MILESTONE 1 (2026-08-27 ~01:1xZ): epoch 1 FORCE-ENDED by Ford's
+  instruction (145/176 targets completed naturally, 0 failed; 31 residual
+  jobs cancelled + 12 worker procs SIGTERMed + 6 targets force-finished; the
+  in-flight unaccepted work discarded). Boundary ran cleanly: integration
+  drain → snapshot d7f3ffba35 → configure → report build 91.12712% matched
+  (+0.0468 over 91.0803 baseline-confirmed) → QA 0/0 → report published →
+  0 regressions → epoch_finish save point 7c99b014 recorded (the
+  active_run_id repair validated — no timeline mismatch throw). Also at the
+  drain point: codex-lb recreated w/ 30s upstream connect timeout; all 52
+  Daytona sandboxes deleted; pause-guard armed to cancel epoch-2 worker jobs
+  (Ford wants pause after boundary, fixes applied before epoch 2).
 - 2026-08-26 ramp validated 32-wide sandbox execution (14 exacts banked,
   committed per-accept on the cycle branch) — see memory
   sandbox-32-ramp-and-run-staging-seams and objectives/sandbox-tool-exec.
@@ -45,8 +344,20 @@
 </completed>
 
 <in_progress>
-- Nothing running by operator instruction. Do not start runs until Phase 0 is
-  approved and at minimum Phase 1–2 are implemented.
+- Phase 4 LIVE VALIDATION STARTED 2026-08-26 16:54:52Z (Ford confirmed the
+  staged run in the UI; width raised from the planned 8 to 32 per Ford's
+  staging). Run 4a45af8a-9f8c-499b-b375-c0d8e93fc8fd, 32 workers, 4-core
+  sandbox profile (melee-sandbox-20260825-toolpack-4c), gpt-5.6-terra @ xhigh
+  via codex-lb, base 89d8368d, 176 targets admitted (epoch 1) on the 91.0803%
+  board. Scheduler pid 92835, lease lease-ea13d6b71cfc17348e54e955c587d4ca.
+  Stop commands: POST /api/process/stop; /api/run/hard-stop with
+  confirmed:true. Server pid 89385 (kernel-required defaults on in code,
+  kg.ts:149). Milestones to verify: epoch_finish save point → boundary sync
+  (merge vs upstream 861a69b7+, ~33-target requeue wave with
+  overridden_by_upstream_requeued ledger notes, KG rebuild + recompute,
+  pr_sync save point, anchor + cycle-head advance) → draft PR ("GCD decomp
+  session 02a80f9b…", head fjooord:orchestrator/cycle/02a80f9b…) → epoch 2
+  admission from the post-sync board; three-tier scores stepping in the UI.
 </in_progress>
 
 <next_actions>
@@ -62,6 +373,78 @@
 </next_actions>
 
 <risks_or_open_questions>
+- BOUNDARY SYNC FAILURE + FIXES (2026-08-27 ~00:50–01:00Z): the first live
+  boundary sync MERGED upstream successfully (worktree HEAD 2cb9489ed6 =
+  merge of upstream c9521d9f "gmboot cleanup #3220", clean tree) and the
+  epoch_finish save point 7c99b014 recorded, but the displaced-target requeue
+  step threw: fn_80169F50 (banked in a PREVIOUS run, no epoch_targets row in
+  this run) hit the hard throw at epoch-boundary.ts:139, aborting the
+  boundary before recompute/KG/pr_sync/anchor/draft-PR. Second design bug
+  found in the same path: requeueEpochTarget reopened 10 displaced targets IN
+  epoch 1, livelocking the boundary retry (retry gate waits for them to
+  finish while schedulerBlocked stops all claims). BOTH FIXED via codex
+  (uncommitted): requeueTarget hook now never mutates current-epoch rows and
+  never throws — logs deferral; next-epoch admission from the post-sync board
+  is the requeue mechanism (ledger override notes unchanged). Also fixed via
+  codex: run-scoped worker claims (consumer passes runId) and run activation
+  now sets cycles.active_run_id (tests 100/100). Data repairs: 10 reopened
+  targets re-finished; boundary retry relaunched via run.recover +
+  process/start once the dead scheduler's dispatch lease went stale (15-min
+  threshold). Auto-stop watcher arms a process stop right after the draft-PR
+  step so the system parks ready-for-epoch-2 per Ford.
+- SECOND BOUNDARY FAILURE + REPAIR (2026-08-27 ~01:2x–01:4xZ): the boundary
+  retry (with fixed requeue) failed in report_build — the upstream merge was
+  textually clean but semantically broken: gm_1601.c called get_idx() with
+  the pre-#3220 signature, gm_1BA8.c referenced a local 'gm' upstream had
+  restructured away. Only those 2 TUs (early garbled log names — h_TagCancel
+  etc. — were parallel-build noise). ALSO: the failed boundary retries in a
+  tight loop re-running configure+build (~3 min each) with no backoff/limit —
+  design gap noted. Repair: codex fixed both TUs in the epoch worktree
+  (upstream-as-gospel, existing 'ev' local; 7-line diff), full ninja green,
+  patch applied to the cycle worktree uncommitted (boundary snapshot will
+  commit). Ford asked for an agent lane for exactly this class of quick fix —
+  boundary build-repair step proposed as Phase-4 follow-up (boundary is
+  no-agents by design; a bounded mechanical-repair hook + build gate would
+  close it). Scheduler killed during the loop; recover+resume automation
+  re-armed (15-min lease staleness), fresh auto-stop-after-draft-PR watcher.
+- FOUND 2026-08-26 ~17:10Z (run 4a45af8a, epoch 1): the run-loop's worker
+  consumer claims worker jobs WITHOUT a run filter — claimNextJob is called
+  with {kind, concurrencyLimit, leaseMs} only (consumer.ts:197, run-loop.ts:591),
+  though the kernel supports input.runId (kernel.ts:388). Result: 27 of 32
+  running worker slots are executing stale jobs from the paused ramp runs
+  (e2d6b499×14, 9ac41b3c×7, a57a392e×6); only 5 are run 4a45af8a's. 983 stale
+  queued worker jobs remain claimable. Stale-claim churn (drops + replacement
+  sandboxes + delayed Daytona deletes on Conflict retries) transiently pushed
+  started sandboxes >32 → Daytona vCPU >128 (Ford observed; events: 49 created
+  vs 14 deleted in first 10 min, reconverged). Startup reconciliation itself
+  behaved (8 deletions 16:54:56–16:55:00, reason=reconciliation; scary
+  "deleted 37/8×6" log lines predate this run / count skipped rows).
+  Ford approved cancel 2026-08-26 ~17:2xZ: 1084 stale worker jobs (983 queued
+  + 101 waiting, run_id != 4a45af8a) set to cancelled directly in sqlite; the
+  27 in-flight old-run jobs were left to settle naturally (leases expire by
+  18:05Z), after which all 32 slots refill from the active run's queue only.
+  Still open: run-scoping the worker claim (pass input.runId at
+  run-loop.ts:591 → consumer.ts:197) — deferred until after this epoch.
+- FOUND+FIXED 2026-08-26 ~17:3xZ: cycles.active_run_id was empty for cycle
+  02a80f9b — nothing in the post-stepper start flow sets it (process/start
+  activates the run only; mark-preparing-complete was the old writer). Effects:
+  scoreTiers tentative pane empty (score-tiers.ts:193 bails), and the boundary
+  save-point writer would THROW at epoch finish (timeline.ts:132 run/cycle
+  mismatch). Repaired by direct UPDATE setting active_run_id=4a45af8a…
+  (Ford: fix little issues without asking). Verified: dashboard tentative now
+  lists 6 banked improvements. CODE FIX STILL NEEDED post-epoch: run.start
+  should set/clear cycle.active_run_id through the cycle command lane.
+- HANDOFF 2026-08-26 (side session, upstream timeouts): the epoch's
+  upstream_unavailable "Request to upstream timed out" errors = codex-lb's 8s
+  upstream connect timeout vs slow OpenAI backend-api; local proxy healthy.
+  (a) worker-cycle.ts retryable-patterns fix + tests landed uncommitted —
+  new worker-task spawns retry in-attempt; in-flight workers keep the old
+  classification. (b) PENDING AT EPOCH-1 BOUNDARY (drained quiet point, never
+  mid-epoch — recreate kills live streams): `docker compose -f
+  ~/local-services/codex-lb/docker-compose.runtime.yml up -d` to activate
+  staged CODEX_LB_UPSTREAM_CONNECT_TIMEOUT_SECONDS=30. (c) ~13 workers burned
+  a bounded_attempt_tail_v2 cold attempt on these timeouts (none permanently
+  lost) — discount epoch-1 error counts accordingly.
 - Real (non-dry-run) boundary-sync merge has not run yet — first live exercise
   happens in Phase 4 under supervision.
 - The 33-target displacement against upstream 861a69b7 will fire on the first

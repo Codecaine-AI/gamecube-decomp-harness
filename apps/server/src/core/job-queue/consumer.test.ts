@@ -14,9 +14,9 @@ import type {
 const store = {} as StateStore;
 type OnJobSettled = NonNullable<JobConsumerOptions["onJobSettled"]>;
 
-function job(id: string, attempts = 1): JobRecord {
+function job(id: string, attempts = 1, runId: string | null = null): JobRecord {
   return {
-    jobId: id, kind: "worker", dedupeKey: id, gameId: "melee", runId: null,
+    jobId: id, kind: "worker", dedupeKey: id, gameId: "melee", runId,
     status: "claimed", revision: 1, priority: 0, concurrencyKey: null,
     executionClass: "local", leaseId: `lease-${id}`, leaseExpiresAt: null,
     attempts, nextAttemptAt: null, payload: {}, resultRef: null, error: null,
@@ -65,6 +65,28 @@ function outcome(exitCode = 0): TaskOutcome {
 }
 
 describe("startJobConsumer", () => {
+  test("claims only jobs from the configured run", async () => {
+    const queue = [job("foreign", 1, "run-b"), job("owned", 1, "run-a")];
+    const kernel = kernelFor([]);
+    kernel.claimNextJob.mockImplementation((_store, input) => {
+      const index = queue.findIndex((queued) => input.runId === undefined || queued.runId === input.runId);
+      if (index < 0) return null;
+      const [next] = queue.splice(index, 1);
+      return next ? { job: next, token: token(next) } : null;
+    });
+    const handler = mock(async () => ({}));
+
+    const consumer = startJobConsumer(store, inlineDescriptor(handler), kernel, {
+      intervalMs: 1,
+      runId: "run-a",
+    });
+    await until(() => handler.mock.calls.length === 1);
+    await consumer.stop();
+
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ jobId: "owned" }), expect.anything());
+    expect(queue.map((queued) => queued.jobId)).toEqual(["foreign"]);
+  });
+
   test("respects the concurrency limit and serializes claim calls", async () => {
     const queue = [job("one"), job("two"), job("three")];
     const kernel = kernelFor(queue);

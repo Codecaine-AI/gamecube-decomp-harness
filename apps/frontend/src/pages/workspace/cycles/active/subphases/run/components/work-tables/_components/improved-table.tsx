@@ -6,6 +6,7 @@ import { TabButton } from "./tab-button";
 import { improvedPageSize } from "../_lib/constants";
 import {
   confirmedImprovementRows,
+  confirmedBreakageRows,
   confirmedMatchRows,
   confirmedRows,
   deltaColumnLabel,
@@ -28,6 +29,7 @@ import {
   num,
   scoreOrPercent,
   scorePairLooksPercent,
+  signedWhole,
   text,
   type Dashboard,
   type JsonObject,
@@ -42,6 +44,10 @@ interface ImprovedTableProps {
 function scorePart(value: unknown): string {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed.toFixed(2) : "";
+}
+
+function displayScore(value: unknown, percent: boolean): string {
+  return percent && Number(value) === 100 ? "100%" : scoreOrPercent(value, percent);
 }
 
 interface ScoreDeltaParts {
@@ -66,27 +72,40 @@ function scoreDeltaParts(entry: JsonObject): ScoreDeltaParts | null {
   if (!Number.isFinite(oldScore) || !Number.isFinite(newScore)) return null;
   const percent = scorePairLooksPercent(entry.oldScore, entry.newScore, entry.totalDelta);
   return {
-    after: scoreOrPercent(entry.newScore, percent),
-    before: scoreOrPercent(entry.oldScore, percent),
-    delta: rowDelta(entry),
+    after: displayScore(entry.newScore, percent),
+    before: displayScore(entry.oldScore, percent),
+    delta: entry.bytesDelta == null ? rowDelta(entry) : `${signedWhole(entry.bytesDelta)}b`,
     tone: rowDeltaClass(entry),
   };
 }
 
 function ScoreCell({ entry }: { entry: JsonObject }) {
   const parts = scoreDeltaParts(entry);
-  if (!parts) return <>{rowScore(entry)}</>;
+  if (!parts) return <span className="text-up">{rowScore(entry)}</span>;
   const wideScore = parts.before.includes("%") || parts.after.includes("%") || parts.delta.includes(" ");
   const gridColumns = wideScore
-    ? "grid-cols-[8ch_14px_8ch_9ch]"
-    : "grid-cols-[6ch_14px_6ch_7ch]";
+    ? "grid-cols-[8ch_12px_8ch_9ch]"
+    : "grid-cols-[6ch_12px_6ch_7ch]";
 
   return (
-    <span className={`inline-grid max-w-full ${gridColumns} items-center gap-1 tabular-nums`}>
+    <span className={`inline-grid max-w-full ${gridColumns} items-center gap-0.5 tabular-nums`}>
       <span className="text-right text-soft">{parts.before}</span>
       <ArrowRight className="justify-self-center text-faint" size={11} />
-      <span className="text-right text-fg">{parts.after}</span>
-      <span className={`text-right text-[10px] ${parts.tone}`}>{parts.delta}</span>
+      <span className="text-right text-up">{parts.after}</span>
+      <span className={`pl-1 text-left text-[10px] ${parts.tone}`}>{parts.delta}</span>
+    </span>
+  );
+}
+
+function BreakageScoreCell({ entry }: { entry: JsonObject }) {
+  const parts = scoreDeltaParts(entry);
+  if (!parts) return <span className="text-down">{rowScore(entry)}</span>;
+  return (
+    <span className="inline-grid max-w-full grid-cols-[8ch_12px_8ch_9ch] items-center gap-0.5 tabular-nums">
+      <span className="text-right text-soft">{parts.before}</span>
+      <ArrowRight className="justify-self-center text-faint" size={11} />
+      <span className="text-right text-down">{parts.after}</span>
+      <span className="pl-1 text-left text-[10px] text-down">{parts.delta}</span>
     </span>
   );
 }
@@ -113,11 +132,13 @@ export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTabl
   const totalCount = mode === "confirmed" ? confirmedRows(dashboard).length : tentativeRows(dashboard).length;
   const matchCount = mode === "confirmed" ? confirmedMatchRows(dashboard).length : tentativeMatchRows(dashboard).length;
   const improvementCount = mode === "confirmed" ? confirmedImprovementRows(dashboard).length : tentativeImprovementRows(dashboard).length;
+  const breakageCount = mode === "confirmed" ? confirmedBreakageRows(dashboard).length : 0;
   const title = mode === "confirmed" ? "Confirmed" : "Tentative";
   const tentativeMode = mode === "tentative";
-  const symbolColumnWidth = mode === "confirmed" ? "w-[30%]" : "w-1/3";
-  const scoreColumnWidth = mode === "confirmed" ? "w-[45%]" : "w-1/3";
-  const stateColumnWidth = mode === "confirmed" ? "w-[25%]" : "w-1/3";
+  const baselineUnavailable = mode === "confirmed" && dashboard?.scoreTiers?.confirmed.comparisonStatus === "baseline_unavailable";
+  const symbolColumnWidth = mode === "confirmed" ? "w-[27%]" : "w-1/3";
+  const scoreColumnWidth = mode === "confirmed" ? "w-[50%]" : "w-1/3";
+  const stateColumnWidth = mode === "confirmed" ? "w-[23%]" : "w-1/3";
   const columns = tentativeMode ? 2 : 3;
 
   function selectResultMode(nextMode: ImprovedResultMode) {
@@ -142,13 +163,23 @@ export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTabl
         </div>
       </div>
       <div className="overflow-hidden border border-line bg-inset">
-        <div className="grid min-h-9 grid-cols-2 border-b border-line bg-inset" role="tablist" aria-label={`${title} matches and improvements`}>
+        {baselineUnavailable ? (
+          <div className="border-b border-down/40 bg-down/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-down">
+            Upstream baseline unavailable
+          </div>
+        ) : null}
+        <div className={`grid min-h-9 ${tentativeMode ? "grid-cols-2" : "grid-cols-3"} border-b border-line bg-inset`} role="tablist" aria-label={`${title} result groups`}>
           <TabButton active={resultMode === "matches"} className="flex w-full min-w-0 items-center justify-center border-0 border-r border-line" onClick={() => selectResultMode("matches")}>
             Matches ({num(matchCount)})
           </TabButton>
           <TabButton active={resultMode === "improvements"} className="flex w-full min-w-0 items-center justify-center border-0" onClick={() => selectResultMode("improvements")}>
             Improvements ({num(improvementCount)})
           </TabButton>
+          {!tentativeMode ? (
+            <TabButton active={resultMode === "breakages"} className="flex w-full min-w-0 items-center justify-center border-0 border-l border-line text-down" onClick={() => selectResultMode("breakages")}>
+              Breakages ({num(breakageCount)})
+            </TabButton>
+          ) : null}
         </div>
         <div className="overflow-auto">
           <table>
@@ -209,8 +240,8 @@ export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTabl
                       <td className="text-center" title={rowDeltaTitle(entry)}><ScoreCell entry={entry} /></td>
                     ) : (
                       <>
-                        <td className="text-center"><ScoreCell entry={entry} /></td>
-                        <td className="text-right text-soft">{rowUpstreamState(entry)}</td>
+                        <td className="text-center">{resultMode === "breakages" ? <BreakageScoreCell entry={entry} /> : <ScoreCell entry={entry} />}</td>
+                        <td className={`text-right ${resultMode === "breakages" ? "text-down" : "text-soft"}`}>{rowUpstreamState(entry)}</td>
                       </>
                     )}
                   </tr>

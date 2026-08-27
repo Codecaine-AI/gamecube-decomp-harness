@@ -14,7 +14,6 @@ export interface CyclesApiRouteDeps {
   json: JsonResponder;
   packageRoot: string;
   port: number;
-  calculateBaselineForPrepare: (body: Record<string, unknown>) => Promise<unknown>;
   indexPrsForPrepare: (body: Record<string, unknown>) => Promise<unknown>;
   gameDefaults: (game: unknown) => unknown;
   gameToSummary: (game: unknown) => unknown;
@@ -23,10 +22,6 @@ export interface CyclesApiRouteDeps {
   runDetails: (stateDir: string, runId: string, game: unknown) => unknown;
   workerStateTrace: (stateDir: string, runId: string, workerStateId: string) => unknown;
   syncGitForPrepare: (body: Record<string, unknown>) => Promise<unknown>;
-}
-
-async function requestBody(req: Request): Promise<Record<string, unknown>> {
-  return (await req.json().catch(() => ({}))) as Record<string, unknown>;
 }
 
 function redirectPreparationSyncToOperatorStart(url: URL): Response {
@@ -79,9 +74,6 @@ export async function handleCyclesApiRoute(req: Request, url: URL, deps: CyclesA
   }
   if (isPreparationPath(url.pathname, "pr-index") && req.method === "POST") {
     return redirectPreparationSyncToOperatorStart(url);
-  }
-  if (isPreparationPath(url.pathname, "baseline") && req.method === "POST") {
-    return deps.json(await deps.calculateBaselineForPrepare(await requestBody(req)));
   }
   return null;
 }

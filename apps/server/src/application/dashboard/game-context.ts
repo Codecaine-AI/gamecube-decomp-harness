@@ -37,6 +37,7 @@ export function createDashboardGameContextService(deps: DashboardGameContextServ
       dashboard: game.dashboard,
       pr: game.pr,
       knowledge: game.knowledge,
+      sandbox: game.sandbox,
     };
   }
 

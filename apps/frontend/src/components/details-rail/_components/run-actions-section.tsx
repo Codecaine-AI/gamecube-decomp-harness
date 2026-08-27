@@ -20,9 +20,7 @@ export function RunActionsSection({
       ? `${view.operationLabel} is in progress.`
       : view.process.running
         ? "Workers are already running."
-        : !view.prepareState.baselineDone
-          ? "Baseline is not ready."
-          : "Preparation is not ready.";
+        : "Preparation is not ready.";
   return (
     <div className="grid gap-3 p-3">
       <Button

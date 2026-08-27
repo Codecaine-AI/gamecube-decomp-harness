@@ -5,6 +5,7 @@ export {
   type WorkerChangeBaseline,
   type WorkerUnitScoreSnapshot,
 } from "./change-validation.js";
+export * from "./micro-gates.js";
 export { parseWorkerCheckpointNote } from "./checkpoint-note.js";
 export { enabledCapabilities, targetPacketTarget, workerPacket } from "./packet.js";
 export { lintWorkerReviewDiff } from "./review-lint.js";

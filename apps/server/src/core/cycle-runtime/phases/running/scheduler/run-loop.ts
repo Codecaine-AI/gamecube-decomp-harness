@@ -491,7 +491,10 @@ export async function runRunLoop(
     const epochPauseThreshold = nonNegativeInt(numberArg(args, "--epoch-regression-pause-threshold", 12));
     const epochRequeueLimit = nonNegativeInt(numberArg(args, "--epoch-regression-requeue-limit", 32));
     const cycleDraftPrEnabled = !booleanArg(args, "--no-cycle-draft-pr");
+    const ciParityEnabled = !booleanArg(args, "--no-ci-parity");
+    const preCommitGateEnabled = !booleanArg(args, "--no-pre-commit-gate");
     const boundarySyncEnabled = !booleanArg(args, "--no-boundary-sync");
+    const breakageGateEnabled = !booleanArg(args, "--no-breakage-gate");
     const fullKgMaintenanceMode = stringArg(args, "--full-kg-maintenance-mode", "full").trim().toLowerCase();
     let runningEpoch: Promise<void> | null = null;
     let epochCycles = 0;
@@ -591,6 +594,7 @@ export async function runRunLoop(
     const workerConsumer = startJobConsumer(store, workerDescriptor, workerKernelOps(workerCtx), {
       intervalMs: 1_000,
       actor: "runner",
+      runId,
       shouldClaim: () => !(maxIterations > 0 && iterations >= maxIterations) && !schedulerBlocked && !epochPaused,
       onJobSettled: handleWorkerJobSettled,
     });
@@ -775,7 +779,10 @@ export async function runRunLoop(
             epochPauseThreshold,
             epochRequeueLimit,
             cycleDraftPrEnabled,
+            ciParityEnabled,
+            preCommitGateEnabled,
             boundarySyncEnabled,
+            breakageGateEnabled,
             fullKgMaintenanceMode,
             writeSetFlags,
             schedulerEpochConfig,

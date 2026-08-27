@@ -173,11 +173,19 @@ export function searchLedgerLearnings(options: {
   let db: Database | undefined;
   try {
     db = new Database(dbPath, { readonly: true });
-    const hits = db
-      .query<LedgerSearchHit, [string]>(
-        "SELECT id, statement FROM learnings_fts WHERE learnings_fts MATCH ? ORDER BY rank",
-      )
-      .all(options.query);
+    const matchQuery = db.query<LedgerSearchHit, [string]>(
+      "SELECT id, statement FROM learnings_fts WHERE learnings_fts MATCH ? ORDER BY rank",
+    );
+    let hits: LedgerSearchHit[];
+    try {
+      hits = matchQuery.all(options.query);
+    } catch {
+      // Raw queries with paths/units ("main/melee/gm/gm_16A2") are FTS5 syntax
+      // errors; retry as an OR of quoted terms instead of failing the search.
+      const terms = options.query.split(/\s+/).filter((term) => term && term.toUpperCase() !== "OR");
+      if (terms.length === 0) throw new Error("empty ledger search query");
+      hits = matchQuery.all(terms.map((term) => `"${term.replaceAll('"', '""')}"`).join(" OR "));
+    }
     const recordsById = new Map(readLearnings(ledgerPath).map((record) => [record.id, record]));
     const requestedLimit = options.limit ?? 20;
     const limit = Number.isFinite(requestedLimit) ? Math.max(0, Math.trunc(requestedLimit)) : 20;

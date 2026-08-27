@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { immediateTransaction } from "@server/core/orchestrator-state";
-import { reconcilePendingIntegrations } from "@server/core/cycle";
+import { reconcilePendingIntegrations, setCycleActiveRunId } from "@server/core/cycle";
 import { newSpanId, type EventActor } from "@server/core/harness-state/events.js";
 import {
   getHarnessState,
@@ -207,6 +207,7 @@ export function activateRun(input: ActivateRunInput): { leaseId: string; run: Ru
       payload: { lease_id: decision.leaseId },
       spanId: actionSpanId,
     });
+    if (run.cycleUuid) setCycleActiveRunId(input.store.db, run.cycleUuid, run.id);
     return { leaseId: decision.leaseId, run };
   });
 }

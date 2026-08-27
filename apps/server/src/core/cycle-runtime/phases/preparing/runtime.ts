@@ -1,14 +1,11 @@
 import { randomUUID } from "node:crypto";
-import type { Database } from "bun:sqlite";
 import { runningScheduling } from "@server/core/cycle-runtime/phases/running/process-command";
 import { createRunCheckpoint, shipsInPr, type RunCheckpointResult } from "@server/core/cycle-runtime/phases/pr/checkpoint";
 import { getRun, openState, updateRunStatus } from "@server/core/cycle-runtime/run-state";
-import { cycleView, type PreparingPhaseState, type CyclePatch, type CycleRecord, type CycleView } from "@server/core/cycle";
-import { getActiveCycle, getCycleBySelector, transitionCycle } from "@server/core/cycle/store";
-import { forceReportRun } from "@server/core/validation/report";
+import { cycleView, type CycleView } from "@server/core/cycle";
+import { getActiveCycle, getCycleBySelector } from "@server/core/cycle/store";
 import { canonicalProcessName } from "@server/core/cycle/process-identity";
 import type { ResolvedGame } from "@server/core/game-registry";
-import { now as currentTime } from "@server/core/orchestrator-state";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { withDispatchLease } from "@server/core/cycle-runtime/dispatch-guard";
 import {
@@ -16,7 +13,6 @@ import {
   type GameEventTraceLinkage,
 } from "@server/core/harness-state/kernel-links.js";
 import { commitBoundaryWorktree } from "@server/core/cycle-runtime/phases/pr/boundary-commit.js";
-import { setPreparingSubphase } from "./index.js";
 import {
   boolValue,
   latestRunId,
@@ -29,11 +25,7 @@ import {
   type PreparingRuntimeGameContext,
   type PreparingRuntimeState,
 } from "./runtime-shared.js";
-import {
-  reportAgainstNewBaselineForPrepare,
-  resetReportBaselineForPrepare,
-  prepareWorktreePaths,
-} from "./subphases/index.js";
+import { prepareWorktreePaths } from "./subphases/index.js";
 
 export { compactReportRunResult, mergedPullRequestNumbers, parseBaseRef } from "./subphases/index.js";
 export type {
@@ -86,110 +78,6 @@ function cycleSelector(body: JsonObject, gameId: string): { id?: string | null; 
   };
 }
 
-function acceptPreparingTransition(
-  db: Database,
-  record: CycleRecord,
-  patch: CyclePatch,
-  at: string,
-): CycleView {
-  const eventType = "cycle.preparing_subphase_updated" as const;
-  if (patch.status !== undefined) {
-    throw new Error(`${eventType} must preserve game cycle status`);
-  }
-  const { status: _status, ...progressPatch } = patch;
-  return cycleView(
-    transitionCycle(db, record.id, {
-      actor: "runner",
-      commandId: `command-${eventType.replaceAll(".", "-")}-${randomUUID()}`,
-      correlationId: record.cycle_uuid,
-      eventType,
-      expectedRevision: record.revision,
-      occurredAt: at,
-      patch: progressPatch,
-      payload: {
-        previous_phase: record.phase,
-        previous_status: record.status,
-        phase: patch.phase ?? record.phase,
-        status: patch.status ?? record.status,
-        subphase: patch.preparing_state_json?.subphase ?? record.preparing_state_json.subphase,
-      },
-      gameId: record.game_id,
-      cycleUuid: record.cycle_uuid,
-    }),
-  );
-}
-
-function activePreparingCycle(paths: PreparingRuntimeGameContext, body: JsonObject): CycleView {
-  const gameId = gameIdFromContext(paths, body);
-  if (!gameId) throw new Error("Game id is required for cycle preparation.");
-  const store = openState(paths.stateDir);
-  try {
-    const selector = cycleSelector(body, gameId);
-    const record = getCycleBySelector(store.db, selector) ?? getActiveCycle(store.db, gameId);
-    if (!record) throw new Error("Create a game cycle before running preparation steps.");
-    if (record.phase !== "preparing") {
-      throw new Error(`Cannot run preparation while game cycle ${record.cycle_uuid} is in ${record.phase} phase.`);
-    }
-    return cycleView(record);
-  } finally {
-    store.db.close();
-  }
-}
-
-function updateFreshCycleSubphase(
-  paths: PreparingRuntimeGameContext,
-  body: JsonObject,
-  cycle: CycleView,
-  subphase: PreparingPhaseState["subphase"],
-  detail: string,
-  data: Partial<PreparingPhaseState> = {},
-  patch: Pick<CyclePatch, "active_run_id" | "base_sha"> = {},
-): CycleView {
-  const gameId = gameIdFromContext(paths, body);
-  if (!gameId) return cycle;
-  const store = openState(paths.stateDir);
-  try {
-    const selector = cycleSelector({ ...body, cycleUuid: cycle.cycleUuid }, gameId);
-    const record = getCycleBySelector(store.db, selector);
-    if (!record) return cycle;
-    const at = currentTime();
-    return acceptPreparingTransition(
-      store.db,
-      record,
-      {
-        ...setPreparingSubphase(record, at, subphase, { detail, data }),
-        ...patch,
-      },
-      at,
-    );
-  } finally {
-    store.db.close();
-  }
-}
-
-function assertPrepareActionAllowed(deps: PreparingRuntimeDeps, paths: PreparingRuntimeGameContext): void {
-  const active = deps.hasActiveProcess(paths.stateDir);
-  if (active.active) {
-    const activeName = stringValue(active.name, paths.game?.processName ?? "melee-live");
-    throw new Error(`Stop the active process (${activeName}) before changing cycle preparation.`);
-  }
-  const runId = latestRunId(paths.stateDir);
-  if (!runId) return;
-  const store = openState(paths.stateDir);
-  try {
-    const run = getRun(store, runId);
-    if (run && run.status === "active") {
-      throw new Error(`Run ${run.id} is active. Preparation changes are locked while workers are running.`);
-    }
-  } finally {
-    store.db.close();
-  }
-}
-
-function prepareMainWorktreeRoot(paths: PreparingRuntimeGameContext, cycle: CycleView): string {
-  return stringValue(cycle.phases.preparing.sync?.upstreamWorktreePath, paths.repoRoot);
-}
-
 function prepareCycleWorktreeRoot(paths: PreparingRuntimeGameContext, cycle: CycleView | null): string {
   const fallback = cycle
     ? prepareWorktreePaths(paths, cycle.cycleUuid).cycleCurrentWorktreePath
@@ -217,6 +105,7 @@ function workerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefine
   return {
     workerCount: numberValue(body.maxWorkers, 16),
     agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 1800)),
+    sandboxProfile: stringValue(body.sandboxProfile),
   };
 }
 
@@ -247,6 +136,7 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
     : prepareCycleWorktreeRoot(paths, activeCycleOrNull(paths, body));
   const commandPaths = { ...paths, repoRoot };
   const { maxWorkers } = runningScheduling(body.maxWorkers);
+  const sandboxProfile = stringValue(body.sandboxProfile, game?.sandbox?.default_profile ?? "");
   const command = [
     ...serverJobPrefix(commandPaths, deps.serverJobPath),
     ...(boolValue(body.dryRunAgents) ? ["--dry-run-agents"] : []),
@@ -258,6 +148,7 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
     stringValue(body.thinkingLevel, "xhigh"),
     "--agent-timeout-seconds",
     String(numberValue(body.agentTimeoutSeconds, numberValue(game?.dashboard.agentTimeoutSeconds, 1800))),
+    ...(sandboxProfile ? ["--sandbox-profile", sandboxProfile] : []),
     "init-run",
     "--desired-workers",
     String(maxWorkers),
@@ -278,7 +169,6 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
 }
 
 export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
-  calculateBaselineForPrepare: (body: JsonObject) => Promise<JsonObject>;
   completeRun: (body: JsonObject) => Promise<JsonObject>;
   freshRun: (body: JsonObject) => Promise<JsonObject>;
   indexPrsForPrepare: (body: JsonObject) => Promise<JsonObject>;
@@ -287,12 +177,10 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
   state: () => PreparingRuntimeState;
   syncGitForPrepare: (body: JsonObject) => Promise<JsonObject>;
 } {
-  const runReport = deps.runReport ?? forceReportRun;
-  let freshRunActive = false;
   let gameSyncActive = false;
 
   return {
-    state: () => ({ freshRunActive, gameSyncActive }),
+    state: () => ({ freshRunActive: false, gameSyncActive }),
 
     initRunCommand: (body) => initRunCommand(deps, body),
 
@@ -306,202 +194,6 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
       throw new Error(
         "Legacy preparation PR intake is disabled. Use the operator sync.start action so merged-PR knowledge advances only through SyncState.",
       );
-    },
-
-    async calculateBaselineForPrepare(body): Promise<JsonObject> {
-      if (freshRunActive) {
-        throw new Error("Baseline calculation is already running. Wait for it to finish before starting another baseline.");
-      }
-      freshRunActive = true;
-      const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
-      try {
-        const initialCycle = activePreparingCycle(paths, body);
-        const intakeStatus = stringValue(initialCycle.phases.preparing.intake?.status);
-        const knowledgeStatus = stringValue(initialCycle.phases.preparing.knowledge?.status);
-        if ((intakeStatus !== "complete" && !initialCycle.phases.preparing.intake?.completedAt) || (knowledgeStatus !== "complete" && !initialCycle.phases.preparing.knowledge?.completedAt)) {
-          throw new Error("Run PR intake before calculating the baseline.");
-        }
-        const baselineRepoRoot = prepareMainWorktreeRoot(paths, initialCycle);
-        const baselinePaths = { ...paths, repoRoot: baselineRepoRoot };
-        assertPrepareActionAllowed(deps, paths);
-        deps.beginOperation("prepare-baseline", "Calculate Baseline", ["reset report baseline", "report against new baseline", "save point"]);
-        let cycle = updateFreshCycleSubphase(
-          paths,
-          body,
-          initialCycle,
-          "baseline",
-          "Calculating the cycle baseline.",
-          {
-            baseline: {
-              status: "active",
-              startedAt: new Date().toISOString(),
-            },
-          },
-        );
-        const baselineStartedLinkage = traceLinkageForEvent(
-          paths.stateDir,
-          gameIdFromContext(paths, body),
-          cycle?.causedByEventId ?? null,
-        );
-        await deps.submitWorkflowEvent(paths, {
-          kind: "baseline",
-          operation: "prepare.calculateBaseline",
-          status: "started",
-          sessionId: cycle.cycleUuid,
-          detail: `calculate baseline at ${baselineRepoRoot}`,
-          ...baselineStartedLinkage,
-        });
-        try {
-          const resetReport = await resetReportBaselineForPrepare(deps, runReport, baselineRepoRoot, {
-            stateDir: paths.stateDir,
-            gameId: gameIdFromContext(paths, body) || null,
-            cycleUuid: cycle.cycleUuid,
-            boardKey: "baseline",
-            trustedReportKey: "baseline",
-            reportRunKey: "prepare_baseline_reset",
-          });
-          await deps.submitWorkflowEvent(paths, {
-            kind: "baseline",
-            operation: "prepare.resetReportBaseline",
-            status: "completed",
-            sessionId: cycle.cycleUuid,
-            detail: "report baseline reset",
-            metadata: { ...resetReport, repoRoot: baselineRepoRoot },
-            ...baselineStartedLinkage,
-          });
-          const reportRun = await reportAgainstNewBaselineForPrepare(deps, runReport, baselineRepoRoot, {
-            stateDir: paths.stateDir,
-            gameId: gameIdFromContext(paths, body) || null,
-            cycleUuid: cycle.cycleUuid,
-            boardKey: "baseline",
-            trustedReportKey: "baseline",
-            reportRunKey: "prepare_baseline_report",
-          });
-          await deps.submitWorkflowEvent(paths, {
-            kind: "baseline",
-            operation: "prepare.reportAgainstBaseline",
-            status: "completed",
-            sessionId: cycle.cycleUuid,
-            detail: "baseline report refreshed",
-            metadata: { ...reportRun, repoRoot: baselineRepoRoot },
-            ...baselineStartedLinkage,
-          });
-          deps.operationStep("save point");
-          const boundaryCommit = await withDispatchLease(
-            baselinePaths,
-            {
-              kind: "run",
-              gameId: gameIdFromContext(paths, body),
-              reason: `commit prepared baseline for ${cycle.cycleUuid}`,
-              workflowId: `run-prepare:${cycle.cycleUuid}`,
-            },
-            async (_leaseId, revalidateLease) => commitBoundaryWorktree({
-              message: "boundary(init): prepare baseline",
-              repoRoot: baselineRepoRoot,
-              revalidateLease,
-              runGit: deps.runGit,
-              stateDir: paths.stateDir,
-            }),
-          );
-          const savePoint = await deps.boundarySavePoint(
-            baselinePaths,
-            "init",
-            cycle.cycleUuid,
-            "prepare baseline",
-          );
-          cycle = updateFreshCycleSubphase(
-            paths,
-            body,
-            cycle,
-            "ready",
-            "Baseline is ready. Choose worker config before starting the run.",
-            {
-              baseline: {
-                status: "complete",
-                completedAt: new Date().toISOString(),
-                reportRun,
-                repoRoot: baselineRepoRoot,
-                resetReport,
-                boundaryCommit,
-                savePoint,
-              },
-            },
-          );
-          const baselineCompletedLinkage = traceLinkageForEvent(
-            paths.stateDir,
-            gameIdFromContext(paths, body),
-            cycle?.causedByEventId ?? null,
-          );
-          await deps.submitWorkflowEvent(paths, {
-            kind: "baseline",
-            operation: "prepare.calculateBaseline",
-            status: "completed",
-            sessionId: cycle.cycleUuid,
-            detail: "baseline ready",
-            metadata: {
-              repoRoot: baselineRepoRoot,
-              reportRun,
-              resetReport,
-              boundaryCommit,
-              savePoint,
-            },
-            ...baselineCompletedLinkage,
-          });
-          deps.endOperation();
-          return {
-            baseline: true,
-            game: paths.game ? deps.gameToSummary(paths.game) : null,
-            cycle: cycle,
-            repoRoot: paths.repoRoot,
-            baselineRepoRoot,
-            stateDir: paths.stateDir,
-            reportRun,
-            resetReport,
-            boundaryCommit,
-            savePoint,
-          };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          cycle = updateFreshCycleSubphase(
-            paths,
-            body,
-            cycle,
-            "baseline",
-            `Baseline calculation failed: ${message}`,
-            {
-              baseline: {
-                ...(cycle?.phases.preparing.baseline ?? {}),
-                status: "failed",
-                failedAt: new Date().toISOString(),
-                error: message,
-                repoRoot: baselineRepoRoot,
-              },
-            },
-          );
-          const baselineFailedLinkage = traceLinkageForEvent(
-            paths.stateDir,
-            gameIdFromContext(paths, body),
-            cycle?.causedByEventId ?? null,
-          );
-          await deps.submitWorkflowEvent(paths, {
-            kind: "baseline",
-            operation: "prepare.calculateBaseline",
-            status: "failed",
-            sessionId: cycle.cycleUuid,
-            metadata: {
-              error: message,
-              repoRoot: baselineRepoRoot,
-            },
-            ...baselineFailedLinkage,
-          }).catch(() => null);
-          throw error;
-        }
-      } catch (error) {
-        deps.endOperation(error);
-        throw error;
-      } finally {
-        freshRunActive = false;
-      }
     },
 
     async completeRun(body): Promise<JsonObject> {

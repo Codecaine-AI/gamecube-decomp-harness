@@ -32,6 +32,7 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
       ),
       model: globals.model,
       provider: globals.provider,
+      sandbox_profile: globals.sandboxProfile ?? globals.game?.sandbox?.default_profile ?? "",
       thinking_level: globals.thinkingLevel,
       worker_configure_command: stringArg(args, "--worker-configure-command", "").trim(),
     };

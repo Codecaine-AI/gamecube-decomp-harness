@@ -129,7 +129,12 @@ describe("boundary sync", () => {
       appendOverrideNote: (value) => { calls.push(["note", value]); },
       requeueTarget: (value) => { calls.push(["requeue", value]); },
       rebuildKnowledgeGraph: async () => { calls.push(["kg", null]); },
-      recomputeReport: async () => ({ matchedCodePercent: 91.2, measures: { matched_code_percent: 91.2 } }),
+      recomputeReport: async () => ({
+        matchedCodePercent: 91.2,
+        matchedDataPercent: 84.5,
+        measures: { matched_code_percent: 91.2, matched_data_percent: 84.5 },
+        sectionMeasures: { ".data": { sizeBytes: 8, fuzzyMatchPercent: 84.5, exactRows: 0, totalRows: 1 } },
+      }),
       writePrSyncSavePoint: (value) => { calls.push(["save", value]); },
       advanceAnchor: (value) => { calls.push(["anchor", value]); },
       advanceCycleHead: (value) => { calls.push(["head", value]); },
@@ -149,6 +154,8 @@ describe("boundary sync", () => {
       upstreamHeadSha: fixture.upstreamHead,
       commitSha: result.headSha,
       matchedCodePercent: 91.2,
+      matchedDataPercent: 84.5,
+      sectionMeasures: { ".data": { sizeBytes: 8, fuzzyMatchPercent: 84.5, exactRows: 0, totalRows: 1 } },
     });
     expect(calls.find(([name]) => name === "anchor")?.[1]).toEqual({
       previousAnchorSha: fixture.anchor,

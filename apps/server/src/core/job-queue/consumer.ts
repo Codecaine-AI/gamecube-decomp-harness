@@ -13,6 +13,7 @@ import type {
 export interface JobConsumerOptions {
   intervalMs?: number;
   actor?: JobActor;
+  runId?: string;
   now?: () => string;
   shouldClaim?: () => boolean;
   /**
@@ -198,6 +199,7 @@ export function startJobConsumer(
             kind: descriptor.kind,
             concurrencyLimit: descriptor.concurrencyLimit,
             leaseMs: descriptor.leaseMs,
+            ...(options.runId !== undefined ? { runId: options.runId } : {}),
             at: at(),
             actor,
           });

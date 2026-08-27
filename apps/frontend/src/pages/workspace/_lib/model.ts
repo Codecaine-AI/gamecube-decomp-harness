@@ -38,7 +38,7 @@ export function schedulingForWorkers(
   };
 }
 
-export const workerCountOptions = [1, 2, 4, 8, 12, 16, 20, 32, 64] as const;
+export const workerCountOptions = [12, 16, 20, 32, 48, 64] as const;
 
 export function statusClass(value: unknown): string {
   const status = text(value);
@@ -547,8 +547,8 @@ export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | 
   const canonicalGates = asObject(canonicalCycle.gates);
   const canonicalPhases = asObject(canonicalCycle.phases);
   // The Prepare stage is retired as a UI framing. The preparing phase still
-  // exists server-side; the still-real inputs (baseline, worker config) render
-  // on the Run page, so only their completion flags are derived here.
+  // exists server-side; the run configuration and automatic baseline status
+  // render on the Run page, so only their state is derived here.
   const preparingPhase = asObject(canonicalPhases.preparing);
   const prepareSync = asObject(preparingPhase.sync);
   const prepareIntake = asObject(preparingPhase.intake);
@@ -732,7 +732,7 @@ export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | 
       baselineDone,
       intakeDone,
       knowledgeDone,
-      readyToStartRun: hasCanonicalCycle && canonicalPhase === "preparing" && baselineDone && !process.running && activeClaims === 0 && !syncing && !operationActive,
+      readyToStartRun: hasCanonicalCycle && canonicalPhase === "preparing" && !process.running && activeClaims === 0 && !syncing && !operationActive,
     },
     prSummary: {
       checkpoint,

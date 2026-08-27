@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCycle, getActiveCycle } from "@server/core/cycle";
@@ -8,6 +8,7 @@ import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/
 import { admitEpochTargets, createRun, openState, startSchedulerEpoch } from "@server/core/cycle-runtime/run-state";
 import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
 import { scoreTiersProjection } from "./score-tiers.js";
+import { classifyMasterBreakages } from "@server/core/cycle-runtime/phases/running/epochs/breakage-gate.js";
 
 const tempDirs: string[] = [];
 
@@ -132,8 +133,8 @@ function fixture(): {
     runId: runOne.id,
     workerPoolSize: 2,
     candidates: [
-      { unit: "main/melee/test", symbol: "ExactFn", sourcePath: "src/test.c", size: 32, fuzzy: 98, priority: 2 },
-      { unit: "main/melee/test", symbol: "ImproveFn", sourcePath: "src/test.c", size: 32, fuzzy: 80, priority: 1 },
+      { unit: "main/melee/test", symbol: "ExactFn", sourcePath: "src/test.c", size: 32, fuzzy: 98, priority: 2, reason: "fixture" },
+      { unit: "main/melee/test", symbol: "ImproveFn", sourcePath: "src/test.c", size: 32, fuzzy: 80, priority: 1, reason: "fixture" },
     ],
   });
   const targets = store.db.query(
@@ -156,37 +157,32 @@ function fixture(): {
 }
 
 describe("score tiers projection", () => {
-  test("uses anchor/save-point/branch sources and is invariant across run restaging artifacts", () => {
+  test("uses anchor/save-point sources and is invariant across run restaging artifacts", async () => {
     const { store, repo, runOne, runTwo } = fixture();
     try {
       store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runOne);
       recordDashboardArtifact(store, {
         runId: runOne, artifactType: "board_snapshot", artifactKey: "initial", payload: { measures: { matched_code_percent: 12 } },
       });
-      const before = scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo);
+      const before = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo);
       store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runTwo);
       recordDashboardArtifact(store, {
         runId: runTwo, artifactType: "board_snapshot", artifactKey: "current", payload: { measures: { matched_code_percent: 99 } },
       });
-      const after = scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo);
+      const after = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo);
 
       expect(after).toEqual(before);
       expect(after.baseline).toMatchObject({ score: 90.8, anchorRevision: expect.any(String), savePointId: "save-baseline" });
       expect(after.confirmed).toMatchObject({ score: 91.08, savePointId: "save-confirmed" });
       expect(after.confirmed.delta).toBeCloseTo(0.28);
-      expect(after.confirmed.matches).toEqual([
-        { targetKey: "main/melee/test::ExactFn", unit: "main/melee/test", symbol: "ExactFn", score: 100, state: "in_branch" },
-      ]);
-      expect(after.confirmed.improvements).toEqual([
-        { targetKey: "main/melee/test::ImproveFn", unit: "main/melee/test", symbol: "ImproveFn", delta: 6.25, state: "in_branch" },
-      ]);
+      expect(after.confirmed).toMatchObject({ comparisonStatus: "baseline_unavailable", matches: [], improvements: [], breakages: [] });
       expect(after.timeline.map((point) => point.kind)).toEqual(["baseline", "epoch_finish"]);
     } finally {
       store.db.close();
     }
   });
 
-  test("projects only open-epoch checkpoints and returns empty tentative when no run is active", () => {
+  test("projects only open-epoch checkpoints and returns empty tentative when no run is active", async () => {
     const { store, repo, runTwo } = fixture();
     try {
       store.db.query("UPDATE runs SET status = 'active' WHERE id = ?").run(runTwo);
@@ -195,7 +191,7 @@ describe("score tiers projection", () => {
         epochId: epoch.id,
         runId: runTwo,
         workerPoolSize: 1,
-        candidates: [{ unit: "main/melee/open", symbol: "OpenWin", sourcePath: "src/open.c", size: 16, fuzzy: 70, priority: 1 }],
+        candidates: [{ unit: "main/melee/open", symbol: "OpenWin", sourcePath: "src/open.c", size: 16, fuzzy: 70, priority: 1, reason: "fixture" }],
       });
       const target = store.db.query("SELECT id FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string };
       addCheckpoint(store, {
@@ -203,12 +199,12 @@ describe("score tiers projection", () => {
         exact: false, oldScore: 70, newScore: 75, at: "2026-08-26T02:00:00.000Z",
       });
       store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runTwo);
-      expect(scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo).tentative.improvements).toEqual([
-        { targetKey: "main/melee/open::OpenWin", unit: "main/melee/open", symbol: "OpenWin", delta: 5, state: "in_branch" },
+      expect((await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo)).tentative.improvements).toEqual([
+        { targetKey: "main/melee/open::OpenWin", unit: "main/melee/open", symbol: "OpenWin", oldScore: 70, newScore: 75, delta: 5, state: "in_branch" },
       ]);
 
       store.db.query("UPDATE cycles SET active_run_id = NULL WHERE cycle_uuid = 'cycle-score-tiers'").run();
-      expect(scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo).tentative).toEqual({
+      expect((await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo)).tentative).toEqual({
         matches: [], improvements: [],
       });
     } finally {
@@ -216,21 +212,48 @@ describe("score tiers projection", () => {
     }
   });
 
-  test("flags a win in upstream after the anchor advances past its integration commit", () => {
+  test("projects ours vs master matches, improvements, and non-moved breakages", async () => {
     const { store, repo } = fixture();
     try {
-      const foldedAnchor = git(repo, "rev-parse", "HEAD~1");
-      store.db.query(
-        "UPDATE game_upstream_anchors SET upstream_revision = ? WHERE game_id = 'melee'",
-      ).run(foldedAnchor);
-      const campaign = store.db.query("SELECT id FROM campaigns LIMIT 1").get() as { id: string };
-      addTimelineSavePoint(store, campaign.id, {
-        id: "save-pr-sync", trigger: "pr_sync", commitSha: foldedAnchor, score: 90.9, at: "2026-08-26T00:40:00.000Z",
+      const oursPath = join(repo, "ours-report.json");
+      const masterPath = join(repo, "master-report.json");
+      const changesPath = join(repo, "master-breakage-changes.json");
+      const row = (name: string, from: number, to: number, size = 100) => ({
+        name, from: { fuzzy_match_percent: from, size }, to: { fuzzy_match_percent: to, size },
       });
-
-      const projection = scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo);
-      expect(projection.confirmed.matches[0]?.state).toBe("in_upstream");
-      expect(projection.confirmed.improvements[0]?.state).toBe("in_branch");
+      const changes = {
+        units: [{
+          name: "main/melee/test",
+          sections: [row(".data", 80, 100, 20), row(".bss", 40, 60, 10)],
+          functions: [row("NewExact", 90, 100), row("Better", 50, 75), row("Broken", 100, 80), row("Moved", 100, 0)],
+        }],
+      };
+      const ours = { units: [
+        { name: "main/melee/test", functions: [{ name: "NewExact", fuzzy_match_percent: 100 }, { name: "Better", fuzzy_match_percent: 75 }, { name: "Broken", fuzzy_match_percent: 80 }] },
+        { name: "main/melee/moved", functions: [{ name: "Moved", fuzzy_match_percent: 100 }] },
+      ] };
+      writeFileSync(masterPath, JSON.stringify({ units: [] }));
+      writeFileSync(oursPath, JSON.stringify(ours));
+      writeFileSync(changesPath, JSON.stringify(changes));
+      store.db.query("UPDATE save_points SET report_path = ? WHERE id = 'save-confirmed'").run(oursPath);
+      const classified = classifyMasterBreakages(changes, ours);
+      const projection = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo, {
+        runMasterBreakageGate: async () => ({
+          status: "breakage", baselineKind: "upstream_ci", baselineSha: "anchor", baselineReportPath: masterPath,
+          oursReportPath: oursPath, changesPath, breakages: classified.breakages, moved: classified.moved, reasons: [],
+        }),
+      });
+      expect(projection.confirmed.comparisonStatus).toBe("vs_upstream");
+      expect(projection.confirmed.matches.map((item) => [item.symbol, item.oldScore, item.newScore, item.bytesDelta])).toEqual([
+        ["NewExact", 90, 100, 10], [".data", 80, 100, 4],
+      ]);
+      expect(projection.confirmed.improvements.map((item) => [item.symbol, item.oldScore, item.newScore, item.bytesDelta])).toEqual([
+        ["Better", 50, 75, 25], [".bss", 40, 60, 2],
+      ]);
+      expect(projection.confirmed.breakages.map((item) => [item.symbol, item.oldScore, item.newScore, item.bytesDelta])).toEqual([
+        ["Broken", 100, 80, -20],
+      ]);
+      expect(classified.moved.map((item) => item.itemName)).toEqual(["Moved"]);
     } finally {
       store.db.close();
     }

@@ -149,7 +149,7 @@ export function DetailsRail({
             <SubtabStrip activeSubTab={workflowSubtabs.run} onSelect={(subtab) => setWorkflowSubtabs((current) => ({ ...current, run: subtab }))} workflow="run" />
             <div aria-labelledby={`details-run-subtab-${workflowSubtabs.run}`} id={`details-run-subpanel-${workflowSubtabs.run}`} role="tabpanel">
               {workflowSubtabs.run === "config" ? (
-                <RunSetupSection busy={busy} form={form} onAction={onAction} setForm={setForm} view={view} />
+                <RunSetupSection form={form} setForm={setForm} view={view} />
               ) : null}
               {workflowSubtabs.run === "actions" ? <RunActionsSection busy={busy} harnessState={view.harnessState} onAction={onAction} view={view} /> : null}
             </div>

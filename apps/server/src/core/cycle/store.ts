@@ -232,6 +232,31 @@ export function getCycleByUuid(db: Database, cycleUuid: string): CycleRecord | n
   return row ? rowToCycle(row) : null;
 }
 
+export function setCycleActiveRunId(
+  db: Database,
+  cycleUuid: string,
+  activeRunId: string,
+  at = currentTime(),
+): CycleRecord {
+  return immediateTransaction(db, () => {
+    const current = getCycleByUuid(db, cycleUuid);
+    if (!current) throw new Error(`Game cycle not found: ${cycleUuid}`);
+    const result = db
+      .query(
+        `UPDATE cycles
+         SET active_run_id = ?, revision = ?, updated_at = ?
+         WHERE cycle_uuid = ? AND revision = ?`,
+      )
+      .run(activeRunId, current.revision + 1, at, cycleUuid, current.revision);
+    if (result.changes !== 1) {
+      throw new Error(`Stale game cycle revision ${current.revision} for ${cycleUuid}`);
+    }
+    const saved = getCycleByUuid(db, cycleUuid);
+    if (!saved) throw new Error(`Game cycle disappeared after active run update: ${cycleUuid}`);
+    return saved;
+  });
+}
+
 export function getActiveCycle(db: Database, gameId: string): CycleRecord | null {
   const row = createOrchestratorStateOrm(db)
     .select()

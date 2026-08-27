@@ -7,6 +7,12 @@ export interface GameValidationDefaults {
   reportPath?: string;
   reportChangesPath?: string;
   objdiffPath?: string;
+  /** Per-attempt worker micro-gate: fail attempts whose rebuilt TU loses an exact non-code section. */
+  workerSectionParityGate?: boolean;
+  /** Per-attempt worker micro-gate: fail attempts whose rebuilt TU references symbols outside the link universe. */
+  workerUndefinedSymbolGate?: boolean;
+  /** Per-attempt worker micro-gate: fail attempts whose diff adds banned idioms (section-order hacks, bare short/long, K&R declarations). */
+  workerBannedIdiomGate?: boolean;
 }
 
 export interface GameDashboardDefaults {
@@ -36,11 +42,16 @@ export interface GameSandboxResourceClass {
   disk_gib?: number;
 }
 
-export interface GameSandboxConfig {
+export interface GameSandboxProfileConfig {
   resource_class?: GameSandboxResourceClass;
   snapshot_name?: string;
   snapshot_baked_rev?: string;
   workspace_root?: string;
+}
+
+export interface GameSandboxConfig extends GameSandboxProfileConfig {
+  default_profile?: string;
+  profiles?: Record<string, GameSandboxProfileConfig>;
 }
 
 export interface SandboxRuntimeOptions {
@@ -48,6 +59,11 @@ export interface SandboxRuntimeOptions {
   snapshot_name: string;
   snapshot_baked_rev: string;
   workspace_root: string;
+}
+
+export interface ResolvedSandboxConfig extends SandboxRuntimeOptions {
+  default_profile: string;
+  profiles: Record<string, SandboxRuntimeOptions>;
 }
 
 export interface GameDescriptor {
@@ -108,7 +124,7 @@ export interface ResolvedGame {
   dashboard: Required<GameDashboardDefaults>;
   pr: Required<GamePrDefaults>;
   knowledge: Required<GameKnowledgeConfig>;
-  sandbox: SandboxRuntimeOptions;
+  sandbox: ResolvedSandboxConfig;
   orchestratorRoot: string;
   gamesRoot: string;
   gameDir: string;
@@ -140,6 +156,9 @@ const defaultValidation: Required<GameValidationDefaults> = {
   reportPath: "build/GALE01/report.json",
   reportChangesPath: "build/GALE01/report_changes.json",
   objdiffPath: "objdiff.json",
+  workerSectionParityGate: true,
+  workerUndefinedSymbolGate: true,
+  workerBannedIdiomGate: true,
 };
 
 const defaultDashboard: Required<GameDashboardDefaults> = {
@@ -223,6 +242,9 @@ function validationFromObject(value: unknown): GameValidationDefaults | undefine
     reportPath: stringField(value.reportPath),
     reportChangesPath: stringField(value.reportChangesPath),
     objdiffPath: stringField(value.objdiffPath),
+    ...(typeof value.workerSectionParityGate === "boolean" ? { workerSectionParityGate: value.workerSectionParityGate } : {}),
+    ...(typeof value.workerUndefinedSymbolGate === "boolean" ? { workerUndefinedSymbolGate: value.workerUndefinedSymbolGate } : {}),
+    ...(typeof value.workerBannedIdiomGate === "boolean" ? { workerBannedIdiomGate: value.workerBannedIdiomGate } : {}),
   };
 }
 
@@ -256,9 +278,9 @@ function knowledgeFromObject(value: unknown): GameKnowledgeConfig | undefined {
   };
 }
 
-function sandboxFromObject(value: unknown): GameSandboxConfig | undefined {
+function sandboxProfileFromObject(value: unknown): GameSandboxProfileConfig | undefined {
   if (!isObject(value)) return undefined;
-  const config: GameSandboxConfig = {};
+  const config: GameSandboxProfileConfig = {};
   if (isObject(value.resource_class)) {
     const resourceClass: GameSandboxResourceClass = {};
     const cpu = numberField(value.resource_class.cpu);
@@ -275,6 +297,22 @@ function sandboxFromObject(value: unknown): GameSandboxConfig | undefined {
   if (snapshotBakedRev !== undefined) config.snapshot_baked_rev = snapshotBakedRev;
   const workspaceRoot = stringField(value.workspace_root);
   if (workspaceRoot !== undefined) config.workspace_root = workspaceRoot;
+  return config;
+}
+
+function sandboxFromObject(value: unknown): GameSandboxConfig | undefined {
+  if (!isObject(value)) return undefined;
+  const config: GameSandboxConfig = sandboxProfileFromObject(value) ?? {};
+  const defaultProfile = stringField(value.default_profile);
+  if (defaultProfile !== undefined) config.default_profile = defaultProfile;
+  if (isObject(value.profiles)) {
+    const profiles = Object.fromEntries(
+      Object.entries(value.profiles)
+        .map(([name, profile]) => [name, sandboxProfileFromObject(profile)] as const)
+        .filter((entry): entry is [string, GameSandboxProfileConfig] => Boolean(entry[1])),
+    );
+    if (Object.keys(profiles).length > 0) config.profiles = profiles;
+  }
   return config;
 }
 
@@ -325,6 +363,41 @@ function mergeNested<T extends object>(base: T | undefined, override: T | undefi
   return { ...(base ?? {}), ...(override ?? {}) } as T;
 }
 
+function mergeSandboxProfile(
+  base: GameSandboxProfileConfig | undefined,
+  override: GameSandboxProfileConfig | undefined,
+): GameSandboxProfileConfig | undefined {
+  const merged = mergeNested(base, override);
+  if (!merged) return undefined;
+  return {
+    ...merged,
+    resource_class: mergeNested(base?.resource_class, override?.resource_class),
+  };
+}
+
+function mergeSandbox(
+  base: GameSandboxConfig | undefined,
+  override: GameSandboxConfig | undefined,
+): GameSandboxConfig | undefined {
+  const merged = mergeSandboxProfile(base, override);
+  if (!merged) return undefined;
+  const profileNames = new Set([
+    ...Object.keys(base?.profiles ?? {}),
+    ...Object.keys(override?.profiles ?? {}),
+  ]);
+  const profiles = Object.fromEntries(
+    [...profileNames].map((name) => [
+      name,
+      mergeSandboxProfile(base?.profiles?.[name], override?.profiles?.[name]) ?? {},
+    ]),
+  );
+  return {
+    ...merged,
+    default_profile: override?.default_profile ?? base?.default_profile,
+    ...(Object.keys(profiles).length > 0 ? { profiles } : {}),
+  };
+}
+
 function mergeDescriptor(base: GameDescriptor, override: GameResolveOverrides & { id?: string }): GameDescriptor {
   const next: GameDescriptor = { ...base };
   if (override.displayName !== undefined) next.displayName = override.displayName;
@@ -339,10 +412,7 @@ function mergeDescriptor(base: GameDescriptor, override: GameResolveOverrides & 
   next.dashboard = mergeNested(base.dashboard, override.dashboard);
   next.pr = mergeNested(base.pr, override.pr);
   next.knowledge = base.knowledge;
-  next.sandbox = mergeNested(base.sandbox, override.sandbox);
-  next.sandbox = next.sandbox
-    ? { ...next.sandbox, resource_class: mergeNested(base.sandbox?.resource_class, override.sandbox?.resource_class) }
-    : undefined;
+  next.sandbox = mergeSandbox(base.sandbox, override.sandbox);
   return next;
 }
 
@@ -400,22 +470,55 @@ function requiredNested<T extends object>(defaults: Required<T>, value: T | unde
   return { ...defaults, ...(value ?? {}) } as Required<T>;
 }
 
-function requiredSandbox(value: GameSandboxConfig | undefined): SandboxRuntimeOptions {
+function requiredSandboxProfile(
+  base: SandboxRuntimeOptions,
+  value: GameSandboxProfileConfig | undefined,
+): SandboxRuntimeOptions {
   return {
+    resource_class: requiredNested(base.resource_class, value?.resource_class),
+    snapshot_name: value?.snapshot_name ?? base.snapshot_name,
+    snapshot_baked_rev: value?.snapshot_baked_rev ?? base.snapshot_baked_rev,
+    workspace_root: value?.workspace_root ?? base.workspace_root,
+  };
+}
+
+function requiredSandbox(value: GameSandboxConfig | undefined): ResolvedSandboxConfig {
+  const base = {
     resource_class: requiredNested(defaultSandbox.resource_class, value?.resource_class),
     snapshot_name: value?.snapshot_name ?? defaultSandbox.snapshot_name,
     snapshot_baked_rev: value?.snapshot_baked_rev ?? defaultSandbox.snapshot_baked_rev,
     workspace_root: value?.workspace_root ?? defaultSandbox.workspace_root,
   };
+  const profiles = Object.fromEntries(
+    Object.entries(value?.profiles ?? {}).map(([name, profile]) => [
+      name,
+      requiredSandboxProfile(base, profile),
+    ]),
+  );
+  const defaultProfile = value?.default_profile ?? "";
+  if (defaultProfile && !profiles[defaultProfile]) {
+    throw new Error(`Sandbox default profile ${defaultProfile} is not defined`);
+  }
+  return { ...base, default_profile: defaultProfile, profiles };
 }
 
-export function sandboxRuntimeOptions(game?: Pick<ResolvedGame, "sandbox"> | null): SandboxRuntimeOptions {
-  const sandbox = game?.sandbox ?? defaultSandbox;
+export function sandboxRuntimeOptions(
+  game?: Pick<ResolvedGame, "sandbox"> | null,
+  profileName?: string,
+): SandboxRuntimeOptions {
+  const sandbox: ResolvedSandboxConfig = game?.sandbox ?? {
+    ...defaultSandbox,
+    default_profile: "",
+    profiles: {},
+  };
+  const selectedProfile = profileName?.trim() || sandbox.default_profile;
+  const selected = selectedProfile ? sandbox.profiles[selectedProfile] : sandbox;
+  if (!selected) throw new Error(`Sandbox profile ${selectedProfile} is not defined`);
   return {
-    resource_class: { ...sandbox.resource_class },
-    snapshot_name: sandbox.snapshot_name,
-    snapshot_baked_rev: sandbox.snapshot_baked_rev,
-    workspace_root: sandbox.workspace_root,
+    resource_class: { ...selected.resource_class },
+    snapshot_name: selected.snapshot_name,
+    snapshot_baked_rev: selected.snapshot_baked_rev,
+    workspace_root: selected.workspace_root,
   };
 }
 

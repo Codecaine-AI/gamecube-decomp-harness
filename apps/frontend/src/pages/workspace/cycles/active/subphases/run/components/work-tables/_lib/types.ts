@@ -1,7 +1,7 @@
 import type { Dashboard } from "@/lib/format";
 
 export type ImprovedMode = "confirmed" | "tentative";
-export type ImprovedResultMode = "matches" | "improvements";
+export type ImprovedResultMode = "matches" | "improvements" | "breakages";
 export type WorkMode = "active" | "epoch";
 
 export interface WorkTablesProps {

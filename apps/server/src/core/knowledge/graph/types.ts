@@ -150,6 +150,7 @@ export interface FileGraphCard {
     tactics: Array<Record<string, unknown>>;
   };
   resource_hits: Array<Record<string, unknown>>;
+  learnings: Array<Record<string, unknown>>;
   mismatch_patterns: Array<Record<string, unknown>>;
   tool_hits: Array<Record<string, unknown>>;
   callers: Array<Record<string, unknown>>;
@@ -176,6 +177,7 @@ export interface RelatedFunctionsResult {
     callers: Array<Record<string, unknown>>;
     callees: Array<Record<string, unknown>>;
     data_references: Array<Record<string, unknown>>;
+    learnings: Array<Record<string, unknown>>;
   }>;
 }
 
@@ -225,4 +227,8 @@ export interface SearchResult {
   entity_id?: string;
   confidence: number;
   trust_tier: TrustTier;
+  status?: string;
+  origin?: string;
+  /** The record's own epistemic confidence from the chunk payload; `confidence` stays the lexical relevance heuristic. */
+  source_confidence?: number;
 }

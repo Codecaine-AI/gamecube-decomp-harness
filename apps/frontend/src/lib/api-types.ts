@@ -42,6 +42,7 @@ export interface FormState {
   goalValue: number;
   provider: string;
   model: string;
+  sandboxProfile: string;
   thinkingLevel: string;
   /** Sync knowledge-agent overrides: sent with every sync command body and
    * consumed by the sync runtime's librarian/intake subprocesses. */
@@ -52,13 +53,18 @@ export interface FormState {
 }
 
 export type ScoreTierRowState = "in_branch" | "in_upstream";
+export type ScoreTierComparisonStatus = "vs_upstream" | "baseline_unavailable";
 
 export interface ScoreTierWin extends JsonObject {
+  kind?: "function" | "section";
   symbol: string;
   unit: string;
   state?: ScoreTierRowState;
   score?: number | null;
+  oldScore?: number | null;
+  newScore?: number | null;
   delta?: number | null;
+  bytesDelta?: number | null;
 }
 
 export interface ScoreTierTimelinePoint {
@@ -82,14 +88,79 @@ export interface DashboardScoreTiers {
     score: number | null;
     delta: number | null;
     savePointId: string | null;
+    anchorRevision?: string | null;
+    comparisonStatus?: ScoreTierComparisonStatus;
     matches: ScoreTierWin[];
     improvements: ScoreTierWin[];
+    breakages: ScoreTierWin[];
   };
   tentative: {
     matches: ScoreTierWin[];
     improvements: ScoreTierWin[];
   };
   timeline: ScoreTierTimelinePoint[];
+}
+
+export interface RunConfigurationSnapshot extends JsonObject {
+  desired_workers?: number;
+  sandbox_profile?: string;
+  model?: string;
+  provider?: string;
+  thinking_level?: string;
+  agent_timeout_seconds?: number;
+  integration_resolver_concurrency?: number;
+}
+
+export interface DashboardRun extends JsonObject {
+  id?: string;
+  status?: string;
+  inputs?: ({
+    configuration_snapshot?: RunConfigurationSnapshot;
+  } & JsonObject) | null;
+}
+
+export interface DashboardStatus extends JsonObject {
+  run?: DashboardRun | null;
+}
+
+export type BoundaryStepState = "pending" | "running" | "done" | "warning" | "failed" | "skipped";
+
+export interface BoundaryStep {
+  key: string;
+  state: BoundaryStepState;
+  startedAt: string | null;
+  finishedAt: string | null;
+  durationMs: number | null;
+  detail: string | null;
+  payload: Record<string, unknown> | null;
+}
+
+export interface BoundaryAttempt {
+  attempt: number;
+  reconciled: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  steps: BoundaryStep[];
+  error: string | null;
+}
+
+export interface BoundaryView {
+  epochId: string;
+  ordinal: number;
+  epochStatus: string;
+  boundaryStatus: string | null;
+  admittedCount: number;
+  finishedCount: number;
+  active: boolean;
+  attempts: BoundaryAttempt[];
+  savePointId: string | null;
+  matchedCodePercent: number | null;
+  nextEpoch: { ordinal: number; admitted: number } | null;
+}
+
+export interface DashboardBoundary {
+  current: BoundaryView | null;
+  recent: BoundaryView[];
 }
 
 export interface Dashboard {
@@ -101,7 +172,7 @@ export interface Dashboard {
   stateDir: string;
   graphDbPath?: string;
   usePathOverrides?: boolean;
-  status: JsonObject;
+  status: DashboardStatus;
   initial: JsonObject;
   current: JsonObject;
   trustedReport: JsonObject;
@@ -123,6 +194,7 @@ export interface Dashboard {
   checkpointProgress?: JsonObject | null;
   prs?: JsonObject | null;
   scoreTiers?: DashboardScoreTiers;
+  boundary?: DashboardBoundary | null;
 }
 
 /** Durable knowledge-job progress nested at `Dashboard.harnessState.sync.knowledge_jobs`. */

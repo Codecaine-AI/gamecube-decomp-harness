@@ -1,7 +1,12 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { StateStore } from "@server/core/orchestrator-state";
 import type { CycleRecord } from "@server/core/cycle";
-import { quietGit } from "@server/core/cycle-runtime/phases/pr/pr-sync.js";
-import { parseWorkerIntegrationSubject } from "@server/core/cycle-runtime/phases/running/epochs/boundary-sync.js";
+import {
+  runMasterBreakageGate,
+  type MasterBreakageGateResult,
+} from "@server/core/cycle-runtime/phases/running/epochs/breakage-gate.js";
+import { buildRegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 
 export type ScoreTierState = "in_branch" | "in_upstream";
 export type ScoreTimelineKind = "baseline" | "epoch_finish" | "pr_sync" | "legacy";
@@ -11,6 +16,11 @@ export interface ScoreTierMatch {
   unit: string;
   symbol: string;
   score: number;
+  oldScore: number;
+  newScore: number;
+  delta: number;
+  bytesDelta?: number;
+  kind?: "function" | "section";
   state: ScoreTierState;
 }
 
@@ -19,6 +29,10 @@ export interface ScoreTierImprovement {
   unit: string;
   symbol: string;
   delta: number;
+  oldScore: number;
+  newScore: number;
+  bytesDelta?: number;
+  kind?: "function" | "section";
   state: ScoreTierState;
 }
 
@@ -44,8 +58,11 @@ export interface DashboardScoreTiers {
     measures: Record<string, unknown>;
     delta: number | null;
     savePointId: string | null;
+    anchorRevision: string | null;
+    comparisonStatus: "vs_upstream" | "baseline_unavailable";
     matches: ScoreTierMatch[];
     improvements: ScoreTierImprovement[];
+    breakages: ScoreTierImprovement[];
   };
   tentative: {
     matches: ScoreTierMatch[];
@@ -60,14 +77,9 @@ interface SavePointRow {
   label: string | null;
   commit_sha: string | null;
   matched_code_percent: number | null;
+  report_path: string | null;
   payload_json: string;
   created_at: string;
-}
-
-interface IntegrationCommit {
-  commitSha: string;
-  targetKey: string;
-  checkpointPrefix: string;
 }
 
 function parseObject(value: unknown): Record<string, unknown> {
@@ -108,7 +120,7 @@ export function scoreTimelineKind(triggerKind: string, label: string | null): Sc
 function cycleSavePoints(store: StateStore, cycleUuid: string): SavePointRow[] {
   return store.db.query(
     `SELECT save_points.id, save_points.trigger_kind, save_points.label,
-            save_points.commit_sha, save_points.matched_code_percent,
+            save_points.commit_sha, save_points.matched_code_percent, save_points.report_path,
             save_points.payload_json, save_points.created_at
        FROM cycle_timeline_entries
        JOIN save_points ON save_points.id = cycle_timeline_entries.entry_id
@@ -118,75 +130,69 @@ function cycleSavePoints(store: StateStore, cycleUuid: string): SavePointRow[] {
   ).all(cycleUuid) as SavePointRow[];
 }
 
-function gitHistory(repoRoot: string, range: string): IntegrationCommit[] {
-  if (!repoRoot || !range) return [];
-  const result = quietGit(repoRoot, ["log", "--format=%H%x09%s", range]);
-  if (result.exitCode !== 0) return [];
-  const commits: IntegrationCommit[] = [];
-  for (const line of result.stdout.split(/\r?\n/)) {
-    const tab = line.indexOf("\t");
-    if (tab < 0) continue;
-    const parsed = parseWorkerIntegrationSubject(line.slice(tab + 1));
-    if (parsed) commits.push({ commitSha: line.slice(0, tab), ...parsed });
-  }
-  return commits;
+type MasterGate = typeof runMasterBreakageGate;
+
+function reportItem(entry: ReportEntry): ScoreTierImprovement {
+  const kind = entry.itemName.startsWith(".") ? "section" : "function";
+  return {
+    targetKey: `${entry.unitName}::${entry.itemName}`,
+    unit: entry.unitName,
+    symbol: entry.itemName,
+    oldScore: entry.fromPercent,
+    newScore: entry.toPercent,
+    delta: entry.toPercent - entry.fromPercent,
+    bytesDelta: entry.bytesDelta ?? 0,
+    kind,
+    state: "in_branch",
+  };
 }
 
-function cycleCheckpointEvidence(store: StateStore, cycleUuid: string): Map<string, Record<string, unknown>[]> {
-  const rows = store.db.query(
-    `SELECT worker_checkpoints.id, worker_checkpoints.new_score, worker_checkpoints.delta,
-            worker_checkpoints.exact_match, worker_checkpoints.improved_over_baseline,
-            epoch_targets.unit, epoch_targets.symbol, epoch_targets.target_key
-       FROM worker_checkpoints
-       JOIN runs ON runs.id = worker_checkpoints.run_id
-       JOIN epoch_targets ON epoch_targets.id = worker_checkpoints.epoch_target_id
-      WHERE runs.cycle_uuid = ?
-      ORDER BY worker_checkpoints.validation_time DESC`,
-  ).all(cycleUuid) as Record<string, unknown>[];
-  const byTarget = new Map<string, Record<string, unknown>[]>();
-  for (const row of rows) {
-    const targetKey = String(row.target_key ?? "");
-    const entries = byTarget.get(targetKey) ?? [];
-    entries.push(row);
-    byTarget.set(targetKey, entries);
-  }
-  return byTarget;
-}
-
-function confirmedWins(
-  store: StateStore,
-  cycleUuid: string,
-  repoRoot: string,
-  firstCycleCommit: string | null,
-  anchorRevision: string | null,
-  confirmedCommit: string | null,
-): Pick<DashboardScoreTiers["confirmed"], "matches" | "improvements"> {
-  if (!firstCycleCommit || !confirmedCommit) return { matches: [], improvements: [] };
-  const all = gitHistory(repoRoot, `${firstCycleCommit}..${confirmedCommit}`);
-  const branchShas = new Set(
-    anchorRevision ? gitHistory(repoRoot, `${anchorRevision}..${confirmedCommit}`).map((commit) => commit.commitSha) : [],
+async function confirmedVsMaster(input: {
+  store: StateStore;
+  cycleUuid: string;
+  repoRoot: string;
+  anchorRevision: string | null;
+  confirmedRow: SavePointRow | null;
+  gate: MasterGate;
+}): Promise<Pick<DashboardScoreTiers["confirmed"], "comparisonStatus" | "matches" | "improvements" | "breakages">> {
+  const unavailable = { comparisonStatus: "baseline_unavailable" as const, matches: [], improvements: [], breakages: [] };
+  if (!input.anchorRevision || !input.confirmedRow) return unavailable;
+  const savedReportPath = input.confirmedRow.report_path ?? "";
+  const oursReportPath = savedReportPath && existsSync(savedReportPath)
+    ? savedReportPath
+    : resolve(input.repoRoot, "build/GALE01/report.json");
+  const changesOutPath = resolve(
+    input.store.stateDir,
+    "dashboard_master_changes",
+    `${input.cycleUuid}-${input.confirmedRow.id}.json`,
   );
-  const byTarget = new Map<string, IntegrationCommit>();
-  for (const commit of all) if (!byTarget.has(commit.targetKey)) byTarget.set(commit.targetKey, commit);
-  const checkpointRows = cycleCheckpointEvidence(store, cycleUuid);
-  const matches: ScoreTierMatch[] = [];
-  const improvements: ScoreTierImprovement[] = [];
-  for (const commit of byTarget.values()) {
-    const evidence = checkpointRows.get(commit.targetKey)?.find((row) => String(row.id).startsWith(commit.checkpointPrefix));
-    if (!evidence) continue;
-    const targetKey = String(evidence.target_key ?? commit.targetKey);
-    const [targetUnit = "", targetSymbol = ""] = targetKey.split("::", 2);
-    const unit = String(evidence.unit ?? targetUnit);
-    const symbol = String(evidence.symbol ?? targetSymbol);
-    const state: ScoreTierState = branchShas.has(commit.commitSha) ? "in_branch" : "in_upstream";
-    const newScore = finiteNumber(evidence.new_score);
-    const delta = finiteNumber(evidence.delta);
-    if (Boolean(evidence.exact_match) && newScore !== null) matches.push({ targetKey, unit, symbol, score: newScore, state });
-    else if (Boolean(evidence.improved_over_baseline) && delta !== null && delta > 0) improvements.push({ targetKey, unit, symbol, delta, state });
-  }
-  const compare = (left: { unit: string; symbol: string }, right: { unit: string; symbol: string }) =>
-    left.unit.localeCompare(right.unit) || left.symbol.localeCompare(right.symbol);
-  return { matches: matches.sort(compare), improvements: improvements.sort(compare) };
+  const gate = await input.gate({
+    repoRoot: input.repoRoot,
+    stateDir: input.store.stateDir,
+    worktreeDir: null,
+    oursReportPath,
+    anchorSha: input.anchorRevision,
+    reportRelPath: "build/GALE01/report.json",
+    changesOutPath,
+    prSyncFallbackReportPath: null,
+  });
+  if ((gate.status === "skipped" || gate.status === "error") || !gate.changesPath || !existsSync(gate.changesPath)) return unavailable;
+  const report = buildRegressionReport(JSON.parse(readFileSync(gate.changesPath, "utf8")), "Dashboard vs upstream", 0);
+  const breakages = gate.breakages.map((entry) => reportItem({
+    unitName: entry.unitName,
+    itemName: entry.itemName,
+    sourcePath: "",
+    size: 0,
+    fromPercent: entry.fromPercent,
+    toPercent: entry.toPercent,
+    bytesDelta: entry.bytesDelta ?? 0,
+  }));
+  return {
+    comparisonStatus: "vs_upstream",
+    matches: report.newMatches.map((entry) => ({ ...reportItem(entry), score: entry.toPercent })),
+    improvements: report.improvements.map(reportItem),
+    breakages,
+  };
 }
 
 function tentativeWins(store: StateStore, cycle: CycleRecord): DashboardScoreTiers["tentative"] {
@@ -198,7 +204,7 @@ function tentativeWins(store: StateStore, cycle: CycleRecord): DashboardScoreTie
   ).get(activeRun.id) as { id: string } | null;
   if (!epoch) return { matches: [], improvements: [] };
   const rows = store.db.query(
-    `SELECT worker_checkpoints.id, worker_checkpoints.new_score, worker_checkpoints.delta,
+    `SELECT worker_checkpoints.id, worker_checkpoints.old_score, worker_checkpoints.new_score, worker_checkpoints.delta,
             worker_checkpoints.exact_match, worker_checkpoints.improved_over_baseline,
             epoch_targets.target_key, epoch_targets.unit, epoch_targets.symbol
        FROM worker_checkpoints
@@ -218,23 +224,31 @@ function tentativeWins(store: StateStore, cycle: CycleRecord): DashboardScoreTie
     seen.add(targetKey);
     const unit = String(row.unit ?? targetKey.split("::", 1)[0] ?? "");
     const symbol = String(row.symbol ?? targetKey.split("::", 2)[1] ?? "");
+    const oldScore = finiteNumber(row.old_score);
     const newScore = finiteNumber(row.new_score);
     const delta = finiteNumber(row.delta);
-    if (Boolean(row.exact_match) && newScore !== null) matches.push({ targetKey, unit, symbol, score: newScore, state: "in_branch" });
-    else if (Boolean(row.improved_over_baseline) && delta !== null && delta > 0) improvements.push({ targetKey, unit, symbol, delta, state: "in_branch" });
+    if (Boolean(row.exact_match) && oldScore !== null && newScore !== null && delta !== null) {
+      matches.push({ targetKey, unit, symbol, score: newScore, oldScore, newScore, delta, state: "in_branch" });
+    } else if (Boolean(row.improved_over_baseline) && oldScore !== null && newScore !== null && delta !== null && delta > 0) {
+      improvements.push({ targetKey, unit, symbol, oldScore, newScore, delta, state: "in_branch" });
+    }
   }
   return { matches, improvements };
 }
 
-export function scoreTiersProjection(
+export async function scoreTiersProjection(
   store: StateStore,
   gameId: string,
   cycle: CycleRecord | null,
   repoRoot: string,
-): DashboardScoreTiers {
+  options: { runMasterBreakageGate?: MasterGate } = {},
+): Promise<DashboardScoreTiers> {
   const empty: DashboardScoreTiers = {
     baseline: { score: null, measures: {}, anchorRevision: null, savePointId: null },
-    confirmed: { score: null, measures: {}, delta: null, savePointId: null, matches: [], improvements: [] },
+    confirmed: {
+      score: null, measures: {}, delta: null, savePointId: null, anchorRevision: null,
+      comparisonStatus: "baseline_unavailable", matches: [], improvements: [], breakages: [],
+    },
     tentative: { matches: [], improvements: [] },
     timeline: [],
   };
@@ -256,19 +270,19 @@ export function scoreTiersProjection(
   const anchorPoints = savePoints.filter((row) => row.commit_sha === anchorRevision);
   const baselineRow = anchorPoints.find((row) => score(row) !== null) ?? anchorPoints[0] ?? null;
   const typedConfirmed = [...savePoints].reverse().find(
-    (row) => (row.trigger_kind === "epoch_finish" || row.trigger_kind === "pr_sync") && score(row) !== null,
+    (row) => row.trigger_kind === "epoch_finish" || row.trigger_kind === "pr_sync",
   );
   const confirmedRow = typedConfirmed ?? [...savePoints].reverse().find((row) => score(row) !== null) ?? null;
   const baselineScore = baselineRow ? score(baselineRow) : null;
   const confirmedScore = confirmedRow ? score(confirmedRow) : null;
-  const wins = confirmedWins(
+  const wins = await confirmedVsMaster({
     store,
-    cycle.cycle_uuid,
+    cycleUuid: cycle.cycle_uuid,
     repoRoot,
-    savePoints.find((row) => row.commit_sha)?.commit_sha ?? cycle.base_sha ?? null,
     anchorRevision,
-    confirmedRow?.commit_sha ?? cycle.head_revision ?? null,
-  );
+    confirmedRow,
+    gate: options.runMasterBreakageGate ?? runMasterBreakageGate,
+  });
   return {
     baseline: {
       score: baselineScore,
@@ -281,6 +295,7 @@ export function scoreTiersProjection(
       measures: confirmedRow ? measures(confirmedRow) : {},
       delta: baselineScore !== null && confirmedScore !== null ? confirmedScore - baselineScore : null,
       savePointId: confirmedRow?.id ?? null,
+      anchorRevision,
       ...wins,
     },
     tentative: tentativeWins(store, cycle),

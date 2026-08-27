@@ -1,7 +1,36 @@
 import { describe, expect, test } from "bun:test";
-import { commitBoundaryWorktree, type BoundaryGitRunner } from "./boundary-commit.js";
+import {
+  boundaryCommitExcludes,
+  boundaryDirtyPaths,
+  commitBoundaryWorktree,
+  type BoundaryGitRunner,
+} from "./boundary-commit.js";
 
 describe("boundary-owned commits", () => {
+  test("excludes orchestrator scratch from boundary commits", async () => {
+    const runGit: BoundaryGitRunner = async (_repoRoot, args) => {
+      if (args[0] === "status") {
+        return {
+          exitCode: 0,
+          stdout: " M src/file.c\n?? active_session/foo\n?? .pi-sessions/session.json\n",
+          stderr: "",
+        };
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    };
+
+    expect(boundaryCommitExcludes("/repo", "/repo/.state")).toEqual([
+      "decomp-orchestrator",
+      ".decomp-orchestrator-state",
+      "active_session",
+      ".pi-sessions",
+      ".state",
+    ]);
+    await expect(boundaryDirtyPaths(runGit, "/repo", "/repo/.state")).resolves.toEqual([
+      "src/file.c",
+    ]);
+  });
+
   test("stages, commits, and resolves HEAD before evidence capture", async () => {
     const commands: string[][] = [];
     const runGit: BoundaryGitRunner = async (_repoRoot, args) => {

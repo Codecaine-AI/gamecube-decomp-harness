@@ -174,7 +174,7 @@ export function buildWorkerTask(
     const artifactDir = row.artifact_dir;
     let provisionedSandbox: { provider: SandboxProvider; sandboxId: string } | undefined;
     try {
-      const sandbox = sandboxRuntimeOptions(ctx.globals.game);
+      const sandbox = sandboxRuntimeOptions(ctx.globals.game, ctx.globals.sandboxProfile);
       const provider = deps.sandboxProvider
         ?? (defaultSandboxProvider ??= ctx.globals.dryRunAgents
           ? new FakeSandboxProvider()
@@ -252,6 +252,7 @@ export function buildWorkerTask(
       command.push("--repo-root", ctx.globals.repoRoot, "--state-dir", ctx.globals.stateDir, "--provider", ctx.globals.provider, "--model", ctx.globals.model, "--thinking-level", ctx.thinkingLevel);
       if (ctx.globals.dryRunAgents) command.push("--dry-run-agents");
       if (ctx.globals.agentTimeoutSeconds != null) command.push("--agent-timeout-seconds", String(ctx.globals.agentTimeoutSeconds));
+      if (ctx.globals.sandboxProfile) command.push("--sandbox-profile", ctx.globals.sandboxProfile);
       command.push("worker-task", "--task-file", taskFile);
       return {
         jobId: job.jobId,

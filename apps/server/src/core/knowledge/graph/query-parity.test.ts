@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { knowledgeToolRegistrations } from "../../tools/wrappers/knowledge.js";
 import { fileEntityId, functionEntityId, unitEntityId } from "./builders/code-graph.js";
 import { insertGraphRecords, openKnowledgeGraph, upsertSourceDescriptor } from "./db.js";
 import { fileGraphCard } from "./queries/file-card.js";
@@ -58,6 +57,57 @@ describe("graph query parity", () => {
     }
   });
 
+  test("related functions and file cards expose knowledge-ledger learnings", () => {
+    const store = fixtureStore();
+    try {
+      insertGraphRecords(store, codeGraphRecords());
+      insertGraphRecords(store, relationshipRecords());
+      insertGraphRecords(store, learningRecords());
+
+      const result = relatedFunctions(store, { unit: "unit/target", symbol: "TargetFn" });
+      expect(result.functions[0]?.learnings).toEqual([
+        expect.objectContaining({ learning_id: "L1", status: "corroborated", confidence: 0.94, evidence_ref: "ledger:L1" }),
+        expect.objectContaining({ learning_id: "L2", status: "refuted", confidence: 0.2, evidence_ref: "ledger:L2" }),
+      ]);
+      expect(result.functions[0]?.opseq_analogs[0]).toMatchObject({
+        symbol: "ReferenceFn",
+        learnings: [expect.objectContaining({ learning_id: "L3", status: "proposed", statement: "Analog uses a shared jump table pattern." })],
+      });
+
+      const card = fileGraphCard(store, "src/target.c");
+      expect(card.learnings).toEqual([
+        expect.objectContaining({ learning_id: "L1", entity_id: functionEntityId("unit/target", "TargetFn"), status: "corroborated" }),
+        expect.objectContaining({ learning_id: "L4", entity_id: fileEntityId("src/target.c"), status: "corroborated" }),
+        expect.objectContaining({ learning_id: "L2", entity_id: functionEntityId("unit/target", "TargetFn"), status: "refuted" }),
+      ]);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("search results carry chunk payload metadata when present and tolerate malformed payloads", () => {
+    const store = fixtureStore();
+    try {
+      insertGraphRecords(store, learningChunkRecords());
+      store.db.run("UPDATE search_chunks SET payload_json = 'not-json' WHERE id = 'chunk:learning:broken'");
+
+      const results = searchKnowledgeGraph(store, { query: "LedgerSymbol", limit: 10 });
+      const byId = new Map(results.map((row) => [row.result_id, row]));
+      const rich = byId.get("chunk:learning:rich");
+      expect(rich).toMatchObject({ status: "corroborated", origin: "agent_validated", source_confidence: 0.94 });
+      expect(rich?.confidence).not.toBe(rich?.source_confidence);
+      for (const id of ["chunk:learning:bare", "chunk:learning:broken"]) {
+        const row = byId.get(id);
+        expect(row).toBeDefined();
+        expect(row?.status).toBeUndefined();
+        expect(row?.origin).toBeUndefined();
+        expect(row?.source_confidence).toBeUndefined();
+      }
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("all-source graph search excludes explicitly inactive sources", async () => {
     const store = fixtureStore();
     const dbPath = store.path;
@@ -78,6 +128,9 @@ describe("graph query parity", () => {
       store.db.close();
     }
 
+    // Load the registry first so the tools module cycle initializes from its production entry point.
+    await import("../../tools/runtime/registry.js");
+    const { knowledgeToolRegistrations } = await import("../../tools/wrappers/knowledge.js");
     const registration = knowledgeToolRegistrations.find((tool) => tool.id === "knowledge_graph_search");
     expect(registration).toBeDefined();
     const tool = registration!.create({ role: "worker", cwd: ".", repoRoot: ".", game: { graphDbPath: dbPath } });
@@ -94,6 +147,9 @@ describe("graph query parity", () => {
     insertGraphRecords(store, relationshipRecords());
     store.db.close();
 
+    // Load the registry first so the tools module cycle initializes from its production entry point.
+    await import("../../tools/runtime/registry.js");
+    const { knowledgeToolRegistrations } = await import("../../tools/wrappers/knowledge.js");
     const registration = knowledgeToolRegistrations.find((tool) => tool.id === "graph_related_functions");
     expect(registration).toBeDefined();
     const tool = registration!.create({ role: "worker", cwd: ".", repoRoot: ".", game: { graphDbPath: dbPath } });
@@ -216,6 +272,58 @@ function relationshipRecords(): GraphRecords {
       { id: "edge:data", fromEntityId: target, edgeType: "REFERENCES_DATA", toEntityId: data, weight: 0.5, evidenceRef: "callgraph:data#target", sourceVersionId },
     ],
     chunks: [],
+  };
+}
+
+function learningRecords(): GraphRecords {
+  const sourceVersionId = "source-version:knowledge_ledger:test";
+  const target = functionEntityId("unit/target", "TargetFn");
+  const reference = functionEntityId("unit/ref", "ReferenceFn");
+  const learningFact = (id: string, entityId: string, statement: string, status: string, confidence: number) => ({
+    id: `fact:learning:${id}`,
+    entityId,
+    factType: "learning_profile",
+    payload: { learning_id: id, statement, origin: "agent_validated", status, confidence },
+    confidence,
+    trustTier: "tool_evidence" as const,
+    evidenceRef: `ledger:${id}`,
+    sourceVersionId,
+  });
+  return {
+    sourceVersion: { id: sourceVersionId, sourceId: "knowledge_ledger", contentHash: "learnings", sourcePaths: ["fixture"] },
+    entities: [],
+    facts: [
+      learningFact("L1", target, "Static inline helpers improved the match.", "corroborated", 0.94),
+      learningFact("L2", target, "Loop unrolling regressed the diff.", "refuted", 0.2),
+      learningFact("L3", reference, "Analog uses a shared jump table pattern.", "proposed", 0.5),
+      learningFact("L4", fileEntityId("src/target.c"), "File requires sdata2 ordering.", "corroborated", 0.8),
+    ],
+    edges: [],
+    chunks: [],
+  };
+}
+
+function learningChunkRecords(): GraphRecords {
+  const sourceVersionId = "source-version:knowledge_ledger:chunks";
+  const chunk = (name: string, text: string, payload: Record<string, unknown>) => ({
+    id: `chunk:learning:${name}`,
+    sourceId: "knowledge_ledger",
+    sourceVersionId,
+    title: `learning — LedgerSymbol ${name}`,
+    text,
+    evidenceRef: `ledger:${name}`,
+    payload,
+  });
+  return {
+    sourceVersion: { id: sourceVersionId, sourceId: "knowledge_ledger", contentHash: "chunks", sourcePaths: ["fixture"] },
+    entities: [],
+    facts: [],
+    edges: [],
+    chunks: [
+      chunk("rich", "LedgerSymbol corroborated learning", { scope: "symbol", origin: "agent_validated", status: "corroborated", confidence: 0.94 }),
+      chunk("bare", "LedgerSymbol learning without metadata", {}),
+      chunk("broken", "LedgerSymbol learning with malformed payload", {}),
+    ],
   };
 }
 

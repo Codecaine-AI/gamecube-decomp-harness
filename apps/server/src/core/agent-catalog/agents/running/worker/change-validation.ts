@@ -10,6 +10,18 @@ import {
 } from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
 import { resolveHeaderConsumers } from "./consumer-map.js";
+import {
+  DEFAULT_WORKER_MICRO_GATE_FLAGS,
+  applyMicroGatesToValidation,
+  evaluateSectionParityGate,
+  evaluateUndefinedSymbolGate,
+  lintBannedIdioms,
+  listUndefinedSymbols,
+  summarizeMicroGates,
+  type WorkerMicroGateFlags,
+  type WorkerMicroGates,
+  type WorkerMicroGateResult,
+} from "./micro-gates.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
 
 const SCORE_EPSILON = 0.000001;
@@ -93,6 +105,10 @@ export interface WorkerChangeBaseline {
   sourceSnapshotDir?: string;
   /** Repo-relative paths that were actually copied into sourceSnapshotDir. */
   sourceSnapshotPaths?: string[];
+  /** Undefined-symbol names of the pre-worker object; null when capture was disabled or failed. */
+  undefinedSymbols?: string[] | null;
+  /** Why undefined-symbol capture failed; informational, capture is fail-open. */
+  undefinedSymbolsError?: string | null;
 }
 
 /** Injectable scan_diff runner so tests (and callers) can fake the QA scanner. */
@@ -138,6 +154,7 @@ export interface WidenedScopedChecks {
 export type WorkerChangeValidation = WorkerRunnerValidation & {
   qaLint: WorkerQaLint | null;
   scopedChecks?: WidenedScopedChecks;
+  microGates?: WorkerMicroGates;
 };
 
 export interface ScopedUnitCheckRunnerOptions {
@@ -397,6 +414,7 @@ export async function captureWorkerChangeBaseline(params: {
   dryRun?: boolean;
   /** Additional repo-relative paths to snapshot for the L1 QA lint diff. */
   extraPaths?: string[];
+  captureUndefinedSymbols?: boolean;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeBaseline> {
   await mkdir(params.outputDir, { recursive: true });
@@ -451,6 +469,14 @@ export async function captureWorkerChangeBaseline(params: {
     };
   }
 
+  let undefinedSymbols: string[] | null = null;
+  let undefinedSymbolsError: string | null = null;
+  if (params.captureUndefinedSymbols) {
+    const listed = await listUndefinedSymbols({ objectPath: objectTarget, workspaceExec: params.workspaceExec });
+    undefinedSymbols = listed.symbols;
+    undefinedSymbolsError = listed.error;
+  }
+
   const diffPath = resolve(params.outputDir, "pre_worker_unit_diff.json");
   const unitDiff = await runObjdiffReportCommand({
     repoRoot: params.repoRoot,
@@ -481,6 +507,8 @@ export async function captureWorkerChangeBaseline(params: {
       unitDiff,
       sourceSnapshotDir,
       sourceSnapshotPaths,
+      undefinedSymbols,
+      undefinedSymbolsError,
     };
   }
 
@@ -502,6 +530,8 @@ export async function captureWorkerChangeBaseline(params: {
       unitDiff,
       sourceSnapshotDir,
       sourceSnapshotPaths,
+      undefinedSymbols,
+      undefinedSymbolsError,
     };
   }
 
@@ -518,6 +548,8 @@ export async function captureWorkerChangeBaseline(params: {
     unitDiff,
     sourceSnapshotDir,
     sourceSnapshotPaths,
+    undefinedSymbols,
+    undefinedSymbolsError,
   };
 }
 
@@ -1275,6 +1307,10 @@ export async function validateWorkerChange(params: {
   orchestratorRoot?: string;
   /** Injectable scan_diff runner; defaults to runQaScanDiff. */
   qaScanRunner?: QaScanRunner;
+  /** Per-gate enable flags from the game descriptor; defaults to all-on. */
+  microGateFlags?: WorkerMicroGateFlags;
+  /** The attempt's write-set diff text for the banned-idiom micro-gate lint. */
+  postAttemptDiffText?: string;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
@@ -1297,8 +1333,29 @@ export async function validateWorkerChange(params: {
     qaScanRunner: params.qaScanRunner ?? runQaScanDiff,
     workspaceExec: params.workspaceExec,
   });
-  const scoreValidation = await validateWorkerScoreChange(params, summaryPath);
-  const validation = applyQaLintToValidation(scoreValidation, qaLint);
+  const flags = params.microGateFlags ?? DEFAULT_WORKER_MICRO_GATE_FLAGS;
+  const { validation: scoreValidation, afterSnapshot } = await validateWorkerScoreChange(params, summaryPath);
+  const withQaLint = applyQaLintToValidation(scoreValidation, qaLint);
+  const sectionParity = evaluateSectionParityGate({
+    enabled: flags.sectionParity,
+    before: params.baseline.snapshot,
+    after: afterSnapshot,
+  });
+  // The rebuilt object only exists when the attempt's object build succeeded.
+  const objectBuilt = scoreValidation.status !== "build_failed" && afterSnapshot !== null;
+  const undefinedSymbolGate = await evaluateUndefinedSymbolGate({
+    enabled: flags.undefinedSymbols,
+    objectTarget: objectBuilt
+      ? (params.baseline.objectTarget ?? objectTargetFromSourcePath(stringValue(params.target.source_path)))
+      : null,
+    baselineUndefined: params.baseline.undefinedSymbols ?? null,
+    workspaceExec: params.workspaceExec,
+  });
+  const bannedIdioms: WorkerMicroGateResult = flags.bannedIdioms
+    ? lintBannedIdioms(params.postAttemptDiffText ?? "")
+    : { gate: "banned_idioms", status: "skipped", reasons: ["banned idiom gate disabled by game validation config"] };
+  const microGates = summarizeMicroGates([sectionParity, undefinedSymbolGate, bannedIdioms]);
+  const validation = applyMicroGatesToValidation(withQaLint, microGates);
   await writeFile(summaryPath, JSON.stringify(validation, null, 2));
   return validation;
 }
@@ -1314,14 +1371,17 @@ async function validateWorkerScoreChange(
     workspaceExec: WorkspaceExec;
   },
   summaryPath: string,
-): Promise<WorkerRunnerValidation> {
+): Promise<{ validation: WorkerRunnerValidation; afterSnapshot: WorkerUnitScoreSnapshot | null }> {
   if (!params.baseline.snapshot) {
     return {
-      status: "snapshot_unavailable",
-      reasons: params.baseline.reasons.length > 0 ? params.baseline.reasons : ["pre-worker same-unit baseline snapshot is unavailable"],
-      summaryPath,
-      baselinePath: params.baseline.snapshotPath,
-      reportPath: params.baseline.diffPath,
+      validation: {
+        status: "snapshot_unavailable",
+        reasons: params.baseline.reasons.length > 0 ? params.baseline.reasons : ["pre-worker same-unit baseline snapshot is unavailable"],
+        summaryPath,
+        baselinePath: params.baseline.snapshotPath,
+        reportPath: params.baseline.diffPath,
+      },
+      afterSnapshot: null,
     };
   }
 
@@ -1331,10 +1391,13 @@ async function validateWorkerScoreChange(
   const objectTarget = params.baseline.objectTarget ?? objectTargetFromSourcePath(sourcePath);
   if (!unit || !symbol || !sourcePath || !objectTarget) {
     return {
-      status: "snapshot_unavailable",
-      reasons: ["target metadata is incomplete for runner-owned worker-change validation"],
-      summaryPath,
-      baselinePath: params.baseline.snapshotPath,
+      validation: {
+        status: "snapshot_unavailable",
+        reasons: ["target metadata is incomplete for runner-owned worker-change validation"],
+        summaryPath,
+        baselinePath: params.baseline.snapshotPath,
+      },
+      afterSnapshot: null,
     };
   }
 
@@ -1347,14 +1410,17 @@ async function validateWorkerScoreChange(
   );
   if (objectBuild.exitCode !== 0) {
     return {
-      status: "build_failed",
-      reasons: [`post-worker object build exited ${objectBuild.exitCode}`],
-      summaryPath,
-      baselinePath: params.baseline.snapshotPath,
-      command: objectBuild.command.join(" "),
-      exitCode: objectBuild.exitCode,
-      stdoutPath: objectBuild.stdoutPath,
-      stderrPath: objectBuild.stderrPath,
+      validation: {
+        status: "build_failed",
+        reasons: [`post-worker object build exited ${objectBuild.exitCode}`],
+        summaryPath,
+        baselinePath: params.baseline.snapshotPath,
+        command: objectBuild.command.join(" "),
+        exitCode: objectBuild.exitCode,
+        stdoutPath: objectBuild.stdoutPath,
+        stderrPath: objectBuild.stderrPath,
+      },
+      afterSnapshot: null,
     };
   }
 
@@ -1379,15 +1445,18 @@ async function validateWorkerScoreChange(
   });
   if (unitDiff.exitCode !== 0 || !existsSync(diffPath)) {
     return {
-      status: "snapshot_unavailable",
-      reasons: [`post-worker unit diff exited ${unitDiff.exitCode}`],
-      summaryPath,
-      baselinePath: params.baseline.snapshotPath,
-      reportPath: diffPath,
-      command: unitDiff.command.join(" "),
-      exitCode: unitDiff.exitCode,
-      stdoutPath: unitDiff.stdoutPath,
-      stderrPath: unitDiff.stderrPath,
+      validation: {
+        status: "snapshot_unavailable",
+        reasons: [`post-worker unit diff exited ${unitDiff.exitCode}`],
+        summaryPath,
+        baselinePath: params.baseline.snapshotPath,
+        reportPath: diffPath,
+        command: unitDiff.command.join(" "),
+        exitCode: unitDiff.exitCode,
+        stdoutPath: unitDiff.stdoutPath,
+        stderrPath: unitDiff.stderrPath,
+      },
+      afterSnapshot: null,
     };
   }
 
@@ -1400,11 +1469,14 @@ async function validateWorkerScoreChange(
   }
   if (!after) {
     return {
-      status: "snapshot_unavailable",
-      reasons: ["post-worker unit diff did not contain usable same-unit scores"],
-      summaryPath,
-      baselinePath: params.baseline.snapshotPath,
-      reportPath: diffPath,
+      validation: {
+        status: "snapshot_unavailable",
+        reasons: ["post-worker unit diff did not contain usable same-unit scores"],
+        summaryPath,
+        baselinePath: params.baseline.snapshotPath,
+        reportPath: diffPath,
+      },
+      afterSnapshot: null,
     };
   }
 
@@ -1424,5 +1496,5 @@ async function validateWorkerScoreChange(
   validation.stderrPath = unitDiff.stderrPath;
   validation.diffPath = diffPath;
   validation.objectTarget = objectTarget;
-  return validation;
+  return { validation, afterSnapshot: after };
 }

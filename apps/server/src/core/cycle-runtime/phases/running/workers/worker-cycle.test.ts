@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { delimiter } from "node:path";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
 import { QA_LINT_REPAIR_INSTRUCTION, type WorkerChangeValidation, type WorkerQaLint } from "@server/core/agent-catalog/agents/running/worker/change-validation";
 import type { QaScanFinding } from "@server/core/validation/qa";
 import type { PiRunResult } from "@server/core/shared/types";
@@ -8,6 +10,7 @@ import {
   classifyOutOfWriteSetPath,
   classifyWorkerError,
   collectOutOfWriteSetChanges,
+  buildRepairRequestInlineArtifacts,
   isReworkErrorKind,
   isRetryableWorkerPiSessionFailure,
   isWorkerPiContextLengthFailure,
@@ -26,6 +29,8 @@ import {
   workerPiSessionRetryDecision,
   probeExistingWorkerCanonicalToolPaths,
   WORKER_CANONICAL_TOOL_PATH_PROBE_TIMEOUT_MS,
+  REPAIR_REQUEST_DIFF_INLINE_LIMIT,
+  REPAIR_REQUEST_OUTPUT_TAIL_LIMIT,
 } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 
 function finding(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
@@ -92,6 +97,99 @@ function passedValidation(qaLint: WorkerQaLint | null): WorkerChangeValidation {
     qaLint,
   };
 }
+
+describe("buildRepairRequestInlineArtifacts", () => {
+  test("inlines small return-gate, diff, and agent output files", async () => {
+    expect(REPAIR_REQUEST_DIFF_INLINE_LIMIT).toBe(30_000);
+    expect(REPAIR_REQUEST_OUTPUT_TAIL_LIMIT).toBe(10_000);
+    const dir = await mkdtemp(join(tmpdir(), "worker-repair-inline-"));
+    const returnGatePath = join(dir, "return-gate.json");
+    const postAttemptDiffPath = join(dir, "post-attempt.diff");
+    const agentOutputPath = join(dir, "agent-output.txt");
+    await writeFile(returnGatePath, JSON.stringify({ status: "failed", reasons: ["lint"] }));
+    await writeFile(postAttemptDiffPath, "diff --git a/file.c b/file.c\n");
+    await writeFile(agentOutputPath, "agent output\n");
+
+    const artifacts = await buildRepairRequestInlineArtifacts({ agentOutputPath, returnGatePath, postAttemptDiffPath });
+
+    expect(artifacts.previous_return_gate).toEqual({ status: "failed", reasons: ["lint"] });
+    expect(artifacts.previous_post_attempt_diff).toBe("diff --git a/file.c b/file.c\n");
+    expect(artifacts.previous_agent_output_tail).toBe("agent output\n");
+  });
+
+  test("keeps the first 30000 diff characters and appends the original length", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "worker-repair-inline-"));
+    const postAttemptDiffPath = join(dir, "post-attempt.diff");
+    const diff = `${"a".repeat(REPAIR_REQUEST_DIFF_INLINE_LIMIT)}truncated`;
+    await writeFile(postAttemptDiffPath, diff);
+
+    const artifacts = await buildRepairRequestInlineArtifacts({
+      agentOutputPath: join(dir, "missing-output"),
+      returnGatePath: join(dir, "missing-gate"),
+      postAttemptDiffPath,
+    });
+    const inlined = artifacts.previous_post_attempt_diff as string;
+
+    expect(inlined.startsWith(diff.slice(0, REPAIR_REQUEST_DIFF_INLINE_LIMIT))).toBe(true);
+    expect(inlined.endsWith(`[truncated: showing first 30000 of ${diff.length} characters]`)).toBe(true);
+    expect(inlined.slice(0, inlined.indexOf("\n[truncated:"))).toHaveLength(REPAIR_REQUEST_DIFF_INLINE_LIMIT);
+  });
+
+  test("keeps the last 10000 agent-output characters and prefixes the original length", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "worker-repair-inline-"));
+    const agentOutputPath = join(dir, "agent-output.txt");
+    const output = `truncated${"z".repeat(REPAIR_REQUEST_OUTPUT_TAIL_LIMIT)}`;
+    await writeFile(agentOutputPath, output);
+
+    const artifacts = await buildRepairRequestInlineArtifacts({
+      agentOutputPath,
+      returnGatePath: join(dir, "missing-gate"),
+      postAttemptDiffPath: join(dir, "missing-diff"),
+    });
+    const inlined = artifacts.previous_agent_output_tail as string;
+
+    expect(inlined.startsWith(`[truncated: showing last 10000 of ${output.length} characters]\n`)).toBe(true);
+    expect(inlined.endsWith(output.slice(-REPAIR_REQUEST_OUTPUT_TAIL_LIMIT))).toBe(true);
+  });
+
+  test("omits each missing artifact without affecting files that are present", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "worker-repair-inline-"));
+    const returnGatePath = join(dir, "return-gate.json");
+    const postAttemptDiffPath = join(dir, "post-attempt.diff");
+    const agentOutputPath = join(dir, "agent-output.txt");
+    await writeFile(returnGatePath, JSON.stringify({ status: "failed" }));
+    await writeFile(postAttemptDiffPath, "diff");
+    await writeFile(agentOutputPath, "output");
+
+    const cases = [
+      { missing: "previous_return_gate", paths: { agentOutputPath, returnGatePath: join(dir, "missing-gate"), postAttemptDiffPath } },
+      { missing: "previous_post_attempt_diff", paths: { agentOutputPath, returnGatePath, postAttemptDiffPath: join(dir, "missing-diff") } },
+      { missing: "previous_agent_output_tail", paths: { agentOutputPath: join(dir, "missing-output"), returnGatePath, postAttemptDiffPath } },
+    ];
+
+    for (const { missing, paths } of cases) {
+      const artifacts = await buildRepairRequestInlineArtifacts(paths);
+      expect(artifacts).not.toHaveProperty(missing);
+      expect(Object.keys(artifacts)).toHaveLength(2);
+    }
+  });
+
+  test("omits invalid return-gate JSON while retaining the other artifacts", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "worker-repair-inline-"));
+    const returnGatePath = join(dir, "return-gate.json");
+    const postAttemptDiffPath = join(dir, "post-attempt.diff");
+    const agentOutputPath = join(dir, "agent-output.txt");
+    await writeFile(returnGatePath, "not json");
+    await writeFile(postAttemptDiffPath, "diff");
+    await writeFile(agentOutputPath, "output");
+
+    const artifacts = await buildRepairRequestInlineArtifacts({ agentOutputPath, returnGatePath, postAttemptDiffPath });
+
+    expect(artifacts).not.toHaveProperty("previous_return_gate");
+    expect(artifacts.previous_post_attempt_diff).toBe("diff");
+    expect(artifacts.previous_agent_output_tail).toBe("output");
+  });
+});
 
 describe("worker shell tool environment", () => {
   test("uses only sandbox tool and standard Linux paths", () => {
@@ -347,6 +445,33 @@ describe("workerPiSessionRetryDecision", () => {
     expect(decision.reason).toBe("transient_transport_failure");
     expect(decision.nextRetryIndex).toBe(1);
     expect(decision.maxTransientRetries).toBe(WORKER_PI_SESSION_RETRY_POLICY.maxTransientRetries);
+  });
+
+  test("retries codex-lb upstream timeout provider failures inside the same worker attempt", () => {
+    const result = {
+      ...piResult(),
+      providerError: "upstream_unavailable: Request to upstream timed out",
+    };
+    const decision = workerPiSessionRetryDecision({
+      result,
+      transientRetryCount: 0,
+      dryRun: false,
+      claimDeadlineMs: Date.now() + 60_000,
+    });
+
+    expect(isRetryableWorkerPiSessionFailure(result)).toBe(true);
+    expect(decision.shouldRetry).toBe(true);
+    expect(decision.reason).toBe("transient_transport_failure");
+  });
+
+  test("retries codex-lb stream idle timeout failures inside the same worker attempt", () => {
+    const result = {
+      ...piResult(),
+      failed: true,
+      error: "stream_idle_timeout: Upstream stream idle timeout",
+    };
+
+    expect(isRetryableWorkerPiSessionFailure(result)).toBe(true);
   });
 
   test("does not retry context-window provider failures", () => {

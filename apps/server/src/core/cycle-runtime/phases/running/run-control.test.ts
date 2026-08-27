@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { createCycle, getCycleByUuid } from "@server/core/cycle";
 import {
   eventsForSubject,
   getHarnessState,
@@ -109,6 +110,31 @@ afterEach(() => {
 });
 
 describe("run recovery controls", () => {
+  test("activation assigns the run to its cycle", () => {
+    const { dir, store } = tempState();
+    const cycle = createCycle(store.db, {
+      actor: "operator",
+      commandId: "command-cycle-open",
+      cycleUuid: "cycle-activation-test",
+      gameId: "melee",
+      worktreeIdentity: dir,
+    });
+    const run = createRun(
+      store,
+      "matched_code_percent",
+      100,
+      1,
+      { gameId: "melee", repoRoot: dir, stateDir: dir },
+      { baseRevision: "base-test", cycleUuid: cycle.cycle_uuid },
+    );
+
+    activateRun({ reason: "test activation", runId: run.id, store });
+
+    const activatedCycle = getCycleByUuid(store.db, cycle.cycle_uuid);
+    expect(activatedCycle?.active_run_id).toBe(run.id);
+    expect(activatedCycle?.revision).toBe(cycle.revision + 1);
+  });
+
   test("activation rolls back dispatch acquisition when the run CAS fails", () => {
     const { dir, store } = tempState();
     const run = createRun(

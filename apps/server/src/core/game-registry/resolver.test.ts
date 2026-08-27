@@ -40,6 +40,35 @@ describe("game registry layout resolution", () => {
     expect(resolveGame({ orchestratorRoot: root, useDefaultGame: true }).gameId).toBe("sunshine");
   });
 
+  test("enables worker micro-gates by default", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-validation-defaults-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), { id: "melee" });
+
+    const game = resolveGame({ orchestratorRoot: root, gameId: "melee" });
+
+    expect(game.validation.workerSectionParityGate).toBe(true);
+    expect(game.validation.workerUndefinedSymbolGate).toBe(true);
+    expect(game.validation.workerBannedIdiomGate).toBe(true);
+  });
+
+  test("allows disabling only the worker banned-idiom gate", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-validation-override-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      validation: { workerBannedIdiomGate: false },
+    });
+
+    const game = resolveGame({ orchestratorRoot: root, gameId: "melee" });
+
+    expect(game.validation.workerSectionParityGate).toBe(true);
+    expect(game.validation.workerUndefinedSymbolGate).toBe(true);
+    expect(game.validation.workerBannedIdiomGate).toBe(false);
+  });
+
   test("provides sandbox defaults", () => {
     const root = mkdtempSync(join(tmpdir(), "game-registry-sandbox-defaults-"));
     const gameDir = join(root, "games", "melee");
@@ -79,6 +108,45 @@ describe("game registry layout resolution", () => {
       resource_class: { cpu: 4, memory_gib: 8, disk_gib: 20 },
       snapshot_name: "melee-local",
       snapshot_baked_rev: "local-baked-rev",
+      workspace_root: "/workspace/melee",
+    });
+  });
+
+  test("selects named sandbox profiles with fixed snapshot resources", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-sandbox-profiles-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      sandbox: {
+        default_profile: "2-core",
+        snapshot_baked_rev: "baked-rev",
+        workspace_root: "/workspace/melee",
+        profiles: {
+          "2-core": {
+            snapshot_name: "melee-2c",
+            resource_class: { cpu: 2, memory_gib: 4, disk_gib: 5 },
+          },
+          "4-core": {
+            snapshot_name: "melee-4c",
+            resource_class: { cpu: 4, memory_gib: 8, disk_gib: 5 },
+          },
+        },
+      },
+    });
+
+    const game = resolveGame({ orchestratorRoot: root, gameId: "melee" });
+
+    expect(sandboxRuntimeOptions(game)).toEqual({
+      resource_class: { cpu: 2, memory_gib: 4, disk_gib: 5 },
+      snapshot_name: "melee-2c",
+      snapshot_baked_rev: "baked-rev",
+      workspace_root: "/workspace/melee",
+    });
+    expect(sandboxRuntimeOptions(game, "4-core")).toEqual({
+      resource_class: { cpu: 4, memory_gib: 8, disk_gib: 5 },
+      snapshot_name: "melee-4c",
+      snapshot_baked_rev: "baked-rev",
       workspace_root: "/workspace/melee",
     });
   });

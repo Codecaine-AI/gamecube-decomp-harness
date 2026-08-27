@@ -14,6 +14,7 @@ export interface GlobalArgs {
   model: string;
   thinkingLevel: string;
   agentTimeoutSeconds?: number;
+  sandboxProfile?: string;
 }
 
 export interface ParsedArgs {
@@ -95,6 +96,9 @@ export function parse(argv: string[]): ParsedArgs {
       if (!Number.isFinite(globals.agentTimeoutSeconds) || globals.agentTimeoutSeconds < 0) {
         throw new Error(`Invalid --agent-timeout-seconds: ${String(argv[i + 1])}`);
       }
+      i += 1;
+    } else if (arg === "--sandbox-profile") {
+      globals.sandboxProfile = readFlag(argv, i);
       i += 1;
     } else if (arg.startsWith("--")) {
       const value = argv[i + 1];

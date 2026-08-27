@@ -77,6 +77,7 @@ export const prompt = definePrompt({
       usesContext("knowledge-graph-file-card", {
         instructions: [
           "Use the injected graph file card as first-pass solved-reference context and follow-up leads.",
+          "The card and `graph_related_functions` results carry `learnings` from the communal ledger — prior-attempt methods for this file, this target, and its opseq analogs, each labeled with status and confidence.",
           "Treat graph-derived context as hypotheses until local source or validation evidence verifies it.",
         ],
       }),
@@ -111,6 +112,16 @@ export const prompt = definePrompt({
             "Based on that file understanding, look around the codebase for 100% matched functions/files that resemble this target.",
             "Use the injected target graph file card as a first-pass map of solved neighbors and follow-up leads.",
             "Use opseq similarity leads to find instruction-shape analogs before adapting duplicates or broad rewrites.",
+            "Search the communal knowledge ledger (`ledger_search`) for prior-attempt learnings on your target, its unit, and its opseq-analog solved symbols; a method that matched a similar function is a process to adapt to this target.",
+            item("Weigh ledger learnings by status and confidence:", [
+              bulletList([
+                "Corroborated high-confidence entries are strong leads.",
+                "Proposed entries are ideas worth a cheap test.",
+                "Refuted entries are known dead ends; they also warn when a high-percent match sits at a local maximum needing restructuring rather than tweaks.",
+                "Very low confidence (around 0.2) is usually ignorable.",
+              ]),
+            ]),
+            "Treat every ledger learning as a hypothesis ranked by confidence, weaker than local source and validation evidence.",
           ]),
         ],
         { attrs: { id: "2", name: "solved_reference_pass" } },
@@ -140,6 +151,7 @@ export const prompt = definePrompt({
             "Test the hypotheses with targeted deeper analysis.",
             "Only go deeper for concrete questions that choose between hypotheses or explain a mismatch.",
             "When a target is near exact, use mismatch-specific probes and source mutation previews first; use source-permuter evidence only when the remaining source-shape search is too tedious to do manually.",
+            "Permuter or mutation-preview evidence that a fix is possible does not mean it is reachable by small edits from the current shape — it may only be reachable from a different structure.",
           ]),
         ],
         { attrs: { id: "4", name: "hypothesis_testing" } },
@@ -151,7 +163,15 @@ export const prompt = definePrompt({
             "Make small edits based on a specific source hypothesis.",
             "Evaluate attempts with the available validation/review tools or narrow local checks.",
             "Keep verified improvements.",
-            "Revert your own regressing/no-op hunks.",
+            "Revert regressing/no-op hunks from incremental tweaks; a deliberate restructuring attempt is different — judge it by whether the new shape can reach exact, not by its first score.",
+            "Match percent and diff size do not measure remaining work: a one-instruction mismatch such as a single register swap can require restructuring the surrounding code, and a low match can be one struct or type fix away.",
+            item("When repeated small edits fail to close a small diff, treat the current source shape as a likely local maximum:", [
+              bulletList([
+                "Save your best-scoring source variant so you can restore it for the handoff if the new path fails.",
+                "Re-read the ledger — refuted learnings for this target and its analogs tell you which tweak paths are already dead.",
+                "Adapt the structure of an opseq-analog solved function instead of tweaking the current shape, accepting a temporary score regression to open a new path.",
+              ]),
+            ]),
             "Keep iterating while the evidence suggests a next move and there is enough turn budget to evaluate it.",
             "If you have a buildable improvement, a falsified attempt that should be checkpointed, or you are stalled after targeted probes, hand back the current evidence instead of spending the rest of the turn looking for certainty.",
           ]),

@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { graphPayload } from "../payloads.js";
 import type { SearchResult } from "../types.js";
 import { truncate } from "../util.js";
 import type { KnowledgeGraphStore } from "./store.js";
@@ -10,6 +11,7 @@ interface SearchRow {
   title: string;
   text: string;
   evidence_ref: string;
+  payload_json: string | null;
   trust_tier: SearchResult["trust_tier"] | null;
 }
 
@@ -48,6 +50,7 @@ function ftsSearchRows(
       search_chunks.title,
       search_chunks.text,
       search_chunks.evidence_ref,
+      search_chunks.payload_json,
       knowledge_sources.trust_tier
     FROM search_chunks_fts
     JOIN search_chunks ON search_chunks.id = search_chunks_fts.id
@@ -78,6 +81,7 @@ function likeSearchRows(
       search_chunks.title,
       search_chunks.text,
       search_chunks.evidence_ref,
+      search_chunks.payload_json,
       knowledge_sources.trust_tier
     FROM search_chunks
     LEFT JOIN knowledge_sources ON knowledge_sources.id = search_chunks.source_id
@@ -106,6 +110,7 @@ function scoredSearchResult(
     if (lowerTitle.includes(term)) score += 4;
     if (lowerText.includes(term)) score += 2;
   }
+  const payload = graphPayload(row.payload_json);
   return {
     result: {
       source_id: String(row.source_id ?? ""),
@@ -116,6 +121,9 @@ function scoredSearchResult(
       entity_id: row.entity_id == null ? undefined : String(row.entity_id),
       confidence: Math.min(0.95, 0.35 + score * 0.04),
       trust_tier: (row.trust_tier ?? "historical") as SearchResult["trust_tier"],
+      status: typeof payload.status === "string" ? payload.status : undefined,
+      origin: typeof payload.origin === "string" ? payload.origin : undefined,
+      source_confidence: typeof payload.confidence === "number" ? payload.confidence : undefined,
     },
     score,
     textLength: text.length,

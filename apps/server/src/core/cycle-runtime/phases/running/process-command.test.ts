@@ -21,6 +21,7 @@ function runInputs(configuration: Record<string, unknown> = {}): RunInputs {
       integration_resolver_concurrency: 4,
       model: "gpt-5.6-sol",
       provider: "codex-lb",
+      sandbox_profile: "2-core",
       thinking_level: "xhigh",
       worker_configure_command: "",
       ...configuration,
@@ -38,7 +39,7 @@ describe("running process command", () => {
   test("returns a typed blocker for request options that conflict with the stored snapshot", () => {
     const inputs = runInputs({ desired_workers: 4, model: "gpt-5.6-sol" });
 
-    expect(runningProcessConfigurationConflicts({ maxWorkers: 8, model: "gpt-5.5" }, inputs, "run-1"))
+    expect(runningProcessConfigurationConflicts({ maxWorkers: 8, model: "gpt-5.5", sandboxProfile: "4-core" }, inputs, "run-1"))
       .toEqual([
         expect.objectContaining({
           field: "maxWorkers",
@@ -47,6 +48,7 @@ describe("running process command", () => {
           blocker: expect.objectContaining({ code: "run_configuration_conflict", source_id: "run-1" }),
         }),
         expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-5.6-sol" }),
+        expect.objectContaining({ field: "sandboxProfile", requested: "4-core", stored: "2-core" }),
       ]);
   });
 
@@ -81,6 +83,10 @@ describe("running process command", () => {
     expect(plan.command).toContain("--dry-run-agents");
     expect(plan.command).toContain("--run-id");
     expect(plan.command).toContain("run-1");
+    expect(plan.command.slice(plan.command.indexOf("--sandbox-profile"), plan.command.indexOf("--sandbox-profile") + 2)).toEqual([
+      "--sandbox-profile",
+      "2-core",
+    ]);
     expect(plan.command.slice(plan.command.indexOf("--integration-resolver-concurrency"), plan.command.indexOf("--integration-resolver-concurrency") + 2)).toEqual([
       "--integration-resolver-concurrency",
       "4",

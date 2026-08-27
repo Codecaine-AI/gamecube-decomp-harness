@@ -8,7 +8,6 @@ export type DashboardAction =
   | "refresh"
   | "syncGit"
   | "indexPrs"
-  | "calculateBaseline"
   | "init"
   | "fresh"
   | "completeRun"
@@ -365,10 +364,8 @@ export interface CycleView {
   operationLabel: string;
   prBlockedReasons: string[];
   prRecords: PrFlowRecord[];
-  // The still-real preparing-phase inputs that live in the details rail as
-  // the "Config" section: baseline calculation and the start-run gate. The
-  // Prepare stage's git-sync/PR-intake framing is retired (the repo/sync card
-  // renders the server's repo_sync read model instead).
+  // The run configuration and automatic baseline status live in the details
+  // rail. The Prepare stage's git-sync/PR-intake framing is retired.
   prepareState: {
     baseline: JsonObject;
     baselineDone: boolean;

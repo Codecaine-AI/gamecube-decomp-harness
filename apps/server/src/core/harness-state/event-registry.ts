@@ -208,6 +208,9 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
     integration_commit: required("string"),
     score_delta: required("number", true),
     new_head: required("string"),
+    ordinal: optional("integer"),
+    boundary_status: optional("string"),
+    save_point_id: optional("string", true),
   }),
   "run.remote_applied": v1(["run"], "progress", ["operator", "runner"], {
     remote_application_id: required("string"),

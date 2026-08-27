@@ -20,7 +20,7 @@ import { immediateTransaction, type StateStore } from "@server/core/orchestrator
 import type { BackgroundKnowledgeTraceHooks } from "./trace.js";
 
 const KIND = "knowledge_absorption" as const;
-const CONCURRENCY_LIMIT = 2;
+const CONCURRENCY_LIMIT = 16;
 const DEFAULT_LEASE_MS = 60_000;
 const DEFAULT_STOP_MAX_WAIT_MS = 15_000;
 const MAX_ATTEMPTS = 5;

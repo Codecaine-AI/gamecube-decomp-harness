@@ -13,6 +13,7 @@ interface FunctionEvidence {
   callers: Array<Record<string, unknown>>;
   callees: Array<Record<string, unknown>>;
   data_references: Array<Record<string, unknown>>;
+  learnings: Array<Record<string, unknown>>;
 }
 
 /** Resolve one or more functions and return their graph-owned analog and call relationships. */
@@ -66,6 +67,11 @@ export function functionRelationshipEvidence(
     byType.set(fact.factType, fact);
     factsByEntity.set(fact.entityId, byType);
   }
+  const analogEntityIds = facts
+    .filter((fact) => fact.factType === "opseq_analog_profile")
+    .flatMap((fact) => arrayValue(objectValue(graphFactPayload(fact.factType, fact.payload)).top_analogs).map(objectValue).map(peerEntityId))
+    .filter((entityId): entityId is string => Boolean(entityId));
+  const learningsByEntity = learningProfilesByEntity(store, [...new Set([...uniqueIds, ...analogEntityIds])]);
 
   return uniqueIds
     .filter((entityId) => entityPayloads.has(entityId) || factsByEntity.has(entityId))
@@ -82,22 +88,75 @@ export function functionRelationshipEvidence(
         opseq_analogs: arrayValue(opseq.top_analogs)
           .map(objectValue)
           .slice(0, boundedLimit)
-          .map((analog) => ({
-            entity_id: peerEntityId(analog),
-            unit: stringValue(analog.unit) || null,
-            symbol: stringValue(analog.symbol),
-            source_path: stringValue(analog.source_path) || null,
-            score: analog.score ?? null,
-            exact_match: booleanValue(analog.exact_match),
-            matched: booleanValue(analog.matched),
-            method: stringValue(analog.method) || null,
-            evidence_ref: stringValue(analog.evidence_ref, stringValue(opseqFact?.evidenceRef)),
-          })),
+          .map((analog) => {
+            const analogId = peerEntityId(analog);
+            return {
+              entity_id: analogId,
+              unit: stringValue(analog.unit) || null,
+              symbol: stringValue(analog.symbol),
+              source_path: stringValue(analog.source_path) || null,
+              score: analog.score ?? null,
+              exact_match: booleanValue(analog.exact_match),
+              matched: booleanValue(analog.matched),
+              method: stringValue(analog.method) || null,
+              evidence_ref: stringValue(analog.evidence_ref, stringValue(opseqFact?.evidenceRef)),
+              learnings: (analogId && learningsByEntity.get(analogId)) || [],
+            };
+          }),
         callers: relationPeers(entityId, "caller", callGraph, callFact?.evidenceRef, edges, boundedLimit),
         callees: relationPeers(entityId, "callee", callGraph, callFact?.evidenceRef, edges, boundedLimit),
         data_references: dataReferences(entityId, callGraph, callFact?.evidenceRef, edges, boundedLimit),
+        learnings: learningsByEntity.get(entityId) ?? [],
       };
     });
+}
+
+/** Knowledge-ledger learnings anchored on the given entities, top 5 per entity by confidence so payloads stay bounded. */
+export function learningProfilesByEntity(
+  store: KnowledgeGraphStore,
+  entityIds: string[],
+  perEntityLimit = 5,
+): Map<string, Array<Record<string, unknown>>> {
+  const byEntity = new Map<string, Array<Record<string, unknown>>>();
+  const uniqueIds = [...new Set(entityIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return byEntity;
+  const rows = store.orm
+    .select({
+      entityId: graphFacts.entityId,
+      factType: graphFacts.factType,
+      payload: graphFacts.payloadJson,
+      confidence: graphFacts.confidence,
+      evidenceRef: graphFacts.evidenceRef,
+    })
+    .from(graphFacts)
+    .where(
+      and(
+        inArray(graphFacts.entityId, uniqueIds),
+        eq(graphFacts.factType, "learning_profile"),
+        eq(graphFacts.status, "accepted"),
+      ),
+    )
+    .all();
+  for (const row of rows) {
+    const payload = objectValue(graphFactPayload(row.factType, row.payload));
+    const entries = byEntity.get(row.entityId) ?? [];
+    entries.push({
+      learning_id: stringValue(payload.learning_id) || null,
+      statement: stringValue(payload.statement),
+      origin: stringValue(payload.origin) || null,
+      status: stringValue(payload.status) || null,
+      confidence: typeof payload.confidence === "number" ? payload.confidence : row.confidence,
+      evidence_ref: stringValue(row.evidenceRef),
+    });
+    byEntity.set(row.entityId, entries);
+  }
+  for (const [entityId, entries] of byEntity) {
+    byEntity.set(
+      entityId,
+      entries.sort((left, right) => Number(right.confidence ?? 0) - Number(left.confidence ?? 0)).slice(0, perEntityLimit),
+    );
+  }
+  return byEntity;
 }
 
 function resolveFunctionEntityIds(store: KnowledgeGraphStore, query: RelatedFunctionsQuery): string[] {

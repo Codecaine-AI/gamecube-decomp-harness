@@ -12,7 +12,7 @@ import { DashboardPage } from "@/pages/dashboard";
 import { GrainOverlay } from "@/components/app/_components/GrainOverlay";
 import { ConfirmActionOverlay, type ConfirmTone } from "@/components/app/_components/ConfirmActionOverlay";
 import { clampDetailsWidth, loadDetailsCollapsed, loadDetailsWidth, loadSidebarCollapsed, saveDetailsCollapsed, saveDetailsWidth, saveSidebarCollapsed } from "@/components/app/_lib/railState";
-import { initialForm, saveRunSettings, schedulingForWorkers } from "@/components/app/_lib/runSettings";
+import { initialForm, runConfigurationFormPatch, saveRunSettings, schedulingForWorkers } from "@/components/app/_lib/runSettings";
 import { useHotReload } from "@/components/app/_lib/useHotReload";
 import { RUN_CONTROL_ACTION_IDS, RUN_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedRunControls";
 import {
@@ -26,13 +26,13 @@ import { KNOWLEDGE_CONTROL_ACTION_IDS, KNOWLEDGE_CONTROL_ENDPOINTS } from "@/com
 import { CYCLE_CONTROL_ACTION_IDS, cycleConfirmationMessage } from "@/components/app/_lib/projectedCycleControls";
 
 type Action = DashboardAction;
-const PROCESS_CONFIG_VERSION = 2;
+const PROCESS_CONFIG_VERSION = 3;
 const DEFAULT_THINKING_LEVEL = "xhigh";
 
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "calculateBaseline", "completeRun", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "completeRun", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
 
 function newCycleBody(body: JsonObject): JsonObject {
   const next = { ...body };
@@ -71,6 +71,7 @@ function workerConfigBody(body: JsonObject): JsonObject {
     agentTimeoutSeconds: body.agentTimeoutSeconds,
     provider: body.provider,
     model: body.model,
+    sandboxProfile: body.sandboxProfile,
     thinkingLevel: body.thinkingLevel,
   };
 }
@@ -110,6 +111,9 @@ function cycleRunConfigPatch(cycle: JsonObject): Partial<FormState> | null {
 
   const model = stringConfigValue(workerConfig.model);
   if (model !== null) patch.model = model;
+
+  const sandboxProfile = stringConfigValue(workerConfig.sandboxProfile);
+  if (sandboxProfile !== null) patch.sandboxProfile = sandboxProfile;
 
   const thinkingLevel = stringConfigValue(workerConfig.thinkingLevel);
   if (thinkingLevel !== null) {
@@ -261,6 +265,7 @@ export function App() {
       .then((loaded) => {
         const gameDefaults = asObject(loaded.gameDefaults);
         const dashboardDefaults = asObject(gameDefaults.dashboard);
+        const sandboxDefaults = asObject(gameDefaults.sandbox);
         setConfig(loaded);
         setFormState((current) => ({
           ...current,
@@ -274,6 +279,7 @@ export function App() {
           goalValue: Number(dashboardDefaults.goalValue || current.goalValue),
           integrationResolverConcurrency: numberValue(dashboardDefaults.integrationResolverConcurrency, current.integrationResolverConcurrency),
           agentTimeoutSeconds: numberValue(dashboardDefaults.agentTimeoutSeconds, current.agentTimeoutSeconds),
+          sandboxProfile: String(sandboxDefaults.default_profile || current.sandboxProfile),
         }));
       })
       .catch(showError);
@@ -318,8 +324,21 @@ export function App() {
   const currentDashboard = dashboard as Dashboard | null;
   const busy = action !== null;
   const view = deriveCycleView(currentDashboard, config, form);
+  const currentRun = currentDashboard?.status.run;
+  const runConfigPatch = runConfigurationFormPatch(currentRun);
+  const runConfigSignature = runConfigPatch
+    ? `${String(currentRun?.id || "")}:${JSON.stringify(currentRun?.inputs?.configuration_snapshot)}`
+    : null;
 
   useEffect(() => {
+    if (!runConfigPatch || !runConfigSignature) return;
+    if (appliedSessionConfigSignatureRef.current === runConfigSignature) return;
+    setFormState((current) => ({ ...current, ...runConfigPatch }));
+    appliedSessionConfigSignatureRef.current = runConfigSignature;
+  }, [runConfigPatch, runConfigSignature]);
+
+  useEffect(() => {
+    if (runConfigPatch) return;
     const cycle = asObject(currentDashboard?.cycle);
     const patch = cycleRunConfigPatch(cycle);
     if (!patch) return;
@@ -338,7 +357,7 @@ export function App() {
       return changed ? next : current;
     });
     appliedSessionConfigSignatureRef.current = signature;
-  }, [currentDashboard?.cycle]);
+  }, [currentDashboard?.cycle, runConfigPatch]);
 
   const loadRunDetails = useCallback(async () => {
     const run = asObject(currentDashboard?.status?.run);
@@ -460,9 +479,6 @@ export function App() {
           const endpoint = SYNC_CONTROL_ENDPOINTS[syncControlAction];
           if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
           await postJson(endpoint, body);
-          await manualRefresh();
-        } else if (nextAction === "calculateBaseline") {
-          await postJson(cycleUrl("/api/cycle/preparing/baseline", form), cycleScopedBody(body, cycle));
           await manualRefresh();
         } else if (nextAction === "start") {
           await postJson("/api/process/start", body);

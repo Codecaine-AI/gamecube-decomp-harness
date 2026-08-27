@@ -1,4 +1,5 @@
 import { ProgressPanel } from "./components/progress-panel";
+import { BoundaryPanel } from "./components/boundary-panel";
 import {
   type ImprovedMode,
   type WorkMode,
@@ -21,6 +22,7 @@ export function RunModePage(props: {
   return (
     <div className="grid gap-4">
       <ProgressPanel dashboard={props.dashboard} />
+      <BoundaryPanel dashboard={props.dashboard} view={props.view} />
       <WorkTables
         dashboard={props.dashboard}
         improvedMode={props.improvedMode}

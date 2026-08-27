@@ -573,6 +573,7 @@ export function createRun(
     integration_resolver_concurrency: 4,
     model: "gpt-5.6-sol",
     provider: "codex-lb",
+    sandbox_profile: "",
     thinking_level: "xhigh",
     worker_configure_command: "",
   };

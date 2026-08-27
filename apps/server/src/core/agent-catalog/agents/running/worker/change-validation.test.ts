@@ -362,6 +362,43 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
     expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/gr/ground.c"), "utf8")).toBe("int sandbox_extra;\n");
     expect(await readFile(resolve(outputDir, "pre_worker_unit_diff.json"), "utf8")).toBe(report);
   });
+
+  test("captures undefined symbols only when requested", async () => {
+    const report = JSON.stringify({
+      left: {
+        sections: [],
+        symbols: [{ name: "ftCo_800C8E5C", match_percent: 75, size: 16, instructions: [] }],
+      },
+    });
+
+    for (const captureUndefinedSymbols of [true, false]) {
+      const outputDir = await mkdtemp(join(tmpdir(), `undefined-baseline-${captureUndefinedSymbols}-`));
+      const calls: string[][] = [];
+      const workspaceExec = fakeWorkspaceExec(async (command) => {
+        calls.push(command);
+        if (command[0] === "cat") {
+          return { exitCode: 0, stdout: command[1] === "build.ninja" ? "" : "int source;\n", stderr: "" };
+        }
+        if (command[0] === "python3") {
+          return { exitCode: 0, stdout: "lbl_missing\nHSD_Randi\n", stderr: "" };
+        }
+        if (command[0] === "build/tools/objdiff-cli") return { exitCode: 0, stdout: report, stderr: "" };
+        return { exitCode: 0, stdout: "", stderr: "" };
+      });
+
+      const baseline = await captureWorkerChangeBaseline({
+        repoRoot: `/workspace/undefined-${captureUndefinedSymbols}`,
+        outputDir,
+        target: { unit: "melee/ft/ftcoll.c", symbol: "ftCo_800C8E5C", source_path: "src/melee/ft/ftcoll.c" },
+        captureUndefinedSymbols,
+        workspaceExec,
+      });
+
+      expect(baseline.status).toBe("available");
+      expect(baseline.undefinedSymbols ?? null).toEqual(captureUndefinedSymbols ? ["HSD_Randi", "lbl_missing"] : null);
+      expect(calls.some((command) => command[0] === "python3")).toBe(captureUndefinedSymbols);
+    }
+  });
 });
 
 describe("extendWorkerChangeBaselineSourceSnapshot", () => {
@@ -667,5 +704,111 @@ describe("validateWorkerChange QA lint integration", () => {
     expect(gateSkipped.status).toBe("skipped");
     expect(gateSkipped.qaLint).toBeNull();
     expect(existsSync(resolve(outputDir, "attempt-0.qa_diff.patch"))).toBe(false);
+  });
+});
+
+describe("validateWorkerChange micro-gate integration", () => {
+  const target = { unit: "melee/ft/ftcoll.c", symbol: "ftCo_800C8E5C", source_path: "src/melee/ft/ftcoll.c" };
+
+  function baselineWithDataSection(): WorkerChangeBaseline {
+    return {
+      status: "available",
+      reasons: [],
+      objectTarget: "build/GALE01/src/melee/ft/ftcoll.o",
+      snapshot: {
+        schemaVersion: 1,
+        capturedAt: "2026-06-30T00:00:00.000Z",
+        unit: target.unit,
+        symbol: target.symbol,
+        sourcePath: target.source_path,
+        objectTarget: "build/GALE01/src/melee/ft/ftcoll.o",
+        metrics: [],
+        functions: [{ name: target.symbol, score: 50, size: 16 }],
+        sections: [{ name: ".data", score: 100, size: 53200 }],
+        targetScore: 50,
+      },
+    };
+  }
+
+  function scoreWorkspaceExec(dataScore = 100): WorkspaceExec {
+    const report = JSON.stringify({
+      left: {
+        sections: [{ name: ".data", match_percent: dataScore, size: 53200 }],
+        symbols: [{ name: target.symbol, match_percent: 75, size: 16, instructions: [] }],
+      },
+    });
+    return fakeWorkspaceExec(async (command) => {
+      if (command[0] === "build/tools/objdiff-cli") return { exitCode: 0, stdout: report, stderr: "" };
+      if (command[0] === "cat") return { exitCode: 0, stdout: "", stderr: "" };
+      return { exitCode: 0, stdout: "", stderr: "" };
+    });
+  }
+
+  test("fails an improving attempt when an exact non-code section regresses and persists micro-gates", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "micro-section-validation-"));
+    const validation = await validateWorkerChange({
+      repoRoot: "/workspace/micro-section",
+      hostRepoRoot: "/host/melee",
+      outputDir,
+      attemptIndex: 0,
+      baseline: baselineWithDataSection(),
+      target,
+      dryRun: false,
+      shouldRun: true,
+      claimedExact: false,
+      microGateFlags: { sectionParity: true, undefinedSymbols: false, bannedIdioms: false },
+      workspaceExec: scoreWorkspaceExec(99.77),
+    });
+
+    expect(validation.status).not.toBe("passed");
+    expect(validation.status).toBe("same_unit_regression");
+    expect(validation.microGates?.status).toBe("failed");
+    expect(validation.reasons.some((reason) => reason.includes("micro_gate:section_parity"))).toBe(true);
+    const summary = JSON.parse(await readFile(validation.summaryPath ?? "", "utf8")) as Record<string, unknown>;
+    expect((summary.microGates as Record<string, unknown>).status).toBe("failed");
+  });
+
+  test("all-disabled micro-gates are skipped without changing a passing score outcome", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "micro-disabled-validation-"));
+    const validation = await validateWorkerChange({
+      repoRoot: "/workspace/micro-disabled",
+      hostRepoRoot: "/host/melee",
+      outputDir,
+      attemptIndex: 0,
+      baseline: baselineWithDataSection(),
+      target,
+      dryRun: false,
+      shouldRun: true,
+      claimedExact: false,
+      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: false },
+      workspaceExec: scoreWorkspaceExec(100),
+    });
+
+    expect(validation.status).toBe("passed");
+    expect(validation.microGates?.status).toBe("skipped");
+  });
+
+  test("an added bare short fails the banned-idiom micro-gate", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "micro-idiom-validation-"));
+    const validation = await validateWorkerChange({
+      repoRoot: "/workspace/micro-idiom",
+      hostRepoRoot: "/host/melee",
+      outputDir,
+      attemptIndex: 0,
+      baseline: baselineWithDataSection(),
+      target,
+      dryRun: false,
+      shouldRun: true,
+      claimedExact: false,
+      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: true },
+      postAttemptDiffText: [
+        "diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c",
+        "+    short foo;",
+      ].join("\n"),
+      workspaceExec: scoreWorkspaceExec(100),
+    });
+
+    expect(validation.status).toBe("failed");
+    expect(validation.reasons.some((reason) => reason.includes("micro_gate:banned_idioms"))).toBe(true);
   });
 });
