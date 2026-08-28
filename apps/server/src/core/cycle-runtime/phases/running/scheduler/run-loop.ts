@@ -567,7 +567,7 @@ export async function runRunLoop(
     const ciParityEnabled = !booleanArg(args, "--no-ci-parity");
     const preCommitGateEnabled = !booleanArg(args, "--no-pre-commit-gate");
     const preCommitAutofixEnabled = !booleanArg(args, "--no-precommit-autofix");
-    const linkCompleteUnitsEnabled = !booleanArg(args, "--no-link-complete-units");
+    const linkCompleteUnitsEnabled = booleanArg(args, "--link-complete-units");
     const boundarySyncEnabled = !booleanArg(args, "--no-boundary-sync");
     const breakageGateEnabled = !booleanArg(args, "--no-breakage-gate");
     const boundaryBuildFixerEnabled = !booleanArg(args, "--no-boundary-build-fixer");

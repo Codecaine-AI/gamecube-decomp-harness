@@ -524,6 +524,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             ci_parity_status: ciParity?.status ?? (config.ciParityEnabled ? "skipped" : "disabled"),
             pre_commit_status: preCommit?.status ?? (config.preCommitGateEnabled ? "skipped" : "disabled"),
             reasons: [...(ciParity?.reasons ?? []), ...(preCommit?.reasons ?? [])].slice(0, 20),
+            warnings: [...(ciParity?.warnings ?? []), ...(preCommit?.warnings ?? [])].slice(0, 20),
             steps: [
               ...(ciParity?.steps ?? []).map((step) => ({ gate: "ci_parity", name: step.name, exit_code: step.exitCode })),
               ...(preCommit?.steps ?? []).map((step) => ({ gate: "pre_commit", name: step.name, exit_code: step.exitCode })),
@@ -732,6 +733,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
               ci_parity_status: ciParity?.status ?? (config.ciParityEnabled ? "skipped" : "disabled"),
               pre_commit_status: preCommit?.status ?? (config.preCommitGateEnabled ? "skipped" : "disabled"),
               reasons,
+              warnings: [...(ciParity?.warnings ?? []), ...(preCommit?.warnings ?? [])].slice(0, 20),
               steps: [
                 ...(ciParity?.steps ?? []).map((step) => ({ gate: "ci_parity", name: step.name, exit_code: step.exitCode })),
                 ...(preCommit?.steps ?? []).map((step) => ({ gate: "pre_commit", name: step.name, exit_code: step.exitCode })),

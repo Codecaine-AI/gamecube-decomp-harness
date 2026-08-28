@@ -123,6 +123,27 @@ describe("runCiParityGate", () => {
     expect(calls.some((command) => command.includes("build-ci/test"))).toBe(true);
   });
 
+  test("records check_complete warnings without failing on its non-zero exit", async () => {
+    const worktreeDir = makeWorktree();
+    mkdirSync(resolve(worktreeDir, "build-ci/link/GALE01"), { recursive: true });
+    writeFileSync(resolve(worktreeDir, "build-ci/link/GALE01/report.json"), "{}\n");
+    const warning = "::warning::One or more units are complete but not linked!";
+    const runCommand: CiParityCommandRunner = async (_cwd, command) => {
+      if (command.at(-1) === "HEAD") return { exitCode: 0, stdout: "target-sha\n", stderr: "" };
+      if (commandKey(command).includes("check_complete.py")) {
+        return { exitCode: 1, stdout: `${warning}\n`, stderr: "check_complete diagnostic\n" };
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    };
+
+    const result = await runCiParityGate({ worktreeDir, sha: "target-sha", modes: ["link"], runCommand });
+
+    expect(result.status).toBe("clean");
+    expect(result.reasons).toEqual([warning]);
+    expect(result.warnings).toEqual([warning]);
+    expect(result.steps.at(-1)).toMatchObject({ name: "check_complete link", exitCode: 1 });
+  });
+
   test("reports actionable ninja diagnostics without MoltenVK noise", async () => {
     const worktreeDir = makeWorktree();
     const runCommand: CiParityCommandRunner = async (_cwd, command) => {

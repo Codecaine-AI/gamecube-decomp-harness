@@ -490,6 +490,7 @@ describe("runEpochBoundary", () => {
     const value = fixture([]);
     let publishCalls = 0;
     const order: string[] = [];
+    const warning = "::warning::One or more units are complete but not linked!";
     try {
       const input = params(value, {
         globals: { ...value.globals, dryRunAgents: false },
@@ -498,7 +499,7 @@ describe("runEpochBoundary", () => {
           runEpochCycle: (async () => completedBoundary(value)) as never,
           runCiParityGate: async () => {
             order.push("ci_parity");
-            return { status: "clean", modes: ["link", "test"], steps: [], reasons: [] };
+            return { status: "clean", modes: ["link", "test"], steps: [], reasons: [warning], warnings: [warning] };
           },
           runPreCommitGate: async () => {
             order.push("pre_commit");
@@ -521,6 +522,10 @@ describe("runEpochBoundary", () => {
       expect(outcome.ok).toBe(true);
       expect(publishCalls).toBe(1);
       expect(order).toEqual(["ci_parity", "pre_commit", "publish"]);
+      const event = value.store.db
+        .query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'ci_parity_gate'")
+        .get(value.runId) as { payload_json: string };
+      expect(JSON.parse(event.payload_json)).toMatchObject({ reasons: [warning], warnings: [warning] });
     } finally {
       value.store.db.close();
     }

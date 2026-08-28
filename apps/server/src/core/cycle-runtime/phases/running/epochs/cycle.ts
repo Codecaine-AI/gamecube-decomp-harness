@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync } from "node:fs";
 import { chmod, copyFile, mkdir, rm, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { closenessScore } from "../board/candidates.js";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 import { runQaScanDiff, type QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
@@ -40,7 +40,7 @@ import {
   type ConfirmationCandidate,
   type ConfirmationPassResult,
 } from "./confirmation-pass.js";
-import { completeUnitNames, linkCompleteUnitsInConfigure } from "./link-complete-units.js";
+import { completeUnitNames, linkCompleteUnitsFromReport, type LinkCompleteUnitsCheckResult } from "./link-complete-units.js";
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
@@ -62,8 +62,9 @@ export interface EpochCycleOptions {
   gameId?: string | null;
   /** Format the cycle worktree before its snapshot commit. Default on. */
   preCommitAutofixEnabled?: boolean;
-  /** Promote units complete in the last published report before snapshotting. Default on. */
+  /** Promote units complete in the last published report before snapshotting. Default off. */
   linkCompleteUnitsEnabled?: boolean;
+  runLinkCompleteUnitsCheck?: (input: { cwd: string; configureCommand: string; okTarget: string }) => Promise<LinkCompleteUnitsCheckResult>;
   runPreCommitAutofix?: (input: { worktreeDir: string; cacheDir: string }) => Promise<PreCommitAutofixResult>;
   /** One mechanical build-fixer attempt after the initial report build fails. Default on. */
   boundaryBuildFixerEnabled?: boolean;
@@ -349,6 +350,13 @@ async function runConfigure(worktreeDir: string, command: string): Promise<void>
     const output = stderr || stdout || "no output";
     throw new Error(`epoch configure failed (${exitCode}): ${output.slice(-2000)}`);
   }
+}
+
+async function runLinkCompleteUnitsCheck(input: { cwd: string; configureCommand: string; okTarget: string }): Promise<LinkCompleteUnitsCheckResult> {
+  const command = `${input.configureCommand} && ninja ${shellQuote(input.okTarget)}`;
+  const proc = Bun.spawn(["/bin/sh", "-c", command], { cwd: input.cwd, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
+  return { exitCode, output: [stdout.trim(), stderr.trim()].filter(Boolean).join("\n").slice(-4000) };
 }
 
 async function seedEpochWibo(worktreeDir: string, stateDir: string, toolPlatform: ToolPlatform): Promise<boolean> {
@@ -645,7 +653,7 @@ function epochProgress(
     label: string | null;
     message: string;
     phase: string;
-    status: "started" | "finished" | "skipped" | "warning" | "propagated" | "failed";
+    status: "started" | "finished" | "skipped" | "warning" | "propagated" | "failed" | "reverted";
   } & Record<string, unknown>,
 ): void {
   const { label, message, phase, status, ...extra } = params;
@@ -658,6 +666,69 @@ function epochProgress(
     ...extra,
     created_by: "epoch-cycle",
   });
+}
+
+export async function runLinkCompleteUnitsStep(input: {
+  store: StateStore;
+  runId: string;
+  repoRoot: string;
+  reportRelPath: string;
+  label: string | null;
+  enabled: boolean;
+  configureCommand: string;
+  runCheck?: (input: { cwd: string; configureCommand: string; okTarget: string }) => Promise<LinkCompleteUnitsCheckResult>;
+}): Promise<string[]> {
+  const publishedReportPath = resolve(input.repoRoot, input.reportRelPath);
+  const configurePath = resolve(input.repoRoot, "configure.py");
+  if (!input.enabled) {
+    const candidateUnits = existsSync(publishedReportPath)
+      ? completeUnitNames(JSON.parse(readFileSync(publishedReportPath, "utf8")) as unknown)
+      : [];
+    epochProgress(input.store, input.runId, {
+      label: input.label, phase: "link_complete_units", status: candidateUnits.length > 0 ? "warning" : "skipped",
+      message: candidateUnits.length > 0
+        ? `${candidateUnits.length} complete unit candidate(s) not linked; enable --link-complete-units to verify the final DOL`
+        : "complete-unit linking disabled",
+      complete_units: candidateUnits, flipped_units: [],
+    });
+    return candidateUnits;
+  }
+  if (!existsSync(publishedReportPath) || !existsSync(configurePath)) {
+    epochProgress(input.store, input.runId, {
+      label: input.label, phase: "link_complete_units", status: "skipped",
+      message: !existsSync(publishedReportPath) ? "no published report available" : "configure.py not found",
+      flipped_units: [],
+    });
+    return [];
+  }
+
+  const candidateUnits = completeUnitNames(JSON.parse(readFileSync(publishedReportPath, "utf8")) as unknown);
+  const okTarget = join(dirname(input.reportRelPath), "ok");
+  epochProgress(input.store, input.runId, {
+    label: input.label, phase: "link_complete_units", status: "started",
+    message: "linking units complete in the previous published report",
+    complete_units: candidateUnits, flipped_units: [],
+  });
+  const linked = await linkCompleteUnitsFromReport({
+    configurePath,
+    reportPath: publishedReportPath,
+    verify: () => (input.runCheck ?? runLinkCompleteUnitsCheck)({ cwd: input.repoRoot, configureCommand: input.configureCommand, okTarget }),
+  });
+  if (linked.status === "reverted") {
+    epochProgress(input.store, input.runId, {
+      label: input.label, phase: "link_complete_units", status: "reverted",
+      message: `final DOL check failed; restored configure.py: ${linked.check?.output || `ninja ${okTarget} exited ${linked.check?.exitCode}`}`.slice(0, 1000),
+      complete_units: linked.completeUnits, flipped_units: linked.flippedUnits,
+      failing_check: { target: okTarget, exit_code: linked.check?.exitCode, output: linked.check?.output },
+    });
+  } else {
+    epochProgress(input.store, input.runId, {
+      label: input.label, phase: "link_complete_units", status: "finished",
+      message: `linked ${linked.flippedUnits.length} complete unit(s) after the final DOL check passed`,
+      complete_units: linked.completeUnits, flipped_units: linked.flippedUnits, missing_units: linked.missingUnits,
+    });
+  }
+  return linked.completeUnits;
 }
 
 export async function propagateBoundaryBuildFixer(input: {
@@ -916,36 +987,12 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   if (!epochId) throw new Error("epochId is required for a recoverable epoch integration commit");
 
   const previousCompleteUnits = new Set<string>();
-  const publishedReportPath = resolve(repoRoot, reportRelPath);
-  const configurePath = resolve(repoRoot, "configure.py");
-  if (options.linkCompleteUnitsEnabled === false) {
-    epochProgress(store, runId, {
-      label, phase: "link_complete_units", status: "skipped",
-      message: "complete-unit linking disabled", flipped_units: [],
-    });
-  } else if (!existsSync(publishedReportPath) || !existsSync(configurePath)) {
-    epochProgress(store, runId, {
-      label, phase: "link_complete_units", status: "skipped",
-      message: !existsSync(publishedReportPath) ? "no published report available" : "configure.py not found",
-      flipped_units: [],
-    });
-  } else {
-    const priorReport = JSON.parse(readFileSync(publishedReportPath, "utf8")) as unknown;
-    const configure = readFileSync(configurePath, "utf8");
-    const linked = linkCompleteUnitsInConfigure(configure, completeUnitNames(priorReport));
-    for (const unit of linked.completeUnits) previousCompleteUnits.add(unit);
-    epochProgress(store, runId, {
-      label, phase: "link_complete_units", status: "started",
-      message: "linking units complete in the previous published report",
-      complete_units: linked.completeUnits, flipped_units: linked.flippedUnits,
-    });
-    if (linked.configure !== configure) await writeFile(configurePath, linked.configure);
-    epochProgress(store, runId, {
-      label, phase: "link_complete_units", status: "finished",
-      message: `linked ${linked.flippedUnits.length} complete unit(s) before snapshot`,
-      complete_units: linked.completeUnits, flipped_units: linked.flippedUnits, missing_units: linked.missingUnits,
-    });
-  }
+  for (const unit of await runLinkCompleteUnitsStep({
+    store, runId, repoRoot, reportRelPath, label,
+    enabled: options.linkCompleteUnitsEnabled === true,
+    configureCommand: options.configureCommand ?? "python3 configure.py --require-protos",
+    runCheck: options.runLinkCompleteUnitsCheck,
+  })) previousCompleteUnits.add(unit);
 
   await runPreCommitAutofixStep({
     store, runId, repoRoot, stateDir, label,
@@ -1114,7 +1161,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     matched_code_percent: matchedCodePercent,
     regressed_functions: regressionReport.brokenMatches.length + regressionReport.fuzzyRegressions.length,
   });
-  if (options.linkCompleteUnitsEnabled !== false) {
+  if (options.linkCompleteUnitsEnabled === true) {
     const freshReport = JSON.parse(await Bun.file(worktreeReportPath).text()) as unknown;
     const newlyCompleteUnits = completeUnitNames(freshReport).filter((unit) => !previousCompleteUnits.has(unit));
     if (newlyCompleteUnits.length > 0) {

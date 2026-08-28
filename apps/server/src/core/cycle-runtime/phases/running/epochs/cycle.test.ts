@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createRun } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/orchestrator-state";
 import { sectionMeasuresFromReportJson } from "@server/core/validation/objdiff/section-measures.js";
-import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, propagateBoundaryBuildFixer, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
+import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, propagateBoundaryBuildFixer, runLinkCompleteUnitsStep, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
 
 const cleanup: string[] = [];
 
@@ -144,6 +144,61 @@ describe("precommit_autofix epoch step", () => {
       const rows = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress' ORDER BY created_at, id").all(value.runId) as Array<{ payload_json: string }>;
       expect(rows.map((row) => JSON.parse(row.payload_json))).toContainEqual(expect.objectContaining({ phase: "precommit_autofix", status: "skipped", message: "pre-commit is unavailable" }));
     } finally { console.error = errorLog; value.store.db.close(); }
+  });
+});
+
+describe("link_complete_units epoch step", () => {
+  function setup(): { repoRoot: string; store: ReturnType<typeof openState>; runId: string; configurePath: string } {
+    const root = mkdtempSync(join(tmpdir(), "epoch-link-complete-"));
+    cleanup.push(root);
+    const repoRoot = join(root, "repo");
+    const stateDir = join(root, "state");
+    mkdirSync(join(repoRoot, "build", "GALE01"), { recursive: true });
+    const configurePath = join(repoRoot, "configure.py");
+    writeFileSync(configurePath, 'Object(Linkable, "melee/gm/gmresult.c")\n');
+    writeFileSync(join(repoRoot, "build", "GALE01", "report.json"), JSON.stringify({ units: [
+      { name: "main/melee/gm/gmresult", matched_code_percent: 100, matched_data_percent: 100, fuzzy_match_percent: 100 },
+    ] }));
+    const store = openState(stateDir);
+    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: "base-test" });
+    return { repoRoot, store, runId: run.id, configurePath };
+  }
+
+  test("failed final-DOL check restores configure, records evidence, and continues", async () => {
+    const value = setup();
+    try {
+      let continued = false;
+      await runLinkCompleteUnitsStep({
+        store: value.store, runId: value.runId, repoRoot: value.repoRoot,
+        reportRelPath: "build/GALE01/report.json", label: "epoch-1", enabled: true,
+        configureCommand: "python3 configure.py --require-protos",
+        runCheck: async () => ({ exitCode: 1, output: "build/GALE01/ok sha1 check FAILED" }),
+      });
+      continued = true;
+
+      expect(continued).toBeTrue();
+      expect(readFileSync(value.configurePath, "utf8")).toBe('Object(Linkable, "melee/gm/gmresult.c")\n');
+      const rows = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress' ORDER BY created_at, id").all(value.runId) as Array<{ payload_json: string }>;
+      const reverted = rows.map((row) => JSON.parse(row.payload_json)).find((payload) => payload.phase === "link_complete_units" && payload.status === "reverted");
+      expect(reverted).toMatchObject({
+        complete_units: ["melee/gm/gmresult"],
+        flipped_units: ["melee/gm/gmresult"],
+        failing_check: { target: join("build", "GALE01", "ok"), exit_code: 1, output: "build/GALE01/ok sha1 check FAILED" },
+      });
+    } finally { value.store.db.close(); }
+  });
+
+  test("passing final-DOL check keeps the flip", async () => {
+    const value = setup();
+    try {
+      await runLinkCompleteUnitsStep({
+        store: value.store, runId: value.runId, repoRoot: value.repoRoot,
+        reportRelPath: "build/GALE01/report.json", label: "epoch-1", enabled: true,
+        configureCommand: "python3 configure.py --require-protos",
+        runCheck: async () => ({ exitCode: 0, output: "build/GALE01/ok" }),
+      });
+      expect(readFileSync(value.configurePath, "utf8")).toContain("Object(Matching");
+    } finally { value.store.db.close(); }
   });
 });
 

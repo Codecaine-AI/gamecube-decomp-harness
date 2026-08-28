@@ -6,6 +6,16 @@ export interface LinkCompleteUnitsResult {
   missingUnits: string[];
 }
 
+export interface LinkCompleteUnitsCheckResult {
+  exitCode: number;
+  output: string;
+}
+
+export interface VerifiedLinkCompleteUnitsResult extends LinkCompleteUnitsResult {
+  check: LinkCompleteUnitsCheckResult | null;
+  status: "kept" | "reverted" | "unchanged";
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -68,12 +78,24 @@ export function linkCompleteUnitsInConfigure(configure: string, completeUnits: s
 export async function linkCompleteUnitsFromReport(input: {
   configurePath: string;
   reportPath: string;
-}): Promise<LinkCompleteUnitsResult> {
+  verify?: () => Promise<LinkCompleteUnitsCheckResult>;
+}): Promise<VerifiedLinkCompleteUnitsResult> {
   const [configure, reportText] = await Promise.all([
     readFile(input.configurePath, "utf8"),
     readFile(input.reportPath, "utf8"),
   ]);
   const result = linkCompleteUnitsInConfigure(configure, completeUnitNames(JSON.parse(reportText)));
-  if (result.configure !== configure) await writeFile(input.configurePath, result.configure);
-  return result;
+  if (result.configure === configure) return { ...result, check: null, status: "unchanged" };
+  await writeFile(input.configurePath, result.configure);
+  if (!input.verify) return { ...result, check: null, status: "kept" };
+  let check: LinkCompleteUnitsCheckResult;
+  try {
+    check = await input.verify();
+  } catch (error) {
+    await writeFile(input.configurePath, configure);
+    throw error;
+  }
+  if (check.exitCode === 0) return { ...result, check, status: "kept" };
+  await writeFile(input.configurePath, configure);
+  return { ...result, check, status: "reverted" };
 }

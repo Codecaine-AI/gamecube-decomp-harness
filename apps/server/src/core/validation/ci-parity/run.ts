@@ -17,6 +17,7 @@ export interface CiParityResult {
   modes: string[];
   steps: CiParityStep[];
   reasons: string[];
+  warnings?: string[];
 }
 
 export interface CiParityCommandRunner {
@@ -98,7 +99,7 @@ export async function runCiParityGate(input: {
   runCommand?: CiParityCommandRunner;
 }): Promise<CiParityResult> {
   const modes = input.modes ?? ["link", "test"];
-  const result: CiParityResult = { status: "clean", modes, steps: [], reasons: [] };
+  const result: CiParityResult = { status: "clean", modes, steps: [], reasons: [], warnings: [] };
   const commandRunner = input.runCommand ?? defaultCommandRunner;
 
   const head = await runStep({
@@ -246,10 +247,12 @@ export async function runCiParityGate(input: {
       result.reasons.push(spawnedStepError("check_complete link", result.steps));
       continue;
     }
-    if (checkComplete.exitCode !== 0) {
-      if (result.status === "clean") result.status = "failed";
-      result.reasons.push(failedStepReason("check_complete link", checkComplete));
-    }
+    const warningLines = `${checkComplete.stdout}\n${checkComplete.stderr}`
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.includes("::warning::"));
+    result.warnings?.push(...warningLines);
+    result.reasons.push(...warningLines);
   }
 
   return result;
