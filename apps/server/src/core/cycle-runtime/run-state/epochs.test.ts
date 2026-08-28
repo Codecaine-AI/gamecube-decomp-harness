@@ -16,6 +16,7 @@ import {
   recordWorkerCheckpoint as recordWorkerCheckpointRaw,
   refreshEpochTargetAvailability,
   refreshEpochTargetPriorities,
+  reconcileEpochTargetJobs,
   requeueEpochTarget,
   schedulerEpochProgress,
   selectEpochAdmissionCandidates,
@@ -262,6 +263,32 @@ describe("scheduler epoch and worker state lifecycle", () => {
       });
       expect(duplicate).toMatchObject({ admitted: 0, skippedExisting: 2 });
       expect(count(store, "SELECT COUNT(*) AS count FROM jobs WHERE kind = 'worker'")).toBe(2);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("re-enqueues orphaned admitted targets without duplicating covered targets", () => {
+    const { store } = tempState();
+    try {
+      const { epoch } = setupEpoch(store, [candidate(1, "src/a.c"), candidate(2, "src/b.c")], 2);
+      const targets = store.db
+        .query("SELECT id FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index")
+        .all(epoch.id) as Array<{ id: string }>;
+      const orphanJob = getJobByDedupeKey(store, "worker", targets[0]!.id)!;
+      store.db.query("DELETE FROM jobs WHERE job_id = ?").run(orphanJob.jobId);
+
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toEqual({ epochId: epoch.id, requeued: 1 });
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toEqual({ epochId: epoch.id, requeued: 0 });
+      const jobs = store.db
+        .query(`SELECT dedupe_key, status, json_extract(payload_json, '$.epoch_target_id') AS epoch_target_id
+                FROM jobs WHERE kind = 'worker' ORDER BY created_at, job_id`)
+        .all() as Array<{ dedupe_key: string; status: string; epoch_target_id: string }>;
+      expect(jobs).toHaveLength(2);
+      expect(jobs.filter((job) => job.epoch_target_id === targets[0]!.id)).toHaveLength(1);
+      expect(jobs.find((job) => job.epoch_target_id === targets[0]!.id)).toMatchObject({ status: "queued" });
+      expect(jobs.find((job) => job.epoch_target_id === targets[0]!.id)!.dedupe_key).toStartWith(`${targets[0]!.id}:reenqueue:`);
+      expect(jobs.filter((job) => job.epoch_target_id === targets[1]!.id)).toHaveLength(1);
     } finally {
       store.db.close();
     }

@@ -8,7 +8,7 @@ import { initializeHarnessState, requestDispatch } from "@server/core/harness-st
 import { addEvent, createRun, openState, updateRunStatus, type StateStore } from "@server/core/cycle-runtime/run-state";
 import { openKnowledgeGraph } from "@server/core/knowledge/graph";
 import { writeReportProvenance } from "@server/core/knowledge/graph/storage/metadata.js";
-import { ensureSchedulerEpochFromBoard, runSchedulerTick } from "./tick.js";
+import { ensureSchedulerEpochFromBoard, reconcileOrphanedEpochTargets, runSchedulerTick } from "./tick.js";
 
 const tempDirs: string[] = [];
 
@@ -146,6 +146,32 @@ describe("runSchedulerTick", () => {
     expect(result.admission).toMatchObject({ candidateCount: 1, admitted: 1 });
     expect(result.progress.admitted).toBe(1);
     value.store.db.close();
+  });
+
+  test("re-enqueues an orphaned admitted target during an idle epoch pass", () => {
+    const value = admissionFixture();
+    writeProvenance(value.graphDbPath, value.reportPath);
+    const epochResult = ensureSchedulerEpochFromBoard({
+      config: { workerPoolSize: 1 },
+      globals: globalsFor(value.dir),
+      graphDbPath: value.graphDbPath,
+      runId: value.run.id,
+      store: value.store,
+    });
+    value.store.db.query("DELETE FROM jobs WHERE kind = 'worker'").run();
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(reconcileOrphanedEpochTargets(value.store, epochResult.epoch, epochResult.progress)).toBe(1);
+      expect(reconcileOrphanedEpochTargets(value.store, epochResult.epoch, epochResult.progress)).toBe(0);
+      expect(value.store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE kind = 'worker' AND status = 'queued'").get()).toEqual({ count: 1 });
+      expect(errorLog).toHaveBeenCalledTimes(1);
+      expect(errorLog).toHaveBeenCalledWith(
+        `[run-loop] epoch ${epochResult.progress.ordinal}: re-enqueued 1 orphaned admitted target(s)`,
+      );
+    } finally {
+      errorLog.mockRestore();
+      value.store.db.close();
+    }
   });
 
   test("admits matching report content from a different provenance path", () => {

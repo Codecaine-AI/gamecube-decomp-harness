@@ -149,6 +149,37 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
+  test("re-enqueues a job's own target when its claim resolves to another target", () => {
+    const f = fixture();
+    try {
+      admitEpochTargets(f.store, {
+        epochId: String((f.store.db.query("SELECT epoch_id FROM epoch_targets WHERE id = ?").get(f.epochTargetId) as { epoch_id: string }).epoch_id),
+        runId: f.run.id,
+        candidates: [{ unit: "unit-2", symbol: "fn-2", sourcePath: "src/b.c", size: 64, fuzzy: 80, priority: 20, reason: "test mismatch" }],
+        workerPoolSize: 2,
+      });
+      const otherTarget = f.store.db
+        .query("SELECT id FROM epoch_targets WHERE id != ?")
+        .get(f.epochTargetId) as { id: string };
+      f.store.db.query("UPDATE jobs SET priority = 100 WHERE kind = 'worker' AND dedupe_key = ?").run(f.epochTargetId);
+
+      const result = claim(f);
+
+      expect(result.job.payload.epoch_target_id).toBe(f.epochTargetId);
+      expect(result.job.payload.claimed_epoch_target_id).toBe(otherTarget.id);
+      const ownJobs = f.store.db
+        .query(`SELECT dedupe_key, status, execution_class
+                FROM jobs
+                WHERE kind = 'worker' AND json_extract(payload_json, '$.epoch_target_id') = ?
+                ORDER BY created_at, job_id`)
+        .all(f.epochTargetId) as Array<{ dedupe_key: string; status: string; execution_class: string }>;
+      expect(ownJobs).toHaveLength(2);
+      expect(ownJobs).toContainEqual({ dedupe_key: f.epochTargetId, status: "claimed", execution_class: "sandbox" });
+      expect(ownJobs.find((job) => job.status === "queued")?.dedupe_key).toStartWith(`${f.epochTargetId}:reenqueue:`);
+      expect(f.store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(f.epochTargetId)).toEqual({ status: "admitted" });
+    } finally { f.store.db.close(); }
+  });
+
   test("rolls back the queue claim and its event when no target is claimable", () => {
     const f = fixture();
     try {

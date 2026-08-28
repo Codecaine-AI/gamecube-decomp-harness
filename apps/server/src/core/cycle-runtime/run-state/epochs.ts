@@ -89,6 +89,11 @@ export interface RequeueEpochTargetResult {
   targetKey: string;
 }
 
+export interface ReconcileEpochTargetJobsResult {
+  epochId: string;
+  requeued: number;
+}
+
 export interface EpochProgressSummary {
   epochId: string;
   ordinal: number;
@@ -446,6 +451,57 @@ export function admitEpochTargets(
       skippedExisting: selected.skippedExisting,
       skippedMissingSource: selected.skippedMissingSource,
     };
+  });
+}
+
+/** Enqueues worker jobs for admitted targets that no active job can claim or is working. */
+export function reconcileEpochTargetJobs(
+  store: StateStore,
+  params: { epochId: string; epochTargetId?: string },
+): ReconcileEpochTargetJobsResult {
+  return immediateTransaction(store.db, () => {
+    const rows = store.db
+      .query(
+        `SELECT epoch_targets.id, epoch_targets.epoch_id, epoch_targets.run_id,
+                epoch_targets.target_key, epoch_targets.priority,
+                COALESCE(runs.game_id, 'melee') AS game_id, runs.trace_id
+         FROM epoch_targets
+         JOIN runs ON runs.id = epoch_targets.run_id
+         WHERE epoch_targets.epoch_id = ?
+           AND epoch_targets.status = 'admitted'
+           AND (? IS NULL OR epoch_targets.id = ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM jobs
+             WHERE jobs.kind = 'worker'
+               AND jobs.run_id = epoch_targets.run_id
+               AND (
+                 (jobs.status IN ('queued', 'waiting')
+                   AND json_extract(jobs.payload_json, '$.epoch_target_id') = epoch_targets.id)
+                 OR
+                 (jobs.status IN ('claimed', 'running')
+                   AND json_extract(jobs.payload_json, '$.claimed_epoch_target_id') = epoch_targets.id)
+               )
+           )`,
+      )
+      .all(params.epochId, params.epochTargetId ?? null, params.epochTargetId ?? null) as Array<Record<string, unknown>>;
+    for (const row of rows) {
+      const epochTargetId = String(row.id);
+      enqueueJob(store, {
+        kind: "worker",
+        dedupeKey: `${epochTargetId}:reenqueue:${randomUUID()}`,
+        gameId: String(row.game_id),
+        runId: String(row.run_id),
+        priority: Number(row.priority),
+        payload: {
+          epoch_target_id: epochTargetId,
+          epoch_id: String(row.epoch_id),
+          target_key: String(row.target_key),
+        },
+        traceId: row.trace_id == null ? undefined : String(row.trace_id),
+        executionClass: "sandbox",
+      });
+    }
+    return { epochId: params.epochId, requeued: rows.length };
   });
 }
 

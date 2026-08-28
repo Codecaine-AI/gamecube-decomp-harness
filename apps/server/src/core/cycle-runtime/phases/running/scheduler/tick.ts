@@ -13,6 +13,7 @@ import {
   admitEpochTargets,
   refreshEpochTargetPriorities,
   refreshEpochTargetAvailability,
+  reconcileEpochTargetJobs,
   schedulerEpochProgress,
   setRunSchedulerCondition,
   startSchedulerEpoch,
@@ -59,6 +60,20 @@ export interface SchedulerEpochEnsureResult {
   availabilityRefresh: EpochAvailabilityRefreshResult;
   priorityRefreshes: number;
   progress: EpochProgressSummary;
+}
+
+export function reconcileOrphanedEpochTargets(
+  store: StateStore,
+  epoch: Pick<SchedulerEpochRecord, "id">,
+  progress: Pick<EpochProgressSummary, "ordinal">,
+): number {
+  const result = reconcileEpochTargetJobs(store, { epochId: epoch.id });
+  if (result.requeued > 0) {
+    console.error(
+      `[run-loop] epoch ${progress.ordinal}: re-enqueued ${result.requeued} orphaned admitted target(s)`,
+    );
+  }
+  return result.requeued;
 }
 
 function nonNegativeInt(value: number): number {

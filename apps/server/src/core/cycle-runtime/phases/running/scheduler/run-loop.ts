@@ -36,6 +36,7 @@ import { assertSchedulableRun } from "@server/core/cycle-runtime/phases/running/
 import { settleRunOnExit } from "@server/core/cycle-runtime/phases/running/jobs/settle-supervised-run.js";
 import {
   ensureSchedulerEpochFromBoard,
+  reconcileOrphanedEpochTargets,
   runSchedulerTick,
   schedulerEpochConfigFromArgs,
   type SchedulerTickResult,
@@ -902,6 +903,10 @@ export async function runRunLoop(
               runId,
               store,
             });
+            const orphanRepairCount = reconcileOrphanedEpochTargets(store, epochResult.epoch, epochResult.progress);
+            if (orphanRepairCount > 0) {
+              didWork = true;
+            }
             lastSchedulerEpoch = epochResult.progress;
             epochAvailabilityRefreshes += 1;
             const admittedNow = epochResult.admission?.admitted ?? 0;
