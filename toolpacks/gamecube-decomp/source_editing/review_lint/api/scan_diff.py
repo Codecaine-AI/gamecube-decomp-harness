@@ -60,6 +60,11 @@ MOVED_LINE_DOWNGRADE_RULES = {
     "type_erasing_cast",
 }
 
+# games/<id>/game.json may set validation.addressNamedStaticDataAllowlist to
+# exact symbol names or {"symbol": name, "file": repo_relative_path,
+# "reason": text} entries. Omitting file applies the exception in every file.
+# The resolver normalizes symbol strings to objects before invoking this tool.
+
 
 def run_git(repo: Path, args: list[str]) -> str:
     """Run a read-only git command in the target repo and return stdout."""
@@ -323,7 +328,11 @@ def downgrade_moved_line_findings(
         detail = dict(finding.get("detail") or {})
         detail["moved_vs_invented"] = "added_line_existed_verbatim_in_base"
         downgraded = dict(finding)
-        downgraded["severity"] = "warning"
+        if finding.get("rule_id") == "address_named_static_data":
+            downgraded["severity"] = "info"
+            downgraded["disposition"] = "informational"
+        else:
+            downgraded["severity"] = "warning"
         downgraded["detail"] = detail
         downgraded["message"] = (
             finding["message"]
@@ -334,12 +343,50 @@ def downgrade_moved_line_findings(
     return result
 
 
+def suppress_address_named_static_data(
+    findings: list[dict[str, Any]], allowlist: list[dict[str, str]]
+) -> list[dict[str, Any]]:
+    """Mark matching configured exceptions as suppressed informational notes."""
+
+    result: list[dict[str, Any]] = []
+    for finding in findings:
+        if finding.get("rule_id") != "address_named_static_data":
+            result.append(finding)
+            continue
+        symbol = (finding.get("detail") or {}).get("symbol")
+        match = next(
+            (
+                entry
+                for entry in allowlist
+                if entry.get("symbol") == symbol
+                and (not entry.get("file") or entry["file"] == finding.get("file"))
+            ),
+            None,
+        )
+        if match is None:
+            result.append(finding)
+            continue
+        detail = dict(finding.get("detail") or {})
+        detail["suppression"] = {
+            "source": "game_config",
+            **({"reason": match["reason"]} if match.get("reason") else {}),
+        }
+        suppressed = dict(finding)
+        suppressed["severity"] = "info"
+        suppressed["disposition"] = "suppressed"
+        suppressed["detail"] = detail
+        suppressed["message"] = finding["message"] + " Suppressed by the game QA allowlist."
+        result.append(suppressed)
+    return result
+
+
 def collect_findings(
     file_diffs: list[dict[str, Any]],
     repo: Path,
     mode: str,
     merge_base: str | None = None,
     surface: str | None = None,
+    address_named_static_data_allowlist: list[dict[str, str]] | None = None,
 ) -> list[dict[str, Any]]:
     """Run all rules (built-ins, banned patterns, tombstones) over the diff."""
 
@@ -378,6 +425,9 @@ def collect_findings(
     for hook in _qa_rules.post_scan_hooks():
         findings = hook(findings, repo, mode, file_diffs, merge_base)
     findings = downgrade_moved_line_findings(findings, repo, mode, file_diffs, merge_base)
+    findings = suppress_address_named_static_data(
+        findings, address_named_static_data_allowlist or []
+    )
     findings.sort(key=lambda f: (f["file"], f["line"], f["rule_id"]))
     return findings
 
@@ -385,6 +435,11 @@ def collect_findings(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True, help="Melee repo root.")
+    parser.add_argument(
+        "--address-named-static-data-allowlist",
+        default="[]",
+        help="JSON array of normalized game-config exceptions.",
+    )
     parser.add_argument(
         "--base",
         default=None,
@@ -424,6 +479,15 @@ def main() -> int:
         "--json", action="store_true", help="Accepted for symmetry; JSON is always emitted."
     )
     args = parser.parse_args()
+
+    try:
+        address_named_static_data_allowlist = json.loads(
+            args.address_named_static_data_allowlist
+        )
+        if not isinstance(address_named_static_data_allowlist, list):
+            raise ValueError("expected an array")
+    except (json.JSONDecodeError, ValueError) as error:
+        parser.error(f"invalid --address-named-static-data-allowlist: {error}")
 
     if args.diff_file and args.base:
         parser.error("--diff-file and --base are mutually exclusive")
@@ -469,7 +533,14 @@ def main() -> int:
             if record["file"] in wanted
             or any(record["file"].startswith(p.rstrip("/") + "/") for p in wanted)
         ]
-    findings = collect_findings(file_diffs, repo, mode, merge_base, surface=args.surface)
+    findings = collect_findings(
+        file_diffs,
+        repo,
+        mode,
+        merge_base,
+        surface=args.surface,
+        address_named_static_data_allowlist=address_named_static_data_allowlist,
+    )
 
     errors = sum(1 for f in findings if f["severity"] == "error")
     warnings = sum(1 for f in findings if f["severity"] == "warning")
