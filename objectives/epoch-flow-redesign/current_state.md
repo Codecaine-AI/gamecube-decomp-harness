@@ -2,6 +2,43 @@
 <last_updated>2026-08-27</last_updated>
 
 <status>
+- SESSION 01:15–08:35Z (2026-08-28): epoch 6 at xhigh, tail livelock, semantic-merge repairs, PR refreshed, epoch 7 admitted, fixes 15–16
+  XHIGH RESTART (Ford, 01:19Z): scheduler stopped; 32 in-flight attempts released to queue.
+  runs.inputs_json.configuration_snapshot.thinking_level changed low→xhigh; resumed on lease-072e70a2.
+  Runtime: gpt-5.6-sol @ xhigh, 32 workers; worker-task argv verified.
+  Stop left the lease held (intermittent graceful-stop gap); cleared via backdated-heartbeat recover.
+  Epoch 6 ran 78→157/165 at ~1/min; xhigh attempts routinely hit the 60-min agent timeout.
+  TAIL LIVELOCK (03:30–07:40Z): epoch stuck at 153/165.
+  Three admitted targets had NO job: each worker job's claim resolved to a DIFFERENT target and succeeded there (job dedupe target ≠ claimed target).
+  One more target had no job at all; 8–9 others cycled 60-min xhigh attempts indefinitely.
+  worker_state rows update in place per attempt; attempt history is in jobs.attempts, not worker_state count.
+  Operator force-finished the 3 orphans at 06:4xZ and, after ≥2 xhigh rounds each, the last 8 at 07:41Z per Ford's epoch-5 precedent.
+  All force-finished targets re-admit from the next board.
+  FIX 15 (pushed f3a819f3): a job claiming another target re-enqueues its own; tick reconciles orphaned admitted targets.
+  Log: '[run-loop] epoch N: re-enqueued K orphaned admitted target(s)'.
+  EPOCH-6 BOUNDARY (07:41–08:33Z, 4 passes): pass 1 drain blocked by one resolver_failed integration.
+  mnnamenew::NameContainsOnlySpaces checkpoint came from a timed-out worker whose patch no longer applied; operator rejected it (integration_outcomes status rejected).
+  Pass 2: precommit_autofix (fix 12) reformatted 24 files before snapshot b0ef9ca3b1; report 91.82943%.
+  Sync merged upstream a3907e5ddd (#3237 'Match NameContainsOnlySpaces', #3236 scene cleanup) as c31d31d186.
+  Post-merge report build failed at mnnamenew.c:783: 'null_char' redefined; our worker's leftover line remained inside upstream's now-matched function.
+  Run-loop logged MoltenVK stderr noise; host-side ninja exposed the real error.
+  Repair (codex): delete one line; snapshot cd00518d82.
+  Pass 3 gates found two more issues: breakage gate NameContainsOnlySpaces 100→88.5% vs upstream CI.
+  Cause: worker made mnNameNew_NullCharacter `volatile`, changing codegen for every reader in the TU.
+  CI-parity check_complete: 'melee/gr/grmaterial complete but not linked'; workers completed the unit while configure.py remained Linkable.
+  Repairs (codex): revert volatile; grmaterial Linkable→Matching.
+  Host-side build green: NameContainsOnlySpaces 100.0, mnNameNew_MainInput 92.80, report 91.83613; snapshot c3f88bacec.
+  Pass 4: breakage gate clean; CI-parity clean; DRAFT PR #3223 UPDATED to c3f88bacec at 08:29Z, MERGEABLE.
+  Epoch 6 closed completed/success; EPOCH 7 ADMITTED 157 targets at 08:33Z with fixes 1–16 live on lease-81f86f01.
+  QA error remains mnInfo_803EFC08; allowlist pending Ford.
+  Timed boundary retries did NOT fire while scheduler idled (epochPaused gate); retries in this stretch were relaunched by stop/resume.
+  Regression latch was cleared by flipping epoch 6 to status error.
+  FIX 16 (pushed c7ac1ccc): retries evaluated every iteration; resting wait wakes at the retry deadline.
+  LESSONS: worker-added `volatile`/storage-class changes on shared globals break upstream-matched neighbours.
+  Candidate banned_idioms shape: qualifier added to a global referenced by matched functions.
+  Candidate fixes: auto-flip 'complete but not linked' at boundary; capture compiler error instead of generate-report stderr tail.
+  Graceful stop still sometimes leaves the lease held.
+  HARNESS MAIN: 84a2d927 → … → 88305e90 (fix 14) → 24270db8 (state) → f3a819f3 (fix 15) → c7ac1ccc (fix 16). Cycle branch head c3f88bacec.
 - SESSION 00:10–00:55Z (2026-08-28): PR #3223 pushed green, epoch 6 admitted, fixes 12–14
   PUSHED (Ford approved): harness main 84a2d927 → 717a0c33 (fixes 1–11 + state log) → 3d3e8400 (fix-7 scan_diff.py) → c924edc1 (fix 12) → 0c29e415 (fix 13) → 88305e90 (fix 14).
   Cycle branch orchestrator/cycle/02a80f9b…: boundary snapshot 16e7d88cb8 (7-file clang-format whitespace fix) + operator commit 5cc6faecf3 (clang-tidy strict prototype: tyDisplay_SetupCameraAndBackground(void)).
