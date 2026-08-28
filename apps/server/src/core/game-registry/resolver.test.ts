@@ -51,6 +51,74 @@ describe("game registry layout resolution", () => {
     expect(game.validation.workerSectionParityGate).toBe(true);
     expect(game.validation.workerUndefinedSymbolGate).toBe(true);
     expect(game.validation.workerBannedIdiomGate).toBe(true);
+    expect(game.validation.epochAdmissionFreshReportGate).toBe(true);
+    expect(game.validation.epochAdmissionCandidateMultiple).toBe(4);
+    expect(game.validation.epochAdmissionCandidateCap).toBe(500);
+    expect(game.validation.epochBoundaryRetryEnabled).toBe(true);
+    expect(game.validation.epochBoundaryRetryMaxAttempts).toBe(5);
+    expect(game.validation.epochBoundaryRetryBaseMs).toBe(120_000);
+    expect(game.validation.epochBoundaryRetryMaxMs).toBe(1_800_000);
+    expect(game.validation.addressNamedStaticDataAllowlist).toEqual([]);
+  });
+
+  test("validates and normalizes address-named static data exceptions", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-qa-allowlist-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      validation: {
+        addressNamedStaticDataAllowlist: [
+          "lbl_8046E1B0",
+          { file: "src/melee/gm/gmresultplayer.c", symbol: "lbl_8046E1B4", reason: "intentional overlay" },
+        ],
+      },
+    });
+
+    expect(resolveGame({ orchestratorRoot: root, gameId: "melee" }).validation.addressNamedStaticDataAllowlist).toEqual([
+      { symbol: "lbl_8046E1B0" },
+      { file: "src/melee/gm/gmresultplayer.c", symbol: "lbl_8046E1B4", reason: "intentional overlay" },
+    ]);
+  });
+
+  test("rejects malformed address-named static data exceptions", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-bad-qa-allowlist-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      validation: { addressNamedStaticDataAllowlist: [{ file: "src/x.c" }] },
+    });
+
+    expect(() => resolveGame({ orchestratorRoot: root, gameId: "melee" })).toThrow(".symbol must be a non-empty string");
+  });
+
+  test("allows overriding epoch admission gates", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-epoch-admission-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      validation: {
+        epochAdmissionFreshReportGate: false,
+        epochAdmissionCandidateMultiple: 3,
+        epochAdmissionCandidateCap: 250,
+        epochBoundaryRetryEnabled: false,
+        epochBoundaryRetryMaxAttempts: 3,
+        epochBoundaryRetryBaseMs: 10_000,
+        epochBoundaryRetryMaxMs: 60_000,
+      },
+    });
+
+    const game = resolveGame({ orchestratorRoot: root, gameId: "melee" });
+
+    expect(game.validation.epochAdmissionFreshReportGate).toBe(false);
+    expect(game.validation.epochAdmissionCandidateMultiple).toBe(3);
+    expect(game.validation.epochAdmissionCandidateCap).toBe(250);
+    expect(game.validation.epochBoundaryRetryEnabled).toBe(false);
+    expect(game.validation.epochBoundaryRetryMaxAttempts).toBe(3);
+    expect(game.validation.epochBoundaryRetryBaseMs).toBe(10_000);
+    expect(game.validation.epochBoundaryRetryMaxMs).toBe(60_000);
   });
 
   test("allows disabling only the worker banned-idiom gate", () => {

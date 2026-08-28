@@ -34,7 +34,7 @@ export interface SandboxHandle {
   writeFile(remotePath: string, content: string): Promise<void>;
 }
 
-export type SandboxDeleteReason = "settlement" | "reap" | "reconciliation" | "provision_failure";
+export type SandboxDeleteReason = "settlement" | "reap" | "reconciliation" | "provision_failure" | "retry_reprovision";
 
 export interface SandboxProvider {
   create(params: SandboxCreateParams): Promise<SandboxHandle>;

@@ -1351,13 +1351,47 @@ export async function validateWorkerChange(params: {
     baselineUndefined: params.baseline.undefinedSymbols ?? null,
     workspaceExec: params.workspaceExec,
   });
+  const bannedIdiomContext = flags.bannedIdioms
+    ? await loadBannedIdiomContext(params.postAttemptDiffText ?? "", params.baseline, params.workspaceExec)
+    : {};
   const bannedIdioms: WorkerMicroGateResult = flags.bannedIdioms
-    ? lintBannedIdioms(params.postAttemptDiffText ?? "")
+    ? lintBannedIdioms(params.postAttemptDiffText ?? "", bannedIdiomContext)
     : { gate: "banned_idioms", status: "skipped", reasons: ["banned idiom gate disabled by game validation config"] };
   const microGates = summarizeMicroGates([sectionParity, undefinedSymbolGate, bannedIdioms]);
   const validation = applyMicroGatesToValidation(withQaLint, microGates);
   await writeFile(summaryPath, JSON.stringify(validation, null, 2));
   return validation;
+}
+
+async function loadBannedIdiomContext(
+  diffText: string,
+  baseline: WorkerChangeBaseline,
+  workspaceExec: WorkspaceExec,
+): Promise<{ symbolsTxt?: string; baselineSources: Map<string, string> }> {
+  const baselineSources = new Map<string, string>();
+  if (!diffText.split(/\r?\n/).some((line) => /^\+\s*static\b/.test(line))) return { baselineSources };
+  const changedPaths = new Set(
+    [...diffText.matchAll(/^diff --git a\/.+? b\/(.+)$/gm)]
+      .map((match) => match[1]!)
+      .filter((path) => /\.(?:c|h)$/i.test(path)),
+  );
+  if (baseline.sourceSnapshotDir) {
+    const snapshotted = new Set(baseline.sourceSnapshotPaths ?? []);
+    await Promise.all([...changedPaths].map(async (path) => {
+      if (!snapshotted.has(path)) return;
+      try {
+        baselineSources.set(path, await readFile(resolve(baseline.sourceSnapshotDir!, path), "utf8"));
+      } catch {
+        // Removed diff lines still provide a baseline signal when a snapshot is unavailable.
+      }
+    }));
+  }
+  try {
+    const result = await workspaceExec.exec(["cat", "config/GALE01/symbols.txt"]);
+    return { symbolsTxt: result.exitCode === 0 ? result.stdout : undefined, baselineSources };
+  } catch {
+    return { baselineSources };
+  }
 }
 
 async function validateWorkerScoreChange(

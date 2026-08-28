@@ -8,6 +8,7 @@ export interface RunsApiRouteDeps {
   cancelRun: (body: JsonObject) => unknown;
   completeRun: (body: JsonObject) => Promise<unknown>;
   freshRun: (body: JsonObject) => Promise<unknown>;
+  forceReleaseLease: (body: JsonObject) => Promise<unknown> | unknown;
   hardStopRun: (body: JsonObject) => Promise<unknown>;
   initRun: (body: JsonObject) => Promise<unknown>;
   json: JsonResponder;
@@ -61,6 +62,20 @@ export async function handleRunsApiRoute(req: Request, url: URL, deps: RunsApiRo
   if (url.pathname === "/api/run/complete") return deps.json(await deps.completeRun(await requestBody(req)));
   if (url.pathname === "/api/run/init") return deps.json(await deps.initRun(await requestBody(req)));
   if (url.pathname === "/api/run/fresh") return deps.json(await deps.freshRun(await requestBody(req)));
+  if (url.pathname === "/api/run/force-release-lease") {
+    const body = await requestBody(req);
+    if (typeof body.gameId !== "string" || !body.gameId.trim()) {
+      return deps.json({ error: "run.force_release_lease requires gameId" }, { status: 400 });
+    }
+    if (body.confirmed !== true) {
+      return deps.json({ error: "run.force_release_lease requires operator confirmation" }, { status: 409 });
+    }
+    try {
+      return deps.json(await deps.forceReleaseLease(body));
+    } catch (error) {
+      return deps.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
+    }
+  }
   if (url.pathname === "/api/run/resume") {
     const body = await requestBody(req);
     return runCommand(deps, body, "run.resume", deps.resumeRun);

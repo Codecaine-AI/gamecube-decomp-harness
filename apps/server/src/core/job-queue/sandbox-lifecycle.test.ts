@@ -164,6 +164,21 @@ describe("sandbox reconciliation", () => {
     expect(deletedEvents(f.store)).toEqual([]);
   });
 
+  test("deletes a sandbox after its job records a different sandbox id", async () => {
+    const f = await fixture();
+    f.store.db.query("UPDATE jobs SET payload_json = json_set(payload_json, '$.sandbox_id', 'sandbox-new') WHERE job_id = ?").run(f.jobId);
+
+    expect(await reconcileSandboxes(f.store, { gameId: f.gameId, at: ACTIVE_AT }, {
+      sandboxProvider: f.provider,
+    })).toEqual({ scanned: 1, kept: 0, deleted: 1, failed: 0 });
+    expect(await f.provider.get(f.sandboxId)).toBeNull();
+    expect(deletedEvents(f.store)[0]?.payload).toMatchObject({
+      sandbox_id: f.sandboxId,
+      reason: "reconciliation",
+      job_id: f.jobId,
+    });
+  });
+
   test("keeps a stopped sandbox with a live claim and unexpired job lease", async () => {
     const f = await fixture();
     const handle = await f.provider.get(f.sandboxId);

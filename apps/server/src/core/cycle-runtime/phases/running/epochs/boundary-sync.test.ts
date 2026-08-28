@@ -129,12 +129,15 @@ describe("boundary sync", () => {
       appendOverrideNote: (value) => { calls.push(["note", value]); },
       requeueTarget: (value) => { calls.push(["requeue", value]); },
       rebuildKnowledgeGraph: async () => { calls.push(["kg", null]); },
-      recomputeReport: async () => ({
-        matchedCodePercent: 91.2,
-        matchedDataPercent: 84.5,
-        measures: { matched_code_percent: 91.2, matched_data_percent: 84.5 },
-        sectionMeasures: { ".data": { sizeBytes: 8, fuzzyMatchPercent: 84.5, exactRows: 0, totalRows: 1 } },
-      }),
+      recomputeReport: async () => {
+        calls.push(["report", null]);
+        return {
+          matchedCodePercent: 91.2,
+          matchedDataPercent: 84.5,
+          measures: { matched_code_percent: 91.2, matched_data_percent: 84.5 },
+          sectionMeasures: { ".data": { sizeBytes: 8, fuzzyMatchPercent: 84.5, exactRows: 0, totalRows: 1 } },
+        };
+      },
       writePrSyncSavePoint: (value) => { calls.push(["save", value]); },
       advanceAnchor: (value) => { calls.push(["anchor", value]); },
       advanceCycleHead: (value) => { calls.push(["head", value]); },
@@ -147,7 +150,7 @@ describe("boundary sync", () => {
     });
     expect(result.changed).toBe(true);
     await expect(Bun.file(join(fixture.repo, "src", "melee", "ty", "toy.c")).text()).resolves.toContain("return 2");
-    expect(calls.map(([name]) => name)).toEqual(["ingest", "note", "requeue", "kg", "save", "anchor", "head"]);
+    expect(calls.map(([name]) => name)).toEqual(["ingest", "note", "requeue", "report", "kg", "save", "anchor", "head"]);
     expect(calls.find(([name]) => name === "save")?.[1]).toMatchObject({
       kind: "pr_sync",
       anchorSha: fixture.anchor,

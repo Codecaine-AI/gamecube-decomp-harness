@@ -6,6 +6,7 @@ import type { KnowledgeGraphStore } from "./store.js";
 const INSERT_CHUNK_SIZE = 500;
 
 export function resetKnowledgeGraph(store: KnowledgeGraphStore): void {
+  store.db.run("DELETE FROM knowledge_graph_metadata");
   store.orm.transaction((tx) => {
     tx.delete(knowledgeSources).run();
     tx.delete(knowledgeTools).run();

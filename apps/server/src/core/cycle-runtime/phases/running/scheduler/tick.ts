@@ -1,4 +1,11 @@
-import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
+import {
+  loadKnowledgeBoardSnapshot,
+  resourceGraphDbPath,
+} from "@server/core/knowledge";
+import { openKnowledgeGraph, readReportProvenance } from "@server/core/knowledge/graph";
 import { loadExactTargetKeys } from "@server/core/cycle-runtime/phases/running/board/snapshot.js";
 import {
   activeWorkerCount,
@@ -60,12 +67,88 @@ function nonNegativeInt(value: number): number {
 }
 
 export function schedulerEpochConfigFromArgs(
-  _globals: GlobalArgs,
+  globals: GlobalArgs,
   _args: Map<string, string | true>,
   params: { workerPoolSize: number },
 ): SchedulerEpochConfig {
   const workerPoolSize = Math.max(1, nonNegativeInt(params.workerPoolSize));
-  return { workerPoolSize };
+  const validation = globals.game?.validation;
+  return {
+    workerPoolSize,
+    freshReportGate: validation?.epochAdmissionFreshReportGate ?? true,
+    candidateMultiple: positiveNumber(validation?.epochAdmissionCandidateMultiple, 4),
+    candidateCap: positiveNumber(validation?.epochAdmissionCandidateCap, 500),
+  };
+}
+
+function positiveNumber(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function eligibleCandidateCount(candidates: Array<{ unit: string; symbol: string; sourcePath: string }>): number {
+  const keys = new Set<string>();
+  for (const candidate of candidates) {
+    if (!candidate.sourcePath.trim()) continue;
+    keys.add(`${candidate.unit}::${candidate.symbol}`);
+  }
+  return keys.size;
+}
+
+function assertFreshBoardReport(params: Pick<Parameters<typeof ensureSchedulerEpochFromBoard>[0], "globals" | "graphDbPath">): void {
+  const configuredPath = params.globals.game?.validation.reportPath ?? "build/GALE01/report.json";
+  const reportPath = isAbsolute(configuredPath) ? configuredPath : resolve(params.globals.repoRoot, configuredPath);
+  if (!existsSync(reportPath)) {
+    throw new Error(`Epoch admission refused: objdiff report is missing: ${reportPath}`);
+  }
+  const graph = openKnowledgeGraph(params.graphDbPath);
+  try {
+    const provenance = readReportProvenance(graph);
+    if (!provenance) {
+      throw new Error(`Epoch admission refused: knowledge board has no objdiff report provenance; rebuild the knowledge graph from ${reportPath}`);
+    }
+    if (resolve(provenance.path) !== resolve(reportPath)) {
+      throw new Error(
+        `Epoch admission refused: knowledge board was built from ${provenance.path}, expected ${reportPath}`,
+      );
+    }
+    const reportSha256 = createHash("sha256").update(readFileSync(reportPath)).digest("hex");
+    if (reportSha256 !== provenance.sha256) {
+      const reportMtimeMs = statSync(reportPath).mtimeMs;
+      throw new Error(
+        `Epoch admission refused: objdiff report does not match knowledge board provenance ` +
+          `(report sha256 ${reportSha256}, board sha256 ${provenance.sha256}, ` +
+          `report mtime ${reportMtimeMs}, board source mtime ${provenance.mtimeMs}); rebuild the knowledge graph`,
+      );
+    }
+  } finally {
+    graph.db.close();
+  }
+}
+
+function assertCandidateCountWithinLimits(params: {
+  candidateCount: number;
+  config: SchedulerEpochConfig;
+  runId: string;
+  store: StateStore;
+}): void {
+  const cap = positiveNumber(params.config.candidateCap, 500);
+  if (params.candidateCount > cap) {
+    throw new Error(`Epoch admission refused: ${params.candidateCount} candidates exceed the configured absolute cap of ${cap}`);
+  }
+  const recent = params.store.db
+    .query(
+      `SELECT admitted_count FROM epochs
+       WHERE run_id = ? AND status != 'active' AND admitted_count > 0
+       ORDER BY ordinal DESC LIMIT 3`,
+    )
+    .all(params.runId) as Array<{ admitted_count: number }>;
+  const recentMax = Math.max(0, ...recent.map((row) => Number(row.admitted_count)));
+  const multiple = positiveNumber(params.config.candidateMultiple, 4);
+  if (recentMax > 0 && params.candidateCount > recentMax * multiple) {
+    throw new Error(
+      `Epoch admission refused: ${params.candidateCount} candidates exceed ${multiple}x the recent epoch maximum of ${recentMax}`,
+    );
+  }
 }
 
 export function ensureSchedulerEpochFromBoard(params: {
@@ -75,13 +158,23 @@ export function ensureSchedulerEpochFromBoard(params: {
   runId: string;
   store: StateStore;
 }): SchedulerEpochEnsureResult {
-  let epoch = activeSchedulerEpoch(params.store, params.runId) ?? startSchedulerEpoch(params.store, params.runId, params.config);
-  let progress = schedulerEpochProgress(params.store, epoch.id);
+  let epoch = activeSchedulerEpoch(params.store, params.runId);
+  let progress = epoch ? schedulerEpochProgress(params.store, epoch.id) : null;
   let admission: EpochAdmissionResult | undefined;
+  if ((!progress || progress.admitted === 0) && (params.config.freshReportGate ?? true)) {
+    assertFreshBoardReport(params);
+  }
   const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
     graphDbPath: params.graphDbPath,
   });
-  if (progress.admitted === 0) {
+  if (!progress || progress.admitted === 0) {
+    assertCandidateCountWithinLimits({
+      candidateCount: eligibleCandidateCount(board.candidates),
+      config: params.config,
+      runId: params.runId,
+      store: params.store,
+    });
+    epoch ??= startSchedulerEpoch(params.store, params.runId, params.config);
     admission = admitEpochTargets(params.store, {
       epochId: epoch.id,
       runId: params.runId,
@@ -90,6 +183,7 @@ export function ensureSchedulerEpochFromBoard(params: {
     });
     progress = schedulerEpochProgress(params.store, epoch.id);
   }
+  if (!epoch || !progress) throw new Error("Scheduler epoch admission did not produce an epoch");
 
   const priorityRefreshes = refreshEpochTargetPriorities(params.store, {
     epochId: epoch.id,

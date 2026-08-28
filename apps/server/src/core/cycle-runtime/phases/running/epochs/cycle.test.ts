@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createRun } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/orchestrator-state";
 import { sectionMeasuresFromReportJson } from "@server/core/validation/objdiff/section-measures.js";
-import { commitEpochSnapshot } from "./cycle.js";
+import { boundaryDeferredFindings, commitEpochSnapshot, runReportBuildWithFixer } from "./cycle.js";
 
 const cleanup: string[] = [];
 
@@ -72,6 +72,80 @@ describe("commitEpochSnapshot", () => {
     } finally {
       store.db.close();
     }
+  });
+});
+
+describe("runReportBuildWithFixer", () => {
+  test("runs one fixer attempt and retries the report build once", async () => {
+    const failure = new Error("report build failed: duplicate symbol");
+    let reportCalls = 0;
+    let fixerCalls = 0;
+
+    const result = await runReportBuildWithFixer({
+      enabled: true,
+      runReport: async () => {
+        reportCalls += 1;
+        if (reportCalls === 1) throw failure;
+        return { status: "green" as const };
+      },
+      runFixer: async (receivedFailure) => {
+        fixerCalls += 1;
+        expect(receivedFailure).toBe(failure);
+        return { exitCode: 0, timedOut: false, output: "fixed duplicate symbol" };
+      },
+    });
+
+    expect(result).toEqual({ status: "green" });
+    expect(reportCalls).toBe(2);
+    expect(fixerCalls).toBe(1);
+  });
+
+  test("preserves the original failure without a fixer or retry when disabled", async () => {
+    const failure = new Error("report build failed: signature mismatch");
+    let reportCalls = 0;
+    let fixerCalls = 0;
+    let caught: unknown;
+
+    try {
+      await runReportBuildWithFixer({
+        enabled: false,
+        runReport: async () => {
+          reportCalls += 1;
+          throw failure;
+        },
+        runFixer: async () => {
+          fixerCalls += 1;
+          return { exitCode: 0, timedOut: false, output: "unused" };
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBe(failure);
+    expect(reportCalls).toBe(1);
+    expect(fixerCalls).toBe(0);
+  });
+});
+
+describe("boundaryDeferredFindings", () => {
+  test("turns regressions and QA findings into next-epoch ledger notes without repair admission", () => {
+    const findings = boundaryDeferredFindings({
+      paused: true,
+      reasons: ["regression latch"],
+      summary: { brokenMatches: 1, fuzzyRegressions: 0, metricRegressions: 0, regressedFunctions: 1, regressedSections: 0 },
+      repairCandidates: [{
+        unit: "src/unit.c", sourcePath: "src/unit.c", symbol: "fn", size: 32, fuzzy: 95, priority: 400,
+        reason: "epoch regression repair: 100.00% -> 95.00% (-2 bytes)",
+      }],
+    }, {
+      exitCode: 1, status: "failed", errors: 1, warnings: 0,
+      findings: [{ rule_id: "mechanical", severity: "error", file: "src/unit.c", line: 12, excerpt: "bad", message: "finding", standard_id: null }],
+    });
+
+    expect(findings.map((finding) => finding.reason)).toEqual(["boundary_regression_deferred", "boundary_qa_deferred"]);
+    expect(findings[0]).toMatchObject({ unit: "src/unit.c", symbol: "fn", sourcePath: "src/unit.c" });
+    expect(findings[1]).toMatchObject({ sourcePath: "src/unit.c" });
   });
 });
 

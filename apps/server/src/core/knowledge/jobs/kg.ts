@@ -40,6 +40,7 @@ import { shortHash, stringValue, truncate } from "@server/core/knowledge/graph/u
 import { resolveRegisteredTool, type ToolRuntimeContext } from "@server/core/tools/resolver";
 import { addPiSession } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/cycle-runtime/run-state";
+import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { booleanArg, numberArg, gameMetadata, stringArg } from "@server/core/game-registry/runtime-options.js";
 import { knowledgeCycleSessionId } from "./cycle-session.js";
@@ -77,6 +78,9 @@ export type KnowledgeMaintenanceProgress = (event: KnowledgeMaintenanceProgressE
 
 export interface KnowledgeMaintenanceOptions {
   progress?: KnowledgeMaintenanceProgress;
+  rebuildInProcess?: boolean;
+  rebuildSpawn?: typeof Bun.spawn;
+  rebuildGraph?: typeof rebuildKnowledgeGraph;
 }
 
 function summarizeProgressResult(value: unknown): Record<string, unknown> | undefined {
@@ -272,6 +276,67 @@ export async function kgRebuildGraph(globals: GlobalArgs, args: Map<string, stri
   console.log(JSON.stringify(payload, null, 2));
 }
 
+export async function runKnowledgeGraphRebuild(
+  globals: GlobalArgs,
+  args: Map<string, string | true>,
+  options: KnowledgeMaintenanceOptions = {},
+): Promise<Record<string, unknown>> {
+  const repoRoot = knowledgeRepoRoot(globals);
+  const dbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
+  const sources = sourceListArg(args);
+  const agentStateEnrichmentPath = stringArg(args, "--agent-state-enrichment", agentSharedStateEnrichmentPath());
+  const curatorEnrichmentPath = stringArg(args, "--knowledge-curator-enrichment", knowledgeCuratorEnrichmentPath());
+  if (options.rebuildInProcess || booleanArg(args, "--rebuild-in-process")) {
+    return (options.rebuildGraph ?? rebuildKnowledgeGraph)({
+      repoRoot,
+      dbPath,
+      sources,
+      agentStateEnrichmentPath,
+      knowledgeCuratorEnrichmentPath: curatorEnrichmentPath,
+    }) as unknown as Record<string, unknown>;
+  }
+
+  const command = [
+    "bun",
+    "apps/server/src/job-runner.ts",
+    "kg-rebuild-graph",
+    "--repo-root",
+    repoRoot,
+    "--graph-db",
+    dbPath,
+    "--sources",
+    sources.join(","),
+    "--agent-state-enrichment",
+    agentStateEnrichmentPath,
+    "--knowledge-curator-enrichment",
+    curatorEnrichmentPath,
+    "--rebuild-in-process",
+  ];
+  const gameId = globals.game?.gameId ?? globals.gameId;
+  if (gameId) command.splice(3, 0, "--game", gameId);
+  const proc = (options.rebuildSpawn ?? Bun.spawn)(command, {
+    cwd: packageRoot(),
+    env: { ...Bun.env, [STATE_MIGRATION_MODE_ENV]: "verify" } as Record<string, string>,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (stdout.trim()) console.error(`[kg] rebuild_graph stdout\n${stdout.trimEnd()}`);
+  if (stderr.trim()) console.error(`[kg] rebuild_graph stderr\n${stderr.trimEnd()}`);
+  if (exitCode !== 0) {
+    throw new Error(`Knowledge graph rebuild failed (${exitCode}): ${command.join(" ")}\n${stderr || stdout}`);
+  }
+  try {
+    return JSON.parse(stdout) as Record<string, unknown>;
+  } catch {
+    return { command, exit_code: exitCode, stdout, stderr };
+  }
+}
+
 export async function kgImportAgentState(args: Map<string, string | true>): Promise<void> {
   const inputPath = stringArg(args, "--input", "agent_state-shared.db");
   const outputPath = stringArg(args, "--output", agentSharedStateEnrichmentPath());
@@ -324,13 +389,7 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
   const rebuild = await runKnowledgeStep(options, "rebuild_graph", { repo_root: repoRoot, command: ["rebuildKnowledgeGraph"] }, () =>
     booleanArg(args, "--no-rebuild")
       ? { skipped: true, reason: "--no-rebuild" }
-      : rebuildKnowledgeGraph({
-        repoRoot,
-        dbPath: stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath()),
-        sources: sourceListArg(args),
-        agentStateEnrichmentPath: stringArg(args, "--agent-state-enrichment", agentSharedStateEnrichmentPath()),
-        knowledgeCuratorEnrichmentPath: stringArg(args, "--knowledge-curator-enrichment", knowledgeCuratorEnrichmentPath()),
-      }),
+      : runKnowledgeGraphRebuild(globals, args, options),
   );
   const result = {
     generated_at: new Date().toISOString(),

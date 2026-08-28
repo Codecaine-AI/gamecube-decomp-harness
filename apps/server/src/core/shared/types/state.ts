@@ -20,6 +20,8 @@ export type EventType =
   | "epoch_regression_pause"
   | "epoch_boundary_reconciled"
   | "epoch_cycle_error"
+  | "epoch_boundary_retry_scheduled"
+  | "epoch_boundary_retry_exhausted"
   | "epoch_admitted"
   | "epoch_boundary_waiting_for_recovery"
   | "epoch_checkpoint_progress"

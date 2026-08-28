@@ -7,12 +7,30 @@ export interface GameValidationDefaults {
   reportPath?: string;
   reportChangesPath?: string;
   objdiffPath?: string;
+  addressNamedStaticDataAllowlist?: AddressNamedStaticDataAllowlistEntry[];
   /** Per-attempt worker micro-gate: fail attempts whose rebuilt TU loses an exact non-code section. */
   workerSectionParityGate?: boolean;
   /** Per-attempt worker micro-gate: fail attempts whose rebuilt TU references symbols outside the link universe. */
   workerUndefinedSymbolGate?: boolean;
   /** Per-attempt worker micro-gate: fail attempts whose diff adds banned idioms (section-order hacks, bare short/long, K&R declarations). */
   workerBannedIdiomGate?: boolean;
+  /** Refuse epoch admission when the knowledge board lacks fresh objdiff report provenance. */
+  epochAdmissionFreshReportGate?: boolean;
+  /** Refuse candidate spikes above this multiple of a recent non-empty epoch. */
+  epochAdmissionCandidateMultiple?: number;
+  /** Refuse epochs with more candidates than this absolute limit. */
+  epochAdmissionCandidateCap?: number;
+  /** Retry failed epoch boundaries with persisted exponential backoff. */
+  epochBoundaryRetryEnabled?: boolean;
+  epochBoundaryRetryMaxAttempts?: number;
+  epochBoundaryRetryBaseMs?: number;
+  epochBoundaryRetryMaxMs?: number;
+}
+
+export interface AddressNamedStaticDataAllowlistEntry {
+  symbol: string;
+  file?: string;
+  reason?: string;
 }
 
 export interface GameDashboardDefaults {
@@ -156,9 +174,17 @@ const defaultValidation: Required<GameValidationDefaults> = {
   reportPath: "build/GALE01/report.json",
   reportChangesPath: "build/GALE01/report_changes.json",
   objdiffPath: "objdiff.json",
+  addressNamedStaticDataAllowlist: [],
   workerSectionParityGate: true,
   workerUndefinedSymbolGate: true,
   workerBannedIdiomGate: true,
+  epochAdmissionFreshReportGate: true,
+  epochAdmissionCandidateMultiple: 4,
+  epochAdmissionCandidateCap: 500,
+  epochBoundaryRetryEnabled: true,
+  epochBoundaryRetryMaxAttempts: 5,
+  epochBoundaryRetryBaseMs: 120_000,
+  epochBoundaryRetryMaxMs: 1_800_000,
 };
 
 const defaultDashboard: Required<GameDashboardDefaults> = {
@@ -235,6 +261,26 @@ function stringArrayField(value: unknown): string[] | undefined {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : undefined;
 }
 
+function addressNamedStaticDataAllowlistField(value: unknown): AddressNamedStaticDataAllowlistEntry[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error("validation.addressNamedStaticDataAllowlist must be an array");
+  return value.map((entry, index) => {
+    if (typeof entry === "string" && entry.trim()) return { symbol: entry.trim() };
+    if (!isObject(entry)) throw new Error(`validation.addressNamedStaticDataAllowlist[${index}] must be a symbol string or object`);
+    const symbol = stringField(entry.symbol);
+    if (!symbol) throw new Error(`validation.addressNamedStaticDataAllowlist[${index}].symbol must be a non-empty string`);
+    if (entry.file !== undefined && !stringField(entry.file)) {
+      throw new Error(`validation.addressNamedStaticDataAllowlist[${index}].file must be a non-empty string`);
+    }
+    if (entry.reason !== undefined && !stringField(entry.reason)) {
+      throw new Error(`validation.addressNamedStaticDataAllowlist[${index}].reason must be a non-empty string`);
+    }
+    const file = stringField(entry.file);
+    const reason = stringField(entry.reason);
+    return { symbol, ...(file ? { file } : {}), ...(reason ? { reason } : {}) };
+  });
+}
+
 function validationFromObject(value: unknown): GameValidationDefaults | undefined {
   if (!isObject(value)) return undefined;
   return {
@@ -242,9 +288,21 @@ function validationFromObject(value: unknown): GameValidationDefaults | undefine
     reportPath: stringField(value.reportPath),
     reportChangesPath: stringField(value.reportChangesPath),
     objdiffPath: stringField(value.objdiffPath),
+    addressNamedStaticDataAllowlist: addressNamedStaticDataAllowlistField(value.addressNamedStaticDataAllowlist),
     ...(typeof value.workerSectionParityGate === "boolean" ? { workerSectionParityGate: value.workerSectionParityGate } : {}),
     ...(typeof value.workerUndefinedSymbolGate === "boolean" ? { workerUndefinedSymbolGate: value.workerUndefinedSymbolGate } : {}),
     ...(typeof value.workerBannedIdiomGate === "boolean" ? { workerBannedIdiomGate: value.workerBannedIdiomGate } : {}),
+    ...(typeof value.epochAdmissionFreshReportGate === "boolean"
+      ? { epochAdmissionFreshReportGate: value.epochAdmissionFreshReportGate }
+      : {}),
+    epochAdmissionCandidateMultiple: numberField(value.epochAdmissionCandidateMultiple),
+    epochAdmissionCandidateCap: numberField(value.epochAdmissionCandidateCap),
+    ...(typeof value.epochBoundaryRetryEnabled === "boolean"
+      ? { epochBoundaryRetryEnabled: value.epochBoundaryRetryEnabled }
+      : {}),
+    epochBoundaryRetryMaxAttempts: numberField(value.epochBoundaryRetryMaxAttempts),
+    epochBoundaryRetryBaseMs: numberField(value.epochBoundaryRetryBaseMs),
+    epochBoundaryRetryMaxMs: numberField(value.epochBoundaryRetryMaxMs),
   };
 }
 

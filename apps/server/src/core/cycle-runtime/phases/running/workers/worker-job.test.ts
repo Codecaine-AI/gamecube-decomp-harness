@@ -283,6 +283,114 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
+  test("deletes the prior sandbox before recording a retry replacement", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      const result = claimSandboxJob(f);
+      const provider = new FakeSandboxProvider();
+      const prior = await provider.create({
+        snapshot: "old",
+        labels: {},
+        resources: { cpu: 1, memoryGiB: 1, diskGiB: 1 },
+        ttlMinutes: 90,
+      });
+      attachJobPayload(f.store, result.token, { sandbox_id: prior.sandboxId });
+      f.store.db.query("UPDATE jobs SET attempts = 2 WHERE job_id = ?").run(result.job.jobId);
+      const retryJob = getJob(f.store, result.job.jobId)!;
+      let sandboxIdDuringDelete: unknown;
+      const deletingProvider: SandboxProvider = {
+        create: (params) => provider.create(params),
+        get: (sandboxId) => provider.get(sandboxId),
+        listByLabels: (labels) => provider.listByLabels(labels),
+        delete: async (sandboxId, reason) => {
+          sandboxIdDuringDelete = getJob(f.store, result.job.jobId)?.payload.sandbox_id;
+          await provider.delete(sandboxId, reason);
+        },
+      };
+
+      await buildWorkerTask(f.ctx, {
+        sandboxProvider: deletingProvider,
+        provisionSandbox: async (input) => ({ sandboxId: "sandbox-new", workspaceRoot: input.workspaceRoot }),
+      })(retryJob, { store: f.store, token: result.token });
+
+      expect(sandboxIdDuringDelete).toBe(prior.sandboxId);
+      expect(provider.deletedSandboxes).toEqual([
+        expect.objectContaining({ sandboxId: prior.sandboxId, reason: "retry_reprovision" }),
+      ]);
+      expect(getJob(f.store, result.job.jobId)?.payload).toMatchObject({
+        sandbox_id: "sandbox-new",
+        sandbox_reprovisions: [{
+          attempt: 2,
+          previous_sandbox_id: prior.sandboxId,
+          sandbox_id: "sandbox-new",
+          previous_delete_reason: "retry_reprovision",
+          previous_delete_status: "deleted",
+        }],
+      });
+    } finally { f.store.db.close(); }
+  });
+
+  test("records a retry replacement when prior sandbox deletion fails", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      const result = claimSandboxJob(f);
+      attachJobPayload(f.store, result.token, { sandbox_id: "sandbox-old" });
+      f.store.db.query("UPDATE jobs SET attempts = 2 WHERE job_id = ?").run(result.job.jobId);
+      const warnings: string[] = [];
+      const provider = new FakeSandboxProvider();
+      const failingProvider: SandboxProvider = {
+        create: (params) => provider.create(params),
+        get: (sandboxId) => provider.get(sandboxId),
+        listByLabels: (labels) => provider.listByLabels(labels),
+        delete: async () => { throw new Error("Daytona unavailable"); },
+      };
+
+      await buildWorkerTask(f.ctx, {
+        sandboxProvider: failingProvider,
+        warn: (message) => warnings.push(message),
+        provisionSandbox: async (input) => ({ sandboxId: "sandbox-new", workspaceRoot: input.workspaceRoot }),
+      })(getJob(f.store, result.job.jobId)!, { store: f.store, token: result.token });
+
+      expect(getJob(f.store, result.job.jobId)?.payload).toMatchObject({
+        sandbox_id: "sandbox-new",
+        sandbox_reprovisions: [{
+          previous_sandbox_id: "sandbox-old",
+          previous_delete_status: "failed",
+        }],
+      });
+      expect(warnings).toEqual([
+        expect.stringContaining("failed to delete sandbox-old (retry_reprovision)"),
+      ]);
+    } finally { f.store.db.close(); }
+  });
+
+  test("does not delete a sandbox while provisioning the first attempt", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      const result = claimSandboxJob(f);
+      let deletes = 0;
+      const provider = new FakeSandboxProvider();
+      const countingProvider: SandboxProvider = {
+        create: (params) => provider.create(params),
+        get: (sandboxId) => provider.get(sandboxId),
+        listByLabels: (labels) => provider.listByLabels(labels),
+        delete: async () => { deletes += 1; },
+      };
+
+      await buildWorkerTask(f.ctx, {
+        sandboxProvider: countingProvider,
+        provisionSandbox: async (input) => ({ sandboxId: "sandbox-first", workspaceRoot: input.workspaceRoot }),
+      })(result.job, { store: f.store, token: result.token });
+
+      expect(deletes).toBe(0);
+      expect(getJob(f.store, result.job.jobId)?.payload).toMatchObject({ sandbox_id: "sandbox-first" });
+      expect(getJob(f.store, result.job.jobId)?.payload.sandbox_reprovisions).toBeUndefined();
+    } finally { f.store.db.close(); }
+  });
+
   test("routes dry-run sandbox jobs through FakeSandboxProvider without SDK access", async () => {
     const f = fixture();
     try {

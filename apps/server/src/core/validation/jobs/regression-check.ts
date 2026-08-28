@@ -188,6 +188,7 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
       baseRef: qaBaseRef,
       includeWorktree: true,
       surface: "pr_gate",
+      addressNamedStaticDataAllowlist: globals.game?.validation.addressNamedStaticDataAllowlist,
     });
     await writeFile(qaScanPath, qaInvocation.stdout);
     await writeFile(qaScanTextPath, qaInvocation.stderr);

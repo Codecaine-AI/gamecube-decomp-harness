@@ -4,12 +4,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   activeSchedulerEpoch,
+  addEvent,
   closeSchedulerEpochWithEvidence,
   createRun,
   openState,
   startSchedulerEpoch,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
+import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { createCycle, recordSavePointAnchor } from "@server/core/cycle";
 import { runEpochBoundary, type EpochBoundaryParams } from "./epoch-boundary.js";
@@ -83,13 +85,16 @@ function params(
       preCommitGateEnabled: false,
       boundarySyncEnabled: false,
       breakageGateEnabled: false,
+      boundaryBuildFixerEnabled: true,
       fullKgMaintenanceMode: "skip",
       writeSetFlags: { writeSetWidening: "off" },
       schedulerEpochConfig: {
         workerPoolSize: 1,
+        freshReportGate: false,
       },
       graphDbPath: resolve(value.dir, "missing-graph.sqlite"),
       epochWorktreeDir: resolve(value.dir, "epoch-worktree"),
+      boundaryRetry: { enabled: true, maxAttempts: 5, baseMs: 120_000, maxMs: 1_800_000 },
     },
     reportKnowledgeProgress: () => () => {},
     dependencies: overrides.dependencies,
@@ -122,6 +127,63 @@ afterAll(() => {
 });
 
 describe("runEpochBoundary", () => {
+  test("persists exponential backoff after a boundary failure", async () => {
+    const value = fixture([]);
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          now: () => new Date("2026-08-27T12:00:00.000Z"),
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: async () => { throw new Error("configure failed"); },
+        },
+      });
+      input.config.boundaryRetry = { enabled: true, maxAttempts: 5, baseMs: 120_000, maxMs: 1_800_000 };
+
+      expect(await runEpochBoundary(input)).toMatchObject({ ok: false, terminal: false });
+      expect(value.store.db.query(`SELECT boundary_status, boundary_attempt_count, boundary_next_attempt_at
+        FROM epochs WHERE id = ?`).get(value.epochId)).toEqual({
+          boundary_status: "retry_scheduled",
+          boundary_attempt_count: 1,
+          boundary_next_attempt_at: "2026-08-27T12:02:00.000Z",
+        });
+      const event = value.store.db.query("SELECT payload_json FROM events WHERE event_type = 'epoch_boundary_retry_scheduled'").get() as { payload_json: string };
+      expect(JSON.parse(event.payload_json)).toMatchObject({ attempt: 1, max_attempts: 5, delay_ms: 120_000 });
+    } finally {
+      errorLog.mockRestore();
+      value.store.db.close();
+    }
+  });
+
+  test("marks the boundary terminal when attempts are exhausted", async () => {
+    const value = fixture([]);
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: async () => { throw new Error("build failed"); },
+        },
+      });
+      input.config.boundaryRetry = { enabled: true, maxAttempts: 1, baseMs: 120_000, maxMs: 1_800_000 };
+
+      expect(await runEpochBoundary(input)).toMatchObject({ ok: false, terminal: true });
+      expect(value.store.db.query(`SELECT boundary_status, boundary_attempt_count, boundary_next_attempt_at
+        FROM epochs WHERE id = ?`).get(value.epochId)).toEqual({
+          boundary_status: "retry_exhausted",
+          boundary_attempt_count: 1,
+          boundary_next_attempt_at: null,
+        });
+      expect(value.store.db.query("SELECT count(*) AS count FROM events WHERE event_type = 'epoch_boundary_retry_exhausted'").get()).toEqual({ count: 1 });
+      expect(errorLog.mock.calls.some(([line]) => String(line).includes("EPOCH BOUNDARY TERMINAL"))).toBe(true);
+    } finally {
+      errorLog.mockRestore();
+      value.store.db.close();
+    }
+  });
+
   test("closes a successful epoch with registered integration payload facts", async () => {
     const value = fixture([]);
     const errorLog = spyOn(console, "error").mockImplementation(() => {});
@@ -528,6 +590,7 @@ describe("runEpochBoundary", () => {
   test("master breakage gate pauses the boundary", async () => {
     const value = fixture([]);
     const errorLog = spyOn(console, "error").mockImplementation(() => {});
+    const deferrals: unknown[] = [];
     try {
       const input = params(value, {
         globals: { ...value.globals, dryRunAgents: false },
@@ -556,6 +619,7 @@ describe("runEpochBoundary", () => {
             moved: [],
             reasons: [],
           }),
+          writeBoundaryBreakageDeferrals: (input) => { deferrals.push(input); },
           closeSchedulerEpochWithEvidence: (() => {}) as never,
         },
       });
@@ -565,8 +629,60 @@ describe("runEpochBoundary", () => {
 
       expect(outcome).toMatchObject({ ok: true, paused: true });
       expect(outcome.breakageGate?.status).toBe("breakage");
+      expect(deferrals).toEqual([expect.objectContaining({
+        gameId: "melee",
+        cycleUuid: null,
+        gate: expect.objectContaining({
+          status: "breakage",
+          breakages: [expect.objectContaining({ unitName: "unit", itemName: "fn" })],
+        }),
+      })]);
       expect(value.store.db.query("SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'epoch_regression_pause'").get(value.runId)).toEqual({ count: 1 });
       expect(value.store.db.query("SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'boundary_breakage_gate'").get(value.runId)).toEqual({ count: 1 });
+    } finally {
+      errorLog.mockRestore();
+      value.store.db.close();
+    }
+  });
+
+  test("reconciled breakage writes deferral notes without running the epoch cycle", async () => {
+    const value = fixture([]);
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+    const calls: string[] = [];
+    try {
+      attachCycle(value, "cycle-reconciled-breakage");
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({
+            status: "completed",
+            completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit" },
+          }),
+          runEpochCycle: async () => { calls.push("epoch_cycle"); throw new Error("must not run"); },
+          runMasterBreakageGate: async () => ({
+            status: "breakage",
+            baselineKind: "upstream_ci",
+            baselineSha: "abcdef0123456789",
+            baselineReportPath: resolve(value.dir, "master.json"),
+            oursReportPath: resolve(value.dir, "report.json"),
+            changesPath: resolve(value.dir, "changes.json"),
+            breakages: [{ unitName: "unit", itemName: "fn", kind: "function", fromPercent: 100, toPercent: 95, bytesDelta: -5 }],
+            moved: [],
+            reasons: [],
+          }),
+          writeBoundaryBreakageDeferrals: (input) => {
+            calls.push(`note:${input.cycleUuid}:${input.gate.breakages[0]?.itemName}`);
+          },
+          ensureSchedulerEpochFromBoard: (() => ({ epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 })) as never,
+        },
+      });
+      input.config.breakageGateEnabled = true;
+
+      const outcome = await runEpochBoundary(input);
+
+      expect(calls).toEqual(["note:cycle-reconciled-breakage:fn"]);
+      expect(outcome).toMatchObject({ ok: true, reconciled: true, paused: false });
+      expect(outcome.breakageGate?.status).toBe("breakage");
     } finally {
       errorLog.mockRestore();
       value.store.db.close();
@@ -621,7 +737,7 @@ describe("runEpochBoundary", () => {
     }
   });
 
-  test("reconciled pending integration skips the epoch cycle and continues admission", async () => {
+  test("reconciled pending integration skips snapshot work but reruns gates, PR publication, and pr_sync", async () => {
     const value = fixture([
       {
         name: "unit",
@@ -630,9 +746,8 @@ describe("runEpochBoundary", () => {
       },
     ]);
     try {
-      let cycleCalls = 0;
-      const outcome = await runEpochBoundary(
-        params(value, {
+      const order: string[] = [];
+      const input = params(value, {
           globals: { ...value.globals, dryRunAgents: false },
           dependencies: {
             reconcilePendingIntegrationAttempt: () => ({
@@ -640,14 +755,47 @@ describe("runEpochBoundary", () => {
               completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit" },
             }),
             runEpochCycle: async () => {
-              cycleCalls += 1;
+              order.push("epoch_cycle");
               throw new Error("runEpochCycle must not run after reconciliation");
             },
+            runBoundarySync: async () => {
+              order.push("pr_sync");
+              return { changed: false, headSha: "retained-commit", plan: { drifted: false } } as never;
+            },
+            runMasterBreakageGate: async () => {
+              order.push("master_breakage_gate");
+              return {
+                status: "clean", baselineKind: "pr_sync_artifact", baselineSha: "base-test",
+                baselineReportPath: resolve(value.dir, "baseline.json"), oursReportPath: resolve(value.dir, "report.json"),
+                changesPath: resolve(value.dir, "changes.json"), breakages: [], moved: [], reasons: [],
+              };
+            },
+            runCiParityGate: async () => {
+              order.push("ci_parity_gate");
+              return { status: "clean", modes: ["link"], steps: [], reasons: [] };
+            },
+            runPreCommitGate: async () => {
+              order.push("pre_commit_gate");
+              return { status: "clean", modes: ["pre-commit"], steps: [], reasons: [] };
+            },
+            publishCycleDraftPr: async () => {
+              order.push("draft_pr_publish");
+              return { status: "updated", commitSha: "retained-commit" } as never;
+            },
+            ensureSchedulerEpochFromBoard: (() => {
+              order.push("admission");
+              return { epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 };
+            }) as never,
           },
-        }),
-      );
+        });
+      input.config.boundarySyncEnabled = true;
+      input.config.breakageGateEnabled = true;
+      input.config.cycleDraftPrEnabled = true;
+      input.config.ciParityEnabled = true;
+      input.config.preCommitGateEnabled = true;
+      const outcome = await runEpochBoundary(input);
 
-      expect(cycleCalls).toBe(0);
+      expect(order).toEqual(["pr_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish", "admission"]);
       expect(outcome).toMatchObject({ ok: true, reconciled: true, paused: false });
       expect(outcome.nextEpoch?.progress.ordinal).toBe(2);
       const closed = value.store.db
@@ -659,20 +807,81 @@ describe("runEpochBoundary", () => {
         trigger: "test boundary",
         reconciled: true,
         commitSha: "retained-commit",
+        skipped_steps: expect.any(Array),
+        rerun_steps: ["boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish"],
       });
       const reconciledEvent = value.store.db
         .query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_boundary_reconciled'")
         .get(value.runId) as { payload_json: string };
-      expect(JSON.parse(reconciledEvent.payload_json)).toEqual({
+      expect(JSON.parse(reconciledEvent.payload_json)).toMatchObject({
         epoch: 1,
         epoch_id: value.epochId,
         commit_sha: "retained-commit",
         skipped_steps: [
           "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
           "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
-          "boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish",
         ],
+        rerun_steps: ["boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish"],
         created_by: "run-loop",
+      });
+    } finally {
+      value.store.db.close();
+    }
+  });
+
+  test("reconciled pending integration does not duplicate exact-boundary evidence", async () => {
+    const value = fixture([]);
+    try {
+      for (const [eventType, payload] of [
+        ["boundary_sync", { epoch: 1, epoch_id: value.epochId, status: "finished" }],
+        ["boundary_breakage_gate", { epoch: 1, epoch_id: value.epochId, status: "clean" }],
+        ["ci_parity_gate", { epoch: 1, epoch_id: value.epochId, ci_parity_status: "clean", pre_commit_status: "clean" }],
+        ["draft_pr_publish", { epoch: 1, epoch_id: value.epochId, status: "finished" }],
+      ] as const) addEvent(value.store, value.runId, eventType, "test", payload);
+      const campaign = ensureCampaign(value.store, { gameId: "test" });
+      addSavePoint(value.store, {
+        campaignId: campaign.id,
+        runId: value.runId,
+        triggerKind: "pr_sync",
+        label: "epoch-1-pr-sync",
+        commitSha: "retained-commit",
+        payload: { epoch_id: value.epochId },
+      });
+      const calls: string[] = [];
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({
+            status: "completed",
+            completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit" },
+          }),
+          runEpochCycle: async () => { calls.push("epoch_cycle"); throw new Error("duplicate epoch cycle"); },
+          runBoundarySync: async () => { calls.push("pr_sync"); throw new Error("duplicate pr_sync"); },
+          runMasterBreakageGate: async () => { calls.push("master_breakage_gate"); throw new Error("duplicate breakage gate"); },
+          runCiParityGate: async () => { calls.push("ci_parity_gate"); throw new Error("duplicate CI parity gate"); },
+          runPreCommitGate: async () => { calls.push("pre_commit_gate"); throw new Error("duplicate pre-commit gate"); },
+          publishCycleDraftPr: async () => { calls.push("draft_pr_publish"); throw new Error("duplicate draft PR publish"); },
+          ensureSchedulerEpochFromBoard: (() => ({ epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 })) as never,
+        },
+      });
+      input.config.boundarySyncEnabled = true;
+      input.config.breakageGateEnabled = true;
+      input.config.cycleDraftPrEnabled = true;
+      input.config.ciParityEnabled = true;
+      input.config.preCommitGateEnabled = true;
+
+      const outcome = await runEpochBoundary(input);
+
+      expect(outcome).toMatchObject({ ok: true, reconciled: true, paused: false });
+      expect(calls).toEqual([]);
+      for (const eventType of ["boundary_sync", "boundary_breakage_gate", "ci_parity_gate", "draft_pr_publish"]) {
+        expect(value.store.db.query("SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = ?").get(value.runId, eventType)).toEqual({ count: 1 });
+      }
+      expect(value.store.db.query("SELECT COUNT(*) AS count FROM save_points WHERE run_id = ? AND trigger_kind = 'pr_sync'").get(value.runId)).toEqual({ count: 1 });
+      const reconciledEvent = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_boundary_reconciled'").get(value.runId) as { payload_json: string };
+      expect(JSON.parse(reconciledEvent.payload_json)).toMatchObject({
+        skipped_steps: expect.arrayContaining(["boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish"]),
+        rerun_steps: [],
       });
     } finally {
       value.store.db.close();

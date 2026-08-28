@@ -102,6 +102,9 @@ interface BoundaryErrorEpoch {
   ordinal: number;
   admitted: number;
   finished: number;
+  attemptCount: number;
+  nextAttemptAt: string | null;
+  terminal: boolean;
 }
 
 export interface RunLoopResult {
@@ -194,7 +197,8 @@ function boundaryErrorEpoch(store: StateStore, runId: string): BoundaryErrorEpoc
       store.db
         .query(
           `
-            SELECT id, ordinal, status, boundary_status, admitted_count, finished_count
+            SELECT id, ordinal, status, boundary_status, admitted_count, finished_count,
+                   boundary_attempt_count, boundary_next_attempt_at
             FROM epochs
             WHERE run_id = ?
               AND admitted_count > 0
@@ -211,18 +215,24 @@ function boundaryErrorEpoch(store: StateStore, runId: string): BoundaryErrorEpoc
         ordinal: Number(row.ordinal),
         admitted: Number(row.admitted_count ?? 0),
         finished: Number(row.finished_count ?? 0),
+        attemptCount: Number(row.boundary_attempt_count ?? 0),
+        nextAttemptAt: row.boundary_next_attempt_at == null ? null : String(row.boundary_next_attempt_at),
+        terminal: String(row.boundary_status) === "retry_exhausted",
       }
     : null;
 }
 
-export function epochBoundaryWorkPending(store: StateStore, runId: string): boolean {
+export function epochBoundaryWorkPending(store: StateStore, runId: string, at = new Date()): boolean {
   const activeEpoch = activeSchedulerEpoch(store, runId);
   if (activeEpoch) {
     const progress = schedulerEpochProgress(store, activeEpoch.id);
     return progress.remaining === 0 && progress.claimed === 0;
   }
   const failedBoundary = boundaryErrorEpoch(store, runId);
-  return failedBoundary !== null && failedBoundary.finished >= failedBoundary.admitted;
+  return failedBoundary !== null &&
+    !failedBoundary.terminal &&
+    failedBoundary.finished >= failedBoundary.admitted &&
+    (!failedBoundary.nextAttemptAt || Date.parse(failedBoundary.nextAttemptAt) <= at.getTime());
 }
 
 function autoIntegrationResolverEnabled(args: Map<string, string | true>): boolean {
@@ -351,6 +361,17 @@ function knowledgeMaintenanceIntervalMs(globals: GlobalArgs, args: Map<string, s
   if (booleanArg(args, "--no-knowledge-maintenance")) return 0;
   const fallback = globals.dryRunAgents ? 0 : 5 * 60_000;
   return Math.max(0, Math.floor(numberArg(args, "--knowledge-maintenance-interval-ms", fallback)));
+}
+
+export function createKnowledgeMaintenanceClock(intervalMs: number, initializedAt = Date.now()): {
+  isDue: (now?: number) => boolean;
+  markCompleted: (now?: number) => void;
+} {
+  let lastCompletedAt = intervalMs > 0 ? 0 : initializedAt;
+  return {
+    isDue: (now = Date.now()) => intervalMs > 0 && now - lastCompletedAt >= intervalMs,
+    markCompleted: (now = Date.now()) => { lastCompletedAt = now; },
+  };
 }
 
 async function waitForRestingTrigger(idleSleepMs: number, extras: Array<Promise<void> | null> = []): Promise<void> {
@@ -495,6 +516,14 @@ export async function runRunLoop(
     const preCommitGateEnabled = !booleanArg(args, "--no-pre-commit-gate");
     const boundarySyncEnabled = !booleanArg(args, "--no-boundary-sync");
     const breakageGateEnabled = !booleanArg(args, "--no-breakage-gate");
+    const boundaryBuildFixerEnabled = !booleanArg(args, "--no-boundary-build-fixer");
+    const validation = globals.game?.validation;
+    const boundaryRetry = {
+      enabled: (validation?.epochBoundaryRetryEnabled ?? true) && !booleanArg(args, "--no-epoch-boundary-retry"),
+      maxAttempts: Math.max(1, nonNegativeInt(numberArg(args, "--epoch-boundary-retry-max-attempts", validation?.epochBoundaryRetryMaxAttempts ?? 5))),
+      baseMs: nonNegativeInt(numberArg(args, "--epoch-boundary-retry-base-ms", validation?.epochBoundaryRetryBaseMs ?? 120_000)),
+      maxMs: nonNegativeInt(numberArg(args, "--epoch-boundary-retry-max-ms", validation?.epochBoundaryRetryMaxMs ?? 1_800_000)),
+    };
     const fullKgMaintenanceMode = stringArg(args, "--full-kg-maintenance-mode", "full").trim().toLowerCase();
     let runningEpoch: Promise<void> | null = null;
     let epochCycles = 0;
@@ -507,7 +536,7 @@ export async function runRunLoop(
     let epochAvailabilityRefreshes = 0;
     let epochTargetsAdmitted = 0;
     let lastSchedulerEpoch: EpochProgressSummary | null = null;
-    let lastKnowledgeMaintenanceMs = maintenanceIntervalMs > 0 ? 0 : Date.now();
+    const knowledgeMaintenanceClock = createKnowledgeMaintenanceClock(maintenanceIntervalMs);
     let schedulerBlocked = false;
     let runningIntegrationDrain: Promise<void> | null = null;
     let integrationFlushPending = false;
@@ -736,10 +765,8 @@ export async function runRunLoop(
         runningIntegrationResolvers.size === 0 &&
         !boundaryWorkPendingBeforeMaintenance &&
         blockingIntegrationsBeforeMaintenance === 0 &&
-        maintenanceIntervalMs > 0 &&
-        Date.now() - lastKnowledgeMaintenanceMs >= maintenanceIntervalMs
+        knowledgeMaintenanceClock.isDue()
       ) {
-        lastKnowledgeMaintenanceMs = Date.now();
         let task: Promise<void>;
         task = runKnowledgeMaintenance(globals, knowledgeMaintenanceArgs(args, runId, !globals.dryRunAgents), {
           progress: knowledgeProgressReporter(store, runId, { lane: "scheduled", mode: globals.dryRunAgents ? "dry_run" : "full", repoRoot: globals.repoRoot }),
@@ -751,6 +778,7 @@ export async function runRunLoop(
             knowledgeMaintenanceErrors.push({ error: error instanceof Error ? error.message : String(error) });
           })
           .finally(() => {
+            knowledgeMaintenanceClock.markCompleted();
             if (runningKnowledgeMaintenance === task) runningKnowledgeMaintenance = null;
           });
         runningKnowledgeMaintenance = task;
@@ -783,11 +811,13 @@ export async function runRunLoop(
             preCommitGateEnabled,
             boundarySyncEnabled,
             breakageGateEnabled,
+            boundaryBuildFixerEnabled,
             fullKgMaintenanceMode,
             writeSetFlags,
             schedulerEpochConfig,
             graphDbPath,
             epochWorktreeDir,
+            boundaryRetry,
           },
           reportKnowledgeProgress: knowledgeProgressReporter,
         })
@@ -805,6 +835,12 @@ export async function runRunLoop(
               epochPaused = outcome.boundaryResult.repair.paused;
             }
             if (outcome.error) epochErrors.push({ error: outcome.error });
+            if (outcome.terminal) {
+              epochPaused = true;
+              schedulerBlocked = true;
+              stopRequested = true;
+              stoppedReason = "epoch_boundary_retry_exhausted";
+            }
             if (outcome.knowledgeMaintenanceRun) knowledgeMaintenanceRuns.push(outcome.knowledgeMaintenanceRun);
             if (outcome.nextEpoch) {
               const nextEpoch = outcome.nextEpoch;
@@ -830,9 +866,18 @@ export async function runRunLoop(
       if (epochCycleEnabled && runningIntegrationResolvers.size === 0 && !runningIntegrationDrain) {
         if (!runningEpoch && !epochPaused) {
           const boundaryError = boundaryErrorEpoch(store, runId);
-          if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
+          const boundaryRetryDue = boundaryError && (!boundaryError.nextAttemptAt || Date.parse(boundaryError.nextAttemptAt) <= Date.now());
+          if (boundaryError?.terminal) {
+            epochPaused = true;
+            schedulerBlocked = true;
+            stopRequested = true;
+            stoppedReason = "epoch_boundary_retry_exhausted";
+          } else if (boundaryError && boundaryError.finished >= boundaryError.admitted && boundaryRetryDue) {
             didWork = true;
             launchEpochCycle(`retry scheduler epoch ${boundaryError.ordinal} boundary`, boundaryError.id);
+          } else if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
+            schedulerBlocked = true;
+            syncSchedulerCondition("waiting");
           } else if (boundaryError) {
             didWork = true;
             schedulerBlocked = true;
@@ -896,7 +941,7 @@ export async function runRunLoop(
       }
 
       const schedulerEvent = nextUnhandledEvent(store, runId);
-      if (!runningScheduler && schedulerEvent) {
+      if (!schedulerBlocked && !runningScheduler && schedulerEvent) {
         const tickArgs = schedulerTickArgs(args, { runId });
         let task: Promise<void>;
         task = runSchedulerTick(globals, tickArgs, { ownsSchedulerCondition: false })
@@ -913,11 +958,17 @@ export async function runRunLoop(
             epochPriorityRefreshes += result.epochPriorityRefreshes ?? 0;
           })
           .catch((error) => {
+            const message = error instanceof Error ? error.message : String(error);
             schedulerResults.push({
               runId,
               eventType: "scheduler_error",
-              eventProducer: error instanceof Error ? error.message : String(error),
+              eventProducer: message,
             });
+            if (message.startsWith("Epoch admission refused:")) {
+              schedulerBlocked = true;
+              epochPaused = true;
+              console.error(`[run-loop] ${message}`);
+            }
           })
           .finally(() => {
             if (runningScheduler === task) runningScheduler = null;

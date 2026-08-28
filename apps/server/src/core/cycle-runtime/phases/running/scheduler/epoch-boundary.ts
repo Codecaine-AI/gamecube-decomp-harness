@@ -3,7 +3,6 @@ import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
 import { appendLearnings, defaultLedgerPath } from "@server/core/knowledge/ledger.js";
-import { rebuildKnowledgeGraph } from "@server/core/knowledge/graph";
 import { forceReportRun } from "@server/core/validation/report";
 import {
   runCiParityGate as runCiParityGateDefault,
@@ -15,16 +14,27 @@ import { addSavePoint, ensureCampaign, latestSavePointByTrigger, mergeSavePointP
 import { runBoundarySync as runBoundarySyncDefault, type BoundarySyncResult } from "@server/core/cycle-runtime/phases/running/epochs/boundary-sync.js";
 import { runMasterBreakageGate as runMasterBreakageGateDefault, type MasterBreakageGateResult } from "@server/core/cycle-runtime/phases/running/epochs/breakage-gate.js";
 import { recordSavePointAnchor, reconcilePendingIntegrationAttempt as reconcilePendingIntegrationAttemptDefault } from "@server/core/cycle";
-import { runEpochCycle as runEpochCycleDefault, type EpochCycleResult } from "@server/core/cycle-runtime/phases/running/epochs";
+import {
+  runEpochCycle as runEpochCycleDefault,
+  type BoundaryBuildFixerInput,
+  type BoundaryBuildFixerResult,
+  type BoundaryDeferredFinding,
+  type EpochCycleResult,
+} from "@server/core/cycle-runtime/phases/running/epochs";
 import { publishCycleDraftPr as publishCycleDraftPrDefault } from "@server/core/cycle-runtime/phases/running/epochs/cycle-draft-pr.js";
 import {
   addEvent,
   closeSchedulerEpoch,
   closeSchedulerEpochWithEvidence,
+  recordEpochBoundaryRetryFailure,
   type SchedulerEpochConfig,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
-import { runKnowledgeMaintenance as runKnowledgeMaintenanceDefault, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
+import {
+  runKnowledgeGraphRebuild,
+  runKnowledgeMaintenance as runKnowledgeMaintenanceDefault,
+  type KnowledgeMaintenanceProgressEvent,
+} from "@server/core/knowledge/jobs/kg.js";
 import { ensureSchedulerEpochFromBoard as ensureSchedulerEpochFromBoardDefault } from "./tick.js";
 import type { GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
 
@@ -43,6 +53,12 @@ type RunBoundarySync = (input: { params: EpochBoundaryParams; epochResult: Epoch
 type ProductionRunBoundarySync = typeof runBoundarySyncDefault;
 type RecordSavePointAnchor = typeof recordSavePointAnchor;
 type CloseSchedulerEpochWithEvidence = typeof closeSchedulerEpochWithEvidence;
+export interface BoundaryBreakageDeferral {
+  gameId: string;
+  cycleUuid: string | null;
+  gate: MasterBreakageGateResult;
+}
+type WriteBoundaryBreakageDeferrals = (input: BoundaryBreakageDeferral) => void | Promise<void>;
 
 export interface EpochBoundaryDependencies {
   reconcilePendingIntegrationAttempt?: ReconcilePendingIntegrationAttempt;
@@ -57,6 +73,10 @@ export interface EpochBoundaryDependencies {
   runMasterBreakageGate?: typeof runMasterBreakageGateDefault;
   runCiParityGate?: typeof runCiParityGateDefault;
   runPreCommitGate?: typeof runPreCommitGateDefault;
+  writeBoundaryBreakageDeferrals?: WriteBoundaryBreakageDeferrals;
+  runBoundaryBuildFixer?: (input: BoundaryBuildFixerInput) => Promise<BoundaryBuildFixerResult>;
+  deferBoundaryFindings?: (input: BoundaryDeferredFinding[]) => Promise<void> | void;
+  now?: () => Date;
 }
 
 export interface EpochBoundaryParams {
@@ -78,11 +98,18 @@ export interface EpochBoundaryParams {
     preCommitGateEnabled: boolean;
     boundarySyncEnabled: boolean;
     breakageGateEnabled: boolean;
+    boundaryBuildFixerEnabled: boolean;
     fullKgMaintenanceMode: string;
     writeSetFlags: WriteSetIntegrationFlags;
     schedulerEpochConfig: SchedulerEpochConfig;
     graphDbPath: string;
     epochWorktreeDir: string;
+    boundaryRetry?: {
+      enabled: boolean;
+      maxAttempts: number;
+      baseMs: number;
+      maxMs: number;
+    };
   };
   reportKnowledgeProgress: KnowledgeProgressReporter;
   dependencies?: EpochBoundaryDependencies;
@@ -99,11 +126,51 @@ export interface EpochBoundaryOutcome {
   boundarySync?: BoundarySyncResult;
   boundaryHeadSha?: string;
   breakageGate?: MasterBreakageGateResult;
+  terminal?: boolean;
 }
 
 function measuresAt(repoRoot: string, reportRelPath: string): Record<string, unknown> {
   const parsed = JSON.parse(readFileSync(resolve(repoRoot, reportRelPath), "utf8")) as Record<string, unknown>;
   return parsed.measures && typeof parsed.measures === "object" ? parsed.measures as Record<string, unknown> : {};
+}
+
+function writeBoundaryBreakageDeferralsDefault(input: BoundaryBreakageDeferral): void {
+  const records = input.gate.breakages.map((item) => {
+    const targetKey = `${item.unitName}::${item.itemName}`;
+    const evidenceRef = input.gate.baselineSha ?? input.gate.changesPath ?? "boundary_breakage_gate";
+    const id = createHash("sha256")
+      .update(`${input.cycleUuid ?? "no-cycle"}:${targetKey}:${evidenceRef}:boundary_breakage_deferred`)
+      .digest("hex");
+    return {
+      id: `boundary-${id}`,
+      origin: "human_extracted" as const,
+      subject: { scope: "symbol" as const, symbol: item.itemName },
+      statement: `boundary_breakage_deferred: ${targetKey} regressed from ${item.fromPercent}% to ${item.toPercent}% (${item.bytesDelta} bytes) at the epoch boundary. Do not repair it at the boundary; re-evaluate it during next-epoch admission.`,
+      evidence: [{ type: "boundary_breakage_deferred", ref: evidenceRef }],
+      confidence: 1,
+      produced_by: "epoch-boundary",
+      status: "corroborated" as const,
+    };
+  });
+  if (records.length > 0) appendLearnings(defaultLedgerPath(input.gameId), records);
+}
+
+function writeBoundaryFindingsDefault(gameId: string, cycleUuid: string | null, findings: BoundaryDeferredFinding[]): void {
+  if (findings.length === 0) return;
+  appendLearnings(defaultLedgerPath(gameId), findings.map((finding) => {
+    const target = [finding.unit, finding.symbol].filter(Boolean).join("::") || finding.sourcePath || "unknown target";
+    const id = createHash("sha256").update(`${cycleUuid ?? "no-cycle"}:${finding.reason}:${target}:${finding.detail}`).digest("hex");
+    return {
+      id: `boundary-${id}`,
+      origin: "human_extracted" as const,
+      subject: { scope: finding.symbol ? "symbol" as const : "file" as const, symbol: finding.symbol, file: finding.sourcePath },
+      statement: `${finding.reason}: ${target}. ${finding.detail} Re-admit through next-epoch admission; do not repair at the boundary.`,
+      evidence: [{ type: finding.reason, ref: cycleUuid ?? gameId }],
+      confidence: 1,
+      produced_by: "epoch-boundary",
+      status: "corroborated" as const,
+    };
+  }));
 }
 
 async function productionBoundarySync(params: EpochBoundaryParams): Promise<BoundarySyncResult | undefined> {
@@ -160,7 +227,11 @@ async function productionBoundarySync(params: EpochBoundaryParams): Promise<Boun
       requeueTarget: (item) => {
         console.error(`[run-loop] boundary sync: ${item.targetKey} displaced by upstream; deferring to next-epoch admission`);
       },
-      rebuildKnowledgeGraph: async () => { rebuildKnowledgeGraph({ repoRoot: params.globals.repoRoot, dbPath: params.config.graphDbPath }); },
+      rebuildKnowledgeGraph: async () => {
+        await runKnowledgeGraphRebuild(params.globals, new Map([
+          ["--graph-db", params.config.graphDbPath],
+        ]));
+      },
       recomputeReport: async () => {
         await forceReportRun(params.globals.repoRoot, { resetBaseline: false });
         const measures = measuresAt(params.globals.repoRoot, reportRelPath);
@@ -284,6 +355,35 @@ function fullBoundaryKnowledgeMaintenanceArgs(args: Map<string, string | true>, 
   return next;
 }
 
+function completedBoundaryEvent(
+  store: StateStore,
+  runId: string,
+  epochId: string,
+  epochOrdinal: number,
+  eventType: "boundary_sync" | "boundary_breakage_gate" | "ci_parity_gate" | "draft_pr_publish",
+): Record<string, unknown> | null {
+  const rows = store.db.query(
+    `SELECT payload_json FROM events
+     WHERE run_id = ? AND event_type = ?
+     ORDER BY created_at DESC`,
+  ).all(runId, eventType) as Array<{ payload_json: string }>;
+  for (const row of rows) {
+    const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
+    if (payload.epoch_id === epochId || (payload.epoch_id == null && Number(payload.epoch) === epochOrdinal)) {
+      return payload;
+    }
+  }
+  return null;
+}
+
+function hasPrSyncSavePoint(store: StateStore, runId: string, epochOrdinal: number): boolean {
+  return Boolean(store.db.query(
+    `SELECT 1 FROM save_points
+     WHERE run_id = ? AND trigger_kind = 'pr_sync' AND label = ?
+     LIMIT 1`,
+  ).get(runId, `epoch-${epochOrdinal}-pr-sync`));
+}
+
 export async function runEpochBoundary(params: EpochBoundaryParams): Promise<EpochBoundaryOutcome> {
   const {
     store,
@@ -300,6 +400,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
   const run = store.db.query("SELECT cycle_uuid FROM runs WHERE id = ?").get(runId) as { cycle_uuid: string | null } | undefined;
   const cycleCorrelationId = run?.cycle_uuid ?? runId;
   const reconcilePendingIntegrationAttempt = params.dependencies?.reconcilePendingIntegrationAttempt ?? reconcilePendingIntegrationAttemptDefault;
+  const boundaryRetry = config.boundaryRetry ?? { enabled: true, maxAttempts: 5, baseMs: 120_000, maxMs: 1_800_000 };
   const runEpochCycle = params.dependencies?.runEpochCycle ?? runEpochCycleDefault;
   const publishCycleDraftPr = params.dependencies?.publishCycleDraftPr ?? publishCycleDraftPrDefault;
   const runKnowledgeMaintenance = params.dependencies?.runKnowledgeMaintenance ?? runKnowledgeMaintenanceDefault;
@@ -312,6 +413,11 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
   let nextEpoch: ReturnType<typeof ensureSchedulerEpochFromBoardDefault> | undefined;
   let boundarySync: BoundarySyncResult | undefined;
   let breakageGate: MasterBreakageGateResult | undefined;
+  const reconcileSkippedSteps = [
+    "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+    "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
+  ];
+  const reconcileRerunSteps: string[] = [];
 
   try {
     if (globals.dryRunAgents) {
@@ -325,25 +431,101 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       });
       if (retained.status === "completed") {
         reconciled = true;
-        console.error(`[run-loop] epoch ${epochOrdinal}: pending integration attempt reconciled`);
-        addEvent(store, runId, "epoch_boundary_reconciled", "run-loop", {
-          epoch: epochOrdinal,
-          epoch_id: schedulerEpochId ?? label,
-          commit_sha: retained.completed.commitSha,
-          skipped_steps: [
-            "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
-            "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
-            "boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish",
-          ],
-          created_by: "run-loop",
-        });
-        if (schedulerEpochId) {
-          closeSchedulerEpoch(store, schedulerEpochId, {
-            status: "completed",
-            boundaryStatus: "success",
-            routingSummary: { trigger, reconciled: true, ...retained.completed },
+        const reportRelPath = globals.game?.validation.reportPath ?? "build/GALE01/report.json";
+        const reportPath = resolve(globals.repoRoot, reportRelPath);
+        boundaryResult = {
+          artifactDir: resolve(globals.stateDir, "epoch_artifacts", label),
+          buildSteps: [], commitSha: retained.completed.commitSha, committed: true, durationMs: 0,
+          label, lockedPathsExcluded: [], matchedCodePercent: null, matchedDataPercent: null,
+          measures: {}, sectionMeasures: {}, qaGate: null,
+          regressions: { brokenMatches: 0, fuzzyRegressions: 0, metricRegressions: 0, regressedFunctions: 0, regressedSections: 0 },
+          repair: { paused: false, planned: 0, reasons: [], requeued: 0 },
+          reportCopiedToRepo: true, savePoint: {} as EpochCycleResult["savePoint"],
+          savePointEvidence: {} as EpochCycleResult["savePointEvidence"], savePointId: null,
+          scoreDelta: 0, worktreeDir: globals.repoRoot,
+        };
+        const boundarySyncEvidence = completedBoundaryEvent(store, runId, schedulerEpochId ?? label, epochOrdinal, "boundary_sync");
+        const prSyncRecorded = hasPrSyncSavePoint(store, runId, epochOrdinal);
+        if (config.boundarySyncEnabled && (!boundarySyncEvidence || !prSyncRecorded)) {
+          reconcileRerunSteps.push("boundary_sync");
+          boundarySync = runBoundarySync
+            ? await runBoundarySync({ params, epochResult: boundaryResult })
+            : await productionBoundarySync(params);
+        } else reconcileSkippedSteps.push("boundary_sync");
+        const breakageEvidence = completedBoundaryEvent(store, runId, schedulerEpochId ?? label, epochOrdinal, "boundary_breakage_gate");
+        if (config.breakageGateEnabled && !breakageEvidence) {
+          reconcileRerunSteps.push("master_breakage_gate");
+          const gate = params.dependencies?.runMasterBreakageGate ?? runMasterBreakageGateDefault;
+          breakageGate = await gate({
+            repoRoot: globals.repoRoot,
+            stateDir: globals.stateDir,
+            worktreeDir: globals.repoRoot,
+            oursReportPath: reportPath,
+            anchorSha: null,
+            reportRelPath,
+            changesOutPath: resolve(globals.stateDir, `${label}-master-breakage-changes.json`),
+            prSyncFallbackReportPath: latestSavePointByTrigger(store, "pr_sync")?.reportPath ?? null,
+          });
+          addEvent(store, runId, "boundary_breakage_gate", "run-loop", {
+            epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label, status: breakageGate.status,
+            baseline_kind: breakageGate.baselineKind, baseline_sha: breakageGate.baselineSha,
+            baseline_report_path: breakageGate.baselineReportPath, ours_report_path: breakageGate.oursReportPath,
+            changes_path: breakageGate.changesPath, breakages: breakageGate.breakages.slice(0, 50),
+            moved: breakageGate.moved.slice(0, 50), reasons: breakageGate.reasons, created_by: "run-loop",
+          });
+          if (breakageGate.status === "breakage") {
+            await (params.dependencies?.writeBoundaryBreakageDeferrals ?? writeBoundaryBreakageDeferralsDefault)({
+              gameId: globals.game?.gameId ?? globals.gameId ?? "melee",
+              cycleUuid: run?.cycle_uuid ?? null,
+              gate: breakageGate,
+            });
+            boundaryResult.repair.paused = true;
+            boundaryResult.repair.reasons.push(`master breakage gate: ${breakageGate.breakages.length} item(s)`);
+          }
+        } else reconcileSkippedSteps.push("master_breakage_gate");
+        const gateEvidence = completedBoundaryEvent(store, runId, schedulerEpochId ?? label, epochOrdinal, "ci_parity_gate");
+        for (const [enabled, step] of [[config.ciParityEnabled, "ci_parity_gate"], [config.preCommitGateEnabled, "pre_commit_gate"]] as const) {
+          if (enabled && !gateEvidence) reconcileRerunSteps.push(step);
+          else reconcileSkippedSteps.push(step);
+        }
+        let ciParity: CiParityResult | undefined;
+        let preCommit: CiParityResult | undefined;
+        if (!gateEvidence) {
+          if (config.ciParityEnabled) ciParity = await (params.dependencies?.runCiParityGate ?? runCiParityGateDefault)({ worktreeDir: globals.repoRoot, sha: boundarySync?.headSha ?? retained.completed.commitSha });
+          if (config.preCommitGateEnabled) preCommit = await (params.dependencies?.runPreCommitGate ?? runPreCommitGateDefault)({ worktreeDir: globals.repoRoot, cacheDir: resolve(globals.stateDir, "pre-commit-cache") });
+          if (config.ciParityEnabled || config.preCommitGateEnabled) addEvent(store, runId, "ci_parity_gate", "run-loop", {
+            epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label,
+            ci_parity_status: ciParity?.status ?? (config.ciParityEnabled ? "skipped" : "disabled"),
+            pre_commit_status: preCommit?.status ?? (config.preCommitGateEnabled ? "skipped" : "disabled"),
+            reasons: [...(ciParity?.reasons ?? []), ...(preCommit?.reasons ?? [])].slice(0, 20),
+            steps: [
+              ...(ciParity?.steps ?? []).map((step) => ({ gate: "ci_parity", name: step.name, exit_code: step.exitCode })),
+              ...(preCommit?.steps ?? []).map((step) => ({ gate: "pre_commit", name: step.name, exit_code: step.exitCode })),
+            ], created_by: "run-loop",
           });
         }
+        const publishEvidence = completedBoundaryEvent(store, runId, schedulerEpochId ?? label, epochOrdinal, "draft_pr_publish");
+        const publishCompleted = publishEvidence && ["finished", "skipped"].includes(String(publishEvidence.status));
+        if (config.cycleDraftPrEnabled && !publishCompleted) {
+          reconcileRerunSteps.push("draft_pr_publish");
+          const publish = await publishCycleDraftPr({
+            baseRef: globals.game?.baseRef, commitSha: boundarySync?.headSha ?? retained.completed.commitSha,
+            epochLabel: label, epochOrdinal, matchedCodePercent: null,
+            gameId: globals.game?.gameId ?? globals.gameId ?? null, qaGate: null,
+            regressions: boundaryResult.regressions as unknown as Record<string, unknown>, repoRoot: globals.repoRoot,
+            runId, savePointId: null, stateDir: globals.stateDir, store,
+          });
+          addEvent(store, runId, "draft_pr_publish", "run-loop", publish.status === "failed"
+            ? { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label, status: "failed", error: publish.error ?? publish.reason, created_by: "run-loop" }
+            : publish.status === "skipped"
+              ? { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label, status: "skipped", reason: publish.reason ?? "publisher_skipped", created_by: "run-loop" }
+              : { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label, status: "finished", pr_url: publish.url, head_sha: publish.commitSha, created_by: "run-loop" });
+        } else reconcileSkippedSteps.push("draft_pr_publish");
+        console.error(`[run-loop] epoch ${epochOrdinal}: pending integration attempt reconciled; skipped: ${reconcileSkippedSteps.join(", ")}; re-ran: ${reconcileRerunSteps.join(", ") || "none"}`);
+        addEvent(store, runId, "epoch_boundary_reconciled", "run-loop", {
+          epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label, commit_sha: retained.completed.commitSha,
+          skipped_steps: reconcileSkippedSteps, rerun_steps: reconcileRerunSteps, created_by: "run-loop",
+        });
       } else {
         console.error(`[run-loop] epoch ${epochOrdinal}: ${trigger}; snapshotting and rebuilding report`);
         const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
@@ -354,7 +536,14 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           leaseId,
           linkPaths: config.epochLinkPaths,
           gameId: globals.game?.gameId ?? globals.gameId ?? null,
-          qaScan: { orchestratorRoot: packageRoot() },
+          boundaryBuildFixerEnabled: config.boundaryBuildFixerEnabled,
+          runBoundaryBuildFixer: params.dependencies?.runBoundaryBuildFixer,
+          deferBoundaryFindings: params.dependencies?.deferBoundaryFindings
+            ?? ((findings) => writeBoundaryFindingsDefault(globals.game?.gameId ?? globals.gameId ?? "unknown", run?.cycle_uuid ?? null, findings)),
+          qaScan: {
+            orchestratorRoot: packageRoot(),
+            addressNamedStaticDataAllowlist: globals.game?.validation.addressNamedStaticDataAllowlist,
+          },
           regressionPauseThreshold: config.epochPauseThreshold,
           regressionRequeueLimit: config.epochRequeueLimit,
           reportRelPath: globals.game?.validation.reportPath,
@@ -473,6 +662,11 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             console.error(`[run-loop] boundary breakage exempt (moved): ${item.unitName}::${item.itemName} -> ${item.movedToUnit}`);
           }
           if (breakageGate.status === "breakage") {
+            await (params.dependencies?.writeBoundaryBreakageDeferrals ?? writeBoundaryBreakageDeferralsDefault)({
+              gameId: globals.game?.gameId ?? globals.gameId ?? "melee",
+              cycleUuid: run?.cycle_uuid ?? null,
+              gate: breakageGate,
+            });
             for (const item of breakageGate.breakages) {
               console.error(`[run-loop] boundary breakage: ${item.unitName}::${item.itemName} ${item.fromPercent}% -> ${item.toPercent}% (${item.kind}, baseline ${breakageGate.baselineKind} ${breakageGate.baselineSha?.slice(0, 10) ?? "n/a"})`);
             }
@@ -679,7 +873,17 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       });
     }
 
-    if (schedulerEpochId && !reconciled) {
+    if (schedulerEpochId && reconciled) {
+      closeSchedulerEpoch(store, schedulerEpochId, {
+        status: boundaryResult?.repair.paused ? "paused" : "completed",
+        boundaryStatus: boundaryResult?.repair.paused ? "regression_pause" : "success",
+        routingSummary: {
+          trigger, reconciled: true, commitSha: boundaryResult?.commitSha,
+          skipped_steps: reconcileSkippedSteps, rerun_steps: reconcileRerunSteps,
+          breakage_gate: breakageGate ?? null,
+        },
+      });
+    } else if (schedulerEpochId) {
       const routingSummary = {
         trigger,
         dry_run: globals.dryRunAgents,
@@ -763,6 +967,32 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         routingSummary: { trigger, error: message.slice(0, 2000) },
       });
     }
+    const retry = schedulerEpochId
+      ? recordEpochBoundaryRetryFailure(
+          store,
+          schedulerEpochId,
+          boundaryRetry,
+          params.dependencies?.now?.() ?? new Date(),
+        )
+      : null;
+    if (retry) {
+      const payload = {
+        epoch: epochOrdinal,
+        epoch_id: schedulerEpochId,
+        attempt: retry.attemptCount,
+        max_attempts: boundaryRetry.maxAttempts,
+        next_attempt_at: retry.nextAttemptAt,
+        delay_ms: retry.delayMs,
+        error: message.slice(0, 2000),
+        created_by: "run-loop",
+      };
+      addEvent(store, runId, retry.terminal ? "epoch_boundary_retry_exhausted" : "epoch_boundary_retry_scheduled", "run-loop", payload);
+      if (retry.terminal) {
+        console.error(`[run-loop] EPOCH BOUNDARY TERMINAL: epoch ${epochOrdinal} exhausted ${retry.attemptCount}/${boundaryRetry.maxAttempts} attempts; run will park paused for operator recovery`);
+      } else {
+        console.error(`[run-loop] epoch ${epochOrdinal}: boundary retry ${retry.attemptCount + 1}/${boundaryRetry.maxAttempts} scheduled for ${retry.nextAttemptAt}`);
+      }
+    }
     return {
       ok: false,
       error: message,
@@ -774,6 +1004,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       boundarySync,
       boundaryHeadSha: boundarySync?.headSha ?? boundaryResult?.commitSha ?? undefined,
       breakageGate,
+      terminal: retry?.terminal ?? false,
     };
   }
 }

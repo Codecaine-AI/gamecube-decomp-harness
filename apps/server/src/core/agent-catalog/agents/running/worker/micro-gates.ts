@@ -152,11 +152,7 @@ export async function evaluateUndefinedSymbolGate(params: {
     };
   }
 
-  const known = new Set(params.baselineUndefined ?? []);
-  for (const line of symbolsResult.stdout.split(/\r?\n/)) {
-    const match = /^\s*([A-Za-z_$.@][^\s=]*)\s*=/.exec(line);
-    if (match) known.add(match[1]!);
-  }
+  const known = new Set([...params.baselineUndefined ?? [], ...parseSymbolsTxt(symbolsResult.stdout).all]);
   const unknown = listed.symbols.filter((name) => !known.has(name));
   const reasons = unknown.slice(0, 20).map(
     (name) => `undefined symbol '${name}' in ${params.objectTarget} does not exist in the link universe (${symbolsTxtPath}); calls to nonexistent functions only fail at CI link time`,
@@ -170,6 +166,23 @@ interface AddedCodeLine {
   stripped: string;
 }
 
+export interface BannedIdiomContext {
+  symbolsTxt?: string;
+  baselineSources?: ReadonlyMap<string, string>;
+}
+
+export function parseSymbolsTxt(contents: string): { all: Set<string>; globals: Set<string> } {
+  const all = new Set<string>();
+  const globals = new Set<string>();
+  for (const line of contents.split(/\r?\n/)) {
+    const match = /^\s*([A-Za-z_$.@][^\s=]*)\s*=/.exec(line);
+    if (!match?.[1]) continue;
+    all.add(match[1]);
+    if (/\bscope\s*:\s*global\b/.test(line)) globals.add(match[1]);
+  }
+  return { all, globals };
+}
+
 interface StaticDefinition extends AddedCodeLine {
   name: string;
 }
@@ -179,11 +192,12 @@ const STATIC_DEFINITION_RE = /^\s*static\b[^=;]*\b([A-Za-z_][A-Za-z0-9_]*)\s*\([
 const KR_FUNCTION_RE = /^\s*(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s+[A-Za-z_][A-Za-z0-9_]*)*\s*\**\s*[A-Za-z_][A-Za-z0-9_]*\s*\(\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*\s*\)\s*$/;
 const CONTROL_KEYWORDS = new Set(["if", "for", "while", "switch", "return", "else", "do", "goto", "case"]);
 
-export function lintBannedIdioms(diffText: string): WorkerMicroGateResult {
+export function lintBannedIdioms(diffText: string, context: BannedIdiomContext = {}): WorkerMicroGateResult {
   const gate = "banned_idioms" as const;
   if (!diffText.trim()) return { gate, status: "skipped", reasons: ["empty write_set diff"] };
 
   const linesByPath = new Map<string, AddedCodeLine[]>();
+  const removedByPath = new Map<string, AddedCodeLine[]>();
   let currentPath = "";
   for (const line of diffText.split(/\r?\n/)) {
     const fileMatch = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
@@ -191,17 +205,30 @@ export function lintBannedIdioms(diffText: string): WorkerMicroGateResult {
       currentPath = /\.(?:c|h)$/i.test(fileMatch[2]) ? fileMatch[2] : "";
       continue;
     }
-    if (!currentPath || !line.startsWith("+") || line.startsWith("+++")) continue;
+    if (!currentPath || (!line.startsWith("+") && !line.startsWith("-")) || line.startsWith("+++") || line.startsWith("---")) continue;
     const body = line.slice(1);
-    const entries = linesByPath.get(currentPath) ?? [];
+    const target = line.startsWith("+") ? linesByPath : removedByPath;
+    const entries = target.get(currentPath) ?? [];
     entries.push({ body, stripped: stripLineCommentsAndStrings(body) });
-    linesByPath.set(currentPath, entries);
+    target.set(currentPath, entries);
   }
 
   const reasons: string[] = [];
-  for (const entries of linesByPath.values()) {
+  const globalSymbols = parseSymbolsTxt(context.symbolsTxt ?? "").globals;
+  for (const [path, entries] of linesByPath) {
     const definitions: StaticDefinition[] = [];
     for (const entry of entries) {
+      const staticName = staticDeclarationName(entry.stripped);
+      if (staticName) {
+        const wasNonStatic = (removedByPath.get(path) ?? []).some((line) => isNonStaticDeclarationOf(line.stripped, staticName))
+          || baselineDeclaresNonStatic(context.baselineSources?.get(path), staticName);
+        const reason = globalSymbols.has(staticName)
+          ? "symbols.txt global"
+          : wasNonStatic
+            ? "previously non-static"
+            : null;
+        if (reason) reasons.push(`static_added_to_global_symbol: '${staticName}' gains static but is ${reason}: "${entry.body.trim().replaceAll('"', '\\"')}"`);
+      }
       const staticFunction = STATIC_FUNCTION_RE.exec(entry.stripped);
       if (staticFunction?.[1] && /order/i.test(staticFunction[1])) {
         reasons.push(findingReason("section-order-hack", entry.body));
@@ -222,6 +249,22 @@ export function lintBannedIdioms(diffText: string): WorkerMicroGateResult {
     }
   }
   return { gate, status: reasons.length > 0 ? "failed" : "passed", reasons };
+}
+
+function staticDeclarationName(line: string): string | null {
+  if (!/^\s*static\b/.test(line)) return null;
+  const matches = [...line.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*(?=\[|=|;|\(|,)/g)];
+  return matches.at(-1)?.[1] ?? null;
+}
+
+function isNonStaticDeclarationOf(line: string, name: string): boolean {
+  if (/^\s*static\b/.test(line)) return false;
+  return new RegExp(`\\b${escapeRegExp(name)}\\s*(?=\\[|=|;|\\(|,)`).test(line);
+}
+
+function baselineDeclaresNonStatic(source: string | undefined, name: string): boolean {
+  if (!source) return false;
+  return source.split(/\r?\n/).some((line) => /^\S/.test(line) && isNonStaticDeclarationOf(stripLineCommentsAndStrings(line), name));
 }
 
 function findingReason(pattern: string, line: string): string {

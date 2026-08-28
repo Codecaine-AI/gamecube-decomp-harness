@@ -18,7 +18,7 @@ import type { BoundarySavePointResult } from "@server/core/cycle-runtime/phases/
 import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
 import { blockingWorkerOutputIntegrationCount } from "@server/core/cycle-runtime/run-state";
 import { addEvent } from "@server/core/cycle-runtime/run-state/events.js";
-import { activeLockedSourcePaths, admitPriorityTargets } from "@server/core/cycle-runtime/run-state/targets.js";
+import { activeLockedSourcePaths } from "@server/core/cycle-runtime/run-state/targets.js";
 import { processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import { requireLease } from "@server/core/harness-state";
 import { activeCycleSessionId } from "@server/core/cycle/session.js";
@@ -57,6 +57,10 @@ export interface EpochCycleOptions {
   /** Untracked build inputs symlinked from the live repo into the worktree (e.g. orig assets). */
   linkPaths?: string[];
   gameId?: string | null;
+  /** One mechanical build-fixer attempt after the initial report build fails. Default on. */
+  boundaryBuildFixerEnabled?: boolean;
+  runBoundaryBuildFixer?: (input: BoundaryBuildFixerInput) => Promise<BoundaryBuildFixerResult>;
+  deferBoundaryFindings?: (input: BoundaryDeferredFinding[]) => Promise<void> | void;
   /** Above this many regressed report rows the cycle pauses instead of admitting repairs. */
   regressionPauseThreshold?: number;
   regressionRequeueLimit?: number;
@@ -75,7 +79,27 @@ export interface EpochCycleOptions {
    * after the report build (observability only — the L2 ship gate in
    * regression-check is the hard stop). Omitted = no scan.
    */
-  qaScan?: { orchestratorRoot: string };
+  qaScan?: { orchestratorRoot: string; addressNamedStaticDataAllowlist?: import("@server/core/game-registry").AddressNamedStaticDataAllowlistEntry[] };
+}
+
+export interface BoundaryBuildFixerInput {
+  worktreeDir: string;
+  failure: string;
+  timeoutMs: number;
+}
+
+export interface BoundaryBuildFixerResult {
+  exitCode: number | null;
+  timedOut: boolean;
+  output: string;
+}
+
+export interface BoundaryDeferredFinding {
+  reason: "boundary_regression_deferred" | "boundary_qa_deferred";
+  unit?: string;
+  symbol?: string;
+  sourcePath?: string;
+  detail: string;
 }
 
 export interface EpochQaGateSummary {
@@ -486,6 +510,27 @@ export interface RegressionRepairPlan {
   summary: EpochRegressionSummary;
 }
 
+export function boundaryDeferredFindings(
+  plan: RegressionRepairPlan,
+  qaGate: EpochQaGateSummary | null,
+): BoundaryDeferredFinding[] {
+  const findings: BoundaryDeferredFinding[] = plan.repairCandidates.map((candidate) => ({
+    reason: "boundary_regression_deferred",
+    unit: candidate.unit,
+    symbol: candidate.symbol,
+    sourcePath: candidate.sourcePath,
+    detail: candidate.reason,
+  }));
+  for (const finding of qaGate?.findings ?? []) {
+    findings.push({
+      reason: "boundary_qa_deferred",
+      sourcePath: finding.file,
+      detail: JSON.stringify(finding),
+    });
+  }
+  return findings;
+}
+
 /**
  * Regressed functions become ordinary epoch targets with a priority floor that
  * outranks the whole board: repair-by-readmission instead of revert-and-bisect.
@@ -513,9 +558,9 @@ export function planRegressionRepair(
   };
   const reasons: string[] = [];
 
-  if (params.pauseThreshold > 0 && regressed.length > params.pauseThreshold) {
+  const paused = params.pauseThreshold > 0 && regressed.length > params.pauseThreshold;
+  if (paused) {
     reasons.push(`${regressed.length} regressed rows exceed pause threshold ${params.pauseThreshold}; refusing to admit repairs or continue`);
-    return { paused: true, reasons, repairCandidates: [], summary };
   }
 
   const ordered = [...regressedFunctions].sort((left, right) => left.bytesDelta - right.bytesDelta);
@@ -540,11 +585,59 @@ export function planRegressionRepair(
       reason: `epoch regression repair: ${entry.fromPercent.toFixed(2)}% -> ${entry.toPercent.toFixed(2)}% (${entry.bytesDelta} bytes)`,
     });
   }
-  return { paused: false, reasons, repairCandidates, summary };
+  return { paused, reasons, repairCandidates, summary };
 }
 
 function compactSteps(result: ReportRunResult): { name: string; command: string[]; exitCode: number }[] {
   return result.steps.map((step) => ({ name: step.name, command: step.command, exitCode: step.exitCode }));
+}
+
+const BOUNDARY_BUILD_FIXER_TIMEOUT_MS = 5 * 60_000;
+
+export async function runCodexBoundaryBuildFixer(input: BoundaryBuildFixerInput): Promise<BoundaryBuildFixerResult> {
+  const prompt = [
+    "Fix only the mechanical build break described below in this epoch worktree.",
+    "Limit edits to the named failing translation units and symbols. Typical allowed fixes are naming conflicts, signature drift, and residual shims.",
+    "Do not perform new decompilation work, improve matching, refactor unrelated code, or broaden the diff. Make the smallest change that can make the existing report build green.",
+    "Build failure:",
+    input.failure.slice(0, 12_000),
+  ].join("\n\n");
+  const proc = Bun.spawn([
+    "codex", "exec", "-m", "gpt-5.6-sol", "-c", 'model_reasoning_effort="low"',
+    "--enable", "fast_mode", "-s", "workspace-write", prompt,
+  ], { cwd: input.worktreeDir, stdout: "pipe", stderr: "pipe" });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"timeout">((resolveTimeout) => {
+    timer = setTimeout(() => resolveTimeout("timeout"), input.timeoutMs);
+  });
+  const timedOut = await Promise.race([proc.exited.then(() => false), timeout]) === "timeout";
+  if (timedOut) proc.kill();
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited,
+  ]);
+  if (timer) clearTimeout(timer);
+  return {
+    exitCode: timedOut ? null : exitCode,
+    timedOut,
+    output: [stdout.trim(), stderr.trim()].filter(Boolean).join("\n").slice(-12_000),
+  };
+}
+
+export async function runReportBuildWithFixer<T>(input: {
+  enabled: boolean;
+  runReport: () => Promise<T>;
+  runFixer: (failure: unknown) => Promise<BoundaryBuildFixerResult>;
+  onFixerEvent?: (status: "started" | "finished", result?: BoundaryBuildFixerResult) => void;
+}): Promise<T> {
+  try {
+    return await input.runReport();
+  } catch (error) {
+    if (!input.enabled) throw error;
+    input.onFixerEvent?.("started");
+    const result = await input.runFixer(error);
+    input.onFixerEvent?.("finished", result);
+    return input.runReport();
+  }
 }
 
 function stateDirRelativeToRepo(repoRoot: string, stateDir: string): string | null {
@@ -804,9 +897,33 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     worktree_dir: options.worktreeDir,
   });
   revalidateLease();
-  let buildResult = await forceReportRun(options.worktreeDir, {
+  const runReport = () => forceReportRun(options.worktreeDir, {
     resetBaseline: !existsSync(worktreeBaselinePath),
     toolPlatform,
+  });
+  let buildResult = await runReportBuildWithFixer({
+    enabled: options.boundaryBuildFixerEnabled ?? true,
+    runReport,
+    runFixer: (failure) => (options.runBoundaryBuildFixer ?? runCodexBoundaryBuildFixer)({
+      worktreeDir: options.worktreeDir,
+      failure: failure instanceof Error ? failure.message : String(failure),
+      timeoutMs: BOUNDARY_BUILD_FIXER_TIMEOUT_MS,
+    }),
+    onFixerEvent: (status, fixer) => epochProgress(store, runId, {
+      label,
+      phase: "report_build_fixer",
+      status,
+      message: status === "started"
+        ? "starting one bounded codex attempt for a mechanical report build break"
+        : fixer?.timedOut
+          ? "bounded codex build-fixer timed out; retrying report build once"
+          : `bounded codex build-fixer exited ${fixer?.exitCode ?? "unknown"}; retrying report build once`,
+      outcome: fixer ? (fixer.timedOut ? "timeout" : fixer.exitCode === 0 ? "completed" : "failed") : undefined,
+      exit_code: fixer?.exitCode,
+      timed_out: fixer?.timedOut,
+      output: fixer?.output,
+      worktree_dir: options.worktreeDir,
+    }),
   });
   epochProgress(store, runId, {
     label,
@@ -964,6 +1081,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
         stateDir,
         worktreeId: "epoch",
         baseRef: options.baseRef ?? "origin/master",
+        addressNamedStaticDataAllowlist: options.qaScan.addressNamedStaticDataAllowlist,
       });
       qaGate = {
         exitCode: qaInvocation.exitCode,
@@ -1059,10 +1177,9 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     requeueLimit: options.regressionRequeueLimit ?? 32,
     sourcePaths: sourcePathByUnit(worktreeReportPath),
   });
-  let requeued = 0;
-  if (!plan.paused && plan.repairCandidates.length > 0 && (options.requeueRegressions ?? true)) {
-    requeued = admitPriorityTargets(store, runId, plan.repairCandidates);
-  }
+  const deferredFindings = boundaryDeferredFindings(plan, qaGate);
+  if (deferredFindings.length > 0) await options.deferBoundaryFindings?.(deferredFindings);
+  const requeued = 0;
   const repair: EpochRepairResult = {
     paused: plan.paused,
     planned: plan.repairCandidates.length,
@@ -1075,7 +1192,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     status: "finished",
     message: plan.paused
       ? `repair planning paused on ${plan.summary.regressedFunctions} regressed function(s)`
-      : `repair planning finished: ${plan.repairCandidates.length} planned, ${requeued} requeued`,
+      : `boundary findings deferred: ${plan.repairCandidates.length} regression target(s), no boundary repair admission`,
     paused: plan.paused,
     planned: plan.repairCandidates.length,
     requeued,

@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { immediateTransaction } from "../transaction.js";
 import { baselineMigration } from "./001-baseline.js";
 import { dropLegacyEpochColumnsMigration } from "./002-drop-legacy-epoch-columns.js";
+import { addEpochBoundaryRetryMigration } from "./003-add-epoch-boundary-retry.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -10,11 +11,32 @@ export type { StorageMigration } from "./types.js";
 export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   baselineMigration,
   dropLegacyEpochColumnsMigration,
+  addEpochBoundaryRetryMigration,
 ]);
 
 interface AppliedMigrationRow {
   version: number;
   name: string;
+}
+
+export type MigrationBookkeepingStatus = "behind" | "exact" | "ahead" | "divergent";
+
+export function classifyMigrationBookkeeping(
+  applied: readonly AppliedMigrationRow[],
+  known: readonly Pick<StorageMigration, "version" | "name">[],
+): MigrationBookkeepingStatus {
+  const sharedLength = Math.min(applied.length, known.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    if (
+      applied[index]?.version !== known[index]?.version ||
+      applied[index]?.name !== known[index]?.name
+    ) {
+      return "divergent";
+    }
+  }
+  if (applied.length < known.length) return "behind";
+  if (applied.length > known.length) return "ahead";
+  return "exact";
 }
 
 interface SchemaObjectRow {
@@ -87,11 +109,41 @@ function applicationObjectCount(db: Database): number {
   return Number(row.count);
 }
 
-function bookkeepingMatchesMigrationPrefix(applied: AppliedMigrationRow[]): boolean {
-  return applied.every(
-    (row, index) =>
-      row.version === storageMigrations[index]?.version && row.name === storageMigrations[index]?.name,
-  );
+function readAppliedMigrations(db: Database): AppliedMigrationRow[] {
+  return db
+    .query("SELECT version, name FROM schema_migrations ORDER BY version")
+    .all() as AppliedMigrationRow[];
+}
+
+function aheadWarning(applied: AppliedMigrationRow[]): string {
+  return `schema is ahead of this process: applied through v${applied.at(-1)?.version}, this build knows v${storageMigrations.at(-1)?.version}`;
+}
+
+export function verifyStorageSchema(db: Database): void {
+  const knownVersion = storageMigrations.at(-1)?.version ?? 0;
+  if (!tableExists(db, "schema_migrations")) {
+    throw new Error(
+      `schema is behind this process: no migration bookkeeping exists, this build requires v${knownVersion}`,
+    );
+  }
+
+  const applied = readAppliedMigrations(db);
+  const status = classifyMigrationBookkeeping(applied, storageMigrations);
+  if (status === "behind") {
+    throw new Error(
+      `schema is behind this process: applied through v${applied.at(-1)?.version ?? 0}, this build requires v${knownVersion}`,
+    );
+  }
+
+  if (status === "divergent") {
+    throw new Error(
+      `Storage migration bookkeeping diverges from this build: ${JSON.stringify(applied)}.`,
+    );
+  }
+  if (!hasBaselineSentinels(db)) {
+    throw new Error("Storage schema is missing required baseline sentinels.");
+  }
+  if (status === "ahead") console.warn(aheadWarning(applied));
 }
 
 function resetBaselineBookkeeping(db: Database): void {
@@ -124,16 +176,29 @@ export function runStorageMigrations(db: Database): void {
   immediateTransaction(db, () => {
     ensureBookkeepingTable(db);
 
-    const applied = db
-      .query("SELECT version, name FROM schema_migrations ORDER BY version")
-      .all() as AppliedMigrationRow[];
-    if (
-      applied.length > 0 &&
-      bookkeepingMatchesMigrationPrefix(applied) &&
-      hasBaselineSentinels(db)
-    ) {
-      applyPendingMigrations(db);
-      return;
+    const applied = readAppliedMigrations(db);
+    if (applied.length > 0) {
+      const bookkeepingStatus = classifyMigrationBookkeeping(applied, storageMigrations);
+      const hasSentinels = hasBaselineSentinels(db);
+      if (bookkeepingStatus === "ahead") {
+        if (!hasSentinels) {
+          throw new Error(
+            `Storage schema is not the squashed baseline (bookkeeping: ${JSON.stringify(applied)}). Missing baseline sentinels.`,
+          );
+        }
+        console.warn(aheadWarning(applied));
+        return;
+      }
+      if ((bookkeepingStatus === "behind" || bookkeepingStatus === "exact") && hasSentinels) {
+        applyPendingMigrations(db);
+        return;
+      }
+      if (bookkeepingStatus === "divergent" || !hasSentinels) {
+        throw new Error(
+          `Storage schema is not the squashed baseline (bookkeeping: ${JSON.stringify(applied)}). ` +
+            "Migration bookkeeping diverges from this build or baseline sentinels are missing.",
+        );
+      }
     }
 
     if (applicationObjectCount(db) === 0) {

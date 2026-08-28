@@ -136,6 +136,8 @@ CREATE TABLE epochs (
         admitted_count INTEGER NOT NULL DEFAULT 0,
         finished_count INTEGER NOT NULL DEFAULT 0,
         boundary_status TEXT,
+        boundary_attempt_count INTEGER NOT NULL DEFAULT 0,
+        boundary_next_attempt_at TEXT,
         routing_summary_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL,
         closed_at TEXT

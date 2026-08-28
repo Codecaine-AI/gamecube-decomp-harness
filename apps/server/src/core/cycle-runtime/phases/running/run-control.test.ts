@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -30,6 +30,7 @@ import {
 import {
   activateRun,
   cancelRun,
+  forceReleaseDispatchLease,
   hardStopRun,
   isStaleRunDispatchLease,
   reconcileRunLeaseState,
@@ -109,7 +110,105 @@ afterEach(() => {
   for (const dir of tempDirs.splice(0)) rmSync(dir, { force: true, recursive: true });
 });
 
+describe("operator dispatch lease force-release", () => {
+  function ageLease(store: StateStore, heartbeatAt: string): void {
+    const state = getHarnessState(store, "melee");
+    store.db.query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?").run(
+      JSON.stringify({ ...state?.active_workflow, heartbeat_at: heartbeatAt }),
+      "melee",
+    );
+  }
+
+  test("releases a dead holder and records the recovery event", () => {
+    const { dir, store } = tempState();
+    const active = activeRun(store, dir);
+    ageLease(store, "2026-08-12T10:00:00.000Z");
+
+    expect(forceReleaseDispatchLease({
+      confirmed: true,
+      gameId: "melee",
+      hasActiveLeaseProcess: () => ({ active: false }),
+      now: "2026-08-12T10:00:11.000Z",
+      reason: "scheduler pid is dead",
+      stateDir: dir,
+      store,
+    })).toEqual({ leaseId: active.leaseId, released: true });
+
+    expect(getHarnessState(store, "melee")?.active_workflow).toBeNull();
+    expect(listGameEvents(store.db).at(-1)).toMatchObject({
+      actor: "operator",
+      eventType: "game.dispatch_released",
+      payload: {
+        recovery: true,
+        recovery_reason: "scheduler pid is dead",
+        old_lease_holder: { lease_id: active.leaseId },
+      },
+    });
+  });
+
+  test("refuses a holder with a fresh heartbeat", () => {
+    const { dir, store } = tempState();
+    activeRun(store, dir);
+    ageLease(store, "2026-08-12T10:00:00.000Z");
+    let checkedProcess = false;
+
+    expect(() => forceReleaseDispatchLease({
+      confirmed: true,
+      gameId: "melee",
+      hasActiveLeaseProcess: () => {
+        checkedProcess = true;
+        return { active: false };
+      },
+      now: "2026-08-12T10:00:10.000Z",
+      reason: "operator override",
+      stateDir: dir,
+      store,
+    })).toThrow("heartbeat is recent");
+    expect(checkedProcess).toBe(false);
+    expect(getHarnessState(store, "melee")?.active_workflow).not.toBeNull();
+  });
+
+  test("refuses a matching live scheduler process", () => {
+    const { dir, store } = tempState();
+    const active = activeRun(store, dir);
+    ageLease(store, "2026-08-12T10:00:00.000Z");
+
+    expect(() => forceReleaseDispatchLease({
+      confirmed: true,
+      gameId: "melee",
+      hasActiveLeaseProcess: (_stateDir, leaseId) => ({ active: leaseId === active.leaseId }),
+      now: "2026-08-12T10:00:11.000Z",
+      reason: "operator override",
+      stateDir: dir,
+      store,
+    })).toThrow("live scheduler process");
+    expect(getHarnessState(store, "melee")?.active_workflow?.lease_id).toBe(active.leaseId);
+  });
+});
+
 describe("run recovery controls", () => {
+  test("operator resume resets exhausted boundary retry state", () => {
+    const { dir, store } = tempState();
+    const run = createRun(store, "matched_code_percent", 100, 1, {
+      gameId: "melee", repoRoot: dir, stateDir: dir,
+    }, { baseRevision: "base-test" });
+    const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+    const active = activateRun({ reason: "start test run", runId: run.id, store });
+    settleStoppedRun({ leaseId: active.leaseId, reason: "park test run", runId: run.id, store });
+    store.db.query(`UPDATE epochs SET status = 'error', boundary_status = 'retry_exhausted',
+      boundary_attempt_count = 5, boundary_next_attempt_at = '2026-08-28T00:00:00.000Z' WHERE id = ?`).run(epoch.id);
+
+    activateRun({ reason: "operator resumed after fixing boundary", runId: run.id, store });
+
+    expect(getRun(store, run.id)?.status).toBe("active");
+    expect(store.db.query(`SELECT boundary_status, boundary_attempt_count, boundary_next_attempt_at
+      FROM epochs WHERE id = ?`).get(epoch.id)).toEqual({
+        boundary_status: "error",
+        boundary_attempt_count: 0,
+        boundary_next_attempt_at: null,
+      });
+  });
+
   test("activation assigns the run to its cycle", () => {
     const { dir, store } = tempState();
     const cycle = createCycle(store.db, {
@@ -525,6 +624,88 @@ describe("run recovery controls", () => {
       eventType: "run.recovered",
       payload: { recovery_reason: "stale dispatch lease", resulting_status: "paused" },
     });
+  });
+
+  test("recovers an active lease-free run when no scheduler process is live", async () => {
+    const { dir, store } = tempState();
+    const active = activeRun(store, dir);
+    releaseDispatch(store, {
+      actor: "operator",
+      commandId: "command-force-release-before-recovery",
+      correlationId: active.run.id,
+      leaseId: active.leaseId,
+      gameId: "melee",
+    });
+    const log = spyOn(console, "log").mockImplementation(() => undefined);
+
+    try {
+      const recovered = await recoverRun({
+        confirmed: true,
+        globals: globalsFor(dir),
+        hasActiveProcess: () => ({ active: false }),
+        processIntegrations: false,
+        reason: "recover after force-release",
+        runId: active.run.id,
+        store,
+      });
+
+      expect(recovered).toMatchObject({
+        dispatchLeaseRecovered: true,
+        run: { id: active.run.id, status: "paused" },
+      });
+      expect(getHarnessState(store, "melee")?.active_workflow).toBeNull();
+      expect(log).toHaveBeenCalledWith("recover: no dispatch lease held and no live scheduler - proceeding");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  test("blocks lease-free active-run recovery while its scheduler process is live", async () => {
+    const { dir, store } = tempState();
+    const active = activeRun(store, dir);
+    releaseDispatch(store, {
+      actor: "operator",
+      commandId: "command-force-release-with-live-process",
+      correlationId: active.run.id,
+      leaseId: active.leaseId,
+      gameId: "melee",
+    });
+
+    await expect(recoverRun({
+      confirmed: true,
+      globals: globalsFor(dir),
+      hasActiveProcess: () => ({ active: true }),
+      processIntegrations: false,
+      reason: "recover while scheduler is live",
+      runId: active.run.id,
+      store,
+    })).rejects.toMatchObject({ blockerCodes: ["dispatch_process_alive"] });
+
+    expect(getRun(store, active.run.id)?.status).toBe("active");
+    expect(getHarnessState(store, "melee")?.active_workflow).toBeNull();
+  });
+
+  test("blocks active-run recovery with a fresh lease without checking process liveness", async () => {
+    const { dir, store } = tempState();
+    const active = activeRun(store, dir);
+    let checkedProcess = false;
+
+    await expect(recoverRun({
+      confirmed: true,
+      globals: globalsFor(dir),
+      hasActiveProcess: () => {
+        checkedProcess = true;
+        return { active: false };
+      },
+      processIntegrations: false,
+      reason: "recover with fresh lease",
+      runId: active.run.id,
+      store,
+    })).rejects.toMatchObject({ blockerCodes: ["run_not_failed", "dispatch_lease_not_stale"] });
+
+    expect(checkedProcess).toBe(false);
+    expect(getRun(store, active.run.id)?.status).toBe("active");
+    expect(getHarnessState(store, "melee")?.active_workflow?.lease_id).toBe(active.leaseId);
   });
 
   test("refuses an unsupported recovery status before touching its dispatch lease", async () => {

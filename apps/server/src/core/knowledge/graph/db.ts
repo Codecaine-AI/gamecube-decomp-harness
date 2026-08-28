@@ -2,3 +2,4 @@ export { insertGraphRecords, resetKnowledgeGraph, upsertSourceDescriptor, upsert
 export { ensureKnowledgeGraphSchema, graphDbExists, openKnowledgeGraph, type KnowledgeGraphStore } from "./storage/store.js";
 export { searchKnowledgeGraph } from "./storage/search.js";
 export { graphStats } from "./storage/stats.js";
+export { readReportProvenance, writeReportProvenance, type ReportProvenance } from "./storage/metadata.js";

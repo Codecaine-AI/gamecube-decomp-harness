@@ -1261,7 +1261,7 @@ export async function runWorkerCycleFromTask(
   deps: WorkerTaskRuntimeDeps = {},
 ): Promise<WorkerCycleResult> {
   const task = await readWorkerTaskFile(args);
-  const store = openState(globals.stateDir);
+  const store = openState(globals.stateDir, { migrate: false });
   try {
     if (task.claim_token.jobId !== task.job_id) throw new Error("Worker task job_id does not match claim_token.jobId");
     verifyClaimToken(store, task.claim_token);

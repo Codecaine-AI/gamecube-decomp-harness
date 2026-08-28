@@ -7,7 +7,7 @@ import {
 } from "@server/core/harness-state/events.js";
 
 export type SandboxEventActor = "operator" | "runner";
-export type SandboxDeleteReason = "settlement" | "reap" | "reconciliation" | "provision_failure";
+export type SandboxDeleteReason = "settlement" | "reap" | "reconciliation" | "provision_failure" | "retry_reprovision";
 
 interface SandboxEventContext {
   gameId: string;

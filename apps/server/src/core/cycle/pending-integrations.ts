@@ -291,20 +291,6 @@ function reconcilePreparedIntegration(
   }
 
   immediateTransaction(store.db, () => {
-    store.db
-      .query(
-        `UPDATE epochs
-         SET status = 'completed',
-             finished_count = (
-               SELECT COUNT(*) FROM epoch_targets
-               WHERE epoch_targets.epoch_id = epochs.id
-                 AND epoch_targets.status = 'finished'
-             ),
-             boundary_status = 'success',
-             closed_at = COALESCE(closed_at, ?)
-         WHERE id = ? AND run_id = ?`,
-      )
-      .run(occurredAt, pending.epochId, pending.runId);
     recordEpochCompletedInTransaction(store.db, {
       gameId: run?.game_id ?? undefined,
       epochId: pending.epochId,

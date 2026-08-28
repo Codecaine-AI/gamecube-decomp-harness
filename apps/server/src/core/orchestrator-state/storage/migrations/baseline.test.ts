@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,7 +6,7 @@ import { Database } from "bun:sqlite";
 import { configureConnection, ensureSchema } from "../ddl.js";
 import { dropLegacyEpochColumnsMigration } from "./002-drop-legacy-epoch-columns.js";
 import { FINAL_SCHEMA_DDL, SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
-import { runStorageMigrations } from "./index.js";
+import { classifyMigrationBookkeeping, runStorageMigrations } from "./index.js";
 
 const tempDirs: string[] = [];
 const databases: Database[] = [];
@@ -25,18 +25,17 @@ function database(name: string): Database {
   return db;
 }
 
-function schemaInventory(db: Database): unknown[] {
-  return db
-    .query(`
-      SELECT type, name, tbl_name, sql
-      FROM sqlite_schema
-      WHERE name NOT LIKE 'sqlite_%'
-      ORDER BY type, name
-    `)
-    .all();
-}
-
 describe("squashed storage baseline", () => {
+  test("classifies applied [1,2,3] as ahead of code list [1,2]", () => {
+    const known = [
+      { version: 1, name: "baseline" },
+      { version: 2, name: "drop_legacy_epoch_columns" },
+    ];
+    const applied = [...known, { version: 3, name: "add_epoch_boundary_retry" }];
+
+    expect(classifyMigrationBookkeeping(applied, known)).toBe("ahead");
+  });
+
   test("creates the canonical schema and records only the baseline", () => {
     const db = database("storage-baseline-fresh");
     ensureSchema(db);
@@ -44,6 +43,7 @@ describe("squashed storage baseline", () => {
     expect(db.query("SELECT version, name FROM schema_migrations").all()).toEqual([
       { version: 1, name: "baseline" },
       { version: 2, name: "drop_legacy_epoch_columns" },
+      { version: 3, name: "add_epoch_boundary_retry" },
     ]);
     expect(db.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -113,7 +113,42 @@ describe("squashed storage baseline", () => {
     ).toThrow("CHECK constraint failed");
   });
 
-  test("resets historical bookkeeping when the schema is already canonical", () => {
+  test("accepts newer additive migrations when this build's list is an exact prefix", () => {
+    const db = database("storage-baseline-ahead");
+    ensureSchema(db);
+    db.exec("ALTER TABLE epochs ADD COLUMN future_additive_value TEXT");
+    db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+      4,
+      "future_additive_migration",
+      "2026-08-27T23:09:00.000Z",
+    );
+    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+
+    try {
+      runStorageMigrations(db);
+
+      expect(warning).toHaveBeenCalledWith(
+        "schema is ahead of this process: applied through v4, this build knows v3",
+      );
+      expect(
+        db
+          .query("SELECT name FROM pragma_table_info('epochs') WHERE name = ?")
+          .get("future_additive_value"),
+      ).toEqual({ name: "future_additive_value" });
+      expect(
+        db.query("SELECT version, name FROM schema_migrations ORDER BY version").all(),
+      ).toEqual([
+        { version: 1, name: "baseline" },
+        { version: 2, name: "drop_legacy_epoch_columns" },
+        { version: 3, name: "add_epoch_boundary_retry" },
+        { version: 4, name: "future_additive_migration" },
+      ]);
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  test("rejects a bookkeeping prefix mismatch even when the schema is canonical", () => {
     const db = database("storage-baseline-reset");
     db.exec(SCHEMA_MIGRATIONS_DDL);
     db.exec(FINAL_SCHEMA_DDL);
@@ -127,14 +162,10 @@ describe("squashed storage baseline", () => {
       "historical_chain_complete",
       "2026-08-15T00:01:00.000Z",
     );
-    const before = schemaInventory(db);
-
-    runStorageMigrations(db);
-
-    expect(schemaInventory(db)).toEqual(before);
-    expect(db.query("SELECT version, name FROM schema_migrations").all()).toEqual([
+    expect(() => runStorageMigrations(db)).toThrow("Storage schema is not the squashed baseline");
+    expect(db.query("SELECT version, name FROM schema_migrations ORDER BY version").all()).toEqual([
       { version: 1, name: "baseline" },
-      { version: 2, name: "drop_legacy_epoch_columns" },
+      { version: 19, name: "historical_chain_complete" },
     ]);
   });
 
@@ -179,6 +210,7 @@ describe("legacy epoch column migration", () => {
     expect(db.query("SELECT version, name FROM schema_migrations ORDER BY version").all()).toEqual([
       { version: 1, name: "baseline" },
       { version: 2, name: "drop_legacy_epoch_columns" },
+      { version: 3, name: "add_epoch_boundary_retry" },
     ]);
   });
 

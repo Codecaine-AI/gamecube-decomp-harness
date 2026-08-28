@@ -2,6 +2,52 @@ import { describe, expect, test } from "bun:test";
 import { handleRunsApiRoute, type RunsApiRouteDeps } from "./runs.js";
 
 describe("handleRunsApiRoute", () => {
+  test("routes an explicitly confirmed game lease force-release", async () => {
+    const received: Record<string, unknown>[] = [];
+    const deps = {
+      forceReleaseLease: (body: Record<string, unknown>) => {
+        received.push(body);
+        return { released: true };
+      },
+      json: (data: unknown, init?: ResponseInit) => Response.json(data, init),
+    } as unknown as RunsApiRouteDeps;
+    const response = await handleRunsApiRoute(
+      new Request("http://localhost/api/run/force-release-lease", {
+        body: JSON.stringify({ confirmed: true, gameId: "melee" }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      new URL("http://localhost/api/run/force-release-lease"),
+      deps,
+    );
+
+    expect(response?.status).toBe(200);
+    expect(received).toEqual([{ confirmed: true, gameId: "melee" }]);
+    expect(await response?.json()).toEqual({ released: true });
+  });
+
+  test.each([
+    [{ confirmed: true }, 400, "requires gameId"],
+    [{ gameId: "melee" }, 409, "requires operator confirmation"],
+  ] as const)("refuses an invalid force-release request %#", async (body, status, message) => {
+    const deps = {
+      forceReleaseLease: () => { throw new Error("must not execute"); },
+      json: (data: unknown, init?: ResponseInit) => Response.json(data, init),
+    } as unknown as RunsApiRouteDeps;
+    const response = await handleRunsApiRoute(
+      new Request("http://localhost/api/run/force-release-lease", {
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      new URL("http://localhost/api/run/force-release-lease"),
+      deps,
+    );
+
+    expect(response?.status).toBe(status);
+    expect((await response?.json()).error).toContain(message);
+  });
+
   test.each([
     ["/api/run/resume", "resumeRun", "run.resume"],
     ["/api/run/hard-stop", "hardStopRun", "run.hard_stop"],

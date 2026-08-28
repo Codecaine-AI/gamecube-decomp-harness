@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { runStorageMigrations } from "./migrations/index.js";
+import { runStorageMigrations, verifyStorageSchema } from "./migrations/index.js";
 
 export { FINAL_SCHEMA_DDL, SCHEMA_MIGRATIONS_DDL } from "./migrations/ddl.js";
 
@@ -14,4 +14,8 @@ export function configureConnection(db: Database): void {
 
 export function ensureSchema(db: Database): void {
   runStorageMigrations(db);
+}
+
+export function verifySchema(db: Database): void {
+  verifyStorageSchema(db);
 }

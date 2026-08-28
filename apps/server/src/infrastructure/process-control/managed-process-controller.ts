@@ -122,6 +122,19 @@ function processGroupAlive(pid: number): boolean {
   }
 }
 
+function processGroupProvablyAlive(pid: number): boolean {
+  const probe = (target: number): boolean => {
+    try {
+      process.kill(target, 0);
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
+      throw error;
+    }
+  };
+  return probe(-pid) || probe(pid);
+}
+
 function waitForProcessGroupExit(pid: number, timeoutMs: number): Promise<boolean> {
   const started = Date.now();
   return new Promise((resolveWait) => {
@@ -280,6 +293,25 @@ export class ManagedProcessController {
       active: Boolean(activeManaged || activeSaved),
       name: stringValue(activeSaved?.name, this.managed?.name ?? "managed process"),
     };
+  }
+
+  hasActiveLeaseProcess(stateDir: string, leaseId: string): { active: boolean; name: string } {
+    const commandHoldsLease = (command: string[]): boolean =>
+      command.some((arg, index) => arg === "--lease-id" && command[index + 1] === leaseId);
+    const managedActive = this.managed?.state === "running" || this.managed?.state === "stopping";
+    if (managedActive && commandHoldsLease(this.managed?.command ?? [])) {
+      return { active: true, name: this.managed?.name ?? "managed process" };
+    }
+    const processDir = resolve(stateDir, "ui-processes");
+    if (!existsSync(processDir)) return { active: false, name: "managed process" };
+    const saved = Array.from(new Bun.Glob("*.json").scanSync({ cwd: processDir }))
+      .map((file) => {
+        const record = asObject(JSON.parse(readFileSync(resolve(processDir, file), "utf8")));
+        const pid = intValue(record.pid, 0, 0);
+        return { ...record, alive: pid > 0 && processGroupProvablyAlive(pid) } as JsonObject & { alive: boolean };
+      })
+      .find((record) => record.alive && commandHoldsLease(savedCommand(record)));
+    return { active: Boolean(saved), name: stringValue(saved?.name, "managed process") };
   }
 
   spawn(input: StartManagedInput): ManagedProcess {

@@ -28,6 +28,12 @@ export function ensureKnowledgeGraphSqlSchema(db: Database): boolean {
       source_paths_json TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS knowledge_graph_metadata (
+      key TEXT PRIMARY KEY,
+      value_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS graph_entities (
       id TEXT PRIMARY KEY,
       entity_type TEXT NOT NULL,

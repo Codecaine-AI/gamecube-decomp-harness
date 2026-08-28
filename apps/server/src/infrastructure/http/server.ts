@@ -469,6 +469,7 @@ const processControlRuntime = createProcessControlRuntime({
 });
 
 const runControlRuntime = createRunControlRuntime({
+  hasActiveLeaseProcess: (stateDir, leaseId) => processController.hasActiveLeaseProcess(stateDir, leaseId),
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   resolveDashboardGame: gameContext.resolveDashboardGame,
   stopManaged: processControlRuntime.stopManaged,
@@ -888,6 +889,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     cancelRun: runControlRuntime.cancel,
     completeRun: preparingRuntime.completeRun,
     freshRun: preparingRuntime.freshRun,
+    forceReleaseLease: runControlRuntime.forceReleaseLease,
     hardStopRun: runControlRuntime.hardStop,
     initRun: preparingRuntime.initRun,
     json,

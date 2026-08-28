@@ -1,6 +1,11 @@
 export {
   planRegressionRepair,
+  boundaryDeferredFindings,
   runEpochCycle,
+  runReportBuildWithFixer,
+  type BoundaryBuildFixerInput,
+  type BoundaryBuildFixerResult,
+  type BoundaryDeferredFinding,
   type EpochCycleOptions,
   type EpochCycleResult,
   type EpochQaGateSummary,

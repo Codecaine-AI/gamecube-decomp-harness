@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, setSystemTime, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,12 +18,36 @@ import { activateRun } from "../run-control.js";
 import { settleRunOnExit } from "../jobs/settle-supervised-run.js";
 import {
   epochBoundaryWorkPending,
+  createKnowledgeMaintenanceClock,
   integrationResolverLockPaths,
   sandboxSleepConfigFromArgs,
   selectRunLoopSchedulerCondition,
   selectIntegrationResolverBatch,
 } from "./run-loop.js";
 import { resolveBaseRev } from "../workers/worker-cycle.js";
+
+describe("createKnowledgeMaintenanceClock", () => {
+  test("starts a full interval when a long maintenance pass completes", () => {
+    const startedAt = new Date("2026-08-27T23:00:00.000Z");
+    const intervalMs = 5 * 60_000;
+    try {
+      setSystemTime(startedAt);
+      const clock = createKnowledgeMaintenanceClock(intervalMs);
+      expect(clock.isDue()).toBe(true);
+
+      setSystemTime(startedAt.getTime() + 12 * 60_000);
+      clock.markCompleted();
+      expect(clock.isDue()).toBe(false);
+
+      setSystemTime(startedAt.getTime() + 17 * 60_000 - 1);
+      expect(clock.isDue()).toBe(false);
+      setSystemTime(startedAt.getTime() + 17 * 60_000);
+      expect(clock.isDue()).toBe(true);
+    } finally {
+      setSystemTime();
+    }
+  });
+});
 
 describe("sandboxSleepConfigFromArgs", () => {
   test("defaults sleep on at 250ms and accepts the comparison-run switches", () => {
@@ -163,6 +187,23 @@ describe("epochBoundaryWorkPending", () => {
       closeSchedulerEpoch(store, epoch.id, { status: "error", boundaryStatus: "integration_commit_failed" });
 
       expect(epochBoundaryWorkPending(store, run.id)).toBe(true);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("waits for persisted backoff and never retries an exhausted boundary", () => {
+    const { store } = tempState();
+    try {
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+      store.db.query(`UPDATE epochs SET status = 'error', admitted_count = 1, finished_count = 1, boundary_status = 'retry_scheduled',
+        boundary_attempt_count = 1, boundary_next_attempt_at = '2026-08-27T12:02:00.000Z' WHERE id = ?`).run(epoch.id);
+
+      expect(epochBoundaryWorkPending(store, run.id, new Date("2026-08-27T12:01:59.999Z"))).toBe(false);
+      expect(epochBoundaryWorkPending(store, run.id, new Date("2026-08-27T12:02:00.000Z"))).toBe(true);
+      store.db.query("UPDATE epochs SET boundary_status = 'retry_exhausted', boundary_next_attempt_at = NULL WHERE id = ?").run(epoch.id);
+      expect(epochBoundaryWorkPending(store, run.id, new Date("2026-08-28T12:00:00.000Z"))).toBe(false);
     } finally {
       store.db.close();
     }

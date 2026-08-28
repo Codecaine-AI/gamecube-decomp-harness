@@ -223,8 +223,8 @@ describe("pending epoch integrations", () => {
 
     expect(listPendingIntegrations(store)).toEqual([]);
     expect(store.db.query("SELECT status, boundary_status, closed_at FROM epochs WHERE id = ?").get(epochId)).toEqual({
-      status: "completed",
-      boundary_status: "success",
+      status: "error",
+      boundary_status: "error",
       closed_at: "2026-08-12T12:02:30.000Z",
     });
     expect(listCycleTimeline(store.db, "cycle-1")[0]?.payload).toMatchObject({
@@ -266,8 +266,8 @@ describe("pending epoch integrations", () => {
     });
     expect(listPendingIntegrations(store)).toEqual([]);
     expect(store.db.query("SELECT status, boundary_status FROM epochs WHERE id = ?").get(epochId)).toEqual({
-      status: "completed",
-      boundary_status: "success",
+      status: "error",
+      boundary_status: "error",
     });
     expect(listCycleTimeline(store.db, "cycle-1")).toHaveLength(1);
     expect(eventsForSubject(store.db, "run", runId).filter((event) => event.eventType === "run.epoch_integrated")).toHaveLength(1);

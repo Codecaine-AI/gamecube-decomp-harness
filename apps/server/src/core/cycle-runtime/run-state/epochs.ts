@@ -19,6 +19,9 @@ export type EpochStatus = "active" | "completed" | "error" | "paused";
 
 export interface SchedulerEpochConfig {
   workerPoolSize: number;
+  freshReportGate?: boolean;
+  candidateMultiple?: number;
+  candidateCap?: number;
 }
 
 export interface SchedulerEpochRecord {
@@ -30,6 +33,8 @@ export interface SchedulerEpochRecord {
   admittedCount: number;
   finishedCount: number;
   boundaryStatus: string | null;
+  boundaryAttemptCount: number;
+  boundaryNextAttemptAt: string | null;
   routingSummary: Record<string, unknown>;
   createdAt: string;
   closedAt: string | null;
@@ -163,10 +168,53 @@ function rowToEpoch(row: Record<string, unknown>): SchedulerEpochRecord {
     admittedCount: Number(row.admitted_count ?? 0),
     finishedCount: Number(row.finished_count ?? 0),
     boundaryStatus: row.boundary_status == null ? null : String(row.boundary_status),
+    boundaryAttemptCount: Number(row.boundary_attempt_count ?? 0),
+    boundaryNextAttemptAt: row.boundary_next_attempt_at == null ? null : String(row.boundary_next_attempt_at),
     routingSummary,
     createdAt: String(row.created_at),
     closedAt: row.closed_at == null ? null : String(row.closed_at),
   };
+}
+
+export interface EpochBoundaryRetryFailure {
+  attemptCount: number;
+  delayMs: number | null;
+  nextAttemptAt: string | null;
+  terminal: boolean;
+}
+
+export function recordEpochBoundaryRetryFailure(
+  store: StateStore,
+  epochId: string,
+  config: { enabled: boolean; maxAttempts: number; baseMs: number; maxMs: number },
+  occurredAt = new Date(),
+): EpochBoundaryRetryFailure {
+  return immediateTransaction(store.db, () => {
+    const row = store.db.query("SELECT boundary_attempt_count FROM epochs WHERE id = ?").get(epochId) as
+      | { boundary_attempt_count: number }
+      | undefined;
+    if (!row) throw new Error(`Epoch not found: ${epochId}`);
+    const attemptCount = Number(row.boundary_attempt_count ?? 0) + 1;
+    const terminal = !config.enabled || attemptCount >= Math.max(1, Math.floor(config.maxAttempts));
+    const delayMs = terminal
+      ? null
+      : Math.min(
+          Math.max(0, Math.floor(config.maxMs)),
+          Math.max(0, Math.floor(config.baseMs)) * 2 ** Math.max(0, attemptCount - 1),
+        );
+    const nextAttemptAt = delayMs === null ? null : new Date(occurredAt.getTime() + delayMs).toISOString();
+    store.db.query(`UPDATE epochs
+      SET status = 'error', boundary_status = ?, boundary_attempt_count = ?, boundary_next_attempt_at = ?
+      WHERE id = ?`).run(terminal ? "retry_exhausted" : "retry_scheduled", attemptCount, nextAttemptAt, epochId);
+    return { attemptCount, delayMs, nextAttemptAt, terminal };
+  });
+}
+
+export function resetEpochBoundaryRetries(store: StateStore, runId: string): void {
+  store.db.query(`UPDATE epochs
+    SET boundary_attempt_count = 0, boundary_next_attempt_at = NULL,
+        boundary_status = CASE WHEN boundary_status = 'retry_exhausted' THEN 'error' ELSE boundary_status END
+    WHERE run_id = ? AND boundary_attempt_count > 0`).run(runId);
 }
 
 function nextEpochOrdinal(store: StateStore, runId: string): number {

@@ -11,6 +11,30 @@ afterEach(() => {
 });
 
 describe("ManagedProcessController", () => {
+  test("matches only a live process carrying the requested lease argv", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "managed-process-controller-"));
+    tempDirs.push(stateDir);
+    const controller = createManagedProcessController({
+      gameToSummary: (game) => ({ ...game }),
+      mirrorProcessState: () => {},
+      packageRoot: stateDir,
+    });
+    const managed = controller.spawn({
+      command: ["bun", "-e", "setInterval(() => {}, 1000)", "--lease-id", "lease-live"],
+      game: null,
+      name: "test-run-loop",
+      stateDir,
+    });
+
+    try {
+      expect(controller.hasActiveLeaseProcess(stateDir, "lease-live").active).toBeTrue();
+      expect(controller.hasActiveLeaseProcess(stateDir, "lease-other").active).toBeFalse();
+    } finally {
+      process.kill(-managed.pid, "SIGTERM");
+      await new Promise<void>((resolveExit) => managed.child.once("exit", () => resolveExit()));
+    }
+  });
+
   test("writes detached process stdout and stderr to durable state files", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "managed-process-controller-"));
     tempDirs.push(stateDir);

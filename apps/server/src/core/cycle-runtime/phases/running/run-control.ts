@@ -23,6 +23,7 @@ import {
   activeClaimsForRun,
   getRun,
   transitionRun,
+  resetEpochBoundaryRetries,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
 import { activateAcquiredSync } from "@server/core/cycle-runtime/phases/sync/activation.js";
@@ -50,6 +51,7 @@ export interface RecoverRunInput extends SettlingRunControlInput {
 
 export type ProcessLiveness = "live" | "not_live" | "unknown";
 export type RunDispatchLeaseStaleness = "stale" | "not_stale" | "process_liveness_unknown";
+export const FORCE_RELEASE_HEARTBEAT_FRESH_MS = 10_000;
 
 export type HardStopRunInput = SettlingRunControlInput;
 export type CancelRunInput = ConfirmedRunControlInput;
@@ -93,6 +95,17 @@ export interface RunLeaseReconciliation {
   run: RunRecord;
 }
 
+export interface ForceReleaseDispatchLeaseInput {
+  commandId?: string;
+  confirmed: boolean;
+  gameId: string;
+  hasActiveLeaseProcess: (stateDir: string, leaseId: string) => { active: boolean };
+  now?: Date | number | string;
+  reason: string;
+  stateDir: string;
+  store: StateStore;
+}
+
 export class RunControlConfirmationRequiredError extends Error {
   constructor(action: string) {
     super(`${action} requires operator confirmation`);
@@ -112,6 +125,56 @@ export class RunControlBlockedError extends Error {
 
 function requireConfirmation(confirmed: boolean, action: string): void {
   if (!confirmed) throw new RunControlConfirmationRequiredError(action);
+}
+
+export function forceReleaseDispatchLease(input: ForceReleaseDispatchLeaseInput): { leaseId: string; released: true } {
+  requireConfirmation(input.confirmed, "run.force_release_lease");
+  return immediateTransaction(input.store.db, () => {
+    const lease = getHarnessState(input.store, input.gameId)?.active_workflow ?? null;
+    if (!lease) {
+      throw new RunControlBlockedError(
+        `Game ${input.gameId} has no active dispatch lease`,
+        ["dispatch_lease_missing"],
+      );
+    }
+
+    const heartbeatAt = Date.parse(lease.heartbeat_at);
+    const at = timeMs(input.now);
+    if (!Number.isFinite(heartbeatAt) || !Number.isFinite(at) || at - heartbeatAt <= FORCE_RELEASE_HEARTBEAT_FRESH_MS) {
+      throw new RunControlBlockedError(
+        `Dispatch lease ${lease.lease_id} heartbeat is recent; force-release refused`,
+        ["dispatch_lease_heartbeat_recent"],
+      );
+    }
+
+    let active: boolean;
+    try {
+      active = input.hasActiveLeaseProcess(input.stateDir, lease.lease_id).active;
+    } catch {
+      throw new RunControlBlockedError(
+        `Dispatch lease ${lease.lease_id} process liveness could not be determined; force-release refused`,
+        ["process_liveness_unknown"],
+      );
+    }
+    if (active) {
+      throw new RunControlBlockedError(
+        `Dispatch lease ${lease.lease_id} still has a live scheduler process; force-release refused`,
+        ["dispatch_lease_process_live"],
+      );
+    }
+
+    recoverDispatch(input.store, {
+      actor: "operator",
+      cancelledSubjectIds: [],
+      commandId: input.commandId ?? `command-run-force-release-lease-${randomUUID()}`,
+      correlationId: lease.workflow_id,
+      gameId: input.gameId,
+      leaseId: lease.lease_id,
+      now: new Date(at).toISOString(),
+      recoveryReason: input.reason,
+    });
+    return { leaseId: lease.lease_id, released: true };
+  });
 }
 
 function requireRun(store: StateStore, runId: string): RunRecord {
@@ -180,6 +243,7 @@ export function activateRun(input: ActivateRunInput): { leaseId: string; run: Ru
     const gameId = requireGameId(original, input.gameId);
     initializeHarnessState(input.store, { gameId, traceId: `trace-game-${gameId}` });
     const actor = input.actor ?? "operator";
+    if (original.status === "paused") resetEpochBoundaryRetries(input.store, original.id);
     const decision = requestDispatch(input.store, {
       actor,
       commandId: operationCommandId,
@@ -441,6 +505,7 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
       "run_status_not_recoverable",
     ]);
   }
+  const gameId = requireGameId(original);
   let lease = runLease(input.store, original);
   const leaseStaleness = runDispatchLeaseStaleness({
     hasActiveProcess: input.hasActiveProcess,
@@ -448,14 +513,24 @@ export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResu
     now: input.now,
     stateDir: input.globals.stateDir,
   });
-  if (original.status !== "failed" && leaseStaleness === "process_liveness_unknown") {
-    throw new RunControlBlockedError(`Run ${original.id} process liveness could not be determined`, ["process_liveness_unknown"]);
-  }
-  if (original.status !== "failed" && leaseStaleness !== "stale") {
-    throw new RunControlBlockedError(`Run ${original.id} is not failed and its dispatch lease is not stale`, ["run_not_failed", "dispatch_lease_not_stale"]);
+  if (original.status !== "failed") {
+    const heldLease = getHarnessState(input.store, gameId)?.active_workflow ?? null;
+    if (!heldLease) {
+      const liveness = processLiveness(input.hasActiveProcess, input.globals.stateDir);
+      if (liveness === "unknown") {
+        throw new RunControlBlockedError(`Run ${original.id} process liveness could not be determined`, ["process_liveness_unknown"]);
+      }
+      if (liveness === "live") {
+        throw new RunControlBlockedError(`Run ${original.id} has no dispatch lease but its scheduler process is still live`, ["dispatch_process_alive"]);
+      }
+      console.log("recover: no dispatch lease held and no live scheduler - proceeding");
+    } else if (leaseStaleness === "process_liveness_unknown") {
+      throw new RunControlBlockedError(`Run ${original.id} process liveness could not be determined`, ["process_liveness_unknown"]);
+    } else if (leaseStaleness !== "stale") {
+      throw new RunControlBlockedError(`Run ${original.id} is not failed and its dispatch lease is not stale`, ["run_not_failed", "dispatch_lease_not_stale"]);
+    }
   }
 
-  const gameId = requireGameId(original);
   initializeHarnessState(input.store, { gameId, traceId: `trace-game-${gameId}` });
   if (!lease) {
     const decision = requestDispatch(input.store, {

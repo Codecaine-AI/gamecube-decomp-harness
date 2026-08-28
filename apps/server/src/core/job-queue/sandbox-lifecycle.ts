@@ -136,6 +136,23 @@ export async function deleteSandboxForJob(
   return result === "deleted";
 }
 
+export async function deleteSandboxForRetryReprovision(
+  store: StateStore,
+  job: JobRecord,
+  sandboxId: string,
+  deps: SandboxLifecycleDeps = {},
+): Promise<"deleted" | "failed" | "skipped"> {
+  return deleteSandbox(store, {
+    gameId: job.gameId,
+    sandboxId,
+    correlationId: job.runId ?? job.jobId,
+    causationId: job.causedByEventId ?? job.jobId,
+    traceId: job.traceId ?? `trace-job-${job.jobId}`,
+    jobId: job.jobId,
+    claimId: nonempty(job.payload.target_claim_id),
+  }, "retry_reprovision", deps);
+}
+
 function hasActiveClaim(store: StateStore, claimId: string): boolean {
   const row = store.db.query("SELECT status FROM target_claims WHERE id = ?").get(claimId) as
     | { status: string }

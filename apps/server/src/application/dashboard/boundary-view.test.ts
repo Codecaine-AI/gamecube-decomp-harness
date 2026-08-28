@@ -134,20 +134,36 @@ describe("boundary view projection", () => {
     expect(dashboard.current!.active).toBeTrue();
   });
 
-  test("marks canonical middle steps skipped for a reconciled attempt", () => {
+  test("marks only recorded reconcile steps skipped and preserves rerun evidence", () => {
+    const skippedSteps = [
+      "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+      "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
+    ];
     const events = [
-      event(2, "epoch_boundary_reconciled", { epoch: 7, epoch_id: "epoch-7", skipped_steps: BOUNDARY_STEP_KEYS.slice(1, 16) }),
-      event(3, "epoch_full_refresh_started", { lane: "full_boundary" }),
-      event(5, "epoch_full_refresh_finished", { lane: "full_boundary" }),
-      event(6, "epoch_admitted", { ordinal: 8, admitted: 4 }),
+      event(2, "epoch_boundary_reconciled", {
+        epoch: 7,
+        epoch_id: "epoch-7",
+        skipped_steps: skippedSteps,
+        rerun_steps: ["boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish"],
+      }),
+      event(3, "boundary_sync", { epoch: 7, epoch_id: "epoch-7", status: "finished", merge_commit_sha: "abcdef123456" }),
+      event(4, "boundary_breakage_gate", { epoch: 7, epoch_id: "epoch-7", status: "clean", baseline_sha: "base123456" }),
+      event(5, "ci_parity_gate", { epoch: 7, epoch_id: "epoch-7", ci_parity_status: "clean", pre_commit_status: "clean" }),
+      event(6, "draft_pr_publish", { epoch: 7, epoch_id: "epoch-7", status: "finished", pr_url: "https://example.invalid/pr/7" }),
+      event(7, "epoch_full_refresh_started", { lane: "full_boundary" }),
+      event(8, "epoch_full_refresh_finished", { lane: "full_boundary" }),
+      event(9, "epoch_admitted", { ordinal: 8, admitted: 4 }),
     ];
     const dashboard = projectBoundaryDashboard(rows({ events, savePoints: [savePoint()] }));
     const attempt = dashboard.current!.attempts[0]!;
 
     expect(attempt.reconciled).toBeTrue();
     expect(step(attempt.steps, "integration_drain").state).toBe("pending");
-    for (const key of BOUNDARY_STEP_KEYS.slice(1, 16)) {
+    for (const key of skippedSteps) {
       expect(step(attempt.steps, key)).toMatchObject({ state: "skipped", detail: "reconciled: step skipped" });
+    }
+    for (const key of ["boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish"]) {
+      expect(step(attempt.steps, key).state).toBe("done");
     }
     expect(step(attempt.steps, "knowledge_maintenance").state).toBe("done");
     expect(step(attempt.steps, "typed_close").state).toBe("done");

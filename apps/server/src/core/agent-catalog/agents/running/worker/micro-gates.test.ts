@@ -213,6 +213,39 @@ describe("lintBannedIdioms", () => {
     expect(accepted.reasons.some((reason) => reason.includes("kr-style-declaration"))).toBe(false);
   });
 
+  test("rejects static added to a symbols.txt global", () => {
+    const result = lintBannedIdioms(cDiff("static HSD_TObj* psTexGroupArray[8];"), {
+      symbolsTxt: "psTexGroupArray = .data:0x804D0000; // type:object scope:global",
+    });
+    expect(result.status).toBe("failed");
+    expect(result.reasons).toContainEqual(expect.stringContaining("static_added_to_global_symbol: 'psTexGroupArray'"));
+    expect(result.reasons).toContainEqual(expect.stringContaining("symbols.txt global"));
+  });
+
+  test("rejects static added to a declaration that was non-static in the baseline", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const result = lintBannedIdioms(cDiff("static u32 psNumCmdList;"), {
+      baselineSources: new Map([[path, "u32 psNumCmdList;\n"]]),
+    });
+    expect(result.status).toBe("failed");
+    expect(result.reasons).toContainEqual(expect.stringContaining("static_added_to_global_symbol: 'psNumCmdList'"));
+    expect(result.reasons).toContainEqual(expect.stringContaining("previously non-static"));
+  });
+
+  test("accepts a brand-new referenced static helper", () => {
+    const result = lintBannedIdioms(cDiff("static void helperThing(void) {", "    helperThing();"));
+    expect(result.status).toBe("passed");
+  });
+
+  test("accepts an unchanged static declaration", () => {
+    const diff = [
+      "diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c",
+      " static u32 existingStatic;",
+      "+u32 unrelatedGlobal;",
+    ].join("\n");
+    expect(lintBannedIdioms(diff).status).toBe("passed");
+  });
+
   test("ignores non-C files", () => {
     const diff = "diff --git a/config/GALE01/symbols.txt b/config/GALE01/symbols.txt\n+long = whatever";
     expect(lintBannedIdioms(diff).status).toBe("passed");

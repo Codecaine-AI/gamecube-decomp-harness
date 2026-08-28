@@ -34,6 +34,11 @@ import { workerTask } from "@server/core/cycle-runtime/phases/running/workers/wo
 import { regressionCheck } from "@server/core/validation/jobs/regression-check.js";
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
 import { boundarySync } from "@server/application/jobs/boundary-sync.js";
+import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
+
+function jobOwnsStorageMigrations(command: string): boolean {
+  return command === "tick" || command === "run-loop";
+}
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   loadLocalEnv();
@@ -45,6 +50,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     });
   }
   await configureGlobalCompileJobserver();
+
+  const previousMigrationMode = process.env[STATE_MIGRATION_MODE_ENV];
+  if (jobOwnsStorageMigrations(command)) delete process.env[STATE_MIGRATION_MODE_ENV];
+  else process.env[STATE_MIGRATION_MODE_ENV] = "verify";
 
   try {
     if (command === "boundary-sync") await boundarySync(globals, args);
@@ -77,6 +86,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "status") await status(globals);
     else throw new Error(`Unknown server job: ${command}`);
   } finally {
+    if (previousMigrationMode === undefined) delete process.env[STATE_MIGRATION_MODE_ENV];
+    else process.env[STATE_MIGRATION_MODE_ENV] = previousMigrationMode;
     await closeDefaultMeleeKernelRuntime();
     resetDefaultMeleeKernelRuntimeForTests();
   }

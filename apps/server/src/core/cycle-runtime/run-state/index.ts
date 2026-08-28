@@ -6,6 +6,8 @@ export {
   closeSchedulerEpochWithEvidence,
   refreshEpochTargetAvailability,
   refreshEpochTargetPriorities,
+  recordEpochBoundaryRetryFailure,
+  resetEpochBoundaryRetries,
   requeueEpochTarget,
   schedulerEpochProgress,
   selectEpochAdmissionCandidates,

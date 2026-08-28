@@ -6,6 +6,7 @@ export {
   resolveGame,
   sandboxRuntimeOptions,
   type GameDashboardDefaults,
+  type AddressNamedStaticDataAllowlistEntry,
   type GameDescriptor,
   type GameKnowledgeConfig,
   type GamePrDefaults,

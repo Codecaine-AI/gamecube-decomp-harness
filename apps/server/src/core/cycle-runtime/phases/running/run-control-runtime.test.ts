@@ -44,6 +44,7 @@ describe("run control runtime", () => {
   test("rejects caller-supplied correlation that does not name the run", async () => {
     const fixture = activeRunFixture();
     const runtime = createRunControlRuntime({
+      hasActiveLeaseProcess: () => ({ active: false }),
       hasActiveProcess: () => ({ active: true }),
       resolveDashboardGame: () => ({
         graphDbPath: join(fixture.stateDir, "graph.sqlite"),

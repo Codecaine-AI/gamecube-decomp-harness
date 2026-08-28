@@ -7,6 +7,7 @@ export {
   graphDbExists,
   graphStats,
   openKnowledgeGraph,
+  readReportProvenance,
   resetKnowledgeGraph,
   searchKnowledgeGraph,
   type KnowledgeGraphStore,

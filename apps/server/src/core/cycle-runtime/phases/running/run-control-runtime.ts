@@ -8,6 +8,7 @@ import {
 import { getRun, openState } from "@server/core/cycle-runtime/run-state";
 import {
   cancelRun,
+  forceReleaseDispatchLease,
   hardStopRun,
   recoverRun,
   RunControlConfirmationRequiredError,
@@ -23,6 +24,7 @@ export interface RunControlGameContext {
 }
 
 export interface RunControlRuntimeDeps {
+  hasActiveLeaseProcess: (stateDir: string, leaseId: string) => { active: boolean };
   hasActiveProcess: (stateDir: string) => { active: boolean };
   resolveDashboardGame: (
     input: JsonObject,
@@ -87,10 +89,34 @@ function currentStatus(paths: RunControlGameContext, runId: string): string {
 
 export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
   cancel: (body: JsonObject) => JsonObject;
+  forceReleaseLease: (body: JsonObject) => JsonObject;
   hardStop: (body: JsonObject) => Promise<JsonObject>;
   recover: (body: JsonObject) => Promise<JsonObject>;
 } {
   return {
+    forceReleaseLease(body): JsonObject {
+      requireConfirmed(body, "run.force_release_lease");
+      const gameId = stringValue(body.gameId);
+      if (!gameId) throw new Error("run.force_release_lease requires gameId");
+      const paths = deps.resolveDashboardGame(body, { useDefaultGame: false });
+      if (paths.game?.gameId && paths.game.gameId !== gameId) {
+        throw new Error(`Resolved game ${paths.game.gameId} does not match ${gameId}`);
+      }
+      const store = openState(paths.stateDir);
+      try {
+        return forceReleaseDispatchLease({
+          commandId: stringValue(body.commandId) || undefined,
+          confirmed: true,
+          gameId,
+          hasActiveLeaseProcess: deps.hasActiveLeaseProcess,
+          reason: stringValue(body.reason, "operator force-released dead dispatch lease"),
+          stateDir: paths.stateDir,
+          store,
+        });
+      } finally {
+        store.db.close();
+      }
+    },
     cancel(body): JsonObject {
       const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
       const runId = runIdFromBody(body, paths.stateDir);

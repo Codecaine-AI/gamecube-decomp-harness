@@ -27,7 +27,11 @@ import {
   requeueJob,
 } from "@server/core/job-queue/kernel.js";
 import { LocalProcessExecutor, workerProcessEnv } from "@server/core/job-queue/executor.js";
-import { deleteSandboxForJob } from "@server/core/job-queue/sandbox-lifecycle.js";
+import {
+  deleteSandboxForJob,
+  deleteSandboxForRetryReprovision,
+  type SandboxLifecycleWarning,
+} from "@server/core/job-queue/sandbox-lifecycle.js";
 import {
   provisionSandboxWorkspace,
   type WorkerReportArtifactSource,
@@ -153,6 +157,8 @@ interface WorkerJobDeps {
   sandboxProvider?: SandboxProvider;
   executor?: WorkerExecutor;
   trackSandboxDeletion?: (deletion: Promise<void>) => void;
+  warn?: SandboxLifecycleWarning;
+  retryDelay?: (milliseconds: number) => Promise<void>;
 }
 
 export function buildWorkerTask(
@@ -172,6 +178,9 @@ export function buildWorkerTask(
     const row = ctx.store.db.query("SELECT artifact_dir FROM worker_state WHERE id = ?").get(workerStateId) as { artifact_dir: string | null } | null;
     if (!row?.artifact_dir) throw new Error(`Worker state ${workerStateId} has no artifact_dir`);
     const artifactDir = row.artifact_dir;
+    const priorSandboxId = job.attempts > 1 && typeof job.payload.sandbox_id === "string" && job.payload.sandbox_id
+      ? job.payload.sandbox_id
+      : undefined;
     let provisionedSandbox: { provider: SandboxProvider; sandboxId: string } | undefined;
     try {
       const sandbox = sandboxRuntimeOptions(ctx.globals.game, ctx.globals.sandboxProfile);
@@ -220,7 +229,28 @@ export function buildWorkerTask(
       });
       provisionedSandbox = { provider, sandboxId: provisioned.sandboxId };
       const workerRepoRoot = provisioned.workspaceRoot;
-      attachJobPayload(ctx.store, handlerCtx.token, { sandbox_id: provisioned.sandboxId });
+      let sandboxReprovision;
+      if (priorSandboxId && priorSandboxId !== provisioned.sandboxId) {
+        const deletion = await deleteSandboxForRetryReprovision(ctx.store, job, priorSandboxId, {
+          sandboxProvider: provider,
+          warn: deps.warn,
+          retryDelay: deps.retryDelay,
+        });
+        sandboxReprovision = {
+          attempt: job.attempts,
+          previous_sandbox_id: priorSandboxId,
+          sandbox_id: provisioned.sandboxId,
+          previous_delete_reason: "retry_reprovision",
+          previous_delete_status: deletion,
+        };
+      }
+      const sandboxReprovisions = Array.isArray(job.payload.sandbox_reprovisions)
+        ? job.payload.sandbox_reprovisions
+        : [];
+      attachJobPayload(ctx.store, handlerCtx.token, {
+        sandbox_id: provisioned.sandboxId,
+        ...(sandboxReprovision ? { sandbox_reprovisions: [...sandboxReprovisions, sandboxReprovision] } : {}),
+      });
       // The job's sandbox_id qualifies this shared in-sandbox path as a durable workspace reference.
       setClaimWorktreePath(ctx.store, targetClaimId, workerStateId, workerRepoRoot, handlerCtx.token);
       await mkdir(artifactDir, { recursive: true });

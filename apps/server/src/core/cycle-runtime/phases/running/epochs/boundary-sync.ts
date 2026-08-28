@@ -250,7 +250,7 @@ export async function planBoundarySync(input: Omit<BoundarySyncInput, "hooks">):
     targetsToRequeue,
     ledgerNotes: targetsToRequeue,
     actions: drifted
-      ? ["merge_upstream_theirs", "ingest_merged_prs", "append_override_notes", "requeue_displaced_targets", "rebuild_knowledge_graph", "recompute_report", "write_pr_sync_save_point", "advance_anchor", "advance_cycle_head"]
+      ? ["merge_upstream_theirs", "ingest_merged_prs", "append_override_notes", "requeue_displaced_targets", "recompute_report", "rebuild_knowledge_graph", "write_pr_sync_save_point", "advance_anchor", "advance_cycle_head"]
       : [],
   };
 }
@@ -277,8 +277,8 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
     await input.hooks.appendOverrideNote(displacement);
     await input.hooks.requeueTarget(displacement);
   }
-  await input.hooks.rebuildKnowledgeGraph();
   const report = await input.hooks.recomputeReport();
+  await input.hooks.rebuildKnowledgeGraph();
   await input.hooks.writePrSyncSavePoint({
     kind: "pr_sync",
     anchorSha: plan.anchorSha,

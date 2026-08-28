@@ -230,7 +230,21 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
     }
   }
   if (reconciled) {
-    for (const key of BOUNDARY_STEP_KEYS.slice(1, 16)) finishStep(byKey.get(key)!, "skipped", events.at(-1)?.created_at ?? epoch.created_at, "reconciled: step skipped", null);
+    let reconcileEvent: BoundaryEventRow | undefined;
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      if (events[index]!.event_type !== "epoch_boundary_reconciled") continue;
+      reconcileEvent = events[index];
+      break;
+    }
+    const reconcilePayload = reconcileEvent ? objectFromJson(reconcileEvent.payload_json) : {};
+    const skippedSteps = Array.isArray(reconcilePayload.skipped_steps)
+      ? reconcilePayload.skipped_steps.map(String)
+      : BOUNDARY_STEP_KEYS.slice(1, 16);
+    for (const key of skippedSteps) {
+      if (byKey.has(key)) {
+        finishStep(byKey.get(key)!, "skipped", reconcileEvent?.created_at ?? epoch.created_at, "reconciled: step skipped", null);
+      }
+    }
   }
   for (const [index, step] of steps.entries()) {
     if (step.state !== "running") continue;

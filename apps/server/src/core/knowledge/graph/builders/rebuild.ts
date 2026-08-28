@@ -1,10 +1,13 @@
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import { buildAgentSharedStateGraphRecords } from "./agent-shared-state.js";
 import { buildCallGraphEdgeRecords } from "./call-graph-edges.js";
 import { buildCodeGraphRecords } from "./code-graph.js";
 import { buildDecompStandardsGraphRecords } from "./decomp-standards.js";
 import { buildDocumentSourceGraphRecords } from "./document-sources.js";
 import { buildGhidraXrefGraphRecords } from "./ghidra-xrefs.js";
-import { insertGraphRecords, openKnowledgeGraph, resetKnowledgeGraph, upsertSourceDescriptor, upsertToolDescriptor, graphStats } from "../db.js";
+import { insertGraphRecords, openKnowledgeGraph, resetKnowledgeGraph, upsertSourceDescriptor, upsertToolDescriptor, graphStats, writeReportProvenance } from "../db.js";
 import { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
 import { buildMismatchPatternGraphRecords } from "./mismatch-patterns.js";
 import { buildOpseqSimilarityGraphRecords } from "./opseq-similarity.js";
@@ -33,6 +36,7 @@ export interface RebuildKnowledgeGraphOptions {
   sources?: string[];
   agentStateEnrichmentPath?: string;
   knowledgeCuratorEnrichmentPath?: string;
+  reportPath?: string;
 }
 
 export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Record<string, unknown> {
@@ -42,6 +46,9 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
   const skippedSources: string[] = [];
   try {
     resetKnowledgeGraph(store);
+    const reportPath = resolve(options.repoRoot, options.reportPath ?? "build/GALE01/report.json");
+    const provenance = reportProvenance(options.repoRoot, reportPath);
+    if (provenance) writeReportProvenance(store, provenance);
     const sourceDescriptors = readSourceRegistry();
     for (const source of sourceDescriptors) upsertSourceDescriptor(store, source);
     for (const tool of readToolRegistry()) upsertToolDescriptor(store, tool);
@@ -163,6 +170,22 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
   } finally {
     store.db.close();
   }
+}
+
+function reportProvenance(repoRoot: string, reportPath: string) {
+  if (!existsSync(reportPath)) return null;
+  const bytes = readFileSync(reportPath);
+  const report = JSON.parse(bytes.toString("utf8")) as { measures?: { matched_code_percent?: unknown } };
+  const matchPercent = Number(report.measures?.matched_code_percent);
+  const revisionResult = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", "HEAD"], { stderr: "ignore" });
+  const revision = revisionResult.exitCode === 0 ? revisionResult.stdout.toString().trim() || null : null;
+  return {
+    path: resolve(reportPath),
+    mtimeMs: statSync(reportPath).mtimeMs,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    revision,
+    matchedCodePercent: Number.isFinite(matchPercent) ? matchPercent : null,
+  };
 }
 
 export function defaultGraphSources(): string[] {

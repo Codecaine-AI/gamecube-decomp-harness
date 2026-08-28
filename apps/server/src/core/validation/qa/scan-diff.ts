@@ -17,9 +17,10 @@ import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import type { RunGameMetadata } from "@server/core/shared/types";
+import type { AddressNamedStaticDataAllowlistEntry } from "@server/core/game-registry";
 import { resolveRegisteredTool } from "@server/core/tools/resolver";
 
-export type QaScanSeverity = "error" | "warning";
+export type QaScanSeverity = "error" | "warning" | "info";
 
 /** Scan surface for per-surface severity resolution in scan_diff.py. */
 export type QaScanSurface = "worker" | "pr_gate";
@@ -34,6 +35,7 @@ export interface QaScanFinding {
   standard_id: string | null;
   /** Extra rule-specific context (ownership verdicts, tombstone refs, ...). */
   detail?: Record<string, unknown>;
+  disposition?: "suppressed" | "informational";
 }
 
 export interface QaScanResult {
@@ -86,6 +88,7 @@ export interface RunQaScanDiffOptions {
    * (fully backward compatible).
    */
   surface?: QaScanSurface;
+  addressNamedStaticDataAllowlist?: AddressNamedStaticDataAllowlistEntry[];
 }
 
 async function runProcess(repoRoot: string, command: string[], env?: Record<string, string>): Promise<{ exitCode: number; stdout: string; stderr: string }> {
@@ -182,6 +185,9 @@ export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaSc
   if (options.diffFile) command.push("--diff-file", options.diffFile);
   if (options.includeWorktree) command.push("--include-worktree");
   if (options.surface) command.push("--surface", options.surface);
+  if (options.addressNamedStaticDataAllowlist?.length) {
+    command.push("--address-named-static-data-allowlist", JSON.stringify(options.addressNamedStaticDataAllowlist));
+  }
   for (const file of options.files ?? []) command.push("--path", file);
   if (!existsSync(scriptPath)) {
     return {

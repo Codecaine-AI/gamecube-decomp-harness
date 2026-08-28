@@ -410,6 +410,8 @@ export const epochs = sqliteTable(
     admittedCount: integer("admitted_count").notNull().default(0),
     finishedCount: integer("finished_count").notNull().default(0),
     boundaryStatus: text("boundary_status"),
+    boundaryAttemptCount: integer("boundary_attempt_count").notNull().default(0),
+    boundaryNextAttemptAt: text("boundary_next_attempt_at"),
     routingSummaryJson: text("routing_summary_json", { mode: "json" }).$type<JsonObject>().notNull(),
     createdAt: text("created_at").notNull(),
     closedAt: text("closed_at"),
