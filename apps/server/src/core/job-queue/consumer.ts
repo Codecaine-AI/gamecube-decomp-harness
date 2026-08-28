@@ -25,7 +25,9 @@ export interface JobConsumerOptions {
   onJobSettled?: (
     job: JobRecord,
     settle: { status: "succeeded" | "failed"; error?: string; outcome?: TaskOutcome },
-  ) => void;
+  ) => void | Promise<void>;
+  settlementWarningMs?: number;
+  settlementDrainTimeoutMs?: number;
 }
 
 export interface JobConsumerHandle {
@@ -50,8 +52,12 @@ export function startJobConsumer(
   options: JobConsumerOptions = {},
 ): JobConsumerHandle {
   const intervalMs = options.intervalMs ?? 1_000;
+  const settlementWarningMs = options.settlementWarningMs ?? 60_000;
+  const settlementDrainTimeoutMs = options.settlementDrainTimeoutMs ?? 120_000;
   const actor = options.actor ?? "runner";
-  const inFlight = new Set<Promise<void>>();
+  const activeJobs = new Set<string>();
+  const executionWork = new Set<Promise<void>>();
+  const settlementWork = new Set<Promise<void>>();
   const dispatchedHandles = new Map<string, { handle: TaskHandle; cancel: (handle: TaskHandle) => Promise<void> }>();
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -64,11 +70,30 @@ export function startJobConsumer(
     settle: { status: "succeeded" | "failed"; error?: string; outcome?: TaskOutcome },
   ): void => {
     if (!options.onJobSettled) return;
-    try {
-      options.onJobSettled(job, settle);
-    } catch (cause) {
-      console.warn(`Job consumer ${descriptor.kind} settlement hook failed: ${errorMessage(cause)}`);
-    }
+    const warning = setTimeout(() => {
+      console.warn(`[job-consumer] settlement for ${job.jobId} still running after 60s (step: onJobSettled)`);
+    }, settlementWarningMs);
+    let work: Promise<void>;
+    work = Promise.resolve()
+      .then(() => options.onJobSettled?.(job, settle))
+      .catch((cause) => {
+        console.warn(`Job consumer ${descriptor.kind} settlement hook failed: ${errorMessage(cause)}`);
+      })
+      .finally(() => {
+        clearTimeout(warning);
+        settlementWork.delete(work);
+      });
+    settlementWork.add(work);
+  };
+
+  const drainSettlementWork = async (): Promise<void> => {
+    if (settlementWork.size === 0) return;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.allSettled([...settlementWork]),
+      new Promise<void>((resolve) => { timeout = setTimeout(resolve, settlementDrainTimeoutMs); }),
+    ]);
+    if (timeout) clearTimeout(timeout);
   };
 
   const fail = (job: JobRecord, token: ClaimToken, cause: unknown): void => {
@@ -194,7 +219,7 @@ export function startJobConsumer(
     activeTick = Promise.resolve()
       .then(() => {
         if (options.shouldClaim && !options.shouldClaim()) return;
-        while (!stopped && inFlight.size < descriptor.concurrencyLimit) {
+        while (!stopped && activeJobs.size < descriptor.concurrencyLimit) {
           const claimed = kernel.claimNextJob(store, {
             kind: descriptor.kind,
             concurrencyLimit: descriptor.concurrencyLimit,
@@ -204,9 +229,13 @@ export function startJobConsumer(
             actor,
           });
           if (!claimed) break;
+          activeJobs.add(claimed.job.jobId);
           const execution = execute(claimed.job, claimed.token);
-          inFlight.add(execution);
-          void execution.finally(() => inFlight.delete(execution));
+          executionWork.add(execution);
+          void execution.finally(() => {
+            activeJobs.delete(claimed.job.jobId);
+            executionWork.delete(execution);
+          });
         }
       })
       .catch((cause) => console.warn(`Job consumer ${descriptor.kind} tick failed: ${errorMessage(cause)}`))
@@ -221,16 +250,18 @@ export function startJobConsumer(
     stopped = true;
     if (timer) clearTimeout(timer);
     if (activeTick) await activeTick;
-    await Promise.allSettled([...inFlight]);
+    await Promise.allSettled([...executionWork]);
+    await drainSettlementWork();
   };
   return {
     stop,
-    inFlight: () => inFlight.size,
+    inFlight: () => activeJobs.size,
     cancelAll: async () => {
       await Promise.allSettled(
         [...dispatchedHandles.values()].map(({ handle, cancel }) => cancel(handle)),
       );
-      await Promise.allSettled([...inFlight]);
+      await Promise.allSettled([...executionWork]);
+      await drainSettlementWork();
     },
   };
 }

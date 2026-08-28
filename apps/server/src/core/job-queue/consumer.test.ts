@@ -271,6 +271,67 @@ describe("startJobConsumer", () => {
     await consumer.stop();
   });
 
+  test("an unresolved settlement hook does not consume claim capacity", async () => {
+    const kernel = kernelFor([job("one"), job("two")]);
+    const handler = mock(async () => ({}));
+    const consumer = startJobConsumer(store, inlineDescriptor(handler), kernel, {
+      intervalMs: 1,
+      settlementDrainTimeoutMs: 5,
+      onJobSettled: () => new Promise<void>(() => {}),
+    });
+    await until(() => kernel.completeJob.mock.calls.length === 2);
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(consumer.inFlight()).toBe(0);
+    await consumer.stop();
+  });
+
+  test("logs a settlement hook that exceeds the warning threshold", async () => {
+    const kernel = kernelFor([job("slow")]);
+    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+    const consumer = startJobConsumer(store, inlineDescriptor(async () => ({})), kernel, {
+      intervalMs: 1,
+      settlementWarningMs: 5,
+      settlementDrainTimeoutMs: 5,
+      onJobSettled: () => new Promise<void>(() => {}),
+    });
+    await until(() => warning.mock.calls.some(([message]) => message ===
+      "[job-consumer] settlement for slow still running after 60s (step: onJobSettled)"));
+    await consumer.stop();
+    warning.mockRestore();
+  });
+
+  test("stop drains detached settlement work", async () => {
+    const kernel = kernelFor([job("one")]);
+    let release!: () => void;
+    const consumer = startJobConsumer(store, inlineDescriptor(async () => ({})), kernel, {
+      intervalMs: 1,
+      settlementDrainTimeoutMs: 500,
+      onJobSettled: () => new Promise<void>((resolve) => { release = resolve; }),
+    });
+    await until(() => kernel.completeJob.mock.calls.length === 1 && Boolean(release));
+    let stopped = false;
+    const stopping = consumer.stop().then(() => { stopped = true; });
+    await Bun.sleep(5);
+    expect(stopped).toBe(false);
+    release();
+    await stopping;
+    expect(stopped).toBe(true);
+  });
+
+  test("stop bounds detached settlement draining", async () => {
+    const kernel = kernelFor([job("one")]);
+    const consumer = startJobConsumer(store, inlineDescriptor(async () => ({})), kernel, {
+      intervalMs: 1,
+      settlementDrainTimeoutMs: 10,
+      onJobSettled: () => new Promise<void>(() => {}),
+    });
+    await until(() => kernel.completeJob.mock.calls.length === 1);
+    await Promise.race([
+      consumer.stop(),
+      Bun.sleep(250).then(() => { throw new Error("stop did not honor the settlement drain bound"); }),
+    ]);
+  });
+
   test("onJobClaimed fires before the handler and is awaited", async () => {
     const kernel = kernelFor([job("one")]);
     const order: string[] = [];

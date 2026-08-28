@@ -21,6 +21,7 @@ export interface SandboxLifecycleDeps {
   sandboxProvider?: SandboxProvider;
   warn?: SandboxLifecycleWarning;
   retryDelay?: (milliseconds: number) => Promise<void>;
+  settlementDeleteTimeoutMs?: number;
 }
 
 export interface SandboxReconciliationResult {
@@ -71,6 +72,25 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+class SettlementDeleteTimeoutError extends Error {}
+
+async function beforeDeadline<T>(work: Promise<T>, deadline: number | undefined): Promise<T> {
+  if (deadline === undefined) return work;
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) throw new SettlementDeleteTimeoutError();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new SettlementDeleteTimeoutError()), remaining);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function deleteSandbox(
   store: StateStore,
   context: SandboxDeletionContext,
@@ -81,16 +101,31 @@ async function deleteSandbox(
   if (!provider || alreadyDeleted(store, context.sandboxId)) return "skipped";
   const warn = deps.warn ?? ((message: string, error?: unknown) => console.warn(message, error));
   const retryDelay = deps.retryDelay ?? delay;
+  const deadline = reason === "settlement"
+    ? Date.now() + (deps.settlementDeleteTimeoutMs ?? 120_000)
+    : undefined;
   const retryWaits = [5_000, 15_000];
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      await provider.delete(context.sandboxId, reason);
+      await beforeDeadline(provider.delete(context.sandboxId, reason), deadline);
       break;
     } catch (error) {
+      if (error instanceof SettlementDeleteTimeoutError) {
+        warn(`[sandbox] settlement delete timed out for ${context.sandboxId}; leaving to reconciliation`);
+        return "failed";
+      }
       if (isNotFound(error)) break;
       const retryWait = retryWaits[attempt];
       if (retryWait !== undefined && isTransientDeleteFailure(error)) {
-        await retryDelay(retryWait);
+        try {
+          await beforeDeadline(retryDelay(retryWait), deadline);
+        } catch (delayError) {
+          if (delayError instanceof SettlementDeleteTimeoutError) {
+            warn(`[sandbox] settlement delete timed out for ${context.sandboxId}; leaving to reconciliation`);
+            return "failed";
+          }
+          throw delayError;
+        }
         continue;
       }
       warn(`[sandbox] failed to delete ${context.sandboxId} (${reason})`, error);

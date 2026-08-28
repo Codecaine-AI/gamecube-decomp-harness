@@ -15,7 +15,7 @@ import {
   startSchedulerEpoch,
 } from "@server/core/cycle-runtime/run-state";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
-import { reconcileSandboxes } from "./sandbox-lifecycle.js";
+import { deleteSandboxForJob, reconcileSandboxes } from "./sandbox-lifecycle.js";
 import {
   FakeSandboxProvider,
   type SandboxCreateParams,
@@ -24,6 +24,7 @@ import {
 import {
   attachJobPayload,
   claimNextJob,
+  getJob,
   getJobByDedupeKey,
 } from "./kernel.js";
 
@@ -153,6 +154,30 @@ function deletedEvents(store: StateStore) {
 }
 
 describe("sandbox reconciliation", () => {
+  test("settlement deletion times out and leaves the sandbox to reconciliation", async () => {
+    const f = await fixture();
+    const warnings: string[] = [];
+    const currentJob = getJob(f.store, f.jobId);
+    if (!currentJob) throw new Error("Expected worker job");
+    const provider: SandboxProvider = {
+      create: (params) => f.provider.create(params),
+      get: (sandboxId) => f.provider.get(sandboxId),
+      listByLabels: (labels) => f.provider.listByLabels(labels),
+      delete: () => new Promise<void>(() => {}),
+    };
+
+    expect(await deleteSandboxForJob(f.store, currentJob, "settlement", {
+      sandboxProvider: provider,
+      settlementDeleteTimeoutMs: 10,
+      warn: (message) => warnings.push(message),
+    })).toBe(false);
+    expect(warnings).toEqual([
+      `[sandbox] settlement delete timed out for ${f.sandboxId}; leaving to reconciliation`,
+    ]);
+    expect(deletedEvents(f.store)).toEqual([]);
+    expect(await f.provider.get(f.sandboxId)).not.toBeNull();
+  });
+
   test("keeps a sandbox with the current matching unexpired job lease", async () => {
     const f = await fixture();
 
