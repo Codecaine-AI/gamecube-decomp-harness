@@ -106,19 +106,19 @@ function assertFreshBoardReport(params: Pick<Parameters<typeof ensureSchedulerEp
     if (!provenance) {
       throw new Error(`Epoch admission refused: knowledge board has no objdiff report provenance; rebuild the knowledge graph from ${reportPath}`);
     }
-    if (resolve(provenance.path) !== resolve(reportPath)) {
-      throw new Error(
-        `Epoch admission refused: knowledge board was built from ${provenance.path}, expected ${reportPath}`,
-      );
-    }
+    const provenancePathDiffers = resolve(provenance.path) !== resolve(reportPath);
     const reportSha256 = createHash("sha256").update(readFileSync(reportPath)).digest("hex");
     if (reportSha256 !== provenance.sha256) {
       const reportMtimeMs = statSync(reportPath).mtimeMs;
       throw new Error(
         `Epoch admission refused: objdiff report does not match knowledge board provenance ` +
-          `(report sha256 ${reportSha256}, board sha256 ${provenance.sha256}, ` +
+          (provenancePathDiffers ? `(knowledge board was built from ${provenance.path}, expected ${reportPath}; ` : "(") +
+          `report sha256 ${reportSha256}, board sha256 ${provenance.sha256}, ` +
           `report mtime ${reportMtimeMs}, board source mtime ${provenance.mtimeMs}); rebuild the knowledge graph`,
       );
+    }
+    if (provenancePathDiffers) {
+      console.info(`knowledge board provenance path differs (built from ${provenance.path}); content sha matches`);
     }
   } finally {
     graph.db.close();

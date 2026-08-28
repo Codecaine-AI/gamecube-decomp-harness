@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -111,7 +111,10 @@ describe("runSchedulerTick", () => {
 
   test("refuses admission when the report hash is stale against board provenance", () => {
     const value = admissionFixture();
-    writeProvenance(value.graphDbPath, value.reportPath, "0".repeat(64));
+    const provenancePath = join(value.dir, "epoch_worktree", "build", "GALE01", "report.json");
+    mkdirSync(join(value.dir, "epoch_worktree", "build", "GALE01"), { recursive: true });
+    writeFileSync(provenancePath, readFileSync(value.reportPath));
+    writeProvenance(value.graphDbPath, provenancePath, "0".repeat(64));
 
     expect(() =>
       ensureSchedulerEpochFromBoard({
@@ -121,7 +124,9 @@ describe("runSchedulerTick", () => {
         runId: value.run.id,
         store: value.store,
       }),
-    ).toThrow("does not match knowledge board provenance");
+    ).toThrow(
+      `does not match knowledge board provenance (knowledge board was built from ${provenancePath}, expected ${value.reportPath}; report sha256`,
+    );
     expect(value.store.db.query("SELECT COUNT(*) AS count FROM epochs WHERE run_id = ?").get(value.run.id)).toEqual({ count: 0 });
     value.store.db.close();
   });
@@ -141,6 +146,34 @@ describe("runSchedulerTick", () => {
     expect(result.admission).toMatchObject({ candidateCount: 1, admitted: 1 });
     expect(result.progress.admitted).toBe(1);
     value.store.db.close();
+  });
+
+  test("admits matching report content from a different provenance path", () => {
+    const value = admissionFixture();
+    const provenancePath = join(value.dir, "epoch_worktree", "build", "GALE01", "report.json");
+    mkdirSync(join(value.dir, "epoch_worktree", "build", "GALE01"), { recursive: true });
+    writeFileSync(provenancePath, readFileSync(value.reportPath));
+    writeProvenance(value.graphDbPath, provenancePath);
+    const infoLog = spyOn(console, "info").mockImplementation(() => {});
+
+    try {
+      const result = ensureSchedulerEpochFromBoard({
+        config: { workerPoolSize: 1 },
+        globals: globalsFor(value.dir),
+        graphDbPath: value.graphDbPath,
+        runId: value.run.id,
+        store: value.store,
+      });
+
+      expect(result.admission).toMatchObject({ candidateCount: 1, admitted: 1 });
+      expect(infoLog).toHaveBeenCalledTimes(1);
+      expect(infoLog).toHaveBeenCalledWith(
+        `knowledge board provenance path differs (built from ${provenancePath}); content sha matches`,
+      );
+    } finally {
+      infoLog.mockRestore();
+      value.store.db.close();
+    }
   });
 
   test("refuses an admission candidate spike above the configured cap", () => {
