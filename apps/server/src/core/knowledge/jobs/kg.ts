@@ -42,6 +42,7 @@ import { addPiSession } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/cycle-runtime/run-state";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import type { StateStore } from "@server/core/orchestrator-state";
 import { booleanArg, numberArg, gameMetadata, stringArg } from "@server/core/game-registry/runtime-options.js";
 import { knowledgeCycleSessionId } from "./cycle-session.js";
 
@@ -78,6 +79,7 @@ export type KnowledgeMaintenanceProgress = (event: KnowledgeMaintenanceProgressE
 
 export interface KnowledgeMaintenanceOptions {
   progress?: KnowledgeMaintenanceProgress;
+  stateStore?: StateStore;
   rebuildInProcess?: boolean;
   rebuildSpawn?: typeof Bun.spawn;
   rebuildGraph?: typeof rebuildKnowledgeGraph;
@@ -378,6 +380,7 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
     curateKnowledgeEnrichments({
       repoRoot,
       stateDir: globals.stateDir,
+      stateStore: options.stateStore,
       outputPath: stringArg(args, "--knowledge-curator-enrichment", knowledgeCuratorEnrichmentPath()),
       runId: stringArg(args, "--run-id", ""),
       workerLimit: numberArg(args, "--worker-limit", 250),

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  activeClaimsForRun,
   admitEpochTargets,
   claimNextEpochTarget,
   closeSchedulerEpoch,
@@ -108,6 +109,37 @@ describe("run-loop exit settlement", () => {
     const settledStore = openState(dir);
     try {
       expect(getRun(settledStore, run.id)).toMatchObject({ status: "paused", stopRequest: null });
+      expect(getHarnessState(settledStore, "test")?.active_workflow).toBeNull();
+    } finally {
+      settledStore.db.close();
+    }
+  });
+
+  test("unexpected exit recovers active claims before releasing the dispatch lease", async () => {
+    const { dir, store } = tempState();
+    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot: dir, stateDir: dir }, { baseRevision: "base-test" });
+    const active = activateRun({ reason: "test run-loop start", runId: run.id, store });
+    const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+    admitEpochTargets(store, {
+      epochId: epoch.id,
+      runId: run.id,
+      candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
+      workerPoolSize: 1,
+    });
+    expect(claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 })).not.toBeNull();
+    store.db.close();
+
+    await settleRunOnExit({
+      globals: { dryRunAgents: true, model: "test", provider: "test", repoRoot: dir, stateDir: dir, thinkingLevel: "low" },
+      args: new Map([["--run-id", run.id]]),
+      leaseId: active.leaseId,
+      stoppedReason: "error",
+    });
+
+    const settledStore = openState(dir);
+    try {
+      expect(getRun(settledStore, run.id)).toMatchObject({ status: "paused" });
+      expect(activeClaimsForRun(settledStore, run.id)).toHaveLength(0);
       expect(getHarnessState(settledStore, "test")?.active_workflow).toBeNull();
     } finally {
       settledStore.db.close();

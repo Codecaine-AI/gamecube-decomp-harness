@@ -1,4 +1,11 @@
-export { openState, type StateStore } from "@server/core/orchestrator-state";
+export {
+  borrowState,
+  isStateStoreClosedError,
+  openState,
+  stateStoreCloseInfo,
+  type StateStore,
+  type StateStoreCloseInfo,
+} from "@server/core/orchestrator-state";
 export {
   activeSchedulerEpoch,
   admitEpochTargets,

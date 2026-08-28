@@ -429,6 +429,8 @@ export function startBackgroundKnowledgeProcessor(
     leaseMs?: number;
     gameId?: string;
     shouldClaim?: () => boolean;
+    onFatalError?: (cause: unknown, context: { job: JobRecord | null; operation: string }) => void;
+    onShutdownAbandoned?: (count: number) => void;
     /**
      * Trace observer for the knowledge lane. Opt-in: callers that want the
      * lane visible pass `createBackgroundKnowledgeTraceHooks(store)`. Left
@@ -446,6 +448,7 @@ export function startBackgroundKnowledgeProcessor(
       intervalMs: options.intervalMs ?? 1_000,
       actor: "runner",
       shouldClaim: options.shouldClaim,
+      onFatalError: options.onFatalError,
       ...(options.trace
         ? { onJobClaimed: options.trace.onJobClaimed, onJobSettled: options.trace.onJobSettled }
         : {}),
@@ -470,6 +473,7 @@ export function startBackgroundKnowledgeProcessor(
       console.warn(
         `Background knowledge shutdown abandoned ${abandoned} in-flight job(s) after ${maxWaitMs}ms; lease expiry and catchUpBackgroundKnowledge will recover them on next startup`,
       );
+      options.onShutdownAbandoned?.(abandoned);
     }
   };
 }

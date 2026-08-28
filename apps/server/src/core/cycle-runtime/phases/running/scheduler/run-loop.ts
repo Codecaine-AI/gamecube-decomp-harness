@@ -18,6 +18,9 @@ import {
   setRunSchedulerCondition,
   unhandledEventCount,
   workerOutputIntegrationConflictsForResolver,
+  borrowState,
+  isStateStoreClosedError,
+  stateStoreCloseInfo,
   type WorkerOutputIntegrationRecord,
   type EpochProgressSummary,
   type StateStore,
@@ -42,7 +45,7 @@ import {
   type SchedulerTickResult,
 } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
 import { resolveBaseRev } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
-import { startJobConsumer } from "@server/core/job-queue/consumer.js";
+import { startJobConsumer, type JobConsumerHandle } from "@server/core/job-queue/consumer.js";
 import { defaultConfigureCommand } from "@server/core/job-queue/executor.js";
 import { reconcileSandboxes } from "@server/core/job-queue/sandbox-lifecycle.js";
 import { DaytonaSandboxProvider, type SandboxProvider } from "@server/core/job-queue/sandbox.js";
@@ -486,24 +489,8 @@ export async function runRunLoop(
   deps: RunLoopDeps = {},
 ): Promise<RunLoopResult> {
   const store = openState(globals.stateDir);
+  const borrowedStore = borrowState(store);
   const gameId = globals.game?.gameId ?? globals.gameId;
-  const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(
-    store,
-    async (backgroundJob) => {
-      const publication = await kgLibrarianCondense(globals, new Map<string, string | true>([
-        ["--worker-state-id", backgroundJob.workerStateId],
-        ["--run-id", typeof backgroundJob.provenance.run_id === "string" ? backgroundJob.provenance.run_id : ""],
-      ]));
-      return publication;
-    },
-    // The run loop is a CLI process with no DashboardKernelRuntimeService, so
-    // the hooks reach the kernel through the default runtime directly.
-    {
-      gameId,
-      shouldClaim: () => getHarnessState(store, gameId)?.active_workflow?.kind !== "sync",
-      trace: createBackgroundKnowledgeTraceHooks(store),
-    },
-  );
   let observedRunId = "";
   const workerResults: WorkerResultSummary[] = [];
   const workerErrors: WorkerError[] = [];
@@ -522,10 +509,53 @@ export async function runRunLoop(
   let idleIterations = 0;
   let workersStarted = 0;
   let integrationDrains = 0;
+  let workerConsumerForCleanup: JobConsumerHandle | null = null;
+  let runLoopFailure: unknown = null;
+  let fatalStateError: unknown = null;
+  let abandonedBackgroundBorrowers = 0;
+  let runLoopWakeResolve: (() => void) | null = null;
   const stop = () => {
     stopRequested = true;
     stoppedReason = "signal";
   };
+  const onFatalStateError = (
+    cause: unknown,
+    context: { job: JobRecord | null; operation: string },
+  ): void => {
+    if (fatalStateError || !isStateStoreClosedError(cause)) return;
+    fatalStateError = cause;
+    stopRequested = true;
+    stoppedReason = "database_closed";
+    const close = stateStoreCloseInfo(store);
+    const observedStack = cause instanceof Error ? cause.stack ?? cause.message : String(cause);
+    console.error(
+      `[run-loop] shared StateStore closed during ${context.operation}` +
+        `${context.job ? ` for ${context.job.jobId}` : ""}; exiting immediately\n` +
+        `Close recorded at: ${close?.closedAt ?? "unknown"}\n` +
+        `${close?.stack ?? "No StateStore close stack was recorded"}\n` +
+        `Closed-database error:\n${observedStack}`,
+    );
+    runLoopWakeResolve?.();
+  };
+  const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(
+    borrowedStore,
+    async (backgroundJob) => {
+      const publication = await kgLibrarianCondense(globals, new Map<string, string | true>([
+        ["--worker-state-id", backgroundJob.workerStateId],
+        ["--run-id", typeof backgroundJob.provenance.run_id === "string" ? backgroundJob.provenance.run_id : ""],
+      ]));
+      return publication;
+    },
+    // The run loop is a CLI process with no DashboardKernelRuntimeService, so
+    // the hooks reach the kernel through the default runtime directly.
+    {
+      gameId,
+      onFatalError: onFatalStateError,
+      onShutdownAbandoned: (count) => { abandonedBackgroundBorrowers = count; },
+      shouldClaim: () => getHarnessState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
+      trace: createBackgroundKnowledgeTraceHooks(borrowedStore),
+    },
+  );
 
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
@@ -619,13 +649,12 @@ export async function runRunLoop(
     let runningIntegrationDrain: Promise<void> | null = null;
     let integrationFlushPending = false;
     const pendingSettleWork = new Set<Promise<void>>();
-    let settleWakeResolve: (() => void) | null = null;
-    let settleWake = new Promise<void>((resolveWake) => { settleWakeResolve = resolveWake; });
+    let settleWake = new Promise<void>((resolveWake) => { runLoopWakeResolve = resolveWake; });
     const resetSettleWake = (): void => {
-      settleWake = new Promise<void>((resolveWake) => { settleWakeResolve = resolveWake; });
+      settleWake = new Promise<void>((resolveWake) => { runLoopWakeResolve = resolveWake; });
     };
     const workerCtx: WorkerJobRunContext = {
-      store,
+      store: borrowedStore,
       globals,
       runId,
       dispatchLeaseId: leaseId,
@@ -689,7 +718,7 @@ export async function runRunLoop(
         if (exitOnWorkerError) { stopRequested = true; stoppedReason = "worker_error"; }
       }
       integrationFlushPending = true;
-      settleWakeResolve?.();
+      runLoopWakeResolve?.();
     };
     const workerDescriptor = workerJobDescriptor(workerCtx, {
       sandboxProvider,
@@ -698,13 +727,15 @@ export async function runRunLoop(
         void deletion.finally(() => pendingSettleWork.delete(deletion));
       },
     });
-    const workerConsumer = startJobConsumer(store, workerDescriptor, workerKernelOps(workerCtx), {
+    const workerConsumer = startJobConsumer(borrowedStore, workerDescriptor, workerKernelOps(workerCtx), {
       intervalMs: 1_000,
       actor: "runner",
       runId,
       shouldClaim: () => !(maxIterations > 0 && iterations >= maxIterations) && !schedulerBlocked && !epochPaused,
+      onFatalError: onFatalStateError,
       onJobSettled: handleWorkerJobSettled,
     });
+    workerConsumerForCleanup = workerConsumer;
     const syncSchedulerCondition = (fallback: "planning" | "dispatching" | "waiting"): void => {
       setRunSchedulerCondition(
         store,
@@ -848,6 +879,7 @@ export async function runRunLoop(
         let task: Promise<void>;
         task = runKnowledgeMaintenance(globals, knowledgeMaintenanceArgs(args, runId, !globals.dryRunAgents), {
           progress: knowledgeProgressReporter(store, runId, { lane: "scheduled", mode: globals.dryRunAgents ? "dry_run" : "full", repoRoot: globals.repoRoot }),
+          stateStore: borrowedStore,
         })
           .then((result) => {
             knowledgeMaintenanceRuns.push(result);
@@ -1180,24 +1212,69 @@ export async function runRunLoop(
         unhandledEvents: unhandledEventCount(store, runId),
       },
     };
+  } catch (cause) {
+    runLoopFailure = cause;
+    if (isStateStoreClosedError(cause)) {
+      onFatalStateError(cause, { job: null, operation: "run-loop" });
+    }
+    throw cause;
   } finally {
-    await stopBackgroundKnowledge({ maxWaitMs: 15_000 });
-    if (observedRunId) setRunSchedulerCondition(store, observedRunId, "idle");
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
-    store.db.close();
+    if ((runLoopFailure || fatalStateError) && workerConsumerForCleanup?.inFlight()) {
+      try {
+        await workerConsumerForCleanup.cancelAll();
+      } catch (cause) {
+        console.error(`[run-loop] worker cancellation during error cleanup failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+      }
+    }
+    if (workerConsumerForCleanup) {
+      try {
+        await workerConsumerForCleanup.stop();
+      } catch (cause) {
+        console.error(`[run-loop] worker consumer cleanup failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+      }
+    }
+    await stopBackgroundKnowledge({ maxWaitMs: 15_000 });
+    const closed = stateStoreCloseInfo(store);
+    if (observedRunId && !closed) {
+      try {
+        setRunSchedulerCondition(store, observedRunId, "idle");
+      } catch (cause) {
+        if (isStateStoreClosedError(cause)) onFatalStateError(cause, { job: null, operation: "scheduler-condition-cleanup" });
+        else throw cause;
+      }
+    }
+    if (!stateStoreCloseInfo(store) && abandonedBackgroundBorrowers === 0) {
+      store.db.close();
+    } else if (!stateStoreCloseInfo(store) && abandonedBackgroundBorrowers > 0) {
+      console.warn("[run-loop] leaving StateStore owner open because background knowledge still borrows it");
+    }
   }
 }
 
 export async function runLoop(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const leaseId = stringArg(args, "--lease-id", "").trim();
   let stoppedReason = "error";
-  let result: RunLoopResult;
+  let result: RunLoopResult | undefined;
+  let runError: unknown = null;
   try {
     result = await runRunLoop(globals, args);
     stoppedReason = result.stoppedReason;
-  } finally {
-    await settleRunOnExit({ globals, args, leaseId, stoppedReason });
+  } catch (cause) {
+    runError = cause;
+    if (isStateStoreClosedError(cause)) stoppedReason = "database_closed";
   }
+  try {
+    await settleRunOnExit({ globals, args, leaseId, stoppedReason });
+  } catch (settlementError) {
+    if (!runError) throw settlementError;
+    console.error(
+      `[run-loop] exit settlement failed after preserving the original run-loop error: ` +
+        `${settlementError instanceof Error ? settlementError.stack ?? settlementError.message : String(settlementError)}`,
+    );
+  }
+  if (runError) throw runError;
+  if (!result) throw new Error("run-loop finished without a result");
   console.log(JSON.stringify(result, null, 2));
 }

@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { packageRoot } from "@server/core/knowledge/paths";
-import { runKnowledgeGraphRebuild, type KnowledgeMaintenanceOptions } from "./kg.js";
+import { runKnowledgeGraphRebuild, runKnowledgeMaintenance, type KnowledgeMaintenanceOptions } from "./kg.js";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
+import { borrowState, openState } from "@server/core/orchestrator-state";
 
 const globals: GlobalArgs = {
   repoRoot: "/tmp/kg-rebuild-repo",
@@ -91,5 +95,33 @@ describe("runKnowledgeGraphRebuild", () => {
     expect(result).toMatchObject({
       knowledge_graph_metadata: { report_provenance: "stamped" },
     });
+  });
+});
+
+describe("runKnowledgeMaintenance StateStore ownership", () => {
+  test("a maintenance pass cannot close the run-loop owner", async () => {
+    const root = mkdtempSync(join(tmpdir(), "kg-maintenance-store-"));
+    const stateDir = join(root, "state");
+    const owner = openState(stateDir);
+    try {
+      await runKnowledgeMaintenance(
+        { ...globals, repoRoot: root, stateDir },
+        new Map<string, string | true>([
+          ["--knowledge-curator-enrichment", join(root, "curator.jsonl")],
+          ["--no-pr-index", true],
+          ["--no-rebuild", true],
+          ["--no-tool-index", true],
+          ["--no-tool-runners", true],
+          ["--pr-limit", "0"],
+          ["--worker-limit", "0"],
+        ]),
+        { stateStore: borrowState(owner) },
+      );
+
+      expect(owner.db.query("SELECT 1 AS value").get()).toEqual({ value: 1 });
+    } finally {
+      owner.db.close();
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

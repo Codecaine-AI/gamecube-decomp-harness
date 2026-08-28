@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
-import { openState } from "./store.js";
+import { borrowState, openState, stateStoreCloseInfo } from "./store.js";
 
 const tempDirs: string[] = [];
 
@@ -51,5 +51,25 @@ describe("openState migration mode", () => {
     } finally {
       db.close();
     }
+  });
+});
+
+describe("StateStore ownership", () => {
+  test("closing a borrowed view cannot close its owner", () => {
+    const owner = openState(stateDir("state-borrowed-close"));
+    const borrowed = borrowState(owner);
+    try {
+      borrowed.db.close();
+
+      expect(owner.db.query("SELECT 1 AS value").get()).toEqual({ value: 1 });
+      expect(stateStoreCloseInfo(owner)).toBeNull();
+    } finally {
+      owner.db.close();
+    }
+
+    expect(stateStoreCloseInfo(owner)).toMatchObject({
+      closedAt: expect.any(String),
+      stack: expect.stringContaining("StateStore owner database closed here"),
+    });
   });
 });

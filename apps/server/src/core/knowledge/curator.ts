@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { openState } from "@server/core/cycle-runtime/run-state";
+import { openState, type StateStore } from "@server/core/cycle-runtime/run-state";
 import { knowledgeCuratorEnrichmentPath, pastPrsRoot } from "./paths.js";
 import type { TrustTier } from "./graph/types.js";
 import { arrayValue, ensureParentDir, numberValue, objectValue, readJsonl, shortHash, stringValue, truncate } from "./graph/util.js";
@@ -30,6 +30,7 @@ export interface CuratedKnowledgeRecord {
 export interface CurateKnowledgeOptions {
   repoRoot: string;
   stateDir: string;
+  stateStore?: StateStore;
   outputPath?: string;
   runId?: string;
   workerLimit?: number;
@@ -121,7 +122,9 @@ function workerLessonRecords(options: CurateKnowledgeOptions): CuratedKnowledgeR
     return records;
   }
 
-  const store = openState(options.stateDir);
+  const ownedStore = options.stateStore ? null : openState(options.stateDir);
+  const store = options.stateStore ?? ownedStore;
+  if (!store) throw new Error("Knowledge curator could not open state");
   try {
     const limit = nonNegativeLimit(options.workerLimit, 250);
     const where = options.runId ? "WHERE worker_state.run_id = ?" : "";
@@ -184,7 +187,7 @@ function workerLessonRecords(options: CurateKnowledgeOptions): CuratedKnowledgeR
       else skipped += 1;
     }
   } finally {
-    store.db.close();
+    ownedStore?.db.close();
   }
 
   records.skipped = skipped;

@@ -219,6 +219,28 @@ describe("startJobConsumer", () => {
     warning.mockRestore();
   });
 
+  test("reports a closed database once and stops claiming", async () => {
+    const kernel = kernelFor([job("closed"), job("must-not-run")]);
+    kernel.completeJob.mockImplementation(() => { throw new Error("Database has closed"); });
+    const onFatalError = mock(() => undefined);
+    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+    const consumer = startJobConsumer(store, inlineDescriptor(async () => ({})), kernel, {
+      intervalMs: 1,
+      onFatalError,
+    });
+
+    await until(() => onFatalError.mock.calls.length === 1);
+    await Bun.sleep(5);
+    await consumer.stop();
+
+    expect(onFatalError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Database has closed" }),
+      { job: expect.objectContaining({ jobId: "closed" }), operation: "completion" },
+    );
+    expect(kernel.claimNextJob).toHaveBeenCalledTimes(1);
+    warning.mockRestore();
+  });
+
   test("stop drains in-flight work and prevents new claims", async () => {
     const kernel = kernelFor([job("one"), job("two")]);
     let release!: () => void;

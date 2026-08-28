@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { settleStoppedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
+import { hardStopRun, settleStoppedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { getLatestRun, getRun, openState } from "@server/core/cycle-runtime/run-state";
 import { createSyncRuntime } from "@server/core/cycle-runtime/phases/sync/runtime.js";
 import { resolveGame } from "@server/core/game-registry";
@@ -27,14 +27,28 @@ export async function settleRunOnExit(params: {
       const runId = stringArg(args, "--run-id", "") || getLatestRun(store)?.id;
       const run = runId ? getRun(store, runId) : null;
       if (run?.status === "active" || run?.status === "paused") {
-        settleStoppedRun({
-          actor: "guardian",
-          commandId: `command-run-loop-settled-${randomUUID()}`,
-          leaseId,
-          reason: `run-loop settled after ${stoppedReason}`,
-          runId: run.id,
-          store,
-        });
+        const unexpectedExit = stoppedReason === "database_closed" || stoppedReason === "error";
+        if (unexpectedExit) {
+          await hardStopRun({
+            commandId: `command-run-loop-emergency-settled-${randomUUID()}`,
+            confirmed: true,
+            globals,
+            processIntegrations: false,
+            reason: `run-loop emergency settlement after ${stoppedReason}`,
+            repoRoot: run.game?.repoRoot ?? globals.repoRoot,
+            runId: run.id,
+            store,
+          });
+        } else {
+          settleStoppedRun({
+            actor: "guardian",
+            commandId: `command-run-loop-settled-${randomUUID()}`,
+            leaseId,
+            reason: `run-loop settled after ${stoppedReason}`,
+            runId: run.id,
+            store,
+          });
+        }
         const active = run.gameId ? getHarnessState(store, run.gameId)?.active_workflow : null;
         if (active?.kind === "sync" && active.status === "active") {
           acquiredSyncId = active.workflow_id;

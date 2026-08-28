@@ -1,4 +1,4 @@
-import type { StateStore } from "@server/core/orchestrator-state";
+import { isStateStoreClosedError, type StateStore } from "@server/core/orchestrator-state";
 import type {
   ClaimToken,
   JobActor,
@@ -26,6 +26,7 @@ export interface JobConsumerOptions {
     job: JobRecord,
     settle: { status: "succeeded" | "failed"; error?: string; outcome?: TaskOutcome },
   ) => void | Promise<void>;
+  onFatalError?: (cause: unknown, context: { job: JobRecord | null; operation: string }) => void;
   settlementWarningMs?: number;
   settlementDrainTimeoutMs?: number;
 }
@@ -60,8 +61,18 @@ export function startJobConsumer(
   const settlementWork = new Set<Promise<void>>();
   const dispatchedHandles = new Map<string, { handle: TaskHandle; cancel: (handle: TaskHandle) => Promise<void> }>();
   let stopped = false;
+  let fatalNotified = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let activeTick: Promise<void> | null = null;
+
+  const notifyFatal = (cause: unknown, operation: string, job: JobRecord | null = null): void => {
+    if (!isStateStoreClosedError(cause)) return;
+    stopped = true;
+    if (timer) clearTimeout(timer);
+    if (fatalNotified) return;
+    fatalNotified = true;
+    options.onFatalError?.(cause, { job, operation });
+  };
 
   const at = (): string => (options.now ?? (() => new Date().toISOString()))();
 
@@ -77,6 +88,7 @@ export function startJobConsumer(
     work = Promise.resolve()
       .then(() => options.onJobSettled?.(job, settle))
       .catch((cause) => {
+        notifyFatal(cause, "settlement-hook", job);
         console.warn(`Job consumer ${descriptor.kind} settlement hook failed: ${errorMessage(cause)}`);
       })
       .finally(() => {
@@ -97,6 +109,7 @@ export function startJobConsumer(
   };
 
   const fail = (job: JobRecord, token: ClaimToken, cause: unknown): void => {
+    notifyFatal(cause, "job-handler", job);
     const error = errorMessage(cause);
     try {
       kernel.failJob(store, token, error, {
@@ -106,6 +119,7 @@ export function startJobConsumer(
       });
       settled(job, { status: "failed", error });
     } catch (writeCause) {
+      notifyFatal(writeCause, "fail", job);
       warnStaleWrite(job, "fail", writeCause);
     }
   };
@@ -119,8 +133,11 @@ export function startJobConsumer(
       });
       settled(job, { status: "succeeded", ...(outcome ? { outcome } : {}) });
     } catch (cause) {
+      notifyFatal(cause, "completion", job);
       warnStaleWrite(job, "completion", cause);
-      settled(job, { status: "failed", error: errorMessage(cause), ...(outcome ? { outcome } : {}) });
+      if (!isStateStoreClosedError(cause)) {
+        settled(job, { status: "failed", error: errorMessage(cause), ...(outcome ? { outcome } : {}) });
+      }
     }
   };
 
@@ -129,7 +146,8 @@ export function startJobConsumer(
     const heartbeat = setInterval(() => {
       try {
         kernel.heartbeatJob(store, token, { leaseMs: descriptor.leaseMs, at: at() });
-      } catch {
+      } catch (cause) {
+        notifyFatal(cause, "inline-heartbeat", job);
         // A stale token means another consumer stole the expired lease; let that path proceed.
       }
     }, intervalMs);
@@ -159,6 +177,7 @@ export function startJobConsumer(
     try {
       kernel.markJobRunning(store, token, { taskHandle: handle, at: at(), actor });
     } catch (cause) {
+      notifyFatal(cause, "mark-running", job);
       warnStaleWrite(job, "mark-running", cause);
       dispatchedHandles.delete(job.jobId);
       return;
@@ -172,6 +191,7 @@ export function startJobConsumer(
         try {
           kernel.heartbeatJob(store, token, { leaseMs: descriptor.leaseMs, at: at() });
         } catch (cause) {
+          notifyFatal(cause, "heartbeat", job);
           warnStaleWrite(job, "heartbeat", cause);
           return;
         }
@@ -203,6 +223,7 @@ export function startJobConsumer(
     try {
       await options.onJobClaimed(job);
     } catch (cause) {
+      notifyFatal(cause, "claim-hook", job);
       console.warn(`Job consumer ${descriptor.kind} claim hook failed: ${errorMessage(cause)}`);
     }
   };
@@ -238,7 +259,10 @@ export function startJobConsumer(
           });
         }
       })
-      .catch((cause) => console.warn(`Job consumer ${descriptor.kind} tick failed: ${errorMessage(cause)}`))
+      .catch((cause) => {
+        notifyFatal(cause, "claim-tick");
+        console.warn(`Job consumer ${descriptor.kind} tick failed: ${errorMessage(cause)}`);
+      })
       .finally(() => {
         activeTick = null;
         if (!stopped) timer = setTimeout(tick, intervalMs);
