@@ -2,6 +2,34 @@
 <last_updated>2026-08-27</last_updated>
 
 <status>
+- SESSION 00:10–00:55Z (2026-08-28): PR #3223 pushed green, epoch 6 admitted, fixes 12–14
+  PUSHED (Ford approved): harness main 84a2d927 → 717a0c33 (fixes 1–11 + state log) → 3d3e8400 (fix-7 scan_diff.py) → c924edc1 (fix 12) → 0c29e415 (fix 13) → 88305e90 (fix 14).
+  Cycle branch orchestrator/cycle/02a80f9b…: boundary snapshot 16e7d88cb8 (7-file clang-format whitespace fix) + operator commit 5cc6faecf3 (clang-tidy strict prototype: tyDisplay_SetupCameraAndBackground(void)).
+  DRAFT PR #3223 REFRESHED by the boundary at 00:40:39Z: head 9a8dc95c8f → 5cc6faecf3; MERGEABLE.
+  All 10 CI checks pass: clang-format, editorconfig, style-check, ninja clang/diff/link/test, Nix, native-build, pages.
+  decomp-dev bot vs master fc960bd: matched code 91.69% (+0.19%, +7188 bytes), matched data 96.71% (+0.03%).
+  Bot delta: 11 new matches, 141 improvements, 0 broken matches (2 fuzzy wobbles on unmatched items).
+  epoch_finish save point at 5cc6faecf3; breakage gate clean; CI-parity clean.
+  QA still 1 error = mnInfo_803EFC08; fix-7 allowlist entry in melee game.json pending Ford.
+  BOUNDARY RETRY SAGA: 3 retries to get the push.
+  (1) Latch cleared by flipping epoch 5 to error → retry #1 snapshot 16e7d88cb8.
+  CI-parity pre-commit failed on clang-tidy (tydisplay.c prototype); PR skipped.
+  (2) Tidy fix committed 5cc6faecf3 host-side; stale 'prepared' pending_integrations row deleted so the retry took the full path.
+  Retry #2 failed at typed close: UNIQUE constraint cycle_timeline_entries (cycle_uuid, entry_kind, entry_id); first-pass evidence collided → FIX 13.
+  (3) Retry #3 on fix 13: close OK, PR pushed, then admission refused by fix-2 guard on PATH mismatch.
+  Board built from epoch_worktree report, published verbatim to cycle worktree; sha identical → FIX 14.
+  Epoch 5 closed by operator as status completed/boundary success: close, save points, and PR push had all succeeded.
+  Resume admitted epoch 6 with 165 targets at 00:51Z on scheduler lease-9fbc74b7 (fixes 1–14).
+  FIX 12: precommit_autofix boundary step runs the game repo's pre-commit fix hooks in the CYCLE worktree before snapshot_commit.
+  Flag defaults ON; --no-precommit-autofix disables it; first live run reformatted 0 files.
+  FIX 13: timeline entries + epoch_finish/pr_sync save points upsert on stable IDs; run.epoch_integrated stays singleton.
+  Boundary retries are idempotent.
+  FIX 14: admission guard keys on report sha256; path-only mismatch logs one informational line and admits.
+  Missing report or sha mismatch still refuse. Full cycle-runtime: 431 pass.
+  ANSWERED FOR FORD: pre-commit does auto-fix, but the CI-parity gate ran it only in the throwaway epoch worktree, so fixes were discarded; fix 12 closes that.
+  OPEN: fix-7 allowlist entry (mnInfo_803EFC08, lbl_8046E1B0) in games/melee/game.json is Ford's call.
+  The running server, started ~23:45Z, lacks fixes 11–14 until next server restart; scheduler has them.
+  Phase-4 evidence write-up + docs chapter (scope item 6) remain pending after a clean epoch.
 - SESSION 23:30Z–00:20Z (2026-08-27/28): migration incident, restart, epoch-5 boundary on new code
   INCIDENT: fix-4 migration 003 was applied to the live orchestrator DB at 23:09:06Z by a worker-task child; children load the working tree at spawn.
   The OLD-code server + scheduler then rejected the DB: "Storage schema is not the squashed baseline"; bookkeeping [1,2,3] vs known [1,2].
