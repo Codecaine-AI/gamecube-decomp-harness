@@ -148,7 +148,7 @@ describe("runSchedulerTick", () => {
     value.store.db.close();
   });
 
-  test("re-enqueues an orphaned admitted target during an idle epoch pass", () => {
+  test("reconciles missing job coverage during an idle epoch pass", () => {
     const value = admissionFixture();
     writeProvenance(value.graphDbPath, value.reportPath);
     const epochResult = ensureSchedulerEpochFromBoard({
@@ -161,12 +161,12 @@ describe("runSchedulerTick", () => {
     value.store.db.query("DELETE FROM jobs WHERE kind = 'worker'").run();
     const errorLog = spyOn(console, "error").mockImplementation(() => {});
     try {
-      expect(reconcileOrphanedEpochTargets(value.store, epochResult.epoch, epochResult.progress)).toBe(1);
-      expect(reconcileOrphanedEpochTargets(value.store, epochResult.epoch, epochResult.progress)).toBe(0);
+      expect(reconcileOrphanedEpochTargets(value.store, epochResult.epoch, epochResult.progress)).toEqual({ added: 1, removed: 0 });
+      expect(reconcileOrphanedEpochTargets(value.store, epochResult.epoch, epochResult.progress)).toEqual({ added: 0, removed: 0 });
       expect(value.store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE kind = 'worker' AND status = 'queued'").get()).toEqual({ count: 1 });
       expect(errorLog).toHaveBeenCalledTimes(1);
       expect(errorLog).toHaveBeenCalledWith(
-        `[run-loop] epoch ${epochResult.progress.ordinal}: re-enqueued 1 orphaned admitted target(s)`,
+        `[run-loop] epoch ${epochResult.progress.ordinal}: job coverage reconciled (+1 / -0)`,
       );
     } finally {
       errorLog.mockRestore();

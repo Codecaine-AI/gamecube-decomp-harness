@@ -66,14 +66,14 @@ export function reconcileOrphanedEpochTargets(
   store: StateStore,
   epoch: Pick<SchedulerEpochRecord, "id">,
   progress: Pick<EpochProgressSummary, "ordinal">,
-): number {
+): { added: number; removed: number } {
   const result = reconcileEpochTargetJobs(store, { epochId: epoch.id });
-  if (result.requeued > 0) {
+  if (result.added > 0 || result.removed > 0) {
     console.error(
-      `[run-loop] epoch ${progress.ordinal}: re-enqueued ${result.requeued} orphaned admitted target(s)`,
+      `[run-loop] epoch ${progress.ordinal}: job coverage reconciled (+${result.added} / -${result.removed})`,
     );
   }
-  return result.requeued;
+  return { added: result.added, removed: result.removed };
 }
 
 function nonNegativeInt(value: number): number {
@@ -231,7 +231,11 @@ export async function runSchedulerTick(
     if (ownsSchedulerCondition) setRunSchedulerCondition(store, runId, "planning");
 
     const event = nextUnhandledEvent(store, runId);
-    if (!event) return { runId, status: "no_unhandled_events" };
+    if (!event) {
+      const epoch = activeSchedulerEpoch(store, runId);
+      if (epoch) reconcileOrphanedEpochTargets(store, epoch, schedulerEpochProgress(store, epoch.id));
+      return { runId, status: "no_unhandled_events" };
+    }
     const eventType = String(event.eventType ?? event.event_type ?? "");
     const workerPoolSize = Math.max(1, nonNegativeInt(run.desiredWorkers));
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
@@ -244,6 +248,7 @@ export async function runSchedulerTick(
         runId,
         store,
       });
+      reconcileOrphanedEpochTargets(store, epochResult.epoch, epochResult.progress);
     }
     markEventHandled(store, String(event.id));
     const targetPressure = targetPressureSnapshot(store, runId);

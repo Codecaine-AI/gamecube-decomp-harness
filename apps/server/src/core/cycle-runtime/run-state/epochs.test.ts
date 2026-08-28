@@ -30,6 +30,7 @@ import {
   cancelJob,
   claimNextJob,
   completeJob,
+  enqueueJob,
   getJobByDedupeKey,
 } from "@server/core/job-queue/kernel.js";
 
@@ -268,7 +269,7 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
-  test("re-enqueues orphaned admitted targets without duplicating covered targets", () => {
+  test("tops up worker job coverage to the unfinished target count", () => {
     const { store } = tempState();
     try {
       const { epoch } = setupEpoch(store, [candidate(1, "src/a.c"), candidate(2, "src/b.c")], 2);
@@ -278,8 +279,8 @@ describe("scheduler epoch and worker state lifecycle", () => {
       const orphanJob = getJobByDedupeKey(store, "worker", targets[0]!.id)!;
       store.db.query("DELETE FROM jobs WHERE job_id = ?").run(orphanJob.jobId);
 
-      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toEqual({ epochId: epoch.id, requeued: 1 });
-      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toEqual({ epochId: epoch.id, requeued: 0 });
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toMatchObject({ epochId: epoch.id, added: 1, removed: 0, liveJobs: 1, unfinishedTargets: 2 });
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toMatchObject({ epochId: epoch.id, added: 0, removed: 0, liveJobs: 2, unfinishedTargets: 2 });
       const jobs = store.db
         .query(`SELECT dedupe_key, status, json_extract(payload_json, '$.epoch_target_id') AS epoch_target_id
                 FROM jobs WHERE kind = 'worker' ORDER BY created_at, job_id`)
@@ -289,6 +290,52 @@ describe("scheduler epoch and worker state lifecycle", () => {
       expect(jobs.find((job) => job.epoch_target_id === targets[0]!.id)).toMatchObject({ status: "queued" });
       expect(jobs.find((job) => job.epoch_target_id === targets[0]!.id)!.dedupe_key).toStartWith(`${targets[0]!.id}:reenqueue:`);
       expect(jobs.filter((job) => job.epoch_target_id === targets[1]!.id)).toHaveLength(1);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("trims newest queued worker jobs beyond coverage slack", () => {
+    const { store } = tempState();
+    try {
+      const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
+      const target = store.db.query("SELECT id, target_key FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string; target_key: string };
+      store.db.query("UPDATE jobs SET created_at = '2026-08-28T00:00:00.000Z' WHERE kind = 'worker' AND dedupe_key = ?").run(target.id);
+      for (let index = 1; index <= 3; index += 1) {
+        enqueueJob(store, {
+          kind: "worker", dedupeKey: `${target.id}:extra:${index}`, gameId: "test", runId: run.id,
+          payload: { epoch_target_id: target.id, epoch_id: epoch.id, target_key: target.target_key },
+          executionClass: "sandbox",
+        });
+        store.db.query("UPDATE jobs SET created_at = ? WHERE kind = 'worker' AND dedupe_key = ?").run(`2026-08-28T00:00:0${index}.000Z`, `${target.id}:extra:${index}`);
+      }
+
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toMatchObject({ added: 0, removed: 1, liveJobs: 4, unfinishedTargets: 1 });
+      const newest = store.db.query("SELECT status, error_json FROM jobs WHERE dedupe_key = ?").get(`${target.id}:extra:3`) as { status: string; error_json: string };
+      expect(newest.status).toBe("cancelled");
+      expect(JSON.parse(newest.error_json).message).toContain("coverage exceeded unfinished targets");
+      expect(store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE status IN ('queued', 'claimed', 'running', 'waiting')").get()).toEqual({ count: 3 });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("never trims claimed, running, or waiting worker jobs", () => {
+    const { store } = tempState();
+    try {
+      const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
+      const target = store.db.query("SELECT id, target_key FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string; target_key: string };
+      const statuses = ["claimed", "running", "waiting", "queued", "queued", "queued"];
+      for (const [index, status] of statuses.entries()) {
+        const dedupeKey = `${target.id}:protected:${index}`;
+        enqueueJob(store, { kind: "worker", dedupeKey, gameId: "test", runId: run.id, payload: { epoch_target_id: target.id, epoch_id: epoch.id, target_key: target.target_key }, executionClass: "sandbox" });
+        store.db.query("UPDATE jobs SET status = ?, created_at = ? WHERE dedupe_key = ?").run(status, `2026-08-28T00:01:0${index}.000Z`, dedupeKey);
+      }
+
+      const result = reconcileEpochTargetJobs(store, { epochId: epoch.id });
+      expect(result.removed).toBe(4);
+      const protectedRows = store.db.query("SELECT status FROM jobs WHERE dedupe_key LIKE ? ORDER BY dedupe_key LIMIT 3").all(`${target.id}:protected:%`) as Array<{ status: string }>;
+      expect(protectedRows.map((row) => row.status)).toEqual(["claimed", "running", "waiting"]);
     } finally {
       store.db.close();
     }

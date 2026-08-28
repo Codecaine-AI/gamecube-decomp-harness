@@ -960,8 +960,8 @@ export async function runRunLoop(
               runId,
               store,
             });
-            const orphanRepairCount = reconcileOrphanedEpochTargets(store, epochResult.epoch, epochResult.progress);
-            if (orphanRepairCount > 0) {
+            const jobCoverageRepair = reconcileOrphanedEpochTargets(store, epochResult.epoch, epochResult.progress);
+            if (jobCoverageRepair.added > 0 || jobCoverageRepair.removed > 0) {
               didWork = true;
             }
             lastSchedulerEpoch = epochResult.progress;

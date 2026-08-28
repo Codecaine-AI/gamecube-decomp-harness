@@ -91,7 +91,10 @@ export interface RequeueEpochTargetResult {
 
 export interface ReconcileEpochTargetJobsResult {
   epochId: string;
-  requeued: number;
+  added: number;
+  removed: number;
+  liveJobs: number;
+  unfinishedTargets: number;
 }
 
 export interface EpochProgressSummary {
@@ -454,12 +457,23 @@ export function admitEpochTargets(
   });
 }
 
-/** Enqueues worker jobs for admitted targets that no active job can claim or is working. */
+/** Keeps fungible worker-job coverage close to the epoch's unfinished target count. */
 export function reconcileEpochTargetJobs(
   store: StateStore,
-  params: { epochId: string; epochTargetId?: string },
+  params: { epochId: string; slack?: number },
 ): ReconcileEpochTargetJobsResult {
   return immediateTransaction(store.db, () => {
+    const slack = Math.max(0, Math.floor(params.slack ?? 2));
+    const unfinishedTargets = Number((store.db
+      .query("SELECT COUNT(*) AS count FROM epoch_targets WHERE epoch_id = ? AND status IN ('admitted', 'claimed')")
+      .get(params.epochId) as { count: number }).count);
+    const liveJobs = Number((store.db
+      .query(`SELECT COUNT(*) AS count FROM jobs
+              WHERE kind = 'worker'
+                AND status IN ('queued', 'claimed', 'running', 'waiting')
+                AND json_extract(payload_json, '$.epoch_id') = ?`)
+      .get(params.epochId) as { count: number }).count);
+    const deficit = Math.max(0, unfinishedTargets - liveJobs);
     const rows = store.db
       .query(
         `SELECT epoch_targets.id, epoch_targets.epoch_id, epoch_targets.run_id,
@@ -469,21 +483,18 @@ export function reconcileEpochTargetJobs(
          JOIN runs ON runs.id = epoch_targets.run_id
          WHERE epoch_targets.epoch_id = ?
            AND epoch_targets.status = 'admitted'
-           AND (? IS NULL OR epoch_targets.id = ?)
-           AND NOT EXISTS (
+         ORDER BY NOT EXISTS (
              SELECT 1 FROM jobs
              WHERE jobs.kind = 'worker'
                AND jobs.run_id = epoch_targets.run_id
-               AND (
-                 (jobs.status IN ('queued', 'waiting')
-                   AND json_extract(jobs.payload_json, '$.epoch_target_id') = epoch_targets.id)
-                 OR
-                 (jobs.status IN ('claimed', 'running')
-                   AND json_extract(jobs.payload_json, '$.claimed_epoch_target_id') = epoch_targets.id)
-               )
-           )`,
+               AND jobs.status IN ('queued', 'claimed', 'running', 'waiting')
+               AND json_extract(jobs.payload_json, '$.epoch_target_id') = epoch_targets.id
+           ) DESC,
+           epoch_targets.priority DESC,
+           epoch_targets.admission_index
+         LIMIT ?`,
       )
-      .all(params.epochId, params.epochTargetId ?? null, params.epochTargetId ?? null) as Array<Record<string, unknown>>;
+      .all(params.epochId, deficit) as Array<Record<string, unknown>>;
     for (const row of rows) {
       const epochTargetId = String(row.id);
       enqueueJob(store, {
@@ -501,7 +512,27 @@ export function reconcileEpochTargetJobs(
         executionClass: "sandbox",
       });
     }
-    return { epochId: params.epochId, requeued: rows.length };
+    const excess = Math.max(0, liveJobs - unfinishedTargets - slack);
+    const queued = store.db
+      .query(`SELECT job_id FROM jobs
+              WHERE kind = 'worker'
+                AND status = 'queued'
+                AND json_extract(payload_json, '$.epoch_id') = ?
+              ORDER BY created_at DESC, job_id DESC
+              LIMIT ?`)
+      .all(params.epochId, excess) as Array<{ job_id: string }>;
+    const reason = `epoch job coverage exceeded unfinished targets by more than ${slack}; newest queued job cancelled`;
+    for (const row of queued) {
+      cancelJob(store, { jobId: row.job_id, actor: "runner", reason });
+      store.db.query("UPDATE jobs SET error_json = ? WHERE job_id = ?").run(JSON.stringify({ message: reason }), row.job_id);
+    }
+    return {
+      epochId: params.epochId,
+      added: rows.length,
+      removed: queued.length,
+      liveJobs,
+      unfinishedTargets,
+    };
   });
 }
 

@@ -149,7 +149,7 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
-  test("re-enqueues a job's own target when its claim resolves to another target", () => {
+  test("does not create a replacement job when a fungible job claims another target", () => {
     const f = fixture();
     try {
       admitEpochTargets(f.store, {
@@ -173,9 +173,10 @@ describe("worker job kind", () => {
                 WHERE kind = 'worker' AND json_extract(payload_json, '$.epoch_target_id') = ?
                 ORDER BY created_at, job_id`)
         .all(f.epochTargetId) as Array<{ dedupe_key: string; status: string; execution_class: string }>;
-      expect(ownJobs).toHaveLength(2);
+      expect(ownJobs).toHaveLength(1);
       expect(ownJobs).toContainEqual({ dedupe_key: f.epochTargetId, status: "claimed", execution_class: "sandbox" });
-      expect(ownJobs.find((job) => job.status === "queued")?.dedupe_key).toStartWith(`${f.epochTargetId}:reenqueue:`);
+      expect(f.store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE kind = 'worker' AND status IN ('queued', 'claimed', 'running', 'waiting')").get()).toEqual({ count: 2 });
+      expect(f.store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE dedupe_key LIKE '%:reenqueue:%'").get()).toEqual({ count: 0 });
       expect(f.store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(f.epochTargetId)).toEqual({ status: "admitted" });
     } finally { f.store.db.close(); }
   });

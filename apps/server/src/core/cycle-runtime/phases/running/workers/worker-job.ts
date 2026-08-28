@@ -8,7 +8,6 @@ import { enqueueBackgroundKnowledgeForWorker } from "@server/core/knowledge/back
 import {
   activeClaimsForRun,
   claimNextEpochTarget,
-  reconcileEpochTargetJobs,
   setClaimWorktreePath,
 } from "@server/core/cycle-runtime/run-state";
 import { recoverActiveClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
@@ -105,18 +104,6 @@ export function workerKernelOps(ctx: WorkerJobRunContext): JobQueueKernelOps {
             base_rev: baseRev,
             ttl: target.ttl,
           });
-          const intendedEpochTargetId = claimedJob.job.payload.epoch_target_id;
-          const intendedEpochId = claimedJob.job.payload.epoch_id;
-          if (
-            typeof intendedEpochTargetId === "string" && intendedEpochTargetId &&
-            typeof intendedEpochId === "string" && intendedEpochId &&
-            intendedEpochTargetId !== target.epochTargetId
-          ) {
-            reconcileEpochTargetJobs(store, {
-              epochId: intendedEpochId,
-              epochTargetId: intendedEpochTargetId,
-            });
-          }
           return { job: getJob(store, claimedJob.job.jobId)!, token: claimedJob.token };
         });
       } catch (error) {
