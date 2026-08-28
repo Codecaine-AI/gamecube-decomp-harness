@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, setSystemTime, test } from "bun:test";
+import { afterAll, describe, expect, jest, setSystemTime, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,11 +18,15 @@ import { activateRun } from "../run-control.js";
 import { settleRunOnExit } from "../jobs/settle-supervised-run.js";
 import {
   epochBoundaryWorkPending,
+  boundaryRetryRest,
+  launchBoundaryRetryIfDue,
   createKnowledgeMaintenanceClock,
   integrationResolverLockPaths,
   sandboxSleepConfigFromArgs,
   selectRunLoopSchedulerCondition,
   selectIntegrationResolverBatch,
+  shouldEvaluateEpochBoundary,
+  waitForRestingTrigger,
 } from "./run-loop.js";
 import { resolveBaseRev } from "../workers/worker-cycle.js";
 
@@ -204,6 +208,59 @@ describe("epochBoundaryWorkPending", () => {
       expect(epochBoundaryWorkPending(store, run.id, new Date("2026-08-27T12:02:00.000Z"))).toBe(true);
       store.db.query("UPDATE epochs SET boundary_status = 'retry_exhausted', boundary_next_attempt_at = NULL WHERE id = ?").run(epoch.id);
       expect(epochBoundaryWorkPending(store, run.id, new Date("2026-08-28T12:00:00.000Z"))).toBe(false);
+    } finally {
+      store.db.close();
+    }
+  });
+});
+
+describe("boundary retry resting wake", () => {
+  test("evaluates a failed boundary even when the prior cycle paused", () => {
+    expect(shouldEvaluateEpochBoundary({ boundaryError: true, epochPaused: true, runningEpoch: false })).toBe(true);
+    expect(shouldEvaluateEpochBoundary({ boundaryError: false, epochPaused: true, runningEpoch: false })).toBe(false);
+  });
+
+  test("wakes at a future retry deadline without an activity trigger", async () => {
+    const { store } = tempState();
+    const startedAt = new Date("2026-08-28T12:00:00.000Z");
+    try {
+      jest.useFakeTimers({ now: startedAt });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+      const nextAttemptAt = new Date(startedAt.getTime() + 2 * 60_000).toISOString();
+      store.db.query(`UPDATE epochs SET status = 'error', admitted_count = 1, finished_count = 1,
+        boundary_status = 'retry_scheduled', boundary_next_attempt_at = ? WHERE id = ?`).run(nextAttemptAt, epoch.id);
+
+      const rest = boundaryRetryRest(store, run.id, 10 * 60_000);
+      expect(rest).toEqual({ ordinal: 1, nextAttemptAt, sleepMs: 2 * 60_000 });
+      const waiting = waitForRestingTrigger(rest?.sleepMs ?? 0);
+      jest.advanceTimersByTime(2 * 60_000 - 1);
+      expect(epochBoundaryWorkPending(store, run.id)).toBe(false);
+      jest.advanceTimersByTime(1);
+      await waiting;
+      expect(epochBoundaryWorkPending(store, run.id)).toBe(true);
+      const launches: Array<{ trigger: string; epochId: string }> = [];
+      expect(launchBoundaryRetryIfDue(store, run.id, (trigger, epochId) => launches.push({ trigger, epochId }))).toBe(true);
+      expect(launches).toEqual([{ trigger: "retry scheduler epoch 1 boundary", epochId: epoch.id }]);
+    } finally {
+      jest.useRealTimers();
+      store.db.close();
+    }
+  });
+
+  test("a retry without a deadline is due on the next tick", () => {
+    const { store } = tempState();
+    try {
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+      store.db.query(`UPDATE epochs SET status = 'error', admitted_count = 1, finished_count = 1,
+        boundary_status = 'retry_scheduled', boundary_next_attempt_at = NULL WHERE id = ?`).run(epoch.id);
+
+      expect(boundaryRetryRest(store, run.id, 10 * 60_000)).toBeNull();
+      expect(epochBoundaryWorkPending(store, run.id)).toBe(true);
+      let launched = false;
+      expect(launchBoundaryRetryIfDue(store, run.id, () => { launched = true; })).toBe(true);
+      expect(launched).toBe(true);
     } finally {
       store.db.close();
     }

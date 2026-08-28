@@ -375,13 +375,64 @@ export function createKnowledgeMaintenanceClock(intervalMs: number, initializedA
   };
 }
 
-async function waitForRestingTrigger(idleSleepMs: number, extras: Array<Promise<void> | null> = []): Promise<void> {
+export async function waitForRestingTrigger(
+  idleSleepMs: number,
+  extras: Array<Promise<void> | null> = [],
+  sleepFor: (ms: number) => Promise<void> = sleep,
+): Promise<void> {
   const live = extras.filter((task): task is Promise<void> => task != null);
   if (live.length === 0) {
-    await sleep(idleSleepMs);
+    await sleepFor(idleSleepMs);
     return;
   }
-  await Promise.race([sleep(idleSleepMs), ...live]);
+  await Promise.race([sleepFor(idleSleepMs), ...live]);
+}
+
+export function boundaryRetryRest(
+  store: StateStore,
+  runId: string,
+  idleSleepMs: number,
+  now = Date.now(),
+): { ordinal: number; nextAttemptAt: string; sleepMs: number } | null {
+  const boundaryError = boundaryErrorEpoch(store, runId);
+  if (
+    !boundaryError ||
+    boundaryError.terminal ||
+    boundaryError.finished < boundaryError.admitted ||
+    !boundaryError.nextAttemptAt
+  ) return null;
+  const retryAt = Date.parse(boundaryError.nextAttemptAt);
+  if (!Number.isFinite(retryAt) || retryAt <= now) return null;
+  return {
+    ordinal: boundaryError.ordinal,
+    nextAttemptAt: boundaryError.nextAttemptAt,
+    sleepMs: Math.min(idleSleepMs, retryAt - now),
+  };
+}
+
+export function launchBoundaryRetryIfDue(
+  store: StateStore,
+  runId: string,
+  launch: (trigger: string, schedulerEpochId: string) => void,
+  now = Date.now(),
+): boolean {
+  const boundaryError = boundaryErrorEpoch(store, runId);
+  if (
+    !boundaryError ||
+    boundaryError.terminal ||
+    boundaryError.finished < boundaryError.admitted ||
+    (boundaryError.nextAttemptAt && Date.parse(boundaryError.nextAttemptAt) > now)
+  ) return false;
+  launch(`retry scheduler epoch ${boundaryError.ordinal} boundary`, boundaryError.id);
+  return true;
+}
+
+export function shouldEvaluateEpochBoundary(params: {
+  boundaryError: boolean;
+  epochPaused: boolean;
+  runningEpoch: boolean;
+}): boolean {
+  return !params.runningEpoch && (params.boundaryError || !params.epochPaused);
 }
 
 export function selectRunLoopSchedulerCondition(params: {
@@ -867,8 +918,12 @@ export async function runRunLoop(
       // the boundary's blocking-integration check would then throw a spurious
       // error epoch. The drain finishes fast; the next iteration launches.
       if (epochCycleEnabled && runningIntegrationResolvers.size === 0 && !runningIntegrationDrain) {
-        if (!runningEpoch && !epochPaused) {
-          const boundaryError = boundaryErrorEpoch(store, runId);
+        const boundaryError = boundaryErrorEpoch(store, runId);
+        if (shouldEvaluateEpochBoundary({
+          boundaryError: Boolean(boundaryError),
+          epochPaused,
+          runningEpoch: Boolean(runningEpoch),
+        })) {
           const boundaryRetryDue = boundaryError && (!boundaryError.nextAttemptAt || Date.parse(boundaryError.nextAttemptAt) <= Date.now());
           if (boundaryError?.terminal) {
             epochPaused = true;
@@ -877,7 +932,7 @@ export async function runRunLoop(
             stoppedReason = "epoch_boundary_retry_exhausted";
           } else if (boundaryError && boundaryError.finished >= boundaryError.admitted && boundaryRetryDue) {
             didWork = true;
-            launchEpochCycle(`retry scheduler epoch ${boundaryError.ordinal} boundary`, boundaryError.id);
+            launchBoundaryRetryIfDue(store, runId, launchEpochCycle);
           } else if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
             schedulerBlocked = true;
             syncSchedulerCondition("waiting");
@@ -895,7 +950,7 @@ export async function runRunLoop(
             console.error(
               `[run-loop] epoch ${boundaryError.ordinal}: boundary is still failed but only ${boundaryError.finished}/${boundaryError.admitted} targets are finished; waiting before admitting a new epoch`,
             );
-          } else {
+          } else if (!epochPaused) {
             const epochResult = ensureSchedulerEpochFromBoard({
               config: schedulerEpochConfig,
               globals,
@@ -998,7 +1053,14 @@ export async function runRunLoop(
         break;
       }
       syncSchedulerCondition("waiting");
-      await waitForRestingTrigger(idleSleepMs, [
+      const retryRest = boundaryRetryRest(store, runId, idleSleepMs);
+      const restingSleepMs = retryRest?.sleepMs ?? idleSleepMs;
+      if (retryRest) {
+        console.error(
+          `[run-loop] epoch ${retryRest.ordinal}: boundary retry due at ${retryRest.nextAttemptAt}, sleeping ${restingSleepMs}ms`,
+        );
+      }
+      await waitForRestingTrigger(restingSleepMs, [
         settleWake,
         emptyEpochBoundaryLaunched ? null : runningEpoch,
         runningIntegrationDrain,
