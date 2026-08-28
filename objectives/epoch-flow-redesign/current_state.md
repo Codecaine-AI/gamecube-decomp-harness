@@ -2,6 +2,42 @@
 <last_updated>2026-08-27</last_updated>
 
 <status>
+- SESSION 08:35–18:56Z (2026-08-28): epoch 7 at xhigh (92.47%), upstream-velocity boundary, fixes 19–22, epoch 8 admitted
+  EPOCH 7 (08:33–17:06Z): 157 targets at xhigh, progressing at ~1/min.
+  Fix 15's per-claim re-enqueue over-enqueued: one lock-contended target accumulated 32 running + queued duplicates.
+  FIX 15b (718ca006): count-based coverage keeps live jobs ≈ unfinished targets, tops up or trims queued jobs, and never cancels running jobs.
+  Surplus jobs were trimmed by hand twice: 141, then 4.
+  A supposed sandbox storm (591/15min) was a broken SQLite time-window query; real churn was ≤12/10min.
+  FIX 19 (0f80f4ba) stayed: worker jobs claim a target BEFORE provisioning; surplus jobs complete as no_target_available.
+  Operator closed the tail at 17:06Z per epoch-5/6 precedent: 16 targets with 96–99.9% baselines and 1–11 attempts each were force-finished → 157/157.
+  Report: 92.41026% pre-merge → 92.47168% after upstream merge + repairs, +0.64 over epoch 6's 91.83613%.
+  EPOCH-7 BOUNDARY (17:06–18:52Z): 5 passes while upstream landed 8 commits, #3242–#3249.
+  PASS 1: drain blocked on resolver_failed timed-out checkpoint ty/toy _Toy_8030B530; operator rejected it.
+  PASS 2: fix 12 autofix reformatted 31 files; fix 3's bounded build-fixer had its FIRST LIVE RUN.
+  report_build broke on --require-protos: gmtou_2.c had undeclared gm_* helpers; fixer added `#include "gm_1601.h"` in the epoch worktree and retry passed.
+  The fix existed only in the epoch worktree, so operator committed it on the cycle branch as 4fead8b3d7.
+  FIX 20 (46118492): fixer diff is 3-way-applied + committed on the cycle branch and the boundary sha advances.
+  PASS 3: post-merge regeneration broke lbbgflash fn_80020AEC and toy Toy_80310324 via duplicate locals from upstream #3245/#3243 matches; mnname mnName_InitUserData was removed upstream.
+  It also exposed 7 clang-tidy WarningsAsErrors diagnostics: ifstatus `gobj = gobj =`; ifstock/mninfo pointer types; hsd_3B5C casts; ftCo_0A01 uninitialized; gmtou_2 cast; toy prototype `_Toy_8030FE48(ToyDisplayList*)` vs upstream `void*`; and 2 unused toy helpers.
+  Codex repaired them using upstream as gospel; host verification passed ninja -k 0, DOL sha1, clang-tidy, and clang-format; commit 6e727eb9bb.
+  FIX 21 (9d6cca03): bounded build-fixer also covers sync post-merge regeneration in the cycle worktree, receives the upstream range in its prompt, and commits its diff.
+  PASS 4: gates found two harness bugs: CI-parity treated check_complete's exit as fatal although upstream runs it under `set +e` as warning-only.
+  Fix 17's auto-flip of "complete" units broke DOL sha1: objdiff 100% is relocation-tolerant, while gmresult stays Linkable.
+  FIX 22 (b5fe89ba): check_complete is warning-only; link_complete_units defaults OFF and is DOL-verified when enabled.
+  PASS 5: upstream moved again (#3248/#3249); mndiagram3, mndiagram2, and tydisplay restored to upstream in b0f43bd81a.
+  Breakage gate caught ftCo_800A8940 100→96.98% from operator's clang-tidy init `s32 blocked = 0` inside upstream's matched function.
+  Restored exactly in 38c9f234b9; ftCo_800A8940 returned to 100.0%.
+  Fix 16's timer fired retries on schedule; latch cleared by flipping epoch 7 to error; one stop/resume activated fixes 20–22.
+  FINAL: sync not_drifted at 05d0b1dccb; breakage gate CLEAN; CI-parity clean.
+  DRAFT PR #3223 UPDATED to 38c9f234b9 at 18:52Z; interim push b0f43bd81a carried the one breakage.
+  Epoch 7 closed; EPOCH 8 ADMITTED 137 targets at 18:55Z with exactly 137 jobs.
+  QA: 4 numeric_literal_to_symbol errors in lbcollision.c from the worker float→address-symbol hack, plus mnInfo_803EFC08; deferred with ledger notes and code remains on branch.
+  POLICY QUESTION FOR FORD: should QA errors block the PR push?
+  LESSONS: upstream velocity makes every boundary a merge-repair event; sync build-fixer fix 21 is the mitigation.
+  Clang-tidy fixes inside upstream-matched functions change codegen: always restore upstream's version instead; objdiff 100% ≠ link-identical.
+  Fix 16's 'retry due' log line spams every 5s and is a rate-limit candidate; worker_state rows are overwritten per attempt.
+  HARNESS MAIN: dc89a799 → 718ca006 (15b) → 0f80f4ba (19) → 46118492 (20) → 9d6cca03 (21) → b5fe89ba (22).
+  Concurrent uncommitted edits by someone else exist under apps/frontend, apps/server/src/api/routes/kernel.ts, infrastructure/{http/server.ts,kernel/runtime*.ts}, and docs/; left untouched.
 - SESSION 01:15–08:35Z (2026-08-28): epoch 6 at xhigh, tail livelock, semantic-merge repairs, PR refreshed, epoch 7 admitted, fixes 15–16
   XHIGH RESTART (Ford, 01:19Z): scheduler stopped; 32 in-flight attempts released to queue.
   runs.inputs_json.configuration_snapshot.thinking_level changed low→xhigh; resumed on lease-072e70a2.
