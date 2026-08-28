@@ -54,6 +54,7 @@ export interface SavePointRecord {
 }
 
 export interface SavePointInput {
+  id?: string;
   campaignId: string;
   runId?: string | null;
   triggerKind: SavePointTrigger;
@@ -143,7 +144,7 @@ export function ensureCampaign(store: StateStore, input: { gameId?: string | nul
 
 export function addSavePoint(store: StateStore, input: SavePointInput): SavePointRecord {
   const record: SavePointRecord = {
-    id: randomUUID(),
+    id: input.id ?? randomUUID(),
     campaignId: input.campaignId,
     runId: input.runId ?? null,
     triggerKind: input.triggerKind,
@@ -184,6 +185,27 @@ export function addSavePoint(store: StateStore, input: SavePointInput): SavePoin
         artifactDir: record.artifactDir,
         payloadJson: record.payload,
         createdAt: record.createdAt,
+      })
+      .onConflictDoUpdate({
+        target: savePoints.id,
+        set: {
+          campaignId: record.campaignId,
+          runId: record.runId,
+          triggerKind: record.triggerKind,
+          label: record.label,
+          commitSha: record.commitSha,
+          branch: record.branch,
+          baseRef: record.baseRef,
+          baseSha: record.baseSha,
+          worktreeDirty: record.worktreeDirty,
+          committed: record.committed,
+          matchedCodePercent: record.matchedCodePercent,
+          reportPath: record.reportPath,
+          reportChangesPath: record.reportChangesPath,
+          boardSnapshotPath: record.boardSnapshotPath,
+          artifactDir: record.artifactDir,
+          payloadJson: record.payload,
+        },
       })
       .run();
   });

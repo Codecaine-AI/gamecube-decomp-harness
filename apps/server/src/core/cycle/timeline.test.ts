@@ -547,6 +547,56 @@ describe("game cycle timeline", () => {
     });
   });
 
+  test("refreshes typed epoch-close evidence when the same boundary is retried", () => {
+    const store = openTestStore();
+    const commitSha = setupCycleFixture(store);
+    const epoch = startSchedulerEpoch(store, "run-1", { workerPoolSize: 1 });
+    const close = (attempt: number, status: "paused" | "completed", boundaryStatus: string) =>
+      closeSchedulerEpochWithEvidence(store, epoch.id, {
+        status,
+        boundaryStatus,
+        routingSummary: { attempt },
+        integration: {
+          gameId: "melee",
+          runId: "run-1",
+          integrationCommit: commitSha,
+          scoreDelta: attempt,
+          commandId: `command-epoch-integrated-${attempt}`,
+          correlationId: "run-1",
+          occurredAt: `2026-08-12T12:0${attempt}:00.000Z`,
+          payload: { ordinal: attempt, boundary_status: boundaryStatus },
+        },
+        savePointEvidence: {
+          status: "recorded",
+          savePointId: "save-point-retry",
+          commitSha,
+          triggerKind: "epoch_finish",
+          headlineScore: 89 + attempt,
+          payload: { attempt, epoch_id: epoch.id },
+        },
+      });
+
+    expect(() => close(1, "paused", "regression_pause")).not.toThrow();
+    expect(() => close(2, "completed", "success")).not.toThrow();
+
+    const entries = store.db.query(
+      `SELECT entry_kind, entry_id, payload_json
+       FROM cycle_timeline_entries WHERE cycle_uuid = 'cycle-1'
+       ORDER BY entry_kind`,
+    ).all() as Array<{ entry_kind: string; entry_id: string; payload_json: string }>;
+    expect(entries).toHaveLength(2);
+    expect(entries.map(({ entry_kind, entry_id }) => [entry_kind, entry_id])).toEqual([
+      ["epoch_completed", epoch.id],
+      ["save_point", "save-point-retry"],
+    ]);
+    expect(entries.map((entry) => JSON.parse(entry.payload_json))).toEqual([
+      expect.objectContaining({ ordinal: 2, boundary_status: "success", score_delta: 2 }),
+      expect.objectContaining({ attempt: 2, headline_score: 91 }),
+    ]);
+    expect(eventsForSubject(store.db, "run", "run-1").filter((event) => event.eventType === "run.epoch_integrated")).toHaveLength(1);
+    expect(eventsForSubject(store.db, "cycle", "cycle-1").filter((event) => event.eventType === "cycle.save_point_recorded")).toHaveLength(1);
+  });
+
   test("rejects a missing epoch commit without a partial write", () => {
     const store = openTestStore();
     setupCycleFixture(store);

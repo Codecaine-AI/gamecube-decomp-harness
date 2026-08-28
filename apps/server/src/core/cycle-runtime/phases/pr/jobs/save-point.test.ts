@@ -36,6 +36,22 @@ describe("save-point evidence capture", () => {
     }
   });
 
+  test("refreshes a save point with a stable retry id", () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "typed-save-point-retry-state-"));
+    cleanup.push(stateDir);
+    const store = openState(stateDir);
+    try {
+      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
+      addSavePoint(store, { id: "epoch-save-point-1", campaignId: campaign.id, triggerKind: "epoch_finish", matchedCodePercent: 90, payload: { attempt: 1 } });
+      addSavePoint(store, { id: "epoch-save-point-1", campaignId: campaign.id, triggerKind: "epoch_finish", matchedCodePercent: 91, payload: { attempt: 2 } });
+      expect(listSavePoints(store)).toEqual([
+        expect.objectContaining({ id: "epoch-save-point-1", matchedCodePercent: 91, payload: { attempt: 2 } }),
+      ]);
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("anchors the current HEAD without staging or committing dirty work", async () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "save-point-repo-"));
     const stateDir = mkdtempSync(join(tmpdir(), "save-point-state-"));

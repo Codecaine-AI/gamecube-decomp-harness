@@ -1262,6 +1262,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       baseRef: options.baseRef ?? "origin/master",
     });
     savePoint = addSavePoint(store, {
+      id: options.epochId ? `epoch-save-point-${options.epochId}` : undefined,
       campaignId: campaign.id,
       runId,
       triggerKind: "epoch_finish",

@@ -259,6 +259,7 @@ async function productionBoundarySync(params: EpochBoundaryParams): Promise<Boun
           console.error(`[run-loop] epoch ${params.epochOrdinal}: failed to copy pr_sync report artifact; using live report path: ${error instanceof Error ? error.message : String(error)}`);
         }
         const savePoint = addSavePoint(params.store, {
+          id: `epoch-pr-sync-save-point-${params.schedulerEpochId ?? params.epochOrdinal}`,
           campaignId: campaign.id,
           runId: params.runId,
           triggerKind: "pr_sync",

@@ -278,18 +278,22 @@ function insertTimelineEntry(
     .query(
       `INSERT INTO cycle_timeline_entries (
          cycle_uuid, entry_kind, entry_id, occurred_at, payload_json, caused_by_event_id
-       ) VALUES (?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (cycle_uuid, entry_kind, entry_id) DO UPDATE SET
+         payload_json = excluded.payload_json,
+         caused_by_event_id = excluded.caused_by_event_id
+       RETURNING id`,
     )
-    .run(
+    .get(
       input.cycleUuid,
       input.entryKind,
       input.entryId,
       input.occurredAt,
       JSON.stringify(input.payload),
       input.eventId,
-    );
+    ) as { id: number };
   return {
-    id: Number(result.lastInsertRowid),
+    id: result.id,
     cycle_uuid: input.cycleUuid,
     entry_kind: input.entryKind,
     entry_id: input.entryId,
@@ -344,6 +348,45 @@ export function recordEpochCompletedInTransaction(
     score_delta: input.scoreDelta ?? null,
     new_head: integrationCommit,
   };
+  const existing = db
+    .query(
+      `SELECT id, occurred_at, caused_by_event_id
+       FROM cycle_timeline_entries
+       WHERE cycle_uuid = ? AND entry_kind = 'epoch_completed' AND entry_id = ?`,
+    )
+    .get(cycle.cycle_uuid, epochId) as { id: number; occurred_at: string; caused_by_event_id: string | null } | null;
+  if (existing?.caused_by_event_id) {
+    db.query(
+      `UPDATE cycle_timeline_entries
+       SET payload_json = ?
+       WHERE id = ?`,
+    ).run(JSON.stringify(payload), existing.id);
+    db.query(
+      `UPDATE game_events SET occurred_at = ?, payload_json = ? WHERE event_id = ?`,
+    ).run(context.occurredAt, JSON.stringify(payload), existing.caused_by_event_id);
+    if (cycle.head_revision !== integrationCommit) {
+      updateEnvelope(db, cycle, existing.caused_by_event_id, context.occurredAt, "head_revision = ?", [integrationCommit]);
+    }
+    if (run.revision === 0 || (db.query("SELECT head_revision FROM runs WHERE id = ?").get(runId) as { head_revision: string | null }).head_revision !== integrationCommit) {
+      const accepted = casRunEnvelope(db, {
+        eventId: existing.caused_by_event_id,
+        expectedRevision: Number(run.revision),
+        headRevision: integrationCommit,
+        runId,
+      });
+      if (!accepted) throw new Error(`Stale run revision ${run.revision} for ${runId}`);
+    }
+    db.query("DELETE FROM pending_integrations WHERE run_id = ? AND epoch_id = ?").run(runId, epochId);
+    return {
+      id: existing.id,
+      cycle_uuid: cycle.cycle_uuid,
+      entry_kind: "epoch_completed",
+      entry_id: epochId,
+      occurred_at: existing.occurred_at,
+      payload,
+      caused_by_event_id: existing.caused_by_event_id,
+    };
+  }
   const event = appendGameEvent(db, {
     ...context,
     eventType: "run.epoch_integrated",
@@ -531,6 +574,44 @@ export function recordSavePointAnchor(
       replay_key: savePointReplayKey(cycle.cycle_uuid, commitSha, triggerKind),
       replayed_failure_event_id: replayedFailureEventId,
     };
+    const timelinePayload = { ...(input.payload ?? {}), ...eventPayload };
+    const existing = store.db
+      .query(
+        `SELECT id, occurred_at, caused_by_event_id
+         FROM cycle_timeline_entries
+         WHERE cycle_uuid = ? AND entry_kind = 'save_point' AND entry_id = ?`,
+      )
+      .get(cycle.cycle_uuid, savePointId) as { id: number; occurred_at: string; caused_by_event_id: string | null } | null;
+    if (existing?.caused_by_event_id) {
+      store.db.query(
+        `UPDATE cycle_timeline_entries
+         SET payload_json = ?
+         WHERE id = ?`,
+      ).run(JSON.stringify(timelinePayload), existing.id);
+      store.db.query(
+        `UPDATE game_events SET occurred_at = ?, payload_json = ? WHERE event_id = ?`,
+      ).run(context.occurredAt, JSON.stringify(eventPayload), existing.caused_by_event_id);
+      const remainingBlockers = blockers.filter((blocker) => blocker.code !== "save_point_failed");
+      if (cycle.save_point_stale || remainingBlockers.length !== blockers.length) {
+        updateEnvelope(
+          store.db,
+          cycle,
+          existing.caused_by_event_id,
+          context.occurredAt,
+          "blockers_json = ?, save_point_stale = 0",
+          [JSON.stringify(remainingBlockers)],
+        );
+      }
+      return {
+        id: existing.id,
+        cycle_uuid: cycle.cycle_uuid,
+        entry_kind: "save_point",
+        entry_id: savePointId,
+        occurred_at: existing.occurred_at,
+        payload: timelinePayload,
+        caused_by_event_id: existing.caused_by_event_id,
+      };
+    }
     const event = appendGameEvent(store.db, {
       ...context,
       eventType: "cycle.save_point_recorded",
@@ -538,7 +619,6 @@ export function recordSavePointAnchor(
       subjectId: cycle.cycle_uuid,
       payload: eventPayload,
     });
-    const timelinePayload = { ...(input.payload ?? {}), ...eventPayload };
     const entry = insertTimelineEntry(store.db, {
       cycleUuid: cycle.cycle_uuid,
       entryKind: "save_point",
@@ -589,19 +669,46 @@ export function recordSavePointFailure(
       ),
       blocker,
     ];
+    const replayKey = savePointReplayKey(cycle.cycle_uuid, anchoredCommit, triggerKind);
+    const eventPayload: JsonObject = {
+      anchored_commit: anchoredCommit,
+      trigger_kind: triggerKind,
+      failed_or_missing_artifact_classes: [blocker.source_kind!],
+      blocker_code: blocker.code,
+      staleness_flag_raised: true,
+      replay_key: replayKey,
+    };
+    const existing = store.db.query(
+      `SELECT event_id FROM game_events
+       WHERE event_type = 'cycle.save_point_failed'
+         AND subject_kind = 'cycle' AND subject_id = ?
+         AND json_extract(payload_json, '$.replay_key') = ?
+       ORDER BY sequence DESC LIMIT 1`,
+    ).get(cycle.cycle_uuid, replayKey) as { event_id: string } | null;
+    if (existing) {
+      store.db.query("UPDATE game_events SET occurred_at = ?, payload_json = ? WHERE event_id = ?")
+        .run(context.occurredAt, JSON.stringify(eventPayload), existing.event_id);
+      const blockersJson = JSON.stringify(blockers);
+      if (!cycle.save_point_stale || blockersJson !== cycle.blockers_json) {
+        updateEnvelope(
+          store.db,
+          cycle,
+          existing.event_id,
+          context.occurredAt,
+          "blockers_json = ?, save_point_stale = 1",
+          [blockersJson],
+        );
+      }
+      const saved = getCycleByUuid(store.db, cycle.cycle_uuid);
+      if (!saved) throw new Error(`Game cycle disappeared after save-point failure: ${cycle.cycle_uuid}`);
+      return saved;
+    }
     const event = appendGameEvent(store.db, {
       ...context,
       eventType: "cycle.save_point_failed",
       subjectKind: "cycle",
       subjectId: cycle.cycle_uuid,
-      payload: {
-        anchored_commit: anchoredCommit,
-        trigger_kind: triggerKind,
-        failed_or_missing_artifact_classes: [blocker.source_kind!],
-        blocker_code: blocker.code,
-        staleness_flag_raised: true,
-        replay_key: savePointReplayKey(cycle.cycle_uuid, anchoredCommit, triggerKind),
-      },
+      payload: eventPayload,
     });
     updateEnvelope(
       store.db,
