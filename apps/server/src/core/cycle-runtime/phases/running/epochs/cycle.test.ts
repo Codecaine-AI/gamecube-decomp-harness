@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRun } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/orchestrator-state";
 import { sectionMeasuresFromReportJson } from "@server/core/validation/objdiff/section-measures.js";
-import { boundaryDeferredFindings, commitEpochSnapshot, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
+import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, propagateBoundaryBuildFixer, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
 
 const cleanup: string[] = [];
 
@@ -197,6 +197,106 @@ describe("runReportBuildWithFixer", () => {
     expect(caught).toBe(failure);
     expect(reportCalls).toBe(1);
     expect(fixerCalls).toBe(0);
+  });
+
+  test("failed retry discards fixer edits without propagating them", async () => {
+    const root = mkdtempSync(join(tmpdir(), "epoch-build-fixer-failure-"));
+    cleanup.push(root);
+    mkdirSync(join(root, "src"), { recursive: true });
+    git(root, ["init", "-b", "main"]);
+    git(root, ["config", "user.email", "test@example.com"]);
+    git(root, ["config", "user.name", "Epoch Test"]);
+    writeFileSync(join(root, "src", "a.c"), "int value = 1;\n");
+    git(root, ["add", "."]);
+    git(root, ["commit", "-m", "initial"]);
+    let reportCalls = 0;
+    let propagated = 0;
+    await expect(runReportBuildWithFixer({
+      enabled: true,
+      runReport: async () => { reportCalls += 1; throw new Error("still broken"); },
+      runFixer: async () => {
+        writeFileSync(join(root, "src", "a.c"), "int value = 2;\n");
+        return { exitCode: 0, timedOut: false, output: "edited source" };
+      },
+      onFixerRetrySucceeded: async () => { propagated += 1; },
+      onFixerRetryFailed: async () => discardBoundaryBuildFixer(root, () => {}),
+    })).rejects.toThrow("still broken");
+    expect(reportCalls).toBe(2);
+    expect(propagated).toBe(0);
+    expect(readFileSync(join(root, "src", "a.c"), "utf8")).toBe("int value = 1;\n");
+    expect(git(root, ["status", "--porcelain"])).toBe("");
+  });
+});
+
+describe("propagateBoundaryBuildFixer", () => {
+  function setup(): {
+    root: string;
+    repoRoot: string;
+    worktreeDir: string;
+    artifactDir: string;
+    store: ReturnType<typeof openState>;
+    runId: string;
+  } {
+    const root = mkdtempSync(join(tmpdir(), "epoch-build-fixer-"));
+    cleanup.push(root);
+    const repoRoot = join(root, "repo");
+    const worktreeDir = join(root, "epoch");
+    const stateDir = join(root, "state");
+    const artifactDir = join(stateDir, "epochs", "test");
+    mkdirSync(join(repoRoot, "src"), { recursive: true });
+    git(repoRoot, ["init", "-b", "main"]);
+    git(repoRoot, ["config", "user.email", "snapshot@example.com"]);
+    git(repoRoot, ["config", "user.name", "Snapshot Author"]);
+    writeFileSync(join(repoRoot, "src", "a.c"), "int value = 1;\n");
+    git(repoRoot, ["add", "."]);
+    git(repoRoot, ["commit", "-m", "initial"]);
+    git(repoRoot, ["worktree", "add", "--detach", worktreeDir, "HEAD"]);
+    const store = openState(stateDir);
+    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: git(repoRoot, ["rev-parse", "HEAD"]) });
+    return { root, repoRoot, worktreeDir, artifactDir, store, runId: run.id };
+  }
+
+  test("applies and commits the tracked fixer diff, updates HEAD, and re-syncs the epoch worktree", async () => {
+    const value = setup();
+    try {
+      const before = git(value.repoRoot, ["rev-parse", "HEAD"]);
+      writeFileSync(join(value.worktreeDir, "src", "a.c"), "int value = 2;\n");
+      const result = await propagateBoundaryBuildFixer({
+        ...value, label: "epoch-1", revalidateLease: () => {},
+      });
+      expect(result.commitSha).not.toBe(before);
+      expect(result.commitSha).toBe(git(value.repoRoot, ["rev-parse", "HEAD"]));
+      expect(git(value.repoRoot, ["show", "HEAD:src/a.c"])).toBe("int value = 2;");
+      expect(git(value.repoRoot, ["show", "-s", "--format=%s", "HEAD"])).toBe("boundary build-fixer: src/a.c");
+      expect(git(value.repoRoot, ["show", "-s", "--format=%an <%ae>", "HEAD"])).toBe("Snapshot Author <snapshot@example.com>");
+      expect(git(value.worktreeDir, ["rev-parse", "HEAD"])).toBe(result.commitSha);
+      const events = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'").all(value.runId) as Array<{ payload_json: string }>;
+      expect(events.map((row) => JSON.parse(row.payload_json))).toContainEqual(expect.objectContaining({
+        phase: "report_build_fixer", status: "propagated", files: ["src/a.c"], commit_sha: result.commitSha,
+      }));
+    } finally { value.store.db.close(); }
+  });
+
+  test("apply conflict fails the boundary and keeps the patch artifact", async () => {
+    const value = setup();
+    try {
+      writeFileSync(join(value.repoRoot, "src", "a.c"), "int value = 3;\n");
+      git(value.repoRoot, ["add", "src/a.c"]);
+      git(value.repoRoot, ["commit", "-m", "conflicting cycle edit"]);
+      const conflictHead = git(value.repoRoot, ["rev-parse", "HEAD"]);
+      writeFileSync(join(value.worktreeDir, "src", "a.c"), "int value = 2;\n");
+
+      await expect(propagateBoundaryBuildFixer({
+        ...value, label: "epoch-1", revalidateLease: () => {},
+      })).rejects.toThrow("does not apply cleanly");
+      expect(git(value.repoRoot, ["rev-parse", "HEAD"])).toBe(conflictHead);
+      const patchPath = join(value.artifactDir, "boundary-build-fixer.patch");
+      expect(readFileSync(patchPath, "utf8")).toContain("diff --git a/src/a.c b/src/a.c");
+      const events = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'").all(value.runId) as Array<{ payload_json: string }>;
+      expect(events.map((row) => JSON.parse(row.payload_json))).toContainEqual(expect.objectContaining({
+        phase: "report_build_fixer", status: "failed", files: ["src/a.c"], artifact_path: patchPath,
+      }));
+    } finally { value.store.db.close(); }
   });
 });
 

@@ -635,6 +635,8 @@ export async function runReportBuildWithFixer<T>(input: {
   runReport: () => Promise<T>;
   runFixer: (failure: unknown) => Promise<BoundaryBuildFixerResult>;
   onFixerEvent?: (status: "started" | "finished", result?: BoundaryBuildFixerResult) => void;
+  onFixerRetrySucceeded?: (result: BoundaryBuildFixerResult) => Promise<void>;
+  onFixerRetryFailed?: (result: BoundaryBuildFixerResult) => Promise<void>;
 }): Promise<T> {
   try {
     return await input.runReport();
@@ -643,7 +645,14 @@ export async function runReportBuildWithFixer<T>(input: {
     input.onFixerEvent?.("started");
     const result = await input.runFixer(error);
     input.onFixerEvent?.("finished", result);
-    return input.runReport();
+    try {
+      const retry = await input.runReport();
+      if (!result.timedOut && result.exitCode === 0) await input.onFixerRetrySucceeded?.(result);
+      return retry;
+    } catch (retryError) {
+      await input.onFixerRetryFailed?.(result);
+      throw retryError;
+    }
   }
 }
 
@@ -659,7 +668,7 @@ function epochProgress(
     label: string | null;
     message: string;
     phase: string;
-    status: "started" | "finished" | "skipped" | "warning";
+    status: "started" | "finished" | "skipped" | "warning" | "propagated" | "failed";
   } & Record<string, unknown>,
 ): void {
   const { label, message, phase, status, ...extra } = params;
@@ -672,6 +681,92 @@ function epochProgress(
     ...extra,
     created_by: "epoch-cycle",
   });
+}
+
+export async function propagateBoundaryBuildFixer(input: {
+  store: StateStore;
+  runId: string;
+  repoRoot: string;
+  worktreeDir: string;
+  artifactDir: string;
+  label: string | null;
+  revalidateLease: () => void;
+}): Promise<{ commitSha: string; files: string[]; patchPath: string }> {
+  const diffPathspec = [".", ":(exclude)build", ":(exclude,glob)**/build/**"];
+  const [diff, changedFiles] = await Promise.all([
+    git(input.worktreeDir, ["diff", "--binary", "HEAD", "--", ...diffPathspec]),
+    git(input.worktreeDir, ["diff", "--name-only", "-z", "HEAD", "--", ...diffPathspec]),
+  ]);
+  if (!diff.ok) throw new Error(`boundary build-fixer diff capture failed: ${diff.text}`);
+  if (!changedFiles.ok) throw new Error(`boundary build-fixer file capture failed: ${changedFiles.text}`);
+  const files = changedFiles.text.split("\0").filter(Boolean).sort();
+  await mkdir(input.artifactDir, { recursive: true });
+  const patchPath = resolve(input.artifactDir, "boundary-build-fixer.patch");
+  await writeFile(patchPath, diff.text ? `${diff.text}\n` : "");
+
+  const fail = (message: string): never => {
+    epochProgress(input.store, input.runId, {
+      label: input.label,
+      phase: "report_build_fixer",
+      status: "failed",
+      message,
+      files,
+      artifact_path: patchPath,
+    });
+    throw new Error(`${message}; fixer diff retained at ${patchPath}`);
+  };
+  if (files.length === 0 || !diff.text.trim()) fail("boundary build-fixer produced no tracked diff to propagate");
+
+  const existingChanges = await git(input.repoRoot, ["diff", "--quiet", "HEAD", "--", ...files]);
+  if (!existingChanges.ok) fail("boundary build-fixer files already have cycle-worktree changes");
+  input.revalidateLease();
+  const check = await git(input.repoRoot, ["apply", "--3way", "--check", patchPath]);
+  if (!check.ok) fail(`boundary build-fixer patch does not apply cleanly: ${check.text}`);
+  input.revalidateLease();
+  const apply = await git(input.repoRoot, ["apply", "--3way", patchPath]);
+  const restoreCycleFiles = async (): Promise<void> => {
+    await git(input.repoRoot, ["reset", "--", ...files]);
+    await git(input.repoRoot, ["checkout", "--", ...files]);
+  };
+  if (!apply.ok) {
+    await restoreCycleFiles();
+    fail(`boundary build-fixer patch does not apply cleanly: ${apply.text}`);
+  }
+  input.revalidateLease();
+  const stage = await git(input.repoRoot, ["add", "--", ...files]);
+  if (!stage.ok) {
+    await restoreCycleFiles();
+    fail(`boundary build-fixer staging failed: ${stage.text}`);
+  }
+  input.revalidateLease();
+  const commit = await git(input.repoRoot, [
+    "commit", "--no-verify", "-m", `boundary build-fixer: ${files.join(", ")}`, "--", ...files,
+  ]);
+  if (!commit.ok) {
+    await restoreCycleFiles();
+    fail(`boundary build-fixer commit failed: ${commit.text}`);
+  }
+  const head = await git(input.repoRoot, ["rev-parse", "HEAD"]);
+  if (!head.ok || !head.text.trim()) fail(`boundary build-fixer head resolution failed: ${head.text}`);
+  input.revalidateLease();
+  const resync = await git(input.worktreeDir, ["checkout", "--force", "--detach", head.text]);
+  if (!resync.ok) fail(`boundary build-fixer epoch worktree resync failed: ${resync.text}`);
+  epochProgress(input.store, input.runId, {
+    label: input.label,
+    phase: "report_build_fixer",
+    status: "propagated",
+    message: `propagated ${files.length} build-fixer file(s) at ${head.text.slice(0, 10)}`,
+    files,
+    commit_sha: head.text,
+    artifact_path: patchPath,
+  });
+  return { commitSha: head.text, files, patchPath };
+}
+
+export async function discardBoundaryBuildFixer(worktreeDir: string, revalidateLease: () => void): Promise<void> {
+  revalidateLease();
+  const reset = await git(worktreeDir, ["reset", "--hard", "HEAD"]);
+  if (!reset.ok) throw new Error(`boundary build-fixer cleanup failed after report retry: ${reset.text}`);
 }
 
 export async function runPreCommitAutofixStep(input: {
@@ -963,6 +1058,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   }
 
   const worktreeBaselinePath = resolve(options.worktreeDir, baselineRelPath);
+  const artifactDir = resolve(stateDir, "epochs", artifactTimestamp());
   epochProgress(store, runId, {
     label,
     phase: "report_build",
@@ -999,6 +1095,13 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       output: fixer?.output,
       worktree_dir: options.worktreeDir,
     }),
+    onFixerRetrySucceeded: async () => {
+      const propagated = await propagateBoundaryBuildFixer({
+        store, runId, repoRoot, worktreeDir: options.worktreeDir, artifactDir, label, revalidateLease,
+      });
+      snapshot = { ...snapshot, commitSha: propagated.commitSha, committed: true };
+    },
+    onFixerRetryFailed: async () => discardBoundaryBuildFixer(options.worktreeDir, revalidateLease),
   });
   epochProgress(store, runId, {
     label,
@@ -1143,7 +1246,6 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     });
   }
 
-  const artifactDir = resolve(stateDir, "epochs", artifactTimestamp());
   await mkdir(artifactDir, { recursive: true });
   await copyFile(worktreeReportPath, resolve(artifactDir, "report.json"));
   await copyFile(worktreeChangesPath, resolve(artifactDir, "report_changes.json"));
