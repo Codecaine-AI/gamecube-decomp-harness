@@ -98,6 +98,7 @@ export interface EpochBoundaryParams {
     ciParityEnabled: boolean;
     preCommitGateEnabled: boolean;
     preCommitAutofixEnabled: boolean;
+    linkCompleteUnitsEnabled?: boolean;
     boundarySyncEnabled: boolean;
     breakageGateEnabled: boolean;
     boundaryBuildFixerEnabled: boolean;
@@ -417,7 +418,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
   let boundarySync: BoundarySyncResult | undefined;
   let breakageGate: MasterBreakageGateResult | undefined;
   const reconcileSkippedSteps = [
-    "precommit_autofix", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+    "link_complete_units", "precommit_autofix", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
     "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
   ];
   const reconcileRerunSteps: string[] = [];
@@ -540,6 +541,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           linkPaths: config.epochLinkPaths,
           gameId: globals.game?.gameId ?? globals.gameId ?? null,
           preCommitAutofixEnabled: config.preCommitAutofixEnabled,
+          linkCompleteUnitsEnabled: config.linkCompleteUnitsEnabled !== false,
           runPreCommitAutofix: params.dependencies?.runPreCommitAutofix,
           boundaryBuildFixerEnabled: config.boundaryBuildFixerEnabled,
           runBoundaryBuildFixer: params.dependencies?.runBoundaryBuildFixer,
@@ -607,7 +609,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
               epoch: epochOrdinal,
               status: "failed",
               anchor_before: anchor?.upstream_revision ?? null,
-              error: message.slice(0, 2000),
+              error: message.slice(0, 8000),
               created_by: "run-loop",
             });
             if (config.cycleDraftPrEnabled) {
@@ -962,14 +964,14 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
     console.error(`[run-loop] epoch ${epochOrdinal} failed: ${message}`);
     addEvent(store, runId, "epoch_cycle_error", "run-loop", {
       epoch: epochOrdinal,
-      error: message.slice(0, 2000),
+      error: message.slice(0, 8000),
       created_by: "run-loop",
     });
     if (schedulerEpochId) {
       closeSchedulerEpoch(store, schedulerEpochId, {
         status: "error",
         boundaryStatus: "error",
-        routingSummary: { trigger, error: message.slice(0, 2000) },
+        routingSummary: { trigger, error: message.slice(0, 8000) },
       });
     }
     const retry = schedulerEpochId

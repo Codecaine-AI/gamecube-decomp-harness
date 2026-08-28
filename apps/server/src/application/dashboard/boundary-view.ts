@@ -41,7 +41,7 @@ export interface BoundaryDashboard {
 }
 
 export const BOUNDARY_STEP_KEYS = [
-  "integration_drain", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+  "integration_drain", "link_complete_units", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
   "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point", "boundary_sync",
   "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish", "knowledge_maintenance",
   "typed_close", "admission",

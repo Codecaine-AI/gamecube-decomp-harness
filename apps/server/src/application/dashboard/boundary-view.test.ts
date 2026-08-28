@@ -68,7 +68,7 @@ describe("boundary view projection", () => {
   });
 
   test("projects a clean full boundary with all steps and durations", () => {
-    const checkpointKeys = BOUNDARY_STEP_KEYS.slice(0, 11);
+    const checkpointKeys = BOUNDARY_STEP_KEYS.slice(0, BOUNDARY_STEP_KEYS.indexOf("save_point") + 1);
     const events: BoundaryEventRow[] = [event(1, "epoch_started", {})];
     checkpointKeys.forEach((key, index) => {
       events.push(checkpoint(2 + index * 4, key, "started"));
@@ -136,7 +136,7 @@ describe("boundary view projection", () => {
 
   test("marks only recorded reconcile steps skipped and preserves rerun evidence", () => {
     const skippedSteps = [
-      "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+      "link_complete_units", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
       "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
     ];
     const events = [

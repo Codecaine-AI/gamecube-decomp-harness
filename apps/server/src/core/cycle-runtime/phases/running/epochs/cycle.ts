@@ -40,6 +40,7 @@ import {
   type ConfirmationCandidate,
   type ConfirmationPassResult,
 } from "./confirmation-pass.js";
+import { completeUnitNames, linkCompleteUnitsInConfigure } from "./link-complete-units.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
 const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state", ...ORCHESTRATOR_SCRATCH_EXCLUDES];
@@ -60,6 +61,8 @@ export interface EpochCycleOptions {
   gameId?: string | null;
   /** Format the cycle worktree before its snapshot commit. Default on. */
   preCommitAutofixEnabled?: boolean;
+  /** Promote units complete in the last published report before snapshotting. Default on. */
+  linkCompleteUnitsEnabled?: boolean;
   runPreCommitAutofix?: (input: { worktreeDir: string; cacheDir: string }) => Promise<PreCommitAutofixResult>;
   /** One mechanical build-fixer attempt after the initial report build fails. Default on. */
   boundaryBuildFixerEnabled?: boolean;
@@ -840,6 +843,38 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const epochId = options.epochId?.trim();
   if (!epochId) throw new Error("epochId is required for a recoverable epoch integration commit");
 
+  const previousCompleteUnits = new Set<string>();
+  const publishedReportPath = resolve(repoRoot, reportRelPath);
+  const configurePath = resolve(repoRoot, "configure.py");
+  if (options.linkCompleteUnitsEnabled === false) {
+    epochProgress(store, runId, {
+      label, phase: "link_complete_units", status: "skipped",
+      message: "complete-unit linking disabled", flipped_units: [],
+    });
+  } else if (!existsSync(publishedReportPath) || !existsSync(configurePath)) {
+    epochProgress(store, runId, {
+      label, phase: "link_complete_units", status: "skipped",
+      message: !existsSync(publishedReportPath) ? "no published report available" : "configure.py not found",
+      flipped_units: [],
+    });
+  } else {
+    const priorReport = JSON.parse(readFileSync(publishedReportPath, "utf8")) as unknown;
+    const configure = readFileSync(configurePath, "utf8");
+    const linked = linkCompleteUnitsInConfigure(configure, completeUnitNames(priorReport));
+    for (const unit of linked.completeUnits) previousCompleteUnits.add(unit);
+    epochProgress(store, runId, {
+      label, phase: "link_complete_units", status: "started",
+      message: "linking units complete in the previous published report",
+      complete_units: linked.completeUnits, flipped_units: linked.flippedUnits,
+    });
+    if (linked.configure !== configure) await writeFile(configurePath, linked.configure);
+    epochProgress(store, runId, {
+      label, phase: "link_complete_units", status: "finished",
+      message: `linked ${linked.flippedUnits.length} complete unit(s) before snapshot`,
+      complete_units: linked.completeUnits, flipped_units: linked.flippedUnits, missing_units: linked.missingUnits,
+    });
+  }
+
   await runPreCommitAutofixStep({
     store, runId, repoRoot, stateDir, label,
     enabled: options.preCommitAutofixEnabled !== false,
@@ -999,6 +1034,18 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     matched_code_percent: matchedCodePercent,
     regressed_functions: regressionReport.brokenMatches.length + regressionReport.fuzzyRegressions.length,
   });
+  if (options.linkCompleteUnitsEnabled !== false) {
+    const freshReport = JSON.parse(await Bun.file(worktreeReportPath).text()) as unknown;
+    const newlyCompleteUnits = completeUnitNames(freshReport).filter((unit) => !previousCompleteUnits.has(unit));
+    if (newlyCompleteUnits.length > 0) {
+      console.warn(`[epoch] ${newlyCompleteUnits.length} unit(s) became complete after snapshot and will link at the next boundary: ${newlyCompleteUnits.join(", ")}`);
+      epochProgress(store, runId, {
+        label, phase: "link_complete_units", status: "warning",
+        message: `${newlyCompleteUnits.length} newly complete unit(s) will link at the next boundary`,
+        flipped_units: [], newly_complete_units: newlyCompleteUnits,
+      });
+    }
+  }
 
   let confirmation: ConfirmationPassResult | undefined;
   if (confirmationEnabled && !buildResult.resetBaseline) {

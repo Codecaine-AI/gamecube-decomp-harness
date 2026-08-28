@@ -819,7 +819,7 @@ describe("runEpochBoundary", () => {
         epoch_id: value.epochId,
         commit_sha: "retained-commit",
         skipped_steps: [
-          "precommit_autofix", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+          "link_complete_units", "precommit_autofix", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
           "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
         ],
         rerun_steps: ["boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish"],

@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { runCommand } from "@server/infrastructure/shell/index.js";
+import { actionableFailureOutput } from "../failure-output.js";
 import { localizeConfigureArgs, parseCiBuildMatrix } from "./workflow.js";
 
 export interface CiParityStep {
@@ -81,7 +82,7 @@ async function runStep(input: {
 }
 
 function failedStepReason(name: string, result: { stdout: string; stderr: string }): string {
-  const detail = (result.stderr.trim() || result.stdout.trim()).slice(-2_000);
+  const detail = actionableFailureOutput(result);
   return detail ? `${name} failed: ${detail}` : `${name} failed`;
 }
 

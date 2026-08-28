@@ -123,6 +123,29 @@ describe("runCiParityGate", () => {
     expect(calls.some((command) => command.includes("build-ci/test"))).toBe(true);
   });
 
+  test("reports actionable ninja diagnostics without MoltenVK noise", async () => {
+    const worktreeDir = makeWorktree();
+    const runCommand: CiParityCommandRunner = async (_cwd, command) => {
+      if (command.at(-1) === "HEAD") return { exitCode: 0, stdout: "target-sha\n", stderr: "" };
+      if (commandKey(command) === "ninja") {
+        return {
+          exitCode: 1,
+          stdout: "FAILED: build/GALE01/src/melee/mn/mnnamenew.o\n# Error: object null_char redefined\n",
+          stderr: "[mvk-info] noise\n  VK_EXT_load_store_op_none v1\n",
+        };
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    };
+
+    const result = await runCiParityGate({ worktreeDir, sha: "target-sha", modes: ["link"], runCommand });
+
+    expect(result.status).toBe("failed");
+    expect(result.reasons[0]).toContain("FAILED: build/GALE01/src/melee/mn/mnnamenew.o");
+    expect(result.reasons[0]).toContain("object null_char redefined");
+    expect(result.reasons[0]).not.toContain("mvk-info");
+    expect(result.reasons[0]).not.toContain("VK_EXT");
+  });
+
   test("switches the worktree when HEAD differs", async () => {
     const worktreeDir = makeWorktree();
     const calls: string[][] = [];

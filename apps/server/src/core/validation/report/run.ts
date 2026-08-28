@@ -9,6 +9,7 @@ import {
   type ToolPlatform,
 } from "@server/core/tools/platform.js";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell/index.js";
+import { actionableFailureOutput } from "../failure-output.js";
 
 export interface ReportRunStep extends CommandResult {
   command: string[];
@@ -218,8 +219,7 @@ async function runStep(repoRoot: string, steps: ReportRunStep[], name: string, c
   const result = await runCommand(repoRoot, command);
   steps.push({ name, command, ...result });
   if (result.exitCode !== 0) {
-    const output = result.stderr || result.stdout || "no output";
-    throw new Error(`${name} failed (${result.exitCode}): ${output.slice(-2000)}`);
+    throw new Error(`${name} failed (${result.exitCode}): ${actionableFailureOutput(result)}`);
   }
 }
 
