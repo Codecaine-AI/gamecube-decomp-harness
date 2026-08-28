@@ -73,6 +73,7 @@ export interface EpochBoundaryDependencies {
   runMasterBreakageGate?: typeof runMasterBreakageGateDefault;
   runCiParityGate?: typeof runCiParityGateDefault;
   runPreCommitGate?: typeof runPreCommitGateDefault;
+  runPreCommitAutofix?: typeof import("@server/core/validation/ci-parity/index.js").runPreCommitAutofix;
   writeBoundaryBreakageDeferrals?: WriteBoundaryBreakageDeferrals;
   runBoundaryBuildFixer?: (input: BoundaryBuildFixerInput) => Promise<BoundaryBuildFixerResult>;
   deferBoundaryFindings?: (input: BoundaryDeferredFinding[]) => Promise<void> | void;
@@ -96,6 +97,7 @@ export interface EpochBoundaryParams {
     cycleDraftPrEnabled: boolean;
     ciParityEnabled: boolean;
     preCommitGateEnabled: boolean;
+    preCommitAutofixEnabled: boolean;
     boundarySyncEnabled: boolean;
     breakageGateEnabled: boolean;
     boundaryBuildFixerEnabled: boolean;
@@ -414,7 +416,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
   let boundarySync: BoundarySyncResult | undefined;
   let breakageGate: MasterBreakageGateResult | undefined;
   const reconcileSkippedSteps = [
-    "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+    "precommit_autofix", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
     "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
   ];
   const reconcileRerunSteps: string[] = [];
@@ -536,6 +538,8 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           leaseId,
           linkPaths: config.epochLinkPaths,
           gameId: globals.game?.gameId ?? globals.gameId ?? null,
+          preCommitAutofixEnabled: config.preCommitAutofixEnabled,
+          runPreCommitAutofix: params.dependencies?.runPreCommitAutofix,
           boundaryBuildFixerEnabled: config.boundaryBuildFixerEnabled,
           runBoundaryBuildFixer: params.dependencies?.runBoundaryBuildFixer,
           deferBoundaryFindings: params.dependencies?.deferBoundaryFindings

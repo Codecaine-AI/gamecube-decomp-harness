@@ -514,6 +514,7 @@ export async function runRunLoop(
     const cycleDraftPrEnabled = !booleanArg(args, "--no-cycle-draft-pr");
     const ciParityEnabled = !booleanArg(args, "--no-ci-parity");
     const preCommitGateEnabled = !booleanArg(args, "--no-pre-commit-gate");
+    const preCommitAutofixEnabled = !booleanArg(args, "--no-precommit-autofix");
     const boundarySyncEnabled = !booleanArg(args, "--no-boundary-sync");
     const breakageGateEnabled = !booleanArg(args, "--no-breakage-gate");
     const boundaryBuildFixerEnabled = !booleanArg(args, "--no-boundary-build-fixer");
@@ -809,6 +810,7 @@ export async function runRunLoop(
             cycleDraftPrEnabled,
             ciParityEnabled,
             preCommitGateEnabled,
+            preCommitAutofixEnabled,
             boundarySyncEnabled,
             breakageGateEnabled,
             boundaryBuildFixerEnabled,

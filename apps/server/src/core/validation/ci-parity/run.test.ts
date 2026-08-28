@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { runCiParityGate, runPreCommitGate, type CiParityCommandRunner } from "./run.js";
+import { runCiParityGate, runPreCommitAutofix, runPreCommitGate, type CiParityCommandRunner } from "./run.js";
 
 const BUILD_WORKFLOW = String.raw`
 jobs:
@@ -194,5 +194,46 @@ describe("runPreCommitGate", () => {
       "pre-commit run",
       "reset pre-commit changes",
     ]);
+  });
+});
+
+describe("runPreCommitAutofix", () => {
+  test("skips when pre-commit is unavailable", async () => {
+    const result = await runPreCommitAutofix({
+      worktreeDir: makeWorktree(), cacheDir: "/tmp/pre-commit-cache",
+      runCommand: async () => { throw new Error("Executable not found in $PATH: pre-commit"); },
+    });
+    expect(result).toMatchObject({ status: "skipped", reformattedFiles: [], warnings: ["pre-commit is unavailable"] });
+  });
+
+  test("preserves hook edits, counts reformatted files, and reports remaining failures as warnings", async () => {
+    const worktreeDir = makeWorktree();
+    writeFileSync(resolve(worktreeDir, "format.c"), "int value=1;\n");
+    Bun.spawnSync(["git", "-C", worktreeDir, "init", "-b", "main"]);
+    Bun.spawnSync(["git", "-C", worktreeDir, "config", "user.email", "test@example.com"]);
+    Bun.spawnSync(["git", "-C", worktreeDir, "config", "user.name", "CI Test"]);
+    Bun.spawnSync(["git", "-C", worktreeDir, "add", "."]);
+    Bun.spawnSync(["git", "-C", worktreeDir, "commit", "-m", "initial"]);
+    writeFileSync(resolve(worktreeDir, "format.c"), "int value=2;\n");
+    const calls: Array<{ command: string[]; env?: Record<string, string | undefined> }> = [];
+    const runCommand: CiParityCommandRunner = async (_cwd, command, options) => {
+      calls.push({ command, env: options?.env });
+      if (command[0] === "git") {
+        const spawned = Bun.spawnSync(command, { stdout: "pipe", stderr: "pipe" });
+        return { exitCode: spawned.exitCode, stdout: spawned.stdout.toString(), stderr: spawned.stderr.toString() };
+      }
+      if (command[1] === "run") {
+        writeFileSync(resolve(worktreeDir, "format.c"), "int value = 2;\n");
+        return { exitCode: 1, stdout: "clang-format modified files\nclang-tidy failed\n", stderr: "" };
+      }
+      return { exitCode: 0, stdout: "pre-commit 4.0\n", stderr: "" };
+    };
+
+    const result = await runPreCommitAutofix({ worktreeDir, cacheDir: "/tmp/pre-commit-cache", runCommand });
+
+    expect(result.status).toBe("finished");
+    expect(result.reformattedFiles).toEqual(["format.c"]);
+    expect(result.warnings[0]).toContain("clang-tidy failed");
+    expect(calls.find((call) => call.command[1] === "run")?.env).toEqual({ PRE_COMMIT_HOME: "/tmp/pre-commit-cache" });
   });
 });

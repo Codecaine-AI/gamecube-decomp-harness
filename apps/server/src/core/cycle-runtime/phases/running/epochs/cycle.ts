@@ -4,6 +4,7 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { closenessScore } from "../board/candidates.js";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 import { runQaScanDiff, type QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
+import { runPreCommitAutofix as runPreCommitAutofixDefault, type PreCommitAutofixResult } from "@server/core/validation/ci-parity/index.js";
 import { forceReportRun, trustedReportFromRegressionReport, type ReportRunResult } from "@server/core/validation/report";
 import { sectionMeasuresFromReport, type SectionMeasure } from "@server/core/validation/objdiff/section-measures.js";
 import { ORCHESTRATOR_SCRATCH_EXCLUDES } from "@server/core/cycle-runtime/phases/pr/boundary-commit.js";
@@ -57,6 +58,9 @@ export interface EpochCycleOptions {
   /** Untracked build inputs symlinked from the live repo into the worktree (e.g. orig assets). */
   linkPaths?: string[];
   gameId?: string | null;
+  /** Format the cycle worktree before its snapshot commit. Default on. */
+  preCommitAutofixEnabled?: boolean;
+  runPreCommitAutofix?: (input: { worktreeDir: string; cacheDir: string }) => Promise<PreCommitAutofixResult>;
   /** One mechanical build-fixer attempt after the initial report build fails. Default on. */
   boundaryBuildFixerEnabled?: boolean;
   runBoundaryBuildFixer?: (input: BoundaryBuildFixerInput) => Promise<BoundaryBuildFixerResult>;
@@ -667,6 +671,36 @@ function epochProgress(
   });
 }
 
+export async function runPreCommitAutofixStep(input: {
+  store: StateStore;
+  runId: string;
+  repoRoot: string;
+  stateDir: string;
+  label: string | null;
+  enabled: boolean;
+  runPreCommitAutofix?: EpochCycleOptions["runPreCommitAutofix"];
+}): Promise<PreCommitAutofixResult | null> {
+  if (!input.enabled) {
+    epochProgress(input.store, input.runId, { label: input.label, phase: "precommit_autofix", status: "skipped", message: "pre-commit autofix disabled", reformatted_file_count: 0 });
+    return null;
+  }
+  epochProgress(input.store, input.runId, { label: input.label, phase: "precommit_autofix", status: "started", message: "running pre-commit autofix in cycle worktree" });
+  const autofix = await (input.runPreCommitAutofix ?? runPreCommitAutofixDefault)({ worktreeDir: input.repoRoot, cacheDir: resolve(input.stateDir, "pre-commit-cache") });
+  if (autofix.status === "skipped") {
+    console.error(`[epoch] pre-commit autofix skipped: ${autofix.warnings.join("; ")}`);
+    epochProgress(input.store, input.runId, { label: input.label, phase: "precommit_autofix", status: "skipped", message: autofix.warnings[0] ?? "pre-commit unavailable", reformatted_file_count: 0 });
+    return autofix;
+  }
+  for (const warning of autofix.warnings) console.error(`[epoch] pre-commit autofix warning: ${warning}`);
+  epochProgress(input.store, input.runId, {
+    label: input.label, phase: "precommit_autofix", status: "finished",
+    message: `pre-commit autofix reformatted ${autofix.reformattedFiles.length} file(s)`,
+    reformatted_file_count: autofix.reformattedFiles.length, reformatted_files: autofix.reformattedFiles.slice(0, 100),
+    warning_count: autofix.warnings.length, warnings: autofix.warnings.slice(0, 20),
+  });
+  return autofix;
+}
+
 async function submitEpochWorkflowEvent(input: {
   store: StateStore;
   gameId?: string | null;
@@ -805,6 +839,12 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const stateDirRelative = options.stateDirRelative !== undefined ? options.stateDirRelative : stateDirRelativeToRepo(repoRoot, stateDir);
   const epochId = options.epochId?.trim();
   if (!epochId) throw new Error("epochId is required for a recoverable epoch integration commit");
+
+  await runPreCommitAutofixStep({
+    store, runId, repoRoot, stateDir, label,
+    enabled: options.preCommitAutofixEnabled !== false,
+    runPreCommitAutofix: options.runPreCommitAutofix,
+  });
 
   epochProgress(store, runId, {
     label,

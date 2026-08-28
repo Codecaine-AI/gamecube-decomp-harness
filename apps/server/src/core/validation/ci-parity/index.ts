@@ -1,9 +1,11 @@
 export {
   runCiParityGate,
   runPreCommitGate,
+  runPreCommitAutofix,
   type CiParityCommandRunner,
   type CiParityResult,
   type CiParityStep,
+  type PreCommitAutofixResult,
 } from "./run.js";
 export {
   localizeConfigureArgs,

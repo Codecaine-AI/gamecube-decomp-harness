@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createRun } from "@server/core/cycle-runtime/run-state";
 import { openState } from "@server/core/orchestrator-state";
 import { sectionMeasuresFromReportJson } from "@server/core/validation/objdiff/section-measures.js";
-import { boundaryDeferredFindings, commitEpochSnapshot, runReportBuildWithFixer } from "./cycle.js";
+import { boundaryDeferredFindings, commitEpochSnapshot, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
 
 const cleanup: string[] = [];
 
@@ -72,6 +72,78 @@ describe("commitEpochSnapshot", () => {
     } finally {
       store.db.close();
     }
+  });
+});
+
+describe("precommit_autofix epoch step", () => {
+  function setupRepo(): { repoRoot: string; stateDir: string; store: ReturnType<typeof openState>; runId: string } {
+    const root = mkdtempSync(join(tmpdir(), "epoch-autofix-"));
+    cleanup.push(root);
+    const repoRoot = join(root, "repo");
+    const stateDir = join(root, "state");
+    mkdirSync(join(repoRoot, "src"), { recursive: true });
+    git(repoRoot, ["init", "-b", "main"]);
+    git(repoRoot, ["config", "user.email", "test@example.com"]);
+    git(repoRoot, ["config", "user.name", "Epoch Test"]);
+    writeFileSync(join(repoRoot, "src", "a.c"), "int a=1;\n");
+    git(repoRoot, ["add", "."]);
+    git(repoRoot, ["commit", "-m", "initial"]);
+    const store = openState(stateDir);
+    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: git(repoRoot, ["rev-parse", "HEAD"]) });
+    return { repoRoot, stateDir, store, runId: run.id };
+  }
+
+  test("runs before snapshot and includes reformatted files in the commit", async () => {
+    const value = setupRepo();
+    try {
+      writeFileSync(join(value.repoRoot, "src", "a.c"), "int a=2;\n");
+      const order: string[] = [];
+      await runPreCommitAutofixStep({
+        ...value, label: "epoch-1", enabled: true,
+        runPreCommitAutofix: async () => {
+          order.push("precommit_autofix");
+          writeFileSync(join(value.repoRoot, "src", "a.c"), "int a = 2;\n");
+          return { status: "finished", reformattedFiles: ["src/a.c"], warnings: [], steps: [] };
+        },
+      });
+      order.push("snapshot_commit");
+      await commitEpochSnapshot({
+        store: value.store, runId: value.runId, epochId: "epoch-1", repoRoot: value.repoRoot,
+        excludePaths: [], stateDirRelative: null, message: "epoch test", revalidateLease: () => {},
+      });
+      expect(order).toEqual(["precommit_autofix", "snapshot_commit"]);
+      expect(git(value.repoRoot, ["show", "HEAD:src/a.c"])).toBe("int a = 2;");
+      const payloads = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress' ORDER BY created_at, id").all(value.runId) as Array<{ payload_json: string }>;
+      expect(payloads.map((row) => JSON.parse(row.payload_json))).toEqual(expect.arrayContaining([
+        expect.objectContaining({ phase: "precommit_autofix", status: "started" }),
+        expect.objectContaining({ phase: "precommit_autofix", status: "finished", reformatted_file_count: 1 }),
+      ]));
+    } finally { value.store.db.close(); }
+  });
+
+  test("flag off skips without calling pre-commit", async () => {
+    const value = setupRepo();
+    try {
+      let calls = 0;
+      await runPreCommitAutofixStep({ ...value, label: null, enabled: false, runPreCommitAutofix: async () => { calls += 1; throw new Error("unexpected"); } });
+      expect(calls).toBe(0);
+      const row = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'").get(value.runId) as { payload_json: string };
+      expect(JSON.parse(row.payload_json)).toMatchObject({ phase: "precommit_autofix", status: "skipped", reformatted_file_count: 0 });
+    } finally { value.store.db.close(); }
+  });
+
+  test("pre-commit unavailable emits a skipped event", async () => {
+    const value = setupRepo();
+    const errorLog = console.error;
+    console.error = () => {};
+    try {
+      await runPreCommitAutofixStep({
+        ...value, label: null, enabled: true,
+        runPreCommitAutofix: async () => ({ status: "skipped", reformattedFiles: [], warnings: ["pre-commit is unavailable"], steps: [] }),
+      });
+      const rows = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress' ORDER BY created_at, id").all(value.runId) as Array<{ payload_json: string }>;
+      expect(rows.map((row) => JSON.parse(row.payload_json))).toContainEqual(expect.objectContaining({ phase: "precommit_autofix", status: "skipped", message: "pre-commit is unavailable" }));
+    } finally { console.error = errorLog; value.store.db.close(); }
   });
 });
 

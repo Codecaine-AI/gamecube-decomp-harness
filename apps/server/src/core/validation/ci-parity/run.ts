@@ -26,6 +26,13 @@ export interface CiParityCommandRunner {
   ): Promise<{ exitCode: number; stdout: string; stderr: string }>;
 }
 
+export interface PreCommitAutofixResult {
+  status: "finished" | "skipped";
+  reformattedFiles: string[];
+  warnings: string[];
+  steps: CiParityStep[];
+}
+
 const defaultCommandRunner: CiParityCommandRunner = (cwd, command, options) => runCommand(cwd, command, options);
 
 async function pathExists(path: string): Promise<boolean> {
@@ -320,4 +327,55 @@ export async function runPreCommitGate(input: {
   if (!reset) result.reasons.push(spawnedStepError("reset pre-commit changes", result.steps));
   else if (reset.exitCode !== 0) result.reasons.push(failedStepReason("reset pre-commit changes", reset));
   return result;
+}
+
+async function changedFileDigests(worktreeDir: string, names: string[]): Promise<Map<string, string | null>> {
+  const digests = new Map<string, string | null>();
+  for (const name of names) {
+    try {
+      digests.set(name, Bun.hash(await readFile(resolve(worktreeDir, name))).toString(16));
+    } catch {
+      digests.set(name, null);
+    }
+  }
+  return digests;
+}
+
+function changedNames(result: { stdout: string }): string[] {
+  return result.stdout.split(/\r?\n/).map((name) => name.trim()).filter(Boolean);
+}
+
+/** Run the same pinned pre-commit hooks as CI parity, preserving any hook edits. */
+export async function runPreCommitAutofix(input: {
+  worktreeDir: string;
+  cacheDir: string;
+  runCommand?: CiParityCommandRunner;
+}): Promise<PreCommitAutofixResult> {
+  const steps: CiParityStep[] = [];
+  const commandRunner = input.runCommand ?? defaultCommandRunner;
+  const probe = await runStep({ cwd: input.worktreeDir, name: "pre-commit version", command: ["pre-commit", "--version"], steps, runCommand: commandRunner });
+  if (!probe || probe.exitCode !== 0) {
+    return { status: "skipped", reformattedFiles: [], warnings: ["pre-commit is unavailable"], steps };
+  }
+  const beforeStep = await runStep({ cwd: input.worktreeDir, name: "list changed files before pre-commit", command: ["git", "-C", input.worktreeDir, "diff", "--name-only", "HEAD"], steps, runCommand: commandRunner });
+  const beforeNames = beforeStep?.exitCode === 0 ? changedNames(beforeStep) : [];
+  const beforeDigests = await changedFileDigests(input.worktreeDir, beforeNames);
+  const preCommit = await runStep({
+    cwd: input.worktreeDir, name: "pre-commit autofix",
+    command: ["pre-commit", "run", "--show-diff-on-failure", "--color=never", "--all-files"],
+    steps, runCommand: commandRunner, options: { env: { PRE_COMMIT_HOME: input.cacheDir } },
+  });
+  const warnings: string[] = [];
+  if (!preCommit) warnings.push(spawnedStepError("pre-commit autofix", steps));
+  else if (preCommit.exitCode !== 0) warnings.push(failedStepReason("pre-commit autofix", preCommit));
+  const afterStep = await runStep({ cwd: input.worktreeDir, name: "list changed files after pre-commit", command: ["git", "-C", input.worktreeDir, "diff", "--name-only", "HEAD"], steps, runCommand: commandRunner });
+  const afterNames = afterStep?.exitCode === 0 ? changedNames(afterStep) : beforeNames;
+  const candidates = [...new Set([...beforeNames, ...afterNames])].sort();
+  const afterDigests = await changedFileDigests(input.worktreeDir, candidates);
+  return {
+    status: "finished",
+    reformattedFiles: candidates.filter((name) => beforeDigests.get(name) !== afterDigests.get(name)),
+    warnings,
+    steps,
+  };
 }
