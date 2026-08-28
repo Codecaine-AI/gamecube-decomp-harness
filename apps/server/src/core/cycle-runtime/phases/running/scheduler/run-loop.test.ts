@@ -18,6 +18,7 @@ import { activateRun } from "../run-control.js";
 import { settleRunOnExit } from "../jobs/settle-supervised-run.js";
 import {
   epochBoundaryWorkPending,
+  boundaryRetryLogTransition,
   boundaryRetryRest,
   launchBoundaryRetryIfDue,
   createKnowledgeMaintenanceClock,
@@ -218,6 +219,26 @@ describe("boundary retry resting wake", () => {
   test("evaluates a failed boundary even when the prior cycle paused", () => {
     expect(shouldEvaluateEpochBoundary({ boundaryError: true, epochPaused: true, runningEpoch: false })).toBe(true);
     expect(shouldEvaluateEpochBoundary({ boundaryError: false, epochPaused: true, runningEpoch: false })).toBe(false);
+  });
+
+  test("logs a retry deadline once while waiting and once when due", () => {
+    const retry = { ordinal: 3, nextAttemptAt: "2026-08-28T12:02:00.000Z" };
+    const waiting = boundaryRetryLogTransition(null, retry, "waiting", 5_000);
+    expect(waiting.message).toBe(
+      "[run-loop] epoch 3: boundary retry due at 2026-08-28T12:02:00.000Z, sleeping 5000ms",
+    );
+    expect(boundaryRetryLogTransition(waiting.state, retry, "waiting", 5_000).message).toBeNull();
+
+    const due = boundaryRetryLogTransition(waiting.state, retry, "due");
+    expect(due.message).toBe(
+      "[run-loop] epoch 3: boundary retry due at 2026-08-28T12:02:00.000Z, retrying now",
+    );
+    expect(boundaryRetryLogTransition(due.state, retry, "due").message).toBeNull();
+
+    const changed = { ordinal: 3, nextAttemptAt: "2026-08-28T12:04:00.000Z" };
+    expect(boundaryRetryLogTransition(due.state, changed, "waiting", 5_000).message).toBe(
+      "[run-loop] epoch 3: boundary retry due at 2026-08-28T12:04:00.000Z, sleeping 5000ms",
+    );
   });
 
   test("wakes at a future retry deadline without an activity trigger", async () => {

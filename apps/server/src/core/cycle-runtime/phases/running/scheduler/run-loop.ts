@@ -108,6 +108,11 @@ interface BoundaryErrorEpoch {
   terminal: boolean;
 }
 
+export interface BoundaryRetryLogState {
+  deadline: string;
+  phase: "waiting" | "due";
+}
+
 export interface RunLoopResult {
   runId: string;
   mode: "run_loop";
@@ -410,6 +415,24 @@ export function boundaryRetryRest(
   };
 }
 
+export function boundaryRetryLogTransition(
+  previous: BoundaryRetryLogState | null,
+  retry: { ordinal: number; nextAttemptAt: string },
+  phase: "waiting" | "due",
+  sleepMs = 0,
+): { state: BoundaryRetryLogState; message: string | null } {
+  const state = { deadline: retry.nextAttemptAt, phase } satisfies BoundaryRetryLogState;
+  if (previous?.deadline === state.deadline && previous.phase === state.phase) {
+    return { state, message: null };
+  }
+  return {
+    state,
+    message: phase === "waiting"
+      ? `[run-loop] epoch ${retry.ordinal}: boundary retry due at ${retry.nextAttemptAt}, sleeping ${sleepMs}ms`
+      : `[run-loop] epoch ${retry.ordinal}: boundary retry due at ${retry.nextAttemptAt}, retrying now`,
+  };
+}
+
 export function launchBoundaryRetryIfDue(
   store: StateStore,
   runId: string,
@@ -592,6 +615,7 @@ export async function runRunLoop(
     let lastSchedulerEpoch: EpochProgressSummary | null = null;
     const knowledgeMaintenanceClock = createKnowledgeMaintenanceClock(maintenanceIntervalMs);
     let schedulerBlocked = false;
+    let boundaryRetryLogState: BoundaryRetryLogState | null = null;
     let runningIntegrationDrain: Promise<void> | null = null;
     let integrationFlushPending = false;
     const pendingSettleWork = new Set<Promise<void>>();
@@ -933,6 +957,14 @@ export async function runRunLoop(
             stopRequested = true;
             stoppedReason = "epoch_boundary_retry_exhausted";
           } else if (boundaryError && boundaryError.finished >= boundaryError.admitted && boundaryRetryDue) {
+            if (boundaryError.nextAttemptAt) {
+              const transition = boundaryRetryLogTransition(boundaryRetryLogState, {
+                ordinal: boundaryError.ordinal,
+                nextAttemptAt: boundaryError.nextAttemptAt,
+              }, "due");
+              boundaryRetryLogState = transition.state;
+              if (transition.message) console.error(transition.message);
+            }
             didWork = true;
             launchBoundaryRetryIfDue(store, runId, launchEpochCycle);
           } else if (boundaryError && boundaryError.finished >= boundaryError.admitted) {
@@ -1058,9 +1090,9 @@ export async function runRunLoop(
       const retryRest = boundaryRetryRest(store, runId, idleSleepMs);
       const restingSleepMs = retryRest?.sleepMs ?? idleSleepMs;
       if (retryRest) {
-        console.error(
-          `[run-loop] epoch ${retryRest.ordinal}: boundary retry due at ${retryRest.nextAttemptAt}, sleeping ${restingSleepMs}ms`,
-        );
+        const transition = boundaryRetryLogTransition(boundaryRetryLogState, retryRest, "waiting", restingSleepMs);
+        boundaryRetryLogState = transition.state;
+        if (transition.message) console.error(transition.message);
       }
       await waitForRestingTrigger(restingSleepMs, [
         settleWake,
