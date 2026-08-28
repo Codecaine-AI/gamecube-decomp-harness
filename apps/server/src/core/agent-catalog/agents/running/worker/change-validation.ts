@@ -1352,7 +1352,7 @@ export async function validateWorkerChange(params: {
     workspaceExec: params.workspaceExec,
   });
   const bannedIdiomContext = flags.bannedIdioms
-    ? await loadBannedIdiomContext(params.postAttemptDiffText ?? "", params.baseline, params.workspaceExec)
+    ? await loadBannedIdiomContext(params.postAttemptDiffText ?? "", params.baseline, params.workspaceExec, stringValue(params.target.symbol))
     : {};
   const bannedIdioms: WorkerMicroGateResult = flags.bannedIdioms
     ? lintBannedIdioms(params.postAttemptDiffText ?? "", bannedIdiomContext)
@@ -1367,9 +1367,14 @@ async function loadBannedIdiomContext(
   diffText: string,
   baseline: WorkerChangeBaseline,
   workspaceExec: WorkspaceExec,
-): Promise<{ symbolsTxt?: string; baselineSources: Map<string, string> }> {
+  targetFunction?: string,
+): Promise<{ symbolsTxt?: string; baselineSources: Map<string, string>; postChangeSources: Map<string, string>; targetFunction?: string }> {
   const baselineSources = new Map<string, string>();
-  if (!diffText.split(/\r?\n/).some((line) => /^\+\s*static\b/.test(line))) return { baselineSources };
+  const postChangeSources = new Map<string, string>();
+  const diffLines = diffText.split(/\r?\n/);
+  const needsContext = diffLines.some((line) => /^\+\s*static\b/.test(line))
+    || (diffLines.some((line) => /^\+[^+].*;/.test(line)) && diffLines.some((line) => /^-[^-].*;/.test(line)));
+  if (!needsContext) return { baselineSources, postChangeSources, targetFunction };
   const changedPaths = new Set(
     [...diffText.matchAll(/^diff --git a\/.+? b\/(.+)$/gm)]
       .map((match) => match[1]!)
@@ -1386,11 +1391,19 @@ async function loadBannedIdiomContext(
       }
     }));
   }
+  await Promise.all([...changedPaths].map(async (path) => {
+    try {
+      const result = await workspaceExec.exec(["cat", path]);
+      if (result.exitCode === 0) postChangeSources.set(path, result.stdout);
+    } catch {
+      // A missing post-change source makes this conservative heuristic skip the finding.
+    }
+  }));
   try {
     const result = await workspaceExec.exec(["cat", "config/GALE01/symbols.txt"]);
-    return { symbolsTxt: result.exitCode === 0 ? result.stdout : undefined, baselineSources };
+    return { symbolsTxt: result.exitCode === 0 ? result.stdout : undefined, baselineSources, postChangeSources, targetFunction };
   } catch {
-    return { baselineSources };
+    return { baselineSources, postChangeSources, targetFunction };
   }
 }
 

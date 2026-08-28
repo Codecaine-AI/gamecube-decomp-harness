@@ -237,6 +237,53 @@ describe("lintBannedIdioms", () => {
     expect(result.status).toBe("passed");
   });
 
+  test("rejects volatile added to a global read by another function", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const before = `char shared[1] = "";\nvoid target(void)\n{\n    (void) shared[0];\n}\nvoid reader(void)\n{\n    (void) shared[0];\n}\n`;
+    const after = `volatile char shared[1] = "";\nvoid target(void)\n{\n    (void) shared[0];\n}\nvoid reader(void)\n{\n    (void) shared[0];\n}\n`;
+    const diff = `diff --git a/${path} b/${path}\n-char shared[1] = "";\n+volatile char shared[1] = "";`;
+    const result = lintBannedIdioms(diff, {
+      baselineSources: new Map([[path, before]]),
+      postChangeSources: new Map([[path, after]]),
+      targetFunction: "target",
+    });
+    expect(result.status).toBe("failed");
+    expect(result.reasons).toContainEqual(expect.stringContaining("qualifier_changed_on_shared_global: 'shared' volatile added"));
+    expect(result.reasons).toContainEqual(expect.stringContaining("shared global referenced by 1 other functions; changing its qualifiers alters their codegen"));
+  });
+
+  test("accepts a qualifier change on a global read only by the target", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const before = `char privateToTarget[1];\nvoid target(void) { (void) privateToTarget[0]; }\n`;
+    const after = `volatile char privateToTarget[1];\nvoid target(void) { (void) privateToTarget[0]; }\n`;
+    const diff = `diff --git a/${path} b/${path}\n-char privateToTarget[1];\n+volatile char privateToTarget[1];`;
+    expect(lintBannedIdioms(diff, {
+      baselineSources: new Map([[path, before]]), postChangeSources: new Map([[path, after]]), targetFunction: "target",
+    }).status).toBe("passed");
+  });
+
+  test("accepts brand-new static globals and locals", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const before = `void target(void) {}\nvoid reader(void) {}\n`;
+    const after = `static volatile char fresh[1];\nvoid target(void) { static volatile char local[1]; (void) fresh[0]; }\nvoid reader(void) { (void) fresh[0]; }\n`;
+    const diff = `diff --git a/${path} b/${path}\n+static volatile char fresh[1];\n+    static volatile char local[1];`;
+    expect(lintBannedIdioms(diff, {
+      baselineSources: new Map([[path, before]]), postChangeSources: new Map([[path, after]]), targetFunction: "target",
+    }).status).toBe("passed");
+  });
+
+  test("rejects an array size change on a shared global", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const before = `char shared[1];\nvoid target(void) { (void) shared[0]; }\nvoid reader(void) { (void) shared[0]; }\n`;
+    const after = `char shared[2];\nvoid target(void) { (void) shared[0]; }\nvoid reader(void) { (void) shared[0]; }\n`;
+    const diff = `diff --git a/${path} b/${path}\n-char shared[1];\n+char shared[2];`;
+    const result = lintBannedIdioms(diff, {
+      baselineSources: new Map([[path, before]]), postChangeSources: new Map([[path, after]]), targetFunction: "target",
+    });
+    expect(result.status).toBe("failed");
+    expect(result.reasons).toContainEqual(expect.stringContaining("'shared' array size changed from '[1]' to '[2]'"));
+  });
+
   test("accepts an unchanged static declaration", () => {
     const diff = [
       "diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c",

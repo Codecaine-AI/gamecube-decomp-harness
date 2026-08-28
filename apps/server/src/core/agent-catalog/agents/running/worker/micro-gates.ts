@@ -169,6 +169,8 @@ interface AddedCodeLine {
 export interface BannedIdiomContext {
   symbolsTxt?: string;
   baselineSources?: ReadonlyMap<string, string>;
+  postChangeSources?: ReadonlyMap<string, string>;
+  targetFunction?: string;
 }
 
 export function parseSymbolsTxt(contents: string): { all: Set<string>; globals: Set<string> } {
@@ -216,6 +218,14 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
   const reasons: string[] = [];
   const globalSymbols = parseSymbolsTxt(context.symbolsTxt ?? "").globals;
   for (const [path, entries] of linesByPath) {
+    reasons.push(...findSharedGlobalQualifierChanges({
+      path,
+      added: entries,
+      removed: removedByPath.get(path) ?? [],
+      baselineSource: context.baselineSources?.get(path),
+      postChangeSource: context.postChangeSources?.get(path),
+      targetFunction: context.targetFunction,
+    }));
     const definitions: StaticDefinition[] = [];
     for (const entry of entries) {
       const staticName = staticDeclarationName(entry.stripped);
@@ -249,6 +259,125 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
     }
   }
   return { gate, status: reasons.length > 0 ? "failed" : "passed", reasons };
+}
+
+interface GlobalDeclaration {
+  name: string;
+  shape: string;
+  line: string;
+}
+
+function findSharedGlobalQualifierChanges(params: {
+  path: string;
+  added: AddedCodeLine[];
+  removed: AddedCodeLine[];
+  baselineSource?: string;
+  postChangeSource?: string;
+  targetFunction?: string;
+}): string[] {
+  if (!params.baselineSource || !params.postChangeSource) return [];
+  const beforeGlobals = fileScopeDeclarations(params.baselineSource);
+  const afterGlobals = fileScopeDeclarations(params.postChangeSource);
+  const addedNames = new Set(params.added.flatMap((entry) => declarationFromLine(entry.stripped)?.name ?? []));
+  const removedNames = new Set(params.removed.flatMap((entry) => declarationFromLine(entry.stripped)?.name ?? []));
+  const changedNames = [...addedNames].filter((name) => removedNames.has(name));
+  const reasons: string[] = [];
+  for (const name of changedNames) {
+    const before = beforeGlobals.get(name);
+    const after = afterGlobals.get(name);
+    if (!before || !after || before.shape === after.shape) continue;
+    const change = describeDeclarationChange(before.shape, after.shape);
+    if (!change) continue;
+    const otherReaders = functionsReferencing(params.postChangeSource, name)
+      .filter((functionName) => !params.targetFunction || functionName !== params.targetFunction);
+    if (params.targetFunction ? otherReaders.length === 0 : otherReaders.length < 2) continue;
+    reasons.push(`qualifier_changed_on_shared_global: '${name}' ${change}; shared global referenced by ${otherReaders.length} other functions; changing its qualifiers alters their codegen`);
+  }
+  return reasons;
+}
+
+function fileScopeDeclarations(source: string): Map<string, GlobalDeclaration> {
+  const declarations = new Map<string, GlobalDeclaration>();
+  let depth = 0;
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = stripLineCommentsAndStrings(rawLine);
+    if (depth === 0) {
+      const declaration = declarationFromLine(line);
+      if (declaration) declarations.set(declaration.name, { ...declaration, line: rawLine });
+    }
+    depth += braceDelta(line);
+  }
+  return declarations;
+}
+
+function declarationFromLine(line: string): { name: string; shape: string } | null {
+  if (!line.includes(";") || /[{}]/.test(line) || /\([^)]*\)\s*;/.test(line)) return null;
+  const declaration = line.slice(0, line.indexOf(";")).split("=")[0]!.trim();
+  if (!declaration || /^(?:typedef|extern)\b/.test(declaration)) return null;
+  const trailingAttribute = /\s+(__attribute__\s*\(\(.*\)\)|__declspec\s*\(.*\))\s*$/.exec(declaration)?.[1] ?? "";
+  const declarator = trailingAttribute ? declaration.slice(0, declaration.lastIndexOf(trailingAttribute)).trim() : declaration;
+  const match = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(\[[^\]]*\])?\s*$/.exec(declarator);
+  if (!match?.[1]) return null;
+  const name = match[1];
+  const shape = declarator
+    .replace(new RegExp(`\\b${escapeRegExp(name)}\\b\\s*(?:\\[[^\\]]*\\])?\\s*$`), `@${match[2]?.replace(/\s+/g, "") ?? ""}`)
+    .replace(/\s+/g, " ")
+    .trim() + (trailingAttribute ? ` ${trailingAttribute.replace(/\s+/g, " ")}` : "");
+  return { name, shape };
+}
+
+function functionsReferencing(source: string, symbol: string): string[] {
+  const references: string[] = [];
+  const symbolRe = new RegExp(`\\b${escapeRegExp(symbol)}\\b`);
+  let currentFunction: string | null = null;
+  let pendingFunction: string | null = null;
+  let depth = 0;
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = stripLineCommentsAndStrings(rawLine);
+    if (depth === 0) {
+      const header = /^\s*(?:(?:static|inline)\s+)*(?:[A-Za-z_][A-Za-z0-9_]*\s+)+\**\s*([A-Za-z_][A-Za-z0-9_]*)\s*\([^;{}]*\)\s*\{/.exec(line);
+      currentFunction = header?.[1] && !CONTROL_KEYWORDS.has(header[1]) ? header[1] : null;
+      const headerWithoutBrace = /^\s*(?:(?:static|inline)\s+)*(?:[A-Za-z_][A-Za-z0-9_]*\s+)+\**\s*([A-Za-z_][A-Za-z0-9_]*)\s*\([^;{}]*\)\s*$/.exec(line);
+      if (headerWithoutBrace?.[1] && !CONTROL_KEYWORDS.has(headerWithoutBrace[1])) pendingFunction = headerWithoutBrace[1];
+      if (!currentFunction && pendingFunction && /^\s*\{/.test(line)) currentFunction = pendingFunction;
+    }
+    if (currentFunction && symbolRe.test(line) && !references.includes(currentFunction)) references.push(currentFunction);
+    depth += braceDelta(line);
+    if (depth === 0 && !pendingFunction) currentFunction = null;
+    if (currentFunction && depth > 0) pendingFunction = null;
+    if (currentFunction && depth === 0 && /}/.test(line)) currentFunction = null;
+  }
+  return references;
+}
+
+function braceDelta(line: string): number {
+  return (line.match(/\{/g)?.length ?? 0) - (line.match(/\}/g)?.length ?? 0);
+}
+
+function describeDeclarationChange(before: string, after: string): string | null {
+  const beforeArray = /@(\[[^\]]*\])/.exec(before)?.[1] ?? "";
+  const afterArray = /@(\[[^\]]*\])/.exec(after)?.[1] ?? "";
+  if (beforeArray !== afterArray) return `array size changed from '${beforeArray || "scalar"}' to '${afterArray || "scalar"}'`;
+  const qualifiers = ["volatile", "const", "register"];
+  for (const qualifier of qualifiers) {
+    const beforeHas = objectHasQualifier(before, qualifier);
+    const afterHas = objectHasQualifier(after, qualifier);
+    if (beforeHas !== afterHas) return `${qualifier} ${afterHas ? "added" : "removed"}`;
+  }
+  const attributeChanged = /__(?:attribute|declspec)__?\b/.test(before) || /__(?:attribute|declspec)__?\b/.test(after);
+  if (attributeChanged) return `alignment/section attribute changed from "${before}" to "${after}"`;
+  // A leading const on a pointer qualifies the pointee, not the global object.
+  const withoutPointeeConst = (shape: string) => shape.includes("*") ? shape.replace(/^const\s+/, "") : shape;
+  if (withoutPointeeConst(before) === withoutPointeeConst(after)) return null;
+  return `declared type changed from "${before}" to "${after}"`;
+}
+
+function objectHasQualifier(shape: string, qualifier: string): boolean {
+  const beforeName = shape.slice(0, shape.indexOf("@"));
+  if (qualifier === "const" && beforeName.includes("*") && new RegExp(`^${qualifier}\\b`).test(beforeName)) {
+    return new RegExp(`\\*[^*]*\\b${qualifier}\\b`).test(beforeName);
+  }
+  return new RegExp(`\\b${qualifier}\\b`).test(beforeName);
 }
 
 function staticDeclarationName(line: string): string | null {

@@ -811,4 +811,40 @@ describe("validateWorkerChange micro-gate integration", () => {
     expect(validation.status).toBe("failed");
     expect(validation.reasons.some((reason) => reason.includes("micro_gate:banned_idioms"))).toBe(true);
   });
+
+  test("routes a shared-global qualifier change through the banned-idiom micro-gate", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "micro-shared-global-validation-"));
+    const snapshotDir = await mkdtemp(join(tmpdir(), "micro-shared-global-snapshot-"));
+    const sourcePath = target.source_path;
+    await mkdir(resolve(snapshotDir, sourcePath, ".."), { recursive: true });
+    await writeFile(resolve(snapshotDir, sourcePath), `char shared[1] = "";\nvoid ${target.symbol}(void) { (void) shared[0]; }\nvoid reader(void) { (void) shared[0]; }\n`);
+    const afterSource = `volatile char shared[1] = "";\nvoid ${target.symbol}(void) { (void) shared[0]; }\nvoid reader(void) { (void) shared[0]; }\n`;
+    const baseline = {
+      ...baselineWithDataSection(),
+      sourceSnapshotDir: snapshotDir,
+      sourceSnapshotPaths: [sourcePath],
+    };
+    const baseExec = scoreWorkspaceExec(100);
+    const workspaceExec = fakeWorkspaceExec(async (command, options) => {
+      if (command[0] === "cat" && command[1] === sourcePath) return { exitCode: 0, stdout: afterSource, stderr: "" };
+      return baseExec.exec(command, options);
+    });
+    const validation = await validateWorkerChange({
+      repoRoot: "/workspace/micro-shared-global",
+      hostRepoRoot: "/host/melee",
+      outputDir,
+      attemptIndex: 0,
+      baseline,
+      target,
+      dryRun: false,
+      shouldRun: true,
+      claimedExact: false,
+      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: true },
+      postAttemptDiffText: `diff --git a/${sourcePath} b/${sourcePath}\n-char shared[1] = "";\n+volatile char shared[1] = "";`,
+      workspaceExec,
+    });
+
+    expect(validation.status).toBe("failed");
+    expect(validation.reasons).toContainEqual(expect.stringContaining("micro_gate:banned_idioms: qualifier_changed_on_shared_global"));
+  });
 });
