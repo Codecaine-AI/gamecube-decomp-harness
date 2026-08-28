@@ -167,6 +167,78 @@ describe("boundary sync", () => {
     expect(calls.find(([name]) => name === "head")?.[1]).toMatchObject({ headSha: result.headSha });
   });
 
+  test("runs the fixer with extracted errors and upstream range, retries, and commits its diff", async () => {
+    const fixture = fixtureRepo();
+    let reportRuns = 0;
+    let fixerPrompt = "";
+    let advancedHead = "";
+    const result = await runBoundarySync({
+      repoRoot: fixture.repo,
+      anchorSha: fixture.anchor,
+      targets: [],
+      runBuildFixer: async (input) => {
+        fixerPrompt = input.prompt;
+        writeFileSync(join(fixture.repo, "src", "melee", "ty", "toy.c"), "int same(void) { return 2; }\n/* fixed */\n");
+        return { exitCode: 0, timedOut: false, output: "edited" };
+      },
+      hooks: {
+        ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {},
+        rebuildKnowledgeGraph: async () => {},
+        recomputeReport: async () => {
+          reportRuns += 1;
+          if (reportRuns === 1) throw new Error([
+            "irrelevant setup noise", "### mwcceppc.exe Compiler:", "src/melee/ty/toy.c:12: error: cur redefined", "ninja: build stopped: subcommand failed.",
+          ].join("\n"));
+          return { matchedCodePercent: 100 };
+        },
+        writePrSyncSavePoint: () => {}, advanceAnchor: () => {},
+        advanceCycleHead: ({ headSha }) => { advancedHead = headSha; },
+      },
+    });
+
+    expect(reportRuns).toBe(2);
+    expect(fixerPrompt).toContain(`The merged upstream commit range is ${fixture.anchor}..${fixture.upstreamHead}.`);
+    expect(fixerPrompt).toContain(`git show ${fixture.upstreamHead}:<path>`);
+    expect(fixerPrompt).toContain("src/melee/ty/toy.c:12: error: cur redefined");
+    expect(fixerPrompt).not.toContain("irrelevant setup noise");
+    expect(fixerPrompt).toContain("Edit only. Do not build or commit.");
+    expect(git(fixture.repo, ["log", "-1", "--format=%s"])).toBe("boundary sync build-fixer: src/melee/ty/toy.c");
+    expect(git(fixture.repo, ["log", "-2", "--format=%s"]).split("\n")[1]).toStartWith("Merge commit '");
+    expect(result.headSha).toBe(git(fixture.repo, ["rev-parse", "HEAD"]));
+    expect(advancedHead).toBe(result.headSha);
+  });
+
+  test("fails the sync without retrying when the fixer fails", async () => {
+    const fixture = fixtureRepo();
+    let reportRuns = 0;
+    await expect(runBoundarySync({
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [],
+      runBuildFixer: async () => ({ exitCode: 1, timedOut: false, output: "failed" }),
+      hooks: {
+        ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {}, rebuildKnowledgeGraph: async () => {},
+        recomputeReport: async () => { reportRuns += 1; throw new Error("error: gobj redefined"); },
+        writePrSyncSavePoint: () => {}, advanceAnchor: () => {}, advanceCycleHead: () => {},
+      },
+    })).rejects.toThrow("gobj redefined");
+    expect(reportRuns).toBe(1);
+    expect(git(fixture.repo, ["log", "-1", "--format=%s"])).toStartWith("Merge commit '");
+  });
+
+  test("does not invoke the fixer when the flag is off", async () => {
+    const fixture = fixtureRepo();
+    let fixerRuns = 0;
+    await expect(runBoundarySync({
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [], buildFixerEnabled: false,
+      runBuildFixer: async () => { fixerRuns += 1; return { exitCode: 0, timedOut: false, output: "" }; },
+      hooks: {
+        ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {}, rebuildKnowledgeGraph: async () => {},
+        recomputeReport: async () => { throw new Error("error: removed function call"); },
+        writePrSyncSavePoint: () => {}, advanceAnchor: () => {}, advanceCycleHead: () => {},
+      },
+    })).rejects.toThrow("removed function call");
+    expect(fixerRuns).toBe(0);
+  });
+
   test("raises a loud error when fetch fails", async () => {
     const runGit: BoundaryGitRunner = async () => ({ exitCode: 1, stdout: "", stderr: "network unavailable" });
     expect(planBoundarySync({ repoRoot: "/fixture", anchorSha: "a", targets: [], runGit })).rejects.toThrow(

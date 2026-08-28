@@ -1,3 +1,6 @@
+import { actionableFailureOutput } from "@server/core/validation/failure-output.js";
+import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
+
 export const BOUNDARY_OVERRIDE_VERDICT = "overridden_by_upstream_requeued" as const;
 
 export interface BoundaryTargetState {
@@ -79,6 +82,38 @@ export interface BoundarySyncInput {
   dryRun?: boolean;
   runGit?: BoundaryGitRunner;
   hooks?: BoundarySyncHooks;
+  buildFixerEnabled?: boolean;
+  runBuildFixer?: (input: { worktreeDir: string; prompt: string; timeoutMs: number }) => Promise<BuildFixerResult>;
+  onBuildFixerEvent?: (
+    status: "started" | "finished" | "propagated",
+    result?: BuildFixerResult & { files?: string[]; commitSha?: string },
+  ) => void;
+}
+
+function boundaryBuildFixerPrompt(failure: unknown, anchorBefore: string, anchorAfter: string): string {
+  const errors = actionableFailureOutput(failure instanceof Error ? failure.message : String(failure));
+  return [
+    "Fix only the mechanical build break caused by the just-merged upstream range in this cycle worktree.",
+    `The merged upstream commit range is ${anchorBefore}..${anchorAfter}.`,
+    `For any function upstream matched or renamed in that range, replace our version with upstream's exactly using git show ${anchorAfter}:<path>. Upstream is gospel for those functions.`,
+    "Limit edits to the failing translation units and symbols. Do not perform new decompilation work, improve matching, refactor unrelated code, or broaden the diff.",
+    "Edit only. Do not build or commit.",
+    "Compiler errors:",
+    errors.slice(0, 12_000),
+  ].join("\n\n");
+}
+
+async function boundaryBuildFixerFiles(runGit: BoundaryGitRunner, repoRoot: string): Promise<string[]> {
+  const changed = await checkedGit(runGit, repoRoot, ["diff", "--name-only", "-z", "HEAD", "--", ".", ":(exclude)build", ":(exclude,glob)**/build/**"], "build-fixer file capture");
+  const files = changed.split("\0").filter(Boolean).sort();
+  if (files.length === 0) throw new Error("boundary sync build-fixer produced no tracked diff");
+  return files;
+}
+
+async function commitBoundaryBuildFixerDiff(runGit: BoundaryGitRunner, repoRoot: string, files: string[]): Promise<string> {
+  await checkedGit(runGit, repoRoot, ["add", "--", ...files], "build-fixer staging");
+  await checkedGit(runGit, repoRoot, ["commit", "--no-verify", "-m", `boundary sync build-fixer: ${files.join(", ")}`, "--", ...files], "build-fixer commit");
+  return checkedGit(runGit, repoRoot, ["rev-parse", "HEAD"], "build-fixer HEAD resolution");
 }
 
 export interface BoundarySyncResult {
@@ -267,7 +302,7 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
     ["merge", "--no-edit", "--no-ff", "-X", "theirs", plan.upstreamHeadSha],
     "upstream-precedence merge",
   );
-  const headSha = await checkedGit(runGit, input.repoRoot, ["rev-parse", "HEAD"], "merged HEAD resolution");
+  let headSha = await checkedGit(runGit, input.repoRoot, ["rev-parse", "HEAD"], "merged HEAD resolution");
 
   await input.hooks.ingestMergedUpstream({
     previousAnchorSha: plan.anchorSha,
@@ -277,7 +312,24 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
     await input.hooks.appendOverrideNote(displacement);
     await input.hooks.requeueTarget(displacement);
   }
-  const report = await input.hooks.recomputeReport();
+  let report: Awaited<ReturnType<BoundarySyncHooks["recomputeReport"]>>;
+  try {
+    report = await input.hooks.recomputeReport();
+  } catch (error) {
+    if (input.buildFixerEnabled === false) throw error;
+    input.onBuildFixerEvent?.("started");
+    const fixer = await (input.runBuildFixer ?? ((fixerInput) => runCodexBuildFixer(fixerInput)))({
+      worktreeDir: input.repoRoot,
+      prompt: boundaryBuildFixerPrompt(error, plan.anchorSha, plan.upstreamHeadSha),
+      timeoutMs: BUILD_FIXER_TIMEOUT_MS,
+    });
+    input.onBuildFixerEvent?.("finished", fixer);
+    if (fixer.timedOut || fixer.exitCode !== 0) throw error;
+    const fixerFiles = await boundaryBuildFixerFiles(runGit, input.repoRoot);
+    report = await input.hooks.recomputeReport();
+    headSha = await commitBoundaryBuildFixerDiff(runGit, input.repoRoot, fixerFiles);
+    input.onBuildFixerEvent?.("propagated", { ...fixer, files: fixerFiles, commitSha: headSha });
+  }
   await input.hooks.rebuildKnowledgeGraph();
   await input.hooks.writePrSyncSavePoint({
     kind: "pr_sync",

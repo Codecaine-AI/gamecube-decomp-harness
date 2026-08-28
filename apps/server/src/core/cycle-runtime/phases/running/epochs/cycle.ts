@@ -41,6 +41,7 @@ import {
   type ConfirmationPassResult,
 } from "./confirmation-pass.js";
 import { completeUnitNames, linkCompleteUnitsInConfigure } from "./link-complete-units.js";
+import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
 const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state", ...ORCHESTRATOR_SCRATCH_EXCLUDES];
@@ -95,11 +96,7 @@ export interface BoundaryBuildFixerInput {
   timeoutMs: number;
 }
 
-export interface BoundaryBuildFixerResult {
-  exitCode: number | null;
-  timedOut: boolean;
-  output: string;
-}
+export type BoundaryBuildFixerResult = BuildFixerResult;
 
 export interface BoundaryDeferredFinding {
   reason: "boundary_regression_deferred" | "boundary_qa_deferred";
@@ -599,8 +596,6 @@ function compactSteps(result: ReportRunResult): { name: string; command: string[
   return result.steps.map((step) => ({ name: step.name, command: step.command, exitCode: step.exitCode }));
 }
 
-const BOUNDARY_BUILD_FIXER_TIMEOUT_MS = 5 * 60_000;
-
 export async function runCodexBoundaryBuildFixer(input: BoundaryBuildFixerInput): Promise<BoundaryBuildFixerResult> {
   const prompt = [
     "Fix only the mechanical build break described below in this epoch worktree.",
@@ -609,25 +604,7 @@ export async function runCodexBoundaryBuildFixer(input: BoundaryBuildFixerInput)
     "Build failure:",
     input.failure.slice(0, 12_000),
   ].join("\n\n");
-  const proc = Bun.spawn([
-    "codex", "exec", "-m", "gpt-5.6-sol", "-c", 'model_reasoning_effort="low"',
-    "--enable", "fast_mode", "-s", "workspace-write", prompt,
-  ], { cwd: input.worktreeDir, stdout: "pipe", stderr: "pipe" });
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<"timeout">((resolveTimeout) => {
-    timer = setTimeout(() => resolveTimeout("timeout"), input.timeoutMs);
-  });
-  const timedOut = await Promise.race([proc.exited.then(() => false), timeout]) === "timeout";
-  if (timedOut) proc.kill();
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited,
-  ]);
-  if (timer) clearTimeout(timer);
-  return {
-    exitCode: timedOut ? null : exitCode,
-    timedOut,
-    output: [stdout.trim(), stderr.trim()].filter(Boolean).join("\n").slice(-12_000),
-  };
+  return runCodexBuildFixer({ worktreeDir: input.worktreeDir, prompt, timeoutMs: input.timeoutMs });
 }
 
 export async function runReportBuildWithFixer<T>(input: {
@@ -1078,7 +1055,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     runFixer: (failure) => (options.runBoundaryBuildFixer ?? runCodexBoundaryBuildFixer)({
       worktreeDir: options.worktreeDir,
       failure: failure instanceof Error ? failure.message : String(failure),
-      timeoutMs: BOUNDARY_BUILD_FIXER_TIMEOUT_MS,
+      timeoutMs: BUILD_FIXER_TIMEOUT_MS,
     }),
     onFixerEvent: (status, fixer) => epochProgress(store, runId, {
       label,

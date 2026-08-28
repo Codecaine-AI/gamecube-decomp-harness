@@ -210,6 +210,28 @@ async function productionBoundarySync(params: EpochBoundaryParams): Promise<Boun
       priorKind: Number(row.baseline_score) >= 100 ? "match" as const : "improvement" as const,
       priorScore: Number.isFinite(Number(row.baseline_score)) ? Number(row.baseline_score) : null,
     })),
+    buildFixerEnabled: params.config.boundaryBuildFixerEnabled,
+    onBuildFixerEvent: (status, fixer) => addEvent(params.store, params.runId, "epoch_checkpoint_progress", "epoch-cycle", {
+      epoch: params.epochOrdinal,
+      epoch_id: params.schedulerEpochId ?? null,
+      phase: "boundary_sync_build_fixer",
+      status,
+      message: status === "started"
+        ? "starting one bounded codex attempt for the post-merge report build"
+        : status === "propagated"
+          ? `committed ${(fixer?.files ?? []).length} boundary-sync build-fixer file(s)`
+        : fixer?.timedOut
+          ? "bounded codex boundary-sync build-fixer timed out"
+          : `bounded codex boundary-sync build-fixer exited ${fixer?.exitCode ?? "unknown"}`,
+      outcome: fixer ? (fixer.timedOut ? "timeout" : fixer.exitCode === 0 ? "completed" : "failed") : undefined,
+      exit_code: fixer?.exitCode,
+      timed_out: fixer?.timedOut,
+      output: fixer?.output,
+      files: fixer?.files,
+      commit_sha: fixer?.commitSha,
+      worktree_dir: params.globals.repoRoot,
+      created_by: "epoch-cycle",
+    }),
     hooks: {
       // The full boundary knowledge pass below owns merged-PR indexing. It is
       // deliberately outside operator-sync publication and confirmation.
