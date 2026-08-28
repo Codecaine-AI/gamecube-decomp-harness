@@ -71,13 +71,11 @@ export interface WorkerJobRunContext {
 
 export const DEFAULT_SANDBOX_SLEEP_DEBOUNCE_MS = 250;
 
-class NoClaimableTargetError extends Error {}
-
 export function workerKernelOps(ctx: WorkerJobRunContext): JobQueueKernelOps {
   return {
     claimNextJob(store, input) {
-      try {
-        return immediateTransaction(store.db, () => {
+      while (true) {
+        const result = immediateTransaction(store.db, () => {
           requireActiveLease(store, ctx.dispatchLeaseId);
           const claimedJob = claimNextJob(store, { ...input, kind: "worker" });
           if (!claimedJob) return null;
@@ -95,7 +93,17 @@ export function workerKernelOps(ctx: WorkerJobRunContext): JobQueueKernelOps {
             ttlSeconds: ctx.ttlSeconds,
             artifactDirRoot: resolve(ctx.globals.stateDir, "runs", ctx.runId, "worker_state"),
           });
-          if (!target) throw new NoClaimableTargetError();
+          if (!target) {
+            const completed = completeJob(store, claimedJob.token, {
+              resultRef: "no_target_available",
+              detail: { outcome: "no_target_available" },
+            }, { at: input.at, actor: input.actor });
+            const epochId = completed.payload.epoch_id;
+            const epoch = typeof epochId === "string"
+              ? store.db.query("SELECT ordinal FROM epochs WHERE id = ?").get(epochId) as { ordinal: number } | null
+              : null;
+            return { kind: "no_target" as const, job: completed, epochOrdinal: epoch?.ordinal ?? "?" };
+          }
           attachJobPayload(store, claimedJob.token, {
             target_claim_id: target.claimId,
             worker_state_id: target.workerStateId,
@@ -104,11 +112,14 @@ export function workerKernelOps(ctx: WorkerJobRunContext): JobQueueKernelOps {
             base_rev: baseRev,
             ttl: target.ttl,
           });
-          return { job: getJob(store, claimedJob.job.jobId)!, token: claimedJob.token };
+          return { kind: "claimed" as const, claimed: { job: getJob(store, claimedJob.job.jobId)!, token: claimedJob.token } };
         });
-      } catch (error) {
-        if (error instanceof NoClaimableTargetError) return null;
-        throw error;
+        if (!result) return null;
+        if (result.kind === "no_target") {
+          console.log(`[run-loop] epoch ${result.epochOrdinal}: worker job ${result.job.jobId} found no claimable target; completing as no-op`);
+          continue;
+        }
+        return result.claimed;
       }
     },
     markJobRunning,

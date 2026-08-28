@@ -181,16 +181,48 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
-  test("rolls back the queue claim and its event when no target is claimable", () => {
+  test("completes without provisioning or retry when no target is claimable", async () => {
     const f = fixture();
+    const log = spyOn(console, "log").mockImplementation(() => {});
     try {
+      configureSandbox(f);
       claimNextEpochTarget({ store: f.store, runId: f.run.id, workerId: "outside", baseRev: "base-test", ttlSeconds: 1800 });
-      const before = Number((f.store.db.query("SELECT COUNT(*) count FROM game_events").get() as { count: number }).count);
-      expect(workerKernelOps(f.ctx).claimNextJob(f.store, { kind: "worker", concurrencyLimit: 1, leaseMs: 1_800_000 })).toBeNull();
+      const provider = new FakeSandboxProvider();
+      let provisionCalls = 0;
+      let submitCalls = 0;
+      const executor: WorkerExecutor = {
+        submit: async () => { submitCalls += 1; throw new Error("must not submit"); },
+        poll: async () => { throw new Error("must not poll"); },
+        collect: async () => { throw new Error("must not collect"); },
+        cancel: async () => { throw new Error("must not cancel"); },
+      };
+      const consumer = startJobConsumer(f.store, workerJobDescriptor(f.ctx, {
+        sandboxProvider: provider,
+        provisionSandbox: async () => { provisionCalls += 1; throw new Error("must not provision"); },
+        executor,
+      }), workerKernelOps(f.ctx), { intervalMs: 1 });
+      await until(() => getJobByDedupeKey(f.store, "worker", f.epochTargetId)?.status === "succeeded");
+      await Bun.sleep(10);
+      await consumer.stop();
+
       const job = getJobByDedupeKey(f.store, "worker", f.epochTargetId)!;
-      expect({ status: job.status, attempts: job.attempts }).toEqual({ status: "queued", attempts: 0 });
-      expect((f.store.db.query("SELECT COUNT(*) count FROM game_events").get() as { count: number }).count).toBe(before);
-    } finally { f.store.db.close(); }
+      expect(job).toMatchObject({
+        status: "succeeded",
+        attempts: 1,
+        resultRef: "no_target_available",
+        error: null,
+        nextAttemptAt: null,
+      });
+      expect(provisionCalls).toBe(0);
+      expect(submitCalls).toBe(0);
+      expect(provider.createdSandboxes).toHaveLength(0);
+      expect(f.store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE kind = 'worker' AND status IN ('queued', 'claimed', 'running', 'waiting')").get()).toEqual({ count: 0 });
+      expect(listGameEvents(f.store.db).filter((event) => event.eventType === "job.failed")).toHaveLength(0);
+      expect(log).toHaveBeenCalledWith(`[run-loop] epoch 1: worker job ${job.jobId} found no claimable target; completing as no-op`);
+    } finally {
+      log.mockRestore();
+      f.store.db.close();
+    }
   });
 
   test("enforces the host dispatch lease", () => {
