@@ -38,6 +38,7 @@
   Fix 16's 'retry due' log line spams every 5s and is a rate-limit candidate; worker_state rows are overwritten per attempt.
   HARNESS MAIN: dc89a799 → 718ca006 (15b) → 0f80f4ba (19) → 46118492 (20) → 9d6cca03 (21) → b5fe89ba (22).
   Concurrent uncommitted edits by someone else exist under apps/frontend, apps/server/src/api/routes/kernel.ts, infrastructure/{http/server.ts,kernel/runtime*.ts}, and docs/; left untouched.
+  19:04Z SCHEDULER CRASH (lease-bc3d59f4): a run-loop exception (message masked) entered error-cleanup, closed the shared StateStore under live consumers → 'Database has closed' storm → run-loop exit code 1 with 32 claims live, lease held; recovered 19:40Z (kill 14 orphan worker-task children, recover, resume → lease-2237772d); ~1 h of xhigh work lost. FIX 24 (02a0cfad): consumer capacity released at DB settlement, settlement hooks detached/bounded (60 s warn, 2-min sandbox-delete deadline). FIX 25 (9d6a04be): owned/borrowed StateStore views (borrowed close() is a no-op), cleanup drains consumers before close, unexpected exit settlement force-recovers claims + pauses + releases the lease + preserves the original error. FIX 23 (7363c296): retry-due log once. Fixes 24–25 are NOT in the running scheduler (needs restart; deferred because another session has uncommitted WIP in epochs/cycle.ts, scheduler/epoch-boundary.ts, validation/report/run.ts, epochs/step-failure*.ts and a syntax-broken untracked test — a fresh scheduler would load that WIP). Epoch 8 progress at 03:55Z: 99/137 at xhigh, 32 busy, queue ~10. Harness main 9d6a04be (25 fixes).
 - SESSION 01:15–08:35Z (2026-08-28): epoch 6 at xhigh, tail livelock, semantic-merge repairs, PR refreshed, epoch 7 admitted, fixes 15–16
   XHIGH RESTART (Ford, 01:19Z): scheduler stopped; 32 in-flight attempts released to queue.
   runs.inputs_json.configuration_snapshot.thinking_level changed low→xhigh; resumed on lease-072e70a2.
@@ -530,6 +531,7 @@
 </in_progress>
 
 <next_actions>
+- FORD DIRECTIVE (2026-08-29 ~03:55Z): at the END of the current epoch (run 4a45af8a, DB ordinal 8 — Ford calls it "epoch 6"; the log's restart-relative labels differ), run the FULL epoch boundary (gates → draft PR #3223 push → typed close → next-epoch admission), then STOP the run process immediately after admission so the run parks PAUSED with all next-epoch targets sitting in the queue and nothing in flight. An automatic watcher (session monitor) issues POST /api/process/stop the moment DB ordinal 9 is admitted; if the session is gone, do it by hand: wait for 'epoch 9: admitted N targets' in melee-live.stderr.log, then POST /api/process/stop {"gameId":"melee","confirmed":true}; verify run=paused, ep9 active with 0 claimed, all jobs queued (in-flight claims released on stop).
 - Phase 4: supervised live validation, width 8, two epochs (Ford pre-approved
   running to completion). The Phase 3 live gate folds into Phase 4's first
   boundary (real draft PR beats a scratch test). BLOCKED until the concurrent
