@@ -2,6 +2,34 @@
 <last_updated>2026-08-27</last_updated>
 
 <status>
+- SESSION 03:55–07:56Z (2026-08-29): epoch 8 closed (93.07%), boundary replay, fixes 26 + findings
+  EPOCH 8 (137 targets, xhigh, lease-2237772d since 19:42Z): reached 110/137 by 07:08Z.
+  Operator closed the tail at 07:09Z per precedent: 27 targets after ≥2 xhigh rounds each → 137/137.
+  Report after boundary repairs: 93.07033%, +0.60 over epoch 7's 92.47%.
+  FORD DIRECTIVE IN FORCE: full boundary, then stop the run process right after ordinal-9 admission.
+  Auto-pause session monitor + memory note `ford-end-of-epoch-pause-directive` enforced the directive.
+  FIRST ATTEMPT: ordinal 9 admitted 122 targets at 07:22:57Z and auto-stop fired; graceful stop escalated to SIGKILL at 07:23:33Z.
+  That boundary took the RECONCILE SHORTCUT: `pending integration attempt reconciled; skipped: [all steps]; re-ran: none`.
+  Cause: fix 1's evidence lookup keys boundary events by restart-relative epoch label (`epoch 1`) and matched epoch 7's real evidence.
+  Result: gates/PR/pr_sync were skipped; epoch 8 “closed” on non-building snapshot 8969070173.
+  Operator rolled ordinal 9 back (epochs/targets/jobs), deleted epoch 8's pending_integrations row, set epoch 8 error, and re-armed the auto-pause watcher.
+  Recovered + resumed on lease-46e71ff1 with working tree including fixes 24–26 and the other session's WIP → full replay.
+  BOUNDARY REPLAY BREAK (a): report_build failed because ftCo_0D95.c:47 needs it/types.h + mp/mplib.h.
+  Fix 3's fixer found it, but fix 20's propagation made a CORRUPT patch by stripping trailing blank context lines.
+  FIX 26 (9137e5f8): captureBuildFixerPatch() writes raw bytes, ensures a trailing newline, and validates with `git apply --check`.
+  The one-line call-site swap in epochs/cycle.ts (~line 781) is STILL PENDING because another session owns uncommitted WIP there; operator committed the two includes by hand (06991c11b7).
+  BOUNDARY REPLAY BREAK (b): boundary-sync merged upstream fea70654de (#3253 `Match fn_80178050; improve eight near-match functions`, #3251, #3231) → 4 TUs broke.
+  Fix 21's sync fixer ran for 30 s, exit 0, but fixed only gmresultplayer, correctly using upstream's own `s32 k3 = 0;`, and left its edit uncommitted.
+  Operator+Codex restored upstream-touched functions in gmresultplayer, grkongo, grgreens, hsd_3A94, and tydisplay (`_tyDisplay_80319540` → 100).
+  BOUNDARY REPLAY BREAK (c): DOL sha1 failed because the `-X theirs` merge took upstream's NEAR-MATCH #3253 versions over OUR EXACT matches in melee/gr/grmaterial.c, a Matching unit since the epoch-6 flip.
+  The unit fell to 74.9% and the DOL changed; restored our pre-merge grmaterial.c to 100/100.
+  All host-verified: `ninja -k 0`, main.dol OK, clang-tidy/format pass; committed 731a6487d9; retry timer released 07:56Z; auto-pause watcher armed for ordinal 9.
+  FOLLOW-UP 1: fix 1 evidence must key on the DB epoch id, not the restart-relative label (epoch-boundary.ts; blocked by the other session's WIP).
+  FOLLOW-UP 2: upstream-gospel applies only to functions upstream MATCHED; `-X theirs` can clobber our exact matches in Matching units with upstream near-matches.
+  Candidate: merge with `ours` where our report says 100% and upstream's does not, or post-merge restore from the pre-merge snapshot any Matching unit that drops below 100%.
+  FOLLOW-UP 3: give the sync fixer the FULL `ninja -k 0` failure list, not the first failure; commit or revert its diff, never leave it dirty.
+  FOLLOW-UP 4: scheduler liveness monitor's pgrep matched its own shell, producing false pids (cosmetic).
+  HARNESS MAIN: 9137e5f8 (26 fixes).
 - SESSION 08:35–18:56Z (2026-08-28): epoch 7 at xhigh (92.47%), upstream-velocity boundary, fixes 19–22, epoch 8 admitted
   EPOCH 7 (08:33–17:06Z): 157 targets at xhigh, progressing at ~1/min.
   Fix 15's per-claim re-enqueue over-enqueued: one lock-contended target accumulated 32 running + queued duplicates.
