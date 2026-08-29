@@ -30,6 +30,7 @@
   FOLLOW-UP 3: give the sync fixer the FULL `ninja -k 0` failure list, not the first failure; commit or revert its diff, never leave it dirty.
   FOLLOW-UP 4: scheduler liveness monitor's pgrep matched its own shell, producing false pids (cosmetic).
   HARNESS MAIN: 9137e5f8 (26 fixes).
+  BOUNDARY REPLAY SUCCEEDED (07:56–08:15Z): snapshot 731a6487d9, report 93.07033%, QA 5 errors (known set), 7 regressions deferred, sync finished at fea70654de (not drifted), BREAKAGE GATE CLEAN, CI-parity clean, DRAFT PR #3223 UPDATED to 731a6487d9 (08:10Z) — CI all 10 checks pass; decomp-dev bot vs master fea7065: matched code 93.07% (+1.09%, +42,152 bytes), linked 76.41%, matched data 96.73%, 44 new matches, 107 improvements, 0 broken matches. Epoch 8 closed completed/success; ORDINAL 9 ADMITTED 120 targets at 08:14:52Z; the auto-pause watcher stopped the run process (graceful stop escalated to SIGKILL 08:15:29Z); operator reset the 32 just-claimed job rows to queued, killed 2 stray worker-task processes, and recovered the run → PARKED PER FORD'S DIRECTIVE: run paused, dispatch lease NULL, ordinal 9 active 0/120 with all 120 targets admitted and 120 worker jobs queued, no scheduler, 0 active claims.
 - SESSION 08:35–18:56Z (2026-08-28): epoch 7 at xhigh (92.47%), upstream-velocity boundary, fixes 19–22, epoch 8 admitted
   EPOCH 7 (08:33–17:06Z): 157 targets at xhigh, progressing at ~1/min.
   Fix 15's per-claim re-enqueue over-enqueued: one lock-contended target accumulated 32 running + queued duplicates.
@@ -559,7 +560,7 @@
 </in_progress>
 
 <next_actions>
-- FORD DIRECTIVE (2026-08-29 ~03:55Z): at the END of the current epoch (run 4a45af8a, DB ordinal 8 — Ford calls it "epoch 6"; the log's restart-relative labels differ), run the FULL epoch boundary (gates → draft PR #3223 push → typed close → next-epoch admission), then STOP the run process immediately after admission so the run parks PAUSED with all next-epoch targets sitting in the queue and nothing in flight. An automatic watcher (session monitor) issues POST /api/process/stop the moment DB ordinal 9 is admitted; if the session is gone, do it by hand: wait for 'epoch 9: admitted N targets' in melee-live.stderr.log, then POST /api/process/stop {"gameId":"melee","confirmed":true}; verify run=paused, ep9 active with 0 claimed, all jobs queued (in-flight claims released on stop).
+- PARKED (2026-08-29 08:16Z) per Ford: run 4a45af8a paused after the epoch-8 boundary; ordinal 9 (120 targets) admitted with every job queued and nothing in flight; PR #3223 at 731a6487d9 green. TO RESUME: POST /api/run/resume {"gameId":"melee","runId":"4a45af8a-9f8c-499b-b375-c0d8e93fc8fd","confirmed":true} — a fresh scheduler loads the WORKING TREE (currently contains another session's uncommitted WIP in epochs/cycle.ts, scheduler/epoch-boundary.ts, validation/report/run.ts, epochs/step-failure*.ts — confirm it is sound or stash it first). Before resuming consider: the fix-26 call-site swap in epochs/cycle.ts (~line 781 → captureBuildFixerPatch), fix 27 (boundary evidence keyed by DB epoch id), and the merge policy for Matching units (see LESSONS).
 - Phase 4: supervised live validation, width 8, two epochs (Ford pre-approved
   running to completion). The Phase 3 live gate folds into Phase 4's first
   boundary (real draft PR beats a scratch test). BLOCKED until the concurrent
@@ -661,7 +662,6 @@
 </important_paths>
 
 <active_runs>
-- None. All runs paused/terminal; all sandboxes deleted; server (bun
-  apps/server/src/server.ts, port 8787) is the only live process.
+- Run 4a45af8a (melee) PAUSED at 08:16Z 2026-08-29 with ordinal 9 admitted/queued (120 targets). No scheduler running; server :8787 up (pid 20468, started ~23:45Z 08-28, lacks fixes 11–26 in its API process). Cycle branch head 731a6487d9; PR #3223 green at 93.07%.
 </active_runs>
 </current_state>
