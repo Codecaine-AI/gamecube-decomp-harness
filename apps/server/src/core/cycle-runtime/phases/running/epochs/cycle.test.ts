@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRun } from "@server/core/cycle-runtime/run-state";
+import { initializeHarnessState, requestDispatch } from "@server/core/harness-state";
 import { openState } from "@server/core/orchestrator-state";
 import { sectionMeasuresFromReportJson } from "@server/core/validation/objdiff/section-measures.js";
-import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, propagateBoundaryBuildFixer, runLinkCompleteUnitsStep, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
+import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, propagateBoundaryBuildFixer, runEpochCycle, runLinkCompleteUnitsStep, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
 
 const cleanup: string[] = [];
 
@@ -17,6 +18,60 @@ function git(repoRoot: string, args: string[]): string {
   const result = Bun.spawnSync(["git", "-C", repoRoot, ...args], { stdout: "pipe", stderr: "pipe" });
   if (result.exitCode !== 0) throw new Error(result.stderr.toString() || result.stdout.toString());
   return result.stdout.toString().trim();
+}
+
+function setupEpochCycleHarness(prefix: string): {
+  binDir: string;
+  leaseId: string;
+  repoRoot: string;
+  runId: string;
+  stateDir: string;
+  store: ReturnType<typeof openState>;
+  worktreeDir: string;
+} {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  cleanup.push(root);
+  const repoRoot = join(root, "repo");
+  const stateDir = join(root, "state");
+  const worktreeDir = join(root, "epoch-worktree");
+  const binDir = join(root, "bin");
+  mkdirSync(join(repoRoot, "src"), { recursive: true });
+  mkdirSync(binDir, { recursive: true });
+  writeFileSync(join(repoRoot, "build.ninja"), "# fake build\n");
+  writeFileSync(join(repoRoot, "src", "a.c"), "int value = 1;\n");
+  git(repoRoot, ["init", "-b", "main"]);
+  git(repoRoot, ["config", "user.email", "test@example.com"]);
+  git(repoRoot, ["config", "user.name", "Epoch Test"]);
+  git(repoRoot, ["add", "."]);
+  git(repoRoot, ["commit", "-m", "initial"]);
+  const store = openState(stateDir);
+  const run = createRun(
+    store,
+    "matched_code_percent",
+    100,
+    1,
+    { gameId: "test", repoRoot },
+    { baseRevision: git(repoRoot, ["rev-parse", "HEAD"]) },
+  );
+  initializeHarnessState(store, { gameId: "test", traceId: `trace-${run.id}` });
+  const dispatch = requestDispatch(store, {
+    actor: "operator",
+    commandId: `command-${run.id}`,
+    correlationId: run.id,
+    kind: "run",
+    gameId: "test",
+    reason: "test epoch failure checkpoint",
+    workflowId: run.id,
+  });
+  if (dispatch.queued) throw new Error("test run lease was unexpectedly queued");
+  return { binDir, leaseId: dispatch.leaseId, repoRoot, runId: run.id, stateDir, store, worktreeDir };
+}
+
+function epochProgressPayloads(store: ReturnType<typeof openState>, runId: string): Array<Record<string, unknown>> {
+  const rows = store.db.query(
+    "SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress' ORDER BY created_at, id",
+  ).all(runId) as Array<{ payload_json: string }>;
+  return rows.map((row) => JSON.parse(row.payload_json) as Record<string, unknown>);
 }
 
 describe("commitEpochSnapshot", () => {
@@ -266,20 +321,274 @@ describe("runReportBuildWithFixer", () => {
     git(root, ["commit", "-m", "initial"]);
     let reportCalls = 0;
     let propagated = 0;
-    await expect(runReportBuildWithFixer({
-      enabled: true,
-      runReport: async () => { reportCalls += 1; throw new Error("still broken"); },
-      runFixer: async () => {
-        writeFileSync(join(root, "src", "a.c"), "int value = 2;\n");
-        return { exitCode: 0, timedOut: false, output: "edited source" };
-      },
-      onFixerRetrySucceeded: async () => { propagated += 1; },
-      onFixerRetryFailed: async () => discardBoundaryBuildFixer(root, () => {}),
-    })).rejects.toThrow("still broken");
+    const retryFailure = Object.assign(new Error("still broken"), {
+      exitCode: 1,
+      stdoutTail: "retry stdout",
+      stderrTail: "retry stderr",
+      logPaths: ["retry.stdout.log", "retry.stderr.log"],
+    });
+    let caught: unknown;
+    try {
+      await runReportBuildWithFixer({
+        enabled: true,
+        runReport: async () => {
+          reportCalls += 1;
+          if (reportCalls === 1) throw new Error("initial build failure");
+          throw retryFailure;
+        },
+        runFixer: async () => {
+          writeFileSync(join(root, "src", "a.c"), "int value = 2;\n");
+          return { exitCode: 0, timedOut: false, output: "edited source" };
+        },
+        onFixerRetrySucceeded: async () => { propagated += 1; },
+        onFixerRetryFailed: async () => discardBoundaryBuildFixer(root, () => {}),
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBe(retryFailure);
+    expect(caught).toMatchObject({
+      exitCode: 1,
+      stdoutTail: "retry stdout",
+      stderrTail: "retry stderr",
+      logPaths: ["retry.stdout.log", "retry.stderr.log"],
+    });
     expect(reportCalls).toBe(2);
     expect(propagated).toBe(0);
     expect(readFileSync(join(root, "src", "a.c"), "utf8")).toBe("int value = 1;\n");
     expect(git(root, ["status", "--porcelain"])).toBe("");
+  });
+});
+
+describe("runEpochCycle failure checkpoints", () => {
+  test("records report build output and the active phase when the build fails", async () => {
+    const root = mkdtempSync(join(tmpdir(), "epoch-cycle-failure-"));
+    cleanup.push(root);
+    const repoRoot = join(root, "repo");
+    const stateDir = join(root, "state");
+    const worktreeDir = join(root, "epoch-worktree");
+    const binDir = join(root, "bin");
+    mkdirSync(repoRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(repoRoot, "build.ninja"), "# fake build\n");
+    const ninjaPath = join(binDir, "ninja");
+    writeFileSync(ninjaPath, "#!/bin/sh\nprintf 'report stdout\\n'\nprintf 'error: fatal boundary build\\n' >&2\nexit 7\n");
+    chmodSync(ninjaPath, 0o755);
+    git(repoRoot, ["init", "-b", "main"]);
+    git(repoRoot, ["config", "user.email", "test@example.com"]);
+    git(repoRoot, ["config", "user.name", "Epoch Test"]);
+    git(repoRoot, ["add", "."]);
+    git(repoRoot, ["commit", "-m", "initial"]);
+
+    const store = openState(stateDir);
+    const oldPath = process.env.PATH;
+    const oldReportReuse = process.env.ORCH_REPORT_REUSE;
+    process.env.PATH = `${binDir}:${oldPath ?? ""}`;
+    delete process.env.ORCH_REPORT_REUSE;
+    try {
+      const run = createRun(
+        store,
+        "matched_code_percent",
+        100,
+        1,
+        { gameId: "test", repoRoot },
+        { baseRevision: git(repoRoot, ["rev-parse", "HEAD"]) },
+      );
+      initializeHarnessState(store, { gameId: "test", traceId: "trace-epoch-cycle-failure" });
+      const dispatch = requestDispatch(store, {
+        actor: "operator",
+        commandId: `command-${run.id}`,
+        correlationId: run.id,
+        kind: "run",
+        gameId: "test",
+        reason: "test epoch failure checkpoint",
+        workflowId: run.id,
+      });
+      if (dispatch.queued) throw new Error("test run lease was unexpectedly queued");
+
+      let caught: unknown;
+      try {
+        await runEpochCycle(store, run.id, repoRoot, stateDir, {
+          boundaryBuildFixerEnabled: false,
+          configureCommand: "",
+          epochId: "epoch-test",
+          gameId: "test",
+          label: "epoch-1",
+          leaseId: dispatch.leaseId,
+          linkCompleteUnitsEnabled: false,
+          linkPaths: [],
+          preCommitAutofixEnabled: false,
+          worktreeDir,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      const expectedMessage = "generate report failed (7): error: fatal boundary build";
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).message).toBe(expectedMessage);
+      expect(caught).toMatchObject({ phase: "report_build", exitCode: 7 });
+      const rows = store.db.query(
+        "SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress' ORDER BY created_at, id",
+      ).all(run.id) as Array<{ payload_json: string }>;
+      const payloads = rows.map((row) => JSON.parse(row.payload_json) as Record<string, unknown>);
+      const failures = payloads.filter((payload) => payload.status === "failed");
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({
+        phase: "report_build",
+        status: "failed",
+        message: expectedMessage,
+        error: expectedMessage,
+        exit_code: 7,
+        stdout_tail: "report stdout\n",
+        stderr_tail: "error: fatal boundary build\n",
+        artifact_dir: expect.stringContaining(join(stateDir, "epochs")),
+      });
+      const logPaths = failures[0]?.log_paths as string[];
+      expect(logPaths).toHaveLength(2);
+      expect(logPaths.every((path) => existsSync(path))).toBeTrue();
+      expect(payloads.filter((payload) => payload.phase === "report_build" && payload.status === "finished")).toHaveLength(0);
+    } finally {
+      if (oldPath === undefined) delete process.env.PATH;
+      else process.env.PATH = oldPath;
+      if (oldReportReuse === undefined) delete process.env.ORCH_REPORT_REUSE;
+      else process.env.ORCH_REPORT_REUSE = oldReportReuse;
+      store.db.close();
+    }
+  });
+
+  test("attributes a throw after a terminal phase to the last started phase", async () => {
+    const value = setupEpochCycleHarness("epoch-cycle-between-phases-");
+    try {
+      let caught: unknown;
+      try {
+        await runEpochCycle(value.store, value.runId, value.repoRoot, value.stateDir, {
+          configureCommand: "",
+          gameId: "test",
+          label: "epoch-1",
+          leaseId: value.leaseId,
+          linkCompleteUnitsEnabled: false,
+          linkPaths: [],
+          preCommitAutofixEnabled: false,
+          worktreeDir: value.worktreeDir,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({ phase: "integration_drain" });
+      const failures = epochProgressPayloads(value.store, value.runId).filter((payload) => payload.status === "failed");
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({ phase: "integration_drain", error: "epochId is required for a recoverable epoch integration commit" });
+    } finally {
+      value.store.db.close();
+    }
+  });
+
+  test("attributes a missing snapshot commit SHA before warning can close the phase", async () => {
+    const value = setupEpochCycleHarness("epoch-cycle-snapshot-sha-");
+    writeFileSync(join(value.repoRoot, "src", "a.c"), "int value = 2;\n");
+    const hookPath = join(value.repoRoot, ".git", "hooks", "post-commit");
+    writeFileSync(hookPath, "#!/bin/sh\ngit update-ref -d refs/heads/main\n");
+    chmodSync(hookPath, 0o755);
+    try {
+      let caught: unknown;
+      try {
+        await runEpochCycle(value.store, value.runId, value.repoRoot, value.stateDir, {
+          configureCommand: "",
+          epochId: "epoch-test",
+          gameId: "test",
+          label: "epoch-1",
+          leaseId: value.leaseId,
+          linkCompleteUnitsEnabled: false,
+          linkPaths: [],
+          preCommitAutofixEnabled: false,
+          worktreeDir: value.worktreeDir,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({ phase: "snapshot_commit" });
+      const failures = epochProgressPayloads(value.store, value.runId).filter((payload) => payload.status === "failed");
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({
+        phase: "snapshot_commit",
+        error: "epoch commit failed: could not resolve HEAD",
+      });
+    } finally {
+      value.store.db.close();
+    }
+  });
+
+  test("emits one fixer failure and stores bounded output with its full log", async () => {
+    const value = setupEpochCycleHarness("epoch-cycle-fixer-propagation-");
+    const markerPath = join(value.stateDir, "report-retry.marker");
+    const ninjaPath = join(value.binDir, "ninja");
+    writeFileSync(ninjaPath, `#!/bin/sh
+if [ "$1" = "build/GALE01/report.json" ]; then
+  if [ ! -f "$EPOCH_FIXER_REPORT_MARKER" ]; then
+    : > "$EPOCH_FIXER_REPORT_MARKER"
+    printf 'initial report failure\\n' >&2
+    exit 7
+  fi
+  mkdir -p build/GALE01
+  printf '%s\\n' '{"measures":{}}' > build/GALE01/report.json
+  exit 0
+fi
+mkdir -p build/GALE01
+printf '%s\\n' '{}' > build/GALE01/report_changes.json
+`);
+    chmodSync(ninjaPath, 0o755);
+    const fullOutput = `fixer-start\n${"x".repeat(5_000)}\nfixer-tail`;
+    const oldPath = process.env.PATH;
+    const oldMarker = process.env.EPOCH_FIXER_REPORT_MARKER;
+    const oldReportReuse = process.env.ORCH_REPORT_REUSE;
+    process.env.PATH = `${value.binDir}:${oldPath ?? ""}`;
+    process.env.EPOCH_FIXER_REPORT_MARKER = markerPath;
+    delete process.env.ORCH_REPORT_REUSE;
+    try {
+      let caught: unknown;
+      try {
+        await runEpochCycle(value.store, value.runId, value.repoRoot, value.stateDir, {
+          configureCommand: "",
+          epochId: "epoch-test",
+          gameId: "test",
+          label: "epoch-1",
+          leaseId: value.leaseId,
+          linkCompleteUnitsEnabled: false,
+          linkPaths: [],
+          preCommitAutofixEnabled: false,
+          runBoundaryBuildFixer: async ({ worktreeDir }) => {
+            writeFileSync(join(worktreeDir, "src", "a.c"), "int value = 2;\n");
+            writeFileSync(join(value.repoRoot, "src", "a.c"), "int value = 3;\n");
+            return { exitCode: 0, timedOut: false, output: fullOutput };
+          },
+          worktreeDir: value.worktreeDir,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({ phase: "report_build_fixer" });
+      const payloads = epochProgressPayloads(value.store, value.runId);
+      const failures = payloads.filter((payload) => payload.status === "failed");
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({ phase: "report_build_fixer" });
+      const finished = payloads.find((payload) => payload.phase === "report_build_fixer" && payload.status === "finished");
+      expect(finished?.output).toBe(fullOutput.slice(-4_000));
+      const [outputLogPath] = finished?.log_paths as string[];
+      expect(outputLogPath).toEndWith("boundary-build-fixer.output.log");
+      expect(readFileSync(outputLogPath, "utf8")).toBe(fullOutput);
+    } finally {
+      if (oldPath === undefined) delete process.env.PATH;
+      else process.env.PATH = oldPath;
+      if (oldMarker === undefined) delete process.env.EPOCH_FIXER_REPORT_MARKER;
+      else process.env.EPOCH_FIXER_REPORT_MARKER = oldMarker;
+      if (oldReportReuse === undefined) delete process.env.ORCH_REPORT_REUSE;
+      else process.env.ORCH_REPORT_REUSE = oldReportReuse;
+      value.store.db.close();
+    }
   });
 });
 
@@ -348,9 +657,7 @@ describe("propagateBoundaryBuildFixer", () => {
       const patchPath = join(value.artifactDir, "boundary-build-fixer.patch");
       expect(readFileSync(patchPath, "utf8")).toContain("diff --git a/src/a.c b/src/a.c");
       const events = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'").all(value.runId) as Array<{ payload_json: string }>;
-      expect(events.map((row) => JSON.parse(row.payload_json))).toContainEqual(expect.objectContaining({
-        phase: "report_build_fixer", status: "failed", files: ["src/a.c"], artifact_path: patchPath,
-      }));
+      expect(events.map((row) => JSON.parse(row.payload_json)).filter((payload) => payload.status === "failed")).toHaveLength(0);
     } finally { value.store.db.close(); }
   });
 });

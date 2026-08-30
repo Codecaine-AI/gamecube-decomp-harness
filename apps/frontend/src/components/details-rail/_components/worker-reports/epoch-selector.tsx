@@ -42,6 +42,8 @@ export function epochOptionsFor(reports: JsonObject[], knownEpochRecords: JsonOb
     if (left.id === UNKNOWN_EPOCH) return 1;
     if (right.id === UNKNOWN_EPOCH) return -1;
     if (Number.isFinite(left.ordinal) && Number.isFinite(right.ordinal)) return right.ordinal - left.ordinal;
+    if (Number.isFinite(left.ordinal)) return -1;
+    if (Number.isFinite(right.ordinal)) return 1;
     return right.id.localeCompare(left.id);
   });
   return [{ id: ALL_EPOCHS, count: reports.length, ordinal: NaN, label: "All Epochs" }, ...options];

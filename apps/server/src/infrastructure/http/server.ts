@@ -145,6 +145,29 @@ function json(data: unknown, init: ResponseInit = {}): Response {
   });
 }
 
+function compactTraceJson(req: Request, data: unknown): Response {
+  const body = JSON.stringify(data);
+  if (!req.headers.get("accept-encoding")?.includes("gzip")) {
+    return new Response(body, {
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=utf-8",
+        vary: "Accept-Encoding",
+      },
+    });
+  }
+  const compressed = Bun.gzipSync(Buffer.from(body));
+  return new Response(compressed, {
+    headers: {
+      "cache-control": "no-store",
+      "content-encoding": "gzip",
+      "content-length": String(compressed.byteLength),
+      "content-type": "application/json; charset=utf-8",
+      vary: "Accept-Encoding",
+    },
+  });
+}
+
 function text(data: string, init: ResponseInit = {}): Response {
   return new Response(data, {
     ...init,
@@ -721,6 +744,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     requestPaths: gameContext.requestPaths,
     runDashboard: (paths) => dashboardReadModel.runDashboard(paths as GameRuntimeContext),
     runDetails: (stateDir, runId, game) => dashboardReadModel.runDetails(stateDir, runId, game as ResolvedGame | null),
+    boundaryStepDetail: (stateDir, runId, query) => dashboardReadModel.boundaryStepDetail(stateDir, runId, query),
     workerStateTrace: (stateDir, runId, workerStateId) => dashboardReadModel.workerStateTrace(stateDir, runId, workerStateId),
     syncGitForPrepare: preparingRuntime.syncGitForPrepare,
   });
@@ -801,6 +825,8 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     kernelReadApiResponse: kernelRuntime.readApiResponse,
     kernelRuntimeRequired: kernelRuntime.kernelRuntimeRequired,
     kernelStatus: kernelRuntime.status,
+    kernelTraceJson: (data) => compactTraceJson(req, data),
+    kernelWorkerTrace: kernelRuntime.workerTrace,
   });
   if (kernel) return kernel;
 

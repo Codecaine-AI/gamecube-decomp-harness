@@ -242,7 +242,7 @@ export function EpochDetailPage(props: EpochDetailPageProps) {
                   disabled={!workerStateId}
                   key={workerStateId || `${text(report.claimId)}-${index}`}
                   onClick={() => workerStateId && props.nav.goToCycle(props.cycleFocus, "run", { kind: "attempt", id: workerStateId })}
-                  title={workerStateId ? "Open attempt detail" : "Worker state id unavailable"}
+                  title={workerStateId ? "Open agent trace" : "Worker state id unavailable"}
                   type="button"
                 >
                   <span className="min-w-0">

@@ -132,6 +132,7 @@ export interface BoundaryStep {
   finishedAt: string | null;
   durationMs: number | null;
   detail: string | null;
+  error: string | null;
   payload: Record<string, unknown> | null;
 }
 
@@ -142,6 +143,8 @@ export interface BoundaryAttempt {
   finishedAt: string | null;
   steps: BoundaryStep[];
   error: string | null;
+  failedStep: string | null;
+  artifactDir: string | null;
 }
 
 export interface BoundaryView {
@@ -153,6 +156,13 @@ export interface BoundaryView {
   finishedCount: number;
   active: boolean;
   attempts: BoundaryAttempt[];
+  error: string | null;
+  retry: {
+    attemptCount: number;
+    maxAttempts: number | null;
+    nextAttemptAt: string | null;
+    exhausted: boolean;
+  } | null;
   savePointId: string | null;
   matchedCodePercent: number | null;
   nextEpoch: { ordinal: number; admitted: number } | null;

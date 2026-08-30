@@ -18,6 +18,7 @@ import { createMeleeTraceWriter } from "./bridge/trace-writer.js";
 import {
   meleeRootContainerId,
   meleeSyncWorkflowContainerId,
+  meleeWorkerContainerId,
 } from "./bridge/session-mapping.js";
 import {
   createDashboardKernelRuntimeService,
@@ -35,6 +36,51 @@ afterEach(() => {
 });
 
 describe("dashboard kernel trace linkage persistence", () => {
+  test("reads a worker trace directly from its deterministic container", async () => {
+    const requestedIds: string[] = [];
+    const kernelRuntime = {
+      config: { kernelId: "test-kernel", piSessionsDir: "/tmp/pi-sessions" },
+      readRows: async (containerId: string) => {
+        requestedIds.push(containerId);
+        return {
+          agentRuns: [],
+          containers: [],
+          events: [],
+          piSessions: [],
+          rootContainer: {
+            id: containerId,
+            kind: "worker",
+            label: "Worker",
+            metadata: {},
+            status: "running",
+          },
+        };
+      },
+      close: async () => {},
+    } as unknown as MeleeKernelRuntime;
+    const service = createDashboardKernelRuntimeService({
+      createKernelRuntime: async () => kernelRuntime,
+      env: { ORCH_AGENT_KERNEL_DATABASE_URL: "postgres://kernel.invalid/test" },
+      json: (data, init) => Response.json(data, init),
+      latestRunId: () => "",
+      packageRoot: "/repo",
+      port: 8787,
+    });
+    const identity = {
+      claimId: "claim-1",
+      epochId: "epoch-7",
+      gameId: "melee",
+      runId: "run-1",
+      sessionId: "cycle-1",
+    };
+
+    const detail = await service.workerTrace(identity);
+
+    expect(requestedIds).toEqual([meleeWorkerContainerId(identity)]);
+    expect(detail?.container?.id).toBe(requestedIds[0]);
+    await service.closeForTests();
+  });
+
   test("records kernel identity and the last game-event cursor", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-"));
     tempDirs.push(stateDir);

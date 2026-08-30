@@ -8,8 +8,8 @@ export function WorkTables(props: WorkTablesProps) {
   return (
     <div className="grid items-start border-b border-line min-[1180px]:grid-cols-3">
       <ImprovedTable dashboard={props.dashboard} mode="confirmed" />
-      <ImprovedTable dashboard={props.dashboard} mode="tentative" onSelectAttempt={props.onSelectAttempt} />
-      <WorkStatusTable dashboard={props.dashboard} mode={props.workMode} onSelectAttempt={props.onSelectAttempt} setMode={props.setWorkMode} />
+      <ImprovedTable dashboard={props.dashboard} mode="tentative" onSelectAgent={props.onSelectAgent} />
+      <WorkStatusTable dashboard={props.dashboard} mode={props.workMode} onSelectAgent={props.onSelectAgent} setMode={props.setWorkMode} />
     </div>
   );
 }

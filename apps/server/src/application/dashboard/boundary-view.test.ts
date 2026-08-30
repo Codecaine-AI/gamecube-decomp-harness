@@ -24,6 +24,8 @@ function epoch(overrides: Partial<BoundaryEpochRow> = {}): BoundaryEpochRow {
     admitted_count: 12,
     finished_count: 12,
     boundary_status: "success",
+    boundary_attempt_count: 0,
+    boundary_next_attempt_at: null,
     created_at: at(0),
     closed_at: at(90),
     ...overrides,
@@ -74,16 +76,19 @@ describe("boundary view projection", () => {
       events.push(checkpoint(2 + index * 4, key, "started"));
       events.push(checkpoint(4 + index * 4, key, "finished", key === "save_point" ? { save_point_id: "savepoint123456" } : {}));
     });
+    const trailingStart = 4 + checkpointKeys.length * 4;
     events.push(
-      event(47, "boundary_sync", { status: "started", anchor_before: "a" }),
-      event(50, "boundary_sync", { status: "finished", drifted: true, merge_commit_sha: "abcdef123456", displaced_count: 2 }),
-      event(52, "boundary_breakage_gate", { status: "clean", baseline_sha: "1234567890", breakages: [], moved: [], reasons: [] }),
-      event(54, "ci_parity_gate", { ci_parity_status: "passed", pre_commit_status: "passed", reasons: [], steps: [] }),
-      event(56, "draft_pr_publish", { status: "started" }),
-      event(59, "draft_pr_publish", { status: "finished", pr_url: "https://example.test/pr/1" }),
-      event(61, "epoch_full_refresh_started", { lane: "full_boundary" }),
-      event(66, "epoch_full_refresh_finished", { lane: "full_boundary" }),
-      event(68, "epoch_finished", { status: "success" }),
+      event(trailingStart, "boundary_sync", { status: "started", anchor_before: "a" }),
+      event(trailingStart + 3, "boundary_sync", { status: "finished", drifted: true, merge_commit_sha: "abcdef123456", displaced_count: 2 }),
+      event(trailingStart + 5, "boundary_breakage_gate", { status: "clean", baseline_sha: "1234567890", breakages: [], moved: [], reasons: [] }),
+      event(trailingStart + 7, "ci_parity_gate", { ci_parity_status: "passed", pre_commit_status: "passed", reasons: [], steps: [] }),
+      checkpoint(trailingStart + 9, "precommit_autofix", "started"),
+      checkpoint(trailingStart + 11, "precommit_autofix", "finished"),
+      event(trailingStart + 13, "draft_pr_publish", { status: "started" }),
+      event(trailingStart + 16, "draft_pr_publish", { status: "finished", pr_url: "https://example.test/pr/1" }),
+      event(trailingStart + 18, "epoch_full_refresh_started", { lane: "full_boundary" }),
+      event(trailingStart + 23, "epoch_full_refresh_finished", { lane: "full_boundary" }),
+      event(trailingStart + 25, "epoch_finished", { status: "success" }),
       event(92, "epoch_admitted", { ordinal: 8, admitted: 9 }),
     );
     const dashboard = projectBoundaryDashboard(rows({ events, savePoints: [savePoint()] }));
@@ -95,7 +100,36 @@ describe("boundary view projection", () => {
     expect(step(attempt.steps, "integration_drain").durationMs).toBe(2_000);
     expect(step(attempt.steps, "boundary_sync").durationMs).toBe(3_000);
     expect(step(attempt.steps, "knowledge_maintenance").durationMs).toBe(5_000);
-    expect(view).toMatchObject({ savePointId: "savepoint123456", matchedCodePercent: 88.25, nextEpoch: { ordinal: 8, admitted: 9 }, active: false });
+    expect(view).toMatchObject({ error: null, retry: null, savePointId: "savepoint123456", matchedCodePercent: 88.25, nextEpoch: { ordinal: 8, admitted: 9 }, active: false });
+    expect(attempt.steps.every((item) => item.error === null)).toBeTrue();
+  });
+
+  test("keeps the full failed checkpoint error on its step", () => {
+    const fullError = "report build failed\ncompiler stderr line 1\ncompiler stderr line 2";
+    const attempt = projectBoundaryDashboard(rows({ events: [
+      checkpoint(1, "integration_drain", "started"),
+      checkpoint(2, "integration_drain", "finished", { error: "ignored on a finished step" }),
+      checkpoint(3, "report_build", "started"),
+      checkpoint(4, "report_build", "failed", { error: fullError, message: "short runner message", exit_code: 1 }),
+    ] })).current!.attempts[0]!;
+
+    expect(step(attempt.steps, "integration_drain").error).toBeNull();
+    expect(step(attempt.steps, "report_build")).toMatchObject({
+      state: "failed",
+      detail: "report build failed",
+      error: fullError,
+      payload: { exit_code: 1 },
+    });
+    expect(attempt.failedStep).toBe("report_build");
+  });
+
+  test("uses the checkpoint message when a failed checkpoint has no error text", () => {
+    const attempt = projectBoundaryDashboard(rows({ events: [
+      checkpoint(1, "integration_drain", "started"),
+      checkpoint(2, "integration_drain", "failed", { message: "drain command exited 2" }),
+    ] })).current!.attempts[0]!;
+
+    expect(step(attempt.steps, "integration_drain")).toMatchObject({ state: "failed", detail: "drain command exited 2", error: null });
   });
 
   test("projects a mid-flight running step and pending tail", () => {
@@ -129,9 +163,185 @@ describe("boundary view projection", () => {
 
     expect(attempts.map((attempt) => attempt.attempt)).toEqual([1, 2]);
     expect(attempts[0]!.error).toBe("first attempt exploded");
-    expect(step(attempts[0]!.steps, "report_build").state).toBe("failed");
+    expect(attempts[0]!.failedStep).toBe("report_build");
+    expect(step(attempts[0]!.steps, "report_build")).toMatchObject({ state: "failed", error: "first attempt exploded" });
     expect(step(attempts[1]!.steps, "report_build").state).toBe("running");
     expect(dashboard.current!.active).toBeTrue();
+  });
+
+  test("attributes a cycle error to its failed phase and keeps the latest artifact directory", () => {
+    const fullError = "objdiff failed\nstack frame one\nstack frame two";
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      checkpoint(2, "integration_drain", "finished"),
+      checkpoint(3, "report_build", "started", { artifact_dir: "/artifacts/report" }),
+      checkpoint(4, "save_point", "finished", { artifact_dir: "/artifacts/save-point" }),
+      event(5, "epoch_cycle_error", { error: fullError, failed_phase: "report_build", artifact_dir: "/artifacts/error" }),
+    ];
+    const attempt = projectBoundaryDashboard(rows({ epochs: [epoch({ status: "error", boundary_status: null, closed_at: at(6) })], events })).current!.attempts[0]!;
+
+    expect(attempt).toMatchObject({ error: fullError, failedStep: "report_build", artifactDir: "/artifacts/error" });
+    expect(step(attempt.steps, "report_build")).toMatchObject({ state: "failed", detail: "objdiff failed", error: fullError });
+  });
+
+  test("uses the first failed step when a cycle error has no failed phase", () => {
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      checkpoint(2, "integration_drain", "failed", { error: "drain failed\nfull output" }),
+      event(3, "epoch_cycle_error", { error: "boundary failed" }),
+    ];
+    const attempt = projectBoundaryDashboard(rows({ epochs: [epoch({ status: "error", boundary_status: null, closed_at: at(4) })], events })).current!.attempts[0]!;
+
+    expect(attempt.failedStep).toBe("integration_drain");
+  });
+
+  test("ignores an unknown failed phase and falls back to the first failed step", () => {
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      checkpoint(2, "integration_drain", "failed", { error: "drain failed" }),
+      event(3, "epoch_cycle_error", { error: "boundary failed", failed_phase: "unknown_phase" }),
+    ];
+    const attempt = projectBoundaryDashboard(rows({ epochs: [epoch({ status: "error", boundary_status: null, closed_at: at(4) })], events })).current!.attempts[0]!;
+
+    expect(attempt.failedStep).toBe("integration_drain");
+  });
+
+  test("keeps an earlier attempt error on typed close and the epoch view", () => {
+    const fullError = "attempt one exploded\nfull stack trace";
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      checkpoint(2, "integration_drain", "finished"),
+      checkpoint(3, "report_build", "started"),
+      event(4, "epoch_cycle_error", { error: fullError, failed_phase: "report_build" }),
+      checkpoint(10, "integration_drain", "started"),
+      checkpoint(11, "integration_drain", "finished"),
+      event(12, "epoch_finished", { status: "error" }),
+    ];
+    const view = projectBoundaryDashboard(rows({ epochs: [epoch({ status: "error", boundary_status: null, closed_at: at(13) })], events })).current!;
+    const close = step(view.attempts[1]!.steps, "typed_close");
+
+    expect(view.attempts).toHaveLength(2);
+    expect(view.attempts[0]!.error).toBe(fullError);
+    expect(view.attempts[1]!.error).toBeNull();
+    expect(view.error).toBe(fullError);
+    expect(close).toMatchObject({
+      state: "failed",
+      detail: "attempt one exploded",
+      error: fullError,
+      payload: { epoch_status: "error", boundary_status: null, failed_step: null },
+    });
+  });
+
+  test("uses an epoch finished error when no cycle error was recorded", () => {
+    const fullError = "epoch close failed\nclose stack";
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      checkpoint(2, "integration_drain", "finished"),
+      event(3, "epoch_finished", { status: "error", error: fullError }),
+    ];
+    const view = projectBoundaryDashboard(rows({ epochs: [epoch({ status: "error", boundary_status: null, closed_at: at(4) })], events })).current!;
+
+    expect(view.error).toBe(fullError);
+    expect(step(view.attempts[0]!.steps, "typed_close")).toMatchObject({ state: "failed", detail: "epoch close failed", error: fullError });
+  });
+
+  test("projects retry scheduling from the epoch row and retry event", () => {
+    const nextAttemptAt = at(45);
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      event(3, "epoch_boundary_retry_scheduled", {
+        epoch: 7,
+        epoch_id: "epoch-7",
+        attempt: 2,
+        max_attempts: 4,
+        next_attempt_at: nextAttemptAt,
+        delay_ms: 5_000,
+        error: "boundary failed",
+      }),
+    ];
+    const view = projectBoundaryDashboard(rows({
+      epochs: [epoch({ status: "active", boundary_status: null, boundary_attempt_count: 2, boundary_next_attempt_at: nextAttemptAt, closed_at: null })],
+      events,
+    })).current!;
+
+    expect(view.retry).toEqual({ attemptCount: 2, maxAttempts: 4, nextAttemptAt, exhausted: false });
+  });
+
+  test("falls back to retry event fields when the epoch row has no retry count", () => {
+    const nextAttemptAt = at(45);
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      event(3, "epoch_boundary_retry_scheduled", { attempt: 2, max_attempts: 4, next_attempt_at: nextAttemptAt }),
+    ];
+    const view = projectBoundaryDashboard(rows({
+      epochs: [epoch({ status: "active", boundary_status: null, boundary_attempt_count: 0, boundary_next_attempt_at: null, closed_at: null })],
+      events,
+    })).current!;
+
+    expect(view.retry).toEqual({ attemptCount: 2, maxAttempts: 4, nextAttemptAt, exhausted: false });
+  });
+
+  test("projects event-only retry exhaustion when the epoch row has no retry count", () => {
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      event(3, "epoch_boundary_retry_exhausted", { attempt: 4, max_attempts: 4, next_attempt_at: null }),
+    ];
+    const view = projectBoundaryDashboard(rows({
+      epochs: [epoch({ status: "error", boundary_status: null, boundary_attempt_count: 0, boundary_next_attempt_at: null, closed_at: at(4) })],
+      events,
+    })).current!;
+
+    expect(view.retry).toEqual({ attemptCount: 4, maxAttempts: 4, nextAttemptAt: null, exhausted: true });
+  });
+
+  test("prefers the larger retry attempt count from the row or event", () => {
+    const rowNextAttemptAt = at(40);
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      event(3, "epoch_boundary_retry_scheduled", { attempt: 3, max_attempts: 4, next_attempt_at: at(45) }),
+    ];
+    const view = projectBoundaryDashboard(rows({
+      epochs: [epoch({ status: "active", boundary_status: null, boundary_attempt_count: 2, boundary_next_attempt_at: rowNextAttemptAt, closed_at: null })],
+      events,
+    })).current!;
+
+    expect(view.retry).toEqual({ attemptCount: 3, maxAttempts: 4, nextAttemptAt: rowNextAttemptAt, exhausted: false });
+  });
+
+  test("uses the latest retry event and exposes retry exhaustion", () => {
+    const events = [
+      checkpoint(1, "integration_drain", "started"),
+      event(2, "epoch_boundary_retry_scheduled", { attempt: 2, max_attempts: 3, next_attempt_at: at(20), error: "first" }),
+      event(3, "epoch_boundary_retry_exhausted", { attempt: 3, max_attempts: 5, next_attempt_at: null, error: "last" }),
+    ];
+    const view = projectBoundaryDashboard(rows({
+      epochs: [epoch({ status: "error", boundary_status: "retry_exhausted", boundary_attempt_count: 5, boundary_next_attempt_at: null, closed_at: at(4) })],
+      events,
+    })).current!;
+
+    expect(view.retry).toEqual({ attemptCount: 5, maxAttempts: 5, nextAttemptAt: null, exhausted: true });
+  });
+
+  test("keeps fixer steps in canonical order and reconciles the named default range", () => {
+    expect(BOUNDARY_STEP_KEYS.indexOf("report_build_fixer")).toBe(BOUNDARY_STEP_KEYS.indexOf("report_build") + 1);
+    expect(BOUNDARY_STEP_KEYS.indexOf("precommit_autofix")).toBe(BOUNDARY_STEP_KEYS.indexOf("pre_commit_gate") + 1);
+
+    const events = [
+      event(2, "epoch_boundary_reconciled", { epoch: 7, epoch_id: "epoch-7" }),
+    ];
+    const attempt = projectBoundaryDashboard(rows({ events })).current!.attempts[0]!;
+    const firstSkipped = BOUNDARY_STEP_KEYS.indexOf("snapshot_commit");
+    const lastSkipped = BOUNDARY_STEP_KEYS.indexOf("draft_pr_publish");
+
+    for (const [index, key] of BOUNDARY_STEP_KEYS.entries()) {
+      if (index >= firstSkipped && index <= lastSkipped) {
+        expect(step(attempt.steps, key)).toMatchObject({ state: "skipped", detail: "reconciled: step skipped" });
+      }
+    }
+    expect(step(attempt.steps, "link_complete_units").state).toBe("pending");
+    expect(step(attempt.steps, "report_build_fixer").state).toBe("skipped");
+    expect(step(attempt.steps, "precommit_autofix").state).toBe("skipped");
+    expect(step(attempt.steps, "draft_pr_publish").state).toBe("skipped");
   });
 
   test("marks only recorded reconcile steps skipped and preserves rerun evidence", () => {
@@ -170,18 +380,31 @@ describe("boundary view projection", () => {
     expect(step(attempt.steps, "admission").state).toBe("done");
   });
 
-  test("maps breakage, CI parity, and pre-commit failures", () => {
+  test("maps breakage, CI parity, and pre-commit failures with full reason text", () => {
     const breakages = [{ unit: "a.c", symbol: "fn" }, { unit: "b.c", symbol: "other" }];
+    const breakageReasons = ["regression in a.c", "regression in b.c\nsecond line"];
+    const gateReasons = ["pre-commit hook failed\nhook stderr", "pre-commit lint failed", "compile failed\nmore detail", "tests failed"];
     const events = [
       checkpoint(1, "integration_drain", "started"),
-      event(2, "boundary_breakage_gate", { status: "breakage", breakages, moved: [], reasons: ["regression"] }),
-      event(3, "ci_parity_gate", { ci_parity_status: "failed", pre_commit_status: "failed", reasons: ["pre-commit hook failed", "compile failed\nmore detail"], steps: [{ gate: "ci_parity" }] }),
+      event(2, "boundary_breakage_gate", { status: "breakage", breakages, moved: [], reasons: breakageReasons }),
+      event(3, "ci_parity_gate", { ci_parity_status: "failed", pre_commit_status: "failed", reasons: gateReasons, steps: [{ gate: "ci_parity" }] }),
     ];
     const attempt = projectBoundaryDashboard(rows({ epochs: [epoch({ status: "paused", boundary_status: "regression_pause" })], events })).current!.attempts[0]!;
 
-    expect(step(attempt.steps, "master_breakage_gate")).toMatchObject({ state: "failed", detail: "2 breakages", payload: { breakages } });
-    expect(step(attempt.steps, "ci_parity_gate")).toMatchObject({ state: "failed", detail: "compile failed" });
-    expect(step(attempt.steps, "pre_commit_gate")).toMatchObject({ state: "failed", detail: "pre-commit hook failed" });
+    expect(step(attempt.steps, "master_breakage_gate")).toMatchObject({ state: "failed", detail: "2 breakages", error: breakageReasons.join("\n"), payload: { breakages } });
+    expect(step(attempt.steps, "ci_parity_gate")).toMatchObject({ state: "failed", detail: "compile failed", error: [gateReasons[2], gateReasons[3]].join("\n") });
+    expect(step(attempt.steps, "pre_commit_gate")).toMatchObject({ state: "failed", detail: "pre-commit hook failed", error: [gateReasons[0], gateReasons[1]].join("\n") });
+  });
+
+  test("keeps the full draft PR publish error", () => {
+    const fullError = "git push failed\nremote rejected the update";
+    const attempt = projectBoundaryDashboard(rows({ events: [
+      checkpoint(1, "integration_drain", "started"),
+      event(2, "draft_pr_publish", { status: "started" }),
+      event(3, "draft_pr_publish", { status: "failed", error: fullError }),
+    ] })).current!.attempts[0]!;
+
+    expect(step(attempt.steps, "draft_pr_publish")).toMatchObject({ state: "failed", detail: "git push failed", error: fullError });
   });
 
   test("uses clean CI detail while preserving the shared gate payload", () => {
@@ -240,7 +463,7 @@ describe("boundary view projection", () => {
     expect(view.attempts[0]!.error).toBeNull();
   });
 
-  test("warns on a stranded running step when the epoch is in error", () => {
+  test("fails a stranded running step when the epoch is in error", () => {
     const events = [
       event(1, "epoch_started", {}),
       checkpoint(2, "integration_drain", "started"),
@@ -254,7 +477,8 @@ describe("boundary view projection", () => {
 
     expect(view.active).toBeFalse();
     expect(view.attempts[0]!.error).toBe("objdiff failed for src/foo.c");
-    expect(step(view.attempts[0]!.steps, "report_build")).toMatchObject({ state: "warning", detail: "report_build started (no finish recorded)" });
+    expect(view.attempts[0]!.failedStep).toBe("report_build");
+    expect(step(view.attempts[0]!.steps, "report_build")).toMatchObject({ state: "failed", detail: "report_build started", error: "objdiff failed for src/foo.c" });
     expect(step(view.attempts[0]!.steps, "typed_close")).toMatchObject({ state: "failed", detail: "objdiff failed for src/foo.c" });
   });
 });

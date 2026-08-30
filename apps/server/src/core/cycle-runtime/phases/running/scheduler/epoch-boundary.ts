@@ -23,6 +23,11 @@ import {
 } from "@server/core/cycle-runtime/phases/running/epochs";
 import { publishCycleDraftPr as publishCycleDraftPrDefault } from "@server/core/cycle-runtime/phases/running/epochs/cycle-draft-pr.js";
 import {
+  PhaseTracker,
+  isBoundaryStepError,
+  stepFailureCheckpoint,
+} from "@server/core/cycle-runtime/phases/running/epochs/step-failure.js";
+import {
   addEvent,
   closeSchedulerEpoch,
   closeSchedulerEpochWithEvidence,
@@ -410,6 +415,22 @@ function hasPrSyncSavePoint(store: StateStore, runId: string, epochOrdinal: numb
   ).get(runId, `epoch-${epochOrdinal}-pr-sync`));
 }
 
+interface BoundaryProgressEvent {
+  label: string | null;
+  message: string;
+  phase: string;
+  status: "started" | "finished" | "skipped" | "warning" | "failed";
+  [key: string]: unknown;
+}
+
+function epochProgress(store: StateStore, runId: string, event: BoundaryProgressEvent): void {
+  console.error(`[epoch] ${event.label ?? runId.slice(0, 8)} ${event.phase} ${event.status}: ${event.message}`);
+  addEvent(store, runId, "epoch_checkpoint_progress", "epoch-cycle", {
+    ...event,
+    created_by: "epoch-cycle",
+  });
+}
+
 export async function runEpochBoundary(params: EpochBoundaryParams): Promise<EpochBoundaryOutcome> {
   const {
     store,
@@ -439,6 +460,13 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
   let nextEpoch: ReturnType<typeof ensureSchedulerEpochFromBoardDefault> | undefined;
   let boundarySync: BoundarySyncResult | undefined;
   let breakageGate: MasterBreakageGateResult | undefined;
+  const label = `epoch-${epochOrdinal}`;
+  const phaseTracker = new PhaseTracker<BoundaryProgressEvent>((event) => {
+    if (event.status === "failed") epochProgress(store, runId, event);
+  });
+  const trackPhase = (phase: string, status: "started" | "finished"): void => {
+    phaseTracker.progress({ label, phase, status, message: `${phase} ${status}` });
+  };
   const reconcileSkippedSteps = [
     "link_complete_units", "precommit_autofix", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
     "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point",
@@ -450,7 +478,6 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       // Dry runs skip the snapshot/build but still close/start scheduler epochs
       // so tests exercise deterministic admission.
     } else {
-      const label = `epoch-${epochOrdinal}`;
       const retained = reconcilePendingIntegrationAttempt(store, {
         runId,
         epochId: schedulerEpochId ?? label,
@@ -474,14 +501,17 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         const prSyncRecorded = hasPrSyncSavePoint(store, runId, epochOrdinal);
         if (config.boundarySyncEnabled && (!boundarySyncEvidence || !prSyncRecorded)) {
           reconcileRerunSteps.push("boundary_sync");
+          trackPhase("boundary_sync", "started");
           boundarySync = runBoundarySync
             ? await runBoundarySync({ params, epochResult: boundaryResult })
             : await productionBoundarySync(params);
+          trackPhase("boundary_sync", "finished");
         } else reconcileSkippedSteps.push("boundary_sync");
         const breakageEvidence = completedBoundaryEvent(store, runId, schedulerEpochId ?? label, epochOrdinal, "boundary_breakage_gate");
         if (config.breakageGateEnabled && !breakageEvidence) {
           reconcileRerunSteps.push("master_breakage_gate");
           const gate = params.dependencies?.runMasterBreakageGate ?? runMasterBreakageGateDefault;
+          trackPhase("master_breakage_gate", "started");
           breakageGate = await gate({
             repoRoot: globals.repoRoot,
             stateDir: globals.stateDir,
@@ -508,6 +538,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             boundaryResult.repair.paused = true;
             boundaryResult.repair.reasons.push(`master breakage gate: ${breakageGate.breakages.length} item(s)`);
           }
+          trackPhase("master_breakage_gate", "finished");
         } else reconcileSkippedSteps.push("master_breakage_gate");
         const gateEvidence = completedBoundaryEvent(store, runId, schedulerEpochId ?? label, epochOrdinal, "ci_parity_gate");
         for (const [enabled, step] of [[config.ciParityEnabled, "ci_parity_gate"], [config.preCommitGateEnabled, "pre_commit_gate"]] as const) {
@@ -517,8 +548,16 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         let ciParity: CiParityResult | undefined;
         let preCommit: CiParityResult | undefined;
         if (!gateEvidence) {
-          if (config.ciParityEnabled) ciParity = await (params.dependencies?.runCiParityGate ?? runCiParityGateDefault)({ worktreeDir: globals.repoRoot, sha: boundarySync?.headSha ?? retained.completed.commitSha });
-          if (config.preCommitGateEnabled) preCommit = await (params.dependencies?.runPreCommitGate ?? runPreCommitGateDefault)({ worktreeDir: globals.repoRoot, cacheDir: resolve(globals.stateDir, "pre-commit-cache") });
+          if (config.ciParityEnabled) {
+            trackPhase("ci_parity_gate", "started");
+            ciParity = await (params.dependencies?.runCiParityGate ?? runCiParityGateDefault)({ worktreeDir: globals.repoRoot, sha: boundarySync?.headSha ?? retained.completed.commitSha });
+            trackPhase("ci_parity_gate", "finished");
+          }
+          if (config.preCommitGateEnabled) {
+            trackPhase("pre_commit_gate", "started");
+            preCommit = await (params.dependencies?.runPreCommitGate ?? runPreCommitGateDefault)({ worktreeDir: globals.repoRoot, cacheDir: resolve(globals.stateDir, "pre-commit-cache") });
+            trackPhase("pre_commit_gate", "finished");
+          }
           if (config.ciParityEnabled || config.preCommitGateEnabled) addEvent(store, runId, "ci_parity_gate", "run-loop", {
             epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label,
             ci_parity_status: ciParity?.status ?? (config.ciParityEnabled ? "skipped" : "disabled"),
@@ -535,6 +574,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         const publishCompleted = publishEvidence && ["finished", "skipped"].includes(String(publishEvidence.status));
         if (config.cycleDraftPrEnabled && !publishCompleted) {
           reconcileRerunSteps.push("draft_pr_publish");
+          trackPhase("draft_pr_publish", "started");
           const publish = await publishCycleDraftPr({
             baseRef: globals.game?.baseRef, commitSha: boundarySync?.headSha ?? retained.completed.commitSha,
             epochLabel: label, epochOrdinal, matchedCodePercent: null,
@@ -547,6 +587,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             : publish.status === "skipped"
               ? { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label, status: "skipped", reason: publish.reason ?? "publisher_skipped", created_by: "run-loop" }
               : { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? label, status: "finished", pr_url: publish.url, head_sha: publish.commitSha, created_by: "run-loop" });
+          trackPhase("draft_pr_publish", "finished");
         } else reconcileSkippedSteps.push("draft_pr_publish");
         console.error(`[run-loop] epoch ${epochOrdinal}: pending integration attempt reconciled; skipped: ${reconcileSkippedSteps.join(", ")}; re-ran: ${reconcileRerunSteps.join(", ") || "none"}`);
         addEvent(store, runId, "epoch_boundary_reconciled", "run-loop", {
@@ -593,6 +634,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             anchor_before: anchor?.upstream_revision ?? null,
             created_by: "run-loop",
           });
+          trackPhase("boundary_sync", "started");
           try {
             boundarySync = runBoundarySync
               ? await runBoundarySync({ params, epochResult: result })
@@ -626,6 +668,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
                 created_by: "run-loop",
               });
             }
+            trackPhase("boundary_sync", "finished");
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             addEvent(store, runId, "boundary_sync", "run-loop", {
@@ -662,6 +705,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             : undefined;
           const reportRelPath = globals.game?.validation.reportPath ?? "build/GALE01/report.json";
           const gate = params.dependencies?.runMasterBreakageGate ?? runMasterBreakageGateDefault;
+          trackPhase("master_breakage_gate", "started");
           breakageGate = await gate({
             repoRoot: globals.repoRoot,
             stateDir: globals.stateDir,
@@ -708,6 +752,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           } else if (breakageGate.status === "skipped" || breakageGate.status === "error") {
             console.error(`[run-loop] epoch ${epochOrdinal}: master breakage gate ${breakageGate.status}: ${breakageGate.reasons.join("; ")}`);
           }
+          trackPhase("master_breakage_gate", "finished");
         }
         if (config.cycleDraftPrEnabled) {
           const pushSha = boundarySync?.headSha ?? result.commitSha;
@@ -715,16 +760,20 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           let preCommit: CiParityResult | undefined;
           if (config.ciParityEnabled && result.worktreeDir && pushSha) {
             const runCiParityGate = params.dependencies?.runCiParityGate ?? runCiParityGateDefault;
+            trackPhase("ci_parity_gate", "started");
             ciParity = await runCiParityGate({ worktreeDir: result.worktreeDir, sha: pushSha });
+            trackPhase("ci_parity_gate", "finished");
           }
           const gitSwitchFailed = ciParity?.status === "error"
             && ciParity.steps.some((step) => step.name.toLowerCase().includes("git switch") && step.exitCode !== 0);
           if (config.preCommitGateEnabled && result.worktreeDir && pushSha && !gitSwitchFailed) {
             const runPreCommitGate = params.dependencies?.runPreCommitGate ?? runPreCommitGateDefault;
+            trackPhase("pre_commit_gate", "started");
             preCommit = await runPreCommitGate({
               worktreeDir: result.worktreeDir,
               cacheDir: resolve(globals.stateDir, "pre-commit-cache"),
             });
+            trackPhase("pre_commit_gate", "finished");
           }
           if (config.ciParityEnabled || config.preCommitGateEnabled) {
             const reasons = [...(ciParity?.reasons ?? []), ...(preCommit?.reasons ?? [])].slice(0, 20);
@@ -766,6 +815,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
               status: "started",
               created_by: "run-loop",
             });
+            trackPhase("draft_pr_publish", "started");
             let publish;
             try {
               publish = await publishCycleDraftPr({
@@ -797,6 +847,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
               : publish.status === "skipped"
                 ? { epoch: epochOrdinal, status: "skipped", reason: publish.reason ?? "publisher_skipped", created_by: "run-loop" }
                 : { epoch: epochOrdinal, status: "finished", pr_url: publish.url ?? undefined, head_sha: publish.commitSha ?? pushSha ?? undefined, created_by: "run-loop" });
+            trackPhase("draft_pr_publish", "finished");
             console.error(
               `[run-loop] epoch ${epochOrdinal}: cycle draft PR ${publish.status}` +
                 `${publish.url ? ` ${publish.url}` : publish.reason ? ` (${publish.reason})` : publish.error ? ` (${publish.error})` : ""}`,
@@ -875,6 +926,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         repo_root: maintenanceGlobals.repoRoot,
         created_by: "run-loop",
       });
+      trackPhase("knowledge_maintenance", "started");
       const maintenance = await runKnowledgeMaintenance(
         maintenanceGlobals,
         fullBoundaryKnowledgeMaintenanceArgs(args, runId, config.fullKgMaintenanceMode),
@@ -902,6 +954,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         repo_root: maintenanceGlobals.repoRoot,
         created_by: "run-loop",
       });
+      trackPhase("knowledge_maintenance", "finished");
     }
 
     if (schedulerEpochId && reconciled) {
@@ -954,6 +1007,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       }
     }
 
+    trackPhase("admission", "started");
     nextEpoch = ensureSchedulerEpochFromBoard({
       config: config.schedulerEpochConfig,
       globals,
@@ -972,6 +1026,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       available: nextEpoch.progress.available,
       created_by: "run-loop",
     });
+    trackPhase("admission", "finished");
     return {
       ok: true,
       boundaryResult,
@@ -985,17 +1040,37 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const outerFailedPhase = phaseTracker.current();
+    const carriedFailure = isBoundaryStepError(error) ? error : null;
+    const failedPhase = outerFailedPhase ?? carriedFailure?.phase ?? null;
+    const failureCheckpoint = stepFailureCheckpoint(error, boundaryResult?.artifactDir);
+    const artifactDir = carriedFailure?.artifactDir ?? failureCheckpoint.artifact_dir ?? null;
+    if (outerFailedPhase) {
+      try {
+        phaseTracker.progress({
+          label,
+          phase: outerFailedPhase,
+          status: "failed",
+          ...failureCheckpoint,
+        });
+      } catch (checkpointError) {
+        const checkpointMessage = checkpointError instanceof Error ? checkpointError.message : String(checkpointError);
+        console.error(`[run-loop] epoch ${epochOrdinal}: failed checkpoint emission for ${outerFailedPhase}: ${checkpointMessage}`);
+      }
+    }
     console.error(`[run-loop] epoch ${epochOrdinal} failed: ${message}`);
     addEvent(store, runId, "epoch_cycle_error", "run-loop", {
       epoch: epochOrdinal,
       error: message.slice(0, 8000),
+      failed_phase: failedPhase,
+      artifact_dir: artifactDir,
       created_by: "run-loop",
     });
     if (schedulerEpochId) {
       closeSchedulerEpoch(store, schedulerEpochId, {
         status: "error",
         boundaryStatus: "error",
-        routingSummary: { trigger, error: message.slice(0, 8000) },
+        routingSummary: { trigger, error: message.slice(0, 8000), failed_phase: failedPhase },
       });
     }
     const retry = schedulerEpochId
@@ -1015,6 +1090,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         next_attempt_at: retry.nextAttemptAt,
         delay_ms: retry.delayMs,
         error: message.slice(0, 2000),
+        failed_phase: failedPhase,
         created_by: "run-loop",
       };
       addEvent(store, runId, retry.terminal ? "epoch_boundary_retry_exhausted" : "epoch_boundary_retry_scheduled", "run-loop", payload);

@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { buildTraceSpans, type KernelTraceSessionDetail, type KernelTraceSessionSummary } from "@agent-kernel/viewer-core";
-import { KernelTraceViewer } from "@agent-kernel/viewer-shell";
+import { useEffect, useState } from "react";
+import { type KernelTraceSessionDetail, type KernelTraceSessionSummary } from "@agent-kernel/viewer-core";
 import {
   fetchKernelStatus,
   fetchKernelTraceSessionDetail,
@@ -9,6 +8,7 @@ import {
 } from "@/lib/api";
 import { asArray, asObject, shortId, text, type FormState, type JsonObject } from "@/lib/format";
 import type { CycleView } from "@/pages/workspace/_lib/types";
+import { TraceDetailViewer } from "@/pages/workspace/trace/detail-viewer";
 import { traceSelectionUrl } from "./game-event-model";
 
 interface TraceCycle {
@@ -231,27 +231,6 @@ export function TracePage({ form, view }: { form: FormState; view: CycleView }) 
   const [detail, setDetail] = useState<KernelTraceSessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const spans = useMemo(
-    () =>
-      detail
-        ? buildTraceSpans(
-            detail.events,
-            detail.pi_sessions,
-            detail.agent_runs,
-            // Containers are what give the tree its phase/container hierarchy;
-            // without them every span flattens under the trace root.
-            detail.containers ?? (detail.container ? [detail.container] : []),
-          )
-        : [],
-    [detail],
-  );
-  const usageContext = useMemo(
-    () =>
-      detail
-        ? { runs: detail.agent_runs, container: detail.container ?? null }
-        : undefined,
-    [detail],
-  );
   const selectedSession = cycles.find((cycle) => cycle.cycleUuid === selectedCycleId) ?? null;
   const selectedSessionTraces = tracesForSession(gameTraceSessions, selectedSession);
 
@@ -420,18 +399,7 @@ export function TracePage({ form, view }: { form: FormState; view: CycleView }) 
               Select a trace.
             </div>
           ) : (
-            <KernelTraceViewer
-              className="flex h-full flex-col"
-              spans={spans}
-              initialTraceLevel={2}
-              usageContext={usageContext}
-              // No apiBase on purpose. It is an origin prefix that the viewer
-              // joins with paths that already carry "/kernel" (so the harness
-              // value would be "", never "/kernel"), and passing it only helps
-              // once the harness read service implements getBlob and
-              // getRunTurnContext — until then blob-backed renderers would
-              // trade their offline body for a 404.
-            />
+            <TraceDetailViewer detail={detail} />
           )}
         </div>
       </section>

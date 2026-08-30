@@ -1,0 +1,1632 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-07cdaf5ee6999556ca264d3e8f1d5e06",
+  "title": "History",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-sks-rc-history-intro",
+        "b-sks-rc-history-shape-heading",
+        "b-sks-rc-history-shape",
+        "b-sks-rc-history-ref-heading",
+        "b-sks-rc-history-ref-shape",
+        "b-sks-rc-history-kinds-heading",
+        "b-sks-rc-history-kinds-table",
+        "b-sks-rc-history-outcomes-heading",
+        "b-sks-rc-history-outcomes-table",
+        "b-sks-rc-history-refkinds-heading",
+        "b-sks-rc-history-refkinds-table",
+        "b-sks-rc-history-writers-heading",
+        "b-sks-rc-history-writers-table",
+        "b-sks-rc-history-projection",
+        "b-sks-rc-history-example-heading",
+        "b-sks-rc-history-example-process",
+        "b-sks-rc-history-links-heading",
+        "b-sks-rc-history-links-table",
+        "b-sks-rc-history-links-in-heading",
+        "b-sks-rc-history-links-in",
+        "b-sks-rc-history-open",
+        "b-sks-rc-history-related-heading",
+        "b-sks-rc-history-related-overview",
+        "b-sks-rc-history-related-attempts",
+        "b-sks-rc-history-related-targets"
+      ]
+    },
+    "b-sks-rc-history-intro": {
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "HISTORY — A target has a lifecycle, and its history is the ledger of what was done to it: mostly attempts, plus the things an attempt cannot tell on its own. One "
+        },
+        {
+          "insert": "history_entry",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row per event, keyed to the target by "
+        },
+        {
+          "insert": "target_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", append-only, ordered by "
+        },
+        {
+          "insert": "at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Each row says what happened ("
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") and how it ended ("
+        },
+        {
+          "insert": "outcome",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "); the detail lives in the "
+        },
+        {
+          "insert": "attempt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row that "
+        },
+        {
+          "insert": "attempt_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " points at, and "
+        },
+        {
+          "insert": "history_ref",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows name the attempt, epoch, PR, or commit involved. The row that matters most is "
+        },
+        {
+          "insert": "invalidated",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": a later worker picking the target up must see that a previous attempt reached a match and was then invalidated at the epoch boundary (merge conflict, upstream change), so it knows the code worked and has to be blended into the current tree rather than re-derived. Run telemetry (queue, retry, claim, heartbeat, epoch open and close) stays in run state; it is not part of the knowledge system and never becomes a row here."
+        }
+      ],
+      "id": "b-sks-rc-history-intro",
+      "children": []
+    },
+    "b-sks-rc-history-shape-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Table "
+        },
+        {
+          "insert": "history_entry",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "id": "b-sks-rc-history-shape-heading",
+      "children": []
+    },
+    "b-sks-rc-history-shape": {
+      "type": "state-shape",
+      "props": {
+        "name": "history_entry",
+        "description": "Append-only: a row is never edited or removed.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "history_entry id",
+            "description": "Primary key"
+          },
+          {
+            "name": "target_id",
+            "type": "target id",
+            "description": "FK → target; whose ledger"
+          },
+          {
+            "name": "at",
+            "type": "timestamp",
+            "description": "Ledger order"
+          },
+          {
+            "name": "kind",
+            "type": "attempt | invalidated | merged | upstream_change | note"
+          },
+          {
+            "name": "outcome",
+            "type": "improved | unchanged | regressed | matched | invalidated"
+          },
+          {
+            "name": "attempt_id",
+            "type": "attempt id",
+            "required": false,
+            "description": "FK → attempt; required for `attempt` and `invalidated`, optional for `merged` and `note`, absent for `upstream_change`"
+          },
+          {
+            "name": "summary",
+            "type": "string",
+            "description": "One line, shown on the card"
+          }
+        ]
+      },
+      "id": "b-sks-rc-history-shape",
+      "children": []
+    },
+    "b-sks-rc-history-ref-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Table "
+        },
+        {
+          "insert": "history_ref",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "id": "b-sks-rc-history-ref-heading",
+      "children": []
+    },
+    "b-sks-rc-history-ref-shape": {
+      "type": "state-shape",
+      "props": {
+        "name": "history_ref",
+        "description": "Zero or more rows per entry: what to open to see the whole story. Never used to find the target.",
+        "fields": [
+          {
+            "name": "history_entry_id",
+            "type": "history_entry id",
+            "description": "FK → history_entry"
+          },
+          {
+            "name": "ref_kind",
+            "type": "epoch | pr | commit | attempt"
+          },
+          {
+            "name": "ref_id",
+            "type": "id",
+            "description": "FK → attempt when `ref_kind` is `attempt`; otherwise an epoch, PR, or commit id outside the knowledge store"
+          }
+        ]
+      },
+      "id": "b-sks-rc-history-ref-shape",
+      "children": []
+    },
+    "b-sks-rc-history-kinds-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Enum "
+        },
+        {
+          "insert": "history_entry.kind",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "id": "b-sks-rc-history-kinds-heading",
+      "children": []
+    },
+    "b-sks-rc-history-kinds-table": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          [
+            {
+              "insert": "kind",
+              "attributes": {
+                "code": true
+              }
+            }
+          ],
+          "What happened",
+          [
+            {
+              "insert": "attempt_id",
+              "attributes": {
+                "code": true
+              }
+            }
+          ],
+          [
+            {
+              "insert": "history_ref",
+              "attributes": {
+                "code": true
+              }
+            },
+            {
+              "insert": " rows"
+            }
+          ],
+          "The next worker learns"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "An attempt on the target closed",
+            "Required",
+            [
+              {
+                "insert": "One "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref"
+              }
+            ],
+            [
+              {
+                "insert": "What was tried and how it ended; the "
+              },
+              {
+                "insert": "attempt_step",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows have the checkpoints"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "invalidated",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "An epoch boundary rejected or conflicted a previously matched result",
+            "Required: the attempt whose result was invalidated",
+            [
+              {
+                "insert": "An "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref and an "
+              },
+              {
+                "insert": "epoch",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref"
+              }
+            ],
+            "The code worked; blend it into the current tree before starting over"
+          ],
+          [
+            [
+              {
+                "insert": "merged",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A PR carrying the target's code landed",
+            "The attempt the PR came from, when known",
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref, and an "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref when known"
+              }
+            ],
+            "The match is in the tree"
+          ],
+          [
+            [
+              {
+                "insert": "upstream_change",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "The maintainers renamed, moved, or retired the symbol; "
+              },
+              {
+                "insert": "identity_status",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " changed"
+              }
+            ],
+            "Absent",
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "commit",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref"
+              }
+            ],
+            [
+              {
+                "insert": "Facts may be stale; see the target's "
+              },
+              {
+                "insert": "identity_status",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "note",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A human wrote something down",
+            "Optional",
+            "Whatever the human cited",
+            "Whatever the human wanted the next worker to know"
+          ]
+        ]
+      },
+      "id": "b-sks-rc-history-kinds-table",
+      "children": []
+    },
+    "b-sks-rc-history-outcomes-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Enum "
+        },
+        {
+          "insert": "history_entry.outcome",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "id": "b-sks-rc-history-outcomes-heading",
+      "children": []
+    },
+    "b-sks-rc-history-outcomes-table": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          [
+            {
+              "insert": "outcome",
+              "attributes": {
+                "code": true
+              }
+            }
+          ],
+          "Meaning",
+          [
+            {
+              "insert": "Used with "
+            },
+            {
+              "insert": "kind",
+              "attributes": {
+                "code": true
+              }
+            }
+          ]
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "improved",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The target's score rose but the match goal was not reached",
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "unchanged",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The score did not move; also a note that changes nothing",
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "note",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "merged",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "regressed",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The score fell, whether by an attempt or by an upstream change",
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "upstream_change",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "matched",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The target reached its match goal",
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "merged",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "invalidated",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A result that had been reached no longer stands in the current tree",
+            [
+              {
+                "insert": "invalidated",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "upstream_change",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "id": "b-sks-rc-history-outcomes-table",
+      "children": []
+    },
+    "b-sks-rc-history-refkinds-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Enum "
+        },
+        {
+          "insert": "history_ref.ref_kind",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "id": "b-sks-rc-history-refkinds-heading",
+      "children": []
+    },
+    "b-sks-rc-history-refkinds-table": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          [
+            {
+              "insert": "ref_kind",
+              "attributes": {
+                "code": true
+              }
+            }
+          ],
+          [
+            {
+              "insert": "ref_id",
+              "attributes": {
+                "code": true
+              }
+            },
+            {
+              "insert": " names"
+            }
+          ],
+          "In the knowledge store"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "An "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row"
+              }
+            ],
+            "Yes; a real foreign key"
+          ],
+          [
+            [
+              {
+                "insert": "epoch",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The epoch or boundary in run state",
+            "No"
+          ],
+          [
+            [
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A PR in the PR archive",
+            "No"
+          ],
+          [
+            [
+              {
+                "insert": "commit",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "An upstream commit",
+            "No"
+          ]
+        ]
+      },
+      "id": "b-sks-rc-history-refkinds-table",
+      "children": []
+    },
+    "b-sks-rc-history-writers-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Who appends"
+        }
+      ],
+      "id": "b-sks-rc-history-writers-heading",
+      "children": []
+    },
+    "b-sks-rc-history-writers-table": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Party",
+          "Inserts",
+          "When",
+          "Never"
+        ],
+        "rows": [
+          [
+            "Worker summary agent",
+            [
+              {
+                "insert": "One "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row per attempt, with one "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref"
+              }
+            ],
+            [
+              {
+                "insert": "When it writes the "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row; "
+              },
+              {
+                "insert": "outcome",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " from the score delta ("
+              },
+              {
+                "insert": "improved",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "unchanged",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "regressed",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "matched",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ")"
+              }
+            ],
+            [
+              {
+                "insert": "Any other "
+              },
+              {
+                "insert": "kind",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "; edits an existing row"
+              }
+            ]
+          ],
+          [
+            "Run-loop (boundary)",
+            [
+              {
+                "insert": "invalidated",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " when an epoch boundary rejects or conflicts a previously matched result, with "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and "
+              },
+              {
+                "insert": "epoch",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " refs; "
+              },
+              {
+                "insert": "merged",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " when a PR lands, with a "
+              },
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref"
+              }
+            ],
+            "At the epoch boundary and on PR merge",
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows; run telemetry"
+              }
+            ]
+          ],
+          [
+            "Checkout reconciliation",
+            [
+              {
+                "insert": "upstream_change",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " when the maintainers rename, move, or retire the symbol, with a "
+              },
+              {
+                "insert": "commit",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref"
+              }
+            ],
+            [
+              {
+                "insert": "When a new report revision is diffed against "
+              },
+              {
+                "insert": "target",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and "
+              },
+              {
+                "insert": "identity_status",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " changes"
+              }
+            ],
+            "Guesses a mapping"
+          ],
+          [
+            "Human",
+            [
+              {
+                "insert": "note",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Any time",
+            "Removes or rewrites a row; the ledger is append-only"
+          ],
+          [
+            "Librarian",
+            "Nothing",
+            "—",
+            [
+              {
+                "insert": "Writes to the ledger; it reads it and writes the "
+              },
+              {
+                "insert": "knowledge_record",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " instead"
+              }
+            ]
+          ]
+        ]
+      },
+      "id": "b-sks-rc-history-writers-table",
+      "children": []
+    },
+    "b-sks-rc-history-projection": {
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The worker-facing projection of a target shows the history FIRST, newest row at the top, with "
+        },
+        {
+          "insert": "invalidated",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows highlighted. A row is one line: "
+        },
+        {
+          "insert": "at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "outcome",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "summary",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and its "
+        },
+        {
+          "insert": "history_ref",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ids; the worker follows "
+        },
+        {
+          "insert": "attempt_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " into the "
+        },
+        {
+          "insert": "attempt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "attempt_step",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows when it needs the checkpoints. Storing a row does not make it knowledge: what the attempt taught becomes a "
+        },
+        {
+          "insert": "Fact",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", with "
+        },
+        {
+          "insert": "fact_source",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows, in the next revision of the target's "
+        },
+        {
+          "insert": "knowledge_record",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "id": "b-sks-rc-history-projection",
+      "children": []
+    },
+    "b-sks-rc-history-example-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Example — 100 % match, then invalidated at the boundary"
+        }
+      ],
+      "id": "b-sks-rc-history-example-heading",
+      "children": []
+    },
+    "b-sks-rc-history-example-process": {
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "The attempt closes at 100 % match",
+            "steps": [
+              {
+                "text": "The summary agent inserts `attempt` A for target X, then `history_entry` H1 (`target_id` X, `kind` `attempt`, `attempt_id` A, `outcome` `matched`, `summary` \"inlined the guard; 71 % → 100 %\") and `history_ref` (H1, `attempt`, A)."
+              }
+            ]
+          },
+          {
+            "text": "The boundary merge conflicts on X's file",
+            "steps": [
+              {
+                "text": "The run-loop inserts `history_entry` H2 (`target_id` X, `kind` `invalidated`, `attempt_id` A, `outcome` `invalidated`, `summary` \"boundary merge conflicted on ftcommon.c; A's code is not in the tree\") and `history_ref` rows (H2, `attempt`, A) and (H2, `epoch`, epoch 9)."
+              },
+              {
+                "text": "The conflicted hunks, the queue state, and the retry are run state, not rows here.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "The scored report upserts `target_status` for X: `match_pct` 100, `linked` false, `last_attempt_id` A."
+          },
+          {
+            "text": "The next worker reads X's history first",
+            "steps": [
+              {
+                "text": "Newest row: H2, `invalidated`, pointing at A and the boundary. It opens A's `attempt_step` rows, takes the working code, and blends it into the current tree instead of re-deriving it.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "The librarian reads A, H1, and H2; if the conflict revealed reusable knowledge, it writes the next `knowledge_record` revision for X with a `tactic_use` row naming A and a `fact_extra` (`slot` `invariant`) about why the match was fragile. H1 and H2 stay as they are."
+          }
+        ]
+      },
+      "id": "b-sks-rc-history-example-process",
+      "children": []
+    },
+    "b-sks-rc-history-links-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Foreign keys out"
+        }
+      ],
+      "id": "b-sks-rc-history-links-heading",
+      "children": []
+    },
+    "b-sks-rc-history-links-table": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "From",
+          "To",
+          "Cardinality",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "history_entry.target_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "target",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Exactly one; zero or more rows per target",
+            "Whose ledger; the card selects the rows by this column"
+          ],
+          [
+            [
+              {
+                "insert": "history_entry.attempt_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "Zero or one; required for "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and "
+              },
+              {
+                "insert": "invalidated",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The attempt the row is about; the detail lives there"
+          ],
+          [
+            [
+              {
+                "insert": "history_ref.history_entry_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "history_entry",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Exactly one; zero or more refs per row",
+            "The row the ref hangs off"
+          ],
+          [
+            [
+              {
+                "insert": "history_ref.ref_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " when "
+              },
+              {
+                "insert": "ref_kind",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " is "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "; an epoch, PR, or commit id outside the store otherwise"
+              }
+            ],
+            "Exactly one",
+            "What to open to see the whole story; never used to find the target"
+          ]
+        ]
+      },
+      "id": "b-sks-rc-history-links-table",
+      "children": []
+    },
+    "b-sks-rc-history-links-in-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Foreign keys in"
+        }
+      ],
+      "id": "b-sks-rc-history-links-in-heading",
+      "children": []
+    },
+    "b-sks-rc-history-links-in": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "From",
+          "To",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "history_ref.history_entry_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "history_entry",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The refs hanging off this row"
+          ],
+          [
+            "No other table",
+            [
+              {
+                "insert": "history_entry",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "Nothing points at a ledger row by id. The history is read from the target card and, when a librarian cites a row, captured as a "
+              },
+              {
+                "insert": "source",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ("
+              },
+              {
+                "insert": "kind",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ") behind a "
+              },
+              {
+                "insert": "fact_source",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "id": "b-sks-rc-history-links-in",
+      "children": []
+    },
+    "b-sks-rc-history-open": {
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Open questions",
+        "tone": "warning"
+      },
+      "text": [
+        {
+          "insert": "- Whether a "
+        },
+        {
+          "insert": "merged",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row should also close the target (no further attempts queued until an "
+        },
+        {
+          "insert": "upstream_change",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or "
+        },
+        {
+          "insert": "invalidated",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row reopens it), or whether closing stays a "
+        },
+        {
+          "insert": "target_status",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " concern.\n- Retention: whether the ledger keeps every "
+        },
+        {
+          "insert": "attempt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row forever or folds old "
+        },
+        {
+          "insert": "unchanged",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows into a count once a target is matched and merged."
+        }
+      ],
+      "id": "b-sks-rc-history-open",
+      "children": []
+    },
+    "b-sks-rc-history-related-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "id": "b-sks-rc-history-related-heading",
+      "children": []
+    },
+    "b-sks-rc-history-related-overview": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Record Contracts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-semantic-knowledge-system/30-record-contracts",
+              "label": "Record Contracts"
+            }
+          }
+        },
+        {
+          "insert": " — the tables, the foreign-key table, and the target card as a derived view."
+        }
+      ],
+      "id": "b-sks-rc-history-related-overview",
+      "children": []
+    },
+    "b-sks-rc-history-related-attempts": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Attempts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-semantic-knowledge-system/30-record-contracts/30-attempts",
+              "label": "Attempts"
+            }
+          }
+        },
+        {
+          "insert": " — the table an "
+        },
+        {
+          "insert": "attempt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row points at; the summary agent inserts the ledger row when it writes the attempt."
+        }
+      ],
+      "id": "b-sks-rc-history-related-attempts",
+      "children": []
+    },
+    "b-sks-rc-history-related-targets": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Targets",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-semantic-knowledge-system/30-record-contracts/10-targets",
+              "label": "Targets"
+            }
+          }
+        },
+        {
+          "insert": " — the identity changes an "
+        },
+        {
+          "insert": "upstream_change",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row accompanies."
+        }
+      ],
+      "id": "b-sks-rc-history-related-targets",
+      "children": []
+    }
+  }
+}

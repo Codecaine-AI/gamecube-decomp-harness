@@ -6,13 +6,16 @@ import {
   WorkTables,
 } from "./components/work-tables";
 import type { Dashboard } from "@/lib/format";
+import type { FormState } from "@/lib/api-types";
 import type { CycleView } from "@/pages/workspace/_lib/types";
 
 export function RunModePage(props: {
   dashboard: Dashboard | null;
+  form: FormState;
   improvedMode: ImprovedMode;
   improvedPage: number;
-  onSelectAttempt?: (workerStateId: string) => void;
+  onSelectAgent?: (workerStateId: string) => void;
+  runId: string;
   setImprovedMode: (mode: ImprovedMode) => void;
   setImprovedPage: (page: number | ((page: number) => number)) => void;
   setWorkMode: (mode: WorkMode) => void;
@@ -22,12 +25,12 @@ export function RunModePage(props: {
   return (
     <div className="grid gap-4">
       <ProgressPanel dashboard={props.dashboard} />
-      <BoundaryPanel dashboard={props.dashboard} view={props.view} />
+      <BoundaryPanel dashboard={props.dashboard} form={props.form} runId={props.runId} view={props.view} />
       <WorkTables
         dashboard={props.dashboard}
         improvedMode={props.improvedMode}
         improvedPage={props.improvedPage}
-        onSelectAttempt={props.onSelectAttempt}
+        onSelectAgent={props.onSelectAgent}
         setImprovedMode={props.setImprovedMode}
         setImprovedPage={props.setImprovedPage}
         setWorkMode={props.setWorkMode}

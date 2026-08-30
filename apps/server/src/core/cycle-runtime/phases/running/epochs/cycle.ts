@@ -42,9 +42,15 @@ import {
 } from "./confirmation-pass.js";
 import { completeUnitNames, linkCompleteUnitsFromReport, type LinkCompleteUnitsCheckResult } from "./link-complete-units.js";
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
+import { asBoundaryStepError, PhaseTracker, stepFailureCheckpoint } from "./step-failure.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
 const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state", ...ORCHESTRATOR_SCRATCH_EXCLUDES];
+export const REPORT_BUILD_TIMEOUT_MS = 60 * 60_000;
+
+function reportBuildTimeoutMs(): number {
+  return Number(process.env.ORCH_REPORT_BUILD_TIMEOUT_MS) || REPORT_BUILD_TIMEOUT_MS;
+}
 
 export interface EpochCycleOptions {
   baseRef?: string;
@@ -132,7 +138,14 @@ export interface EpochRepairResult {
 
 export interface EpochCycleResult {
   artifactDir: string;
-  buildSteps: { name: string; command: string[]; exitCode: number }[];
+  buildSteps: {
+    name: string;
+    command: string[];
+    exitCode: number;
+    durationMs: number;
+    stdoutPath?: string;
+    stderrPath?: string;
+  }[];
   commitSha: string | null;
   committed: boolean;
   confirmation?: ConfirmationPassResult;
@@ -600,8 +613,15 @@ export function planRegressionRepair(
   return { paused, reasons, repairCandidates, summary };
 }
 
-function compactSteps(result: ReportRunResult): { name: string; command: string[]; exitCode: number }[] {
-  return result.steps.map((step) => ({ name: step.name, command: step.command, exitCode: step.exitCode }));
+function compactSteps(result: ReportRunResult): EpochCycleResult["buildSteps"] {
+  return result.steps.map((step) => ({
+    name: step.name,
+    command: step.command,
+    exitCode: step.exitCode,
+    durationMs: step.durationMs,
+    ...(step.stdoutPath ? { stdoutPath: step.stdoutPath } : {}),
+    ...(step.stderrPath ? { stderrPath: step.stderrPath } : {}),
+  }));
 }
 
 export async function runCodexBoundaryBuildFixer(input: BoundaryBuildFixerInput): Promise<BoundaryBuildFixerResult> {
@@ -619,7 +639,7 @@ export async function runReportBuildWithFixer<T>(input: {
   enabled: boolean;
   runReport: () => Promise<T>;
   runFixer: (failure: unknown) => Promise<BoundaryBuildFixerResult>;
-  onFixerEvent?: (status: "started" | "finished", result?: BoundaryBuildFixerResult) => void;
+  onFixerEvent?: (status: "started" | "finished", result?: BoundaryBuildFixerResult) => void | Promise<void>;
   onFixerRetrySucceeded?: (result: BoundaryBuildFixerResult) => Promise<void>;
   onFixerRetryFailed?: (result: BoundaryBuildFixerResult) => Promise<void>;
 }): Promise<T> {
@@ -627,9 +647,9 @@ export async function runReportBuildWithFixer<T>(input: {
     return await input.runReport();
   } catch (error) {
     if (!input.enabled) throw error;
-    input.onFixerEvent?.("started");
+    await input.onFixerEvent?.("started");
     const result = await input.runFixer(error);
-    input.onFixerEvent?.("finished", result);
+    await input.onFixerEvent?.("finished", result);
     try {
       const retry = await input.runReport();
       if (!result.timedOut && result.exitCode === 0) await input.onFixerRetrySucceeded?.(result);
@@ -646,15 +666,19 @@ function stateDirRelativeToRepo(repoRoot: string, stateDir: string): string | nu
   return rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : null;
 }
 
+type EpochProgressParams = {
+  label: string | null;
+  message: string;
+  phase: string;
+  status: "started" | "finished" | "skipped" | "warning" | "propagated" | "failed" | "reverted";
+} & Record<string, unknown>;
+
+type EpochProgressReporter = (params: EpochProgressParams) => void;
+
 function epochProgress(
   store: StateStore,
   runId: string,
-  params: {
-    label: string | null;
-    message: string;
-    phase: string;
-    status: "started" | "finished" | "skipped" | "warning" | "propagated" | "failed" | "reverted";
-  } & Record<string, unknown>,
+  params: EpochProgressParams,
 ): void {
   const { label, message, phase, status, ...extra } = params;
   console.error(`[epoch] ${label ?? runId.slice(0, 8)} ${phase} ${status}: ${message}`);
@@ -676,15 +700,17 @@ export async function runLinkCompleteUnitsStep(input: {
   label: string | null;
   enabled: boolean;
   configureCommand: string;
+  progress?: EpochProgressReporter;
   runCheck?: (input: { cwd: string; configureCommand: string; okTarget: string }) => Promise<LinkCompleteUnitsCheckResult>;
 }): Promise<string[]> {
+  const progress = input.progress ?? ((params) => epochProgress(input.store, input.runId, params));
   const publishedReportPath = resolve(input.repoRoot, input.reportRelPath);
   const configurePath = resolve(input.repoRoot, "configure.py");
   if (!input.enabled) {
     const candidateUnits = existsSync(publishedReportPath)
       ? completeUnitNames(JSON.parse(readFileSync(publishedReportPath, "utf8")) as unknown)
       : [];
-    epochProgress(input.store, input.runId, {
+    progress({
       label: input.label, phase: "link_complete_units", status: candidateUnits.length > 0 ? "warning" : "skipped",
       message: candidateUnits.length > 0
         ? `${candidateUnits.length} complete unit candidate(s) not linked; enable --link-complete-units to verify the final DOL`
@@ -694,7 +720,7 @@ export async function runLinkCompleteUnitsStep(input: {
     return candidateUnits;
   }
   if (!existsSync(publishedReportPath) || !existsSync(configurePath)) {
-    epochProgress(input.store, input.runId, {
+    progress({
       label: input.label, phase: "link_complete_units", status: "skipped",
       message: !existsSync(publishedReportPath) ? "no published report available" : "configure.py not found",
       flipped_units: [],
@@ -704,7 +730,7 @@ export async function runLinkCompleteUnitsStep(input: {
 
   const candidateUnits = completeUnitNames(JSON.parse(readFileSync(publishedReportPath, "utf8")) as unknown);
   const okTarget = join(dirname(input.reportRelPath), "ok");
-  epochProgress(input.store, input.runId, {
+  progress({
     label: input.label, phase: "link_complete_units", status: "started",
     message: "linking units complete in the previous published report",
     complete_units: candidateUnits, flipped_units: [],
@@ -715,14 +741,14 @@ export async function runLinkCompleteUnitsStep(input: {
     verify: () => (input.runCheck ?? runLinkCompleteUnitsCheck)({ cwd: input.repoRoot, configureCommand: input.configureCommand, okTarget }),
   });
   if (linked.status === "reverted") {
-    epochProgress(input.store, input.runId, {
+    progress({
       label: input.label, phase: "link_complete_units", status: "reverted",
       message: `final DOL check failed; restored configure.py: ${linked.check?.output || `ninja ${okTarget} exited ${linked.check?.exitCode}`}`.slice(0, 1000),
       complete_units: linked.completeUnits, flipped_units: linked.flippedUnits,
       failing_check: { target: okTarget, exit_code: linked.check?.exitCode, output: linked.check?.output },
     });
   } else {
-    epochProgress(input.store, input.runId, {
+    progress({
       label: input.label, phase: "link_complete_units", status: "finished",
       message: `linked ${linked.flippedUnits.length} complete unit(s) after the final DOL check passed`,
       complete_units: linked.completeUnits, flipped_units: linked.flippedUnits, missing_units: linked.missingUnits,
@@ -739,7 +765,9 @@ export async function propagateBoundaryBuildFixer(input: {
   artifactDir: string;
   label: string | null;
   revalidateLease: () => void;
+  progress?: EpochProgressReporter;
 }): Promise<{ commitSha: string; files: string[]; patchPath: string }> {
+  const progress = input.progress ?? ((params) => epochProgress(input.store, input.runId, params));
   const diffPathspec = [".", ":(exclude)build", ":(exclude,glob)**/build/**"];
   const [diff, changedFiles] = await Promise.all([
     git(input.worktreeDir, ["diff", "--binary", "HEAD", "--", ...diffPathspec]),
@@ -753,15 +781,10 @@ export async function propagateBoundaryBuildFixer(input: {
   await writeFile(patchPath, diff.text ? `${diff.text}\n` : "");
 
   const fail = (message: string): never => {
-    epochProgress(input.store, input.runId, {
-      label: input.label,
-      phase: "report_build_fixer",
-      status: "failed",
-      message,
-      files,
-      artifact_path: patchPath,
+    throw Object.assign(new Error(`${message}; fixer diff retained at ${patchPath}`), {
+      artifactDir: input.artifactDir,
+      logPaths: [patchPath],
     });
-    throw new Error(`${message}; fixer diff retained at ${patchPath}`);
   };
   if (files.length === 0 || !diff.text.trim()) fail("boundary build-fixer produced no tracked diff to propagate");
 
@@ -799,7 +822,7 @@ export async function propagateBoundaryBuildFixer(input: {
   input.revalidateLease();
   const resync = await git(input.worktreeDir, ["checkout", "--force", "--detach", head.text]);
   if (!resync.ok) fail(`boundary build-fixer epoch worktree resync failed: ${resync.text}`);
-  epochProgress(input.store, input.runId, {
+  progress({
     label: input.label,
     phase: "report_build_fixer",
     status: "propagated",
@@ -824,21 +847,23 @@ export async function runPreCommitAutofixStep(input: {
   stateDir: string;
   label: string | null;
   enabled: boolean;
+  progress?: EpochProgressReporter;
   runPreCommitAutofix?: EpochCycleOptions["runPreCommitAutofix"];
 }): Promise<PreCommitAutofixResult | null> {
+  const progress = input.progress ?? ((params) => epochProgress(input.store, input.runId, params));
   if (!input.enabled) {
-    epochProgress(input.store, input.runId, { label: input.label, phase: "precommit_autofix", status: "skipped", message: "pre-commit autofix disabled", reformatted_file_count: 0 });
+    progress({ label: input.label, phase: "precommit_autofix", status: "skipped", message: "pre-commit autofix disabled", reformatted_file_count: 0 });
     return null;
   }
-  epochProgress(input.store, input.runId, { label: input.label, phase: "precommit_autofix", status: "started", message: "running pre-commit autofix in cycle worktree" });
+  progress({ label: input.label, phase: "precommit_autofix", status: "started", message: "running pre-commit autofix in cycle worktree" });
   const autofix = await (input.runPreCommitAutofix ?? runPreCommitAutofixDefault)({ worktreeDir: input.repoRoot, cacheDir: resolve(input.stateDir, "pre-commit-cache") });
   if (autofix.status === "skipped") {
     console.error(`[epoch] pre-commit autofix skipped: ${autofix.warnings.join("; ")}`);
-    epochProgress(input.store, input.runId, { label: input.label, phase: "precommit_autofix", status: "skipped", message: autofix.warnings[0] ?? "pre-commit unavailable", reformatted_file_count: 0 });
+    progress({ label: input.label, phase: "precommit_autofix", status: "skipped", message: autofix.warnings[0] ?? "pre-commit unavailable", reformatted_file_count: 0 });
     return autofix;
   }
   for (const warning of autofix.warnings) console.error(`[epoch] pre-commit autofix warning: ${warning}`);
-  epochProgress(input.store, input.runId, {
+  progress({
     label: input.label, phase: "precommit_autofix", status: "finished",
     message: `pre-commit autofix reformatted ${autofix.reformattedFiles.length} file(s)`,
     reformatted_file_count: autofix.reformattedFiles.length, reformatted_files: autofix.reformattedFiles.slice(0, 100),
@@ -942,6 +967,40 @@ export async function runEpochCycle(store: StateStore, runId: string, repoRoot: 
 }
 
 async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: string, stateDir: string, options: EpochCycleOptions): Promise<EpochCycleResult> {
+  const label = options.label ?? null;
+  const artifactDir = resolve(stateDir, "epochs", artifactTimestamp());
+  const tracker = new PhaseTracker<EpochProgressParams>((params) => epochProgress(store, runId, params));
+  let attributablePhase = "integration_drain";
+  const progress = (params: EpochProgressParams): void => {
+    // A terminal event closes dashboard progress, but its phase stays attributable
+    // until the next phase starts so failures between steps never lose their owner.
+    if (params.status === "started") attributablePhase = params.phase;
+    tracker.progress(params);
+  };
+  try {
+    return await runEpochCycleInnerTracked(store, runId, repoRoot, stateDir, options, artifactDir, progress);
+  } catch (error) {
+    const phase = tracker.current() ?? attributablePhase;
+    const failure = asBoundaryStepError(error, { phase, artifactDir });
+    progress({
+      label,
+      phase,
+      status: "failed",
+      ...stepFailureCheckpoint(failure),
+    });
+    throw failure;
+  }
+}
+
+async function runEpochCycleInnerTracked(
+  store: StateStore,
+  runId: string,
+  repoRoot: string,
+  stateDir: string,
+  options: EpochCycleOptions,
+  artifactDir: string,
+  progress: EpochProgressReporter,
+): Promise<EpochCycleResult> {
   const startedAt = Date.now();
   const revalidateLease = (): void => {
     requireLease(store, options.leaseId, options.gameId ?? undefined);
@@ -953,7 +1012,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const baselineRelPath = options.baselineRelPath ?? "build/GALE01/baseline.json";
   const toolPlatform = resolveToolPlatform({ targetPlatform: options.toolPlatform });
   const confirmationEnabled = options.confirmationPass ?? false;
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "integration_drain",
     status: "started",
@@ -974,7 +1033,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       `epoch checkpoint blocked by ${blockingIntegrations} unresolved worker output integration item(s): ${JSON.stringify(integrationDrain.queueSummary)}`,
     );
   }
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "integration_drain",
     status: "finished",
@@ -991,16 +1050,18 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     store, runId, repoRoot, reportRelPath, label,
     enabled: options.linkCompleteUnitsEnabled === true,
     configureCommand: options.configureCommand ?? "python3 configure.py --require-protos",
+    progress,
     runCheck: options.runLinkCompleteUnitsCheck,
   })) previousCompleteUnits.add(unit);
 
   await runPreCommitAutofixStep({
     store, runId, repoRoot, stateDir, label,
     enabled: options.preCommitAutofixEnabled !== false,
+    progress,
     runPreCommitAutofix: options.runPreCommitAutofix,
   });
 
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "snapshot_commit",
     status: "started",
@@ -1017,17 +1078,17 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     message: `epoch(${runId.slice(0, 8)}): ${label ?? artifactTimestamp()}`,
     revalidateLease,
   });
+  if (!snapshot.commitSha) throw new Error("epoch commit failed: could not resolve HEAD");
   if (snapshot.warning) {
     console.error(`[epoch] ${snapshot.warning}`);
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "snapshot_commit",
       status: "warning",
       message: `epoch snapshot commit failed: ${snapshot.warning.slice(0, 500)}`,
     });
   }
-  if (!snapshot.commitSha) throw new Error("epoch commit failed: could not resolve HEAD");
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "snapshot_commit",
     status: "finished",
@@ -1036,7 +1097,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     committed: snapshot.committed,
   });
 
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "worktree_prepare",
     status: "started",
@@ -1051,7 +1112,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     revalidateLease,
   });
   revalidateLease();
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "worktree_prepare",
     status: "finished",
@@ -1062,7 +1123,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const configureCommand = hasLocalWibo
     ? configureCommandWithLocalWrapper(options.configureCommand ?? "python3 configure.py --require-protos", "build/tools/wibo")
     : (options.configureCommand ?? "python3 configure.py --require-protos");
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "configure",
     status: configureCommand.trim() ? "started" : "skipped",
@@ -1072,7 +1133,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   revalidateLease();
   await runConfigure(options.worktreeDir, configureCommand);
   if (configureCommand.trim()) {
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "configure",
       status: "finished",
@@ -1082,18 +1143,20 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   }
 
   const worktreeBaselinePath = resolve(options.worktreeDir, baselineRelPath);
-  const artifactDir = resolve(stateDir, "epochs", artifactTimestamp());
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "report_build",
     status: "started",
     message: `building objdiff report in epoch worktree${existsSync(worktreeBaselinePath) ? "" : " with baseline reset"}`,
+    artifact_dir: artifactDir,
     reset_baseline: !existsSync(worktreeBaselinePath),
     worktree_dir: options.worktreeDir,
   });
   revalidateLease();
   const runReport = () => forceReportRun(options.worktreeDir, {
+    logDir: artifactDir,
     resetBaseline: !existsSync(worktreeBaselinePath),
+    timeoutMs: reportBuildTimeoutMs(),
     toolPlatform,
   });
   let buildResult = await runReportBuildWithFixer({
@@ -1104,30 +1167,49 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       failure: failure instanceof Error ? failure.message : String(failure),
       timeoutMs: BUILD_FIXER_TIMEOUT_MS,
     }),
-    onFixerEvent: (status, fixer) => epochProgress(store, runId, {
-      label,
-      phase: "report_build_fixer",
-      status,
-      message: status === "started"
-        ? "starting one bounded codex attempt for a mechanical report build break"
-        : fixer?.timedOut
-          ? "bounded codex build-fixer timed out; retrying report build once"
-          : `bounded codex build-fixer exited ${fixer?.exitCode ?? "unknown"}; retrying report build once`,
-      outcome: fixer ? (fixer.timedOut ? "timeout" : fixer.exitCode === 0 ? "completed" : "failed") : undefined,
-      exit_code: fixer?.exitCode,
-      timed_out: fixer?.timedOut,
-      output: fixer?.output,
-      worktree_dir: options.worktreeDir,
-    }),
+    onFixerEvent: async (status, fixer) => {
+      const outputLogPath = fixer ? resolve(artifactDir, "boundary-build-fixer.output.log") : undefined;
+      if (fixer && outputLogPath) {
+        try {
+          await mkdir(artifactDir, { recursive: true });
+          await writeFile(outputLogPath, fixer.output);
+        } catch (error) {
+          console.error(`[epoch] failed to persist boundary build-fixer output at ${outputLogPath}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      progress({
+        label,
+        phase: "report_build_fixer",
+        status,
+        message: status === "started"
+          ? "starting one bounded codex attempt for a mechanical report build break"
+          : fixer?.timedOut
+            ? "bounded codex build-fixer timed out; retrying report build once"
+            : `bounded codex build-fixer exited ${fixer?.exitCode ?? "unknown"}; retrying report build once`,
+        outcome: fixer ? (fixer.timedOut ? "timeout" : fixer.exitCode === 0 ? "completed" : "failed") : undefined,
+        exit_code: fixer?.exitCode,
+        timed_out: fixer?.timedOut,
+        output: fixer?.output.slice(-4_000),
+        log_paths: outputLogPath ? [outputLogPath] : undefined,
+        worktree_dir: options.worktreeDir,
+      });
+    },
     onFixerRetrySucceeded: async () => {
+      progress({
+        label,
+        phase: "report_build_fixer",
+        status: "started",
+        message: "propagating the successful boundary build-fixer diff",
+        worktree_dir: options.worktreeDir,
+      });
       const propagated = await propagateBoundaryBuildFixer({
-        store, runId, repoRoot, worktreeDir: options.worktreeDir, artifactDir, label, revalidateLease,
+        store, runId, repoRoot, worktreeDir: options.worktreeDir, artifactDir, label, revalidateLease, progress,
       });
       snapshot = { ...snapshot, commitSha: propagated.commitSha, committed: true };
     },
     onFixerRetryFailed: async () => discardBoundaryBuildFixer(options.worktreeDir, revalidateLease),
   });
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "report_build",
     status: "finished",
@@ -1135,13 +1217,21 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       ? `report reused; report changes finished with ${buildResult.steps.length} step(s)`
       : `report build finished with ${buildResult.steps.length} step(s)`,
     step_count: buildResult.steps.length,
+    artifact_dir: artifactDir,
+    build_steps: compactSteps(buildResult).map((step) => ({
+      name: step.name,
+      exit_code: step.exitCode,
+      duration_ms: step.durationMs,
+      stdout_path: step.stdoutPath,
+      stderr_path: step.stderrPath,
+    })),
     failed_step_count: buildResult.steps.filter((step) => step.exitCode !== 0).length,
     report_reused: buildResult.reusedReport === true,
   });
 
   const worktreeReportPath = resolve(options.worktreeDir, reportRelPath);
   const worktreeChangesPath = resolve(options.worktreeDir, reportChangesRelPath);
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "report_read",
     status: "started",
@@ -1153,7 +1243,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   let measures = reportMeasures(worktreeReportPath);
   let matchedCodeValue = Number(measures.matched_code_percent);
   let matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "report_read",
     status: "finished",
@@ -1166,7 +1256,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     const newlyCompleteUnits = completeUnitNames(freshReport).filter((unit) => !previousCompleteUnits.has(unit));
     if (newlyCompleteUnits.length > 0) {
       console.warn(`[epoch] ${newlyCompleteUnits.length} unit(s) became complete after snapshot and will link at the next boundary: ${newlyCompleteUnits.join(", ")}`);
-      epochProgress(store, runId, {
+      progress({
         label, phase: "link_complete_units", status: "warning",
         message: `${newlyCompleteUnits.length} newly complete unit(s) will link at the next boundary`,
         flipped_units: [], newly_complete_units: newlyCompleteUnits,
@@ -1176,7 +1266,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
 
   let confirmation: ConfirmationPassResult | undefined;
   if (confirmationEnabled && !buildResult.resetBaseline) {
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "confirmation_pass",
       status: "started",
@@ -1225,7 +1315,12 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       revalidateLease();
       await rm(worktreeReportPath, { force: true });
       revalidateLease();
-      const recheckBuild = await forceReportRun(options.worktreeDir, { resetBaseline: false, toolPlatform });
+      const recheckBuild = await forceReportRun(options.worktreeDir, {
+        logDir: artifactDir,
+        resetBaseline: false,
+        timeoutMs: reportBuildTimeoutMs(),
+        toolPlatform,
+      });
       buildResult = { ...recheckBuild, steps: [...buildResult.steps, ...recheckBuild.steps] };
       regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch confirmation recheck for run ${runId}`, 50);
       measures = reportMeasures(worktreeReportPath);
@@ -1247,14 +1342,19 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       revalidateLease();
       await rm(worktreeReportPath, { force: true });
       revalidateLease();
-      const restoredBuild = await forceReportRun(options.worktreeDir, { resetBaseline: false, toolPlatform });
+      const restoredBuild = await forceReportRun(options.worktreeDir, {
+        logDir: artifactDir,
+        resetBaseline: false,
+        timeoutMs: reportBuildTimeoutMs(),
+        toolPlatform,
+      });
       buildResult = { ...restoredBuild, steps: [...buildResult.steps, ...restoredBuild.steps] };
       regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint restored after confirmation probes for run ${runId}`, 50);
       measures = reportMeasures(worktreeReportPath);
       matchedCodeValue = Number(measures.matched_code_percent);
       matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
     }
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "confirmation_pass",
       status: confirmation.status === "unattributed" ? "warning" : "finished",
@@ -1262,7 +1362,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       confirmation,
     });
   } else if (confirmationEnabled) {
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "confirmation_pass",
       status: "skipped",
@@ -1281,7 +1381,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   let qaGate: EpochQaGateSummary | null = null;
   if (options.qaScan) {
     try {
-      epochProgress(store, runId, {
+      progress({
         label,
         phase: "qa_scan",
         status: "started",
@@ -1309,7 +1409,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       );
       if (qaInvocation.stderr) await writeFile(resolve(artifactDir, "qa_scan.txt"), qaInvocation.stderr);
       if (qaInvocation.toolError !== null) console.error(`[epoch] qa scan tool error: ${qaInvocation.toolError}`);
-      epochProgress(store, runId, {
+      progress({
         label,
         phase: "qa_scan",
         status: "finished",
@@ -1321,7 +1421,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     } catch (error) {
       console.error(`[epoch] qa scan failed: ${error instanceof Error ? error.message : String(error)}`);
       qaGate = { exitCode: -1, status: "tool_error", errors: 0, warnings: 0, findings: [] };
-      epochProgress(store, runId, {
+      progress({
         label,
         phase: "qa_scan",
         status: "warning",
@@ -1329,7 +1429,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       });
     }
   } else {
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "qa_scan",
       status: "skipped",
@@ -1343,7 +1443,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const repoReportPath = resolve(repoRoot, reportRelPath);
   const repoChangesPath = resolve(repoRoot, reportChangesRelPath);
   try {
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "report_publish",
       status: "started",
@@ -1355,7 +1455,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     revalidateLease();
     await copyFile(worktreeChangesPath, repoChangesPath);
     reportCopiedToRepo = true;
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "report_publish",
       status: "finished",
@@ -1364,7 +1464,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     });
   } catch (error) {
     console.error(`[epoch] failed to publish report to repo: ${error instanceof Error ? error.message : String(error)}`);
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "report_publish",
       status: "warning",
@@ -1378,7 +1478,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   revalidateLease();
   await copyFile(worktreeReportPath, worktreeBaselinePath);
 
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "regression_repair",
     status: "started",
@@ -1399,7 +1499,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     reasons: plan.reasons,
     requeued,
   };
-  epochProgress(store, runId, {
+  progress({
     label,
     phase: "regression_repair",
     status: "finished",
@@ -1421,7 +1521,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
   const matchedDataPercent = Number.isFinite(matchedDataValue) ? matchedDataValue : null;
   const sectionMeasures = sectionMeasuresFromReport(worktreeReportPath);
   try {
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "save_point",
       status: "started",
@@ -1515,7 +1615,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
       },
     };
     savePointResult = { ok: true, savePointId: savePoint.id, blockerRaised: false };
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "save_point",
       status: "finished",
@@ -1536,7 +1636,7 @@ async function runEpochCycleInner(store: StateStore, runId: string, repoRoot: st
     // Persistence occurs after the head-advancing epoch transition. The
     // scheduler/manual caller records this failure to SQLite or the spool.
     savePointResult = { ok: false, savePointId: null, blockerRaised: true };
-    epochProgress(store, runId, {
+    progress({
       label,
       phase: "save_point",
       status: "warning",

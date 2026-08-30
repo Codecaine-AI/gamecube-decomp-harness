@@ -22,9 +22,9 @@ function workspaceSection(id: WorkspaceSection) {
 }
 
 const CYCLE_WORKSPACE_SECTIONS = (["overview", "cycles"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
-const CONFIG_WORKSPACE_SECTIONS = (["standards", "settings"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
+const STANDARD_WORKSPACE_SECTIONS = (["standards", "knowledge"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const AGENT_WORKSPACE_SECTIONS = (["agents", "trace"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
-const KNOWLEDGE_WORKSPACE_SECTIONS = (["knowledge"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
+const SETTINGS_WORKSPACE_SECTIONS = (["settings"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const STYLE_WORKSPACE_SECTION = workspaceSection("style");
 
 export function WorkspaceSidebar({
@@ -65,7 +65,7 @@ export function WorkspaceSidebar({
               </button>
             ))}
             <div className="my-1 h-px w-5 shrink-0 bg-line2 max-[780px]:mx-1 max-[780px]:my-0 max-[780px]:h-5 max-[780px]:w-px" role="separator" />
-            {CONFIG_WORKSPACE_SECTIONS.map((item) => (
+            {STANDARD_WORKSPACE_SECTIONS.map((item) => (
               <button
                 aria-current={route.section === item.id ? "page" : undefined}
                 className={`inline-flex h-8 w-8 shrink-0 items-center justify-center border ${
@@ -97,7 +97,7 @@ export function WorkspaceSidebar({
               </button>
             ))}
             <div className="my-1 h-px w-5 shrink-0 bg-line2 max-[780px]:mx-1 max-[780px]:my-0 max-[780px]:h-5 max-[780px]:w-px" role="separator" />
-            {KNOWLEDGE_WORKSPACE_SECTIONS.map((item) => (
+            {SETTINGS_WORKSPACE_SECTIONS.map((item) => (
               <button
                 aria-current={route.section === item.id ? "page" : undefined}
                 className={`inline-flex h-8 w-8 shrink-0 items-center justify-center border ${
@@ -156,7 +156,7 @@ export function WorkspaceSidebar({
                 />
               ))}
               <div className="my-1 border-t border-line2" role="separator" />
-              {CONFIG_WORKSPACE_SECTIONS.map((item) => (
+              {STANDARD_WORKSPACE_SECTIONS.map((item) => (
                 <NavItem
                   active={route.section === item.id}
                   description={item.description}
@@ -178,7 +178,7 @@ export function WorkspaceSidebar({
                 />
               ))}
               <div className="my-1 border-t border-line2" role="separator" />
-              {KNOWLEDGE_WORKSPACE_SECTIONS.map((item) => (
+              {SETTINGS_WORKSPACE_SECTIONS.map((item) => (
                 <NavItem
                   active={route.section === item.id}
                   description={item.description}

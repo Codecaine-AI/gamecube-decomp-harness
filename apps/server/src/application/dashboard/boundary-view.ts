@@ -9,6 +9,7 @@ export interface BoundaryStep {
   finishedAt: string | null;
   durationMs: number | null;
   detail: string | null;
+  error: string | null;
   payload: Record<string, unknown> | null;
 }
 
@@ -19,6 +20,8 @@ export interface BoundaryAttempt {
   finishedAt: string | null;
   steps: BoundaryStep[];
   error: string | null;
+  failedStep: string | null;
+  artifactDir: string | null;
 }
 
 export interface BoundaryView {
@@ -30,6 +33,8 @@ export interface BoundaryView {
   finishedCount: number;
   active: boolean;
   attempts: BoundaryAttempt[];
+  error: string | null;
+  retry: { attemptCount: number; maxAttempts: number | null; nextAttemptAt: string | null; exhausted: boolean } | null;
   savePointId: string | null;
   matchedCodePercent: number | null;
   nextEpoch: { ordinal: number; admitted: number } | null;
@@ -41,9 +46,9 @@ export interface BoundaryDashboard {
 }
 
 export const BOUNDARY_STEP_KEYS = [
-  "integration_drain", "link_complete_units", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_read",
+  "integration_drain", "link_complete_units", "snapshot_commit", "worktree_prepare", "configure", "report_build", "report_build_fixer", "report_read",
   "confirmation_pass", "qa_scan", "report_publish", "regression_repair", "save_point", "boundary_sync",
-  "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish", "knowledge_maintenance",
+  "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "precommit_autofix", "draft_pr_publish", "knowledge_maintenance",
   "typed_close", "admission",
 ] as const;
 
@@ -54,6 +59,8 @@ export interface BoundaryEpochRow {
   admitted_count: number;
   finished_count: number;
   boundary_status: string | null;
+  boundary_attempt_count: number;
+  boundary_next_attempt_at: string | null;
   created_at: string;
   closed_at: string | null;
 }
@@ -91,6 +98,7 @@ const EVENT_TYPES = [
   "epoch_started", "epoch_finished", "epoch_checkpoint_progress", "boundary_breakage_gate", "ci_parity_gate",
   "epoch_regression_pause", "epoch_full_refresh_started", "epoch_full_refresh_finished", "epoch_admitted",
   "epoch_cycle_error", "boundary_sync", "epoch_boundary_reconciled", "draft_pr_publish",
+  "epoch_boundary_retry_scheduled", "epoch_boundary_retry_exhausted",
 ] as const;
 
 function objectFromJson(value: string): Record<string, unknown> {
@@ -122,7 +130,7 @@ function firstMatchingReason(value: unknown, matches: (reason: string) => boolea
 }
 
 function emptySteps(): BoundaryStep[] {
-  return BOUNDARY_STEP_KEYS.map((key) => ({ key, state: "pending", startedAt: null, finishedAt: null, durationMs: null, detail: null, payload: null }));
+  return BOUNDARY_STEP_KEYS.map((key) => ({ key, state: "pending", startedAt: null, finishedAt: null, durationMs: null, detail: null, error: null, payload: null }));
 }
 
 function finishStep(step: BoundaryStep, state: BoundaryStepState, at: string, detail: string | null, payload: Record<string, unknown> | null): void {
@@ -149,6 +157,7 @@ function checkpointDetail(key: string, payload: Record<string, unknown>): string
 
 function applyStatus(step: BoundaryStep, payload: Record<string, unknown>, at: string): void {
   const status = text(payload.status);
+  step.error = null;
   if (status === "started") {
     step.state = "running";
     step.startedAt = at;
@@ -162,7 +171,10 @@ function applyStatus(step: BoundaryStep, payload: Record<string, unknown>, at: s
   let state: BoundaryStepState = status === "warning" ? "warning" : status === "skipped" ? "skipped" : status === "failed" ? "failed" : "done";
   if (step.key === "qa_scan" && text(payload.qa_status) === "failed") state = "warning";
   if (step.key === "regression_repair" && (payload.paused === true || (payload.repair as Record<string, unknown> | undefined)?.paused === true)) state = "warning";
-  finishStep(step, state, at, checkpointDetail(step.key, payload), payload);
+  const error = text(payload.error) || null;
+  const detail = status === "failed" ? firstLine(error) ?? firstLine(payload.message) : checkpointDetail(step.key, payload);
+  finishStep(step, state, at, detail, payload);
+  if (status === "failed") step.error = error;
 }
 
 function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: BoundaryEpochRow, reconciled = false): BoundaryAttempt {
@@ -171,6 +183,8 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
   let startedAt: string | null = null;
   let finishedAt: string | null = null;
   let error: string | null = null;
+  let failedStep: string | null = null;
+  let artifactDir: string | null = null;
 
   for (const event of events) {
     const payload = objectFromJson(event.payload_json);
@@ -178,6 +192,15 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
     if (event.event_type === "epoch_finished") finishedAt = event.created_at;
     if (event.event_type === "epoch_cycle_error" && (epoch.status === "error" || epoch.closed_at === null || Date.parse(event.created_at) <= Date.parse(epoch.closed_at))) {
       error = text(payload.error) || firstLine(payload.message);
+      const phase = text(payload.failed_phase);
+      const failed = byKey.get(phase);
+      if (failed && !["done", "warning", "failed", "skipped"].includes(failed.state)) {
+        failed.state = "failed";
+        failed.finishedAt = event.created_at;
+        failed.detail = firstLine(error);
+        failed.error = error;
+      }
+      if (byKey.has(phase)) failedStep = phase;
     }
     if (event.event_type === "epoch_checkpoint_progress") {
       const step = byKey.get(text(payload.phase));
@@ -185,6 +208,9 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
         applyStatus(step, payload, event.created_at);
         if (payload.phase === "integration_drain" && payload.status === "started" && startedAt === null) startedAt = event.created_at;
       }
+    }
+    if ((event.event_type === "epoch_checkpoint_progress" && ["report_build", "save_point"].includes(text(payload.phase))) || event.event_type === "epoch_cycle_error") {
+      artifactDir = text(payload.artifact_dir) || artifactDir;
     }
     if (event.event_type === "boundary_sync") {
       const step = byKey.get("boundary_sync")!;
@@ -200,6 +226,7 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
       const step = byKey.get("master_breakage_gate")!;
       const clean = payload.status === "clean";
       finishStep(step, clean ? "done" : "failed", event.created_at, clean ? `clean vs ${text(payload.baseline_sha).slice(0, 8)}` : `${count(payload.breakages)} breakages`, { breakages: payload.breakages, moved: payload.moved, reasons: payload.reasons });
+      if (!clean && Array.isArray(payload.reasons)) step.error = payload.reasons.filter((reason): reason is string => typeof reason === "string").join("\n") || null;
     }
     if (event.event_type === "ci_parity_gate") {
       for (const [key, field] of [["ci_parity_gate", "ci_parity_status"], ["pre_commit_gate", "pre_commit_status"]] as const) {
@@ -211,6 +238,10 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
             ? "clean"
             : firstMatchingReason(payload.reasons, (reason) => !reason.startsWith("pre-commit"));
         finishStep(byKey.get(key)!, state, event.created_at, detail, { reasons: payload.reasons, steps: payload.steps });
+        if (state === "failed" && Array.isArray(payload.reasons)) {
+          const reasons = payload.reasons.filter((reason): reason is string => typeof reason === "string" && (key === "pre_commit_gate" ? reason.startsWith("pre-commit") : !reason.startsWith("pre-commit")));
+          byKey.get(key)!.error = reasons.join("\n") || null;
+        }
       }
     }
     if (event.event_type === "epoch_regression_pause") {
@@ -239,7 +270,7 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
     const reconcilePayload = reconcileEvent ? objectFromJson(reconcileEvent.payload_json) : {};
     const skippedSteps = Array.isArray(reconcilePayload.skipped_steps)
       ? reconcilePayload.skipped_steps.map(String)
-      : BOUNDARY_STEP_KEYS.slice(1, 16);
+      : BOUNDARY_STEP_KEYS.slice(BOUNDARY_STEP_KEYS.indexOf("snapshot_commit"), BOUNDARY_STEP_KEYS.indexOf("draft_pr_publish") + 1);
     for (const key of skippedSteps) {
       if (byKey.has(key)) {
         finishStep(byKey.get(key)!, "skipped", reconcileEvent?.created_at ?? epoch.created_at, "reconciled: step skipped", null);
@@ -254,13 +285,22 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
       .sort((left, right) => Date.parse(left) - Date.parse(right))[0];
     if (laterActivity) finishStep(step, "done", laterActivity, step.detail, step.payload);
   }
+  failedStep ??= steps.find((step) => step.state === "failed")?.key ?? null;
+  if (error) {
+    for (const step of steps.filter((candidate) => candidate.state === "running")) {
+      step.state = "failed";
+      step.error = error;
+      failedStep ??= step.key;
+    }
+  }
   if (["completed", "paused", "error"].includes(epoch.status)) {
     for (const step of steps.filter((candidate) => candidate.state === "running")) {
+      if (failedStep === step.key) continue;
       step.state = "warning";
       step.detail = `${step.detail ? `${step.detail} ` : ""}(no finish recorded)`;
     }
   }
-  return { attempt, reconciled, startedAt, finishedAt, steps, error };
+  return { attempt, reconciled, startedAt, finishedAt, steps, error, failedStep, artifactDir };
 }
 
 function partitionAttempts(events: BoundaryEventRow[], epoch: BoundaryEpochRow): BoundaryAttempt[] {
@@ -285,7 +325,11 @@ function partitionAttempts(events: BoundaryEventRow[], epoch: BoundaryEpochRow):
   const sorted = attempts.sort((a, b) => Date.parse(a.startedAt ?? epoch.created_at) - Date.parse(b.startedAt ?? epoch.created_at)).map((attempt, index) => ({ ...attempt, attempt: index + 1 }));
   for (const attempt of sorted.slice(0, -1)) {
     if (!attempt.error) continue;
-    for (const running of attempt.steps.filter((step) => step.state === "running")) running.state = "failed";
+    for (const running of attempt.steps.filter((step) => step.state === "running")) {
+      running.state = "failed";
+      running.error = attempt.error;
+      attempt.failedStep ??= running.key;
+    }
   }
   return sorted;
 }
@@ -297,6 +341,23 @@ export function projectBoundaryDashboard(rows: BoundaryProjectionRows): Boundary
     const inWindow = (at: string) => at >= epoch.created_at && (!nextCreatedAt || at < nextCreatedAt);
     const epochEvents = rows.events.filter((event) => inWindow(event.created_at));
     const boundaryEvents = epochEvents.filter((event) => event.event_type !== "epoch_admitted" || Number(objectFromJson(event.payload_json).ordinal) !== epoch.ordinal);
+    const latestCycleError = [...epochEvents].reverse().find((event) => event.event_type === "epoch_cycle_error");
+    const latestFinishedError = [...epochEvents].reverse().find((event) => event.event_type === "epoch_finished" && text(objectFromJson(event.payload_json).status) === "error");
+    const epochError = latestCycleError
+      ? text(objectFromJson(latestCycleError.payload_json).error) || null
+      : latestFinishedError ? text(objectFromJson(latestFinishedError.payload_json).error) || null : null;
+    const latestRetryEvent = [...epochEvents].reverse().find((event) => event.event_type === "epoch_boundary_retry_scheduled" || event.event_type === "epoch_boundary_retry_exhausted");
+    const retryPayload = latestRetryEvent ? objectFromJson(latestRetryEvent.payload_json) : null;
+    const retryEventAttempt = retryPayload && typeof retryPayload.attempt === "number" && Number.isFinite(retryPayload.attempt)
+      ? retryPayload.attempt
+      : 0;
+    const useRetryEventFallback = epoch.boundary_attempt_count === 0 && latestRetryEvent !== undefined;
+    const retry = epoch.boundary_attempt_count === 0 && !latestRetryEvent ? null : {
+      attemptCount: Math.max(epoch.boundary_attempt_count, retryEventAttempt),
+      maxAttempts: retryPayload && typeof retryPayload.max_attempts === "number" && Number.isFinite(retryPayload.max_attempts) ? retryPayload.max_attempts : null,
+      nextAttemptAt: useRetryEventFallback ? text(retryPayload?.next_attempt_at) || null : epoch.boundary_next_attempt_at,
+      exhausted: useRetryEventFallback ? latestRetryEvent.event_type === "epoch_boundary_retry_exhausted" : epoch.boundary_status === "retry_exhausted",
+    };
     const attempts = partitionAttempts(boundaryEvents, epoch);
     if (attempts.length === 0) return [];
     const latest = attempts.at(-1)!;
@@ -306,7 +367,11 @@ export function projectBoundaryDashboard(rows: BoundaryProjectionRows): Boundary
     const integrated = rows.gameEvents.some((event) => event.event_type === "run.epoch_integrated" && Number(objectFromJson(event.payload_json).ordinal) === epoch.ordinal);
     if (epoch.boundary_status === "success" || epoch.boundary_status === "regression_pause" || integrated) {
       finishStep(close, "done", epoch.closed_at ?? latest.finishedAt ?? epoch.created_at, `${epoch.boundary_status ?? "integrated"}${savePoint ? ` ${savePoint.id.slice(0, 8)}` : ""}`, null);
-    } else if (epoch.status === "error") finishStep(close, "failed", epoch.closed_at ?? epoch.created_at, latest.error, null);
+    } else if (epoch.status === "error") {
+      const closeError = latest.error ?? epochError;
+      finishStep(close, "failed", epoch.closed_at ?? epoch.created_at, firstLine(closeError), { epoch_status: epoch.status, boundary_status: epoch.boundary_status, failed_step: latest.failedStep });
+      close.error = closeError;
+    }
     const admittedEvent = rows.events.find((event) => {
       const payload = objectFromJson(event.payload_json);
       return event.event_type === "epoch_admitted" && Number(payload.ordinal) === epoch.ordinal + 1 && event.created_at >= epoch.created_at;
@@ -319,9 +384,13 @@ export function projectBoundaryDashboard(rows: BoundaryProjectionRows): Boundary
     const strandedError = epoch.status === "error" && latest.error !== null;
     const active = epoch.status === "active" && (hasRunning || openCycle);
     if (strandedError) {
-      for (const running of latest.steps.filter((step) => step.state === "running")) running.state = "failed";
+      for (const running of latest.steps.filter((step) => step.state === "running")) {
+        running.state = "failed";
+        running.error = latest.error;
+        latest.failedStep ??= running.key;
+      }
     }
-    return [{ epochId: epoch.id, ordinal: epoch.ordinal, epochStatus: epoch.status, boundaryStatus: epoch.boundary_status, admittedCount: epoch.admitted_count, finishedCount: epoch.finished_count, active, attempts, savePointId: savePoint?.id ?? null, matchedCodePercent: savePoint?.matched_code_percent ?? null, nextEpoch } satisfies BoundaryView];
+    return [{ epochId: epoch.id, ordinal: epoch.ordinal, epochStatus: epoch.status, boundaryStatus: epoch.boundary_status, admittedCount: epoch.admitted_count, finishedCount: epoch.finished_count, active, attempts, error: latest.error ?? epochError, retry, savePointId: savePoint?.id ?? null, matchedCodePercent: savePoint?.matched_code_percent ?? null, nextEpoch } satisfies BoundaryView];
   });
   const now = new Date(rows.now ?? Date.now()).getTime();
   const newest = views.at(-1) ?? null;
@@ -334,7 +403,7 @@ export function projectBoundaryDashboard(rows: BoundaryProjectionRows): Boundary
 
 export function boundaryDashboardForRun(db: Database, runId: string, now?: string | number | Date): BoundaryDashboard {
   if (!runId) return { current: null, recent: [] };
-  const epochs = db.query(`SELECT id, ordinal, status, admitted_count, finished_count, boundary_status, created_at, closed_at FROM epochs WHERE run_id = ? AND (boundary_status IS NULL OR boundary_status NOT LIKE 'manual_discarded%') ORDER BY created_at ASC`).all(runId) as BoundaryEpochRow[];
+  const epochs = db.query(`SELECT id, ordinal, status, admitted_count, finished_count, boundary_status, boundary_attempt_count, boundary_next_attempt_at, created_at, closed_at FROM epochs WHERE run_id = ? AND (boundary_status IS NULL OR boundary_status NOT LIKE 'manual_discarded%') ORDER BY created_at ASC`).all(runId) as BoundaryEpochRow[];
   const placeholders = EVENT_TYPES.map(() => "?").join(",");
   const events = db.query(`SELECT id, event_type, payload_json, created_at FROM events WHERE run_id = ? AND event_type IN (${placeholders}) ORDER BY created_at ASC`).all(runId, ...EVENT_TYPES) as BoundaryEventRow[];
   const savePoints = db.query(`SELECT id, trigger_kind, matched_code_percent, payload_json, created_at FROM save_points WHERE run_id = ? ORDER BY created_at ASC`).all(runId) as BoundarySavePointRow[];

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { chmod, copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
@@ -13,7 +13,10 @@ import { actionableFailureOutput } from "../failure-output.js";
 
 export interface ReportRunStep extends CommandResult {
   command: string[];
+  durationMs: number;
   name: string;
+  stderrPath?: string;
+  stdoutPath?: string;
 }
 
 export interface ReportRunSummary {
@@ -52,7 +55,9 @@ export interface ReportRunResult {
 
 export interface ReportRunOptions {
   generateChanges?: boolean;
+  logDir?: string;
   resetBaseline?: boolean;
+  timeoutMs?: number;
   toolPlatform?: ToolPlatform;
 }
 
@@ -215,20 +220,98 @@ export async function readReportSummary(path: string): Promise<ReportRunSummary 
   }
 }
 
-async function runStep(repoRoot: string, steps: ReportRunStep[], name: string, command: string[]): Promise<void> {
-  const result = await runCommand(repoRoot, command);
-  steps.push({ name, command, ...result });
-  if (result.exitCode !== 0) {
-    throw new Error(`${name} failed (${result.exitCode}): ${actionableFailureOutput(result)}`);
+interface RunStepOptions {
+  logDir?: string;
+  timeoutMs?: number;
+}
+
+function stepSlug(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "step";
+}
+
+async function writeStepLog(path: string, output: string): Promise<string | undefined> {
+  try {
+    await writeFile(path, output);
+    return path;
+  } catch (error) {
+    console.error(`Failed to persist report build log ${path}:`, error);
+    return undefined;
   }
 }
 
-async function ensureConfigured(repoRoot: string, steps: ReportRunStep[], toolPlatform: ToolPlatform): Promise<void> {
+async function persistStepLogs(
+  logDir: string,
+  stepIndex: number,
+  name: string,
+  result: CommandResult,
+): Promise<{ stderrPath?: string; stdoutPath?: string }> {
+  try {
+    await mkdir(logDir, { recursive: true });
+  } catch (error) {
+    console.error(`Failed to create report build log directory ${logDir}:`, error);
+    return {};
+  }
+
+  const pathPrefix = resolve(logDir, `${stepIndex}-${stepSlug(name)}`);
+  const [stdoutPath, stderrPath] = await Promise.all([
+    writeStepLog(`${pathPrefix}.stdout.log`, result.stdout),
+    writeStepLog(`${pathPrefix}.stderr.log`, result.stderr),
+  ]);
+  return {
+    ...(stdoutPath ? { stdoutPath } : {}),
+    ...(stderrPath ? { stderrPath } : {}),
+  };
+}
+
+async function runStep(
+  repoRoot: string,
+  steps: ReportRunStep[],
+  name: string,
+  command: string[],
+  options: RunStepOptions = {},
+): Promise<void> {
+  const startedAt = performance.now();
+  const result = await runCommand(repoRoot, command, { timeoutMs: options.timeoutMs });
+  const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
+  const { stdoutPath, stderrPath } = options.logDir
+    ? await persistStepLogs(options.logDir, steps.length, name, result)
+    : {};
+  steps.push({
+    name,
+    command,
+    ...result,
+    durationMs,
+    ...(stdoutPath ? { stdoutPath } : {}),
+    ...(stderrPath ? { stderrPath } : {}),
+  });
+  if (result.exitCode !== 0) {
+    const error = new Error(`${name} failed (${result.exitCode}): ${actionableFailureOutput(result)}`);
+    Object.assign(error, {
+      exitCode: result.exitCode,
+      stdoutTail: result.stdout.slice(-4_000),
+      stderrTail: result.stderr.slice(-4_000),
+      logPaths: [stdoutPath, stderrPath].filter((path): path is string => Boolean(path)),
+    });
+    throw error;
+  }
+}
+
+async function ensureConfigured(
+  repoRoot: string,
+  steps: ReportRunStep[],
+  toolPlatform: ToolPlatform,
+  options: RunStepOptions,
+): Promise<void> {
   if (await pathExists(resolve(repoRoot, "build.ninja"))) return;
   if (!(await pathExists(resolve(repoRoot, "configure.py")))) {
     throw new Error(`configure failed: build.ninja is missing and configure.py was not found in ${repoRoot}`);
   }
-  await runStep(repoRoot, steps, "configure", await preferredConfigureCommand(repoRoot, toolPlatform));
+  await runStep(repoRoot, steps, "configure", await preferredConfigureCommand(repoRoot, toolPlatform), options);
 }
 
 async function reportReuseMetadata(repoRoot: string): Promise<ReportReuseMetadata> {
@@ -275,7 +358,16 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
   const toolPlatform = resolveToolPlatform({ targetPlatform: options.toolPlatform });
   const reportReuseEnabled = process.env.ORCH_REPORT_REUSE === "1";
 
-  await ensureConfigured(repoRoot, steps, toolPlatform);
+  const invocationLogDir = options.logDir
+    ? resolve(
+        options.logDir,
+        "build-steps",
+        `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`,
+      )
+    : undefined;
+  const stepOptions = { logDir: invocationLogDir, timeoutMs: options.timeoutMs };
+
+  await ensureConfigured(repoRoot, steps, toolPlatform, stepOptions);
   await removeIfExists(reportChangesPath);
   const reuseMetadata = reportReuseEnabled ? await reportReuseMetadata(repoRoot) : null;
   const reusedReport = Boolean(
@@ -285,7 +377,7 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
   );
   if (!reusedReport) {
     await removeIfExists(reportPath);
-    await runStep(repoRoot, steps, "generate report", ["ninja", "build/GALE01/report.json"]);
+    await runStep(repoRoot, steps, "generate report", ["ninja", "build/GALE01/report.json"], stepOptions);
     if (reuseMetadata) await writeFile(reportReusePath, `${JSON.stringify(reuseMetadata, null, 2)}\n`);
   }
 
@@ -294,7 +386,7 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
   }
 
   if (generateChanges) {
-    await runStep(repoRoot, steps, "generate report changes", ["ninja", "changes_all"]);
+    await runStep(repoRoot, steps, "generate report changes", ["ninja", "changes_all"], stepOptions);
   }
 
   return {

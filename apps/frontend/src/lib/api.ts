@@ -4,6 +4,7 @@ import {
   type KernelTraceSessionListResponse,
 } from "@agent-kernel/viewer-core";
 import type { PromptDocument } from "@codecaine-ai/prompt-kit";
+import type { BoundaryStepDetail } from "./boundary-step-detail-types";
 import type {
   Dashboard,
   FormState,
@@ -237,6 +238,22 @@ export function fetchWorkerStateTrace(
   return fetchJson<WorkerStateTrace>(`/api/run/worker-state-trace?${new URLSearchParams({ ...Object.fromEntries(dashboardParams(form)), runId, workerStateId })}`);
 }
 
+export function fetchBoundaryStepDetail(
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  runId: string,
+  epochId: string,
+  attempt: number,
+  step: string,
+): Promise<BoundaryStepDetail> {
+  return fetchJson<BoundaryStepDetail>(`/api/run/boundary-step-detail?${new URLSearchParams({
+    ...Object.fromEntries(dashboardParams(form)),
+    runId,
+    epochId,
+    attempt: String(attempt),
+    step,
+  })}`);
+}
+
 export function postJson<T>(url: string, body: JsonObject): Promise<T> {
   return fetchJson<T>(url, {
     method: "POST",
@@ -263,6 +280,46 @@ export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionList
 
 export function fetchKernelTraceSessionDetail(traceSessionId: string): Promise<KernelTraceSessionDetail> {
   return fetchJson<KernelTraceSessionDetail>(KERNEL_TRACE_READ_PATHS.traceSessionDetail(traceSessionId));
+}
+
+export function fetchKernelContainerTrace(containerId: string): Promise<KernelTraceSessionDetail> {
+  return fetchJson<KernelTraceSessionDetail>(KERNEL_TRACE_READ_PATHS.containerTrace(containerId));
+}
+
+export interface KernelWorkerTraceIdentity {
+  claimId: string;
+  epochId: string;
+  gameId: string;
+  runId: string;
+  sessionId: string;
+}
+
+const kernelWorkerTraceRequests = new Map<string, Promise<KernelTraceSessionDetail | null>>();
+
+export function fetchKernelWorkerTrace(identity: KernelWorkerTraceIdentity): Promise<KernelTraceSessionDetail | null> {
+  const params = new URLSearchParams({
+    claimId: identity.claimId,
+    epochId: identity.epochId,
+    gameId: identity.gameId,
+    runId: identity.runId,
+    sessionId: identity.sessionId,
+  });
+  const key = params.toString();
+  const pending = kernelWorkerTraceRequests.get(key);
+  if (pending) return pending;
+
+  const request = fetchJson<{ trace: KernelTraceSessionDetail | null }>(`/api/kernel/worker-trace?${params}`).then(
+    (response) => {
+      kernelWorkerTraceRequests.delete(key);
+      return response.trace;
+    },
+    (error) => {
+      kernelWorkerTraceRequests.delete(key);
+      throw error;
+    },
+  );
+  kernelWorkerTraceRequests.set(key, request);
+  return request;
 }
 
 export function saveStandard(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, edit: JsonObject): Promise<{ ok: boolean; errors?: string[]; savedId?: string }> {

@@ -3,10 +3,10 @@ import { asObject, text, type JsonObject } from "@/lib/format";
 import { activeRuntime, activityAttemptLabel, activityScoreCompact, baselineScoreCompact, latestActivity } from "@/lib/workerActivity";
 
 export function ActiveRows({
-  onSelectAttempt,
+  onSelectAgent,
   rows,
 }: {
-  onSelectAttempt?: (workerStateId: string) => void;
+  onSelectAgent?: (workerStateId: string) => void;
   rows: JsonObject[];
 }) {
   return (
@@ -23,27 +23,27 @@ export function ActiveRows({
         const eventSummary = text(lastEvent.summary, "Waiting for runner activity");
         const scoreTitle = displayScore.text ? `${eventSummary} - ${displayScore.text}` : eventSummary;
         const workerStateId = text(file.workerStateId);
-        const selectable = Boolean(workerStateId && onSelectAttempt);
+        const selectable = Boolean(workerStateId && onSelectAgent);
 
-        function selectAttempt() {
-          if (workerStateId) onSelectAttempt?.(workerStateId);
+        function selectAgent() {
+          if (workerStateId) onSelectAgent?.(workerStateId);
         }
 
         return (
           <tr
-            aria-label={selectable ? `Open attempt detail for ${text(file.symbol, "worker")}` : undefined}
+            aria-label={selectable ? `Open agent trace for ${text(file.symbol, "worker")}` : undefined}
             className={`row-rhythm-1 ${alt} ${selectable ? "cursor-pointer hover:bg-raised" : ""}`}
             key={`${text(file.claimId)}-${text(file.symbol)}`}
-            onClick={selectable ? selectAttempt : undefined}
+            onClick={selectable ? selectAgent : undefined}
             onKeyDown={selectable ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                selectAttempt();
+                selectAgent();
               }
             } : undefined}
             role={selectable ? "button" : undefined}
             tabIndex={selectable ? 0 : undefined}
-            title={selectable ? "Open attempt detail" : undefined}
+            title={selectable ? "Open agent trace" : undefined}
           >
             <td className="max-w-0" title={fileTitle}>
               <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-fg">{text(file.symbol, "-")}</span>

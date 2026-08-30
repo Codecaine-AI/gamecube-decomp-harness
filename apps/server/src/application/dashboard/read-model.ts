@@ -56,6 +56,11 @@ import { quietGit } from "@server/core/cycle-runtime/phases/pr/pr-sync.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { scoreTiersProjection, type DashboardScoreTiers } from "./score-tiers.js";
 import { boundaryDashboardForRun, type BoundaryDashboard } from "./boundary-view.js";
+import {
+  boundaryStepDetailForRun,
+  type BoundaryStepDetail,
+  type BoundaryStepDetailQuery,
+} from "./boundary-step-detail.js";
 
 export type JsonObject = Record<string, unknown>;
 type WorkerStateOutcome =
@@ -350,9 +355,10 @@ export function createDashboardReadModel(dependencies: DashboardReadModelDepende
   runDashboard: (paths: DashboardGameContext) => Promise<JsonObject>;
   runDetails: (stateDir: string, explicitRunId?: string, game?: ResolvedGame | null) => JsonObject;
   workerStateTrace: (stateDir: string, runId: string, workerStateId: string) => JsonObject;
+  boundaryStepDetail: (stateDir: string, runId: string, query: BoundaryStepDetailQuery) => BoundaryStepDetail | { error: string };
 } {
   readModelDependencies = dependencies;
-  return { dashboardStableSignature, dashboardTick, runDashboard, runDetails, workerStateTrace };
+  return { dashboardStableSignature, dashboardTick, runDashboard, runDetails, workerStateTrace, boundaryStepDetail };
 }
 
 function asObject(value: unknown): JsonObject {
@@ -2429,6 +2435,19 @@ function workerStateTrace(stateDir: string, runId: string, workerStateId: string
       workerStateId,
       ...activeClaimActivity(stateDir, runId, workerStateId, row.claimed_at || row.started_at),
     };
+  } finally {
+    store.db.close();
+  }
+}
+
+function boundaryStepDetail(
+  stateDir: string,
+  runId: string,
+  query: BoundaryStepDetailQuery,
+): BoundaryStepDetail | { error: string } {
+  const store = openState(stateDir);
+  try {
+    return boundaryStepDetailForRun(store.db, stateDir, runId, query);
   } finally {
     store.db.close();
   }

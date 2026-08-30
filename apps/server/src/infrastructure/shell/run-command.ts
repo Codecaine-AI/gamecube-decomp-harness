@@ -11,17 +11,26 @@ export interface RunCommandOptions {
 
 export async function runCommand(repoRoot: string, command: string[], options: RunCommandOptions = {}): Promise<CommandResult> {
   let timedOut = false;
+  const timeoutArmed = Boolean(options.timeoutMs && options.timeoutMs > 0);
+  // Detach only when a timeout can fire: the kill must reach the whole process
+  // group (ninja's children inherit our pipes), but an unconditionally detached
+  // child would survive a SIGINT to the server.
   const proc = Bun.spawn(command, {
     cwd: repoRoot,
+    detached: timeoutArmed,
     env: options.env ? { ...Bun.env, ...options.env } : Bun.env,
     stdout: "pipe",
     stderr: "pipe",
   });
   const timeout =
-    options.timeoutMs && options.timeoutMs > 0
+    timeoutArmed
       ? setTimeout(() => {
           timedOut = true;
-          proc.kill(9);
+          try {
+            process.kill(-proc.pid, "SIGKILL");
+          } catch {
+            proc.kill(9);
+          }
         }, options.timeoutMs)
       : null;
   const stdoutPromise = new Response(proc.stdout).text();
@@ -31,7 +40,7 @@ export async function runCommand(repoRoot: string, command: string[], options: R
     if (!timedOut) return { exitCode, stdout, stderr };
     const timeoutSeconds = Math.round((options.timeoutMs ?? 0) / 1000);
     return {
-      exitCode: exitCode === 0 ? 124 : exitCode,
+      exitCode: 124,
       stdout,
       stderr: `${stderr}${stderr.endsWith("\n") || !stderr ? "" : "\n"}Command timed out after ${timeoutSeconds}s: ${command.join(" ")}`,
     };

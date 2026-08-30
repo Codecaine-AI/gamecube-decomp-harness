@@ -6,7 +6,9 @@ import {
   meleeKernelRuntimeRequiredFromEnv,
 } from "@server/infrastructure/kernel/bridge/database";
 import { createMeleeKernelRuntime, type MeleeKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime";
-import { meleeRootContainerId } from "@server/infrastructure/kernel/bridge/session-mapping";
+import { toKernelTraceSessionDetail } from "@server/infrastructure/kernel/bridge/read-api";
+import { meleeRootContainerId, meleeWorkerContainerId } from "@server/infrastructure/kernel/bridge/session-mapping";
+import type { KernelTraceSessionDetail } from "@agent-kernel/viewer-core";
 import {
   submitMeleeWorkflowTraceEvent,
   type MeleeWorkflowTraceStatus,
@@ -38,6 +40,14 @@ export interface DashboardKernelWorkflowEventInput {
   causedByEventId?: string | null;
 }
 
+export interface DashboardKernelWorkerTraceInput {
+  claimId: string;
+  epochId: string;
+  gameId: string;
+  runId: string;
+  sessionId: string;
+}
+
 export interface DashboardKernelRuntimeService {
   closeForTests: () => Promise<void>;
   databaseUrl: () => string | null;
@@ -49,6 +59,7 @@ export interface DashboardKernelRuntimeService {
   sessionId: (paths: GameRuntimeContext, input: Pick<DashboardKernelWorkflowEventInput, "sessionId" | "runId">) => string;
   status: () => Promise<JsonObject>;
   submitWorkflowEvent: (paths: GameRuntimeContext, input: DashboardKernelWorkflowEventInput) => Promise<JsonObject | null>;
+  workerTrace: (input: DashboardKernelWorkerTraceInput) => Promise<KernelTraceSessionDetail | null>;
 }
 
 export interface DashboardKernelRuntimeServiceDeps {
@@ -346,6 +357,20 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
     return current.readApi.handle(req);
   }
 
+  async function workerTrace(input: DashboardKernelWorkerTraceInput): Promise<KernelTraceSessionDetail | null> {
+    const current = await runtime();
+    if (!current) return null;
+    const containerId = meleeWorkerContainerId({
+      claimId: requiredText(input.claimId, "claimId"),
+      epochId: requiredText(input.epochId, "epochId"),
+      gameId: requiredText(input.gameId, "gameId"),
+      runId: requiredText(input.runId, "runId"),
+      sessionId: requiredText(input.sessionId, "sessionId"),
+    });
+    const rows = await current.readRows(containerId, {});
+    return rows ? toKernelTraceSessionDetail(rows) : null;
+  }
+
   function gameId(paths: GameRuntimeContext): string {
     return paths.game?.gameId ?? "melee";
   }
@@ -466,5 +491,6 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
     sessionId,
     status,
     submitWorkflowEvent,
+    workerTrace,
   };
 }

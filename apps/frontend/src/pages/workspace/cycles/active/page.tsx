@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { cycleTabForSubPage, type CycleSubPage } from "@/routing";
-import { PageHeader, PanelSection } from "@/components/primitives";
-import { asArray } from "@/lib/format";
+import { Button, PageHeader, PanelSection } from "@/components/primitives";
 import { prettyStatus } from "@/pages/workspace/_lib/model";
+import { asObject, text } from "@/lib/format";
 import { activeCycleFocus } from "@/pages/workspace/cycles/_lib/cycleRoute";
 import type { CyclesPageProps } from "@/pages/workspace/cycles/_lib/types";
-import { AttemptDetailPage } from "@/pages/workspace/cycles/active/details/attempt";
 import { EpochDetailPage } from "@/pages/workspace/cycles/active/details/epoch";
 import { SyncStageDetailPage } from "@/pages/workspace/cycles/active/details/sync-stage";
 import { RunModePage } from "@/pages/workspace/cycles/active/subphases/run";
@@ -15,62 +14,51 @@ import { ActiveCycleSummary } from "@/pages/workspace/cycles/active/components/A
 import { ReviewSubPage } from "@/pages/workspace/cycles/active/components/ReviewSubPage";
 import { CycleAgentsBrowser } from "@/pages/workspace/cycles/active/components/agents-browser";
 
-const leaseWarningStatuses = new Set(["blocked", "releasing"]);
-
 export function ActiveCyclePage(props: CyclesPageProps) {
   const [agentsOpen, setAgentsOpen] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
   const sub = props.route.cycleSub ?? props.view.recommendedSub;
   const cycleFocus = activeCycleFocus(props.view);
-  const harnessState = props.view.harnessState;
-  const activeWorkflow = harnessState?.active_workflow ?? null;
-  const runningAgents = (props.dashboard?.activeFiles ?? []).length;
-  const fullWorkerStates = asArray(props.runDetails?.workerStates);
-  const totalAgents = fullWorkerStates.length > 0 ? fullWorkerStates.length : (props.dashboard?.workerStates ?? []).length;
 
   useEffect(() => {
+    if (props.route.cycleDetail?.kind === "attempt") {
+      setSelectedAgentId(props.route.cycleDetail.id);
+      setAgentsOpen(true);
+      return;
+    }
     setAgentsOpen(false);
   }, [props.route.cycleDetail, props.route.cycleSub]);
+
+  function openAgent(id: string) {
+    setSelectedAgentId(id);
+    setAgentsOpen(true);
+  }
 
   return (
     <>
       <PageHeader
         kicker={props.view.game?.displayName ?? "No game selected"}
         right={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                aria-pressed={agentsOpen}
-                className={`status-tag cursor-pointer border hover:border-line2 hover:bg-raised ${runningAgents > 0 ? "status-tag-live" : ""}`}
-                onClick={() => setAgentsOpen((open) => !open)}
-                title={agentsOpen ? "Close agents browser" : "Open agents browser"}
-                type="button"
-              >
-                <span className="lamp" />
-                Agents · {runningAgents} active / {totalAgents}
-              </button>
-              {props.view.cycleStageStates.done === "done" ? (
-                <span className="status-tag status-tag-live">
-                  <span className="lamp" />
-                  Cycle complete
-                </span>
-              ) : null}
-              {activeWorkflow ? (
-                <span
-                  className={`status-tag ${leaseWarningStatuses.has(activeWorkflow.status) ? "status-tag-warn" : "status-tag-live"}`}
-                  title={activeWorkflow.headline}
-                >
-                  <span className="lamp" />
-                  {prettyStatus(activeWorkflow.kind)} · {prettyStatus(activeWorkflow.status)}
-                </span>
-              ) : null}
-            </div>
+          <Button
+            onClick={() => setAgentsOpen((open) => !open)}
+            title={agentsOpen ? "Return to run" : "View agents"}
+            type="button"
+          >
+            {agentsOpen ? "Run" : "Agents"}
+          </Button>
         }
         title="Active Cycle"
       />
       <div className="@container grid min-h-0 flex-1 content-start gap-4 overflow-auto p-4">
         {agentsOpen ? (
-          <CycleAgentsBrowser {...props} cycleFocus={cycleFocus} onClose={() => setAgentsOpen(false)} />
+          <CycleAgentsBrowser
+            {...props}
+            cycleFocus={cycleFocus}
+            onSelectWorkerState={setSelectedAgentId}
+            selectedWorkerStateId={selectedAgentId}
+          />
         ) : (
-          <ActiveCycleContent {...props} cycleFocus={cycleFocus} sub={sub} />
+          <ActiveCycleContent {...props} cycleFocus={cycleFocus} onSelectAgent={openAgent} sub={sub} />
         )}
       </div>
     </>
@@ -78,25 +66,11 @@ export function ActiveCyclePage(props: CyclesPageProps) {
 }
 
 function ActiveCycleContent(
-  props: CyclesPageProps & { cycleFocus: string; sub: CycleSubPage },
+  props: CyclesPageProps & { cycleFocus: string; onSelectAgent: (id: string) => void; sub: CycleSubPage },
 ) {
   const detail = props.route.cycleDetail;
   const tab = cycleTabForSubPage(props.sub);
   if (detail && tab) {
-    if (detail.kind === "attempt" && tab === "run") {
-      return (
-        <AttemptDetailPage
-          cycleFocus={props.cycleFocus}
-          dashboard={props.dashboard}
-          form={props.form}
-          loadRunDetails={props.loadRunDetails}
-          loadingRunDetails={props.loadingRunDetails}
-          nav={props.nav}
-          runDetails={props.runDetails}
-          workerStateId={detail.id}
-        />
-      );
-    }
     if (detail.kind === "epoch" && tab === "run") {
       return (
         <EpochDetailPage
@@ -135,9 +109,11 @@ function ActiveCycleContent(
     return (
       <RunModePage
         dashboard={props.dashboard}
+        form={props.form}
         improvedMode={props.improvedMode}
         improvedPage={props.improvedPage}
-        onSelectAttempt={(id) => props.nav.goToCycle(props.cycleFocus, "run", { kind: "attempt", id })}
+        onSelectAgent={props.onSelectAgent}
+        runId={text(asObject(props.dashboard?.status?.run).id, text(props.runDetails?.runId))}
         setImprovedMode={props.setImprovedMode}
         setImprovedPage={props.setImprovedPage}
         setWorkMode={props.setWorkMode}

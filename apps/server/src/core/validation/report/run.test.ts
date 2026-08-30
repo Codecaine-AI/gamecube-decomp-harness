@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { boardMeasuresFromReportSummary } from "./dashboard-artifacts.js";
 import { computeReportReuseKey, forceReportRun } from "./run.js";
 
@@ -30,6 +30,185 @@ afterEach(() => {
 });
 
 describe("forceReportRun", () => {
+  test("persists each invocation's step output in a distinct directory", async () => {
+    const root = tempDir();
+    const repoRoot = resolve(root, "repo");
+    const binDir = resolve(root, "bin");
+    const logDir = resolve(root, "artifacts");
+    mkdirSync(repoRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(resolve(repoRoot, "build.ninja"), "# fixture\n");
+    writeExecutable(
+      resolve(binDir, "ninja"),
+      `#!/bin/sh
+mkdir -p build/GALE01
+printf '%s\n' 'report stdout'
+printf '%s\n' 'report stderr' >&2
+printf '%s\n' '{"measures":{}}' > build/GALE01/report.json
+`,
+    );
+
+    const originalPath = Bun.env.PATH;
+    Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
+    try {
+      const first = await forceReportRun(repoRoot, { generateChanges: false, logDir });
+      const second = await forceReportRun(repoRoot, { generateChanges: false, logDir });
+      const firstStep = first.steps[0];
+      const secondStep = second.steps[0];
+      const stdoutPath = firstStep.stdoutPath as string;
+      const stderrPath = firstStep.stderrPath as string;
+
+      expect(firstStep).toMatchObject({
+        durationMs: expect.any(Number),
+        name: "generate report",
+        stdoutPath,
+        stderrPath,
+      });
+      expect(stdoutPath).toStartWith(`${resolve(logDir, "build-steps")}/`);
+      expect(stdoutPath).toEndWith("/0-generate-report.stdout.log");
+      expect(stderrPath).toEndWith("/0-generate-report.stderr.log");
+      expect(dirname(secondStep.stdoutPath as string)).not.toBe(dirname(stdoutPath));
+      expect(readFileSync(stdoutPath, "utf8")).toBe("report stdout\n");
+      expect(readFileSync(stderrPath, "utf8")).toBe("report stderr\n");
+      expect(readFileSync(secondStep.stdoutPath as string, "utf8")).toBe("report stdout\n");
+    } finally {
+      if (originalPath === undefined) delete Bun.env.PATH;
+      else Bun.env.PATH = originalPath;
+    }
+  });
+
+  test("times out a step with exit 124 and retains bounded output tails and logs", async () => {
+    const root = tempDir();
+    const repoRoot = resolve(root, "repo");
+    const binDir = resolve(root, "bin");
+    const logDir = resolve(root, "artifacts");
+    const noisyStdout = `${"o".repeat(4_200)}stdout-tail-marker`;
+    const noisyStderr = `${"e".repeat(4_200)}stderr-tail-marker`;
+    mkdirSync(repoRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(resolve(repoRoot, "build.ninja"), "# fixture\n");
+    writeExecutable(
+      resolve(binDir, "ninja"),
+      `#!/bin/sh
+printf '%s\n' '${noisyStdout}'
+printf '%s\n' '${noisyStderr}' >&2
+sleep 5
+`,
+    );
+
+    const originalPath = Bun.env.PATH;
+    Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
+    try {
+      let failure: unknown;
+      try {
+        await forceReportRun(repoRoot, { generateChanges: false, logDir, timeoutMs: 250 });
+      } catch (error) {
+        failure = error;
+      }
+      const observed = failure as Error & {
+        exitCode: number;
+        logPaths: string[];
+        stderrTail: string;
+        stdoutTail: string;
+      };
+      const [stdoutPath, stderrPath] = observed.logPaths;
+
+      expect(observed).toBeInstanceOf(Error);
+      expect(observed.message).toStartWith("generate report failed (124):");
+      expect(observed.exitCode).toBe(124);
+      expect(observed.stdoutTail.length).toBeLessThanOrEqual(4_000);
+      expect(observed.stdoutTail).toContain("stdout-tail-marker");
+      expect(observed.stderrTail.length).toBeLessThanOrEqual(4_000);
+      expect(observed.stderrTail).toContain("stderr-tail-marker");
+      expect(observed.stderrTail).toContain("Command timed out");
+      expect(observed.logPaths).toEqual([stdoutPath, stderrPath]);
+      expect(Object.hasOwn(observed, "exitCode")).toBe(true);
+      expect(Object.hasOwn(observed, "stdoutTail")).toBe(true);
+      expect(Object.hasOwn(observed, "stderrTail")).toBe(true);
+      expect(Object.hasOwn(observed, "logPaths")).toBe(true);
+      expect(readFileSync(stdoutPath, "utf8")).toContain("stdout-tail-marker");
+      expect(readFileSync(stderrPath, "utf8")).toContain("Command timed out");
+    } finally {
+      if (originalPath === undefined) delete Bun.env.PATH;
+      else Bun.env.PATH = originalPath;
+    }
+  });
+
+  test("returns a successful build result when diagnostic logs cannot be persisted", async () => {
+    const root = tempDir();
+    const repoRoot = resolve(root, "repo");
+    const binDir = resolve(root, "bin");
+    const logDir = resolve(root, "not-a-directory");
+    mkdirSync(repoRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(resolve(repoRoot, "build.ninja"), "# fixture\n");
+    writeFileSync(logDir, "blocks nested log directories\n");
+    writeExecutable(
+      resolve(binDir, "ninja"),
+      `#!/bin/sh
+mkdir -p build/GALE01
+printf '%s\n' '{"measures":{"matched_code_percent":42}}' > build/GALE01/report.json
+`,
+    );
+
+    const originalPath = Bun.env.PATH;
+    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+    Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
+    try {
+      const result = await forceReportRun(repoRoot, { generateChanges: false, logDir });
+
+      expect(result.summary?.matchedCodePercent).toBe(42);
+      expect(result.steps[0]).toMatchObject({ exitCode: 0, name: "generate report" });
+      expect(result.steps[0]?.stdoutPath).toBeUndefined();
+      expect(result.steps[0]?.stderrPath).toBeUndefined();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+      if (originalPath === undefined) delete Bun.env.PATH;
+      else Bun.env.PATH = originalPath;
+    }
+  });
+
+  test("preserves a command failure when diagnostic logs cannot be persisted", async () => {
+    const root = tempDir();
+    const repoRoot = resolve(root, "repo");
+    const binDir = resolve(root, "bin");
+    const logDir = resolve(root, "not-a-directory");
+    mkdirSync(repoRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(resolve(repoRoot, "build.ninja"), "# fixture\n");
+    writeFileSync(logDir, "blocks nested log directories\n");
+    writeExecutable(
+      resolve(binDir, "ninja"),
+      `#!/bin/sh
+printf '%s\n' 'original command failure' >&2
+exit 23
+`,
+    );
+
+    const originalPath = Bun.env.PATH;
+    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+    Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
+    try {
+      let failure: unknown;
+      try {
+        await forceReportRun(repoRoot, { generateChanges: false, logDir });
+      } catch (error) {
+        failure = error;
+      }
+
+      const observed = failure as Error & { exitCode: number; logPaths: string[] };
+      expect(observed.message).toContain("generate report failed (23): original command failure");
+      expect(observed.exitCode).toBe(23);
+      expect(observed.logPaths).toEqual([]);
+      expect(consoleError).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+      if (originalPath === undefined) delete Bun.env.PATH;
+      else Bun.env.PATH = originalPath;
+    }
+  });
+
   test("serializes concurrent runs for the same repo root", async () => {
     const root = tempDir();
     const repoRoot = resolve(root, "repo");

@@ -137,7 +137,12 @@ describe("runEpochBoundary", () => {
         dependencies: {
           now: () => new Date("2026-08-27T12:00:00.000Z"),
           reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
-          runEpochCycle: async () => { throw new Error("configure failed"); },
+          runEpochCycle: async () => {
+            throw Object.assign(new Error("configure failed"), {
+              phase: "configure",
+              artifactDir: resolve(value.dir, "epoch-artifacts"),
+            });
+          },
         },
       });
       input.config.boundaryRetry = { enabled: true, maxAttempts: 5, baseMs: 120_000, maxMs: 1_800_000 };
@@ -150,7 +155,15 @@ describe("runEpochBoundary", () => {
           boundary_next_attempt_at: "2026-08-27T12:02:00.000Z",
         });
       const event = value.store.db.query("SELECT payload_json FROM events WHERE event_type = 'epoch_boundary_retry_scheduled'").get() as { payload_json: string };
-      expect(JSON.parse(event.payload_json)).toMatchObject({ attempt: 1, max_attempts: 5, delay_ms: 120_000 });
+      expect(JSON.parse(event.payload_json)).toMatchObject({ attempt: 1, max_attempts: 5, delay_ms: 120_000, failed_phase: "configure" });
+      const cycleError = value.store.db.query("SELECT payload_json FROM events WHERE event_type = 'epoch_cycle_error'").get() as { payload_json: string };
+      expect(JSON.parse(cycleError.payload_json)).toMatchObject({
+        error: "configure failed",
+        failed_phase: "configure",
+        artifact_dir: resolve(value.dir, "epoch-artifacts"),
+      });
+      const closedEpoch = value.store.db.query("SELECT routing_summary_json FROM epochs WHERE id = ?").get(value.epochId) as { routing_summary_json: string };
+      expect(JSON.parse(closedEpoch.routing_summary_json)).toMatchObject({ failed_phase: "configure" });
     } finally {
       errorLog.mockRestore();
       value.store.db.close();
@@ -392,6 +405,7 @@ describe("runEpochBoundary", () => {
         dependencies: {
           reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
           runEpochCycle: async () => ({
+            artifactDir: value.dir,
             commitSha: "epoch-head",
             label: "epoch-1",
             matchedCodePercent: 90,
@@ -422,6 +436,72 @@ describe("runEpochBoundary", () => {
         .query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'draft_pr_publish'")
         .get(value.runId) as { payload_json: string };
       expect(JSON.parse(draftEvent.payload_json)).toMatchObject({ status: "skipped", reason: "sync_failed" });
+      const failedCheckpoint = value.store.db
+        .query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'")
+        .get(value.runId) as { payload_json: string };
+      expect(JSON.parse(failedCheckpoint.payload_json)).toMatchObject({
+        phase: "boundary_sync",
+        status: "failed",
+        message: "boundary sync fetch failed: network unavailable",
+        error: "boundary sync fetch failed: network unavailable",
+        artifact_dir: value.dir,
+      });
+      const cycleError = value.store.db
+        .query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_cycle_error'")
+        .get(value.runId) as { payload_json: string };
+      expect(JSON.parse(cycleError.payload_json)).toMatchObject({ failed_phase: "boundary_sync", artifact_dir: value.dir });
+    } finally {
+      errorLog.mockRestore();
+      value.store.db.close();
+    }
+  });
+
+  test("continues boundary failure handling when failed checkpoint persistence throws", async () => {
+    const value = fixture([]);
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      value.store.db.exec(`
+        CREATE TRIGGER reject_failed_checkpoint
+        BEFORE INSERT ON events
+        WHEN NEW.event_type = 'epoch_checkpoint_progress'
+        BEGIN
+          SELECT RAISE(ABORT, 'checkpoint write blocked');
+        END;
+      `);
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          now: () => new Date("2026-08-27T12:00:00.000Z"),
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: (async () => completedBoundary(value)) as never,
+          runBoundarySync: async () => {
+            throw new Error("boundary sync failed");
+          },
+        },
+      });
+      input.config.boundarySyncEnabled = true;
+
+      expect(await runEpochBoundary(input)).toMatchObject({ ok: false, error: "boundary sync failed", terminal: false });
+      expect(value.store.db.query(
+        "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'",
+      ).get(value.runId)).toEqual({ count: 0 });
+      const cycleError = value.store.db
+        .query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_cycle_error'")
+        .get(value.runId) as { payload_json: string };
+      expect(JSON.parse(cycleError.payload_json)).toMatchObject({ error: "boundary sync failed", failed_phase: "boundary_sync" });
+      expect(value.store.db.query(`SELECT status, boundary_status, boundary_attempt_count, boundary_next_attempt_at
+        FROM epochs WHERE id = ?`).get(value.epochId)).toEqual({
+          status: "error",
+          boundary_status: "retry_scheduled",
+          boundary_attempt_count: 1,
+          boundary_next_attempt_at: "2026-08-27T12:02:00.000Z",
+        });
+      expect(value.store.db.query(
+        "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'epoch_boundary_retry_scheduled'",
+      ).get(value.runId)).toEqual({ count: 1 });
+      expect(errorLog.mock.calls.some(([message]) => String(message).includes(
+        "failed checkpoint emission for boundary_sync: checkpoint write blocked",
+      ))).toBe(true);
     } finally {
       errorLog.mockRestore();
       value.store.db.close();
@@ -480,6 +560,43 @@ describe("runEpochBoundary", () => {
         steps: [{ gate: "ci_parity", name: "link ninja", exit_code: 1 }],
       });
       expect(errorLog.mock.calls.some(([message]) => String(message).includes("cycle draft PR skipped (ci_parity_failed: link ninja failed)"))).toBe(true);
+    } finally {
+      errorLog.mockRestore();
+      value.store.db.close();
+    }
+  });
+
+  test("thrown CI parity gate failure uses the dashboard checkpoint key", async () => {
+    const value = fixture([]);
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: (async () => completedBoundary(value)) as never,
+          runCiParityGate: async () => {
+            throw new Error("CI parity command failed");
+          },
+        },
+      });
+      input.schedulerEpochId = undefined;
+      input.config.cycleDraftPrEnabled = true;
+      input.config.ciParityEnabled = true;
+
+      expect(await runEpochBoundary(input)).toMatchObject({ ok: false, error: "CI parity command failed" });
+      const checkpoint = value.store.db
+        .query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'")
+        .get(value.runId) as { payload_json: string };
+      expect(JSON.parse(checkpoint.payload_json)).toMatchObject({
+        phase: "ci_parity_gate",
+        status: "failed",
+        error: "CI parity command failed",
+      });
+      const cycleError = value.store.db
+        .query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_cycle_error'")
+        .get(value.runId) as { payload_json: string };
+      expect(JSON.parse(cycleError.payload_json)).toMatchObject({ failed_phase: "ci_parity_gate" });
     } finally {
       errorLog.mockRestore();
       value.store.db.close();

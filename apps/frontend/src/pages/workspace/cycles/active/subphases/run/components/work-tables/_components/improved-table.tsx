@@ -38,7 +38,7 @@ import {
 interface ImprovedTableProps {
   dashboard: Dashboard | null;
   mode: ImprovedMode;
-  onSelectAttempt?: (workerStateId: string) => void;
+  onSelectAgent?: (workerStateId: string) => void;
 }
 
 function scorePart(value: unknown): string {
@@ -121,7 +121,7 @@ function itemTitle(entry: JsonObject, mode: ImprovedMode): string {
   return `${rowItem(entry)}\nScore: ${scoreTitle(entry)}${state}`;
 }
 
-export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTableProps) {
+export function ImprovedTable({ dashboard, mode, onSelectAgent }: ImprovedTableProps) {
   const [page, setPage] = useState(0);
   const [resultMode, setResultMode] = useState<ImprovedResultMode>("matches");
   const rows = reportRows(dashboard, mode, resultMode);
@@ -213,27 +213,27 @@ export function ImprovedTable({ dashboard, mode, onSelectAttempt }: ImprovedTabl
             <tbody>
               {visible.map((entry, index) => {
                 const workerStateId = tentativeMode ? text(entry.workerStateId) : "";
-                const selectable = Boolean(workerStateId && onSelectAttempt);
+                const selectable = Boolean(workerStateId && onSelectAgent);
 
-                function selectAttempt() {
-                  if (workerStateId) onSelectAttempt?.(workerStateId);
+                function selectAgent() {
+                  if (workerStateId) onSelectAgent?.(workerStateId);
                 }
 
                 return (
                   <tr
-                    aria-label={selectable ? `Open attempt detail for ${rowItem(entry)}` : undefined}
+                    aria-label={selectable ? `Open agent trace for ${rowItem(entry)}` : undefined}
                     className={`row-rhythm-1 ${selectable ? "cursor-pointer hover:bg-raised" : ""}`}
                     key={`${rowPath(entry)}-${rowItem(entry)}-${index}`}
-                    onClick={selectable ? selectAttempt : undefined}
+                    onClick={selectable ? selectAgent : undefined}
                     onKeyDown={selectable ? (event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        selectAttempt();
+                        selectAgent();
                       }
                     } : undefined}
                     role={selectable ? "button" : undefined}
                     tabIndex={selectable ? 0 : undefined}
-                    title={selectable ? "Open attempt detail" : undefined}
+                    title={selectable ? "Open agent trace" : undefined}
                   >
                     <td title={itemTitle(entry, mode)}>{rowItem(entry)}</td>
                     {tentativeMode ? (
