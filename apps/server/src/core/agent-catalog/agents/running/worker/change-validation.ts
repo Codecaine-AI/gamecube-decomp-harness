@@ -9,6 +9,7 @@ import {
   type WorkspaceExec,
 } from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
+import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import { resolveHeaderConsumers } from "./consumer-map.js";
 import {
   DEFAULT_WORKER_MICRO_GATE_FLAGS,
@@ -25,7 +26,6 @@ import {
 import type { WorkerRunnerValidation } from "./runner-validation.js";
 
 const SCORE_EPSILON = 0.000001;
-const EXACT_SCORE = 99.99999;
 
 // The board/report pipeline scores units with the game's objdiff report
 // config (build.ninja `objdiff_report_args`, e.g. functionRelocDiffs=data_value).
@@ -321,7 +321,11 @@ function snapshotFromObjdiffReport(params: {
 }): WorkerUnitScoreSnapshot | null {
   const rows = chooseObjdiffRows(params.report);
   if (rows.functions.length === 0 && rows.sections.length === 0) return null;
-  const target = rows.functions.find((row) => row.name === params.symbol);
+  const functionTarget = rows.functions.find((row) => row.name === params.symbol);
+  const sectionTarget = rows.sections.find((row) => row.name === params.symbol);
+  const target = params.symbol.startsWith(".")
+    ? sectionTarget ?? functionTarget
+    : functionTarget ?? sectionTarget;
   return {
     schemaVersion: 1,
     capturedAt: new Date().toISOString(),
@@ -613,12 +617,14 @@ function compareRows(params: {
   regressions: NonNullable<WorkerRunnerValidation["regressions"]>;
   improvements: NonNullable<WorkerRunnerValidation["improvements"]>;
   reasons: string[];
+  ignoreRegression?: (item: string, beforeScore: number, afterScore: number) => boolean;
 }): void {
   const before = scoreMap(params.beforeRows);
   const after = scoreMap(params.afterRows);
   for (const [item, beforeScore] of before) {
     const afterScore = after.get(item) ?? 0;
     if (afterScore + SCORE_EPSILON < beforeScore) {
+      if (params.ignoreRegression?.(item, beforeScore, afterScore)) continue;
       params.regressions.push({ kind: params.kind, unit: params.unit, item, before: beforeScore, after: afterScore });
       if (beforeScore >= EXACT_SCORE && afterScore < EXACT_SCORE) {
         params.reasons.push(`already-exact ${params.kind} regressed: ${item} ${beforeScore} -> ${afterScore}`);
@@ -647,6 +653,7 @@ export function compareWorkerUnitSnapshots(params: {
   const targetReachedExact = targetHasScores && beforeTarget < EXACT_SCORE && afterTarget >= EXACT_SCORE;
   const targetIsExact = targetHasScores && afterTarget >= EXACT_SCORE;
   const targetRegressed = targetHasScores && afterTarget + SCORE_EPSILON < beforeTarget;
+  const sectionTarget = params.before.symbol.startsWith(".");
   // The runner owns the durable outcome: a measured official improvement is
   // accepted progress even when the model over-claimed exact. The over-claim
   // is surfaced in reasons and target.exact stays truthful, so the recorded
@@ -657,8 +664,26 @@ export function compareWorkerUnitSnapshots(params: {
   // the cycle worktree already contains the exact source.
   const targetAccepted = targetImproved || targetReachedExact || targetIsExact;
 
-  compareRows({ kind: "unit", unit: params.before.unit, beforeRows: params.before.metrics, afterRows: params.after.metrics, regressions, improvements, reasons });
-  compareRows({ kind: "function", unit: params.before.unit, beforeRows: params.before.functions, afterRows: params.after.functions, regressions, improvements, reasons });
+  compareRows({
+    kind: "unit",
+    unit: params.before.unit,
+    beforeRows: params.before.metrics,
+    afterRows: params.after.metrics,
+    regressions,
+    improvements,
+    reasons,
+    ignoreRegression: sectionTarget ? (item) => item === "matched_data_percent" : undefined,
+  });
+  compareRows({
+    kind: "function",
+    unit: params.before.unit,
+    beforeRows: params.before.functions,
+    afterRows: params.after.functions,
+    regressions,
+    improvements,
+    reasons,
+    ignoreRegression: sectionTarget ? (_item, beforeScore) => beforeScore < EXACT_SCORE : undefined,
+  });
   compareRows({ kind: "section", unit: params.before.unit, beforeRows: params.before.sections, afterRows: params.after.sections, regressions, improvements, reasons });
 
   let status: WorkerRunnerValidation["status"] = "passed";

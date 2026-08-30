@@ -5,7 +5,6 @@ import { dirname, join } from "node:path";
 import { insertGraphRecords, openKnowledgeGraph } from "./db.js";
 import { buildOpseqSimilarityGraphRecords } from "./opseq-similarity.js";
 import { fileGraphCard } from "./queries/file-card.js";
-import { rankFeatureForSourcePath } from "./queries/rank.js";
 import { fileEntityId, functionEntityId, unitEntityId } from "./builders/code-graph.js";
 import type { GraphRecords } from "./types.js";
 
@@ -59,7 +58,7 @@ describe("opseq similarity graph records", () => {
     expect(buildOpseqSimilarityGraphRecords(repoRoot, { indexesRoot })).toBeNull();
   });
 
-  test("rank features and file cards expose opseq analog evidence", () => {
+  test("file cards expose opseq analog evidence", () => {
     const { repoRoot, indexesRoot } = opseqFixture();
     const opseqRecords = buildOpseqSimilarityGraphRecords(repoRoot, { indexesRoot });
     expect(opseqRecords).not.toBeNull();
@@ -69,21 +68,6 @@ describe("opseq similarity graph records", () => {
     try {
       insertGraphRecords(store, codeGraphFixtureRecords());
       insertGraphRecords(store, opseqRecords as GraphRecords);
-
-      const feature = rankFeatureForSourcePath(store, "src/a.c", {
-        source_path: "src/a.c",
-        unit: "unit/a",
-        symbol: "TargetFn",
-      });
-      expect(feature.duplicate_reference_count).toBe(1);
-      expect(feature.opseq_best_analog_score).toBe(0.97);
-      expect(feature.opseq_best_matched_analog_score).toBe(0.97);
-      expect(feature.opseq_analog_count).toBe(1);
-      expect(feature.opseq_exact_analog_count).toBe(1);
-      expect(feature.opseq_matched_analog_count).toBe(1);
-      expect(feature.explanation).toContain("opseq_analogs=1");
-      expect(feature.explanation).toContain("opseq_best=0.970");
-      expect(feature.explanation).toContain("opseq_best_matched=0.970");
 
       const card = fileGraphCard(store, "src/a.c");
       expect(card.tool_hits).toHaveLength(1);

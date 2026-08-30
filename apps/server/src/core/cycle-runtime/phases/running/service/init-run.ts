@@ -11,6 +11,9 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
     const goalKind = stringArg(args, "--goal-kind", "matched_code_percent");
     const goalValue = numberArg(args, "--goal-value", globals.game?.dashboard.goalValue ?? 70);
     const desiredWorkers = numberArg(args, "--desired-workers", 16);
+    const epochTargetCap = args.has("--epoch-target-cap")
+      ? Math.max(0, Math.floor(numberArg(args, "--epoch-target-cap", 0)))
+      : null;
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const game = gameMetadata(globals, { graphDbPath });
     const configurationSnapshot = {
@@ -18,6 +21,7 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
       desired_workers: desiredWorkers,
       dry_run_agents: globals.dryRunAgents,
       epoch_configure_command: stringArg(args, "--epoch-configure-command", "").trim(),
+      epoch_target_cap: epochTargetCap,
       goal_kind: goalKind,
       goal_value: goalValue,
       integration_resolver_concurrency: Math.max(

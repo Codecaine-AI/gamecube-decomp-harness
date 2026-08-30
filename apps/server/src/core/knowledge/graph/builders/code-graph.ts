@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { sourceRoot } from "../../paths.js";
+import { EXACT_SCORE } from "../../../validation/objdiff/constants.js";
 import type { GraphEdge, GraphEntity, GraphFact, GraphRecords, SearchChunk } from "../types.js";
 import { arrayValue, filesFingerprint, numberValue, objectValue, readJson, readJsonl, shortHash, stableJson, stringValue } from "../util.js";
 
@@ -87,8 +88,8 @@ export function buildCodeGraphRecords(repoRoot: string): GraphRecords {
   }
 
   for (const file of files.values()) {
-    const unmatched = file.functions.filter((fn) => fn.fuzzy < 100);
-    const matched = file.functions.filter((fn) => fn.fuzzy >= 100);
+    const unmatched = file.functions.filter((fn) => fn.fuzzy < EXACT_SCORE);
+    const matched = file.functions.filter((fn) => fn.fuzzy >= EXACT_SCORE);
     const editability =
       file.functions.length === 0
         ? { mode: "unknown", reason: "No functions were found for this source file in the report." }
@@ -302,8 +303,8 @@ function addFileRecords(
   evidenceRef: string,
 ): void {
   for (const file of files.values()) {
-    const unmatched = file.functions.filter((fn) => fn.fuzzy < 100);
-    const matched = file.functions.filter((fn) => fn.fuzzy >= 100);
+    const unmatched = file.functions.filter((fn) => fn.fuzzy < EXACT_SCORE);
+    const matched = file.functions.filter((fn) => fn.fuzzy >= EXACT_SCORE);
     const functionCount = file.functions.length || file.declaredFunctionCount || 0;
     const unmatchedCount = file.functions.length ? unmatched.length : file.declaredUnmatchedFunctionCount || 0;
     const matchedCount = file.functions.length ? matched.length : file.declaredMatchedFunctionCount || Math.max(0, functionCount - unmatchedCount);

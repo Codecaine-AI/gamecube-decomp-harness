@@ -222,6 +222,17 @@ describe("lintBannedIdioms", () => {
     expect(result.reasons).toContainEqual(expect.stringContaining("symbols.txt global"));
   });
 
+  test("allows static added to a symbols.txt global for a section target", () => {
+    const diff = cDiff("static HSD_TObj* psTexGroupArray[8];");
+    const context = {
+      symbolsTxt: "psTexGroupArray = .data:0x804D0000; // type:object scope:global",
+    };
+
+    expect(lintBannedIdioms(diff, { ...context, targetFunction: ".data" }).status).toBe("passed");
+    expect(lintBannedIdioms(diff, { ...context, targetFunction: "mnInfo_8022F298" }).reasons)
+      .toContainEqual(expect.stringContaining("static_added_to_global_symbol: 'psTexGroupArray'"));
+  });
+
   test("rejects static added to a declaration that was non-static in the baseline", () => {
     const path = "src/melee/mn/mninfo.c";
     const result = lintBannedIdioms(cDiff("static u32 psNumCmdList;"), {

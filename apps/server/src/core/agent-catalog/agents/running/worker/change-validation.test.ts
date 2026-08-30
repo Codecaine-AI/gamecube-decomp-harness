@@ -90,6 +90,25 @@ function scoreSnapshot(score: number): WorkerUnitScoreSnapshot {
   };
 }
 
+function sectionScoreSnapshot(params: {
+  sectionScore: number;
+  functions?: WorkerUnitScoreSnapshot["functions"];
+  metrics?: WorkerUnitScoreSnapshot["metrics"];
+}): WorkerUnitScoreSnapshot {
+  return {
+    schemaVersion: 1,
+    capturedAt: "2026-06-30T00:00:00.000Z",
+    unit: "main/melee/test/data",
+    symbol: ".sdata2",
+    sourcePath: "src/melee/test/data.c",
+    objectTarget: "build/GALE01/src/melee/test/data.o",
+    metrics: params.metrics ?? [],
+    functions: params.functions ?? [],
+    sections: [{ name: ".sdata2", score: params.sectionScore, size: 32 }],
+    targetScore: params.sectionScore,
+  };
+}
+
 describe("rewriteNoIndexDiffPaths", () => {
   test("rewrites absolute --no-index headers to repo-relative a/ b/ paths", () => {
     const diff = [
@@ -130,6 +149,81 @@ describe("compareWorkerUnitSnapshots", () => {
     expect(validation.status).toBe("passed");
     expect(validation.reasons).toEqual([]);
     expect(validation.target).toMatchObject({ before: 100, after: 100, improved: false, exact: true });
+  });
+
+  test("accepts an improving section target without marking it exact", () => {
+    const validation = compareWorkerUnitSnapshots({
+      before: sectionScoreSnapshot({ sectionScore: 89 }),
+      after: sectionScoreSnapshot({ sectionScore: 95 }),
+      claimedExact: false,
+    });
+
+    expect(validation.status).toBe("passed");
+    expect(validation.target).toMatchObject({ before: 89, after: 95, improved: true, exact: false });
+  });
+
+  test("marks a section target exact at this file's exact-score threshold", () => {
+    const validation = compareWorkerUnitSnapshots({
+      before: sectionScoreSnapshot({ sectionScore: 95 }),
+      after: sectionScoreSnapshot({ sectionScore: 99.99999 }),
+      claimedExact: true,
+    });
+
+    expect(validation.status).toBe("passed");
+    expect(validation.target).toMatchObject({ improved: true, exact: true });
+  });
+
+  test("allows a non-exact same-unit function to dip for a section target", () => {
+    const validation = compareWorkerUnitSnapshots({
+      before: sectionScoreSnapshot({ sectionScore: 89, functions: [{ name: "fuzzy", score: 97 }] }),
+      after: sectionScoreSnapshot({ sectionScore: 95, functions: [{ name: "fuzzy", score: 96.5 }] }),
+      claimedExact: false,
+    });
+
+    expect(validation.status).toBe("passed");
+    expect(validation.regressions).toEqual([]);
+  });
+
+  test("protects an exact same-unit function for a section target", () => {
+    const validation = compareWorkerUnitSnapshots({
+      before: sectionScoreSnapshot({ sectionScore: 89, functions: [{ name: "exact", score: 100 }] }),
+      after: sectionScoreSnapshot({ sectionScore: 95, functions: [{ name: "exact", score: 99 }] }),
+      claimedExact: false,
+    });
+
+    expect(validation.status).toBe("same_unit_regression");
+    expect(validation.regressions).toContainEqual({ kind: "function", unit: "main/melee/test/data", item: "exact", before: 100, after: 99 });
+  });
+
+  test("still rejects a non-exact sibling function dip for a function target", () => {
+    const before = scoreSnapshot(80);
+    const after = scoreSnapshot(90);
+    before.functions.push({ name: "sibling", score: 97 });
+    after.functions.push({ name: "sibling", score: 96.5 });
+
+    const validation = compareWorkerUnitSnapshots({ before, after, claimedExact: false });
+
+    expect(validation.status).toBe("same_unit_regression");
+  });
+
+  test("keeps a missing function target at no official score change", () => {
+    const before = { ...scoreSnapshot(80), symbol: "missing", targetScore: null };
+    const after = { ...scoreSnapshot(90), symbol: "missing", targetScore: null };
+
+    const validation = compareWorkerUnitSnapshots({ before, after, claimedExact: false });
+
+    expect(validation.status).toBe("no_official_score_change");
+  });
+
+  test("ignores matched data percent regression only for section targets", () => {
+    const validation = compareWorkerUnitSnapshots({
+      before: sectionScoreSnapshot({ sectionScore: 89, metrics: [{ name: "matched_data_percent", score: 50 }] }),
+      after: sectionScoreSnapshot({ sectionScore: 95, metrics: [{ name: "matched_data_percent", score: 25 }] }),
+      claimedExact: false,
+    });
+
+    expect(validation.status).toBe("passed");
+    expect(validation.regressions).toEqual([]);
   });
 });
 
@@ -361,6 +455,33 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
     expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/ft/ftcoll.c"), "utf8")).toBe("int sandbox_source;\n");
     expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/gr/ground.c"), "utf8")).toBe("int sandbox_extra;\n");
     expect(await readFile(resolve(outputDir, "pre_worker_unit_diff.json"), "utf8")).toBe(report);
+  });
+
+  test("resolves a section target score from objdiff section rows", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "section-change-baseline-"));
+    const report = JSON.stringify({
+      left: {
+        sections: [{ name: ".sdata2", match_percent: 89, size: 32 }],
+        symbols: [{ name: "fuzzy", match_percent: 97, size: 16, instructions: [] }],
+      },
+    });
+    const workspaceExec = fakeWorkspaceExec(async (command) => {
+      if (command[0] === "cat") {
+        return { exitCode: 0, stdout: command[1] === "build.ninja" ? "" : "int data;\n", stderr: "" };
+      }
+      if (command[0] === "build/tools/objdiff-cli") return { exitCode: 0, stdout: report, stderr: "" };
+      return { exitCode: 0, stdout: "", stderr: "" };
+    });
+
+    const baseline = await captureWorkerChangeBaseline({
+      repoRoot: "/workspace/section-target",
+      outputDir,
+      target: { unit: "melee/test/data.c", symbol: ".sdata2", source_path: "src/melee/test/data.c" },
+      workspaceExec,
+    });
+
+    expect(baseline.status).toBe("available");
+    expect(baseline.snapshot?.targetScore).toBe(89);
   });
 
   test("captures undefined symbols only when requested", async () => {

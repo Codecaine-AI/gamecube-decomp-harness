@@ -63,7 +63,6 @@ export function mergeActiveWorkerState(claim: JsonObject, report: JsonObject | n
     epochId: text(claim.epochId, text(report?.epochId)),
     epochOrdinal: numberValue(claim.epochOrdinal ?? report?.epochOrdinal, NaN),
     lifecycleStatus: text(report?.lifecycleStatus, "running"),
-    priority: claim.priority ?? report?.priority,
     reason: text(claim.reason, text(report?.reason)),
     sourcePath: text(claim.sourcePath, text(reportTarget.sourcePath)),
     symbol: text(claim.symbol, text(reportTarget.symbol)),

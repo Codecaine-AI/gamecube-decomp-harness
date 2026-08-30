@@ -70,13 +70,12 @@ async function fixture(labelOverrides: Record<string, string> = {}): Promise<Fix
     epochId: epoch.id,
     runId: run.id,
     candidates: [{
+      kind: "function",
       unit: "unit",
       symbol: "fn",
       sourcePath: "src/a.c",
       size: 64,
       fuzzy: 90,
-      priority: 10,
-      reason: "test",
     }],
     workerPoolSize: 1,
   });

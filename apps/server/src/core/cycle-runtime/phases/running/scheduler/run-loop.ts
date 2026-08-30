@@ -144,7 +144,6 @@ export interface RunLoopResult {
   epochErrors: EpochError[];
   epochPaused: boolean;
   lastEpoch?: EpochCycleResult;
-  epochPriorityRefreshes: number;
   epochTargetsMadeAvailable: number;
   workersStarted: number;
   workerResults: WorkerResultSummary[];
@@ -647,7 +646,6 @@ export async function runRunLoop(
     let epochPaused = false;
     let lastEpoch: EpochCycleResult | undefined;
     const epochErrors: EpochError[] = [];
-    let epochPriorityRefreshes = 0;
     let epochTargetsMadeAvailable = 0;
     let epochAdmissions = 0;
     let epochAvailabilityRefreshes = 0;
@@ -979,7 +977,6 @@ export async function runRunLoop(
               epochAdmissions += nextEpoch.admission?.admitted ?? 0;
               epochTargetsAdmitted += nextEpoch.admission?.admitted ?? 0;
               epochTargetsMadeAvailable += nextEpoch.admission?.admitted ?? 0;
-              epochPriorityRefreshes += nextEpoch.priorityRefreshes;
               if ((nextEpoch.admission?.admitted ?? 0) > 0) {
                 didWork = true;
               }
@@ -1055,8 +1052,7 @@ export async function runRunLoop(
               epochAdmissions += 1;
               epochTargetsAdmitted += admittedNow;
             }
-            if (epochResult.priorityRefreshes > 0) epochPriorityRefreshes += epochResult.priorityRefreshes;
-            if (madeAvailableNow > 0 || epochResult.priorityRefreshes > 0) didWork = true;
+            if (madeAvailableNow > 0) didWork = true;
             epochTargetsMadeAvailable += madeAvailableNow;
 
             if (admittedNow > 0) {
@@ -1102,7 +1098,6 @@ export async function runRunLoop(
             }
             epochTargetsMadeAvailable += result.epochAdmission?.admitted ?? 0;
             if (result.epochAvailabilityRefresh) epochAvailabilityRefreshes += 1;
-            epochPriorityRefreshes += result.epochPriorityRefreshes ?? 0;
           })
           .catch((error) => {
             const message = error instanceof Error ? error.message : String(error);
@@ -1213,7 +1208,6 @@ export async function runRunLoop(
       epochErrors,
       epochPaused,
       lastEpoch,
-      epochPriorityRefreshes,
       epochTargetsMadeAvailable,
       workersStarted,
       workerResults,

@@ -92,7 +92,7 @@ describe("recoverActiveClaims", () => {
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
-        candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99, priority: 1, reason: "test" }],
+        candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99 }],
         workerPoolSize: 1,
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
@@ -147,7 +147,7 @@ describe("recoverActiveClaims", () => {
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
-        candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99, priority: 1, reason: "test" }],
+        candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99 }],
         workerPoolSize: 1,
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
@@ -188,7 +188,7 @@ describe("recoverActiveClaims", () => {
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
-        candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99, priority: 1, reason: "test" }],
+        candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99 }],
         workerPoolSize: 1,
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });

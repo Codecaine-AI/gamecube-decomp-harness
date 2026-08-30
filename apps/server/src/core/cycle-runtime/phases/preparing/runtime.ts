@@ -161,6 +161,9 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
     "--graph-db",
     graphDbPath,
   ];
+  if (body.epochTargetCap !== undefined && body.epochTargetCap !== null) {
+    command.push("--epoch-target-cap", String(Math.max(0, Math.floor(numberValue(body.epochTargetCap, 0)))));
+  }
   const workerConfigureCommand = stringValue(body.workerConfigureCommand).trim();
   if (workerConfigureCommand) command.push("--worker-configure-command", workerConfigureCommand);
   const epochConfigureCommand = stringValue(body.epochConfigureCommand).trim();

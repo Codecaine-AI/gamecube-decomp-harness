@@ -35,13 +35,12 @@ function fixture(): { store: StateStore; claimed: ClaimedTarget; token: ClaimTok
     workerPoolSize: 1,
   });
   const candidate: TargetCandidate = {
+    kind: "function",
     unit: "unit_1",
     symbol: "fn_1",
     sourcePath: "src/a.c",
     size: 64,
     fuzzy: 50,
-    priority: 100,
-    reason: "token test",
   };
   admitEpochTargets(store, {
     epochId: epoch.id,

@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { EXACT_SCORE } from "./constants.js";
 
 const UNIT_KEYS_TO_DIFF = [
   "fuzzy_match_percent",
@@ -401,8 +402,8 @@ function sortedEntries(report: ObjdiffReportChanges): Omit<
         toPercent,
         bytesDelta: bytesDelta(size, fromPercent, toPercent),
       };
-      if (fromPercent >= 100.0 && toPercent < 100.0) brokenMatches.push(entry);
-      else if (fromPercent < 100.0 && toPercent >= 100.0) newMatches.push(entry);
+      if (fromPercent >= EXACT_SCORE && toPercent < EXACT_SCORE) brokenMatches.push(entry);
+      else if (fromPercent < EXACT_SCORE && toPercent >= EXACT_SCORE) newMatches.push(entry);
       else if (toPercent > fromPercent) improvements.push(entry);
       else fuzzyRegressions.push(entry);
     }

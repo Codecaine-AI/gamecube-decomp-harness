@@ -89,7 +89,7 @@ function orphanedClaim(store: StateStore, runId: string) {
     workerPoolSize: 1,
   });
   admitEpochTargets(store, {
-    candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99, priority: 1, reason: "test" }],
+    candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99 }],
     epochId: epoch.id,
     runId,
     workerPoolSize: 1,

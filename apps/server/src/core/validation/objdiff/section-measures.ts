@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { EXACT_SCORE } from "./constants.js";
 
 export interface SectionMeasure {
   sizeBytes: number;
@@ -42,7 +43,7 @@ export function sectionMeasuresFromReportJson(raw: unknown): Record<string, Sect
       };
       accumulator.sizeBytes += size;
       accumulator.weightedPercent += size * fuzzy;
-      accumulator.exactRows += fuzzy >= 100 ? 1 : 0;
+      accumulator.exactRows += fuzzy >= EXACT_SCORE ? 1 : 0;
       accumulator.totalRows += 1;
       accumulators.set(section.name, accumulator);
     }

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { workerPrompt } from "./prompt.js";
+import { targetPacketTarget } from "./packet.js";
 import {
   WORKER_COMPACT_TARGET_FILE_INLINE_CHAR_LIMIT,
   WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT,
@@ -61,6 +62,43 @@ function sampleWorkerPrompt() {
 }
 
 describe("workerPrompt", () => {
+  test("renders data-matching guidance for a section target packet", () => {
+    const target = targetPacketTarget({
+      target_id: "section-target",
+      unit: "GALE01:test",
+      symbol: ".sdata2",
+      source_path: "src/melee/test/data.c",
+      size: 24,
+      fuzzy: 87.5,
+    });
+    const bundle = workerPrompt({
+      packet: {
+        target,
+        baseline: { fuzzy_match_percent: target.fuzzy_match_percent },
+      },
+      repoRoot: "/repo",
+      stateDir: "/state",
+      initialBoardPath: "/state/board.json",
+      workerLogDir: "/state/workers",
+      existingCanonicalToolPaths: new Set<string>(),
+    });
+
+    expect(target).toMatchObject({
+      kind: "section",
+      symbol: ".sdata2",
+      fuzzy_match_percent: 87.5,
+    });
+    expect(bundle.systemPrompt).toContain("named section of this translation unit");
+    expect(bundle.systemPrompt).toContain("remaining data symbols");
+    expect(bundle.systemPrompt).toContain("Order float and double constants to match the `.sdata2` pool order");
+    expect(bundle.systemPrompt).toContain("`.bss` has no initializers");
+    expect(bundle.systemPrompt).toContain("Changing `static` versus global declarations can change section placement");
+    expect(bundle.systemPrompt).toContain("Do not use m2c decompile, the permuter, or MWCC debug tools");
+    expect(bundle.systemPrompt).toContain("build-and-compare evidence from checkdiff or the objdiff summary");
+    expect(bundle.systemPrompt).not.toContain("holistic_file_understanding");
+    expect(bundle.systemPrompt).not.toContain("hypothesis_generation");
+  });
+
   test("keeps dynamic packet in kernel context instead of system or user prompt", () => {
     const bundle = sampleWorkerPrompt();
 
@@ -133,7 +171,7 @@ describe("workerPrompt", () => {
         stateDir: "/state",
         initialBoardPath: "/state/board.json",
         workerLogDir: "/state/workers",
-        existingCanonicalToolPaths: new Set(),
+        existingCanonicalToolPaths: new Set<string>(),
       });
       const renderedContext = bundle.kernelContext?.renderedContext ?? "";
 
@@ -175,7 +213,7 @@ describe("workerPrompt", () => {
         stateDir: "/state",
         initialBoardPath: "/state/board.json",
         workerLogDir: "/state/workers",
-        existingCanonicalToolPaths: new Set(),
+        existingCanonicalToolPaths: new Set<string>(),
       };
       const fullContext = workerPrompt(baseOptions).kernelContext?.renderedContext ?? "";
       const compactContext = workerPrompt({ ...baseOptions, contextBudget: "compact" }).kernelContext?.renderedContext ?? "";
@@ -207,7 +245,7 @@ describe("workerPrompt", () => {
       stateDir: "/state",
       initialBoardPath: "/state/board.json",
       workerLogDir: "/state/workers",
-      existingCanonicalToolPaths: new Set(),
+      existingCanonicalToolPaths: new Set<string>(),
       targetSourceText: "int sandbox_prefetched_marker;\n",
     });
 

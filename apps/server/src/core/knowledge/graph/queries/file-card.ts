@@ -2,7 +2,6 @@ import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { fileEntityId, functionEntityId } from "../builders/code-graph.js";
 import type { KnowledgeGraphStore } from "../db.js";
 import { graphFactPayload, graphPayload } from "../payloads.js";
-import { rankFeatureForSourcePath } from "./rank.js";
 import { functionRelationshipEvidence, learningProfilesByEntity } from "./related-functions.js";
 import { graphEdges, graphEntities, graphFacts, searchChunks } from "../storage/schema.js";
 import type { FileGraphCard } from "../types.js";
@@ -68,7 +67,6 @@ export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): F
     callers: flattenRelationships(relationships, "callers"),
     callees: flattenRelationships(relationships, "callees"),
     data_references: flattenRelationships(relationships, "data_references"),
-    scheduling_signals: rankFeatureForSourcePath(store, sourcePath),
   };
 }
 

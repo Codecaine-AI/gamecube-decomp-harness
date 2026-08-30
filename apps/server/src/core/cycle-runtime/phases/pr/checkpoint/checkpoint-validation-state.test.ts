@@ -37,13 +37,12 @@ function exactCheckpoint(store: StateStore, validationState: "tentative" | "conf
     runId: run.id,
     candidates: [
       {
+        kind: "function",
         unit: "unit_a",
         symbol: "exact_fn",
         sourcePath: "src/exact.c",
         size: 128,
         fuzzy: 90,
-        priority: 100,
-        reason: "test target",
       },
     ],
     workerPoolSize: 1,

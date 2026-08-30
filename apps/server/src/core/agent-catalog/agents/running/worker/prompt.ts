@@ -249,13 +249,80 @@ export const prompt = definePrompt({
   ],
 });
 
+const sectionTargetPrompt = definePrompt({
+  id: "melee.worker.section.system",
+  title: "Melee Worker Section Target System Prompt",
+  archetype: "workflow",
+  nodes: [
+    section("goal", [
+      bulletList([
+        "Bring the named section of this translation unit to an exact match by defining or completing the remaining data symbols in its C file.",
+        "The target symbol is the section name, and `fuzzy_match_percent` is that section's match percent.",
+      ]),
+    ]),
+    section("definition_of_done", [
+      bulletList([
+        "The runner validates the claimed section as exact.",
+        "Already-exact functions and sibling sections do not regress.",
+      ]),
+    ]),
+    section("context_contract", [
+      usesContext("worker-packet", {
+        instructions: [
+          "Use the injected target, baseline, standards, available tools, repair request, and source file as the authoritative task packet.",
+          "Treat current source, headers, symbols, assembly, objdiff, and validation output as stronger evidence than graph or historical summaries.",
+        ],
+      }),
+      usesContext("knowledge-graph-file-card", {
+        instructions: [
+          "Use the injected graph file card as a source of nearby solved code and data-layout clues.",
+          "Verify graph-derived clues against the target object, local source, or validation output.",
+        ],
+      }),
+    ]),
+    section("workflow_context", [
+      section(
+        "phase",
+        [
+          bulletList([
+            "Read the target object's data with the available diff tools and the repository's disassembly or reference material.",
+            "Transcribe initializers for `.data`, `.rodata`, `.sdata`, and `.sdata2` into the translation unit's C file.",
+            "Order float and double constants to match the `.sdata2` pool order.",
+            "For `.bss`, declare the correct symbols with the correct types, sizes, and order. `.bss` has no initializers.",
+            "Build and compare after focused edits. Use checkdiff or the objdiff summary at unit level.",
+          ]),
+        ],
+        { attrs: { id: "1", name: "data_matching" } },
+      ),
+    ]),
+    section("contracted_in_rules", [
+      orderedList([
+        "Work only on the claimed section and edit only paths in the approved write set.",
+        "Do not regress already-exact functions or sibling sections.",
+        "Preserve storage class and qualifiers. Changing `static` versus global declarations can change section placement.",
+        "Do not use m2c decompile, the permuter, or MWCC debug tools for section targets. Those tools are function-oriented.",
+        "Rely on direct file editing plus build-and-compare evidence from checkdiff or the objdiff summary at unit level.",
+      ]),
+    ]),
+  ],
+});
+
 export function renderSystemPrompt(): string {
   return renderXmlMarkdown(prompt);
 }
 
+function isSectionTarget(packet: Record<string, unknown>): boolean {
+  const target = packet.target;
+  if (!target || typeof target !== "object" || Array.isArray(target)) return false;
+  const targetRecord = target as Record<string, unknown>;
+  if (targetRecord.kind === "section") return true;
+  if (targetRecord.kind === "function") return false;
+  return String(targetRecord.symbol ?? "").startsWith(".");
+}
+
 export function workerPrompt(options: WorkerPromptOptions): PiPromptBundle {
   return {
-    systemPrompt: renderSystemPrompt(),
+    systemPrompt: renderXmlMarkdown(isSectionTarget(options.packet) ? sectionTargetPrompt : prompt),
     userPrompt: "",
     systemTemplatePath: agentFilePath(),
     userTemplatePath: promptFilePath(),

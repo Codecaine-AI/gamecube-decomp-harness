@@ -963,7 +963,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
     });
     console.error(
       `[run-loop] epoch ${nextEpoch.progress.ordinal}: admitted ${nextEpoch.progress.admitted} targets, ` +
-        `${nextEpoch.progress.available} available, ${nextEpoch.priorityRefreshes} refreshed`,
+        `${nextEpoch.progress.available} available`,
     );
     addEvent(store, runId, "epoch_admitted", "run-loop", {
       epoch_id: nextEpoch.epoch.id,
