@@ -1,5 +1,7 @@
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
+export const CLAIM_TTL_GRACE_SECONDS = 600;
+
 export function workerTtlSeconds(globals: Pick<GlobalArgs, "agentTimeoutSeconds">, args: Map<string, string | true>): number {
   if (args.has("--ttl-seconds")) {
     throw new Error("--ttl-seconds has been removed; set --agent-timeout-seconds instead.");
@@ -8,5 +10,5 @@ export function workerTtlSeconds(globals: Pick<GlobalArgs, "agentTimeoutSeconds"
   if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) {
     throw new Error("--agent-timeout-seconds must be set to a positive worker timeout.");
   }
-  return Math.trunc(seconds);
+  return Math.trunc(seconds) + CLAIM_TTL_GRACE_SECONDS;
 }

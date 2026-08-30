@@ -29,6 +29,7 @@ import {
   selectIntegrationResolverBatch,
   shouldEvaluateEpochBoundary,
   waitForRestingTrigger,
+  workerJobClaimRecoveryFilters,
 } from "./run-loop.js";
 import { resolveBaseRev } from "../workers/worker-cycle.js";
 
@@ -68,6 +69,15 @@ describe("sandboxSleepConfigFromArgs", () => {
       sandboxSleep: false,
       sandboxSleepDebounceMs: 2_750,
     });
+  });
+});
+
+describe("workerJobClaimRecoveryFilters", () => {
+  test("scopes failed-job recovery to both the claim and its worker owner", () => {
+    expect(workerJobClaimRecoveryFilters({
+      jobId: "job-1",
+      payload: { target_claim_id: "claim-1", worker_id: "worker-1" },
+    } as never)).toEqual({ claimIdFilter: "claim-1", workerIdFilter: "worker-1" });
   });
 });
 

@@ -79,6 +79,16 @@ interface WorkerError {
   error: string;
 }
 
+export function workerJobClaimRecoveryFilters(job: JobRecord): {
+  claimIdFilter: string | undefined;
+  workerIdFilter: string | undefined;
+} {
+  return {
+    claimIdFilter: typeof job.payload.target_claim_id === "string" ? job.payload.target_claim_id : undefined,
+    workerIdFilter: typeof job.payload.worker_id === "string" ? job.payload.worker_id : undefined,
+  };
+}
+
 interface KnowledgeMaintenanceError {
   error: string;
 }
@@ -695,6 +705,7 @@ export async function runRunLoop(
       });
       workersStarted += 1;
       if (settle.status === "failed") {
+        const recoveryFilters = workerJobClaimRecoveryFilters(job);
         let recoveryTask: Promise<void>;
         recoveryTask = recoverActiveClaims({
           globals,
@@ -703,10 +714,18 @@ export async function runRunLoop(
           runId,
           repoRoot: run.game?.repoRoot ?? globals.repoRoot,
           force: true,
-          claimIdFilter: typeof job.payload.target_claim_id === "string" ? job.payload.target_claim_id : undefined,
+          ...recoveryFilters,
           reason: `run-loop recovered failed worker job ${job.jobId}: ${(error ?? "unknown failure").slice(0, 500)}`,
           processIntegrations: false,
         }).then((recovery) => {
+          const ownershipSkip = recovery.skippedActiveClaims.find((claim) =>
+            claim.claimId === recoveryFilters.claimIdFilter && claim.reason === "worker_id_filter"
+          );
+          if (ownershipSkip) {
+            console.error(
+              `[run-loop] claim ${String(ownershipSkip.claimId)} now owned by ${String(ownershipSkip.workerId)}; skipping recovery for failed job ${job.jobId}`,
+            );
+          }
           workerErrors.push({ workerId, error: recovery.recoveredClaims > 0 ? `${error ?? "worker job failed"} (recovered ${recovery.recoveredClaims} active claim(s))` : error ?? "worker job failed" });
         }).catch((recoveryError) => {
           workerErrors.push({ workerId, error: `${error ?? "worker job failed"}; claim recovery failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}` });

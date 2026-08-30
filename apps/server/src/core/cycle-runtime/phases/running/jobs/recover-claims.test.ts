@@ -82,6 +82,61 @@ afterAll(() => {
 });
 
 describe("recoverActiveClaims", () => {
+  test("recovers only when the worker id filter matches the current claim owner", async () => {
+    const { dir, store } = tempState();
+    try {
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      const epoch = startSchedulerEpoch(store, run.id, {
+        workerPoolSize: 1,
+      });
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 99, priority: 1, reason: "test" }],
+        workerPoolSize: 1,
+      });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
+      if (!claim) throw new Error("expected worker claim");
+
+      const mismatched = await recoverActiveClaims({
+        globals: globalsFor(dir),
+        store,
+        runId: run.id,
+        repoRoot: dir,
+        force: true,
+        claimIdFilter: claim.claimId,
+        workerIdFilter: "worker-2",
+        reason: "stale worker settlement",
+        processIntegrations: false,
+      });
+
+      expect(mismatched.recoveredClaims).toBe(0);
+      expect(activeClaimsForRun(store, run.id)).toEqual([
+        expect.objectContaining({ claimId: claim.claimId, workerId: "worker-1" }),
+      ]);
+      expect(
+        store.db.query("SELECT lifecycle_status FROM worker_state WHERE id = ?").get(claim.workerStateId),
+      ).toMatchObject({ lifecycle_status: "running" });
+
+      const matched = await recoverActiveClaims({
+        globals: globalsFor(dir),
+        store,
+        runId: run.id,
+        repoRoot: dir,
+        force: true,
+        claimIdFilter: claim.claimId,
+        workerIdFilter: "worker-1",
+        reason: "current worker settlement",
+        processIntegrations: false,
+      });
+
+      expect(matched.recoveredClaims).toBe(1);
+      expect(activeClaimsForRun(store, run.id)).toHaveLength(0);
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("closes a failed worker process claim and re-admits targets without checkpoints", async () => {
     const { dir, store } = tempState();
     try {
