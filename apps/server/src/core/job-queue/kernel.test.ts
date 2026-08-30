@@ -145,9 +145,22 @@ describe("unified job queue kernel", () => {
   });
   test("2. enqueue is idempotent through completion and explicit requeue resets terminal state", () => {
     const { store } = fixture();
-    const first = put(store, "same");
+    const enqueuePayload = {
+      epoch_target_id: "target-1",
+      epoch_id: "epoch-1",
+      target_key: "unit::fn",
+    };
+    const first = put(store, "same", { payload: enqueuePayload });
     expect(put(store, "same")).toEqual(first);
     const c = claim(store);
+    const attachedPayload = {
+      ...enqueuePayload,
+      worker_state_id: "worker-state-dead",
+      target_claim_id: "claim-dead",
+    };
+    attachJobPayload(store, c.token, attachedPayload, {
+      at: "2026-08-17T12:00:00.500Z",
+    });
     completeJob(
       store,
       c.token,
@@ -155,13 +168,33 @@ describe("unified job queue kernel", () => {
       { at: "2026-08-17T12:00:01.000Z" },
     );
     expect(put(store, "same").status).toBe("succeeded");
-    expect(
-      requeueJob(store, {
-        kind: "worker",
-        dedupeKey: "same",
-        at: "2026-08-17T12:00:02.000Z",
-      }),
-    ).toMatchObject({ status: "queued", attempts: 0, resultRef: "evidence" });
+    const preserved = requeueJob(store, {
+      kind: "worker",
+      dedupeKey: "same",
+      at: "2026-08-17T12:00:02.000Z",
+    });
+    expect(preserved).toMatchObject({
+      status: "queued",
+      attempts: 0,
+      resultRef: "evidence",
+    });
+    expect(preserved.payload).toEqual(attachedPayload);
+
+    const requeued = claim(store, "2026-08-17T12:00:02.001Z");
+    completeJob(
+      store,
+      requeued.token,
+      { resultRef: "second-evidence" },
+      { at: "2026-08-17T12:00:03.000Z" },
+    );
+    const replaced = requeueJob(store, {
+      kind: "worker",
+      dedupeKey: "same",
+      payload: enqueuePayload,
+      at: "2026-08-17T12:00:04.000Z",
+    });
+    expect(replaced).toMatchObject({ status: "queued", attempts: 0 });
+    expect(replaced.payload).toEqual(enqueuePayload);
   });
   test("3. two connections cannot double-claim one job", () => {
     const { root, store: a } = fixture();

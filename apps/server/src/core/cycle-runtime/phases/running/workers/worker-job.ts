@@ -50,6 +50,7 @@ import type {
   TaskSpec,
   WorkerExecutor,
 } from "@server/core/job-queue/types.js";
+import { enqueuePayloadForWorkerJob } from "./worker-job-payload.js";
 
 export interface WorkerJobRunContext {
   store: StateStore;
@@ -360,7 +361,13 @@ export function onWorkerJobComplete(
     const target = ctx.store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(epochTargetId) as { status: string } | null;
     if (target?.status === "admitted") {
       const slot = getJobByDedupeKey(ctx.store, "worker", epochTargetId);
-      if (slot && ["succeeded", "failed", "cancelled"].includes(slot.status)) requeueJob(ctx.store, { kind: "worker", dedupeKey: epochTargetId });
+      if (slot && ["succeeded", "failed", "cancelled"].includes(slot.status)) {
+        requeueJob(ctx.store, {
+          kind: "worker",
+          dedupeKey: epochTargetId,
+          payload: enqueuePayloadForWorkerJob(slot.payload),
+        });
+      }
     }
   }
   return sandboxDeletion;
@@ -376,6 +383,19 @@ export function workerJobDescriptor(
     concurrencyLimit: ctx.concurrencyLimit,
     leaseMs: ctx.ttlSeconds * 1000,
     execution: { mode: "dispatched", buildTask: buildWorkerTask(ctx, deps), executor: deps.executor ?? new LocalProcessExecutor() },
+    terminalOnFailure: (job) =>
+      (typeof job.payload.target_claim_id === "string" && job.payload.target_claim_id.length > 0)
+      || (typeof job.payload.worker_state_id === "string" && job.payload.worker_state_id.length > 0),
+    onTaskFailure: async (job, outcome) => {
+      const workerStateId = job.payload.worker_state_id;
+      if (typeof workerStateId !== "string" || !workerStateId) return;
+      const artifactDir = resolve(ctx.globals.stateDir, "runs", ctx.runId, "worker_state", workerStateId);
+      await mkdir(artifactDir, { recursive: true });
+      await writeFile(
+        resolve(artifactDir, `task_failure.${outcome.endedAt}.log`),
+        `stdout:\n${outcome.stdout}\nstderr:\n${outcome.stderr}`,
+      );
+    },
     onPoll: (job) => {
       if (sandboxDeletionFired.has(job.jobId) || !deps.sandboxProvider) return;
       const freshJob = typeof job.payload.sandbox_id === "string" && job.payload.sandbox_id

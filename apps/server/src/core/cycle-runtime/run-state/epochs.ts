@@ -14,6 +14,7 @@ import {
   requeueJob,
   reprioritizeJob,
 } from "@server/core/job-queue/kernel.js";
+import { enqueuePayloadForWorkerJob } from "@server/core/cycle-runtime/phases/running/workers/worker-job-payload.js";
 
 export type EpochStatus = "active" | "completed" | "error" | "paused";
 
@@ -614,6 +615,9 @@ export function requeueEpochTarget(
     const job = requeueJob(store, {
       kind: "worker",
       dedupeKey: params.epochTargetId,
+      payload: enqueuePayloadForWorkerJob(
+        getJobByDedupeKey(store, "worker", params.epochTargetId)?.payload ?? {},
+      ),
       actor: params.actor ?? "runner",
       at: params.at,
     });

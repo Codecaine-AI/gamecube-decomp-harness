@@ -1,6 +1,10 @@
 import { describe, expect, mock, spyOn, test } from "bun:test";
-import type { StateStore } from "@server/core/orchestrator-state";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { startJobConsumer, type JobConsumerOptions } from "./consumer.js";
+import * as jobKernel from "./kernel.js";
 import type {
   ClaimToken,
   JobKindDescriptor,
@@ -68,7 +72,10 @@ describe("startJobConsumer", () => {
   test("claims only jobs from the configured run", async () => {
     const queue = [job("foreign", 1, "run-b"), job("owned", 1, "run-a")];
     const kernel = kernelFor([]);
-    kernel.claimNextJob.mockImplementation((_store, input) => {
+    (kernel.claimNextJob as unknown as { mockImplementation: (implementation: JobQueueKernelOps["claimNextJob"]) => void }).mockImplementation((
+      _store: Parameters<JobQueueKernelOps["claimNextJob"]>[0],
+      input: Parameters<JobQueueKernelOps["claimNextJob"]>[1],
+    ) => {
       const index = queue.findIndex((queued) => input.runId === undefined || queued.runId === input.runId);
       if (index < 0) return null;
       const [next] = queue.splice(index, 1);
@@ -134,6 +141,39 @@ describe("startJobConsumer", () => {
     await stop.stop();
   });
 
+  test("marks descriptor-selected failures terminal instead of waiting for retry", async () => {
+    const root = mkdtempSync(join(tmpdir(), "job-consumer-terminal-"));
+    const actualStore = openState(root);
+    try {
+      const queued = jobKernel.enqueueJob(actualStore, {
+        kind: "worker", dedupeKey: "terminal", gameId: "melee", payload: {},
+      });
+      const terminalOnFailure = mock(() => true);
+      const descriptor: JobKindDescriptor = {
+        ...inlineDescriptor(async () => { throw new Error("broken"); }),
+        terminalOnFailure,
+      };
+      const consumer = startJobConsumer(actualStore, descriptor, jobKernel, { intervalMs: 1 });
+      await until(() => jobKernel.getJob(actualStore, queued.jobId)?.status === "failed");
+      await consumer.stop();
+
+      const failed = jobKernel.getJob(actualStore, queued.jobId);
+      expect(failed).toMatchObject({ status: "failed", nextAttemptAt: null });
+      expect(failed?.completedAt).not.toBeNull();
+      expect(terminalOnFailure).toHaveBeenCalledWith(
+        expect.objectContaining({ jobId: queued.jobId }),
+        expect.objectContaining({ message: "broken" }),
+      );
+      const eventTypes = actualStore.db.query(
+        "SELECT event_type FROM game_events WHERE subject_kind='job' AND subject_id=? ORDER BY sequence",
+      ).all(queued.jobId) as Array<{ event_type: string }>;
+      expect(eventTypes.map((event) => event.event_type)).not.toContain("job.waiting");
+    } finally {
+      actualStore.db.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("drives a dispatched task through heartbeat, collect, and completion", async () => {
     const kernel = kernelFor([job("one")]);
     const handle = { executorId: "memory", handleId: "one" } as TaskHandle;
@@ -166,7 +206,11 @@ describe("startJobConsumer", () => {
     const executor: WorkerExecutor = {
       submit: mock(async () => ({ executorId: "memory", handleId: "one" })),
       poll: mock(async () => ({ state: "exited" as const })),
-      collect: mock(async () => outcome(7)),
+      collect: mock(async () => ({
+        ...outcome(7),
+        stdout: "stdout fallback",
+        stderr: `useful first line\nmvk-info: noisy\n    VK_EXT_noise\n${"x".repeat(1_600)}`,
+      })),
       cancel: mock(async () => undefined),
     };
     const descriptor: JobKindDescriptor = {
@@ -176,8 +220,44 @@ describe("startJobConsumer", () => {
     };
     const stop = startJobConsumer(store, descriptor, kernel, { intervalMs: 1 });
     await until(() => kernel.failJob.mock.calls.length === 1);
-    expect(kernel.failJob.mock.calls[0]?.[2]).toContain("exitCode=7");
+    const failure = kernel.failJob.mock.calls[0]?.[2] ?? "";
+    expect(failure).toContain("exitCode=7");
+    expect(failure).toContain("x".repeat(1_500));
+    expect(failure).not.toContain("useful first line");
+    expect(failure).not.toContain("mvk-info");
+    expect(failure).not.toContain("VK_EXT_noise");
+    expect(failure).not.toContain("stdout fallback");
     await stop.stop();
+  });
+
+  test("uses stdout and continues settling when the task failure hook throws", async () => {
+    const kernel = kernelFor([job("one")]);
+    const onTaskFailure = mock(async () => { throw new Error("log write failed"); });
+    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+    const failedOutcome = {
+      ...outcome(1),
+      stdout: "stdout diagnostic",
+      stderr: "mvk-info: noisy\n    VK_EXT_noise",
+    };
+    const executor: WorkerExecutor = {
+      submit: mock(async () => ({ executorId: "memory", handleId: "one" })),
+      poll: mock(async () => ({ state: "exited" as const })),
+      collect: mock(async () => failedOutcome),
+      cancel: mock(async () => undefined),
+    };
+    const descriptor: JobKindDescriptor = {
+      kind: "worker", concurrencyLimit: 1, leaseMs: 900, onTaskFailure,
+      execution: { mode: "dispatched", buildTask: (value) => ({ jobId: value.jobId, kind: value.kind,
+        executionClass: value.executionClass, command: ["false"], env: {}, cwd: "/tmp", timeoutMs: null }), executor },
+    };
+    const stop = startJobConsumer(store, descriptor, kernel, { intervalMs: 1 });
+    await until(() => kernel.failJob.mock.calls.length === 1);
+
+    expect(onTaskFailure).toHaveBeenCalledWith(expect.objectContaining({ jobId: "one" }), failedOutcome);
+    expect(kernel.failJob.mock.calls[0]?.[2]).toContain("stdout diagnostic");
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining("task failure hook failed: log write failed"));
+    await stop.stop();
+    warning.mockRestore();
   });
 
   test("does not heartbeat after an executor reports a dead task", async () => {

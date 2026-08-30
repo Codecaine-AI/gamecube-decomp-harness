@@ -57,6 +57,8 @@ export interface JobKindDescriptor {
   leaseMs: number;
   backoff?: (attempts: number) => number;   // ms until next attempt; default min(300_000, 1_000 * 2 ** min(attempts, 8))
   execution: JobKindExecution;
+  terminalOnFailure?: (job: JobRecord, cause: unknown) => boolean;
+  onTaskFailure?: (job: JobRecord, outcome: TaskOutcome) => void | Promise<void>;
   onPoll?: (job: JobRecord, ctx: JobPollContext) => void;
   onComplete?: (job: JobRecord, result: JobResult, ctx: JobCompletionContext) => void;  // runs inside the completion transaction
 }

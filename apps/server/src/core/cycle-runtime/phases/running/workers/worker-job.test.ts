@@ -74,7 +74,7 @@ function fixture() {
     writeSetFlags: { writeSetWidening: "off" }, workerIdPrefix: "test",
   };
   const epochTargetId = String((store.db.query("SELECT id FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string }).id);
-  return { store, stateDir, ctx, run, epochTargetId };
+  return { store, stateDir, ctx, run, epochId: epoch.id, epochTargetId };
 }
 
 function claim(f: ReturnType<typeof fixture>) {
@@ -635,12 +635,25 @@ describe("worker job kind", () => {
       const result = claim(open);
       onWorkerJobComplete(result.job, {}, open.ctx);
       expect(open.store.db.query("SELECT COUNT(*) count FROM jobs WHERE kind = 'knowledge_absorption' AND dedupe_key = ?").get(String(result.job.payload.worker_state_id))).toEqual({ count: 0 });
+      attachJobPayload(open.store, result.token, {
+        sandbox_id: "sandbox-dead",
+        task_handle: { executorId: "executor-dead", handleId: "task-dead" },
+      });
       open.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
       open.store.db.query("UPDATE epoch_targets SET status = 'admitted' WHERE id = ?").run(open.epochTargetId);
       open.store.db.query("UPDATE jobs SET status = 'succeeded', completed_at = datetime('now') WHERE job_id = ?").run(result.job.jobId);
       onWorkerJobComplete(getJob(open.store, result.job.jobId)!, {}, open.ctx);
       expect(open.store.db.query("SELECT COUNT(*) count FROM jobs WHERE kind = 'knowledge_absorption' AND dedupe_key = ?").get(String(result.job.payload.worker_state_id))).toEqual({ count: 1 });
-      expect(getJob(open.store, result.job.jobId)?.status).toBe("queued");
+      const requeued = getJob(open.store, result.job.jobId);
+      expect(requeued?.status).toBe("queued");
+      expect(requeued?.payload).toEqual({
+        epoch_target_id: open.epochTargetId,
+        epoch_id: open.epochId,
+        target_key: "unit::fn",
+      });
+      for (const key of ["worker_state_id", "target_claim_id", "worker_id", "sandbox_id", "task_handle"]) {
+        expect(requeued?.payload[key]).toBeUndefined();
+      }
     } finally { open.store.db.close(); }
   });
 
@@ -660,9 +673,9 @@ describe("worker job kind", () => {
       let knowledgeEntered = false;
       stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(
         f.store,
-        async () => {
+        () => {
           knowledgeEntered = true;
-          await new Promise<never>(() => {});
+          return new Promise<never>(() => {});
         },
         { intervalMs: 1 },
       );
@@ -680,6 +693,48 @@ describe("worker job kind", () => {
       await stopBackgroundKnowledge?.({ maxWaitMs: 50 });
       f.store.db.close();
     }
+  });
+
+  test("claim-bound failures are terminal and unclaimed failures can retry", () => {
+    const f = fixture();
+    try {
+      const descriptor = workerJobDescriptor(f.ctx);
+      if (!descriptor.terminalOnFailure) throw new Error("Expected worker terminal failure policy");
+      const claimed = claim(f).job;
+
+      expect(descriptor.terminalOnFailure(claimed, new Error("failed"))).toBeTrue();
+      expect(descriptor.terminalOnFailure({
+        ...claimed,
+        payload: { target_claim_id: claimed.payload.target_claim_id },
+      }, new Error("failed"))).toBeTrue();
+      expect(descriptor.terminalOnFailure({ ...claimed, payload: {} }, new Error("failed"))).toBeFalse();
+    } finally { f.store.db.close(); }
+  });
+
+  test("task failures preserve full output in the worker state artifact directory", async () => {
+    const f = fixture();
+    try {
+      const descriptor = workerJobDescriptor(f.ctx);
+      if (!descriptor.onTaskFailure) throw new Error("Expected worker task failure hook");
+      const claimed = claim(f).job;
+      const workerStateId = String(claimed.payload.worker_state_id);
+      const endedAt = "2026-08-30T00:02:25.000Z";
+
+      await descriptor.onTaskFailure(claimed, {
+        exitCode: 1,
+        signal: null,
+        stdout: "complete stdout",
+        stderr: "complete stderr",
+        timedOut: false,
+        startedAt: "2026-08-30T00:02:00.000Z",
+        endedAt,
+      });
+
+      expect(readFileSync(
+        resolve(f.stateDir, "runs", f.run.id, "worker_state", workerStateId, `task_failure.${endedAt}.log`),
+        "utf8",
+      )).toBe("stdout:\ncomplete stdout\nstderr:\ncomplete stderr");
+    } finally { f.store.db.close(); }
   });
 
   test("deletes a settled sandbox job exactly once and emits sandbox.deleted", async () => {

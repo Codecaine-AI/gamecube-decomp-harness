@@ -344,7 +344,13 @@ export function reprioritizeJob(
 /** Resets a terminal job to the queued state. */
 export function requeueJob(
   store: StateStore,
-  input: { kind: JobKind; dedupeKey: string; actor?: JobActor; at?: string },
+  input: {
+    kind: JobKind;
+    dedupeKey: string;
+    payload?: JsonObject;
+    actor?: JobActor;
+    at?: string;
+  },
 ): JobRecord {
   return immediateTransaction(store.db, () => {
     const j = getJobByDedupeKey(store, input.kind, input.dedupeKey);
@@ -363,9 +369,10 @@ export function requeueJob(
       .query(
         `UPDATE jobs SET status='queued',revision=revision+1,attempts=0,lease_id=NULL,
           lease_expires_at=NULL,error_json=NULL,next_attempt_at=NULL,completed_at=NULL,
-          caused_by_event_id=?,updated_at=? WHERE job_id=? AND revision=?`,
+          payload_json=COALESCE(?,payload_json),caused_by_event_id=?,updated_at=?
+          WHERE job_id=? AND revision=?`,
       )
-      .run(ev.eventId, at, j.jobId, j.revision);
+      .run(input.payload === undefined ? null : JSON.stringify(input.payload), ev.eventId, at, j.jobId, j.revision);
     if (r.changes !== 1) throw new Error("Job CAS failed");
     return getJob(store, j.jobId)!;
   });

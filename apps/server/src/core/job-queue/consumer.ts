@@ -45,6 +45,19 @@ function warnStaleWrite(job: JobRecord, operation: string, cause: unknown): void
   console.warn(`Job consumer dropped ${job.jobId} after ${operation} failed: ${errorMessage(cause)}`);
 }
 
+const TASK_FAILURE_OUTPUT_LIMIT = 1_500;
+
+function taskFailureOutput(outcome: TaskOutcome): string {
+  const withoutMoltenVkNoise = (output: string): string => output
+    .split(/\r?\n/)
+    .filter((line) => !/mvk-info|^\s+VK_/.test(line))
+    .join("\n")
+    .trim();
+  const stderr = withoutMoltenVkNoise(outcome.stderr);
+  const output = stderr || withoutMoltenVkNoise(outcome.stdout);
+  return output.slice(-TASK_FAILURE_OUTPUT_LIMIT);
+}
+
 /** Start one serialized claimer which executes up to the descriptor's concurrency limit. */
 export function startJobConsumer(
   store: StateStore,
@@ -114,6 +127,7 @@ export function startJobConsumer(
     try {
       kernel.failJob(store, token, error, {
         backoffMs: descriptor.backoff?.(job.attempts),
+        terminal: descriptor.terminalOnFailure?.(job, cause),
         at: at(),
         actor,
       });
@@ -201,11 +215,21 @@ export function startJobConsumer(
       if (outcome.exitCode === 0 && !outcome.timedOut) {
         complete(job, token, { resultRef: null }, outcome);
       } else {
+        if (descriptor.onTaskFailure) {
+          try {
+            await descriptor.onTaskFailure(job, outcome);
+          } catch (cause) {
+            notifyFatal(cause, "task-failure-hook", job);
+            console.warn(`Job consumer ${descriptor.kind} task failure hook failed: ${errorMessage(cause)}`);
+          }
+        }
+        const output = taskFailureOutput(outcome);
         fail(
           job,
           token,
           new Error(
-            `Task failed: exitCode=${String(outcome.exitCode)} signal=${String(outcome.signal)} timedOut=${String(outcome.timedOut)}`,
+            `Task failed: exitCode=${String(outcome.exitCode)} signal=${String(outcome.signal)} timedOut=${String(outcome.timedOut)}`
+              + (output ? `\n${output}` : ""),
           ),
         );
       }
