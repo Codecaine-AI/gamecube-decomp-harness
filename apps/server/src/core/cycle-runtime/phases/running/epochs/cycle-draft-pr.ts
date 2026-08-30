@@ -5,8 +5,12 @@ import { recordDashboardArtifact, type StateStore } from "@server/core/orchestra
 export const CYCLE_DRAFT_PR_ARTIFACT_TYPE = "cycle_draft_pr";
 export const CYCLE_DRAFT_PR_ARTIFACT_KEY = "current";
 export const CYCLE_DRAFT_PR_BRANCH_PREFIX = "orchestrator/cycle/";
-export const DEFAULT_CYCLE_DRAFT_PR_TITLE = "GCD decomp session";
-export const DEFAULT_CYCLE_DRAFT_PR_BODY = "Work in progress — AI decomp session.";
+export const DEFAULT_CYCLE_DRAFT_PR_TITLE = "GameCube Decomp Harness Session";
+export const DEFAULT_CYCLE_DRAFT_PR_BODY = `Work in Progress AI Decomp Session
+
+Please use this to improve upon other matches and whatnot for your work.
+
+**Note for users and AI agents:** Please mention this PR when pulling from it so there is a canonical record and maintainers know that any work came from this PR and are careful so slop code does not get merged in.`;
 
 export interface CycleDraftPrCommandResult {
   exitCode: number | null;

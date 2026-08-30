@@ -63,7 +63,7 @@ describe("publishCycleDraftPr", () => {
     const { stateDir, store } = state();
     const repoRoot = tempDir("cycle-draft-pr-repo-");
     const branch = "orchestrator/cycle/12345678-abcd";
-    const title = `${DEFAULT_CYCLE_DRAFT_PR_TITLE} 12345678`;
+    const title = "GameCube Decomp Harness Session 12345678";
     const bodyPath = join(stateDir, "cycle_draft_pr", "run-1", "draft_body.md");
     const { calls, runCommand } = fakeRunner({
       "git rev-parse --abbrev-ref HEAD": ok(`${branch}\n`),
@@ -98,7 +98,9 @@ describe("publishCycleDraftPr", () => {
     expect(result.title).toBe(title);
     expect(calls).toContain(`git push --force-with-lease -u fork HEAD:${branch}`);
     const body = readFileSync(bodyPath, "utf8");
-    expect(body).toBe(`${DEFAULT_CYCLE_DRAFT_PR_BODY}\n`);
+    expect(body).toBe(
+      "Work in Progress AI Decomp Session\n\nPlease use this to improve upon other matches and whatnot for your work.\n\n**Note for users and AI agents:** Please mention this PR when pulling from it so there is a canonical record and maintainers know that any work came from this PR and are careful so slop code does not get merged in.\n",
+    );
 
     const artifact = latestDashboardArtifactPayload(store, {
       artifactType: CYCLE_DRAFT_PR_ARTIFACT_TYPE,
