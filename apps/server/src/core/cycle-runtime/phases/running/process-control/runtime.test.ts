@@ -16,7 +16,7 @@ import type { ManagedProcessController, StartManagedInput } from "@server/infras
 import { createProcessControlRuntime } from "./runtime.js";
 
 describe("process control runtime", () => {
-  test("accepts matching start options and builds the command from the stored run snapshot and worktree", async () => {
+  test("syncs a staged worker width before resuming and builds the command from the stored run snapshot and worktree", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
     const cycleRepoRoot = "/tmp/melee-cycle-worktree/source";
     const cycleGraphDb = "/tmp/melee-cycle-worktree/graph.sqlite";
@@ -34,7 +34,23 @@ describe("process control runtime", () => {
         graphDbPath: cycleGraphDb,
         descriptorPath: "/tmp/melee/game.json",
       },
-      { baseRevision: "base-test" },
+      {
+        baseRevision: "base-test",
+        configurationSnapshot: {
+          agent_timeout_seconds: 1800,
+          desired_workers: 4,
+          dry_run_agents: false,
+          epoch_configure_command: "",
+          goal_kind: "matched_code_percent",
+          goal_value: 100,
+          integration_resolver_concurrency: 4,
+          model: "gpt-5.6-sol",
+          provider: "codex-lb",
+          sandbox_profile: "",
+          thinking_level: "xhigh",
+          worker_configure_command: "",
+        },
+      },
     );
     store.db.close();
 
@@ -88,7 +104,7 @@ describe("process control runtime", () => {
       agentTimeoutSeconds: 1800,
       goalValue: 100,
       integrationResolverConcurrency: 4,
-      maxWorkers: 2,
+      maxWorkers: 4,
       model: "gpt-5.6-sol",
       gameId: "melee",
       provider: "codex-lb",
@@ -103,14 +119,14 @@ describe("process control runtime", () => {
     expect(response.status).toBe(200);
     expect(payload.command.slice(repoRootFlag, repoRootFlag + 2)).toEqual(["--repo-root", cycleRepoRoot]);
     expect(payload.command.slice(graphDbFlag, graphDbFlag + 2)).toEqual(["--graph-db", cycleGraphDb]);
-    expect(payload.command.slice(payload.command.indexOf("--max-workers"), payload.command.indexOf("--max-workers") + 2)).toEqual(["--max-workers", "2"]);
+    expect(payload.command.slice(payload.command.indexOf("--max-workers"), payload.command.indexOf("--max-workers") + 2)).toEqual(["--max-workers", "4"]);
     expect(payload.command.slice(leaseFlag, leaseFlag + 2)).toEqual(["--lease-id", payload.leaseId]);
     expect(payload.command).toContain("run-loop");
     expect(payload.command).not.toContain("babysit");
     expect(payload.command).not.toContain("--force-recover-claims");
     expect((spawned as StartManagedInput | null)?.command.slice(repoRootFlag, repoRootFlag + 2)).toEqual(["--repo-root", cycleRepoRoot]);
 
-    const resumedResponse = await runtime.startManagedProcess({ gameId: "melee", runId: run.id, maxWorkers: 2 });
+    const resumedResponse = await runtime.startManagedProcess({ gameId: "melee", runId: run.id, maxWorkers: 4 });
     const resumedPayload = (await resumedResponse.json()) as { leaseId: string };
     expect(resumedResponse.status).toBe(200);
     expect(resumedPayload.leaseId).toBe(payload.leaseId);
@@ -123,10 +139,11 @@ describe("process control runtime", () => {
         lease_id: payload.leaseId,
         status: "active",
       });
-      expect(getRun(verifyStore, run.id)).toMatchObject({ status: "active", revision: 2 });
+      expect(getRun(verifyStore, run.id)).toMatchObject({ desiredWorkers: 4, status: "active", revision: 3 });
       expect(eventsForSubject(verifyStore.db, "run", run.id).map((event) => event.eventType)).toEqual([
         "run.drafted",
         "run.readied",
+        "run.desired_workers_changed",
         "run.activated",
       ]);
     } finally {

@@ -468,6 +468,7 @@ export function reconcileEpochTargetJobs(
                 AND json_extract(payload_json, '$.epoch_id') = ?`)
       .get(params.epochId) as { count: number }).count);
     const deficit = Math.max(0, unfinishedTargets - liveJobs);
+    const claimableAt = now();
     const rows = store.db
       .query(
         `SELECT epoch_targets.id, epoch_targets.epoch_id, epoch_targets.run_id,
@@ -477,17 +478,31 @@ export function reconcileEpochTargetJobs(
          JOIN runs ON runs.id = epoch_targets.run_id
          WHERE epoch_targets.epoch_id = ?
            AND epoch_targets.status = 'admitted'
-         ORDER BY NOT EXISTS (
+           AND NOT EXISTS (
+             SELECT 1
+             FROM epoch_targets AS active_targets
+             JOIN target_claims AS active_claims
+               ON active_claims.epoch_target_id = active_targets.id
+             WHERE active_targets.epoch_id = epoch_targets.epoch_id
+               AND active_targets.source_path = epoch_targets.source_path
+               AND active_targets.id != epoch_targets.id
+               AND active_claims.status = 'active'
+               AND (
+                 julianday(active_claims.ttl) IS NULL
+                 OR julianday(active_claims.ttl) > julianday(?)
+               )
+           )
+           AND NOT EXISTS (
              SELECT 1 FROM jobs
              WHERE jobs.kind = 'worker'
                AND jobs.run_id = epoch_targets.run_id
                AND jobs.status IN ('queued', 'claimed', 'running', 'waiting')
                AND json_extract(jobs.payload_json, '$.epoch_target_id') = epoch_targets.id
-           ) DESC,
-           epoch_targets.admission_index
+           )
+         ORDER BY epoch_targets.admission_index
          LIMIT ?`,
       )
-      .all(params.epochId, deficit) as Array<Record<string, unknown>>;
+      .all(params.epochId, claimableAt, deficit) as Array<Record<string, unknown>>;
     for (const row of rows) {
       const epochTargetId = String(row.id);
       enqueueJob(store, {

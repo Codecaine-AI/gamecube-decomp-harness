@@ -13,6 +13,7 @@ import {
   getLatestRun,
   getRun,
   openState,
+  setRunDesiredWorkers,
   updateRunStatus,
 } from "@server/core/cycle-runtime/run-state";
 import { activateRun, reconcileRunLeaseState } from "@server/core/cycle-runtime/phases/running/run-control.js";
@@ -194,6 +195,15 @@ export function createProcessControlRuntime(deps: ProcessControlRuntimeDeps): {
           }
           if (!currentRun) {
             return deps.json({ error: `Run not found: ${runId}`, process: deps.processStatus(stateDir, game) }, { status: 409 });
+          }
+
+          const stagedDesiredWorkers = currentRun.inputs?.configuration_snapshot.desired_workers;
+          if (typeof stagedDesiredWorkers === "number" && Number.isInteger(stagedDesiredWorkers) && stagedDesiredWorkers > 0) {
+            currentRun = setRunDesiredWorkers(store, runId, stagedDesiredWorkers, "operator", {
+              causationId: currentRun.causedByEventId ?? startCommandId,
+              commandId: startCommandId,
+              spanId: startSpanId,
+            });
           }
 
           const gameId = game?.gameId ?? currentRun.game?.gameId ?? stringValue(body.gameId).trim();

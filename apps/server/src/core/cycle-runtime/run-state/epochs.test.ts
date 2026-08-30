@@ -341,6 +341,47 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
+  test("tops up only targets not blocked by a live same-source claim", () => {
+    const { store } = tempState();
+    try {
+      const { run, epoch } = setupEpoch(store, [
+        candidate(1, "src/shared.c"),
+        candidate(2, "src/shared.c"),
+        candidate(3, "src/free.c"),
+      ], 3);
+      const targets = store.db
+        .query("SELECT id FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index")
+        .all(epoch.id) as Array<{ id: string }>;
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
+      expect(claim?.epochTargetId).toBe(targets[0]!.id);
+      store.db.query("DELETE FROM jobs WHERE kind = 'worker'").run();
+
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toMatchObject({
+        added: 1,
+        liveJobs: 0,
+        unfinishedTargets: 3,
+      });
+      expect(
+        store.db
+          .query("SELECT json_extract(payload_json, '$.epoch_target_id') AS epoch_target_id FROM jobs WHERE kind = 'worker'")
+          .all(),
+      ).toEqual([{ epoch_target_id: targets[2]!.id }]);
+
+      store.db.query("UPDATE target_claims SET ttl = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", claim!.claimId);
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toMatchObject({
+        added: 1,
+        liveJobs: 1,
+        unfinishedTargets: 3,
+      });
+      const coveredTargets = store.db
+        .query("SELECT json_extract(payload_json, '$.epoch_target_id') AS epoch_target_id FROM jobs WHERE kind = 'worker' ORDER BY created_at, job_id")
+        .all() as Array<{ epoch_target_id: string }>;
+      expect(coveredTargets.map((row) => row.epoch_target_id)).toEqual([targets[2]!.id, targets[1]!.id]);
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("trims newest queued worker jobs beyond coverage slack", () => {
     const { store } = tempState();
     try {
