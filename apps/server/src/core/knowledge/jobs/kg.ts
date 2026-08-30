@@ -24,7 +24,6 @@ import {
   graphDbExists,
   graphStats,
   importAgentSharedStateLessons,
-  loadKnowledgeBoardSnapshot,
   openKnowledgeGraph,
   readSourceRegistry,
   readSourceRegistryEntries,
@@ -35,7 +34,6 @@ import {
   sourceUpdateProposalRecords,
   type CuratedKnowledgeRecord,
 } from "@server/core/knowledge";
-import { rankFeatureForSourcePath } from "@server/core/knowledge/graph/rank";
 import { shortHash, stringValue, truncate } from "@server/core/knowledge/graph/util";
 import { resolveRegisteredTool, type ToolRuntimeContext } from "@server/core/tools/resolver";
 import { addPiSession } from "@server/core/cycle-runtime/run-state";
@@ -818,34 +816,6 @@ export async function kgFileCard(globals: GlobalArgs, args: Map<string, string |
   const store = openKnowledgeGraph(dbPath);
   try {
     console.log(JSON.stringify(fileGraphCard(store, sourcePath), null, 2));
-  } finally {
-    store.db.close();
-  }
-}
-
-export async function kgRankFeatures(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
-  const dbPath = await ensureGraphReady(globals, args);
-  const limit = numberArg(args, "--limit", 50);
-  const candidateLimit = numberArg(args, "--candidate-limit", limit);
-  const snapshot = loadKnowledgeBoardSnapshot(knowledgeRepoRoot(globals), { graphDbPath: dbPath });
-  const store = openKnowledgeGraph(dbPath);
-  try {
-    const features = snapshot.candidates
-      .slice(0, candidateLimit)
-      .slice(0, limit)
-      .map((candidate) => {
-        const graph = rankFeatureForSourcePath(store, candidate.sourcePath, {
-          source_path: candidate.sourcePath,
-          unit: candidate.unit,
-          symbol: candidate.symbol,
-        });
-        return {
-          candidate,
-          graph,
-          combined_priority: candidate.priority,
-        };
-      });
-    console.log(JSON.stringify({ graph_db: dbPath, generated_at: new Date().toISOString(), features }, null, 2));
   } finally {
     store.db.close();
   }

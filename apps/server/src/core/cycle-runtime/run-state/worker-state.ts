@@ -188,8 +188,8 @@ export function epochTargetToClaim(row: Record<string, unknown>, params: { claim
       complete: null,
       risk: null,
       target_status: String(row.status),
-      priority: Number(row.priority),
-      reason: String(row.reason ?? ""),
+      priority: 0,
+      reason: "",
     },
     writeSet: writeSetEntries.map((entry) => entry.path),
     writeSetEntries,
@@ -233,8 +233,6 @@ export function activeClaimsForRun(store: StateStore, runId: string): ActiveClai
               epoch_targets.source_path,
               epoch_targets.size,
               epoch_targets.baseline_score,
-              epoch_targets.priority,
-              epoch_targets.reason,
               epoch_targets.status AS target_status
             FROM target_claims
             JOIN worker_state ON worker_state.target_claim_id = target_claims.id
@@ -274,8 +272,8 @@ export function activeClaimsForRun(store: StateStore, runId: string): ActiveClai
         complete: null,
         risk: null,
         target_status: String(row.target_status),
-        priority: Number(row.priority),
-        reason: String(row.reason ?? ""),
+        priority: 0,
+        reason: "",
       },
       writeSet: writeSetEntries.map((entry) => entry.path),
       writeSetEntries,
@@ -307,36 +305,39 @@ export function claimNextEpochTarget(params: {
     throw new Error("claimNextEpochTarget requires a positive ttlSeconds value");
   }
   return immediateTransaction(params.store.db, () => {
+    const claimableAt = now();
     const target = params.store.db
       .query(
         `
-          SELECT
-            epoch_targets.*,
-            (
-              SELECT COUNT(*)
-              FROM epoch_targets AS active_targets
-              JOIN target_claims AS active_claims
-                ON active_claims.epoch_target_id = active_targets.id
-              WHERE active_targets.epoch_id = epoch_targets.epoch_id
-                AND active_targets.source_path = epoch_targets.source_path
-                AND active_claims.status = 'active'
-            ) AS active_source_claims
-          FROM epoch_targets
-          JOIN epochs ON epochs.id = epoch_targets.epoch_id
-          WHERE epoch_targets.run_id = ?
-            AND epochs.status = 'active'
-            AND epoch_targets.status = 'admitted'
-            AND NOT EXISTS (
-              SELECT 1
-              FROM target_claims
-              WHERE target_claims.epoch_target_id = epoch_targets.id
-                AND target_claims.status = 'active'
-            )
-          ORDER BY active_source_claims ASC, epoch_targets.priority DESC, epoch_targets.admission_index ASC
+          SELECT *
+          FROM (
+            SELECT
+              epoch_targets.*,
+              (
+                SELECT COUNT(*)
+                FROM epoch_targets AS active_targets
+                JOIN target_claims AS active_claims
+                  ON active_claims.epoch_target_id = active_targets.id
+                WHERE active_targets.epoch_id = epoch_targets.epoch_id
+                  AND active_targets.source_path = epoch_targets.source_path
+                  AND active_claims.status = 'active'
+                  AND (
+                    julianday(active_claims.ttl) IS NULL
+                    OR julianday(active_claims.ttl) > julianday(?)
+                  )
+              ) AS active_source_claims
+            FROM epoch_targets
+            JOIN epochs ON epochs.id = epoch_targets.epoch_id
+            WHERE epoch_targets.run_id = ?
+              AND epochs.status = 'active'
+              AND epoch_targets.status = 'admitted'
+          ) AS claimable_targets
+          WHERE active_source_claims = 0
+          ORDER BY admission_index ASC
           LIMIT 1
         `,
       )
-      .get(params.runId) as Record<string, unknown> | undefined;
+      .get(claimableAt, params.runId) as Record<string, unknown> | undefined;
     if (!target) return null;
 
     const sourcePath = String(target.source_path ?? "").trim();

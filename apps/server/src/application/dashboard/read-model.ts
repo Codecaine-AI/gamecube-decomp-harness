@@ -2477,9 +2477,7 @@ function activeFilesForRun(stateDir: string, runId: string): JsonObject[] {
             epoch_targets.symbol,
             epoch_targets.source_path,
             epoch_targets.size,
-            epoch_targets.baseline_score,
-            epoch_targets.priority,
-            epoch_targets.reason
+            epoch_targets.baseline_score
           FROM target_claims
           JOIN worker_state ON worker_state.target_claim_id = target_claims.id
           LEFT JOIN epochs ON epochs.id = target_claims.epoch_id
@@ -2518,8 +2516,6 @@ function activeFilesForRun(stateDir: string, runId: string): JsonObject[] {
         },
         matched: NaN,
         complete: NaN,
-        priority: numberValue(row.priority, NaN),
-        reason: stringValue(row.reason),
       };
     });
   } finally {
@@ -3100,8 +3096,6 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
             SELECT
               epoch_targets.id AS epoch_target_id,
               epoch_targets.epoch_id,
-              epoch_targets.priority AS epoch_target_priority,
-              epoch_targets.reason AS epoch_target_reason,
               epoch_targets.status AS epoch_target_status,
               epoch_targets.admitted_at AS admitted_at,
               epoch_targets.claimed_at AS claimed_at,
@@ -3112,8 +3106,6 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
               epoch_targets.size,
               epoch_targets.baseline_score AS fuzzy,
               epoch_targets.status AS target_status,
-              epoch_targets.priority AS target_priority,
-              epoch_targets.reason AS target_reason,
               epoch_targets.admitted_at AS target_created_at,
               epochs.ordinal AS epoch_ordinal,
               epochs.status AS epoch_status
@@ -3132,8 +3124,6 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
       targetId: row.target_id,
       epochTargetStatus: row.epoch_target_status,
       targetStatus: row.target_status,
-      priority: numberValue(row.epoch_target_priority, numberValue(row.target_priority)),
-      reason: stringValue(row.epoch_target_reason, stringValue(row.target_reason)),
       admittedAt: row.admitted_at,
       claimedAt: row.claimed_at,
       unit: row.unit,

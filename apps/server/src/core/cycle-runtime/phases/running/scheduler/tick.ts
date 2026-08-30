@@ -11,7 +11,6 @@ import {
   activeWorkerCount,
   activeSchedulerEpoch,
   admitEpochTargets,
-  refreshEpochTargetPriorities,
   refreshEpochTargetAvailability,
   reconcileEpochTargetJobs,
   schedulerEpochProgress,
@@ -44,7 +43,6 @@ export interface SchedulerTickResult {
   schedulerEpoch?: EpochProgressSummary;
   epochAdmission?: EpochAdmissionResult;
   epochAvailabilityRefresh?: EpochAvailabilityRefreshResult;
-  epochPriorityRefreshes?: number;
   targetPressure?: {
     activeWorkers: number;
     admittedTargets: number;
@@ -58,7 +56,6 @@ export interface SchedulerEpochEnsureResult {
   epoch: SchedulerEpochRecord;
   admission?: EpochAdmissionResult;
   availabilityRefresh: EpochAvailabilityRefreshResult;
-  priorityRefreshes: number;
   progress: EpochProgressSummary;
 }
 
@@ -88,25 +85,17 @@ export function schedulerEpochConfigFromArgs(
 ): SchedulerEpochConfig {
   const workerPoolSize = Math.max(1, nonNegativeInt(params.workerPoolSize));
   const validation = globals.game?.validation;
+  const configuredCap = _args.has("--epoch-target-cap")
+    ? Number(_args.get("--epoch-target-cap"))
+    : undefined;
   return {
     workerPoolSize,
     freshReportGate: validation?.epochAdmissionFreshReportGate ?? true,
-    candidateMultiple: positiveNumber(validation?.epochAdmissionCandidateMultiple, 4),
-    candidateCap: positiveNumber(validation?.epochAdmissionCandidateCap, 500),
+    // epochTargetCap limits admission to the first N board candidates; unset admits all.
+    epochTargetCap: configuredCap !== undefined && Number.isFinite(configuredCap)
+      ? Math.max(0, Math.floor(configuredCap))
+      : null,
   };
-}
-
-function positiveNumber(value: number | undefined, fallback: number): number {
-  return value !== undefined && Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
-function eligibleCandidateCount(candidates: Array<{ unit: string; symbol: string; sourcePath: string }>): number {
-  const keys = new Set<string>();
-  for (const candidate of candidates) {
-    if (!candidate.sourcePath.trim()) continue;
-    keys.add(`${candidate.unit}::${candidate.symbol}`);
-  }
-  return keys.size;
 }
 
 function assertFreshBoardReport(params: Pick<Parameters<typeof ensureSchedulerEpochFromBoard>[0], "globals" | "graphDbPath">): void {
@@ -140,32 +129,6 @@ function assertFreshBoardReport(params: Pick<Parameters<typeof ensureSchedulerEp
   }
 }
 
-function assertCandidateCountWithinLimits(params: {
-  candidateCount: number;
-  config: SchedulerEpochConfig;
-  runId: string;
-  store: StateStore;
-}): void {
-  const cap = positiveNumber(params.config.candidateCap, 500);
-  if (params.candidateCount > cap) {
-    throw new Error(`Epoch admission refused: ${params.candidateCount} candidates exceed the configured absolute cap of ${cap}`);
-  }
-  const recent = params.store.db
-    .query(
-      `SELECT admitted_count FROM epochs
-       WHERE run_id = ? AND status != 'active' AND admitted_count > 0
-       ORDER BY ordinal DESC LIMIT 3`,
-    )
-    .all(params.runId) as Array<{ admitted_count: number }>;
-  const recentMax = Math.max(0, ...recent.map((row) => Number(row.admitted_count)));
-  const multiple = positiveNumber(params.config.candidateMultiple, 4);
-  if (recentMax > 0 && params.candidateCount > recentMax * multiple) {
-    throw new Error(
-      `Epoch admission refused: ${params.candidateCount} candidates exceed ${multiple}x the recent epoch maximum of ${recentMax}`,
-    );
-  }
-}
-
 export function ensureSchedulerEpochFromBoard(params: {
   config: SchedulerEpochConfig;
   globals: GlobalArgs;
@@ -183,34 +146,26 @@ export function ensureSchedulerEpochFromBoard(params: {
     graphDbPath: params.graphDbPath,
   });
   if (!progress || progress.admitted === 0) {
-    assertCandidateCountWithinLimits({
-      candidateCount: eligibleCandidateCount(board.candidates),
-      config: params.config,
-      runId: params.runId,
-      store: params.store,
-    });
+    const candidates = params.config.epochTargetCap == null
+      ? board.candidates
+      : board.candidates.slice(0, params.config.epochTargetCap);
     epoch ??= startSchedulerEpoch(params.store, params.runId, params.config);
     admission = admitEpochTargets(params.store, {
       epochId: epoch.id,
       runId: params.runId,
-      candidates: board.candidates,
+      candidates,
       workerPoolSize: params.config.workerPoolSize,
     });
     progress = schedulerEpochProgress(params.store, epoch.id);
   }
   if (!epoch || !progress) throw new Error("Scheduler epoch admission did not produce an epoch");
 
-  const priorityRefreshes = refreshEpochTargetPriorities(params.store, {
-    epochId: epoch.id,
-    runId: params.runId,
-    candidates: board.candidates,
-  }).refreshed;
   const availabilityRefresh = refreshEpochTargetAvailability(params.store, epoch.id, {
     exactTargetKeys: loadExactTargetKeys(params.globals.repoRoot),
   });
   epoch = activeSchedulerEpoch(params.store, params.runId) ?? epoch;
   progress = schedulerEpochProgress(params.store, epoch.id);
-  return { epoch, admission, availabilityRefresh, priorityRefreshes, progress };
+  return { epoch, admission, availabilityRefresh, progress };
 }
 
 export async function runSchedulerTick(
@@ -259,11 +214,10 @@ export async function runSchedulerTick(
       eventType,
       eventProducer: String(event.producer ?? ""),
       eventCreatedAt: String(event.createdAt ?? event.created_at ?? ""),
-      schedulerTargetUpdates: (epochResult?.admission?.admitted ?? 0) + (epochResult?.priorityRefreshes ?? 0),
+      schedulerTargetUpdates: epochResult?.admission?.admitted ?? 0,
       schedulerEpoch: epochResult?.progress,
       epochAdmission: epochResult?.admission,
       epochAvailabilityRefresh: epochResult?.availabilityRefresh,
-      epochPriorityRefreshes: epochResult?.priorityRefreshes,
       targetPressure: {
         activeWorkers: activeWorkerCount(store, runId),
         admittedTargets: targetPressure.admittedTargets,

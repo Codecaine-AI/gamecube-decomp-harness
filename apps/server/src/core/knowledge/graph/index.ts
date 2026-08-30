@@ -18,7 +18,6 @@ export { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
 export { buildMismatchPatternGraphRecords, type BuildMismatchPatternGraphRecordsOptions } from "./mismatch-patterns.js";
 export { buildOpseqSimilarityGraphRecords, OPSEQ_SIMILARITY_SOURCE_ID, type BuildOpseqSimilarityGraphRecordsOptions } from "./opseq-similarity.js";
 export { buildPastPrsGraphRecords } from "./past-prs.js";
-export { rankFeatureForSourcePath, rankFeatureMapForCandidates } from "./rank.js";
 export { defaultGraphSources, rebuildKnowledgeGraph } from "./rebuild.js";
 export {
   readSourceDescriptor,
@@ -62,7 +61,6 @@ export type {
   GraphEdge,
   GraphEntity,
   GraphFact,
-  GraphRankFeature,
   GraphRecords,
   SearchChunk,
   SearchResult,

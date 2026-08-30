@@ -149,7 +149,6 @@ export function ActiveWorkerStates({ activeReports, form, runId }: { activeRepor
                     <MetaItem label="state" value={shortId(claim.workerStateId)} />
                     <MetaItem label="type" value={outcomeLabel} />
                     <MetaItem label="fuzzy" value={pct(claim.fuzzy ?? target.fuzzy)} />
-                    <MetaItem label="priority" value={num(claim.priority)} />
                     <MetaItem label="heartbeat" value={ago(claim.heartbeatAt)} />
                     <MetaItem label="elapsed" value={runtime.primary} />
                     <MetaItem label="timeout" value={runtime.secondary} />

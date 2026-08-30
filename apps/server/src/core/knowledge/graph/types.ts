@@ -17,7 +17,6 @@ export type SourceAccessMode =
   | "offset_lookup"
   | "path_scoped_injection"
   | "proposal_listing"
-  | "rank_features"
   | "refreshable_corpus"
   | "resolve_for_path"
   | "review_risks"
@@ -156,7 +155,6 @@ export interface FileGraphCard {
   callers: Array<Record<string, unknown>>;
   callees: Array<Record<string, unknown>>;
   data_references: Array<Record<string, unknown>>;
-  scheduling_signals: GraphRankFeature;
 }
 
 export interface RelatedFunctionsQuery {
@@ -179,43 +177,6 @@ export interface RelatedFunctionsResult {
     data_references: Array<Record<string, unknown>>;
     learnings: Array<Record<string, unknown>>;
   }>;
-}
-
-export interface GraphRankFeature {
-  target?: {
-    source_path: string;
-    unit?: string;
-    symbol?: string;
-  };
-  source_path: string;
-  editability: "editable" | "read_only_complete" | "locked" | "blocked" | "unknown";
-  graph_degree: number;
-  function_graph_degree: number;
-  fresh_edges_since_last_attempt: number;
-  relevant_pr_count: number;
-  review_risk_count: number;
-  duplicate_reference_count: number;
-  opseq_best_analog_score: number;
-  opseq_best_matched_analog_score: number;
-  opseq_analog_count: number;
-  opseq_exact_analog_count: number;
-  opseq_matched_analog_count: number;
-  linked_unlock_potential: number;
-  connected_incomplete_function_count: number;
-  connected_matched_reference_count: number;
-  resource_evidence_count: number;
-  historical_lesson_count: number;
-  curated_signal_count: number;
-  proposal_fact_count: number;
-  stale_fact_count: number;
-  information_gain_score: number;
-  unlock_score: number;
-  context_quality_score: number;
-  completion_readiness_score: number;
-  information_value_score: number;
-  risk_penalty: number;
-  priority_bonus: number;
-  explanation: string[];
 }
 
 export interface SearchResult {

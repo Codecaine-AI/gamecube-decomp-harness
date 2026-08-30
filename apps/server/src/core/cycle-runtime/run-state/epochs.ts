@@ -12,7 +12,6 @@ import {
   enqueueJob,
   getJobByDedupeKey,
   requeueJob,
-  reprioritizeJob,
 } from "@server/core/job-queue/kernel.js";
 import { enqueuePayloadForWorkerJob } from "@server/core/cycle-runtime/phases/running/workers/worker-job-payload.js";
 
@@ -21,8 +20,8 @@ export type EpochStatus = "active" | "completed" | "error" | "paused";
 export interface SchedulerEpochConfig {
   workerPoolSize: number;
   freshReportGate?: boolean;
-  candidateMultiple?: number;
-  candidateCap?: number;
+  /** Optional cap on targets admitted to one epoch; unset admits every candidate. */
+  epochTargetCap?: number | null;
 }
 
 export interface SchedulerEpochRecord {
@@ -75,12 +74,6 @@ export interface EpochAvailabilityRefreshResult {
   availableBefore: number;
   availableAfter: number;
   retiredExact: number;
-}
-
-export interface EpochPriorityRefreshResult {
-  epochId: string;
-  candidateCount: number;
-  refreshed: number;
 }
 
 export interface RequeueEpochTargetResult {
@@ -427,8 +420,8 @@ export function admitEpochTargets(
         candidate.sourcePath,
         candidate.size,
         candidate.fuzzy,
-        candidate.priority,
-        candidate.reason,
+        0,
+        null,
         startIndex + index,
         admittedAt,
       );
@@ -437,7 +430,7 @@ export function admitEpochTargets(
         dedupeKey: epochTargetId,
         gameId: String(run.game_id),
         runId,
-        priority: candidate.priority,
+        priority: 0,
         payload: {
           epoch_target_id: epochTargetId,
           epoch_id: params.epochId,
@@ -478,7 +471,7 @@ export function reconcileEpochTargetJobs(
     const rows = store.db
       .query(
         `SELECT epoch_targets.id, epoch_targets.epoch_id, epoch_targets.run_id,
-                epoch_targets.target_key, epoch_targets.priority,
+                epoch_targets.target_key,
                 COALESCE(runs.game_id, 'melee') AS game_id, runs.trace_id
          FROM epoch_targets
          JOIN runs ON runs.id = epoch_targets.run_id
@@ -491,7 +484,6 @@ export function reconcileEpochTargetJobs(
                AND jobs.status IN ('queued', 'claimed', 'running', 'waiting')
                AND json_extract(jobs.payload_json, '$.epoch_target_id') = epoch_targets.id
            ) DESC,
-           epoch_targets.priority DESC,
            epoch_targets.admission_index
          LIMIT ?`,
       )
@@ -503,7 +495,7 @@ export function reconcileEpochTargetJobs(
         dedupeKey: `${epochTargetId}:reenqueue:${randomUUID()}`,
         gameId: String(row.game_id),
         runId: String(row.run_id),
-        priority: Number(row.priority),
+        priority: 0,
         payload: {
           epoch_target_id: epochTargetId,
           epoch_id: String(row.epoch_id),
@@ -534,47 +526,6 @@ export function reconcileEpochTargetJobs(
       liveJobs,
       unfinishedTargets,
     };
-  });
-}
-
-export function refreshEpochTargetPriorities(
-  store: StateStore,
-  params: { epochId: string; runId: string; candidates: TargetCandidate[] },
-): EpochPriorityRefreshResult {
-  const selectTarget = store.db.query(`
-    SELECT id, source_path, size, baseline_score, priority, reason
-    FROM epoch_targets
-    WHERE epoch_id = ?
-      AND status = 'admitted'
-      AND unit = ?
-      AND symbol = ?
-    LIMIT 1
-  `);
-  const updateTarget = store.db.query("UPDATE epoch_targets SET source_path = ?, size = ?, baseline_score = ?, priority = ?, reason = ? WHERE id = ?");
-
-  return immediateTransaction(store.db, () => {
-    let refreshed = 0;
-    for (const candidate of params.candidates) {
-      const row = selectTarget.get(params.epochId, candidate.unit, candidate.symbol) as Record<string, unknown> | undefined;
-      if (!row) continue;
-      const same =
-        String(row.source_path ?? "") === candidate.sourcePath &&
-        Number(row.size) === candidate.size &&
-        Number(row.baseline_score) === candidate.fuzzy &&
-        Number(row.priority) === candidate.priority &&
-        String(row.reason ?? "") === candidate.reason;
-      if (same) continue;
-      updateTarget.run(candidate.sourcePath, candidate.size, candidate.fuzzy, candidate.priority, candidate.reason, String(row.id));
-      if (Number(row.priority) !== candidate.priority) {
-        reprioritizeJob(store, {
-          kind: "worker",
-          dedupeKey: String(row.id),
-          priority: candidate.priority,
-        });
-      }
-      refreshed += 1;
-    }
-    return { epochId: params.epochId, candidateCount: params.candidates.length, refreshed };
   });
 }
 

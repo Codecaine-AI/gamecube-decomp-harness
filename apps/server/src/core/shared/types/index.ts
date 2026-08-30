@@ -6,7 +6,7 @@ export type {
   RunSchedulerCondition,
   RunStatus,
 } from "./run.js";
-export type { BoardMeasures, BoardRankBreakdown, BoardSnapshot, TargetCandidate } from "./board.js";
+export type { BoardMeasures, BoardSnapshot, TargetCandidate } from "./board.js";
 export type { AgentRole, PiPromptBundle, RuntimeAgentRole } from "./agents.js";
 export type { PiRunResult, PiSessionStatus } from "./pi.js";
 export type { EventType } from "./state.js";

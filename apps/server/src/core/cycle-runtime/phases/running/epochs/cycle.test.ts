@@ -669,8 +669,7 @@ describe("boundaryDeferredFindings", () => {
       reasons: ["regression latch"],
       summary: { brokenMatches: 1, fuzzyRegressions: 0, metricRegressions: 0, regressedFunctions: 1, regressedSections: 0 },
       repairCandidates: [{
-        unit: "src/unit.c", sourcePath: "src/unit.c", symbol: "fn", size: 32, fuzzy: 95, priority: 400,
-        reason: "epoch regression repair: 100.00% -> 95.00% (-2 bytes)",
+        kind: "function", unit: "src/unit.c", sourcePath: "src/unit.c", symbol: "fn", size: 32, fuzzy: 95,
       }],
     }, {
       exitCode: 1, status: "failed", errors: 1, warnings: 0,

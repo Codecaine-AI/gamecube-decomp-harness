@@ -13,7 +13,6 @@ import {
   kgKnowledgeIntakeAgent,
   kgMaintain,
   kgPrIndexerAgent,
-  kgRankFeatures,
   kgRebuildGraph,
   kgSearch,
   kgSmoke,
@@ -82,7 +81,6 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "kg-search") await kgSearch(globals, args);
     else if (command === "kg-smoke") await kgSmoke(globals, args);
     else if (command === "kg-file-card") await kgFileCard(globals, args);
-    else if (command === "kg-rank-features") await kgRankFeatures(globals, args);
     else if (command === "status") await status(globals);
     else throw new Error(`Unknown server job: ${command}`);
   } finally {

@@ -30,13 +30,12 @@ function tempState(): { dir: string; store: StateStore } {
 
 function setupClaim(store: StateStore) {
   const candidate: TargetCandidate = {
+    kind: "function",
     unit: "unit_a",
     symbol: "target_fn",
     sourcePath: "src/melee/ft/target.c",
     size: 64,
     fuzzy: 90,
-    priority: 100,
-    reason: "test target",
   };
   const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {

@@ -82,7 +82,7 @@ describe("workerJobClaimRecoveryFilters", () => {
 });
 
 describe("selectRunLoopSchedulerCondition", () => {
-  test("preserves blocked and boundary priority over transient work", () => {
+  test("selects blocked and boundary conditions before transient work", () => {
     expect(selectRunLoopSchedulerCondition({ blocked: true, boundary: true, planning: true, fallback: "dispatching" })).toBe("blocked");
     expect(selectRunLoopSchedulerCondition({ blocked: false, boundary: true, planning: true, fallback: "dispatching" })).toBe("boundary");
     expect(selectRunLoopSchedulerCondition({ blocked: false, boundary: false, planning: true, fallback: "waiting" })).toBe("planning");
@@ -133,7 +133,7 @@ describe("run-loop exit settlement", () => {
     admitEpochTargets(store, {
       epochId: epoch.id,
       runId: run.id,
-      candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
+      candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91 }],
       workerPoolSize: 1,
     });
     expect(claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 })).not.toBeNull();
@@ -188,7 +188,7 @@ describe("epochBoundaryWorkPending", () => {
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
-        candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
+        candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91 }],
         workerPoolSize: 1,
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
@@ -219,7 +219,7 @@ describe("epochBoundaryWorkPending", () => {
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
-        candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
+        candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91 }],
         workerPoolSize: 1,
       });
       const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });

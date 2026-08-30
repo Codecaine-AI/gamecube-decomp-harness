@@ -66,7 +66,7 @@ export function WorkStatusTable({ dashboard, mode, onSelectAgent, setMode }: { d
                 <tr>
                   <th>Symbol</th>
                   <th className="w-[92px] text-right">Fuzzy</th>
-                  <th className="w-32 text-right" title="Epoch target status. The second line shows priority.">Status</th>
+                  <th className="w-32 text-right">Status</th>
                 </tr>
               )}
             </thead>

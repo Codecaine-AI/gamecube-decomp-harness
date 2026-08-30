@@ -6,7 +6,7 @@ describe("section measures", () => {
     expect(sectionMeasuresFromReportJson({
       units: [
         { sections: [
-          { name: ".data", size: 10, fuzzy_match_percent: 100 },
+          { name: ".data", size: 10, fuzzy_match_percent: 99.999995 },
           { name: ".text", size: 3, fuzzy_match_percent: 50 },
         ] },
         { sections: [

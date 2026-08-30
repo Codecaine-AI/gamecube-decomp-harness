@@ -7,6 +7,7 @@ export interface RunningProcessCommandBody {
   confirmed?: unknown;
   dryRunAgents?: unknown;
   epochConfigureCommand?: unknown;
+  epochTargetCap?: unknown;
   goalKind?: unknown;
   goalValue?: unknown;
   graphDbPath?: unknown;
@@ -232,6 +233,7 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   const integrationResolverConcurrency = Number(policySnapshotValue("integrationResolverConcurrency", configuration));
   const workerConfigureCommand = String(policySnapshotValue("workerConfigureCommand", configuration));
   const epochConfigureCommand = String(policySnapshotValue("epochConfigureCommand", configuration));
+  const epochTargetCap = configuration.epoch_target_cap ?? null;
   const agentTimeoutSeconds = Number(policySnapshotValue("agentTimeoutSeconds", configuration));
 
   const command = ["bun", serverJobPath];
@@ -251,6 +253,7 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   );
   if (workerConfigureCommand) command.push("--worker-configure-command", workerConfigureCommand);
   if (epochConfigureCommand) command.push("--epoch-configure-command", epochConfigureCommand);
+  if (epochTargetCap !== null) command.push("--epoch-target-cap", String(epochTargetCap));
   if (noRefillBatch) {
     command.push("--no-epoch-cycle", "--no-blocked-queue-replan", "--max-idle-iterations", "3");
   }

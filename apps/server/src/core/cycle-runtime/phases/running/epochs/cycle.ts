@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync } from "node:fs";
 import { chmod, copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { closenessScore } from "../board/candidates.js";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 import { runQaScanDiff, type QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 import { runPreCommitAutofix as runPreCommitAutofixDefault, type PreCommitAutofixResult } from "@server/core/validation/ci-parity/index.js";
@@ -79,8 +78,6 @@ export interface EpochCycleOptions {
   /** Above this many regressed report rows the cycle pauses instead of admitting repairs. */
   regressionPauseThreshold?: number;
   regressionRequeueLimit?: number;
-  /** Added to repair-target priority so repairs outrank every board candidate. */
-  repairPriorityBase?: number;
   reportRelPath?: string;
   reportChangesRelPath?: string;
   baselineRelPath?: string;
@@ -544,7 +541,7 @@ export function boundaryDeferredFindings(
     unit: candidate.unit,
     symbol: candidate.symbol,
     sourcePath: candidate.sourcePath,
-    detail: candidate.reason,
+    detail: `epoch regression repair: ${candidate.size} bytes at ${candidate.fuzzy.toFixed(2)}%`,
   }));
   for (const finding of qaGate?.findings ?? []) {
     findings.push({
@@ -557,8 +554,8 @@ export function boundaryDeferredFindings(
 }
 
 /**
- * Regressed functions become ordinary epoch targets with a priority floor that
- * outranks the whole board: repair-by-readmission instead of revert-and-bisect.
+ * Regressed functions become ordinary epoch targets through readmission instead
+ * of revert-and-bisect.
  * Section rows (data/rodata) count toward the pause decision but are not
  * admissible as function targets.
  */
@@ -566,7 +563,6 @@ export function planRegressionRepair(
   report: Pick<RegressionReport, "brokenMatches" | "fuzzyRegressions" | "regressions">,
   params: {
     pauseThreshold: number;
-    repairPriorityBase: number;
     requeueLimit: number;
     sourcePaths: Map<string, string>;
   },
@@ -606,8 +602,7 @@ export function planRegressionRepair(
       symbol: entry.itemName,
       size: entry.size,
       fuzzy: entry.toPercent,
-      priority: params.repairPriorityBase + closenessScore(entry.size, entry.toPercent),
-      reason: `epoch regression repair: ${entry.fromPercent.toFixed(2)}% -> ${entry.toPercent.toFixed(2)}% (${entry.bytesDelta} bytes)`,
+      kind: "function",
     });
   }
   return { paused, reasons, repairCandidates, summary };
@@ -1486,7 +1481,6 @@ async function runEpochCycleInnerTracked(
   });
   const plan = planRegressionRepair(regressionReport, {
     pauseThreshold: options.regressionPauseThreshold ?? 12,
-    repairPriorityBase: options.repairPriorityBase ?? 400,
     requeueLimit: options.regressionRequeueLimit ?? 32,
     sourcePaths: sourcePathByUnit(worktreeReportPath),
   });

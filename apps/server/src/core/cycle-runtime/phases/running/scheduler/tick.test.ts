@@ -202,45 +202,30 @@ describe("runSchedulerTick", () => {
     }
   });
 
-  test("refuses an admission candidate spike above the configured cap", () => {
-    const value = admissionFixture(2);
-    writeProvenance(value.graphDbPath, value.reportPath);
-
-    expect(() =>
-      ensureSchedulerEpochFromBoard({
-        config: { workerPoolSize: 1, candidateCap: 1 },
+  test("admits every sub-100 report candidate in enumeration order, optionally capped to the first N", () => {
+    for (const epochTargetCap of [null, 2] as const) {
+      const value = admissionFixture(4);
+      writeProvenance(value.graphDbPath, value.reportPath);
+      const result = ensureSchedulerEpochFromBoard({
+        config: { workerPoolSize: 1, epochTargetCap },
         globals: globalsFor(value.dir),
         graphDbPath: value.graphDbPath,
         runId: value.run.id,
         store: value.store,
-      }),
-    ).toThrow("2 candidates exceed the configured absolute cap of 1");
-    expect(value.store.db.query("SELECT COUNT(*) AS count FROM epochs WHERE run_id = ?").get(value.run.id)).toEqual({ count: 0 });
-    value.store.db.close();
-  });
+      });
+      const targetKeys = value.store.db
+        .query("SELECT target_key FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index")
+        .all(result.epoch.id) as Array<{ target_key: string }>;
 
-  test("refuses an admission candidate spike above a multiple of recent epochs", () => {
-    const value = admissionFixture(5);
-    writeProvenance(value.graphDbPath, value.reportPath);
-    value.store.db
-      .query(
-        `INSERT INTO epochs
-         (id, run_id, ordinal, worker_pool_size, status, admitted_count, finished_count, routing_summary_json, created_at, closed_at)
-         VALUES ('prior-epoch', ?, 1, 1, 'completed', 2, 2, '{}', ?, ?)`,
-      )
-      .run(value.run.id, new Date().toISOString(), new Date().toISOString());
-
-    expect(() =>
-      ensureSchedulerEpochFromBoard({
-        config: { workerPoolSize: 1, candidateCap: 100, candidateMultiple: 2 },
-        globals: globalsFor(value.dir),
-        graphDbPath: value.graphDbPath,
-        runId: value.run.id,
-        store: value.store,
-      }),
-    ).toThrow("5 candidates exceed 2x the recent epoch maximum of 2");
-    expect(value.store.db.query("SELECT COUNT(*) AS count FROM epochs WHERE run_id = ?").get(value.run.id)).toEqual({ count: 1 });
-    value.store.db.close();
+      expect(targetKeys.map((row) => row.target_key)).toEqual(
+        ["unit-0.o::function_0", "unit-1.o::function_1", "unit-2.o::function_2", "unit-3.o::function_3"].slice(
+          0,
+          epochTargetCap ?? 4,
+        ),
+      );
+      expect(result.admission?.admitted).toBe(epochTargetCap ?? 4);
+      value.store.db.close();
+    }
   });
 
   test("handles wake events without starting a new epoch when no-start-epoch is set", async () => {

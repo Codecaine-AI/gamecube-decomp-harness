@@ -57,7 +57,7 @@ function fixture() {
   admitEpochTargets(store, {
     epochId: epoch.id,
     runId: run.id,
-    candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 90, priority: 10, reason: "test" }],
+    candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 90 }],
     workerPoolSize: 1,
   });
   initializeHarnessState(store, { gameId: "test", traceId: "trace-test" });
@@ -149,13 +149,13 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
-  test("does not create a replacement job when a fungible job claims another target", () => {
+  test("does not create a replacement job when admission ordering keeps the original target", () => {
     const f = fixture();
     try {
       admitEpochTargets(f.store, {
         epochId: String((f.store.db.query("SELECT epoch_id FROM epoch_targets WHERE id = ?").get(f.epochTargetId) as { epoch_id: string }).epoch_id),
         runId: f.run.id,
-        candidates: [{ unit: "unit-2", symbol: "fn-2", sourcePath: "src/b.c", size: 64, fuzzy: 80, priority: 20, reason: "test mismatch" }],
+        candidates: [{ kind: "function", unit: "unit-2", symbol: "fn-2", sourcePath: "src/b.c", size: 64, fuzzy: 80 }],
         workerPoolSize: 2,
       });
       const otherTarget = f.store.db
@@ -166,7 +166,7 @@ describe("worker job kind", () => {
       const result = claim(f);
 
       expect(result.job.payload.epoch_target_id).toBe(f.epochTargetId);
-      expect(result.job.payload.claimed_epoch_target_id).toBe(otherTarget.id);
+      expect(result.job.payload.claimed_epoch_target_id).toBe(f.epochTargetId);
       const ownJobs = f.store.db
         .query(`SELECT dedupe_key, status, execution_class
                 FROM jobs
@@ -177,7 +177,7 @@ describe("worker job kind", () => {
       expect(ownJobs).toContainEqual({ dedupe_key: f.epochTargetId, status: "claimed", execution_class: "sandbox" });
       expect(f.store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE kind = 'worker' AND status IN ('queued', 'claimed', 'running', 'waiting')").get()).toEqual({ count: 2 });
       expect(f.store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE dedupe_key LIKE '%:reenqueue:%'").get()).toEqual({ count: 0 });
-      expect(f.store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(f.epochTargetId)).toEqual({ status: "admitted" });
+      expect(f.store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(otherTarget.id)).toEqual({ status: "admitted" });
     } finally { f.store.db.close(); }
   });
 
@@ -490,6 +490,7 @@ describe("worker job kind", () => {
       mkdirSync(resolve(functionsIndex, ".."), { recursive: true });
       writeFileSync(functionsIndex, `${JSON.stringify({
         unit: "unit",
+        kind: "function",
         symbol: "fn",
         sourcePath: "src/a.c",
         size: 64,

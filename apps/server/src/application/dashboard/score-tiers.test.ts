@@ -133,8 +133,8 @@ function fixture(): {
     runId: runOne.id,
     workerPoolSize: 2,
     candidates: [
-      { unit: "main/melee/test", symbol: "ExactFn", sourcePath: "src/test.c", size: 32, fuzzy: 98, priority: 2, reason: "fixture" },
-      { unit: "main/melee/test", symbol: "ImproveFn", sourcePath: "src/test.c", size: 32, fuzzy: 80, priority: 1, reason: "fixture" },
+      { kind: "function", unit: "main/melee/test", symbol: "ExactFn", sourcePath: "src/test.c", size: 32, fuzzy: 98 },
+      { kind: "function", unit: "main/melee/test", symbol: "ImproveFn", sourcePath: "src/test.c", size: 32, fuzzy: 80 },
     ],
   });
   const targets = store.db.query(
@@ -191,7 +191,7 @@ describe("score tiers projection", () => {
         epochId: epoch.id,
         runId: runTwo,
         workerPoolSize: 1,
-        candidates: [{ unit: "main/melee/open", symbol: "OpenWin", sourcePath: "src/open.c", size: 16, fuzzy: 70, priority: 1, reason: "fixture" }],
+        candidates: [{ kind: "function", unit: "main/melee/open", symbol: "OpenWin", sourcePath: "src/open.c", size: 16, fuzzy: 70 }],
       });
       const target = store.db.query("SELECT id FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string };
       addCheckpoint(store, {

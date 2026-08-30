@@ -388,9 +388,9 @@ describe("dashboard read model", () => {
         epochId: epoch.id,
         runId: active.id,
         candidates: [
-          { unit: "unit-a", symbol: "fn_a", sourcePath: "src/a.c", size: 64, fuzzy: 80, priority: 3, reason: "test" },
-          { unit: "unit-b", symbol: "fn_b", sourcePath: "src/b.c", size: 64, fuzzy: 81, priority: 2, reason: "test" },
-          { unit: "unit-c", symbol: "fn_c", sourcePath: "src/c.c", size: 64, fuzzy: 82, priority: 1, reason: "test" },
+          { kind: "function", unit: "unit-a", symbol: "fn_a", sourcePath: "src/a.c", size: 64, fuzzy: 80 },
+          { kind: "function", unit: "unit-b", symbol: "fn_b", sourcePath: "src/b.c", size: 64, fuzzy: 81 },
+          { kind: "function", unit: "unit-c", symbol: "fn_c", sourcePath: "src/c.c", size: 64, fuzzy: 82 },
         ],
         workerPoolSize: 3,
       });
@@ -1250,7 +1250,7 @@ describe("dashboard read model", () => {
       admitEpochTargets(store, {
         epochId: oldEpoch.id,
         runId: run.id,
-        candidates: [{ unit: "unit", symbol: "old_fn", sourcePath: "src/old.c", size: 64, fuzzy: 91, priority: 2, reason: "test" }],
+        candidates: [{ kind: "function", unit: "unit", symbol: "old_fn", sourcePath: "src/old.c", size: 64, fuzzy: 91 }],
         workerPoolSize: 1,
       });
       closeSchedulerEpoch(store, oldEpoch.id, { status: "completed" });
@@ -1260,7 +1260,7 @@ describe("dashboard read model", () => {
       admitEpochTargets(store, {
         epochId: activeEpoch.id,
         runId: run.id,
-        candidates: [{ unit: "unit", symbol: "active_fn", sourcePath: "src/active.c", size: 64, fuzzy: 90, priority: 1, reason: "test" }],
+        candidates: [{ kind: "function", unit: "unit", symbol: "active_fn", sourcePath: "src/active.c", size: 64, fuzzy: 90 }],
         workerPoolSize: 1,
       });
     } finally {
@@ -1299,12 +1299,12 @@ describe("dashboard read model", () => {
         epochId: epoch.id,
         runId: run.id,
         candidates: [
-          { unit: "unit", symbol: "timeout_fn", sourcePath: "src/timeout.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
-          { unit: "unit", symbol: "recovered_fn", sourcePath: "src/recovered.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
-          { unit: "unit", symbol: "session_failed_fn", sourcePath: "src/session_failed.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
-          { unit: "unit", symbol: "validation_fn", sourcePath: "src/validation.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
-          { unit: "unit", symbol: "tool_fn", sourcePath: "src/tool.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
-          { unit: "unit", symbol: "banked_fn", sourcePath: "src/banked.c", size: 64, fuzzy: 91, priority: 1, reason: "test" },
+          { kind: "function", unit: "unit", symbol: "timeout_fn", sourcePath: "src/timeout.c", size: 64, fuzzy: 91 },
+          { kind: "function", unit: "unit", symbol: "recovered_fn", sourcePath: "src/recovered.c", size: 64, fuzzy: 91 },
+          { kind: "function", unit: "unit", symbol: "session_failed_fn", sourcePath: "src/session_failed.c", size: 64, fuzzy: 91 },
+          { kind: "function", unit: "unit", symbol: "validation_fn", sourcePath: "src/validation.c", size: 64, fuzzy: 91 },
+          { kind: "function", unit: "unit", symbol: "tool_fn", sourcePath: "src/tool.c", size: 64, fuzzy: 91 },
+          { kind: "function", unit: "unit", symbol: "banked_fn", sourcePath: "src/banked.c", size: 64, fuzzy: 91 },
         ],
         workerPoolSize: 1,
       });
@@ -1411,7 +1411,7 @@ describe("dashboard read model", () => {
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
-        candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 91, priority: 1, reason: "test" }],
+        candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 91 }],
         workerPoolSize: 1,
       });
 

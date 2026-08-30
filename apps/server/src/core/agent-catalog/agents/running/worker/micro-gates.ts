@@ -1,7 +1,6 @@
 import type { WorkspaceExec, CommandResult } from "@server/infrastructure/shell";
+import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import type { WorkerUnitScoreSnapshot } from "./change-validation.js";
-
-export const EXACT_SECTION_SCORE = 99.99999;
 
 export interface WorkerMicroGateFlags {
   sectionParity: boolean;
@@ -59,13 +58,13 @@ export function evaluateSectionParityGate(params: {
   const afterByName = new Map(params.after.sections.map((section) => [section.name, section]));
   const reasons: string[] = [];
   for (const before of params.before.sections) {
-    if (before.name === ".text" || before.score < EXACT_SECTION_SCORE) continue;
+    if (before.name === ".text" || before.score < EXACT_SCORE) continue;
     const after = afterByName.get(before.name);
     if (!after) {
       reasons.push(`section ${before.name} was 100% before the change but is missing from the rebuilt object`);
       continue;
     }
-    if (after.score >= EXACT_SECTION_SCORE) continue;
+    if (after.score >= EXACT_SCORE) continue;
     const size = Number.isFinite(after.size) ? after.size : Number.isFinite(before.size) ? before.size : undefined;
     const byteDetail = size === undefined
       ? ""
@@ -76,7 +75,7 @@ export function evaluateSectionParityGate(params: {
 }
 
 function formatScore(score: number): string {
-  return score >= EXACT_SECTION_SCORE ? "100" : String(Number(score.toFixed(5)));
+  return score >= EXACT_SCORE ? "100" : String(Number(score.toFixed(5)));
 }
 
 const LIST_UNDEFINED_SYMBOLS_SCRIPT = `import struct,sys
@@ -197,6 +196,7 @@ const CONTROL_KEYWORDS = new Set(["if", "for", "while", "switch", "return", "els
 export function lintBannedIdioms(diffText: string, context: BannedIdiomContext = {}): WorkerMicroGateResult {
   const gate = "banned_idioms" as const;
   if (!diffText.trim()) return { gate, status: "skipped", reasons: ["empty write_set diff"] };
+  const isSectionTarget = context.targetFunction?.startsWith(".") ?? false;
 
   const linesByPath = new Map<string, AddedCodeLine[]>();
   const removedByPath = new Map<string, AddedCodeLine[]>();
@@ -218,14 +218,16 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
   const reasons: string[] = [];
   const globalSymbols = parseSymbolsTxt(context.symbolsTxt ?? "").globals;
   for (const [path, entries] of linesByPath) {
-    reasons.push(...findSharedGlobalQualifierChanges({
-      path,
-      added: entries,
-      removed: removedByPath.get(path) ?? [],
-      baselineSource: context.baselineSources?.get(path),
-      postChangeSource: context.postChangeSources?.get(path),
-      targetFunction: context.targetFunction,
-    }));
+    if (!isSectionTarget) {
+      reasons.push(...findSharedGlobalQualifierChanges({
+        path,
+        added: entries,
+        removed: removedByPath.get(path) ?? [],
+        baselineSource: context.baselineSources?.get(path),
+        postChangeSource: context.postChangeSources?.get(path),
+        targetFunction: context.targetFunction,
+      }));
+    }
     const definitions: StaticDefinition[] = [];
     for (const entry of entries) {
       const staticName = staticDeclarationName(entry.stripped);
@@ -237,10 +239,10 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
           : wasNonStatic
             ? "previously non-static"
             : null;
-        if (reason) reasons.push(`static_added_to_global_symbol: '${staticName}' gains static but is ${reason}: "${entry.body.trim().replaceAll('"', '\\"')}"`);
+        if (reason && !isSectionTarget) reasons.push(`static_added_to_global_symbol: '${staticName}' gains static but is ${reason}: "${entry.body.trim().replaceAll('"', '\\"')}"`);
       }
       const staticFunction = STATIC_FUNCTION_RE.exec(entry.stripped);
-      if (staticFunction?.[1] && /order/i.test(staticFunction[1])) {
+      if (!isSectionTarget && staticFunction?.[1] && /order/i.test(staticFunction[1])) {
         reasons.push(findingReason("section-order-hack", entry.body));
       }
       const definition = STATIC_DEFINITION_RE.exec(entry.stripped);

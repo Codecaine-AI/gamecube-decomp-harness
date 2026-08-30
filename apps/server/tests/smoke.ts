@@ -680,13 +680,12 @@ async function main(): Promise<void> {
       fuzzyRegressions: [repairEntry("GALE01:ft/ft_a", ".data", 90, 88), repairEntry("GALE01:ft/ft_b", "ftB_NoSource", 97, 95)],
       regressions: [],
     },
-    { pauseThreshold: 12, repairPriorityBase: 400, requeueLimit: 32, sourcePaths: repairSources },
+    { pauseThreshold: 12, requeueLimit: 32, sourcePaths: repairSources },
   );
   assertSmoke(
     "epoch repair plan admits regressed functions with source paths",
     repairPlan.repairCandidates.length === 1 && repairPlan.repairCandidates[0]?.symbol === "ftA_Broken",
   );
-  assertSmoke("epoch repair plan outranks board candidates", (repairPlan.repairCandidates[0]?.priority ?? 0) >= 400);
   assertSmoke("epoch repair plan counts sections toward the regression summary", repairPlan.summary.regressedSections === 1);
   assertSmoke("epoch repair plan reports skipped no-source functions", repairPlan.reasons.some((reason: string) => reason.includes("ftB_NoSource")));
   assertSmoke("epoch repair plan does not pause under the threshold", repairPlan.paused === false);
@@ -696,7 +695,7 @@ async function main(): Promise<void> {
       fuzzyRegressions: [],
       regressions: [],
     },
-    { pauseThreshold: 12, repairPriorityBase: 400, requeueLimit: 32, sourcePaths: repairSources },
+    { pauseThreshold: 12, requeueLimit: 32, sourcePaths: repairSources },
   );
   assertSmoke("epoch repair plan pauses above the regression threshold", pausedPlan.paused === true && pausedPlan.repairCandidates.length === 0);
 
@@ -704,14 +703,13 @@ async function main(): Promise<void> {
   const workerStateStore = openState(workerStateDir);
   try {
     const run = createRun(workerStateStore, "matched_code_percent", 100, 4, { gameId: "melee" });
-    const candidate = (index: number, sourcePath: string, priority: number): TargetCandidate => ({
+    const candidate = (index: number, sourcePath: string): TargetCandidate => ({
+      kind: "function",
       unit: `unit_${index}`,
       symbol: `fn_${index}`,
       sourcePath,
       size: 64 + index,
       fuzzy: 99 - index / 100,
-      priority,
-      reason: `synthetic refill candidate ${index}`,
     });
     const epoch = startSchedulerEpoch(workerStateStore, run.id, {
       workerPoolSize: 2,
@@ -719,7 +717,7 @@ async function main(): Promise<void> {
     const admission = admitEpochTargets(workerStateStore, {
       epochId: epoch.id,
       runId: run.id,
-      candidates: [candidate(1, "src/shared.c", 100), candidate(2, "src/shared.c", 99), candidate(3, "src/b.c", 98)],
+      candidates: [candidate(1, "src/shared.c"), candidate(2, "src/shared.c"), candidate(3, "src/b.c")],
       workerPoolSize: 2,
     });
     assertSmoke("epoch admission records fixed worker-state batch", admission.admitted === 3);
@@ -868,20 +866,7 @@ async function main(): Promise<void> {
     rankingGraph.db.close();
   }
   const rankedBoard = loadKnowledgeBoardSnapshot(rankingRepo, { graphDbPath: rankingGraphPath });
-  const infoRichRank = rankedBoard.candidates.find((candidate) => candidate.symbol === "infoRich")?.rank;
-  const closeHighRank = rankedBoard.candidates.find((candidate) => candidate.symbol === "closeHigh")?.rank;
-  assertSmoke("graph information gain can outrank higher fuzzy local score", rankedBoard.candidates[0]?.symbol === "infoRich");
-  assertSmoke(
-    "board rank exposes information-gain components",
-    Number(rankedBoard.candidates[0]?.rank?.information_gain_score ?? 0) > Number(rankedBoard.candidates[0]?.rank?.finishability_score ?? 0),
-  );
-  assertSmoke("board rank exposes completion readiness", Number(infoRichRank?.completion_readiness_score ?? 0) > 0);
-  assertSmoke(
-    "board rank makes information priority dominate closeness-only work",
-    Number(infoRichRank?.information_priority_score ?? 0) > Number(closeHighRank?.high_accuracy_bonus ?? 0),
-  );
-  assertSmoke("board rank keeps no-information closeness as a low fallback", Number(closeHighRank?.closeness_fallback_score ?? 0) <= 3);
-  assertSmoke("board rank spreads no-information closeness fallback", Number(closeHighRank?.closeness_fallback_score ?? 0) > 0);
+  assertSmoke("knowledge board includes graph fixture candidates", rankedBoard.candidates.length >= 2);
 
   stateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-smoke-"));
   const commonFlags = ["--game", "melee", "--repo-root", fixtureRoot, "--state-dir", stateDir, "--dry-run-agents"];
@@ -1089,13 +1074,12 @@ async function main(): Promise<void> {
         runId: init.run.id,
         candidates: [
           {
+            kind: "function",
             unit: params.unit,
             symbol: params.symbol,
             sourcePath: params.sourcePath,
             size: params.size,
             fuzzy: params.before ?? 0,
-            priority: 100,
-            reason: `synthetic ${params.key} checkpoint target`,
           },
         ],
         workerPoolSize: 1,
@@ -1342,13 +1326,12 @@ async function main(): Promise<void> {
       runId: recoveryInit.run.id,
       candidates: [
         {
+          kind: "function",
           unit: "unit_recovery",
           symbol: "fn_recovery",
           sourcePath: "src/recovery.c",
           size: 128,
           fuzzy: 80,
-          priority: 100,
-          reason: "synthetic recovery claim",
         },
       ],
       workerPoolSize: 1,
@@ -1390,13 +1373,12 @@ async function main(): Promise<void> {
       runId: recoveryInit.run.id,
       candidates: [
         {
+          kind: "function",
           unit: "unit_recovery_2",
           symbol: "fn_recovery_2",
           sourcePath: "src/recovery.c",
           size: 128,
           fuzzy: 80,
-          priority: 100,
-          reason: "synthetic same-path recovery claim",
         },
       ],
       workerPoolSize: 1,

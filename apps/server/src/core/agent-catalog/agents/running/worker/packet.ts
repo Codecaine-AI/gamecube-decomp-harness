@@ -8,15 +8,21 @@ export function enabledCapabilities(packet: Record<string, unknown>): string[] {
 }
 
 export function targetPacketTarget(target: Record<string, unknown>): Record<string, unknown> {
+  const symbol = String(target.symbol);
+  const explicitKind = target.kind ?? target.target_kind;
+  const kind = explicitKind === "function" || explicitKind === "section"
+    ? explicitKind
+    : symbol.startsWith(".")
+      ? "section"
+      : "function";
   return {
     id: String(target.target_id),
+    kind,
     unit: String(target.unit),
-    symbol: String(target.symbol),
+    symbol,
     source_path: String(target.source_path),
     size: Number(target.size),
     fuzzy_match_percent: Number(target.fuzzy),
-    priority: Number(target.priority),
-    reason: String(target.reason ?? ""),
   };
 }
 

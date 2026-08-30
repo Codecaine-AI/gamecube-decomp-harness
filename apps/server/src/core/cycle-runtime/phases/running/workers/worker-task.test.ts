@@ -59,7 +59,7 @@ async function fixture(sandboxProvider = new FakeSandboxProvider()): Promise<{
   admitEpochTargets(store, {
     epochId: epoch.id,
     runId: run.id,
-    candidates: [{ unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 90, priority: 10, reason: "test" }],
+    candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/a.c", size: 64, fuzzy: 90 }],
     workerPoolSize: 1,
   });
   initializeHarnessState(store, { gameId: "test", traceId: "trace-test" });
@@ -291,6 +291,7 @@ describe("claimed worker task reconstruction", () => {
     mkdirSync(resolve(functionsIndex, ".."), { recursive: true });
     writeFileSync(functionsIndex, `${JSON.stringify({
       unit: "unit",
+      kind: "function",
       symbol: "fn",
       sourcePath: "src/a.c",
       size: 64,

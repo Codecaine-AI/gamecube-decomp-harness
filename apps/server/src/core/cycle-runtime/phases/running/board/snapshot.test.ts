@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { loadBoardSnapshot, type BoardRankFeature } from "./snapshot.js";
+import { loadBoardSnapshot, loadExactTargetKeys } from "./snapshot.js";
 
 function writeJson(path: string, value: unknown): void {
   mkdirSync(resolve(path, ".."), { recursive: true });
@@ -10,6 +10,65 @@ function writeJson(path: string, value: unknown): void {
 }
 
 describe("loadBoardSnapshot", () => {
+  test("emits an unmatched data section when code is exact", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-section-candidate-"));
+    try {
+      writeJson(resolve(root, "build/GALE01/report.json"), {
+        measures: { matched_code_percent: 100, complete_code_percent: 100 },
+        units: [
+          {
+            name: "melee/data/example.c",
+            metadata: { source_path: "src/melee/data/example.c" },
+            functions: [{ name: "exactFunction", size: 64, fuzzy_match_percent: 100 }],
+            sections: [
+              { name: ".text", size: 64, fuzzy_match_percent: 100 },
+              { name: ".sdata2", size: 12, fuzzy_match_percent: 89 },
+            ],
+          },
+        ],
+      });
+
+      const snapshot = loadBoardSnapshot(root);
+
+      expect(snapshot.candidates).toEqual([
+        {
+          unit: "melee/data/example.c",
+          sourcePath: "src/melee/data/example.c",
+          symbol: ".sdata2",
+          size: 12,
+          fuzzy: 89,
+          kind: "section",
+        },
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("emits no candidates when code and data are exact", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-exact-unit-"));
+    try {
+      writeJson(resolve(root, "build/GALE01/report.json"), {
+        measures: { matched_code_percent: 100, complete_code_percent: 100 },
+        units: [
+          {
+            name: "melee/data/exact.c",
+            metadata: { source_path: "src/melee/data/exact.c" },
+            functions: [{ name: "exactFunction", size: 64, fuzzy_match_percent: 100 }],
+            sections: [
+              { name: ".text", size: 64, fuzzy_match_percent: 100 },
+              { name: ".sdata2", size: 12, fuzzy_match_percent: 99.999995 },
+            ],
+          },
+        ],
+      });
+
+      expect(loadBoardSnapshot(root).candidates).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("uses the cycle report as source of truth when objdiff is missing", () => {
     const root = mkdtempSync(join(tmpdir(), "board-current-report-"));
     try {
@@ -127,13 +186,13 @@ describe("loadBoardSnapshot", () => {
       const snapshot = loadBoardSnapshot(repoRoot, { codeGraphFunctionsIndexPath: functionsIndex });
 
       expect(snapshot.measures.unmatched_targets).toBe(3);
-      expect(snapshot.candidates.map((candidate) => candidate.symbol).sort()).toEqual(["far", "middle", "near"]);
+      expect(snapshot.candidates.map((candidate) => candidate.symbol)).toEqual(["near", "far", "middle"]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test("includes the matched opseq analog bonus in candidate ranking", () => {
+  test("keeps report enumeration order without ranking", () => {
     const root = mkdtempSync(join(tmpdir(), "board-opseq-rerank-"));
     try {
       const repoRoot = resolve(root, "repo");
@@ -146,59 +205,38 @@ describe("loadBoardSnapshot", () => {
         ].map((row) => JSON.stringify(row)).join("\n"),
       );
 
-      const snapshot = loadBoardSnapshot(repoRoot, {
-        codeGraphFunctionsIndexPath: functionsIndex,
-        rankFeatureProvider: (candidate) =>
-          featureFor(candidate.sourcePath, {
-            opseq_best_analog_score: candidate.symbol === "hotOpseq" ? 0.97 : 0,
-            opseq_best_matched_analog_score: candidate.symbol === "hotOpseq" ? 0.97 : 0,
-            opseq_analog_count: candidate.symbol === "hotOpseq" ? 1 : 0,
-            opseq_exact_analog_count: candidate.symbol === "hotOpseq" ? 1 : 0,
-            opseq_matched_analog_count: candidate.symbol === "hotOpseq" ? 1 : 0,
-          }),
-      });
+      const snapshot = loadBoardSnapshot(repoRoot, { codeGraphFunctionsIndexPath: functionsIndex });
 
-      expect(snapshot.candidates[0]?.symbol).toBe("hotOpseq");
-      expect(snapshot.candidates[0]?.rank?.opseq_best_matched_analog_score).toBe(0.97);
-      expect(Number(snapshot.candidates[0]?.rank?.opseq_rerank_bonus ?? 0)).toBeGreaterThan(0);
+      expect(snapshot.candidates.map((candidate) => candidate.symbol)).toEqual(["coldHighFuzzy", "hotOpseq"]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 });
 
-function featureFor(sourcePath: string, overrides: Partial<BoardRankFeature> = {}): BoardRankFeature {
-  return {
-    target: { source_path: sourcePath },
-    source_path: sourcePath,
-    editability: "editable",
-    graph_degree: 0,
-    function_graph_degree: 0,
-    fresh_edges_since_last_attempt: 0,
-    relevant_pr_count: 0,
-    review_risk_count: 0,
-    duplicate_reference_count: 0,
-    opseq_best_analog_score: 0,
-    opseq_best_matched_analog_score: 0,
-    opseq_analog_count: 0,
-    opseq_exact_analog_count: 0,
-    opseq_matched_analog_count: 0,
-    linked_unlock_potential: 0,
-    connected_incomplete_function_count: 0,
-    connected_matched_reference_count: 0,
-    resource_evidence_count: 0,
-    historical_lesson_count: 0,
-    curated_signal_count: 0,
-    proposal_fact_count: 0,
-    stale_fact_count: 0,
-    information_gain_score: 0,
-    unlock_score: 0,
-    context_quality_score: 0,
-    completion_readiness_score: 0,
-    information_value_score: 0,
-    risk_penalty: 0,
-    priority_bonus: 0,
-    explanation: [],
-    ...overrides,
-  };
-}
+describe("loadExactTargetKeys", () => {
+  test("includes exact sections and excludes unmatched sections", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-exact-section-keys-"));
+    try {
+      writeJson(resolve(root, "build/GALE01/report.json"), {
+        units: [
+          {
+            name: "melee/data/example.c",
+            functions: [],
+            sections: [
+              { name: ".sdata2", size: 12, fuzzy_match_percent: 99.999995 },
+              { name: ".bss", size: 32, fuzzy_match_percent: 99.99 },
+            ],
+          },
+        ],
+      });
+
+      const exactKeys = loadExactTargetKeys(root);
+
+      expect(exactKeys.has("melee/data/example.c::.sdata2")).toBe(true);
+      expect(exactKeys.has("melee/data/example.c::.bss")).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

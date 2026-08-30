@@ -32,13 +32,12 @@ describe("worker state transaction fencing", () => {
         runId: run.id,
         candidates: [
           {
+            kind: "function",
             unit: "unit",
             symbol: "fn",
             sourcePath: "src/fn.c",
             size: 64,
             fuzzy: 90,
-            priority: 1,
-            reason: "test",
           },
         ],
         workerPoolSize: 1,
