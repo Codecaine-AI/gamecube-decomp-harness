@@ -32,6 +32,7 @@ export interface ReconciledPendingIntegration {
   runId: string;
   epochId: string;
   commitSha: string;
+  attempt: number;
 }
 
 export interface PendingIntegrationReconciliationResult {
@@ -303,7 +304,7 @@ function reconcilePreparedIntegration(
       occurredAt,
     });
   });
-  return { runId: pending.runId, epochId: pending.epochId, commitSha };
+  return { runId: pending.runId, epochId: pending.epochId, commitSha, attempt: pending.attempt };
 }
 
 /** Reconciles one retained attempt before a scheduler/manual boundary retry. */

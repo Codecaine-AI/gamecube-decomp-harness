@@ -35,3 +35,12 @@ export function actionableFailureOutput(
     .slice(-maxLines);
   return fallback.join("\n") || "no output";
 }
+
+/** Full compiler diagnostics retained on report-build errors for one-shot repair prompts. */
+export function buildFixerFailureOutput(failure: unknown): string {
+  if (failure && typeof failure === "object" && "buildFixerDiagnostics" in failure) {
+    const diagnostics = (failure as { buildFixerDiagnostics?: unknown }).buildFixerDiagnostics;
+    if (typeof diagnostics === "string" && diagnostics.trim()) return diagnostics;
+  }
+  return actionableFailureOutput(failure instanceof Error ? failure.message : String(failure), Number.POSITIVE_INFINITY);
+}

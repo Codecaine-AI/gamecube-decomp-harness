@@ -187,7 +187,15 @@ describe("boundary sync", () => {
         recomputeReport: async () => {
           reportRuns += 1;
           if (reportRuns === 1) throw new Error([
-            "irrelevant setup noise", "### mwcceppc.exe Compiler:", "src/melee/ty/toy.c:12: error: cur redefined", "ninja: build stopped: subcommand failed.",
+            "irrelevant setup noise",
+            "FAILED: build/GALE01/src/melee/ty/toy.o",
+            "### mwcceppc.exe Compiler:",
+            "src/melee/ty/toy.c:12: error: cur redefined",
+            ...Array.from({ length: 45 }, (_, index) => `error: unrelated diagnostic ${index}`),
+            "FAILED: build/GALE01/src/melee/ft/second.o",
+            "### mwcceppc.exe Compiler:",
+            "src/melee/ft/second.c:8: error: signature mismatch",
+            "ninja: build stopped: cannot make progress due to previous errors.",
           ].join("\n"));
           return { matchedCodePercent: 100 };
         },
@@ -200,6 +208,8 @@ describe("boundary sync", () => {
     expect(fixerPrompt).toContain(`The merged upstream commit range is ${fixture.anchor}..${fixture.upstreamHead}.`);
     expect(fixerPrompt).toContain(`git show ${fixture.upstreamHead}:<path>`);
     expect(fixerPrompt).toContain("src/melee/ty/toy.c:12: error: cur redefined");
+    expect(fixerPrompt).toContain("FAILED: build/GALE01/src/melee/ft/second.o");
+    expect(fixerPrompt).toContain("src/melee/ft/second.c:8: error: signature mismatch");
     expect(fixerPrompt).not.toContain("irrelevant setup noise");
     expect(fixerPrompt).toContain("Edit only. Do not build or commit.");
     expect(git(fixture.repo, ["log", "-1", "--format=%s"])).toBe("boundary sync build-fixer: src/melee/ty/toy.c");
@@ -213,7 +223,11 @@ describe("boundary sync", () => {
     let reportRuns = 0;
     await expect(runBoundarySync({
       repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [],
-      runBuildFixer: async () => ({ exitCode: 1, timedOut: false, output: "failed" }),
+      runBuildFixer: async () => {
+        writeFileSync(join(fixture.repo, "src", "melee", "ty", "toy.c"), "int same(void) { return 3; }\n");
+        writeFileSync(join(fixture.repo, "new-fixer-file.c"), "int dirty;\n");
+        return { exitCode: 1, timedOut: false, output: "failed" };
+      },
       hooks: {
         ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {}, rebuildKnowledgeGraph: async () => {},
         recomputeReport: async () => { reportRuns += 1; throw new Error("error: gobj redefined"); },
@@ -222,6 +236,27 @@ describe("boundary sync", () => {
     })).rejects.toThrow("gobj redefined");
     expect(reportRuns).toBe(1);
     expect(git(fixture.repo, ["log", "-1", "--format=%s"])).toStartWith("Merge commit '");
+    expect(git(fixture.repo, ["status", "--porcelain"])).toBe("");
+  });
+
+  test("failed report retry discards the successful fixer's edits", async () => {
+    const fixture = fixtureRepo();
+    let reportRuns = 0;
+    await expect(runBoundarySync({
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [],
+      runBuildFixer: async () => {
+        writeFileSync(join(fixture.repo, "src", "melee", "ty", "toy.c"), "int same(void) { return 3; }\n");
+        return { exitCode: 0, timedOut: false, output: "edited" };
+      },
+      hooks: {
+        ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {}, rebuildKnowledgeGraph: async () => {},
+        recomputeReport: async () => { reportRuns += 1; throw new Error(reportRuns === 1 ? "first TU failed" : "second TU failed"); },
+        writePrSyncSavePoint: () => {}, advanceAnchor: () => {}, advanceCycleHead: () => {},
+      },
+    })).rejects.toThrow("second TU failed");
+    expect(reportRuns).toBe(2);
+    expect(git(fixture.repo, ["status", "--porcelain"])).toBe("");
+    expect(git(fixture.repo, ["show", "HEAD:src/melee/ty/toy.c"])).toContain("return 2");
   });
 
   test("does not invoke the fixer when the flag is off", async () => {

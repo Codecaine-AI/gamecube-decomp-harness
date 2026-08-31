@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 import { runQaScanDiff, type QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 import { runPreCommitAutofix as runPreCommitAutofixDefault, type PreCommitAutofixResult } from "@server/core/validation/ci-parity/index.js";
+import { buildFixerFailureOutput } from "@server/core/validation/failure-output.js";
 import { forceReportRun, trustedReportFromRegressionReport, type ReportRunResult } from "@server/core/validation/report";
 import { sectionMeasuresFromReport, type SectionMeasure } from "@server/core/validation/objdiff/section-measures.js";
 import { ORCHESTRATOR_SCRATCH_EXCLUDES } from "@server/core/cycle-runtime/phases/pr/boundary-commit.js";
@@ -45,6 +46,7 @@ import { asBoundaryStepError, PhaseTracker, stepFailureCheckpoint } from "./step
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
 const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state", ...ORCHESTRATOR_SCRATCH_EXCLUDES];
+const BUILD_FIXER_PATHSPEC = [".", ":(exclude)build", ":(exclude,glob)**/build/**"];
 export const REPORT_BUILD_TIMEOUT_MS = 60 * 60_000;
 
 function reportBuildTimeoutMs(): number {
@@ -101,6 +103,10 @@ export interface BoundaryBuildFixerInput {
 }
 
 export type BoundaryBuildFixerResult = BuildFixerResult;
+
+export interface BoundaryBuildFixerBaseline {
+  readonly clean: true;
+}
 
 export interface BoundaryDeferredFinding {
   reason: "boundary_regression_deferred" | "boundary_qa_deferred";
@@ -624,10 +630,19 @@ export async function runCodexBoundaryBuildFixer(input: BoundaryBuildFixerInput)
     "Fix only the mechanical build break described below in this epoch worktree.",
     "Limit edits to the named failing translation units and symbols. Typical allowed fixes are naming conflicts, signature drift, and residual shims.",
     "Do not perform new decompilation work, improve matching, refactor unrelated code, or broaden the diff. Make the smallest change that can make the existing report build green.",
-    "Build failure:",
-    input.failure.slice(0, 12_000),
+    "Failing translation units and compiler excerpts:",
+    input.failure,
   ].join("\n\n");
   return runCodexBuildFixer({ worktreeDir: input.worktreeDir, prompt, timeoutMs: input.timeoutMs });
+}
+
+export async function prepareBoundaryBuildFixer(worktreeDir: string): Promise<BoundaryBuildFixerBaseline> {
+  const status = await git(worktreeDir, ["status", "--porcelain", "--untracked-files=all", "--", ...BUILD_FIXER_PATHSPEC]);
+  if (!status.ok) throw new Error(`boundary build-fixer baseline check failed: ${status.text}`);
+  if (status.text.trim()) {
+    throw new Error(`boundary build-fixer requires a clean worktree before editing: ${status.text}`);
+  }
+  return { clean: true };
 }
 
 export async function runReportBuildWithFixer<T>(input: {
@@ -636,18 +651,33 @@ export async function runReportBuildWithFixer<T>(input: {
   runFixer: (failure: unknown) => Promise<BoundaryBuildFixerResult>;
   onFixerEvent?: (status: "started" | "finished", result?: BoundaryBuildFixerResult) => void | Promise<void>;
   onFixerRetrySucceeded?: (result: BoundaryBuildFixerResult) => Promise<void>;
-  onFixerRetryFailed?: (result: BoundaryBuildFixerResult) => Promise<void>;
+  onFixerRetryFailed?: (result?: BoundaryBuildFixerResult) => Promise<void>;
 }): Promise<T> {
   try {
     return await input.runReport();
   } catch (error) {
     if (!input.enabled) throw error;
     await input.onFixerEvent?.("started");
-    const result = await input.runFixer(error);
-    await input.onFixerEvent?.("finished", result);
+    let result: BoundaryBuildFixerResult;
+    try {
+      result = await input.runFixer(error);
+    } catch (fixerError) {
+      await input.onFixerRetryFailed?.();
+      throw fixerError;
+    }
+    try {
+      await input.onFixerEvent?.("finished", result);
+    } catch (eventError) {
+      await input.onFixerRetryFailed?.(result);
+      throw eventError;
+    }
+    if (result.timedOut || result.exitCode !== 0) {
+      await input.onFixerRetryFailed?.(result);
+      throw error;
+    }
     try {
       const retry = await input.runReport();
-      if (!result.timedOut && result.exitCode === 0) await input.onFixerRetrySucceeded?.(result);
+      await input.onFixerRetrySucceeded?.(result);
       return retry;
     } catch (retryError) {
       await input.onFixerRetryFailed?.(result);
@@ -761,9 +791,10 @@ export async function propagateBoundaryBuildFixer(input: {
   label: string | null;
   revalidateLease: () => void;
   progress?: EpochProgressReporter;
+  baseline?: BoundaryBuildFixerBaseline;
 }): Promise<{ commitSha: string; files: string[]; patchPath: string }> {
   const progress = input.progress ?? ((params) => epochProgress(input.store, input.runId, params));
-  const diffPathspec = [".", ":(exclude)build", ":(exclude,glob)**/build/**"];
+  const diffPathspec = BUILD_FIXER_PATHSPEC;
   const [diff, changedFiles] = await Promise.all([
     git(input.worktreeDir, ["diff", "--binary", "HEAD", "--", ...diffPathspec]),
     git(input.worktreeDir, ["diff", "--name-only", "-z", "HEAD", "--", ...diffPathspec]),
@@ -771,6 +802,14 @@ export async function propagateBoundaryBuildFixer(input: {
   if (!diff.ok) throw new Error(`boundary build-fixer diff capture failed: ${diff.text}`);
   if (!changedFiles.ok) throw new Error(`boundary build-fixer file capture failed: ${changedFiles.text}`);
   const files = changedFiles.text.split("\0").filter(Boolean).sort();
+  if (input.baseline) {
+    const untracked = await git(input.worktreeDir, ["ls-files", "--others", "--exclude-standard", "-z", "--", ...BUILD_FIXER_PATHSPEC]);
+    if (!untracked.ok) throw new Error(`boundary build-fixer untracked file capture failed: ${untracked.text}`);
+    const untrackedFiles = untracked.text.split("\0").filter(Boolean).sort();
+    if (untrackedFiles.length > 0) {
+      throw new Error(`boundary build-fixer created untracked file(s) that cannot be propagated: ${untrackedFiles.join(", ")}`);
+    }
+  }
   await mkdir(input.artifactDir, { recursive: true });
   const patchPath = resolve(input.artifactDir, "boundary-build-fixer.patch");
   await writeFile(patchPath, diff.text ? `${diff.text}\n` : "");
@@ -788,29 +827,30 @@ export async function propagateBoundaryBuildFixer(input: {
   input.revalidateLease();
   const check = await git(input.repoRoot, ["apply", "--3way", "--check", patchPath]);
   if (!check.ok) fail(`boundary build-fixer patch does not apply cleanly: ${check.text}`);
-  input.revalidateLease();
-  const apply = await git(input.repoRoot, ["apply", "--3way", patchPath]);
   const restoreCycleFiles = async (): Promise<void> => {
-    await git(input.repoRoot, ["reset", "--", ...files]);
-    await git(input.repoRoot, ["checkout", "--", ...files]);
+    const reset = await git(input.repoRoot, ["reset", "--", ...files]);
+    const checkout = await git(input.repoRoot, ["checkout", "--", ...files]);
+    if (!reset.ok || !checkout.ok) {
+      throw new Error(`boundary build-fixer cycle-worktree cleanup failed: ${[reset.text, checkout.text].filter(Boolean).join("\n")}`);
+    }
   };
-  if (!apply.ok) {
-    await restoreCycleFiles();
-    fail(`boundary build-fixer patch does not apply cleanly: ${apply.text}`);
-  }
-  input.revalidateLease();
-  const stage = await git(input.repoRoot, ["add", "--", ...files]);
-  if (!stage.ok) {
-    await restoreCycleFiles();
-    fail(`boundary build-fixer staging failed: ${stage.text}`);
-  }
-  input.revalidateLease();
-  const commit = await git(input.repoRoot, [
-    "commit", "--no-verify", "-m", `boundary build-fixer: ${files.join(", ")}`, "--", ...files,
-  ]);
-  if (!commit.ok) {
-    await restoreCycleFiles();
-    fail(`boundary build-fixer commit failed: ${commit.text}`);
+  let committed = false;
+  try {
+    input.revalidateLease();
+    const apply = await git(input.repoRoot, ["apply", "--3way", patchPath]);
+    if (!apply.ok) fail(`boundary build-fixer patch does not apply cleanly: ${apply.text}`);
+    input.revalidateLease();
+    const stage = await git(input.repoRoot, ["add", "--", ...files]);
+    if (!stage.ok) fail(`boundary build-fixer staging failed: ${stage.text}`);
+    input.revalidateLease();
+    const commit = await git(input.repoRoot, [
+      "commit", "--no-verify", "-m", `boundary build-fixer: ${files.join(", ")}`, "--", ...files,
+    ]);
+    if (!commit.ok) fail(`boundary build-fixer commit failed: ${commit.text}`);
+    committed = true;
+  } catch (error) {
+    if (!committed) await restoreCycleFiles();
+    throw error;
   }
   const head = await git(input.repoRoot, ["rev-parse", "HEAD"]);
   if (!head.ok || !head.text.trim()) fail(`boundary build-fixer head resolution failed: ${head.text}`);
@@ -829,10 +869,24 @@ export async function propagateBoundaryBuildFixer(input: {
   return { commitSha: head.text, files, patchPath };
 }
 
-export async function discardBoundaryBuildFixer(worktreeDir: string, revalidateLease: () => void): Promise<void> {
+export async function discardBoundaryBuildFixer(
+  worktreeDir: string,
+  revalidateLease: () => void,
+  baseline?: BoundaryBuildFixerBaseline,
+): Promise<void> {
   revalidateLease();
   const reset = await git(worktreeDir, ["reset", "--hard", "HEAD"]);
   if (!reset.ok) throw new Error(`boundary build-fixer cleanup failed after report retry: ${reset.text}`);
+  if (baseline) {
+    revalidateLease();
+    const untracked = await git(worktreeDir, ["ls-files", "--others", "--exclude-standard", "-z", "--", ...BUILD_FIXER_PATHSPEC]);
+    if (!untracked.ok) throw new Error(`boundary build-fixer untracked cleanup scan failed after report retry: ${untracked.text}`);
+    const untrackedFiles = untracked.text.split("\0").filter(Boolean).sort();
+    if (untrackedFiles.length > 0) {
+      const clean = await git(worktreeDir, ["clean", "-fd", "--", ...untrackedFiles]);
+      if (!clean.ok) throw new Error(`boundary build-fixer untracked cleanup failed after report retry: ${clean.text}`);
+    }
+  }
 }
 
 export async function runPreCommitAutofixStep(input: {
@@ -882,7 +936,9 @@ async function submitEpochWorkflowEvent(input: {
     if (!gameId || !epochId) return;
     const sessionId = activeCycleSessionId(input.store.db, gameId);
     if (!sessionId) return;
-    const runtime = await getDefaultMeleeKernelRuntime();
+    const runtime = await getDefaultMeleeKernelRuntime({
+      database: { stateDir: input.store.stateDir },
+    });
     if (!runtime) return;
     await submitMeleeWorkflowTraceEvent({
       runtime,
@@ -1154,14 +1210,18 @@ async function runEpochCycleInnerTracked(
     timeoutMs: reportBuildTimeoutMs(),
     toolPlatform,
   });
+  let fixerBaseline: BoundaryBuildFixerBaseline | undefined;
   let buildResult = await runReportBuildWithFixer({
     enabled: options.boundaryBuildFixerEnabled ?? true,
     runReport,
-    runFixer: (failure) => (options.runBoundaryBuildFixer ?? runCodexBoundaryBuildFixer)({
-      worktreeDir: options.worktreeDir,
-      failure: failure instanceof Error ? failure.message : String(failure),
-      timeoutMs: BUILD_FIXER_TIMEOUT_MS,
-    }),
+    runFixer: async (failure) => {
+      fixerBaseline = await prepareBoundaryBuildFixer(options.worktreeDir);
+      return (options.runBoundaryBuildFixer ?? runCodexBoundaryBuildFixer)({
+        worktreeDir: options.worktreeDir,
+        failure: buildFixerFailureOutput(failure),
+        timeoutMs: BUILD_FIXER_TIMEOUT_MS,
+      });
+    },
     onFixerEvent: async (status, fixer) => {
       const outputLogPath = fixer ? resolve(artifactDir, "boundary-build-fixer.output.log") : undefined;
       if (fixer && outputLogPath) {
@@ -1199,10 +1259,13 @@ async function runEpochCycleInnerTracked(
       });
       const propagated = await propagateBoundaryBuildFixer({
         store, runId, repoRoot, worktreeDir: options.worktreeDir, artifactDir, label, revalidateLease, progress,
+        baseline: fixerBaseline,
       });
       snapshot = { ...snapshot, commitSha: propagated.commitSha, committed: true };
     },
-    onFixerRetryFailed: async () => discardBoundaryBuildFixer(options.worktreeDir, revalidateLease),
+    onFixerRetryFailed: async () => {
+      if (fixerBaseline) await discardBoundaryBuildFixer(options.worktreeDir, revalidateLease, fixerBaseline);
+    },
   });
   progress({
     label,

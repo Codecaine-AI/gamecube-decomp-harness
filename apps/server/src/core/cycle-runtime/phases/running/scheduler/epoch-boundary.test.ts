@@ -779,7 +779,7 @@ describe("runEpochBoundary", () => {
         dependencies: {
           reconcilePendingIntegrationAttempt: () => ({
             status: "completed",
-            completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit" },
+            completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit", attempt: 1 },
           }),
           runEpochCycle: async () => { calls.push("epoch_cycle"); throw new Error("must not run"); },
           runMasterBreakageGate: async () => ({
@@ -875,7 +875,7 @@ describe("runEpochBoundary", () => {
           dependencies: {
             reconcilePendingIntegrationAttempt: () => ({
               status: "completed",
-              completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit" },
+              completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit", attempt: 1 },
             }),
             runEpochCycle: async () => {
               order.push("epoch_cycle");
@@ -956,10 +956,10 @@ describe("runEpochBoundary", () => {
     const value = fixture([]);
     try {
       for (const [eventType, payload] of [
-        ["boundary_sync", { epoch: 1, epoch_id: value.epochId, status: "finished" }],
-        ["boundary_breakage_gate", { epoch: 1, epoch_id: value.epochId, status: "clean" }],
-        ["ci_parity_gate", { epoch: 1, epoch_id: value.epochId, ci_parity_status: "clean", pre_commit_status: "clean" }],
-        ["draft_pr_publish", { epoch: 1, epoch_id: value.epochId, status: "finished" }],
+        ["boundary_sync", { epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, status: "finished" }],
+        ["boundary_breakage_gate", { epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, status: "clean" }],
+        ["ci_parity_gate", { epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, ci_parity_status: "clean", pre_commit_status: "clean" }],
+        ["draft_pr_publish", { epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, status: "finished" }],
       ] as const) addEvent(value.store, value.runId, eventType, "test", payload);
       const campaign = ensureCampaign(value.store, { gameId: "test" });
       addSavePoint(value.store, {
@@ -968,7 +968,7 @@ describe("runEpochBoundary", () => {
         triggerKind: "pr_sync",
         label: "epoch-1-pr-sync",
         commitSha: "retained-commit",
-        payload: { epoch_id: value.epochId },
+        payload: { epoch_id: value.epochId, boundary_attempt: 1 },
       });
       const calls: string[] = [];
       const input = params(value, {
@@ -976,7 +976,7 @@ describe("runEpochBoundary", () => {
         dependencies: {
           reconcilePendingIntegrationAttempt: () => ({
             status: "completed",
-            completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit" },
+            completed: { runId: value.runId, epochId: value.epochId, commitSha: "retained-commit", attempt: 1 },
           }),
           runEpochCycle: async () => { calls.push("epoch_cycle"); throw new Error("duplicate epoch cycle"); },
           runBoundarySync: async () => { calls.push("pr_sync"); throw new Error("duplicate pr_sync"); },
@@ -1006,6 +1006,95 @@ describe("runEpochBoundary", () => {
         skipped_steps: expect.arrayContaining(["boundary_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish"]),
         rerun_steps: [],
       });
+    } finally {
+      value.store.db.close();
+    }
+  });
+
+  test("same restart-relative label does not reuse evidence from a different database epoch", async () => {
+    const value = fixture([]);
+    try {
+      for (const [eventType, payload] of [
+        ["boundary_sync", { epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, status: "finished" }],
+        ["boundary_breakage_gate", { epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, status: "clean" }],
+        ["ci_parity_gate", { epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, ci_parity_status: "clean", pre_commit_status: "clean" }],
+        ["draft_pr_publish", { epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, status: "finished" }],
+      ] as const) addEvent(value.store, value.runId, eventType, "test", payload);
+      const campaign = ensureCampaign(value.store, { gameId: "test" });
+      addSavePoint(value.store, {
+        campaignId: campaign.id,
+        runId: value.runId,
+        triggerKind: "pr_sync",
+        label: "epoch-1-pr-sync",
+        commitSha: "prior-epoch-commit",
+        payload: { epoch_id: value.epochId, boundary_attempt: 1 },
+      });
+      value.store.db.query(
+        "UPDATE epochs SET status = 'completed', boundary_status = 'success', closed_at = ? WHERE id = ?",
+      ).run("2026-08-31T12:00:00.000Z", value.epochId);
+      const retryEpoch = startSchedulerEpoch(value.store, value.runId, { workerPoolSize: 1 });
+      for (const [eventType, payload] of [
+        ["boundary_sync", { epoch: 1, epoch_id: retryEpoch.id, boundary_attempt: 2, status: "finished" }],
+        ["boundary_breakage_gate", { epoch: 1, epoch_id: retryEpoch.id, boundary_attempt: 2, status: "clean" }],
+        ["ci_parity_gate", { epoch: 1, epoch_id: retryEpoch.id, boundary_attempt: 2, ci_parity_status: "clean", pre_commit_status: "clean" }],
+        ["draft_pr_publish", { epoch: 1, epoch_id: retryEpoch.id, boundary_attempt: 2, status: "finished" }],
+      ] as const) addEvent(value.store, value.runId, eventType, "test", payload);
+      addSavePoint(value.store, {
+        campaignId: campaign.id,
+        runId: value.runId,
+        triggerKind: "pr_sync",
+        label: "epoch-1-pr-sync",
+        commitSha: "stale-attempt-commit",
+        payload: { epoch_id: retryEpoch.id, boundary_attempt: 2 },
+      });
+      const calls: string[] = [];
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({
+            status: "completed",
+            completed: { runId: value.runId, epochId: retryEpoch.id, commitSha: "retry-commit", attempt: 1 },
+          }),
+          runEpochCycle: async () => { calls.push("epoch_cycle"); throw new Error("reconciled retry must skip snapshot work"); },
+          runBoundarySync: async () => {
+            calls.push("pr_sync");
+            return { changed: false, headSha: "retry-commit", plan: { drifted: false } } as never;
+          },
+          runMasterBreakageGate: async () => {
+            calls.push("master_breakage_gate");
+            return {
+              status: "clean", baselineKind: "pr_sync_artifact", baselineSha: "base-test",
+              baselineReportPath: resolve(value.dir, "baseline.json"), oursReportPath: resolve(value.dir, "report.json"),
+              changesPath: resolve(value.dir, "changes.json"), breakages: [], moved: [], reasons: [],
+            };
+          },
+          runCiParityGate: async () => {
+            calls.push("ci_parity_gate");
+            return { status: "clean", modes: ["link"], steps: [], reasons: [] };
+          },
+          runPreCommitGate: async () => {
+            calls.push("pre_commit_gate");
+            return { status: "clean", modes: ["pre-commit"], steps: [], reasons: [] };
+          },
+          publishCycleDraftPr: async () => {
+            calls.push("draft_pr_publish");
+            return { status: "updated", commitSha: "retry-commit" } as never;
+          },
+          ensureSchedulerEpochFromBoard: (() => ({ epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 })) as never,
+        },
+      });
+      input.schedulerEpochId = retryEpoch.id;
+      input.epochOrdinal = 1;
+      input.config.boundarySyncEnabled = true;
+      input.config.breakageGateEnabled = true;
+      input.config.cycleDraftPrEnabled = true;
+      input.config.ciParityEnabled = true;
+      input.config.preCommitGateEnabled = true;
+
+      const outcome = await runEpochBoundary(input);
+
+      expect(outcome).toMatchObject({ ok: true, reconciled: true, paused: false });
+      expect(calls).toEqual(["pr_sync", "master_breakage_gate", "ci_parity_gate", "pre_commit_gate", "draft_pr_publish"]);
     } finally {
       value.store.db.close();
     }

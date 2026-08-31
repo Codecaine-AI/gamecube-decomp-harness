@@ -1,7 +1,8 @@
-import { actionableFailureOutput } from "@server/core/validation/failure-output.js";
+import { buildFixerFailureOutput } from "@server/core/validation/failure-output.js";
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
 
 export const BOUNDARY_OVERRIDE_VERDICT = "overridden_by_upstream_requeued" as const;
+const BUILD_FIXER_PATHSPEC = [".", ":(exclude)build", ":(exclude,glob)**/build/**"];
 
 export interface BoundaryTargetState {
   epochTargetId?: string;
@@ -91,20 +92,25 @@ export interface BoundarySyncInput {
 }
 
 function boundaryBuildFixerPrompt(failure: unknown, anchorBefore: string, anchorAfter: string): string {
-  const errors = actionableFailureOutput(failure instanceof Error ? failure.message : String(failure));
+  const errors = buildFixerFailureOutput(failure);
   return [
     "Fix only the mechanical build break caused by the just-merged upstream range in this cycle worktree.",
     `The merged upstream commit range is ${anchorBefore}..${anchorAfter}.`,
     `For any function upstream matched or renamed in that range, replace our version with upstream's exactly using git show ${anchorAfter}:<path>. Upstream is gospel for those functions.`,
     "Limit edits to the failing translation units and symbols. Do not perform new decompilation work, improve matching, refactor unrelated code, or broaden the diff.",
     "Edit only. Do not build or commit.",
-    "Compiler errors:",
-    errors.slice(0, 12_000),
+    "Failing translation units and compiler excerpts:",
+    errors,
   ].join("\n\n");
 }
 
 async function boundaryBuildFixerFiles(runGit: BoundaryGitRunner, repoRoot: string): Promise<string[]> {
-  const changed = await checkedGit(runGit, repoRoot, ["diff", "--name-only", "-z", "HEAD", "--", ".", ":(exclude)build", ":(exclude,glob)**/build/**"], "build-fixer file capture");
+  const untracked = await checkedGit(runGit, repoRoot, ["ls-files", "--others", "--exclude-standard", "-z", "--", ...BUILD_FIXER_PATHSPEC], "build-fixer untracked file capture");
+  const untrackedFiles = untracked.split("\0").filter(Boolean).sort();
+  if (untrackedFiles.length > 0) {
+    throw new Error(`boundary sync build-fixer created untracked file(s) that cannot be committed: ${untrackedFiles.join(", ")}`);
+  }
+  const changed = await checkedGit(runGit, repoRoot, ["diff", "--name-only", "-z", "HEAD", "--", ...BUILD_FIXER_PATHSPEC], "build-fixer file capture");
   const files = changed.split("\0").filter(Boolean).sort();
   if (files.length === 0) throw new Error("boundary sync build-fixer produced no tracked diff");
   return files;
@@ -114,6 +120,20 @@ async function commitBoundaryBuildFixerDiff(runGit: BoundaryGitRunner, repoRoot:
   await checkedGit(runGit, repoRoot, ["add", "--", ...files], "build-fixer staging");
   await checkedGit(runGit, repoRoot, ["commit", "--no-verify", "-m", `boundary sync build-fixer: ${files.join(", ")}`, "--", ...files], "build-fixer commit");
   return checkedGit(runGit, repoRoot, ["rev-parse", "HEAD"], "build-fixer HEAD resolution");
+}
+
+async function discardBoundaryBuildFixerDiff(runGit: BoundaryGitRunner, repoRoot: string): Promise<void> {
+  await checkedGit(runGit, repoRoot, ["reset", "--hard", "HEAD"], "build-fixer tracked cleanup");
+  const untracked = await checkedGit(runGit, repoRoot, ["ls-files", "--others", "--exclude-standard", "-z", "--", ...BUILD_FIXER_PATHSPEC], "build-fixer untracked cleanup scan");
+  const untrackedFiles = untracked.split("\0").filter(Boolean).sort();
+  if (untrackedFiles.length > 0) {
+    await checkedGit(runGit, repoRoot, ["clean", "-fd", "--", ...untrackedFiles], "build-fixer untracked cleanup");
+  }
+}
+
+async function prepareBoundaryBuildFixerDiff(runGit: BoundaryGitRunner, repoRoot: string): Promise<void> {
+  const status = await checkedGit(runGit, repoRoot, ["status", "--porcelain", "--untracked-files=all", "--", ...BUILD_FIXER_PATHSPEC], "build-fixer baseline check");
+  if (status.trim()) throw new Error(`boundary sync build-fixer requires a clean worktree before editing: ${status}`);
 }
 
 export interface BoundarySyncResult {
@@ -317,18 +337,24 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
     report = await input.hooks.recomputeReport();
   } catch (error) {
     if (input.buildFixerEnabled === false) throw error;
+    await prepareBoundaryBuildFixerDiff(runGit, input.repoRoot);
     input.onBuildFixerEvent?.("started");
-    const fixer = await (input.runBuildFixer ?? ((fixerInput) => runCodexBuildFixer(fixerInput)))({
-      worktreeDir: input.repoRoot,
-      prompt: boundaryBuildFixerPrompt(error, plan.anchorSha, plan.upstreamHeadSha),
-      timeoutMs: BUILD_FIXER_TIMEOUT_MS,
-    });
-    input.onBuildFixerEvent?.("finished", fixer);
-    if (fixer.timedOut || fixer.exitCode !== 0) throw error;
-    const fixerFiles = await boundaryBuildFixerFiles(runGit, input.repoRoot);
-    report = await input.hooks.recomputeReport();
-    headSha = await commitBoundaryBuildFixerDiff(runGit, input.repoRoot, fixerFiles);
-    input.onBuildFixerEvent?.("propagated", { ...fixer, files: fixerFiles, commitSha: headSha });
+    try {
+      const fixer = await (input.runBuildFixer ?? ((fixerInput) => runCodexBuildFixer(fixerInput)))({
+        worktreeDir: input.repoRoot,
+        prompt: boundaryBuildFixerPrompt(error, plan.anchorSha, plan.upstreamHeadSha),
+        timeoutMs: BUILD_FIXER_TIMEOUT_MS,
+      });
+      input.onBuildFixerEvent?.("finished", fixer);
+      if (fixer.timedOut || fixer.exitCode !== 0) throw error;
+      const fixerFiles = await boundaryBuildFixerFiles(runGit, input.repoRoot);
+      report = await input.hooks.recomputeReport();
+      headSha = await commitBoundaryBuildFixerDiff(runGit, input.repoRoot, fixerFiles);
+      input.onBuildFixerEvent?.("propagated", { ...fixer, files: fixerFiles, commitSha: headSha });
+    } catch (fixerError) {
+      await discardBoundaryBuildFixerDiff(runGit, input.repoRoot);
+      throw fixerError;
+    }
   }
   await input.hooks.rebuildKnowledgeGraph();
   await input.hooks.writePrSyncSavePoint({

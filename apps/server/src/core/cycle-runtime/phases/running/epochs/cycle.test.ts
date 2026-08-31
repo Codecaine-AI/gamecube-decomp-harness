@@ -6,7 +6,7 @@ import { createRun } from "@server/core/cycle-runtime/run-state";
 import { initializeHarnessState, requestDispatch } from "@server/core/harness-state";
 import { openState } from "@server/core/orchestrator-state";
 import { sectionMeasuresFromReportJson } from "@server/core/validation/objdiff/section-measures.js";
-import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, propagateBoundaryBuildFixer, runEpochCycle, runLinkCompleteUnitsStep, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
+import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, prepareBoundaryBuildFixer, propagateBoundaryBuildFixer, runEpochCycle, runLinkCompleteUnitsStep, runPreCommitAutofixStep, runReportBuildWithFixer } from "./cycle.js";
 
 const cleanup: string[] = [];
 
@@ -319,6 +319,7 @@ describe("runReportBuildWithFixer", () => {
     writeFileSync(join(root, "src", "a.c"), "int value = 1;\n");
     git(root, ["add", "."]);
     git(root, ["commit", "-m", "initial"]);
+    const fixerBaseline = await prepareBoundaryBuildFixer(root);
     let reportCalls = 0;
     let propagated = 0;
     const retryFailure = Object.assign(new Error("still broken"), {
@@ -341,7 +342,7 @@ describe("runReportBuildWithFixer", () => {
           return { exitCode: 0, timedOut: false, output: "edited source" };
         },
         onFixerRetrySucceeded: async () => { propagated += 1; },
-        onFixerRetryFailed: async () => discardBoundaryBuildFixer(root, () => {}),
+        onFixerRetryFailed: async () => discardBoundaryBuildFixer(root, () => {}, fixerBaseline),
       });
     } catch (error) {
       caught = error;
@@ -356,6 +357,63 @@ describe("runReportBuildWithFixer", () => {
     expect(reportCalls).toBe(2);
     expect(propagated).toBe(0);
     expect(readFileSync(join(root, "src", "a.c"), "utf8")).toBe("int value = 1;\n");
+    expect(git(root, ["status", "--porcelain"])).toBe("");
+  });
+
+  test("failed fixer discards tracked and untracked edits without retrying", async () => {
+    const root = mkdtempSync(join(tmpdir(), "epoch-build-fixer-exit-"));
+    cleanup.push(root);
+    mkdirSync(join(root, "src"), { recursive: true });
+    git(root, ["init", "-b", "main"]);
+    git(root, ["config", "user.email", "test@example.com"]);
+    git(root, ["config", "user.name", "Epoch Test"]);
+    writeFileSync(join(root, "src", "a.c"), "int value = 1;\n");
+    git(root, ["add", "."]);
+    git(root, ["commit", "-m", "initial"]);
+    const fixerBaseline = await prepareBoundaryBuildFixer(root);
+    const failure = new Error("initial build failure");
+    let reportCalls = 0;
+
+    await expect(runReportBuildWithFixer({
+      enabled: true,
+      runReport: async () => { reportCalls += 1; throw failure; },
+      runFixer: async () => {
+        writeFileSync(join(root, "src", "a.c"), "int value = 2;\n");
+        writeFileSync(join(root, "src", "new.c"), "int added;\n");
+        return { exitCode: 1, timedOut: false, output: "fixer failed" };
+      },
+      onFixerRetryFailed: async () => discardBoundaryBuildFixer(root, () => {}, fixerBaseline),
+    })).rejects.toBe(failure);
+
+    expect(reportCalls).toBe(1);
+    expect(readFileSync(join(root, "src", "a.c"), "utf8")).toBe("int value = 1;\n");
+    expect(existsSync(join(root, "src", "new.c"))).toBe(false);
+    expect(git(root, ["status", "--porcelain"])).toBe("");
+  });
+
+  test("throwing fixer discards edits before surfacing its error", async () => {
+    const root = mkdtempSync(join(tmpdir(), "epoch-build-fixer-throw-"));
+    cleanup.push(root);
+    mkdirSync(join(root, "src"), { recursive: true });
+    git(root, ["init", "-b", "main"]);
+    git(root, ["config", "user.email", "test@example.com"]);
+    git(root, ["config", "user.name", "Epoch Test"]);
+    writeFileSync(join(root, "src", "a.c"), "int value = 1;\n");
+    git(root, ["add", "."]);
+    git(root, ["commit", "-m", "initial"]);
+    const fixerBaseline = await prepareBoundaryBuildFixer(root);
+    const fixerFailure = new Error("codex process crashed");
+
+    await expect(runReportBuildWithFixer({
+      enabled: true,
+      runReport: async () => { throw new Error("initial build failure"); },
+      runFixer: async () => {
+        writeFileSync(join(root, "src", "a.c"), "int value = 2;\n");
+        throw fixerFailure;
+      },
+      onFixerRetryFailed: async () => discardBoundaryBuildFixer(root, () => {}, fixerBaseline),
+    })).rejects.toBe(fixerFailure);
+
     expect(git(root, ["status", "--porcelain"])).toBe("");
   });
 });
@@ -526,7 +584,7 @@ describe("runEpochCycle failure checkpoints", () => {
     const markerPath = join(value.stateDir, "report-retry.marker");
     const ninjaPath = join(value.binDir, "ninja");
     writeFileSync(ninjaPath, `#!/bin/sh
-if [ "$1" = "build/GALE01/report.json" ]; then
+if [ "\${3:-}" = "build/GALE01/report.json" ]; then
   if [ ! -f "$EPOCH_FIXER_REPORT_MARKER" ]; then
     : > "$EPOCH_FIXER_REPORT_MARKER"
     printf 'initial report failure\\n' >&2
@@ -658,6 +716,28 @@ describe("propagateBoundaryBuildFixer", () => {
       expect(readFileSync(patchPath, "utf8")).toContain("diff --git a/src/a.c b/src/a.c");
       const events = value.store.db.query("SELECT payload_json FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'").all(value.runId) as Array<{ payload_json: string }>;
       expect(events.map((row) => JSON.parse(row.payload_json)).filter((payload) => payload.status === "failed")).toHaveLength(0);
+    } finally { value.store.db.close(); }
+  });
+
+  test("lease failure after patch apply restores the cycle worktree and index", async () => {
+    const value = setup();
+    try {
+      const before = git(value.repoRoot, ["rev-parse", "HEAD"]);
+      writeFileSync(join(value.worktreeDir, "src", "a.c"), "int value = 2;\n");
+      let leaseChecks = 0;
+
+      await expect(propagateBoundaryBuildFixer({
+        ...value,
+        label: "epoch-1",
+        revalidateLease: () => {
+          leaseChecks += 1;
+          if (leaseChecks === 3) throw new Error("lease lost after apply");
+        },
+      })).rejects.toThrow("lease lost after apply");
+
+      expect(git(value.repoRoot, ["rev-parse", "HEAD"])).toBe(before);
+      expect(git(value.repoRoot, ["status", "--porcelain"])).toBe("");
+      expect(git(value.repoRoot, ["show", "HEAD:src/a.c"])).toBe("int value = 1;");
     } finally { value.store.db.close(); }
   });
 });

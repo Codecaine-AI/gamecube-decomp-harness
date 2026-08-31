@@ -224,7 +224,7 @@ exit 23
       `#!/bin/sh
 set -eu
 echo "start $*" >> "$REPORT_RUN_TEST_LOG"
-if [ "$1" = "build/GALE01/report.json" ]; then
+if [ "\${3:-}" = "build/GALE01/report.json" ]; then
   if [ ! -e "$REPORT_RUN_TEST_STARTED" ]; then
     printf '%s\\n' '{"measures":{"matched_code_percent":99}}' > build/GALE01/report.json
     touch "$REPORT_RUN_TEST_STARTED"
@@ -264,14 +264,14 @@ echo "finish $*" >> "$REPORT_RUN_TEST_LOG"
 
       const [firstResult, secondResult] = await Promise.all([first, second]);
       expect(firstStarted).toBe(true);
-      expect(logBeforeRelease).toEqual(["start build/GALE01/report.json"]);
+      expect(logBeforeRelease).toEqual(["start -k 0 build/GALE01/report.json"]);
       expect(firstResult.summary?.matchedCodePercent).toBe(1);
       expect(secondResult.summary?.matchedCodePercent).toBe(2);
       expect(readFileSync(logPath, "utf8").trim().split("\n")).toEqual([
-        "start build/GALE01/report.json",
-        "finish build/GALE01/report.json",
-        "start build/GALE01/report.json",
-        "finish build/GALE01/report.json",
+        "start -k 0 build/GALE01/report.json",
+        "finish -k 0 build/GALE01/report.json",
+        "start -k 0 build/GALE01/report.json",
+        "finish -k 0 build/GALE01/report.json",
         "start changes_all",
         "finish changes_all",
       ]);
@@ -307,7 +307,7 @@ touch build.ninja
       `#!/bin/sh
 echo "ninja $*" >> "$REPORT_RUN_TEST_LOG"
 mkdir -p build/GALE01
-if [ "$1" = "build/GALE01/report.json" ]; then
+if [ "\${3:-}" = "build/GALE01/report.json" ]; then
   printf '%s\\n' '{"measures":{"fuzzy_match_percent":98.5,"matched_code_percent":76.25,"matched_data_percent":81.5,"matched_functions_percent":95,"total_functions":200,"matched_functions":190,"total_units":20,"complete_units":17,"total_code":"1000","matched_code":"762","total_data":"400","matched_data":"326"}}' > build/GALE01/report.json
   exit 0
 fi
@@ -340,7 +340,7 @@ exit 1
       expect(boardMeasuresFromReportSummary(result.summary).unmatched_targets).toBe(10);
       expect(readFileSync(logPath, "utf8").trim().split("\n")).toEqual([
         "python3 configure.py --require-protos",
-        "ninja build/GALE01/report.json",
+        "ninja -k 0 build/GALE01/report.json",
         "ninja changes_all",
       ]);
     } finally {
@@ -472,7 +472,7 @@ printf '{"ok":true}\\n' > build/GALE01/report_changes.json
       `#!/bin/sh
 echo "ninja $*" >> "$REPORT_RUN_TEST_LOG"
 mkdir -p build/GALE01
-if [ "$1" = "build/GALE01/report.json" ]; then
+if [ "\${3:-}" = "build/GALE01/report.json" ]; then
   printf '%s\\n' '{"measures":{"matched_code_percent":75}}' > build/GALE01/report.json
 fi
 if [ "$1" = "changes_all" ]; then
@@ -495,7 +495,7 @@ fi
       expect(second.reusedReport).toBe(true);
       expect(second.steps.map((step) => step.name)).toEqual(["generate report changes"]);
       expect(readFileSync(logPath, "utf8").trim().split("\n")).toEqual([
-        "ninja build/GALE01/report.json",
+        "ninja -k 0 build/GALE01/report.json",
         "ninja changes_all",
         "ninja changes_all",
       ]);

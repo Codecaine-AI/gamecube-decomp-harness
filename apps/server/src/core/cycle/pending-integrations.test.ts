@@ -218,7 +218,7 @@ describe("pending epoch integrations", () => {
       .run("2026-08-12T12:02:30.000Z", epochId);
 
     expect(reconcilePendingIntegrations(store, { now: "2026-08-12T12:03:00.000Z" })).toEqual({
-      completed: [{ runId, epochId, commitSha: branchTip }],
+      completed: [{ runId, epochId, commitSha: branchTip, attempt: 1 }],
     });
 
     expect(listPendingIntegrations(store)).toEqual([]);
@@ -262,7 +262,7 @@ describe("pending epoch integrations", () => {
       now: "2026-08-12T12:04:00.000Z",
     })).toEqual({
       status: "completed",
-      completed: { runId, epochId, commitSha },
+      completed: { runId, epochId, commitSha, attempt: 1 },
     });
     expect(listPendingIntegrations(store)).toEqual([]);
     expect(store.db.query("SELECT status, boundary_status FROM epochs WHERE id = ?").get(epochId)).toEqual({

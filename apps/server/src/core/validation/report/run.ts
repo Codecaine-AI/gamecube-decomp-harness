@@ -292,6 +292,7 @@ async function runStep(
   if (result.exitCode !== 0) {
     const error = new Error(`${name} failed (${result.exitCode}): ${actionableFailureOutput(result)}`);
     Object.assign(error, {
+      buildFixerDiagnostics: actionableFailureOutput(result, Number.POSITIVE_INFINITY),
       exitCode: result.exitCode,
       stdoutTail: result.stdout.slice(-4_000),
       stderrTail: result.stderr.slice(-4_000),
@@ -377,7 +378,7 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
   );
   if (!reusedReport) {
     await removeIfExists(reportPath);
-    await runStep(repoRoot, steps, "generate report", ["ninja", "build/GALE01/report.json"], stepOptions);
+    await runStep(repoRoot, steps, "generate report", ["ninja", "-k", "0", "build/GALE01/report.json"], stepOptions);
     if (reuseMetadata) await writeFile(reportReusePath, `${JSON.stringify(reuseMetadata, null, 2)}\n`);
   }
 
