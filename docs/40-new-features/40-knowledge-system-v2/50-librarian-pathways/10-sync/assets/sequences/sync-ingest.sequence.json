@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "id": "sync-ingest",
+  "title": "Sync: sources in, facts follow",
+  "participants": [
+    { "id": "sync-phase", "name": "sync phase", "kind": "actor" },
+    { "id": "importer", "name": "importer pipeline", "kind": "participant", "label": "Importer (deterministic)" },
+    { "id": "source-tables", "name": "source tables", "kind": "participant" },
+    { "id": "watermark", "name": "source_watermark", "kind": "participant" },
+    { "id": "queue", "name": "index queue", "kind": "participant" },
+    { "id": "librarian", "name": "librarian", "kind": "participant" },
+    { "id": "resolver", "name": "resolver", "kind": "participant" },
+    { "id": "graph", "name": "graph records", "kind": "participant", "label": "Facts, links, entities" }
+  ],
+  "items": [
+    {
+      "kind": "fragment",
+      "id": "sync-f1",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "pull request",
+          "items": [
+            {
+              "kind": "message",
+              "id": "sync-m1",
+              "from": "sync-phase",
+              "to": "importer",
+              "line": "sync",
+              "text": "archive PR and discussion, touched targets derived from the diff"
+            }
+          ]
+        },
+        {
+          "guard": "discord export",
+          "items": [
+            {
+              "kind": "message",
+              "id": "sync-m2",
+              "from": "sync-phase",
+              "to": "importer",
+              "line": "sync",
+              "text": "fetch new chat-export messages past the watermark"
+            }
+          ]
+        },
+        {
+          "guard": "wiki mirror",
+          "items": [
+            {
+              "kind": "message",
+              "id": "sync-m3",
+              "from": "sync-phase",
+              "to": "importer",
+              "line": "sync",
+              "text": "fetch newly mirrored sections at a new revision"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "sync-m4",
+      "from": "importer",
+      "to": "source-tables",
+      "line": "sync",
+      "text": "append new rows, never edit existing ones"
+    },
+    {
+      "kind": "message",
+      "id": "sync-m5",
+      "from": "importer",
+      "to": "watermark",
+      "line": "sync",
+      "text": "advance position"
+    },
+    {
+      "kind": "message",
+      "id": "sync-m6",
+      "from": "importer",
+      "to": "queue",
+      "line": "sync",
+      "text": "enqueue pr_imported or archival_ingest task"
+    },
+    {
+      "kind": "message",
+      "id": "sync-m7",
+      "from": "queue",
+      "to": "librarian",
+      "line": "sync",
+      "text": "librarian claims task, started_at set"
+    },
+    {
+      "kind": "message",
+      "id": "sync-m8",
+      "from": "librarian",
+      "to": "source-tables",
+      "line": "sync",
+      "text": "search new material: keyword, vector, structured"
+    },
+    {
+      "kind": "message",
+      "id": "sync-m9",
+      "from": "librarian",
+      "to": "resolver",
+      "line": "sync",
+      "text": "propose fact overwrites and links with locator citations"
+    },
+    {
+      "kind": "message",
+      "id": "sync-m10",
+      "from": "resolver",
+      "to": "graph",
+      "line": "sync",
+      "text": "validated writes"
+    },
+    {
+      "kind": "message",
+      "id": "sync-m11",
+      "from": "librarian",
+      "to": "queue",
+      "line": "return",
+      "text": "mark task done"
+    },
+    {
+      "kind": "message",
+      "id": "sync-m12",
+      "from": "librarian",
+      "to": "graph",
+      "line": "sync",
+      "text": "stamp subject cursor for each subject passed"
+    }
+  ],
+  "style": {}
+}

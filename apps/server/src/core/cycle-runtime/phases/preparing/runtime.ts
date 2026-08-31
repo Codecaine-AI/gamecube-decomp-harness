@@ -152,8 +152,6 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
     "init-run",
     "--desired-workers",
     String(maxWorkers),
-    "--integration-resolver-concurrency",
-    String(numberValue(body.integrationResolverConcurrency, numberValue(game?.dashboard.integrationResolverConcurrency, 4))),
     "--goal-kind",
     stringValue(body.goalKind, "matched_code_percent"),
     "--goal-value",

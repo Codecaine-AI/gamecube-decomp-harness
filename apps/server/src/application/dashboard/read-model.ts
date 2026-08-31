@@ -69,6 +69,7 @@ type WorkerStateOutcome =
   | "timeout_selected_checkpoint"
   | "timeout_baseline"
   | "claim_deadline"
+  | "attempt_budget_exhausted"
   | "cold_attempt_budget_exhausted"
   | "improvement_followup_budget_exhausted"
   | "improvement_banked"
@@ -2163,6 +2164,7 @@ function touchedFilesFromWorkerStates(workerStates: JsonObject[]): JsonObject[] 
     const timeoutEndstate =
       outcome.startsWith("timeout_") ||
       outcome === "claim_deadline" ||
+      outcome === "attempt_budget_exhausted" ||
       outcome === "cold_attempt_budget_exhausted" ||
       outcome === "improvement_followup_budget_exhausted" ||
       outcome === "gate_failed_exact_followup_budget_exhausted" ||
@@ -2643,6 +2645,7 @@ function workerStateStopReasonEndstate(workerState: JsonObject): WorkerStateOutc
   const stopReason = workerStateStopReasonCode(workerState);
   if (stopReason === "accepted_exact") return "exact";
   if (stopReason === "claim_deadline") return "claim_deadline";
+  if (stopReason === "attempt_budget_exhausted") return "attempt_budget_exhausted";
   if (stopReason === "cold_attempt_budget_exhausted") return "cold_attempt_budget_exhausted";
   if (stopReason === "improvement_followup_budget_exhausted") return "improvement_followup_budget_exhausted";
   if (stopReason === "improvement_banked") return "improvement_banked";
@@ -2705,6 +2708,7 @@ function workerStateOutcomeCounts(workerStates: JsonObject[]): JsonObject {
     timeout_selected_checkpoint: 0,
     timeout_baseline: 0,
     claim_deadline: 0,
+    attempt_budget_exhausted: 0,
     cold_attempt_budget_exhausted: 0,
     improvement_followup_budget_exhausted: 0,
     improvement_banked: 0,
@@ -2866,6 +2870,7 @@ function runSummary(
     numberValue(outcomeCounts.timeout_selected_checkpoint) +
     numberValue(outcomeCounts.timeout_baseline) +
     numberValue(outcomeCounts.claim_deadline) +
+    numberValue(outcomeCounts.attempt_budget_exhausted) +
     numberValue(outcomeCounts.cold_attempt_budget_exhausted) +
     numberValue(outcomeCounts.improvement_followup_budget_exhausted) +
     numberValue(outcomeCounts.gate_failed_exact_followup_budget_exhausted) +

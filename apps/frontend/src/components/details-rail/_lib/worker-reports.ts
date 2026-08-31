@@ -6,6 +6,7 @@ export type WorkerStateOutcome =
   | "timeout_selected_checkpoint"
   | "timeout_baseline"
   | "claim_deadline"
+  | "attempt_budget_exhausted"
   | "cold_attempt_budget_exhausted"
   | "improvement_followup_budget_exhausted"
   | "improvement_banked"
@@ -41,6 +42,7 @@ export const reportFilters: Array<{ description: string; id: WorkerStateFilter; 
   { id: "timeout_selected_checkpoint", label: "Timeout: Checkpoint", description: "Timeout closed with a runner-selected checkpoint retained." },
   { id: "timeout_baseline", label: "Timeout: Baseline", description: "Timeout closed with no selectable checkpoint, so the baseline was retained." },
   { id: "claim_deadline", label: "Claim Deadline", description: "Repair/continuation stopped because the claim deadline was reached." },
+  { id: "attempt_budget_exhausted", label: "Budget Exhausted", description: "The worker spent its attempt budget (5 base, +2 per new-best improvement); the best banked checkpoint (or baseline) was selected." },
   { id: "cold_attempt_budget_exhausted", label: "Cold Budget", description: "No selectable checkpoint was found before the cold-attempt budget ran out." },
   { id: "improvement_followup_budget_exhausted", label: "Improvement Tail", description: "A best checkpoint existed, but follow-up repair attempts after it were exhausted." },
   { id: "improvement_banked", label: "Improvement Banked", description: "A validated improvement was accepted and the worker closed to free the slot; the target retries in a later epoch from the improved baseline." },
@@ -222,6 +224,7 @@ function reportStopReasonEndstate(report: JsonObject): WorkerStateOutcome | null
   const stopReason = reportStopReasonCode(report);
   if (stopReason === "accepted_exact") return "exact";
   if (stopReason === "claim_deadline") return "claim_deadline";
+  if (stopReason === "attempt_budget_exhausted") return "attempt_budget_exhausted";
   if (stopReason === "cold_attempt_budget_exhausted") return "cold_attempt_budget_exhausted";
   if (stopReason === "improvement_followup_budget_exhausted") return "improvement_followup_budget_exhausted";
   if (stopReason === "improvement_banked") return "improvement_banked";
@@ -290,6 +293,7 @@ function emptyReportCounts(): Record<WorkerStateFilter, number> {
     timeout_selected_checkpoint: 0,
     timeout_baseline: 0,
     claim_deadline: 0,
+    attempt_budget_exhausted: 0,
     cold_attempt_budget_exhausted: 0,
     improvement_followup_budget_exhausted: 0,
     improvement_banked: 0,
@@ -376,6 +380,7 @@ export function reportFinishLabel(report: JsonObject): string {
   if (outcome === "timeout_selected_checkpoint") return "timeout: checkpoint";
   if (outcome === "timeout_baseline") return "timeout: baseline";
   if (outcome === "claim_deadline") return "claim deadline";
+  if (outcome === "attempt_budget_exhausted") return "budget exhausted";
   if (outcome === "cold_attempt_budget_exhausted") return "cold budget";
   if (outcome === "improvement_followup_budget_exhausted") return "improvement tail";
   if (outcome === "improvement_banked") return "improvement banked";
@@ -407,6 +412,7 @@ export function reportOutcomeDescription(report: JsonObject): string {
   if (outcome === "timeout_selected_checkpoint") return "Timeout: the runner closed at the timeout boundary and retained a selected checkpoint.";
   if (outcome === "timeout_baseline") return "Timeout: the runner closed at the timeout boundary with no selected checkpoint.";
   if (outcome === "claim_deadline") return "Claim Deadline: repair/continuation stopped because the claim deadline was reached.";
+  if (outcome === "attempt_budget_exhausted") return "Budget Exhausted: the worker spent its attempt budget (5 base, +2 per new-best improvement); the best banked checkpoint (or baseline) was selected.";
   if (outcome === "cold_attempt_budget_exhausted") return "Cold Budget: no selectable checkpoint was found before the cold-attempt budget ran out.";
   if (outcome === "improvement_followup_budget_exhausted") return "Improvement Tail: follow-up attempts after the best checkpoint were exhausted.";
   if (outcome === "improvement_banked") return "Improvement Banked: the runner accepted a validated improvement and closed the worker so the slot could move to the next target; the target retries in a later epoch from the improved baseline.";

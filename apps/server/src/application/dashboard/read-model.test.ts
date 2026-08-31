@@ -1305,6 +1305,7 @@ describe("dashboard read model", () => {
           { kind: "function", unit: "unit", symbol: "validation_fn", sourcePath: "src/validation.c", size: 64, fuzzy: 91 },
           { kind: "function", unit: "unit", symbol: "tool_fn", sourcePath: "src/tool.c", size: 64, fuzzy: 91 },
           { kind: "function", unit: "unit", symbol: "banked_fn", sourcePath: "src/banked.c", size: 64, fuzzy: 91 },
+          { kind: "function", unit: "unit", symbol: "budget_fn", sourcePath: "src/budget.c", size: 64, fuzzy: 91 },
         ],
         workerPoolSize: 1,
       });
@@ -1378,6 +1379,17 @@ describe("dashboard read model", () => {
           },
         },
       });
+
+      const budgetClaim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-budget", baseRev: "base" });
+      closeWorkerState(store, {
+        workerStateId: budgetClaim!.workerStateId,
+        lifecycleStatus: "finished",
+        summary: {
+          continuation_attempts: {
+            stop_reason: "attempt_budget_exhausted",
+          },
+        },
+      });
     } finally {
       store.db.close();
     }
@@ -1396,6 +1408,7 @@ describe("dashboard read model", () => {
     expect(counts.validation_failed).toBe(1);
     expect(counts.agent_tool_error).toBe(1);
     expect(counts.improvement_banked).toBe(1);
+    expect(counts.attempt_budget_exhausted).toBe(1);
   });
 
   test("scopes active claim activity to the current recycled claim window", async () => {

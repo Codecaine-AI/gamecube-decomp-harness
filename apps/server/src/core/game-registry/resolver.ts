@@ -34,7 +34,6 @@ export interface AddressNamedStaticDataAllowlistEntry {
 }
 
 export interface GameDashboardDefaults {
-  integrationResolverConcurrency?: number;
   agentTimeoutSeconds?: number;
   goalValue?: number;
 }
@@ -188,7 +187,6 @@ const defaultValidation: Required<GameValidationDefaults> = {
 };
 
 const defaultDashboard: Required<GameDashboardDefaults> = {
-  integrationResolverConcurrency: 4,
   agentTimeoutSeconds: 1800,
   goalValue: 100,
 };
@@ -309,7 +307,6 @@ function validationFromObject(value: unknown): GameValidationDefaults | undefine
 function dashboardFromObject(value: unknown): GameDashboardDefaults | undefined {
   if (!isObject(value)) return undefined;
   return {
-    integrationResolverConcurrency: numberField(value.integrationResolverConcurrency),
     agentTimeoutSeconds: numberField(value.agentTimeoutSeconds),
     goalValue: numberField(value.goalValue),
   };

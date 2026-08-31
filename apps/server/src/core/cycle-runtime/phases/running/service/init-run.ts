@@ -24,16 +24,6 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
       epoch_target_cap: epochTargetCap,
       goal_kind: goalKind,
       goal_value: goalValue,
-      integration_resolver_concurrency: Math.max(
-        1,
-        Math.trunc(
-          numberArg(
-            args,
-            "--integration-resolver-concurrency",
-            globals.game?.dashboard.integrationResolverConcurrency ?? 4,
-          ),
-        ),
-      ),
       model: globals.model,
       provider: globals.provider,
       sandbox_profile: globals.sandboxProfile ?? globals.game?.sandbox?.default_profile ?? "",

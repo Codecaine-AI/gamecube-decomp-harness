@@ -67,7 +67,6 @@ function workerConfigBody(body: JsonObject): JsonObject {
     configVersion: PROCESS_CONFIG_VERSION,
     maxWorkers: body.maxWorkers,
     workerCount: body.maxWorkers,
-    integrationResolverConcurrency: body.integrationResolverConcurrency,
     agentTimeoutSeconds: body.agentTimeoutSeconds,
     provider: body.provider,
     model: body.model,
@@ -99,9 +98,6 @@ function cycleRunConfigPatch(cycle: JsonObject): Partial<FormState> | null {
   const patch: Partial<FormState> = {};
   const maxWorkers = positiveInteger(workerConfig.maxWorkers) ?? positiveInteger(workerConfig.workerCount);
   if (maxWorkers !== null) Object.assign(patch, schedulingForWorkers(maxWorkers));
-
-  const integrationResolverConcurrency = positiveInteger(workerConfig.integrationResolverConcurrency);
-  if (integrationResolverConcurrency !== null) patch.integrationResolverConcurrency = integrationResolverConcurrency;
 
   const agentTimeoutSeconds = positiveInteger(workerConfig.agentTimeoutSeconds);
   if (agentTimeoutSeconds !== null) patch.agentTimeoutSeconds = agentTimeoutSeconds;
@@ -277,7 +273,6 @@ export function App() {
           graphDbPath: loaded.defaultGraphDbPath,
           processName: String(gameDefaults.processName || current.processName),
           goalValue: Number(dashboardDefaults.goalValue || current.goalValue),
-          integrationResolverConcurrency: numberValue(dashboardDefaults.integrationResolverConcurrency, current.integrationResolverConcurrency),
           agentTimeoutSeconds: numberValue(dashboardDefaults.agentTimeoutSeconds, current.agentTimeoutSeconds),
           sandboxProfile: String(sandboxDefaults.default_profile || current.sandboxProfile),
         }));

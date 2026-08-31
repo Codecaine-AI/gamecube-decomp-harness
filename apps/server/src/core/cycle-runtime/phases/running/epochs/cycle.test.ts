@@ -80,12 +80,12 @@ describe("commitEpochSnapshot", () => {
     cleanup.push(root);
     const repoRoot = join(root, "repo");
     const stateDir = join(root, "state");
-    mkdirSync(join(repoRoot, "active_session", "integration_resolver", "job-x"), { recursive: true });
+    mkdirSync(join(repoRoot, "active_session", "scratch", "job-x"), { recursive: true });
     mkdirSync(join(repoRoot, "src"), { recursive: true });
     git(repoRoot, ["init", "-b", "main"]);
     git(repoRoot, ["config", "user.email", "test@example.com"]);
     git(repoRoot, ["config", "user.name", "Epoch Test"]);
-    writeFileSync(join(repoRoot, "active_session", "integration_resolver", "job-x", "unit_diff.json"), "{}\n");
+    writeFileSync(join(repoRoot, "active_session", "scratch", "job-x", "unit_diff.json"), "{}\n");
     writeFileSync(join(repoRoot, "src", "a.c"), "int a = 1;\n");
     git(repoRoot, ["add", "."]);
     git(repoRoot, ["commit", "-m", "initial"]);
@@ -121,7 +121,7 @@ describe("commitEpochSnapshot", () => {
       expect(tree).toContain("src/a.c");
       expect(tree.some((path) => path.startsWith("active_session/") || path.startsWith(".pi-sessions/"))).toBeFalse();
       expect(git(repoRoot, ["ls-files"])).not.toContain("active_session/");
-      expect(existsSync(join(repoRoot, "active_session", "integration_resolver", "job-x", "unit_diff.json"))).toBeTrue();
+      expect(existsSync(join(repoRoot, "active_session", "scratch", "job-x", "unit_diff.json"))).toBeTrue();
       expect(existsSync(join(repoRoot, "active_session", "new.txt"))).toBeTrue();
       expect(existsSync(join(repoRoot, ".pi-sessions", "s.json"))).toBeTrue();
     } finally {

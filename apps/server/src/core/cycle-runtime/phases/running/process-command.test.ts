@@ -18,7 +18,6 @@ function runInputs(configuration: Record<string, unknown> = {}): RunInputs {
       epoch_configure_command: "",
       goal_kind: "matched_code_percent",
       goal_value: 100,
-      integration_resolver_concurrency: 4,
       model: "gpt-5.6-sol",
       provider: "codex-lb",
       sandbox_profile: "2-core",
@@ -86,10 +85,6 @@ describe("running process command", () => {
     expect(plan.command.slice(plan.command.indexOf("--sandbox-profile"), plan.command.indexOf("--sandbox-profile") + 2)).toEqual([
       "--sandbox-profile",
       "2-core",
-    ]);
-    expect(plan.command.slice(plan.command.indexOf("--integration-resolver-concurrency"), plan.command.indexOf("--integration-resolver-concurrency") + 2)).toEqual([
-      "--integration-resolver-concurrency",
-      "4",
     ]);
     expect(plan.command).not.toContain("--candidate-limit");
     expect(plan.command).not.toContain("--queue-target-size");
@@ -207,26 +202,6 @@ describe("running process command", () => {
     const timeoutFlag = plan.command.indexOf("--agent-timeout-seconds");
     expect(plan.command.slice(timeoutFlag, timeoutFlag + 2)).toEqual(["--agent-timeout-seconds", "2400"]);
     expect(plan.command).not.toContain("--ttl-seconds");
-  });
-
-  test("forwards configured integration resolver concurrency to run-loop", () => {
-    const plan = buildRunningProcessCommand({
-      body: {
-        integrationResolverConcurrency: 8,
-        maxWorkers: 4,
-      },
-      graphDbPath: "/state/graph.sqlite",
-      noRefillBatch: false,
-      game: { gameId: "melee", processName: "melee-live", dashboard: { integrationResolverConcurrency: 2 } },
-      repoRoot: "/repo",
-      runId: "run-1",
-      runInputs: runInputs({ integration_resolver_concurrency: 8 }),
-      serverJobPath: "/orch/apps/server/src/job-runner.ts",
-      stateDir: "/state",
-    });
-
-    const resolverFlag = plan.command.indexOf("--integration-resolver-concurrency");
-    expect(plan.command.slice(resolverFlag, resolverFlag + 2)).toEqual(["--integration-resolver-concurrency", "8"]);
   });
 
   test("uses no-refill mode for never-run repair batches", () => {

@@ -1,0 +1,404 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-66836a13a22555cb761394c183eddf53",
+  "title": "Migration, Pruning, and Rebuild",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-sks-migration-intro",
+        "b-sks-migration-decision",
+        "b-sks-migration-callout",
+        "b-sks-migration-routing",
+        "b-sks-migration-routing-table",
+        "b-sks-migration-phases",
+        "b-sks-migration-process",
+        "b-sks-migration-gates",
+        "b-sks-migration-gate-table",
+        "b-sks-migration-initial-build",
+        "b-sks-migration-initial-build-p",
+        "b-sks-migration-initial-build-process",
+        "b-sks-migration-full-reset",
+        "b-sks-migration-full-reset-p",
+        "b-sks-migration-related",
+        "b-sks-migration-related-pathways",
+        "b-sks-migration-related-sources"
+      ]
+    },
+    "b-sks-migration-intro": {
+      "id": "b-sks-migration-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The migration uses an archive-first replacement, not an in-place cleanup. The current ledger remains available as historical input. New canonical stores begin empty, receive only records that pass typed classification and evidence gates, and become the inputs to a clean graph and search rebuild."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-decision": {
+      "id": "b-sks-migration-decision",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Recommended Strategy"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-callout": {
+      "id": "b-sks-migration-callout",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Decision — selective canonical migration with deterministic projection wipe",
+        "tone": "success"
+      },
+      "text": [
+        {
+          "insert": "Always wipe and rebuild derived graph, FTS, target-card, ranking, and dashboard projections. Do not wipe raw source corpora, run-state attempts, PR archives, Discord archives, or the original ledger snapshot. Populate the new semantic store only from safe imports and fresh curation. If the audit classifier cannot separate semantic content reliably, import no legacy semantic assertions and rebuild expert memory from freshly cited evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-routing": {
+      "id": "b-sks-migration-routing",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Legacy Record Routing"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-routing-table": {
+      "id": "b-sks-migration-routing-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Legacy material",
+          "Destination",
+          "Rule"
+        ],
+        "rows": [
+          [
+            "Purpose, field, type, state, data-flow, or game-meaning claim",
+            "Semantic candidate",
+            "Import only with a current anchor and resolvable evidence"
+          ],
+          [
+            "Scored submission (formerly checkpoint), score change, mismatch, failure, or negative result",
+            "Attempt memory",
+            "Join to the observed worker, PR, or QA attempt; do not rewrite as a belief"
+          ],
+          [
+            "Boundary deferral, run state, queue state, retry, or lifecycle message",
+            "Operational event or archive only",
+            "Never import into semantic or attempt search by default"
+          ],
+          [
+            "Duplicate, superseded, or corroboration wrapper",
+            "Lineage link",
+            "Merge evidence and preserve evidence ids without copying the statement"
+          ],
+          [
+            "Unanchored, ambiguous, unsupported, or unresolvable record",
+            "Quarantine",
+            "Retain for review; exclude from worker retrieval and graph projection"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-migration-phases": {
+      "id": "b-sks-migration-phases",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Migration Phases"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-process": {
+      "id": "b-sks-migration-process",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Freeze an immutable migration snapshot",
+            "steps": [
+              {
+                "text": "Record ledger, FTS, graph, source-corpus, run-state, and code revisions plus hashes"
+              }
+            ]
+          },
+          {
+            "text": "Classify every legacy record",
+            "steps": [
+              {
+                "text": "Assign semantic, attempt, operational, lineage-only, or quarantine with a reason and classifier version"
+              }
+            ]
+          },
+          {
+            "text": "Resolve and validate import candidates",
+            "steps": [
+              {
+                "text": "Verify anchors, evidence locators against their kind's closed grammar, code-span digests, duplicate groups, and inferred-name policy"
+              }
+            ]
+          },
+          {
+            "text": "Write fresh canonical stores",
+            "steps": [
+              {
+                "text": "Import accepted attempts and semantic assertions; preserve original ids in provenance"
+              }
+            ]
+          },
+          {
+            "text": "Delete and rebuild every derived projection",
+            "steps": [
+              {
+                "text": "Recreate graph, FTS, target cards, rankings, and dashboard read models from one accepted revision"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-sks-migration-gates": {
+      "id": "b-sks-migration-gates",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Migration Gates"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-gate-table": {
+      "id": "b-sks-migration-gate-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Gate",
+          "Pass condition"
+        ],
+        "rows": [
+          [
+            "Coverage",
+            "Every legacy record has a destination or quarantine reason"
+          ],
+          [
+            "Semantic purity",
+            "Zero operational records and zero score-only claims enter semantic memory"
+          ],
+          [
+            "Evidence",
+            "Every imported assertion resolves all required evidence and its current anchor"
+          ],
+          [
+            "Attempt linkage",
+            "Every imported outcome joins to an observed attempt or is quarantined"
+          ],
+          [
+            "Projection parity",
+            "Each search index and graph table matches the accepted canonical revision and record counts"
+          ],
+          [
+            "Rollback",
+            "The original snapshot can restore the previous read path without mutating archived bytes"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-migration-initial-build": {
+      "id": "b-sks-migration-initial-build",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Initial Build"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-initial-build-p": {
+      "id": "b-sks-migration-initial-build-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The initial build stands the new stores up in four phases. Phases 0–2 are independent of each other where their inputs allow; phase 3 requires all of them. Phase 3 is queue-driven: coverage is tracked via "
+        },
+        {
+          "insert": "indexing_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " until every subject's cursor covers the corpus."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-initial-build-process": {
+      "id": "b-sks-migration-initial-build-process",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Phase 0 — ingest the sources",
+            "steps": [
+              {
+                "text": "Run the Discord scrape, PR import, and wiki mirror into their source tables; migrate attempts from the old ledger"
+              },
+              {
+                "text": "The old ledger is preserved as an immutable audit source; records classify into the new families or quarantine"
+              }
+            ]
+          },
+          {
+            "text": "Phase 1 — build targets",
+            "steps": [
+              {
+                "text": "Report reconciliation runs over the current report revision and writes the target rows and their statuses"
+              }
+            ]
+          },
+          {
+            "text": "Phase 2 — extract mechanical entities",
+            "steps": [
+              {
+                "text": "The entity extractor runs over the checkout at the same revision and inserts file, struct, struct-field, and parameter rows"
+              }
+            ]
+          },
+          {
+            "text": "Phase 3 — backfill librarian",
+            "steps": [
+              {
+                "text": "The sync ingest pathways — Discord and wiki — run over the whole corpus"
+              },
+              {
+                "text": "The backfill librarian makes a per-target pass over every target, against the current library and codebase state — never from scratch"
+              },
+              {
+                "text": "Target order comes from a deterministic prioritization query: targets ranked by available material across the sources, richest first"
+              },
+              {
+                "text": "The queue drains until every subject's cursor covers the corpus"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-sks-migration-full-reset": {
+      "id": "b-sks-migration-full-reset",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "When to Use a Full Semantic Reset"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-full-reset-p": {
+      "id": "b-sks-migration-full-reset-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Choose the full semantic reset when legacy records cannot be classified reproducibly, evidence references cannot be resolved at useful rates, subject anchors cannot be mapped without guessing, or an evaluation sample shows unsafe semantic imports. The reset still preserves the raw ledger and source archives. It starts the new semantic store empty, retains observed attempt history from run state, and rebuilds semantic memory through targeted curation of high-value files and functions."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-related": {
+      "id": "b-sks-migration-related",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-related-pathways": {
+      "id": "b-sks-migration-related-pathways",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways",
+              "label": "Librarian Pathways"
+            }
+          }
+        },
+        {
+          "insert": " — the agent roster, the phase-grouped inbound pathways, and the indexing-state shapes that drive phase 3."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-related-sources": {
+      "id": "b-sks-migration-related-sources",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Knowledge Sources",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources",
+              "label": "Knowledge Sources"
+            }
+          }
+        },
+        {
+          "insert": " — the archival and operational corpora phase 0 ingests."
+        }
+      ],
+      "children": []
+    }
+  }
+}

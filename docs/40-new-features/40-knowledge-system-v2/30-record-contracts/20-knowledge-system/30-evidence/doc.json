@@ -1,0 +1,1302 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-2f8c5d17a94e6b30c1d8e42f7a95b361",
+  "title": "Evidence",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-sks-rc-evidence-intro",
+        "b-sks-rc-evidence-shape-heading",
+        "b-sks-rc-evidence-shape",
+        "b-sks-rc-evidence-shape-example-note-1",
+        "b-sks-rc-evidence-shape-example-note-2",
+        "b-sks-rc-evidence-shape-example-note-3",
+        "b-sks-rc-evidence-stores-heading",
+        "b-sks-rc-evidence-stores-body",
+        "b-sks-rc-evidence-materials-table",
+        "b-sks-rc-evidence-grammar-heading",
+        "b-sks-rc-evidence-grammar-body",
+        "b-sks-rc-evidence-grammar-table",
+        "b-sks-rc-evidence-links-heading",
+        "b-sks-rc-evidence-links-out",
+        "b-sks-rc-evidence-links-in-heading",
+        "b-sks-rc-evidence-links-in",
+        "b-sks-rc-evidence-writers-heading",
+        "b-sks-rc-evidence-writers-table",
+        "b-sks-rc-evidence-related-heading",
+        "b-sks-rc-evidence-related-fact",
+        "b-sks-rc-evidence-related-know",
+        "b-sks-rc-evidence-related-links",
+        "b-sks-rc-evidence-related-patterns",
+        "b-sks-rc-evidence-related-worker-runs",
+        "b-sks-rc-evidence-related-sources",
+        "b-sks-rc-evidence-related-overview"
+      ]
+    },
+    "b-sks-rc-evidence-intro": {
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "EVIDENCE — An "
+        },
+        {
+          "insert": "evidence",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row is one citation hanging off a claim: a typed "
+        },
+        {
+          "insert": "locator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " into a knowledge source and a "
+        },
+        {
+          "insert": "why",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " saying how the pointed-at record supports the owning fact. Each row belongs to exactly one fact through "
+        },
+        {
+          "insert": "fact_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; two facts leaning on the same Discord message hold two evidence rows, and the source row is the shared thing. Nothing is snapshotted — no content is stored on the row; display resolves the "
+        },
+        {
+          "insert": "locator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " into the source at read time. Only "
+        },
+        {
+          "insert": "code",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows carry a "
+        },
+        {
+          "insert": "digest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", pinning the span text against the one source that drifts. "
+        },
+        {
+          "insert": "why",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is per-pointer; the claim-level argument that synthesizes the citations is the fact's "
+        },
+        {
+          "insert": "rationale",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The librarian writes evidence rows in the same write as their fact: an overwrite of the fact replaces its rows wholesale, a clear deletes them with it, and a row is immutable while it lives. Reverse lookup — what stands on this source record — is an indexed query on ("
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "locator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ")."
+        }
+      ],
+      "id": "b-sks-rc-evidence-intro",
+      "children": []
+    },
+    "b-sks-rc-evidence-shape-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Table "
+        },
+        {
+          "insert": "evidence",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "id": "b-sks-rc-evidence-shape-heading",
+      "children": []
+    },
+    "b-sks-rc-evidence-shape": {
+      "type": "state-shape",
+      "props": {
+        "name": "evidence",
+        "description": "Fact-owned citations; each row belongs to exactly one fact and dies with it.",
+        "example": "{\n  \"id\": \"ev-01j9x4\",\n  \"fact_id\": \"fact-7c21e0\",\n  \"kind\": \"discord\",\n  \"locator\": \"discord://message/1123581321\",\n  \"why\": \"The author identifies 800BFFD0 as the hitstun decay helper after matching it\",\n  \"captured_at\": \"2026-08-10T22:14:00Z\"\n}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "evidence id",
+            "description": "Primary key; a plain surrogate id"
+          },
+          {
+            "name": "fact_id",
+            "type": "fact id",
+            "description": "The owning claim; required"
+          },
+          {
+            "name": "kind",
+            "type": "pr | discord | attempt | wiki | code"
+          },
+          {
+            "name": "locator",
+            "type": "typed source locator",
+            "description": "Must match `kind`'s closed grammar and resolve; the payload is the source row's id"
+          },
+          {
+            "name": "digest",
+            "type": "digest",
+            "description": "Of the span text; required when `kind` is `code`, absent otherwise",
+            "required": false
+          },
+          {
+            "name": "why",
+            "type": "string",
+            "description": "Why this pointed-at record supports the fact"
+          },
+          {
+            "name": "captured_at",
+            "type": "timestamp"
+          }
+        ]
+      },
+      "id": "b-sks-rc-evidence-shape",
+      "children": []
+    },
+    "b-sks-rc-evidence-shape-example-note-1": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "fact_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": the owning claim — this row was written in the same write as that fact, and an overwrite or clear of the fact replaces or deletes it."
+        }
+      ],
+      "id": "b-sks-rc-evidence-shape-example-note-1",
+      "children": []
+    },
+    "b-sks-rc-evidence-shape-example-note-2": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "locator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": the payload "
+        },
+        {
+          "insert": "1123581321",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is a "
+        },
+        {
+          "insert": "discord_message.id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; no "
+        },
+        {
+          "insert": "digest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " because the Discord archive is immutable — the locator cannot drift."
+        }
+      ],
+      "id": "b-sks-rc-evidence-shape-example-note-2",
+      "children": []
+    },
+    "b-sks-rc-evidence-shape-example-note-3": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "why",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": what this one message shows; the owning fact's "
+        },
+        {
+          "insert": "rationale",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " argues the claim across all of its citations."
+        }
+      ],
+      "id": "b-sks-rc-evidence-shape-example-note-3",
+      "children": []
+    },
+    "b-sks-rc-evidence-stores-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Enum "
+        },
+        {
+          "insert": "evidence.kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — the knowledge sources"
+        }
+      ],
+      "id": "b-sks-rc-evidence-stores-heading",
+      "children": []
+    },
+    "b-sks-rc-evidence-stores-body": {
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Five knowledge sources back the five kinds, in two classes. Archival sources — the "
+        },
+        {
+          "insert": "discord://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " archive, the "
+        },
+        {
+          "insert": "pr://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " past-PR index, the "
+        },
+        {
+          "insert": "wiki://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " mirrored corpus — are raw inputs, frozen once ingested: new material appends and gets indexed, existing rows never change, so a locator into them cannot drift and carries no digest. Operational sources are "
+        },
+        {
+          "insert": "attempt://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — the target ledger wearing its evidence hat, growing every run, its rows immutable — and "
+        },
+        {
+          "insert": "code://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", the active checkout and the only drifting source, where the "
+        },
+        {
+          "insert": "digest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " requirement and drift detection apply. Standards are part of the knowledge system but outside the knowledge graph: QA-owned, deliberately authored rules injected at worker boot and enforced at the ship gate. They are not a knowledge source and are never citable as evidence — the enum having no "
+        },
+        {
+          "insert": "standards",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " entry is deliberate."
+        }
+      ],
+      "id": "b-sks-rc-evidence-stores-body",
+      "children": []
+    },
+    "b-sks-rc-evidence-materials-table": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Material",
+          [
+            {
+              "insert": "evidence.kind",
+              "attributes": {
+                "code": true
+              }
+            }
+          ],
+          "Locator resolves to"
+        ],
+        "rows": [
+          [
+            "Code span",
+            [
+              {
+                "insert": "code",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A path and line range in the checkout at the named revision"
+          ],
+          [
+            "Assembly span",
+            [
+              {
+                "insert": "code",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A disassembly or object-listing path and line range at the named revision"
+          ],
+          [
+            "Wiki section",
+            [
+              {
+                "insert": "wiki",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "wiki_section",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row — its id encodes page, section, and mirror revision"
+              }
+            ]
+          ],
+          [
+            "PR comment",
+            [
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row, and a comment index into its archived discussion"
+              }
+            ]
+          ],
+          [
+            "Discord message",
+            [
+              {
+                "insert": "discord",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "discord_message",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row"
+              }
+            ]
+          ],
+          [
+            "Worker-run submission",
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row and the submission sequence number it names"
+              }
+            ]
+          ],
+          [
+            "Transcript span",
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row and a span of its archived transcript"
+              }
+            ]
+          ],
+          [
+            "Tool output",
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "The transcript span where the output appears — cited as "
+              },
+              {
+                "insert": "attempt://run/<worker_run.id>/transcript/<span>",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Human note",
+            [
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " or "
+              },
+              {
+                "insert": "discord",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", whichever archive holds the note"
+              }
+            ],
+            [
+              {
+                "insert": "The archived note's row; a freeform annotation typed onto a target is a ledger "
+              },
+              {
+                "insert": "note",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row, not evidence"
+              }
+            ]
+          ]
+        ]
+      },
+      "id": "b-sks-rc-evidence-materials-table",
+      "children": []
+    },
+    "b-sks-rc-evidence-grammar-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Locator grammar"
+        }
+      ],
+      "id": "b-sks-rc-evidence-grammar-heading",
+      "children": []
+    },
+    "b-sks-rc-evidence-grammar-body": {
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The grammar is closed: the resolver rejects a "
+        },
+        {
+          "insert": "locator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " that does not match its "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "'s form, and rejects a kind/scheme mismatch. The payload is the source row's primary key; "
+        },
+        {
+          "insert": "code",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the one kind with no source row — the checkout at "
+        },
+        {
+          "insert": "<revision>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the source, which is why a "
+        },
+        {
+          "insert": "digest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " of the span text is required there and nowhere else."
+        }
+      ],
+      "id": "b-sks-rc-evidence-grammar-body",
+      "children": []
+    },
+    "b-sks-rc-evidence-grammar-table": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Kind",
+          "Grammar",
+          "Payload resolves to"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "discord",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "discord://message/<discord_message.id>",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "discord_message",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "pr://<pull_request.id>[/comment/<n>]",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row, optionally one comment of its archived discussion"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "wiki",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "wiki://<wiki_section.id>",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "wiki_section",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row — the section id encodes page, section, and mirror revision"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "attempt://run/<worker_run.id>[/submission/<seq>][/transcript/<span>]",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row, optionally one submission or transcript span"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "code",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "code://<revision>/<path>#L<start>-L<end>",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The span text in the checkout at the revision — no source row"
+          ]
+        ]
+      },
+      "id": "b-sks-rc-evidence-grammar-table",
+      "children": []
+    },
+    "b-sks-rc-evidence-links-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Foreign keys out"
+        }
+      ],
+      "id": "b-sks-rc-evidence-links-heading",
+      "children": []
+    },
+    "b-sks-rc-evidence-links-out": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "From",
+          "To",
+          "Cardinality",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "evidence.fact_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "fact",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "many → 1",
+            "The owning claim; the librarian writes both in one write, an overwrite replaces the fact's evidence rows wholesale, and a clear deletes them with it"
+          ],
+          [
+            [
+              {
+                "insert": "evidence.kind",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + "
+              },
+              {
+                "insert": "evidence.locator",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A knowledge-source row",
+            "many → 1",
+            [
+              {
+                "insert": "Resolved by the closed grammar, not a foreign key — heterogeneous sources, one pointer mechanism; a "
+              },
+              {
+                "insert": "code",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " locator resolves into the checkout instead of a row"
+              }
+            ]
+          ]
+        ]
+      },
+      "id": "b-sks-rc-evidence-links-out",
+      "children": []
+    },
+    "b-sks-rc-evidence-links-in-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Foreign keys in"
+        }
+      ],
+      "id": "b-sks-rc-evidence-links-in-heading",
+      "children": []
+    },
+    "b-sks-rc-evidence-links-in": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "From",
+          "To",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            "— (none)",
+            [
+              {
+                "insert": "evidence",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "Nothing references evidence rows; a "
+              },
+              {
+                "insert": "link",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " carries its own inline "
+              },
+              {
+                "insert": "kind",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and "
+              },
+              {
+                "insert": "locator",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", and reverse lookup is an indexed query on ("
+              },
+              {
+                "insert": "kind",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "locator",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ")"
+              }
+            ]
+          ]
+        ]
+      },
+      "id": "b-sks-rc-evidence-links-in",
+      "children": []
+    },
+    "b-sks-rc-evidence-writers-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Who writes"
+        }
+      ],
+      "id": "b-sks-rc-evidence-writers-heading",
+      "children": []
+    },
+    "b-sks-rc-evidence-writers-table": {
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Table",
+          "Written by",
+          "Never"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "evidence",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The librarian, in the same write as the owning fact — rows pass the resolver's grammar and resolution checks with the claim",
+            "Edited in place, or kept past the fact: an overwrite replaces the fact's rows wholesale and a clear deletes them with it"
+          ]
+        ]
+      },
+      "id": "b-sks-rc-evidence-writers-table",
+      "children": []
+    },
+    "b-sks-rc-evidence-related-heading": {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "id": "b-sks-rc-evidence-related-heading",
+      "children": []
+    },
+    "b-sks-rc-evidence-related-fact": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Fact",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact",
+              "label": "Fact"
+            }
+          }
+        },
+        {
+          "insert": " — the owning claims, whose "
+        },
+        {
+          "insert": "rationale",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " argues from these citations."
+        }
+      ],
+      "id": "b-sks-rc-evidence-related-fact",
+      "children": []
+    },
+    "b-sks-rc-evidence-related-know": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Knowledge Record",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/20-knowledge-record",
+              "label": "Knowledge Record"
+            }
+          }
+        },
+        {
+          "insert": " — the view that resolves a fact's citations onto a subject's page at read time."
+        }
+      ],
+      "id": "b-sks-rc-evidence-related-know",
+      "children": []
+    },
+    "b-sks-rc-evidence-related-links": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Links",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/30-links",
+              "label": "Links"
+            }
+          }
+        },
+        {
+          "insert": " — subject-to-subject joins; each carries its own inline "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "locator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " under the same grammar."
+        }
+      ],
+      "id": "b-sks-rc-evidence-related-links",
+      "children": []
+    },
+    "b-sks-rc-evidence-related-patterns": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Patterns",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/20-entities/20-patterns",
+              "label": "Patterns"
+            }
+          }
+        },
+        {
+          "insert": " — the larger-idea entities whose facts and links "
+        },
+        {
+          "insert": "wiki://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "discord://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " evidence typically grounds."
+        }
+      ],
+      "id": "b-sks-rc-evidence-related-patterns",
+      "children": []
+    },
+    "b-sks-rc-evidence-related-worker-runs": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker Runs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/10-worker-runs",
+              "label": "Worker Runs"
+            }
+          }
+        },
+        {
+          "insert": " — what stands behind "
+        },
+        {
+          "insert": "attempt://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locators: worker runs, submissions, transcripts, tool output."
+        }
+      ],
+      "id": "b-sks-rc-evidence-related-worker-runs",
+      "children": []
+    },
+    "b-sks-rc-evidence-related-sources": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Knowledge Sources",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources",
+              "label": "Knowledge Sources"
+            }
+          }
+        },
+        {
+          "insert": " — the archival and operational sources behind the locators, and the standards boundary."
+        }
+      ],
+      "id": "b-sks-rc-evidence-related-sources",
+      "children": []
+    },
+    "b-sks-rc-evidence-related-overview": {
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Record Contracts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts",
+              "label": "Record Contracts"
+            }
+          }
+        },
+        {
+          "insert": " — the tables, the foreign-key table, and the derived views."
+        }
+      ],
+      "id": "b-sks-rc-evidence-related-overview",
+      "children": []
+    }
+  }
+}

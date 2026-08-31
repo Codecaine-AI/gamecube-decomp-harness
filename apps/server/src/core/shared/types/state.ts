@@ -7,8 +7,6 @@ export type EventType =
   | "worker_provider_error"
   | "worker_integration_applied"
   | "worker_integration_conflict"
-  | "worker_integration_resolver_failed"
-  | "worker_integration_resolver_started"
   | "worker_integration_resolved"
   | "worker_integration_skipped"
   | "write_set_integration_flags"

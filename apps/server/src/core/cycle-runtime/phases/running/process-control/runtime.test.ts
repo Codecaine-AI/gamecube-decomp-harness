@@ -43,7 +43,6 @@ describe("process control runtime", () => {
           epoch_configure_command: "",
           goal_kind: "matched_code_percent",
           goal_value: 100,
-          integration_resolver_concurrency: 4,
           model: "gpt-5.6-sol",
           provider: "codex-lb",
           sandbox_profile: "",
@@ -103,7 +102,6 @@ describe("process control runtime", () => {
     const response = await runtime.startManagedProcess({
       agentTimeoutSeconds: 1800,
       goalValue: 100,
-      integrationResolverConcurrency: 4,
       maxWorkers: 4,
       model: "gpt-5.6-sol",
       gameId: "melee",
@@ -169,7 +167,6 @@ describe("process control runtime", () => {
           epoch_configure_command: "",
           goal_kind: "matched_code_percent",
           goal_value: 100,
-          integration_resolver_concurrency: 3,
           model: "gpt-5.6-sol",
           provider: "codex-lb",
           thinking_level: "xhigh",

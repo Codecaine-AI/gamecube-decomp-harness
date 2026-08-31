@@ -1,6 +1,5 @@
 import { resolve } from "node:path";
 import {
-  integrationResolverPrompt,
   librarianPrompt,
   WORKER_CANONICAL_TOOL_PATHS,
   workerPrompt,
@@ -127,35 +126,6 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           "}",
           "",
         ].join("\n"),
-      });
-    case "integration-resolver":
-      return integrationResolverPrompt({
-        integrationItem: {
-          schema_version: "integration_conflict_item_v1",
-          id: "kernel-viewer-integration-conflict",
-          conflict_group_id: "src-melee-ft-demo",
-          run_id: "kernel-viewer-run",
-          epoch_id: "kernel-viewer-epoch",
-          failed_apply: {
-            command: "git apply --check worker.patch",
-            stderr: "patch failed: src/melee/ft/chara/ftDemo.c:24",
-          },
-          worker_outputs: [
-            {
-              worker_state_id: "kernel-viewer-worker-state",
-              checkpoint_id: "kernel-viewer-checkpoint",
-              target: "GALE01:ftDemo::ftDemo_KernelViewerSample",
-              source_paths: ["src/melee/ft/chara/ftDemo.c"],
-              validation: { exact: true, hard_gates_passed: true },
-            },
-          ],
-          conflict_paths: ["src/melee/ft/chara/ftDemo.c"],
-          explicit_write_set: ["src/melee/ft/chara/ftDemo.c"],
-        },
-        queueSummary: { queued_items: 1, conflict_groups: 1 },
-        repoRoot: paths.repoRoot,
-        stateDir: paths.stateDir,
-        game,
       });
     case "librarian":
       return librarianPrompt({

@@ -141,10 +141,39 @@ tail -F "$LOG" | grep -E --line-buffered '\[run-loop\]|\[epoch\]|breakage|micro_
 What healthy looks like: `busy` ≈ max-workers early, then tracking the
 distinct-file count of open targets (same-file claim exclusivity — one
 worker per .c file); `finished_count` rising (xhigh attempts run up to the
-configured agent timeout, many settle earlier with banked checkpoints);
-`waiting` small and transient; occasional `job coverage reconciled
-(+k / -m)` (claim-aware since fix 30 — endless identical +N lines are a
-regression); `sched=1`.
+configured agent timeout); `waiting` small and transient; occasional
+`job coverage reconciled (+k / -m)` (claim-aware since fix 30 — endless
+identical +N lines are a regression); `sched=1`.
+
+**Attempt budget (`attempt_budget_v3`, landed 2026-08-31)** — know this
+before judging worker pace. Workers NO LONGER close on the first banked
+improvement. Each worker gets 5 submissions; every submission that sets a
+new best (a gate-clean score improvement, or reaching 100% even with hard
+gates failing — that grants only once) adds +2 to its budget. It stops on:
+accepted exact, budget spent (`attempt_budget_exhausted`), or claim
+deadline. Operational consequences:
+- Workers on productive targets hold their claim and slot much longer than
+  pre-v3 epochs. A worker cycling several attempts after banking an
+  improvement is the design working, not a stall — banked checkpoints are
+  safe in SQLite and the best one is selected at close regardless.
+- `finished_count` rises slower per slot than in epochs ≤13; recalibrate
+  before invoking §5.8. Judge a target by attempts consumed vs its budget
+  (`continuation_attempts.decision` in the worker summary / attempt gate
+  JSON: `attempt_budget`, `improvementGrants`), not by wall-clock alone.
+- The claim TTL is unchanged (`agent_timeout_seconds` + 600 s grace) and the
+  budget never extends time, so long budgets often end as `claim_deadline`.
+  That is normal, not a fault.
+- New stop reason `attempt_budget_exhausted` replaces `improvement_banked`,
+  `cold_attempt_budget_exhausted`, `gate_failed_exact_followup_budget_exhausted`
+  and `accepted_or_no_repair_reasons` in fresh data (old names appear only
+  in pre-v3 rows). Config keys in summaries are now `base_attempts` /
+  `bonus_attempts_per_improvement`.
+- The policy is worker-side code: worker-task children load the working
+  tree at spawn, so it is live from the next attempt with no scheduler
+  restart. Mid-epoch, workers spawned before and after the change coexist;
+  the first fully-v3 epoch is the one to watch for slot starvation (all
+  slots held by long-budget workers while admitted targets queue — report
+  it; do not kill productive workers for it).
 
 What is not healthy — act immediately:
 - `sched=0` while `run=active` → §5.7.
@@ -279,9 +308,13 @@ pre-commit run clang-tidy --files <changed>; pre-commit run clang-format --files
 8. **Tail livelock** — the last N targets cycle full-timeout attempts, or
    admitted targets have no job (usually same-file exclusivity: open targets
    clustered behind active claims — check with a distinct-source_path count;
-   that is by design, not a fault). Give each remaining target ≥2 rounds at
-   the configured thinking level, then close the tail (precedent: Ford,
-   epochs 5–12):
+   that is by design, not a fault). Since `attempt_budget_v3` (§3) a tail
+   worker that keeps earning +2 grants legitimately runs to its claim
+   deadline — check `improvementGrants` in its latest attempt gate before
+   calling it livelocked: grants accruing = progress; zero grants across
+   full-timeout attempts = the old pattern. Give each remaining target ≥2
+   rounds at the configured thinking level, then close the tail (precedent:
+   Ford, epochs 5–12):
    ```bash
    EP=$(sqlite3 $DB "SELECT id FROM epochs WHERE run_id='$RUN' AND ordinal=<N>"); NOW=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
    sqlite3 $DB "BEGIN IMMEDIATE;

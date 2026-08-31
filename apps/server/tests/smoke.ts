@@ -1571,30 +1571,13 @@ async function main(): Promise<void> {
   };
   const kernelAgents = Array.isArray(kernelAgentsPayload.agents) ? kernelAgentsPayload.agents : [];
   const kernelWorker = kernelAgents.find((agent) => agent.name === "worker");
-  const kernelIntegrationResolver = kernelAgents.find((agent) => agent.name === "integration-resolver");
   const kernelWorkerPrompt = kernelWorker?.renderedPrompt?.content ?? "";
   const kernelWorkerContext = kernelWorker?.context?.renderedContext ?? "";
-  const kernelIntegrationResolverPrompt = kernelIntegrationResolver?.renderedPrompt?.content ?? "";
-  const kernelIntegrationResolverContext = kernelIntegrationResolver?.context?.renderedContext ?? "";
   const kernelWorkerJson = JSON.stringify(kernelWorker ?? {});
   assertSmoke("dashboard kernel agents endpoint responds", kernelAgentsResponse.ok);
   assertSmoke("dashboard kernel agents endpoint renders all migrated agents", kernelAgents.length === 3);
   assertSmoke("dashboard kernel agents endpoint has no warnings", (kernelAgentsPayload.warnings ?? []).length === 0);
   assertSmoke("dashboard kernel worker catalog entry exists", Boolean(kernelWorker));
-  assertSmoke(
-    "dashboard kernel integration resolver catalog entry exists",
-    Boolean(kernelIntegrationResolver) &&
-      kernelIntegrationResolver?.group === "running" &&
-      kernelIntegrationResolver?.agentFile === "apps/server/src/core/agent-catalog/agents/running/integration-resolver/agent.ts",
-  );
-  assertSmoke(
-    "dashboard kernel integration resolver catalog has conflict queue context",
-    kernelIntegrationResolverContext.includes("<integration_conflict_item>") &&
-      kernelIntegrationResolverContext.includes("kernel-viewer-integration-conflict") &&
-      kernelIntegrationResolverContext.includes("src/melee/ft/chara/ftDemo.c") &&
-      kernelIntegrationResolverPrompt.includes("worker-output integration conflict") &&
-      !`${kernelIntegrationResolverPrompt}\n${kernelIntegrationResolverContext}`.includes("{{"),
-  );
   assertSmoke("dashboard kernel worker catalog exposes attached tools out of prompt", (kernelWorker?.tools ?? []).length === defaultWorkerToolProfile.length);
   assertSmoke(
     "dashboard kernel worker catalog has no raw placeholders",

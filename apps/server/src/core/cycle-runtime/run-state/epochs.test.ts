@@ -12,7 +12,6 @@ import {
   closeSchedulerEpoch,
   closeWorkerState as closeWorkerStateRaw,
   enqueueWorkerOutputIntegration,
-  nextWorkerOutputIntegrationConflictForResolver,
   recordWorkerCheckpoint as recordWorkerCheckpointRaw,
   refreshEpochTargetAvailability,
   reconcileEpochTargetJobs,
@@ -1103,8 +1102,6 @@ describe("scheduler epoch and worker state lifecycle", () => {
       expect(typeof row.item_path).toBe("string");
       expect(existsSync(String(row.item_path))).toBe(true);
       expect(readFileSync(String(row.item_path), "utf8")).toContain("\"schema_version\": \"integration_conflict_item_v1\"");
-      expect(nextWorkerOutputIntegrationConflictForResolver(store, run.id)?.id).toBe(item.id);
-      expect(nextWorkerOutputIntegrationConflictForResolver(store, run.id, [item.id])).toBeNull();
       expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 2;\n");
       expect(count(store, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND event_type = 'worker_integration_conflict'", run.id)).toBe(1);
     } finally {

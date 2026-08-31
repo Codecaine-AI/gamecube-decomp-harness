@@ -13,7 +13,6 @@ import { mwccDebugCompilerProvisioned } from "./mwcc-debug-capability.js";
 
 const evidenceToolRoles = [
   "worker",
-  "integration-resolver",
   "pr-splitter",
   "librarian",
   "reconcile",

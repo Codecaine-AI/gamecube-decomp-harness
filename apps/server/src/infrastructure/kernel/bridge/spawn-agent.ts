@@ -128,7 +128,7 @@ export function parsedAgentForMeleeKernelSpawn(
   piOptions: PiRunOptions,
   spawnOptions?: MeleeKernelSpawnOptions,
 ): ParsedAgent {
-  const sourceEditingRoles = new Set(["worker", "integration-resolver", "pr-fixer", "qa-repair", "reconcile"]);
+  const sourceEditingRoles = new Set(["worker", "pr-fixer", "qa-repair", "reconcile"]);
   const sourceEditingCoreTools = sourceEditingRoles.has(piOptions.role)
     ? ["read", "glob", "grep", "bash", "edit", "write"]
     : [];

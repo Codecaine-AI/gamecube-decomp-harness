@@ -23,10 +23,8 @@ import {
   boundaryRetryRest,
   launchBoundaryRetryIfDue,
   createKnowledgeMaintenanceClock,
-  integrationResolverLockPaths,
   sandboxSleepConfigFromArgs,
   selectRunLoopSchedulerCondition,
-  selectIntegrationResolverBatch,
   shouldEvaluateEpochBoundary,
   waitForRestingTrigger,
   workerJobClaimRecoveryFilters,
@@ -327,79 +325,5 @@ describe("boundary retry resting wake", () => {
     } finally {
       store.db.close();
     }
-  });
-});
-
-describe("integrationResolverLockPaths", () => {
-  test("locks on write-set and real conflict paths while ignoring apply noise", () => {
-    expect(
-      integrationResolverLockPaths({
-        id: "item-1",
-        targetKey: "unit::fn",
-        writeSet: ["src/a.c"],
-        conflictPaths: ["patch failed", "src/a.c", "src/b.c"],
-      }),
-    ).toEqual(["src/a.c", "src/b.c"]);
-  });
-
-  test("falls back to target key when no path-like values are available", () => {
-    expect(
-      integrationResolverLockPaths({
-        id: "item-1",
-        targetKey: "unit::fn",
-        writeSet: [],
-        conflictPaths: ["patch failed"],
-      }),
-    ).toEqual(["unit::fn"]);
-  });
-});
-
-describe("selectIntegrationResolverBatch", () => {
-  const resolverRecord = (id: string, writeSet: string[], conflictPaths: string[] = []) => ({
-    id,
-    targetKey: `unit::${id}`,
-    writeSet,
-    conflictPaths,
-  });
-
-  test("fills available concurrency slots with different-file conflicts", () => {
-    const selected = selectIntegrationResolverBatch({
-      candidates: [
-        resolverRecord("item-1", ["src/a.c"]),
-        resolverRecord("item-2", ["src/b.c"]),
-        resolverRecord("item-3", ["src/c.c"]),
-        resolverRecord("item-4", ["src/d.c"]),
-        resolverRecord("item-5", ["src/e.c"]),
-      ],
-      concurrency: 4,
-    });
-
-    expect(selected.map((item) => item.record.id)).toEqual(["item-1", "item-2", "item-3", "item-4"]);
-    expect(selected.map((item) => item.lockPaths)).toEqual([["src/a.c"], ["src/b.c"], ["src/c.c"], ["src/d.c"]]);
-  });
-
-  test("skips conflicts that touch already-running lock paths", () => {
-    const selected = selectIntegrationResolverBatch({
-      candidates: [resolverRecord("item-1", ["src/a.c"]), resolverRecord("item-2", ["src/b.c"]), resolverRecord("item-3", ["src/c.c"])],
-      activeLockPaths: ["src/a.c"],
-      concurrency: 4,
-      runningCount: 1,
-    });
-
-    expect(selected.map((item) => item.record.id)).toEqual(["item-2", "item-3"]);
-  });
-
-  test("does not launch two resolver agents for the same file in one batch", () => {
-    const selected = selectIntegrationResolverBatch({
-      candidates: [
-        resolverRecord("item-1", ["src/a.c"]),
-        resolverRecord("item-2", ["src/a.c"]),
-        resolverRecord("item-3", ["src/b.c"]),
-        resolverRecord("item-4", ["src/c.c"]),
-      ],
-      concurrency: 4,
-    });
-
-    expect(selected.map((item) => item.record.id)).toEqual(["item-1", "item-3", "item-4"]);
   });
 });

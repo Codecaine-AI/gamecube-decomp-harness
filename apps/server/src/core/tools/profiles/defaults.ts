@@ -44,22 +44,6 @@ export const defaultWorkerToolProfile = [
   "review_lint_sdata2_order_helper",
 ] as const;
 
-/** Default integration resolver tools attached to worker-output conflict queue launches. */
-export const defaultIntegrationResolverToolProfile = [
-  "code_graph_file_card",
-  "code_graph_search",
-  "knowledge_graph_search",
-  "past_prs_search",
-  "checkdiff_run",
-  "checkdiff_summary",
-  "direct_compile_tu",
-  "objdiff_score_candidate",
-  "source_mutation_preview",
-  "type_oracle_lookup",
-  "include_fixer_preview",
-  "review_lint_scan",
-] as const;
-
 /** Default PR splitter tools attached to handoff planning launches. */
 export const defaultPrSplitterToolProfile = [
   "code_graph_search",

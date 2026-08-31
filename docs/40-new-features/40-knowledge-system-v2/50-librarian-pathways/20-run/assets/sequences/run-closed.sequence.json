@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "id": "run-closed",
+  "title": "Run closed: summarize, then index",
+  "participants": [
+    { "id": "run-loop", "name": "run-loop", "kind": "actor" },
+    { "id": "worker", "name": "worker", "kind": "actor" },
+    { "id": "summarizer", "name": "summarizer", "kind": "participant", "label": "Worker summarizer" },
+    { "id": "ledger", "name": "ledger", "kind": "participant", "label": "worker_run + submission" },
+    { "id": "event", "name": "event", "kind": "participant", "label": "event + event_ref" },
+    { "id": "index-queue", "name": "index queue", "kind": "participant" },
+    { "id": "librarian", "name": "librarian", "kind": "participant" },
+    { "id": "resolver", "name": "resolver", "kind": "participant" },
+    { "id": "graph", "name": "graph records", "kind": "participant" }
+  ],
+  "items": [
+    { "kind": "message", "id": "runclosed-m1", "from": "run-loop", "to": "worker", "line": "sync", "text": "launch on target" },
+    { "kind": "message", "id": "runclosed-m2", "from": "worker", "to": "run-loop", "line": "return", "text": "run closes: scored submissions in run state" },
+    {
+      "kind": "fragment",
+      "id": "runclosed-f0",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "integration conflicts",
+          "items": [
+            { "kind": "message", "id": "runclosed-m2a", "from": "run-loop", "to": "event", "line": "async", "text": "insert regression event (cause merge_conflict); re-queue target for next epoch" }
+          ]
+        }
+      ]
+    },
+    { "kind": "message", "id": "runclosed-m3", "from": "run-loop", "to": "summarizer", "line": "async", "text": "enqueue transcript and checkpoint data" },
+    { "kind": "message", "id": "runclosed-m4", "from": "summarizer", "to": "ledger", "line": "sync", "text": "write run object: narrative from the transcript, scores joined mechanically" },
+    { "kind": "message", "id": "runclosed-m5", "from": "summarizer", "to": "index-queue", "line": "sync", "text": "enqueue run_closed task" },
+    { "kind": "message", "id": "runclosed-m6", "from": "index-queue", "to": "librarian", "line": "sync", "text": "claim run_closed task" },
+    { "kind": "message", "id": "runclosed-m7", "from": "librarian", "to": "ledger", "line": "sync", "text": "read run object and submissions" },
+    { "kind": "message", "id": "runclosed-m8", "from": "librarian", "to": "graph", "line": "sync", "text": "search sources for corroboration" },
+    {
+      "kind": "fragment",
+      "id": "runclosed-f1",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "nothing learned changes facts",
+          "items": [
+            { "kind": "message", "id": "runclosed-m9", "from": "librarian", "to": "index-queue", "line": "return", "text": "mark task done with no writes" }
+          ]
+        }
+      ]
+    },
+    { "kind": "message", "id": "runclosed-m10", "from": "librarian", "to": "resolver", "line": "sync", "text": "fact overwrites citing attempt:// submissions" },
+    { "kind": "message", "id": "runclosed-m11", "from": "resolver", "to": "graph", "line": "sync", "text": "validated writes" },
+    { "kind": "message", "id": "runclosed-m12", "from": "librarian", "to": "index-queue", "line": "return", "text": "task done, subject cursor stamped" }
+  ],
+  "style": {}
+}

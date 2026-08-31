@@ -15,9 +15,8 @@ import {
   isRetryableWorkerPiSessionFailure,
   isWorkerPiContextLengthFailure,
   isWorkerSessionTimeoutFailure,
-  shouldRequestWorkerRepairAfterAttempt,
   shouldRunRunnerValidationForWorkerSession,
-  WORKER_ATTEMPT_TAIL_POLICY,
+  WORKER_ATTEMPT_BUDGET_POLICY,
   WORKER_PI_CONTEXT_RETRY_POLICY,
   WORKER_PI_SESSION_RETRY_POLICY,
   workerContinuationDecision,
@@ -375,31 +374,6 @@ describe("out-of-write-set change detection", () => {
   });
 });
 
-describe("shouldRequestWorkerRepairAfterAttempt", () => {
-  test("an exact score with QA lint failure still gets a repair attempt", () => {
-    const validation = rejectedValidation(violationsQaLint());
-    const repairReasons = workerAttemptRepairReasons({ runnerValidation: validation });
-    expect(validation.target?.exact).toBe(true);
-    expect(shouldRequestWorkerRepairAfterAttempt({ repairReasons, dryRun: false, claimDeadlineMs: Date.now() + 60_000 })).toBe(true);
-  });
-
-  test("accepted attempts, expired claim deadlines, and dry-run attempts do not continue", () => {
-    expect(shouldRequestWorkerRepairAfterAttempt({ repairReasons: [], dryRun: false, claimDeadlineMs: Date.now() + 60_000 })).toBe(false);
-    expect(shouldRequestWorkerRepairAfterAttempt({ repairReasons: ["runner validation: failed"], dryRun: false, claimDeadlineMs: Date.now() - 1 })).toBe(false);
-    expect(shouldRequestWorkerRepairAfterAttempt({ repairReasons: ["runner validation: failed"], dryRun: true, claimDeadlineMs: Date.now() + 60_000 })).toBe(false);
-  });
-
-  test("the basic repair gate stays open while the claim deadline is open", () => {
-    expect(
-      shouldRequestWorkerRepairAfterAttempt({
-        repairReasons: ["runner validation: failed"],
-        dryRun: false,
-        claimDeadlineMs: Date.now() + 60_000,
-      }),
-    ).toBe(true);
-  });
-});
-
 describe("shouldRunRunnerValidationForWorkerSession", () => {
   test("runs validation for returned worker cycles regardless of agent-authored tool notes", () => {
     const agentToolErrors = classifyWorkerError({
@@ -571,7 +545,7 @@ describe("workerPiContextRetryDecision", () => {
 describe("workerContinuationDecision", () => {
   const futureDeadline = Date.now() + 60_000;
 
-  test("stops cold workers after the fifth human attempt when nothing improved", () => {
+  test("stops at the base budget when no checkpoint improves", () => {
     const checkpoints = [0, 1, 2, 3, 4].map((attempt) => continuationCheckpoint(attempt));
     const decision = workerContinuationDecision({
       attemptIndex: 4,
@@ -583,11 +557,14 @@ describe("workerContinuationDecision", () => {
 
     expect(decision.shouldContinue).toBe(false);
     expect(decision.exhausted).toBe(true);
-    expect(decision.stopReason).toBe("cold_attempt_budget_exhausted");
-    expect(decision.humanAttempt).toBe(WORKER_ATTEMPT_TAIL_POLICY.maxColdAttempts);
+    expect(decision.stopReason).toBe("attempt_budget_exhausted");
+    expect(decision.humanAttempt).toBe(WORKER_ATTEMPT_BUDGET_POLICY.baseAttempts);
+    expect(decision.policy).toBe("attempt_budget_v3");
+    expect(decision.improvementGrants).toBe(0);
+    expect(decision.attemptBudget).toBe(5);
   });
 
-  test("continues before the cold attempt budget is exhausted", () => {
+  test("continues while the base budget remains", () => {
     const checkpoints = [0, 1, 2, 3].map((attempt) => continuationCheckpoint(attempt));
     const decision = workerContinuationDecision({
       attemptIndex: 3,
@@ -598,113 +575,109 @@ describe("workerContinuationDecision", () => {
     });
 
     expect(decision.shouldContinue).toBe(true);
-    expect(decision.continueReason).toBe("cold_attempt_budget_available");
+    expect(decision.continueReason).toBe("attempt_budget_available");
+    expect(decision.attemptBudget).toBe(5);
   });
 
-  test("banks a selectable improvement immediately even with unresolved repair reasons", () => {
+  test("adds two attempts for each strictly better selectable checkpoint", () => {
     const checkpoints = [
-      continuationCheckpoint(0),
-      continuationCheckpoint(1, { hardGatesPassed: true, selectable: true, newScore: 81 }),
-    ];
-    const decision = workerContinuationDecision({
-      attemptIndex: 1,
-      checkpoints,
-      repairReasons: ["runner validation: build failed"],
-      dryRun: false,
-      claimDeadlineMs: futureDeadline,
-    });
-
-    expect(decision.shouldContinue).toBe(false);
-    expect(decision.exhausted).toBe(false);
-    expect(decision.stopReason).toBe("improvement_banked");
-    expect(decision.latestBestAttemptIndex).toBe(1);
-  });
-
-  test("banks a selectable improvement when there are no repair reasons", () => {
-    const checkpoints = [
-      continuationCheckpoint(0),
-      continuationCheckpoint(1, { hardGatesPassed: true, selectable: true, newScore: 81 }),
-    ];
-    const decision = workerContinuationDecision({
-      attemptIndex: 1,
-      checkpoints,
-      repairReasons: [],
-      dryRun: false,
-      claimDeadlineMs: futureDeadline,
-    });
-
-    expect(decision.shouldContinue).toBe(false);
-    expect(decision.exhausted).toBe(false);
-    expect(decision.stopReason).toBe("improvement_banked");
-  });
-
-  test("keeps the plain stop reason when there are no repair reasons and no best checkpoint", () => {
-    const checkpoints = [continuationCheckpoint(0)];
-    const decision = workerContinuationDecision({
-      attemptIndex: 0,
-      checkpoints,
-      repairReasons: [],
-      dryRun: false,
-      claimDeadlineMs: futureDeadline,
-    });
-
-    expect(decision.shouldContinue).toBe(false);
-    expect(decision.exhausted).toBe(false);
-    expect(decision.stopReason).toBe("accepted_or_no_repair_reasons");
-  });
-
-  test("accepted exact checkpoints stop immediately", () => {
-    const decision = workerContinuationDecision({
-      attemptIndex: 1,
-      checkpoints: [continuationCheckpoint(1, { exactMatch: true, hardGatesPassed: true, selectable: true, newScore: 100 })],
-      repairReasons: ["runner validation: build failed"],
-      dryRun: false,
-      claimDeadlineMs: futureDeadline,
-    });
-
-    expect(decision.shouldContinue).toBe(false);
-    expect(decision.stopReason).toBe("accepted_exact");
-  });
-
-  test("exact score with failed gates gets bounded gate repair after the cold budget", () => {
-    const checkpoints = [
-      continuationCheckpoint(0),
-      continuationCheckpoint(1),
-      continuationCheckpoint(2),
-      continuationCheckpoint(3),
-      continuationCheckpoint(4, { exactMatch: true, hardGatesPassed: false, selectable: false, newScore: 100 }),
+      continuationCheckpoint(0, { hardGatesPassed: true, selectable: true, newScore: 81 }),
+      continuationCheckpoint(3, { hardGatesPassed: true, selectable: true, newScore: 82 }),
     ];
     const decision = workerContinuationDecision({
       attemptIndex: 4,
       checkpoints,
-      repairReasons: ["runner validation: qa lint failed"],
+      repairReasons: [],
       dryRun: false,
       claimDeadlineMs: futureDeadline,
     });
 
     expect(decision.shouldContinue).toBe(true);
-    expect(decision.continueReason).toBe("gate_failed_exact_repair");
+    expect(decision.improvementGrants).toBe(2);
+    expect(decision.attemptBudget).toBe(9);
+    expect(decision.latestBestAttemptIndex).toBe(3);
+    expect(decision.latestBestScore).toBe(82);
   });
 
-  test("failed-gate exact repair stops after three follow-up attempts", () => {
+  test("a selectable score below the running best does not grant more budget", () => {
+    const checkpoints = [
+      continuationCheckpoint(0, { hardGatesPassed: true, selectable: true, newScore: 81 }),
+      continuationCheckpoint(1, { hardGatesPassed: true, selectable: true, newScore: 80 }),
+    ];
+    const decision = workerContinuationDecision({
+      attemptIndex: 4,
+      checkpoints,
+      repairReasons: [],
+      dryRun: false,
+      claimDeadlineMs: futureDeadline,
+    });
+
+    expect(decision.shouldContinue).toBe(true);
+    expect(decision.improvementGrants).toBe(1);
+    expect(decision.attemptBudget).toBe(7);
+    expect(decision.latestBestAttemptIndex).toBe(0);
+  });
+
+  test("a gate-failed exact grants budget once even when repeated", () => {
     const checkpoints = [
       continuationCheckpoint(4, { exactMatch: true, hardGatesPassed: false, selectable: false, newScore: 100 }),
       continuationCheckpoint(5, { exactMatch: true, hardGatesPassed: false, selectable: false, newScore: 100 }),
-      continuationCheckpoint(6, { exactMatch: true, hardGatesPassed: false, selectable: false, newScore: 100 }),
-      continuationCheckpoint(7, { exactMatch: true, hardGatesPassed: false, selectable: false, newScore: 100 }),
     ];
     const decision = workerContinuationDecision({
-      attemptIndex: 7,
+      attemptIndex: 5,
       checkpoints,
-      repairReasons: ["runner validation: qa lint failed"],
+      repairReasons: [],
+      dryRun: false,
+      claimDeadlineMs: futureDeadline,
+    });
+
+    expect(decision.shouldContinue).toBe(true);
+    expect(decision.improvementGrants).toBe(1);
+    expect(decision.attemptBudget).toBe(7);
+    expect(decision.latestBestAttemptIndex).toBeNull();
+  });
+
+  test("accepted exact stops even when the budget is exhausted", () => {
+    const decision = workerContinuationDecision({
+      attemptIndex: 8,
+      checkpoints: [continuationCheckpoint(8, { exactMatch: true, hardGatesPassed: true, selectable: true, newScore: 100 })],
+      repairReasons: ["runner validation: build failed"],
       dryRun: false,
       claimDeadlineMs: futureDeadline,
     });
 
     expect(decision.shouldContinue).toBe(false);
-    expect(decision.exhausted).toBe(true);
-    expect(decision.stopReason).toBe("gate_failed_exact_followup_budget_exhausted");
-    expect(decision.followUpsSinceFailedGateExact).toBe(3);
+    expect(decision.exhausted).toBe(false);
+    expect(decision.stopReason).toBe("accepted_exact");
+  });
+
+  test("an expired claim deadline stops even without repair reasons", () => {
+    const decision = workerContinuationDecision({
+      attemptIndex: 0,
+      checkpoints: [],
+      repairReasons: [],
+      dryRun: false,
+      claimDeadlineMs: Date.now() - 1,
+    });
+
+    expect(decision.shouldContinue).toBe(false);
+    expect(decision.exhausted).toBe(false);
+    expect(decision.stopReason).toBe("claim_deadline");
+    expect(decision.stoppedByDeadline).toBe(true);
+  });
+
+  test("dry run stops before checking the remaining budget", () => {
+    const decision = workerContinuationDecision({
+      attemptIndex: 0,
+      checkpoints: [],
+      repairReasons: [],
+      dryRun: true,
+      claimDeadlineMs: futureDeadline,
+    });
+
+    expect(decision.shouldContinue).toBe(false);
+    expect(decision.exhausted).toBe(false);
+    expect(decision.stopReason).toBe("dry_run");
   });
 });
 

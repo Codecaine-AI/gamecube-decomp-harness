@@ -1,0 +1,581 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-6630e8c58d475e40169658c7ef2c07b0",
+  "title": "PR Imported",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ks2-path-pr-intro",
+        "b-ks2-path-pr-agents-heading",
+        "b-ks2-path-pr-agents-table",
+        "b-ks2-path-pr-librarian-heading",
+        "b-ks2-path-pr-librarian-reads",
+        "b-ks2-path-pr-librarian-writes",
+        "b-ks2-path-pr-coverage-heading",
+        "b-ks2-path-pr-coverage-p",
+        "b-ks2-path-pr-related-heading",
+        "b-ks2-path-pr-related-overview",
+        "b-ks2-path-pr-related-sync",
+        "b-ks2-path-pr-related-ledger",
+        "b-ks2-path-pr-related-source",
+        "b-ks2-path-pr-related-fact",
+        "b-ks2-path-pr-related-evidence"
+      ]
+    },
+    "b-ks2-path-pr-intro": {
+      "id": "b-ks2-path-pr-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "PR IMPORTED — The pr pathway ("
+        },
+        {
+          "insert": "index_task.pathway",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "pr_imported",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). Fires when the PR importer — a small preprocessing agent — imports an external pull request. The importer archives the raw PR and its discussion into the "
+        },
+        {
+          "insert": "pr://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " source and reconstructs the "
+        },
+        {
+          "insert": "pull_request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ledger row — touched files and targets, outcome, summary — through the same summary prompt the worker summary agent uses; no worker trace exists, so the row is a deduction from diff and discussion, never a fabricated trace. Pure enrichment: the librarian starts from what the PR touched, and the importer never writes facts. The librarian maps the diff to the targets and files it touched and updates their facts, citing "
+        },
+        {
+          "insert": "pr://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-agents-heading": {
+      "id": "b-ks2-path-pr-agents-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Agents called"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-agents-table": {
+      "id": "b-ks2-path-pr-agents-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Order",
+          "Agent",
+          "Does"
+        ],
+        "rows": [
+          [
+            "1",
+            "PR importer",
+            [
+              {
+                "insert": "A small preprocessing agent: archives the PR and its discussion as archival source rows; reconstructs the "
+              },
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ledger row — touched files and targets, outcome, summary — through the same summary prompt the worker summary agent uses; advances the "
+              },
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " watermark; enqueues the index task. A deterministic pipeline around that one prompt; pure enrichment, never a fact writer"
+              }
+            ]
+          ],
+          [
+            "2",
+            "Librarian",
+            [
+              {
+                "insert": "Consumes the task: maps the diff to touched targets and files, reads the archived discussion, overwrites the affected live "
+              },
+              {
+                "insert": "fact",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows citing "
+              },
+              {
+                "insert": "pr://",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-path-pr-librarian-heading": {
+      "id": "b-ks2-path-pr-librarian-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Librarian operation"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-librarian-reads": {
+      "id": "b-ks2-path-pr-librarian-reads",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The librarian reads the "
+        },
+        {
+          "insert": "pull_request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ledger row and the archived PR behind it. The subjects are the targets the diff touched, plus the "
+        },
+        {
+          "insert": "file",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "struct",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " entities the change reaches — mechanical rows the entity extractor has already inserted. Search: the structured PR surface (touched file/target, author) scopes the read, keyword over title, body, and archived discussion plus vector over discussion chunks surface what the discussion argued, and the code graph confirms what the diff changed in the checkout. The discussion is where PR knowledge concentrates — a maintainer explaining why an idiom matches is worth more than the diff alone."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-librarian-writes": {
+      "id": "b-ks2-path-pr-librarian-writes",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every write goes through the resolver. The affected live "
+        },
+        {
+          "insert": "fact",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows are overwritten in place, "
+        },
+        {
+          "insert": "evidence",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows replaced wholesale — "
+        },
+        {
+          "insert": "pr://<pull_request.id>[/comment/<n>]",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locators into the row and the specific comments each claim stands on, with code-graph corroboration cited as "
+        },
+        {
+          "insert": "code://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " where the checkout shows it. A discussion that connects subjects can add curated "
+        },
+        {
+          "insert": "link",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows. The "
+        },
+        {
+          "insert": "pull_request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row itself is immutable after capture; the librarian never edits it."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-coverage-heading": {
+      "id": "b-ks2-path-pr-coverage-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Coverage"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-coverage-p": {
+      "id": "b-ks2-path-pr-coverage-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The PR importer advances the "
+        },
+        {
+          "insert": "pr",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row of "
+        },
+        {
+          "insert": "source_watermark",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — "
+        },
+        {
+          "insert": "position",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the imported PR number — and inserts one "
+        },
+        {
+          "insert": "index_task",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with "
+        },
+        {
+          "insert": "pathway",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "pr_imported",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and a "
+        },
+        {
+          "insert": "payload",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " naming the "
+        },
+        {
+          "insert": "pull_request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row. The librarian claims and completes the task by its timestamps and stamps "
+        },
+        {
+          "insert": "subject_index_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for each touched target and entity it passed over. PRs archived but not yet consumed are exactly the "
+        },
+        {
+          "insert": "pr_imported",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " tasks without "
+        },
+        {
+          "insert": "done_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-related-heading": {
+      "id": "b-ks2-path-pr-related-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-related-overview": {
+      "id": "b-ks2-path-pr-related-overview",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways",
+              "label": "Librarian Pathways"
+            }
+          }
+        },
+        {
+          "insert": " — the pathway table, the agent roster, and the "
+        },
+        {
+          "insert": "indexing_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " shapes this pathway writes through."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-related-sync": {
+      "id": "b-ks2-path-pr-related-sync",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync",
+              "label": "Sync"
+            }
+          }
+        },
+        {
+          "insert": " — the between-runs phase this pathway belongs to."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-related-ledger": {
+      "id": "b-ks2-path-pr-related-ledger",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Pull Requests",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/20-pull-requests",
+              "label": "Pull Requests"
+            }
+          }
+        },
+        {
+          "insert": " — the reconstructed "
+        },
+        {
+          "insert": "pull_request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ledger row and the summary-prompt reconstruction story."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-related-source": {
+      "id": "b-ks2-path-pr-related-source",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Pull Requests",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources/10-archival/20-pull-requests",
+              "label": "Pull Requests"
+            }
+          }
+        },
+        {
+          "insert": " — the archival source: what "
+        },
+        {
+          "insert": "pr://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " comment indices mean and the surface searched here."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-related-fact": {
+      "id": "b-ks2-path-pr-related-fact",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Fact",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact",
+              "label": "Fact"
+            }
+          }
+        },
+        {
+          "insert": " — the claim shape the librarian overwrites."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-pr-related-evidence": {
+      "id": "b-ks2-path-pr-related-evidence",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Evidence",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/30-evidence",
+              "label": "Evidence"
+            }
+          }
+        },
+        {
+          "insert": " — the fact-owned citation rows replaced wholesale on every overwrite."
+        }
+      ],
+      "children": []
+    }
+  }
+}

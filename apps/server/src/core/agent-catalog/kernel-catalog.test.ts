@@ -6,7 +6,6 @@ import { resolve } from "node:path";
 import type { PiPromptBundle } from "@server/core/shared/types";
 
 import {
-  integrationResolverPrompt,
   librarianPrompt,
   workerPrompt,
 } from "@server/core/agent-catalog";
@@ -55,34 +54,6 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         initialBoardPath: resolve(sampleStateDir, "board.json"),
         workerLogDir: resolve(sampleStateDir, "workers"),
         existingCanonicalToolPaths: new Set(),
-      });
-    case "integration-resolver":
-      return integrationResolverPrompt({
-        integrationItem: {
-          schema_version: "integration_conflict_item_v1",
-          id: "sample-integration-conflict",
-          conflict_group_id: "src-melee-ft-demo",
-          run_id: "sample-run",
-          epoch_id: "sample-epoch",
-          failed_apply: {
-            command: "git apply --check worker.patch",
-            stderr: "patch failed: src/melee/ft/chara/ftDemo.c:24",
-          },
-          worker_outputs: [
-            {
-              worker_state_id: "sample-worker-state",
-              checkpoint_id: "sample-checkpoint",
-              target: "GALE01:ftDemo::ftDemo_Target",
-              source_paths: ["src/melee/ft/chara/ftDemo.c"],
-              validation: { exact: true, hard_gates_passed: true },
-            },
-          ],
-          conflict_paths: ["src/melee/ft/chara/ftDemo.c"],
-          explicit_write_set: ["src/melee/ft/chara/ftDemo.c"],
-        },
-        queueSummary: { queued_items: 1, conflict_groups: 1 },
-        repoRoot: sampleRepoRoot,
-        stateDir: sampleStateDir,
       });
     case "librarian":
       return librarianPrompt({
@@ -161,8 +132,8 @@ describe("meleeKernelAgentCatalog", () => {
     const registeredIds = Object.keys(agentRegistry) as KernelAgentId[];
 
     expect(() => assertMeleeKernelCatalogComplete()).not.toThrow();
-    expect(KERNEL_AGENT_IDS).toHaveLength(4);
-    expect(meleeKernelAgentCatalog).toHaveLength(4);
+    expect(KERNEL_AGENT_IDS).toHaveLength(3);
+    expect(meleeKernelAgentCatalog).toHaveLength(3);
     expect([...KERNEL_AGENT_IDS].sort()).toEqual(registeredIds.sort());
     expect(new Set(meleeKernelAgentCatalog.map((entry) => entry.id)).size).toBe(meleeKernelAgentCatalog.length);
   });
@@ -299,7 +270,7 @@ describe("meleeKernelAgentCatalog", () => {
     const workerSummarizer = payload.agents.find((agent) => agent.name === "worker-summarizer");
     const summarizerRendered = `${workerSummarizer?.renderedPrompt?.content ?? ""}\n${workerSummarizer?.context?.renderedContext ?? ""}`;
 
-    expect(payload.agents).toHaveLength(4);
+    expect(payload.agents).toHaveLength(3);
     expect(payload.warnings).toEqual([]);
     expect(librarian?.tools).toEqual([...defaultLibrarianToolProfile]);
     expect(worker).toBeDefined();

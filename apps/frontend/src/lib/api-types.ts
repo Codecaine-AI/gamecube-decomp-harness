@@ -37,7 +37,6 @@ export interface FormState {
   graphDbPath: string;
   processName: string;
   maxWorkers: number;
-  integrationResolverConcurrency: number;
   agentTimeoutSeconds: number;
   goalValue: number;
   provider: string;
@@ -108,7 +107,6 @@ export interface RunConfigurationSnapshot extends JsonObject {
   provider?: string;
   thinking_level?: string;
   agent_timeout_seconds?: number;
-  integration_resolver_concurrency?: number;
 }
 
 export interface DashboardRun extends JsonObject {
@@ -360,7 +358,6 @@ export interface WorkerStateTrace extends JsonObject {
 
 export type PromptPreviewAgentId =
   | "worker"
-  | "integration-resolver"
   | "pr-reviewer"
   | "pr-splitter"
   | "librarian"

@@ -42,7 +42,6 @@ describe("run configuration form hydration", () => {
           provider: "codex-lb",
           thinking_level: "xhigh",
           agent_timeout_seconds: 1800,
-          integration_resolver_concurrency: 7,
         },
       },
     };
@@ -54,7 +53,6 @@ describe("run configuration form hydration", () => {
       provider: "codex-lb",
       thinkingLevel: "xhigh",
       agentTimeoutSeconds: 1800,
-      integrationResolverConcurrency: 7,
     });
   });
 

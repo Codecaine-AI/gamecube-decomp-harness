@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { resourceGraphDbPath } from "@server/core/knowledge";
 import { getHarnessState, heartbeatDispatch } from "@server/core/harness-state";
@@ -17,17 +16,15 @@ import {
   schedulableTargetCount,
   setRunSchedulerCondition,
   unhandledEventCount,
-  workerOutputIntegrationConflictsForResolver,
   borrowState,
   isStateStoreClosedError,
   stateStoreCloseInfo,
-  type WorkerOutputIntegrationRecord,
   type EpochProgressSummary,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
 import { withBusyRetry } from "@server/core/orchestrator-state";
 import type { EpochCycleResult } from "@server/core/cycle-runtime/phases/running/epochs";
-import { integrationResolve, processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration";
+import { processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration";
 import {
   booleanArg,
   numberArg,
@@ -99,11 +96,6 @@ interface EpochError {
   error: string;
 }
 
-interface IntegrationResolverError {
-  itemId: string;
-  error: string;
-}
-
 interface TargetPressureSnapshot {
   admittedTargets: number;
   activeWorkers: number;
@@ -152,8 +144,6 @@ export interface RunLoopResult {
   workerErrors: WorkerError[];
   knowledgeMaintenanceRuns: Record<string, unknown>[];
   knowledgeMaintenanceErrors: KnowledgeMaintenanceError[];
-  integrationResolverRuns: Record<string, unknown>[];
-  integrationResolverErrors: IntegrationResolverError[];
   integrationDrains: number;
   dryRun: boolean;
   finalStatus: {
@@ -253,59 +243,6 @@ export function epochBoundaryWorkPending(store: StateStore, runId: string, at = 
     !failedBoundary.terminal &&
     failedBoundary.finished >= failedBoundary.admitted &&
     (!failedBoundary.nextAttemptAt || Date.parse(failedBoundary.nextAttemptAt) <= at.getTime());
-}
-
-function autoIntegrationResolverEnabled(args: Map<string, string | true>): boolean {
-  return !booleanArg(args, "--no-integration-resolver");
-}
-
-function integrationResolverArgs(args: Map<string, string | true>, runId: string, record: WorkerOutputIntegrationRecord): Map<string, string | true> {
-  const itemPath = record.itemPath ?? "";
-  const queueSummaryPath = typeof record.metadata.queue_summary_path === "string" ? record.metadata.queue_summary_path : "";
-  const entries: [string, string | true][] = [
-    ["--run-id", runId],
-    ["--item-file", itemPath],
-  ];
-  if (queueSummaryPath && existsSync(queueSummaryPath)) entries.push(["--queue-summary-file", queueSummaryPath]);
-  return cloneArgs(args, entries);
-}
-
-function looksLikePath(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "patch failed") return false;
-  return trimmed.includes("/") || /\.[A-Za-z0-9_+-]+$/.test(trimmed);
-}
-
-export function integrationResolverLockPaths(record: Pick<WorkerOutputIntegrationRecord, "conflictPaths" | "id" | "targetKey" | "writeSet">): string[] {
-  const paths = [...record.writeSet, ...record.conflictPaths]
-    .map((path) => path.trim())
-    .filter(looksLikePath);
-  const unique = [...new Set(paths)];
-  return unique.length > 0 ? unique : [record.targetKey ?? record.id];
-}
-
-interface IntegrationResolverSelectionRecord extends Pick<WorkerOutputIntegrationRecord, "conflictPaths" | "id" | "targetKey" | "writeSet"> {}
-
-export function selectIntegrationResolverBatch<T extends IntegrationResolverSelectionRecord>(params: {
-  candidates: T[];
-  activeLockPaths?: Iterable<string>;
-  concurrency: number;
-  runningCount?: number;
-}): { record: T; lockPaths: string[] }[] {
-  const concurrency = Math.max(1, Math.floor(params.concurrency));
-  const runningCount = Math.max(0, Math.floor(params.runningCount ?? 0));
-  const slots = Math.max(0, concurrency - runningCount);
-  if (slots === 0) return [];
-  const activeLockPaths = new Set(params.activeLockPaths ?? []);
-  const selected: { record: T; lockPaths: string[] }[] = [];
-  for (const candidate of params.candidates) {
-    if (selected.length >= slots) break;
-    const lockPaths = integrationResolverLockPaths(candidate);
-    if (lockPaths.some((path) => activeLockPaths.has(path))) continue;
-    selected.push({ record: candidate, lockPaths });
-    for (const path of lockPaths) activeLockPaths.add(path);
-  }
-  return selected;
 }
 
 function knowledgeProgressReporter(
@@ -508,10 +445,6 @@ export async function runRunLoop(
   const schedulerResults: SchedulerTickResult[] = [];
   const knowledgeMaintenanceRuns: Record<string, unknown>[] = [];
   const knowledgeMaintenanceErrors: KnowledgeMaintenanceError[] = [];
-  const integrationResolverRuns: Record<string, unknown>[] = [];
-  const integrationResolverErrors: IntegrationResolverError[] = [];
-  const runningIntegrationResolvers = new Map<string, Promise<void>>();
-  const runningIntegrationResolverPaths = new Map<string, string[]>();
   let runningScheduler: Promise<void> | null = null;
   let runningKnowledgeMaintenance: Promise<void> | null = null;
   let stoppedReason = "running";
@@ -593,7 +526,6 @@ export async function runRunLoop(
     const idleSleepMs = numberArg(args, "--idle-sleep-ms", 5_000);
     const requestedMaxWorkers = numberArg(args, "--max-workers", run.desiredWorkers);
     const maxWorkers = Math.max(0, Math.min(run.desiredWorkers, requestedMaxWorkers));
-    const integrationResolverConcurrency = Math.max(1, Math.floor(numberArg(args, "--integration-resolver-concurrency", 4)));
     if (requestedMaxWorkers > run.desiredWorkers) {
       console.error(
         `[run-loop] --max-workers ${requestedMaxWorkers} exceeds run desired_workers ${run.desiredWorkers}; clamping to ${maxWorkers}. ` +
@@ -769,67 +701,13 @@ export async function runRunLoop(
           boundary: Boolean(
             runningEpoch ||
               runningKnowledgeMaintenance ||
-              runningIntegrationDrain ||
-              runningIntegrationResolvers.size > 0,
+              runningIntegrationDrain,
           ),
           planning: Boolean(runningScheduler),
           fallback,
         }),
       );
     };
-    const launchIntegrationResolver = (record: WorkerOutputIntegrationRecord, lockPaths: string[]): void => {
-      if (!record.itemPath || runningIntegrationResolvers.has(record.id)) return;
-      console.error(`[run-loop] resolving worker integration conflict ${record.id} (${record.targetKey ?? "unknown target"})`);
-      addEvent(store, runId, "worker_integration_resolver_started", "run-loop", {
-        id: record.id,
-        item_id: record.id,
-        item_path: record.itemPath,
-        lock_paths: lockPaths,
-        target_key: record.targetKey,
-        phase: "integration_resolver",
-        status: "started",
-        message: `integration resolver started for ${record.targetKey ?? record.id}`,
-        created_by: "run-loop",
-      });
-      let task: Promise<void>;
-      runningIntegrationResolverPaths.set(record.id, lockPaths);
-      task = integrationResolve(globals, integrationResolverArgs(args, runId, record))
-        .then((resolveOutcome) => {
-          integrationResolverRuns.push({
-            item_id: record.id,
-            lock_paths: lockPaths,
-            target_key: record.targetKey,
-            item_path: record.itemPath,
-            status: resolveOutcome.status,
-            resolved_commit: resolveOutcome.committedSha,
-          });
-          // A resolved conflict is committed harness-side; base new workers on it.
-          if (resolveOutcome.committedSha) workerCtx.baseRev = resolveOutcome.committedSha;
-        })
-        .catch((error) => {
-          const message = error instanceof Error ? error.message : String(error);
-          integrationResolverErrors.push({ itemId: record.id, error: message });
-          console.error(`[run-loop] integration resolver ${record.id} failed: ${message}`);
-          addEvent(store, runId, "worker_integration_resolver_failed", "run-loop", {
-            id: record.id,
-            item_id: record.id,
-            item_path: record.itemPath,
-            lock_paths: lockPaths,
-            target_key: record.targetKey,
-            phase: "integration_resolver",
-            status: "error",
-            message: `integration resolver failed for ${record.targetKey ?? record.id}: ${message.slice(0, 500)}`,
-            error: message.slice(0, 2000),
-            created_by: "run-loop",
-          });
-        })
-        .finally(() => {
-          runningIntegrationResolvers.delete(record.id);
-          runningIntegrationResolverPaths.delete(record.id);
-        });
-      runningIntegrationResolvers.set(record.id, task);
-    };
-
     while (!stopRequested) {
       const dispatchLease = heartbeatDispatch(store, {
         leaseId,
@@ -868,34 +746,8 @@ export async function runRunLoop(
       const boundaryWorkPendingBeforeMaintenance = epochBoundaryWorkPending(store, runId);
       const blockingIntegrationsBeforeMaintenance = blockingWorkerOutputIntegrationCount(store, runId);
 
-      // Resolvers run promptly alongside live workers: path locks fence them
-      // from each other, the epoch boundary is blocked while any resolver
-      // runs, and no boundary may be running when one launches.
-      if (
-        autoIntegrationResolverEnabled(args) &&
-        !runningEpoch &&
-        runningIntegrationResolvers.size < integrationResolverConcurrency
-      ) {
-        const activeLockPaths = new Set([...runningIntegrationResolverPaths.values()].flat());
-        const resolverItems = workerOutputIntegrationConflictsForResolver(store, runId, {
-          excludedIds: runningIntegrationResolvers.keys(),
-          limit: integrationResolverConcurrency * 4,
-        });
-        const resolverBatch = selectIntegrationResolverBatch({
-          candidates: resolverItems,
-          activeLockPaths,
-          concurrency: integrationResolverConcurrency,
-          runningCount: runningIntegrationResolvers.size,
-        });
-        for (const { record: resolverItem, lockPaths } of resolverBatch) {
-          launchIntegrationResolver(resolverItem, lockPaths);
-          didWork = true;
-        }
-      }
-
       if (
         !runningKnowledgeMaintenance &&
-        runningIntegrationResolvers.size === 0 &&
         !boundaryWorkPendingBeforeMaintenance &&
         blockingIntegrationsBeforeMaintenance === 0 &&
         knowledgeMaintenanceClock.isDue()
@@ -999,7 +851,7 @@ export async function runRunLoop(
       // the same iteration that settles the last worker starts a drain, and
       // the boundary's blocking-integration check would then throw a spurious
       // error epoch. The drain finishes fast; the next iteration launches.
-      if (epochCycleEnabled && runningIntegrationResolvers.size === 0 && !runningIntegrationDrain) {
+      if (epochCycleEnabled && !runningIntegrationDrain) {
         const boundaryError = boundaryErrorEpoch(store, runId);
         if (shouldEvaluateEpochBoundary({
           boundaryError: Boolean(boundaryError),
@@ -1129,14 +981,14 @@ export async function runRunLoop(
       }
 
       if (didWork || workerConsumer.inFlight() === 0) iterations += 1;
-      if (didWork || workerConsumer.inFlight() > 0 || runningEpoch || runningIntegrationDrain || runningIntegrationResolvers.size > 0) idleIterations = 0;
+      if (didWork || workerConsumer.inFlight() > 0 || runningEpoch || runningIntegrationDrain) idleIterations = 0;
       else idleIterations += 1;
 
       if (maxIdleIterations > 0 && idleIterations >= maxIdleIterations && unhandledEventCount(store, runId) === 0) {
         stoppedReason = "idle";
         break;
       }
-      if (maxIterations > 0 && iterations >= maxIterations && workerConsumer.inFlight() === 0 && !runningEpoch && !runningIntegrationDrain && pendingSettleWork.size === 0 && runningIntegrationResolvers.size === 0) {
+      if (maxIterations > 0 && iterations >= maxIterations && workerConsumer.inFlight() === 0 && !runningEpoch && !runningIntegrationDrain && pendingSettleWork.size === 0) {
         stoppedReason = "max_iterations";
         break;
       }
@@ -1154,7 +1006,6 @@ export async function runRunLoop(
         runningIntegrationDrain,
         runningKnowledgeMaintenance,
         runningScheduler,
-        ...runningIntegrationResolvers.values(),
       ]);
     }
 
@@ -1192,7 +1043,6 @@ export async function runRunLoop(
     }
     if (runningEpoch) await runningEpoch;
     if (runningScheduler) await runningScheduler;
-    if (runningIntegrationResolvers.size > 0) await Promise.allSettled([...runningIntegrationResolvers.values()]);
     if (runningKnowledgeMaintenance) await runningKnowledgeMaintenance;
     if (stoppedReason === "running") stoppedReason = "complete";
     const finalActiveSchedulerEpoch = activeSchedulerEpoch(store, runId);
@@ -1222,8 +1072,6 @@ export async function runRunLoop(
       workerErrors,
       knowledgeMaintenanceRuns,
       knowledgeMaintenanceErrors,
-      integrationResolverRuns,
-      integrationResolverErrors,
       integrationDrains,
       dryRun: globals.dryRunAgents,
       finalStatus: {

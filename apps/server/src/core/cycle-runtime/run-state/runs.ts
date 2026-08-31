@@ -570,7 +570,6 @@ export function createRun(
     epoch_configure_command: "",
     goal_kind: goalKind,
     goal_value: goalValue,
-    integration_resolver_concurrency: 4,
     model: "gpt-5.6-sol",
     provider: "codex-lb",
     sandbox_profile: "",

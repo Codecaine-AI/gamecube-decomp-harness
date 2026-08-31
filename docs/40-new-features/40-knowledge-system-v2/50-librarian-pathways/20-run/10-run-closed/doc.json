@@ -1,0 +1,686 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-b714e460bb82efc04b871f7de7ade5a8",
+  "title": "Run Closed",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ks2-path-run-intro",
+        "b-ks2-path-run-agents-heading",
+        "b-ks2-path-run-agents-table",
+        "b-ks2-path-run-conflict",
+        "b-ks2-path-run-librarian-heading",
+        "b-ks2-path-run-librarian-reads",
+        "b-ks2-path-run-librarian-writes",
+        "b-ks2-path-run-coverage-heading",
+        "b-ks2-path-run-coverage-p",
+        "b-ks2-path-run-related-heading",
+        "b-ks2-path-run-related-overview",
+        "b-ks2-path-run-related-worker-runs",
+        "b-ks2-path-run-related-attempts",
+        "b-ks2-path-run-related-regression",
+        "b-ks2-path-run-related-fact",
+        "b-ks2-path-run-related-evidence"
+      ]
+    },
+    "b-ks2-path-run-intro": {
+      "id": "b-ks2-path-run-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "RUN CLOSED — The attempt pathway ("
+        },
+        {
+          "insert": "index_task.pathway",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "run_closed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). Fires when a worker run closes. The worker summary agent runs once, from a single prompt, and writes the run object — the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row and its "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows: hypothesis, scored tries, outcomes — then enqueues an attempt index task. It summarizes and proposes; it never writes a fact — the librarian decides whether anything the run learned changes what is on the page."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-agents-heading": {
+      "id": "b-ks2-path-run-agents-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Agents called"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-agents-table": {
+      "id": "b-ks2-path-run-agents-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Order",
+          "Agent",
+          "Does"
+        ],
+        "rows": [
+          [
+            "1",
+            "Worker summary agent",
+            [
+              {
+                "insert": "At run close, from a single prompt: writes the "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row and its "
+              },
+              {
+                "insert": "submission",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows plus a fact proposal, advances the "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " watermark, enqueues the index task. Never writes facts"
+              }
+            ]
+          ],
+          [
+            "2",
+            "Librarian",
+            [
+              {
+                "insert": "Consumes the task: reads the run object and the proposal, decides per touched target or entity whether the facts change, searches the sources for corroboration, overwrites live "
+              },
+              {
+                "insert": "fact",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows with "
+              },
+              {
+                "insert": "attempt://",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " citations"
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-path-run-conflict": {
+      "id": "b-ks2-path-run-conflict",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "After close, integration either lands — "
+        },
+        {
+          "insert": "worker_run.integration",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "integrated",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — or conflicts: upstream moved, or another worker's merge landed first on the file. No agent resolves the conflict: the run-loop deterministically inserts a "
+        },
+        {
+          "insert": "regression",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " event with "
+        },
+        {
+          "insert": "cause",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "merge_conflict",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and re-queues the target for the next epoch, and the next worker picks up from the ledger. The summary agent runs in both cases — the knowledge is not wasted — and the librarian needs no extra pathway: the event flows through the regression pathway."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-librarian-heading": {
+      "id": "b-ks2-path-run-librarian-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Librarian operation"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-librarian-reads": {
+      "id": "b-ks2-path-run-librarian-reads",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The librarian reads the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row, its "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows, and the proposal, alongside the live "
+        },
+        {
+          "insert": "fact",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows for "
+        },
+        {
+          "insert": "worker_run.target_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The run's target is the subject first; a submission that leaned on a struct, a field, or a neighbouring function puts that entity's facts in scope too. Search runs against the source surfaces — the librarian is the only agent that does: the structured attempts query (target, outcome, score trajectory) is the first query, keyword over hypotheses and transcripts follows, the code graph checks a claim against the checkout, and archival keyword and vector search corroborate when the run's claims echo something Discord, a PR, or the wiki already said."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-librarian-writes": {
+      "id": "b-ks2-path-run-librarian-writes",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every write goes through the resolver. The affected live "
+        },
+        {
+          "insert": "fact",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows are overwritten in place, each fact's "
+        },
+        {
+          "insert": "evidence",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows replaced wholesale — "
+        },
+        {
+          "insert": "attempt://run/<worker_run.id>[/submission/<seq>]",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locators into the run and its scored tries, plus whatever corroboration the search returned. A run outcome never becomes a fact by itself, and a tested hypothesis that failed stays on the ledger side, citable later as "
+        },
+        {
+          "insert": "attempt://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " evidence. A resolution move that keeps recurring across runs may be filed as a "
+        },
+        {
+          "insert": "pattern",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " fact — the "
+        },
+        {
+          "insert": "pattern",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " entity is curated, and the librarian is its only writer."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-coverage-heading": {
+      "id": "b-ks2-path-run-coverage-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Coverage"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-coverage-p": {
+      "id": "b-ks2-path-run-coverage-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The summary agent advances the "
+        },
+        {
+          "insert": "attempt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row of "
+        },
+        {
+          "insert": "source_watermark",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — "
+        },
+        {
+          "insert": "position",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the closed run's id — and inserts one "
+        },
+        {
+          "insert": "index_task",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with "
+        },
+        {
+          "insert": "pathway",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "run_closed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and a "
+        },
+        {
+          "insert": "payload",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " naming the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row. The librarian claims the task ("
+        },
+        {
+          "insert": "started_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") and completes it ("
+        },
+        {
+          "insert": "done_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") — status is derived from the timestamps, there is no status column — and stamps "
+        },
+        {
+          "insert": "subject_index_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with a fresh "
+        },
+        {
+          "insert": "indexed_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for the run's target and any entity the pass covered. A run whose task has no "
+        },
+        {
+          "insert": "done_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is unprocessed by definition; nothing else tracks it."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-related-heading": {
+      "id": "b-ks2-path-run-related-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-related-overview": {
+      "id": "b-ks2-path-run-related-overview",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways",
+              "label": "Librarian Pathways"
+            }
+          }
+        },
+        {
+          "insert": " — the pathway table, the agent roster, and the "
+        },
+        {
+          "insert": "indexing_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " shapes this pathway writes through."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-related-worker-runs": {
+      "id": "b-ks2-path-run-related-worker-runs",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker Runs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/10-worker-runs",
+              "label": "Worker Runs"
+            }
+          }
+        },
+        {
+          "insert": " — the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " shapes, the summary-agent rules, and the proposal contract."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-related-attempts": {
+      "id": "b-ks2-path-run-related-attempts",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Attempts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources/20-operational/10-attempts",
+              "label": "Attempts"
+            }
+          }
+        },
+        {
+          "insert": " — the search surface queried here and the "
+        },
+        {
+          "insert": "attempt://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locators the new facts cite."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-related-regression": {
+      "id": "b-ks2-path-run-related-regression",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Regression",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/30-epoch-boundary/10-regression",
+              "label": "Regression"
+            }
+          }
+        },
+        {
+          "insert": " — the event pathway a conflicted integration's "
+        },
+        {
+          "insert": "regression",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " event flows through."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-related-fact": {
+      "id": "b-ks2-path-run-related-fact",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Fact",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact",
+              "label": "Fact"
+            }
+          }
+        },
+        {
+          "insert": " — the claim shape the librarian overwrites."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-related-evidence": {
+      "id": "b-ks2-path-run-related-evidence",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Evidence",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/30-evidence",
+              "label": "Evidence"
+            }
+          }
+        },
+        {
+          "insert": " — the fact-owned citation rows replaced wholesale on every overwrite."
+        }
+      ],
+      "children": []
+    }
+  }
+}

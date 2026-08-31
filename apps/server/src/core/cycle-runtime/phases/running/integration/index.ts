@@ -1,4 +1,3 @@
-export { integrationResolve } from "./integration-resolve.js";
 export {
   processWorkerOutputIntegrationQueue,
   type WorkerOutputIntegrationApplyResult,

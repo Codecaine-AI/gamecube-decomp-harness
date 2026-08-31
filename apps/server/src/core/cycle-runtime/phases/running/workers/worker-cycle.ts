@@ -426,17 +426,6 @@ export function workerAttemptRepairReasons(params: {
   return reasons;
 }
 
-export function shouldRequestWorkerRepairAfterAttempt(params: {
-  repairReasons: string[];
-  dryRun: boolean;
-  claimDeadlineMs?: number | null;
-  nowMs?: number;
-}): boolean {
-  if (params.repairReasons.length === 0 || params.dryRun) return false;
-  if (params.claimDeadlineMs != null && Number.isFinite(params.claimDeadlineMs) && params.claimDeadlineMs <= (params.nowMs ?? Date.now())) return false;
-  return true;
-}
-
 export const WORKER_PI_SESSION_RETRY_POLICY = {
   mode: "worker_pi_transient_cycle_retry_v1",
   maxTransientRetries: 1,
@@ -603,11 +592,10 @@ export function workerPiSessionRetryDecision(params: {
   };
 }
 
-export const WORKER_ATTEMPT_TAIL_POLICY = {
-  mode: "bounded_attempt_tail_v2",
-  maxColdAttempts: 5,
-  followUpAttemptsAfterBest: 0,
-  followUpAttemptsAfterGateFailedExact: 3,
+export const WORKER_ATTEMPT_BUDGET_POLICY = {
+  mode: "attempt_budget_v3",
+  baseAttempts: 5,
+  bonusAttemptsPerImprovement: 2,
 } as const;
 
 export const REPAIR_REQUEST_DIFF_INLINE_LIMIT = 30_000;
@@ -646,21 +634,19 @@ export async function buildRepairRequestInlineArtifacts(params: {
 }
 
 export interface WorkerContinuationDecision {
-  policy: typeof WORKER_ATTEMPT_TAIL_POLICY.mode;
+  policy: typeof WORKER_ATTEMPT_BUDGET_POLICY.mode;
   shouldContinue: boolean;
   exhausted: boolean;
   stopReason: string | null;
   continueReason: string | null;
   attemptIndex: number;
   humanAttempt: number;
-  maxColdAttempts: number;
-  followUpAttemptsAfterBest: number;
-  followUpAttemptsAfterGateFailedExact: number;
+  baseAttempts: number;
+  bonusAttemptsPerImprovement: number;
+  improvementGrants: number;
+  attemptBudget: number;
   latestBestAttemptIndex: number | null;
   latestBestScore: number | null;
-  failedGateExactAttemptIndex: number | null;
-  followUpsSinceBest: number | null;
-  followUpsSinceFailedGateExact: number | null;
   stoppedByDeadline: boolean;
   unresolvedRepairReasons: boolean;
   latestReasons: string[];
@@ -689,12 +675,6 @@ function latestBestSelectableCheckpoint(checkpoints: WorkerContinuationCheckpoin
   return { attemptIndex: bestAttemptIndex, score: bestScore };
 }
 
-function firstFailedGateExactAfterBest(checkpoints: WorkerContinuationCheckpoint[], bestAttemptIndex: number | null): number | null {
-  const afterAttemptIndex = bestAttemptIndex ?? -1;
-  const checkpoint = checkpoints.find((item) => item.attemptIndex > afterAttemptIndex && item.exactMatch && !item.hardGatesPassed);
-  return checkpoint?.attemptIndex ?? null;
-}
-
 export function workerContinuationDecision(params: {
   attemptIndex: number;
   checkpoints: WorkerContinuationCheckpoint[];
@@ -707,24 +687,38 @@ export function workerContinuationDecision(params: {
   const checkpoints = orderedContinuationCheckpoints(params.checkpoints, attemptIndex);
   const acceptedExact = checkpoints.some((checkpoint) => checkpoint.selectable && checkpoint.exactMatch && checkpoint.hardGatesPassed);
   const best = latestBestSelectableCheckpoint(checkpoints);
-  const failedGateExactAttemptIndex = firstFailedGateExactAfterBest(checkpoints, best.attemptIndex);
+  let improvementGrants = 0;
+  let bestQualifyingScore = Number.NEGATIVE_INFINITY;
+  for (const checkpoint of checkpoints) {
+    const finiteScore = checkpoint.newScore != null && Number.isFinite(checkpoint.newScore);
+    if ((!checkpoint.selectable || !finiteScore) && !checkpoint.exactMatch) continue;
+    const qualifyingScore = checkpoint.exactMatch
+      ? finiteScore
+        ? checkpoint.newScore as number
+        : Number.POSITIVE_INFINITY
+      : checkpoint.newScore as number;
+    if (qualifyingScore > bestQualifyingScore) {
+      bestQualifyingScore = qualifyingScore;
+      improvementGrants += 1;
+    }
+  }
+  const attemptBudget =
+    WORKER_ATTEMPT_BUDGET_POLICY.baseAttempts +
+    WORKER_ATTEMPT_BUDGET_POLICY.bonusAttemptsPerImprovement * improvementGrants;
   const stoppedByDeadline =
-    params.repairReasons.length > 0 &&
     params.claimDeadlineMs != null &&
     Number.isFinite(params.claimDeadlineMs) &&
     params.claimDeadlineMs <= (params.nowMs ?? Date.now());
   const base = {
-    policy: WORKER_ATTEMPT_TAIL_POLICY.mode,
+    policy: WORKER_ATTEMPT_BUDGET_POLICY.mode,
     attemptIndex,
     humanAttempt: attemptIndex + 1,
-    maxColdAttempts: WORKER_ATTEMPT_TAIL_POLICY.maxColdAttempts,
-    followUpAttemptsAfterBest: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterBest,
-    followUpAttemptsAfterGateFailedExact: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterGateFailedExact,
+    baseAttempts: WORKER_ATTEMPT_BUDGET_POLICY.baseAttempts,
+    bonusAttemptsPerImprovement: WORKER_ATTEMPT_BUDGET_POLICY.bonusAttemptsPerImprovement,
+    improvementGrants,
+    attemptBudget,
     latestBestAttemptIndex: best.attemptIndex,
     latestBestScore: best.score,
-    failedGateExactAttemptIndex,
-    followUpsSinceBest: best.attemptIndex == null ? null : attemptIndex - best.attemptIndex,
-    followUpsSinceFailedGateExact: failedGateExactAttemptIndex == null ? null : attemptIndex - failedGateExactAttemptIndex,
     stoppedByDeadline,
     unresolvedRepairReasons: params.repairReasons.length > 0,
     latestReasons: params.repairReasons,
@@ -746,29 +740,10 @@ export function workerContinuationDecision(params: {
   });
 
   if (acceptedExact) return stop("accepted_exact", false);
-  if (!shouldRequestWorkerRepairAfterAttempt(params)) {
-    if (params.dryRun) return stop("dry_run", false);
-    if (stoppedByDeadline) return stop("claim_deadline", false);
-    if (best.attemptIndex != null) return stop("improvement_banked", false);
-    return stop("accepted_or_no_repair_reasons", false);
-  }
-
-  if (failedGateExactAttemptIndex != null) {
-    const followUps = attemptIndex - failedGateExactAttemptIndex;
-    if (followUps >= WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterGateFailedExact) {
-      return stop("gate_failed_exact_followup_budget_exhausted", true);
-    }
-    return resume("gate_failed_exact_repair");
-  }
-
-  if (best.attemptIndex != null) {
-    return stop("improvement_banked", false);
-  }
-
-  if (attemptIndex + 1 >= WORKER_ATTEMPT_TAIL_POLICY.maxColdAttempts) {
-    return stop("cold_attempt_budget_exhausted", true);
-  }
-  return resume("cold_attempt_budget_available");
+  if (params.dryRun) return stop("dry_run", false);
+  if (stoppedByDeadline) return stop("claim_deadline", false);
+  if (attemptIndex + 1 >= attemptBudget) return stop("attempt_budget_exhausted", true);
+  return resume("attempt_budget_available");
 }
 
 function terminalWorkerSessionErrorDecision(params: {
@@ -780,21 +755,19 @@ function terminalWorkerSessionErrorDecision(params: {
 }): WorkerContinuationDecision {
   const attemptIndex = Math.max(0, Math.trunc(params.attemptIndex));
   return {
-    policy: WORKER_ATTEMPT_TAIL_POLICY.mode,
+    policy: WORKER_ATTEMPT_BUDGET_POLICY.mode,
     shouldContinue: false,
     exhausted: false,
     stopReason: params.stopReason,
     continueReason: null,
     attemptIndex,
     humanAttempt: attemptIndex + 1,
-    maxColdAttempts: WORKER_ATTEMPT_TAIL_POLICY.maxColdAttempts,
-    followUpAttemptsAfterBest: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterBest,
-    followUpAttemptsAfterGateFailedExact: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterGateFailedExact,
+    baseAttempts: WORKER_ATTEMPT_BUDGET_POLICY.baseAttempts,
+    bonusAttemptsPerImprovement: WORKER_ATTEMPT_BUDGET_POLICY.bonusAttemptsPerImprovement,
+    improvementGrants: 0,
+    attemptBudget: WORKER_ATTEMPT_BUDGET_POLICY.baseAttempts,
     latestBestAttemptIndex: null,
     latestBestScore: null,
-    failedGateExactAttemptIndex: null,
-    followUpsSinceBest: null,
-    followUpsSinceFailedGateExact: null,
     stoppedByDeadline:
       params.claimDeadlineMs != null &&
       Number.isFinite(params.claimDeadlineMs) &&
@@ -2113,11 +2086,10 @@ async function executeClaimedWorker(params: {
           {
             attempt_index: attemptIndex,
             repair_policy: {
-              mode: WORKER_ATTEMPT_TAIL_POLICY.mode,
+              mode: WORKER_ATTEMPT_BUDGET_POLICY.mode,
               claim_ttl: claimed.ttl,
-              max_cold_attempts: WORKER_ATTEMPT_TAIL_POLICY.maxColdAttempts,
-              follow_up_attempts_after_best: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterBest,
-              follow_up_attempts_after_gate_failed_exact: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterGateFailedExact,
+              base_attempts: WORKER_ATTEMPT_BUDGET_POLICY.baseAttempts,
+              bonus_attempts_per_improvement: WORKER_ATTEMPT_BUDGET_POLICY.bonusAttemptsPerImprovement,
               decision: continuationDecision,
             },
             agent_output_path: result.outputPath,
@@ -2151,10 +2123,18 @@ async function executeClaimedWorker(params: {
       if (!continuationDecision.shouldContinue) break;
 
       const repairFeedbackPath = resolve(validationDir, `attempt-${attemptIndex}.repair_request.json`);
+      const continuationCheckpoints = orderedContinuationCheckpoints(
+        workerCheckpointsForWorkerState(store, claimed.workerStateId),
+        attemptIndex,
+      );
+      const latestCheckpoint = continuationCheckpoints
+        .slice()
+        .reverse()
+        .find((checkpoint) => checkpoint.attemptIndex === attemptIndex);
       const repairInstruction =
-        continuationDecision.continueReason === "gate_failed_exact_repair"
-          ? "The runner measured an exact target score, but hard gates failed, so this is a bounded gate-repair continuation. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set (game assert/report macros, established inline helpers — not banned pragmas, .c externs, or open-coded asserts). If the canonical fix is a cross-file edit — a declaration in the owning header, a symbols.txt/splits.txt change — you cannot ship it: edits outside your write set are silently dropped at patch capture, so do not shim around it locally; state that in your note's blockers instead. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff — if no gate-clean improvement is possible, state that in your note's blockers (e.g. 'exact requires banned pattern X' or 'exact requires cross-file edit to <path>') so the runner can close the target. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands."
-          : "The runner checkpointed the current worktree under the bounded attempt-tail policy, but the checkpoint is not yet acceptable. Fix the runner-listed validation/review-lint issues; a validated, gate-clean improvement will be banked immediately and the worker closed. Keep retained useful edits, preserve pre-existing dirty work, and return a compact validation-ready JSON note when you want the runner to checkpoint again. Do not use whole-file destructive reset/restore/checkout/clean commands.";
+        latestCheckpoint?.exactMatch && !latestCheckpoint.hardGatesPassed
+          ? `The runner measured an exact target score, but hard gates failed. Reaching exact granted bonus attempts, and the remaining attempt budget is available to make the result gate-clean. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set (game assert/report macros, established inline helpers — not banned pragmas, .c externs, or open-coded asserts). If the canonical fix is a cross-file edit — a declaration in the owning header, a symbols.txt/splits.txt change — you cannot ship it: edits outside your write set are silently dropped at patch capture, so do not shim around it locally; state that in your note's blockers instead. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff — if no gate-clean improvement is possible, state that in your note's blockers (e.g. 'exact requires banned pattern X' or 'exact requires cross-file edit to <path>') so the runner can close the target. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`
+          : `This is attempt ${continuationDecision.humanAttempt + 1} of budget ${continuationDecision.attemptBudget} (base ${continuationDecision.baseAttempts}, +${continuationDecision.bonusAttemptsPerImprovement} for every new-best improvement). ${repairReasons.length > 0 ? "Fix the listed validation/review issues. " : ""}If the worker has banked an improvement, that checkpoint is safe; keep pushing toward exact, and each new best extends the budget. An accepted exact closes the worker immediately. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
       repairRequest = {
         attempt: attemptIndex + 1,
         previous_agent_output_path: result.outputPath,
@@ -2230,10 +2210,8 @@ async function executeClaimedWorker(params: {
       (bestCheckpoint?.exactMatch
         ? `Runner selected exact checkpoint ${bestCheckpoint.id}.`
         : bestCheckpoint
-          ? finalEvaluation.continuationDecision.stopReason === "improvement_banked"
-            ? `Runner banked improvement checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}) and closed the worker.`
-            : `Runner timeout selected best prior checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}).`
-          : "Runner timeout selected baseline because no checkpoint passed hard gates and improved over baseline.");
+          ? `Runner closed (${finalEvaluation.continuationDecision.stopReason}) and selected best checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}).`
+          : `Runner closed (${finalEvaluation.continuationDecision.stopReason}) at baseline; no checkpoint passed hard gates and improved over baseline.`);
     const sandboxSleepStats = await finalizeSandboxSleep();
     const sandboxSleepSummary = {
       enabled: sandboxSleepEnabled,
@@ -2276,11 +2254,10 @@ async function executeClaimedWorker(params: {
       },
       latest_runner_validation: finalEvaluation.runnerValidation,
       continuation_attempts: {
-        policy: WORKER_ATTEMPT_TAIL_POLICY.mode,
+        policy: WORKER_ATTEMPT_BUDGET_POLICY.mode,
         configured: {
-          max_cold_attempts: WORKER_ATTEMPT_TAIL_POLICY.maxColdAttempts,
-          follow_up_attempts_after_best: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterBest,
-          follow_up_attempts_after_gate_failed_exact: WORKER_ATTEMPT_TAIL_POLICY.followUpAttemptsAfterGateFailedExact,
+          base_attempts: WORKER_ATTEMPT_BUDGET_POLICY.baseAttempts,
+          bonus_attempts_per_improvement: WORKER_ATTEMPT_BUDGET_POLICY.bonusAttemptsPerImprovement,
         },
         claim_ttl: claimed.ttl,
         decision: finalEvaluation.continuationDecision,

@@ -20,8 +20,12 @@
 				"b-40-worker-lifecycle-the-pre-worker-object-bu-28",
 				"b-40-worker-lifecycle-hard-gate-result-build-31",
 				"b-40-worker-lifecycle-continuation-policy-50",
+				"b-40-worker-lifecycle-attempt-budget-intro-70",
+				"b-40-worker-lifecycle-attempt-budget-grants-71",
 				"b-40-worker-lifecycle-a-worker-continues-only-51",
+				"b-40-worker-lifecycle-attempt-budget-sequence-72",
 				"b-40-worker-lifecycle-when-the-runner-rejects-64",
+				"b-40-worker-lifecycle-attempt-budget-vocab-73",
 				"b-40-worker-lifecycle-worker-state-outcomes-40",
 				"b-40-worker-lifecycle-worker-state-lifecycle-s-41",
 				"b-40-worker-lifecycle-improvement-neutrality-49"
@@ -142,10 +146,14 @@
 										"text": "Close immediately when an exact checkpoint passes every hard gate"
 									},
 									{
-										"text": "Return repair or continuation feedback to the same worker session while its bounded budget remains"
+										"text": "Return repair or continuation feedback to the same worker session while its attempt budget remains"
 									},
 									{
-										"text": "On timeout, preserve the best prior selectable checkpoint or the baseline"
+										"text": "A banked improvement does not close the worker; the checkpoint is durable and each strictly new best extends the budget",
+										"kind": "note"
+									},
+									{
+										"text": "On budget exhaustion or claim deadline, preserve the best prior selectable checkpoint or the baseline"
 									},
 									{
 										"text": "On provider, infrastructure, tool, build, parse, or session failure, close as error while preserving prior selectable evidence"
@@ -464,38 +472,250 @@
 			"type": "structured-table",
 			"props": {
 				"columns": [
-					"Evidence",
-					"Runner action",
-					"Budget"
+					"Check (in order)",
+					"Decision",
+					"Reason"
 				],
 				"rows": [
 					[
-						"Accepted exact checkpoint",
-						"Select and close immediately.",
-						"No follow-up."
+						"A selectable exact checkpoint passed every hard gate",
+						"Stop; the accepted exact checkpoint is selected.",
+						[
+							{
+								"insert": "accepted_exact",
+								"attributes": {
+									"code": true
+								}
+							}
+						]
 					],
 					[
-						"No selectable improvement and no failed-gate exact",
-						"Continue through the fifth human attempt, then stop.",
-						"Five human attempts."
+						"Dry run",
+						"Stop after the single probe attempt.",
+						[
+							{
+								"insert": "dry_run",
+								"attributes": {
+									"code": true
+								}
+							}
+						]
 					],
 					[
-						"First or higher selectable non-exact best",
-						"Bank immediately and continue for a higher best or exact; a higher best resets the budget.",
-						"Three follow-up checkpoints."
+						"Claim deadline reached",
+						"Stop regardless of pending repair reasons; keep the best selectable checkpoint.",
+						[
+							{
+								"insert": "claim_deadline",
+								"attributes": {
+									"code": true
+								}
+							}
+						]
 					],
 					[
-						"Exact score that fails hard gates",
-						"Keep unselectable repair evidence and enter the repair lane.",
-						"Up to three follow-up checkpoints."
+						"Attempts used reached the attempt budget",
+						"Stop; the only exhaustion reason.",
+						[
+							{
+								"insert": "attempt_budget_exhausted",
+								"attributes": {
+									"code": true
+								}
+							}
+						]
 					],
 					[
-						"Claim deadline, dry run, provider failure, or missing repair reason",
-						"Stop and choose the best validated state or baseline.",
-						"Immediate stop."
+						"Budget remains",
+						"Continue the same worker with a continuation request.",
+						[
+							{
+								"insert": "attempt_budget_available",
+								"attributes": {
+									"code": true
+								}
+							}
+						]
 					]
 				]
 			},
+			"children": []
+		},
+		"b-40-worker-lifecycle-attempt-budget-intro-70": {
+			"id": "b-40-worker-lifecycle-attempt-budget-intro-70",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Continuation runs one unified attempt budget ("
+				},
+				{
+					"insert": "attempt_budget_v3",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "WORKER_ATTEMPT_BUDGET_POLICY",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " in "
+				},
+				{
+					"insert": "worker-cycle.ts",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": "). A worker gets 5 base submissions, and a submission that sets a strictly new best qualifying score grants +2 budget. A qualifying score is a selectable checkpoint — hard gates passed and improved over baseline — with a finite score, or any exact match, including one that failed hard gates. Repeated gate-failed exacts grant only once, and a score below the running best grants nothing. After each attempt "
+				},
+				{
+					"insert": "workerContinuationDecision",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " replays the checkpoint history and applies the checks below in order."
+				}
+			],
+			"children": []
+		},
+		"b-40-worker-lifecycle-attempt-budget-grants-71": {
+			"id": "b-40-worker-lifecycle-attempt-budget-grants-71",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "A banked improvement no longer closes the worker: the checkpoint is durable in SQLite the moment it is recorded, so the worker keeps pushing toward exact, and each new best extends the budget by two attempts. A gate-failed 100% spends its remaining budget trying to become gate-clean; if it never does, the worker closes normally and the best selectable checkpoint — or the baseline — is selected. Budget extends attempts only, never time: the claim TTL is stamped at claim time as "
+				},
+				{
+					"insert": "agent_timeout_seconds",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " plus a 600-second grace, each attempt's Pi session gets "
+				},
+				{
+					"insert": "agent_timeout_seconds",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", and the job process is killed at the TTL."
+				}
+			],
+			"children": []
+		},
+		"b-40-worker-lifecycle-attempt-budget-sequence-72": {
+			"id": "b-40-worker-lifecycle-attempt-budget-sequence-72",
+			"type": "sequence",
+			"props": {
+				"src": "./assets/sequences/attempt-budget.sequence.json",
+				"title": "Attempt budget continuation"
+			},
+			"children": []
+		},
+		"b-40-worker-lifecycle-attempt-budget-vocab-73": {
+			"id": "b-40-worker-lifecycle-attempt-budget-vocab-73",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Worker summaries report the policy configuration as "
+				},
+				{
+					"insert": "base_attempts",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " and "
+				},
+				{
+					"insert": "bonus_attempts_per_improvement",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", replacing the retired "
+				},
+				{
+					"insert": "max_cold_attempts",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " and "
+				},
+				{
+					"insert": "follow_up_attempts_*",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " keys. The stop reasons "
+				},
+				{
+					"insert": "improvement_banked",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "cold_attempt_budget_exhausted",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "improvement_followup_budget_exhausted",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", "
+				},
+				{
+					"insert": "gate_failed_exact_followup_budget_exhausted",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", and "
+				},
+				{
+					"insert": "accepted_or_no_repair_reasons",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " are no longer produced and appear only in historical worker records; the dashboard read-model and worker reports carry the new fields additively."
+				}
+			],
 			"children": []
 		},
 		"b-40-worker-lifecycle-when-the-runner-rejects-64": {

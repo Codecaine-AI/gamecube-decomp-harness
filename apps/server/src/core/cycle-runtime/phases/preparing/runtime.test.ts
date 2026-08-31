@@ -70,7 +70,6 @@ describe("preparing runtime baseline", () => {
       epochConfigureCommand: "configure epoch",
       goalKind: "matched_code_percent",
       goalValue: 88,
-      integrationResolverConcurrency: 3,
       maxWorkers: 12,
       model: "gpt-5.5",
       provider: "codex-lb",
@@ -87,7 +86,6 @@ describe("preparing runtime baseline", () => {
     expect(option("--agent-timeout-seconds")).toBe("2400");
     expect(option("--sandbox-profile")).toBe("4-core");
     expect(option("--desired-workers")).toBe("12");
-    expect(option("--integration-resolver-concurrency")).toBe("3");
     expect(option("--goal-kind")).toBe("matched_code_percent");
     expect(option("--goal-value")).toBe("88");
     expect(option("--worker-configure-command")).toBe("configure worker");

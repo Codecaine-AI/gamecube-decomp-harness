@@ -1,0 +1,572 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-a1adf76748944560ab62699ebda22d44",
+  "title": "Discord Sync",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ks2-path-discord-intro",
+        "b-ks2-path-discord-agents-heading",
+        "b-ks2-path-discord-agents-table",
+        "b-ks2-path-discord-librarian-heading",
+        "b-ks2-path-discord-librarian-reads",
+        "b-ks2-path-discord-librarian-writes",
+        "b-ks2-path-discord-coverage-heading",
+        "b-ks2-path-discord-coverage-p",
+        "b-ks2-path-discord-related-heading",
+        "b-ks2-path-discord-related-overview",
+        "b-ks2-path-discord-related-sync",
+        "b-ks2-path-discord-related-wiki-sync",
+        "b-ks2-path-discord-related-source",
+        "b-ks2-path-discord-related-entities",
+        "b-ks2-path-discord-related-fact",
+        "b-ks2-path-discord-related-evidence"
+      ]
+    },
+    "b-ks2-path-discord-intro": {
+      "id": "b-ks2-path-discord-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "DISCORD SYNC — The Discord half of the sync phase ("
+        },
+        {
+          "insert": "index_task.pathway",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "archival_ingest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the enum value is shared with the wiki sync, and the task payload names the source). Fires when the Discord importer appends "
+        },
+        {
+          "insert": "discord_message",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows past its watermark — a new chat export. Bulk and lower priority: no single target's ledger is waiting on it. The librarian searches the new messages and attaches facts to the subjects they mention, citing "
+        },
+        {
+          "insert": "discord://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-agents-heading": {
+      "id": "b-ks2-path-discord-agents-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Agents called"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-agents-table": {
+      "id": "b-ks2-path-discord-agents-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Order",
+          "Agent",
+          "Does"
+        ],
+        "rows": [
+          [
+            "1",
+            "Discord importer",
+            [
+              {
+                "insert": "Appends "
+              },
+              {
+                "insert": "discord_message",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows past the watermark — existing rows never change; advances the "
+              },
+              {
+                "insert": "discord",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " source watermark; enqueues the index task. A deterministic pipeline; source rows only, never facts"
+              }
+            ]
+          ],
+          [
+            "2",
+            "Librarian",
+            [
+              {
+                "insert": "Consumes the task: searches the appended messages, attaches "
+              },
+              {
+                "insert": "fact",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows to the subjects they mention, admits a curated "
+              },
+              {
+                "insert": "game_concept",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " where the material warrants one"
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-path-discord-librarian-heading": {
+      "id": "b-ks2-path-discord-librarian-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Librarian operation"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-librarian-reads": {
+      "id": "b-ks2-path-discord-librarian-reads",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The librarian searches the new messages with keyword and vector retrieval — BM25 over message content, structured filters narrowing by channel, author, time range, and thread, and embeddings of messages with thread-window context, so fragments of slang retrieve — and reads outward from the hits: the thread around a message. Subjects are whatever the messages mention: targets by symbol, and the mechanical entity kinds — "
+        },
+        {
+          "insert": "file",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "struct",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "struct_field",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "parameter",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — whose rows the entity extractor has already inserted from the checkout. A subject with no row is not silently invented: where the material warrants it, the librarian may admit a "
+        },
+        {
+          "insert": "game_concept",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " entity — curated, librarian-written, like "
+        },
+        {
+          "insert": "pattern",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — and attach the facts there. Locals and returns are not entities and get no rows."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-librarian-writes": {
+      "id": "b-ks2-path-discord-librarian-writes",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every write goes through the resolver. Fact rows are added or overwritten under the mentioned subjects, "
+        },
+        {
+          "insert": "evidence",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows replaced wholesale — "
+        },
+        {
+          "insert": "discord://message/<discord_message.id>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locators into the appended rows, corroborated against the code graph where the checkout can confirm what the community said. Material that connects subjects can add curated "
+        },
+        {
+          "insert": "link",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows. Message rows are frozen once ingested, so these citations can never drift and carry no digest."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-coverage-heading": {
+      "id": "b-ks2-path-discord-coverage-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Coverage"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-coverage-p": {
+      "id": "b-ks2-path-discord-coverage-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The Discord importer advances the "
+        },
+        {
+          "insert": "discord",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row of "
+        },
+        {
+          "insert": "source_watermark",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — "
+        },
+        {
+          "insert": "position",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the last ingested message id or timestamp; no other agent parses it — and enqueues "
+        },
+        {
+          "insert": "index_task",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows with "
+        },
+        {
+          "insert": "pathway",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "archival_ingest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " whose payloads name the appended slice of messages — the payload, not the enum value, distinguishes this pathway from the wiki sync. These tasks queue behind the per-target pathways. Completion is by the task timestamps, and the pass stamps "
+        },
+        {
+          "insert": "subject_index_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for each subject it covered — and a subject whose "
+        },
+        {
+          "insert": "indexed_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " predates the new material still needs a pass even when no queue row names it."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-related-heading": {
+      "id": "b-ks2-path-discord-related-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-related-overview": {
+      "id": "b-ks2-path-discord-related-overview",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways",
+              "label": "Librarian Pathways"
+            }
+          }
+        },
+        {
+          "insert": " — the pathway table, the agent roster, and the "
+        },
+        {
+          "insert": "indexing_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " shapes this pathway writes through."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-related-sync": {
+      "id": "b-ks2-path-discord-related-sync",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync",
+              "label": "Sync"
+            }
+          }
+        },
+        {
+          "insert": " — the between-runs phase this pathway belongs to."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-related-wiki-sync": {
+      "id": "b-ks2-path-discord-related-wiki-sync",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Wiki Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/30-wiki",
+              "label": "Wiki Sync"
+            }
+          }
+        },
+        {
+          "insert": " — the other pathway enqueuing "
+        },
+        {
+          "insert": "archival_ingest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " tasks."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-related-source": {
+      "id": "b-ks2-path-discord-related-source",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Discord",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources/10-archival/10-discord",
+              "label": "Discord"
+            }
+          }
+        },
+        {
+          "insert": " — the "
+        },
+        {
+          "insert": "discord_message",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " archive: draft shape, importer contract, locator parsing, search surface."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-related-entities": {
+      "id": "b-ks2-path-discord-related-entities",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Entities",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/20-entities",
+              "label": "Entities"
+            }
+          }
+        },
+        {
+          "insert": " — the mechanical and curated entity kinds facts attach to here."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-related-fact": {
+      "id": "b-ks2-path-discord-related-fact",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Fact",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact",
+              "label": "Fact"
+            }
+          }
+        },
+        {
+          "insert": " — the claim shape the librarian writes under the mentioned subjects."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-discord-related-evidence": {
+      "id": "b-ks2-path-discord-related-evidence",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Evidence",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/30-evidence",
+              "label": "Evidence"
+            }
+          }
+        },
+        {
+          "insert": " — the fact-owned citation rows and the archival locator grammar."
+        }
+      ],
+      "children": []
+    }
+  }
+}

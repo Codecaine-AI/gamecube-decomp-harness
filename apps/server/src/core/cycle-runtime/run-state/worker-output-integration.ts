@@ -108,17 +108,6 @@ export function enqueueWorkerOutputIntegration(store: StateStore, input: WorkerO
   return jobRecord(store, job);
 }
 
-export function nextWorkerOutputIntegrationConflictForResolver(store: StateStore, runId: string, excludedIds: Iterable<string> = []): WorkerOutputIntegrationRecord | null {
-  return workerOutputIntegrationConflictsForResolver(store, runId, { excludedIds, limit: 1 })[0] ?? null;
-}
-
-export function workerOutputIntegrationConflictsForResolver(store: StateStore, runId: string, options: { excludedIds?: Iterable<string>; limit?: number } = {}): WorkerOutputIntegrationRecord[] {
-  const excluded = [...new Set(options.excludedIds ?? [])];
-  const exclusionSql = excluded.length ? `AND id NOT IN (${excluded.map(() => "?").join(",")})` : "";
-  const rows = withBusyRetry(() => store.db.query(`SELECT * FROM integration_outcomes WHERE run_id=? AND status='conflict' AND item_path IS NOT NULL AND item_path!='' ${exclusionSql} ORDER BY updated_at,created_at LIMIT ?`).all(runId, ...excluded, Math.max(1, Math.floor(options.limit ?? 16))) as Record<string, unknown>[]);
-  return rows.map(outcomeFromRow);
-}
-
 export function updateWorkerOutputIntegration(store: StateStore, id: string, patch: WorkerOutputIntegrationUpdate): WorkerOutputIntegrationRecord {
   return immediateTransaction(store.db, () => {
     const currentRow = store.db.query("SELECT * FROM integration_outcomes WHERE id=?").get(id) as Record<string, unknown> | undefined;

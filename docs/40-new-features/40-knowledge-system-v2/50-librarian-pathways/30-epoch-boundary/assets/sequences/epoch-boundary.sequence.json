@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "id": "epoch-boundary",
+  "title": "Epoch boundary: reconcile, recheck, re-examine",
+  "participants": [
+    {
+      "id": "boundary",
+      "name": "epoch boundary",
+      "kind": "actor",
+      "label": "Epoch boundary (run-loop)"
+    },
+    {
+      "id": "recon",
+      "name": "report reconciliation",
+      "kind": "participant",
+      "label": "Report reconciliation (deterministic)"
+    },
+    {
+      "id": "extractor",
+      "name": "entity extractor",
+      "kind": "participant",
+      "label": "Entity extractor (deterministic)"
+    },
+    {
+      "id": "targets",
+      "name": "target tables",
+      "kind": "participant",
+      "label": "target + target_status"
+    },
+    {
+      "id": "evidence",
+      "name": "evidence",
+      "kind": "participant"
+    },
+    {
+      "id": "queue",
+      "name": "index queue",
+      "kind": "participant"
+    },
+    {
+      "id": "librarian",
+      "name": "librarian",
+      "kind": "participant"
+    },
+    {
+      "id": "resolver",
+      "name": "resolver",
+      "kind": "participant"
+    },
+    {
+      "id": "graph",
+      "name": "graph records",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "epoch-m1",
+      "from": "boundary",
+      "to": "recon",
+      "line": "sync",
+      "text": "merge lands, report rebuilds"
+    },
+    {
+      "kind": "message",
+      "id": "epoch-m2",
+      "from": "recon",
+      "to": "targets",
+      "line": "sync",
+      "text": "resolve stable keys, update status rows"
+    },
+    {
+      "kind": "message",
+      "id": "epoch-m3",
+      "from": "recon",
+      "to": "extractor",
+      "line": "sync",
+      "text": "run at the new revision"
+    },
+    {
+      "kind": "message",
+      "id": "epoch-m4",
+      "from": "extractor",
+      "to": "graph",
+      "line": "sync",
+      "text": "insert missing mechanical entities: file, struct, field, parameter"
+    },
+    {
+      "kind": "message",
+      "id": "epoch-m5",
+      "from": "recon",
+      "to": "evidence",
+      "line": "sync",
+      "text": "re-resolve code:// locators and digests"
+    },
+    {
+      "kind": "fragment",
+      "id": "epoch-f1",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "a code citation no longer resolves",
+          "items": [
+            {
+              "kind": "message",
+              "id": "epoch-m6",
+              "from": "recon",
+              "to": "queue",
+              "line": "sync",
+              "text": "enqueue drift_recheck per flagged subject"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "fragment",
+      "id": "epoch-f2",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "merge conflict or upstream break",
+          "items": [
+            {
+              "kind": "message",
+              "id": "epoch-m7",
+              "from": "boundary",
+              "to": "queue",
+              "line": "sync",
+              "text": "insert regression event, enqueue regression task"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "epoch-m8",
+      "from": "queue",
+      "to": "librarian",
+      "line": "sync",
+      "text": "claim drift_recheck and regression tasks"
+    },
+    {
+      "kind": "message",
+      "id": "epoch-m9",
+      "from": "librarian",
+      "to": "graph",
+      "line": "sync",
+      "text": "re-examine live facts on affected subjects"
+    },
+    {
+      "kind": "message",
+      "id": "epoch-m10",
+      "from": "librarian",
+      "to": "resolver",
+      "line": "sync",
+      "text": "re-cite or rewrite, never auto-invalidate"
+    },
+    {
+      "kind": "message",
+      "id": "epoch-m11",
+      "from": "resolver",
+      "to": "graph",
+      "line": "sync",
+      "text": "validated writes"
+    }
+  ],
+  "style": {}
+}

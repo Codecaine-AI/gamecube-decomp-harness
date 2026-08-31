@@ -32,9 +32,6 @@ export function runConfigurationFormPatch(run: DashboardRun | null | undefined):
   if (typeof snapshot.agent_timeout_seconds === "number" && snapshot.agent_timeout_seconds > 0) {
     patch.agentTimeoutSeconds = Math.trunc(snapshot.agent_timeout_seconds);
   }
-  if (typeof snapshot.integration_resolver_concurrency === "number" && snapshot.integration_resolver_concurrency > 0) {
-    patch.integrationResolverConcurrency = Math.trunc(snapshot.integration_resolver_concurrency);
-  }
   return patch;
 }
 
@@ -45,7 +42,6 @@ type SavedRunSettings = Pick<
   | "model"
   | "sandboxProfile"
   | "thinkingLevel"
-  | "integrationResolverConcurrency"
   | "agentTimeoutSeconds"
   | "syncIngestConcurrency"
   | "syncProvider"
@@ -76,9 +72,6 @@ function loadRunSettings(): Partial<SavedRunSettings> {
           ? DEFAULT_THINKING_LEVEL
           : parsed.thinkingLevel;
     }
-    if (typeof parsed.integrationResolverConcurrency === "number" && parsed.integrationResolverConcurrency > 0) {
-      settings.integrationResolverConcurrency = Math.trunc(parsed.integrationResolverConcurrency);
-    }
     if (typeof parsed.agentTimeoutSeconds === "number" && parsed.agentTimeoutSeconds > 0) settings.agentTimeoutSeconds = Math.trunc(parsed.agentTimeoutSeconds);
     if (currentVersion && typeof parsed.syncIngestConcurrency === "number" && parsed.syncIngestConcurrency > 0) {
       settings.syncIngestConcurrency = Math.trunc(parsed.syncIngestConcurrency);
@@ -102,7 +95,6 @@ export function saveRunSettings(form: FormState) {
       thinkingLevel: form.thinkingLevel,
       thinkingLevelVersion: THINKING_LEVEL_SETTINGS_VERSION,
       settingsVersion: RUN_SETTINGS_VERSION,
-      integrationResolverConcurrency: form.integrationResolverConcurrency,
       agentTimeoutSeconds: form.agentTimeoutSeconds,
       syncIngestConcurrency: form.syncIngestConcurrency,
       syncProvider: form.syncProvider,
@@ -133,7 +125,6 @@ const defaultForm: FormState = {
   graphDbPath: "",
   processName: "melee-live",
   ...schedulingForWorkers(12),
-  integrationResolverConcurrency: 4,
   goalValue: 100,
   provider: "codex-lb",
   model: "gpt-5.6-sol",

@@ -11,7 +11,6 @@ export interface RunningProcessCommandBody {
   goalKind?: unknown;
   goalValue?: unknown;
   graphDbPath?: unknown;
-  integrationResolverConcurrency?: unknown;
   maxWorkers?: unknown;
   model?: unknown;
   processName?: unknown;
@@ -30,7 +29,6 @@ export interface RunningProcessCommandBody {
 export interface RunningProcessGameDefaults {
   dashboard?: {
     agentTimeoutSeconds?: unknown;
-    integrationResolverConcurrency?: unknown;
   };
   processName?: unknown;
   gameId?: string;
@@ -76,7 +74,6 @@ const POLICY_FIELDS = {
   epochConfigureCommand: "epoch_configure_command",
   goalKind: "goal_kind",
   goalValue: "goal_value",
-  integrationResolverConcurrency: "integration_resolver_concurrency",
   maxWorkers: "desired_workers",
   model: "model",
   provider: "provider",
@@ -150,7 +147,6 @@ function canonicalJson(value: unknown): string {
 function normalizePolicyValue(field: RunningProcessPolicyField, value: unknown): unknown {
   switch (field) {
     case "agentTimeoutSeconds":
-    case "integrationResolverConcurrency":
     case "maxWorkers":
       return intValue(value, 0, 1);
     case "goalValue":
@@ -230,7 +226,6 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
   const thinkingLevel = text(policySnapshotValue("thinkingLevel", configuration));
   const sandboxProfile = text(policySnapshotValue("sandboxProfile", configuration));
   const maxWorkers = Number(policySnapshotValue("maxWorkers", configuration));
-  const integrationResolverConcurrency = Number(policySnapshotValue("integrationResolverConcurrency", configuration));
   const workerConfigureCommand = String(policySnapshotValue("workerConfigureCommand", configuration));
   const epochConfigureCommand = String(policySnapshotValue("epochConfigureCommand", configuration));
   const epochTargetCap = configuration.epoch_target_cap ?? null;
@@ -246,8 +241,6 @@ export function buildRunningProcessCommand(input: RunningProcessCommandInput): R
     "run-loop",
     "--max-workers",
     String(maxWorkers),
-    "--integration-resolver-concurrency",
-    String(integrationResolverConcurrency),
     "--graph-db",
     graphDbPath,
   );

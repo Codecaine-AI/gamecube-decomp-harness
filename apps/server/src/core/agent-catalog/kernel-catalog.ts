@@ -13,13 +13,11 @@ import {
   rootContextLoaderDeclaration,
 } from "@server/core/agent-catalog/kernel-context.js";
 import workerKernelAgent from "@server/core/agent-catalog/agents/running/worker/agent.js";
-import integrationResolverKernelAgent from "@server/core/agent-catalog/agents/running/integration-resolver/agent.js";
 import librarianKernelAgent from "@server/core/agent-catalog/agents/knowledge/librarian/agent.js";
 import workerSummarizerKernelAgent from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/agent.js";
 
 export const KERNEL_AGENT_IDS = [
   "worker",
-  "integration-resolver",
   "librarian",
   "worker-summarizer",
 ] as const satisfies readonly RegisteredAgentId[];
@@ -114,7 +112,6 @@ type KernelAgentViewerContext = NonNullable<KernelAgentViewerDefinition["context
 const ROOT_CONTEXT_LOADERS = [ROOT_CONTEXT_LOADER_KIND] as const;
 const typedAgentDefinitions = {
   worker: workerKernelAgent,
-  "integration-resolver": integrationResolverKernelAgent,
   librarian: librarianKernelAgent,
   "worker-summarizer": workerSummarizerKernelAgent,
 } as const satisfies Record<KernelAgentId, HarnessAgentDefinition>;
@@ -273,22 +270,6 @@ export const meleeKernelAgentCatalog = [
       null,
       null,
       "Worker has no structured output contract. The runner may parse final assistant text as an advisory validation handoff, but lifecycle status, validation, reports, and best-record selection stay runner-owned.",
-    ),
-  }),
-  catalogEntry("integration-resolver", {
-    group: "running",
-    phase: "integration",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/running/integration-resolver/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/running/integration-resolver/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/running/integration-resolver/schema.json",
-    ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "integration-conflict-item", "integration-queue-summary"],
-    resultContract: resultContract(
-      "melee_integration_resolver_result_v1",
-      "apps/server/src/core/agent-catalog/agents/running/integration-resolver/schema.json",
-      "validateIntegrationResolverAgentResult",
-      "Integration resolver results are validated before runner-owned queue status updates and epoch acceptance.",
     ),
   }),
   catalogEntry("librarian", {

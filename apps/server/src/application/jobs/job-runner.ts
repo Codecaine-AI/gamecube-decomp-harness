@@ -23,7 +23,6 @@ import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
 import { kgLibrarianCorroborate } from "@server/core/knowledge/jobs/librarian-corroborate.js";
 import { kgLibrarianBackfill } from "@server/core/knowledge/jobs/librarian-backfill.js";
 import { kgLibrarianBatch } from "@server/core/knowledge/jobs/librarian-batch.js";
-import { integrationResolve } from "@server/core/cycle-runtime/phases/running/integration/index.js";
 import { recoverClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { tick } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
 import { runLoop } from "@server/core/cycle-runtime/phases/running/scheduler/run-loop.js";
@@ -62,7 +61,6 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "run-loop") await runLoop(globals, args);
     else if (command === "checkpoint-run") await checkpointRun(globals, args);
     else if (command === "recover-claims") await recoverClaims(globals, args);
-    else if (command === "integration-resolve") await integrationResolve(globals, args);
     else if (command === "report-run") await reportRun(globals, args);
     else if (command === "save-point") await savePoint(globals, args);
     else if (command === "regression-check") await regressionCheck(globals, args);

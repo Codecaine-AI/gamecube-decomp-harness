@@ -11,7 +11,6 @@ export {
   availableToolsPromptXml,
   buildAgentTools,
   defaultAgentToolProfiles,
-  defaultIntegrationResolverToolProfile,
   defaultLibrarianToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,

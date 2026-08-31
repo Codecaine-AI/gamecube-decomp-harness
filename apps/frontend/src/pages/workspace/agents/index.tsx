@@ -151,7 +151,9 @@ export function AgentsPage({ form }: { form: FormState }) {
                         >
                           {selected ? <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-accent" /> : null}
                           <span className="block truncate font-mono text-xs font-semibold">{agent.name}</span>
-                          <span className="mt-1 block truncate text-[11px] text-muted-foreground">{agent.model}</span>
+                          <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                            {agent.model}{agent.tools.length === 0 ? " · no tools" : ""}
+                          </span>
                         </button>
                       );
                     })}
