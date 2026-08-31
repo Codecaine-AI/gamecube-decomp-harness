@@ -1,0 +1,1344 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-59c8e2a7f13d4b60928ae5c7d1f0b384",
+  "title": "Events",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-sks-rc-events-intro",
+        "b-sks-rc-events-shape-heading",
+        "b-sks-rc-events-shape",
+        "b-sks-rc-events-shape-example-note-1",
+        "b-sks-rc-events-shape-example-note-2",
+        "b-sks-rc-events-ref-heading",
+        "b-sks-rc-events-ref-shape",
+        "b-sks-rc-events-ref-example-note-1",
+        "b-sks-rc-events-ref-example-note-2",
+        "b-sks-rc-events-kinds-heading",
+        "b-sks-rc-events-kinds-table",
+        "b-sks-rc-events-refkinds-heading",
+        "b-sks-rc-events-refkinds-table",
+        "b-sks-rc-events-writers-heading",
+        "b-sks-rc-events-writers-table",
+        "b-sks-rc-events-view",
+        "b-sks-rc-events-example-heading",
+        "b-sks-rc-events-example-process",
+        "b-sks-rc-events-links-heading",
+        "b-sks-rc-events-links-table",
+        "b-sks-rc-events-links-in-heading",
+        "b-sks-rc-events-links-in",
+        "b-sks-rc-events-open",
+        "b-sks-rc-events-related-heading",
+        "b-sks-rc-events-related-overview",
+        "b-sks-rc-events-related-worker-runs",
+        "b-sks-rc-events-related-targets",
+        "b-sks-rc-events-related-contracts"
+      ]
+    },
+    "b-sks-rc-events-intro": {
+      "id": "b-sks-rc-events-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "EVENT — A target climbs through scored submissions; once it hits 100 % it is good. The stored "
+        },
+        {
+          "insert": "event",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " table exists for the exceptions and nothing else: one row per event, keyed to the target by "
+        },
+        {
+          "insert": "target_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", append-only, ordered by "
+        },
+        {
+          "insert": "created_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Two kinds: "
+        },
+        {
+          "insert": "regression",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — a previously good state was broken by something outside the worker's control — and "
+        },
+        {
+          "insert": "note",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — a freeform human annotation. Good news is never an event: it is visible in "
+        },
+        {
+          "insert": "target_status",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and the submissions themselves, and per-run echo rows do not exist. "
+        },
+        {
+          "insert": "event_ref",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows name the worker run, epoch, PR, or commit involved. Run telemetry (queue, retry, claim, heartbeat, epoch open and close) stays in run state; it is not part of the knowledge system and never becomes a row here."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-shape-heading": {
+      "id": "b-sks-rc-events-shape-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Table "
+        },
+        {
+          "insert": "event",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-shape": {
+      "id": "b-sks-rc-events-shape",
+      "type": "state-shape",
+      "props": {
+        "name": "event",
+        "description": "Exceptions only; append-only: a row is never edited or removed. No outcome column — outcomes live on worker_run.final_outcome and pull_request.outcome.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "event id",
+            "description": "Primary key"
+          },
+          {
+            "name": "target_id",
+            "type": "target id",
+            "description": "FK → target; whose ledger"
+          },
+          {
+            "name": "kind",
+            "type": "regression | note",
+            "description": "What happened; see the enum table below"
+          },
+          {
+            "name": "summary",
+            "type": "string",
+            "description": "One line addressed to the next worker; shown highlighted in the derived ledger view"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp",
+            "description": "Ledger order; the derived view sorts newest first"
+          }
+        ],
+        "example": "[\n  {\n    \"id\": \"evt-000358\",\n    \"target_id\": \"tgt-ftCo_800BFFD0\",\n    \"kind\": \"regression\",\n    \"summary\": \"you got 100 % in wr-ftCo_800BFFD0-0007, then the epoch-9 boundary merge conflicted on ftcommon.c and undid it; blend that run's code back into the current tree\",\n    \"created_at\": \"2026-08-14T09:02:11Z\"\n  },\n  {\n    \"id\": \"evt-000420\",\n    \"target_id\": \"tgt-ftCo_800BFFD0\",\n    \"kind\": \"note\",\n    \"summary\": \"the guard order here mirrors ftCo_800C0F44; check that function's submissions before reworking the branches\",\n    \"created_at\": \"2026-08-19T16:44:07Z\"\n  }\n]"
+      },
+      "children": []
+    },
+    "b-sks-rc-events-shape-example-note-1": {
+      "id": "b-sks-rc-events-shape-example-note-1",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "regression",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": the "
+        },
+        {
+          "insert": "summary",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is addressed to the next worker — the code worked, something external broke it, fix that rather than re-deriving the match. The worker run and epoch it points at hang off "
+        },
+        {
+          "insert": "event_ref",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-shape-example-note-2": {
+      "id": "b-sks-rc-events-shape-example-note-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "No good-news rows: the 100 % match itself was never an event — it is visible in "
+        },
+        {
+          "insert": "target_status",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and in the run's "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows. Only the break, and human notes, are stored."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-ref-heading": {
+      "id": "b-sks-rc-events-ref-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Table "
+        },
+        {
+          "insert": "event_ref",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-ref-shape": {
+      "id": "b-sks-rc-events-ref-shape",
+      "type": "state-shape",
+      "props": {
+        "name": "event_ref",
+        "description": "Zero or more rows per event: what to open to see the whole story. Never used to find the target.",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "event id",
+            "description": "FK → event; the event the ref hangs off"
+          },
+          {
+            "name": "ref_kind",
+            "type": "worker_run | epoch | pr | commit",
+            "description": "What `ref_id` names; see the enum table below"
+          },
+          {
+            "name": "ref_id",
+            "type": "id",
+            "description": "FK → worker_run when `ref_kind` is `worker_run`; otherwise an epoch, PR, or commit id outside the knowledge store"
+          }
+        ],
+        "example": "[\n  {\n    \"event_id\": \"evt-000358\",\n    \"ref_kind\": \"worker_run\",\n    \"ref_id\": \"wr-ftCo_800BFFD0-0007\"\n  },\n  {\n    \"event_id\": \"evt-000358\",\n    \"ref_kind\": \"epoch\",\n    \"ref_id\": \"epoch-9\"\n  }\n]"
+      },
+      "children": []
+    },
+    "b-sks-rc-events-ref-example-note-1": {
+      "id": "b-sks-rc-events-ref-example-note-1",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "ref_kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the one real foreign key: "
+        },
+        {
+          "insert": "ref_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " names the run whose result the regression undid; the worker follows it into the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows for the working code and its scored tries."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-ref-example-note-2": {
+      "id": "b-sks-rc-events-ref-example-note-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "epoch-9",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": lives in run state, outside the knowledge store; the ref is what to open to see the boundary, never how the target is found."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-kinds-heading": {
+      "id": "b-sks-rc-events-kinds-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Enum "
+        },
+        {
+          "insert": "event.kind",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-kinds-table": {
+      "id": "b-sks-rc-events-kinds-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          [
+            {
+              "insert": "kind",
+              "attributes": {
+                "code": true
+              }
+            }
+          ],
+          "What happened",
+          [
+            {
+              "insert": "event_ref",
+              "attributes": {
+                "code": true
+              }
+            },
+            {
+              "insert": " rows"
+            }
+          ],
+          "The next worker learns"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "regression",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A previously good state was broken by something outside the worker's control: a boundary merge conflict undid the code, or an upstream change broke the match; the target is requeued",
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref, plus an "
+              },
+              {
+                "insert": "epoch",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref for a boundary conflict or a "
+              },
+              {
+                "insert": "commit",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref for an upstream break"
+              }
+            ],
+            "The code worked; fix what broke it and blend the run's code back into the current tree instead of re-deriving the match. Requeue mechanics stay in run state"
+          ],
+          [
+            [
+              {
+                "insert": "note",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A human wrote something down",
+            "Whatever the human cited",
+            "Whatever the human wanted the next worker to know"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-events-refkinds-heading": {
+      "id": "b-sks-rc-events-refkinds-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Enum "
+        },
+        {
+          "insert": "event_ref.ref_kind",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-refkinds-table": {
+      "id": "b-sks-rc-events-refkinds-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          [
+            {
+              "insert": "ref_kind",
+              "attributes": {
+                "code": true
+              }
+            }
+          ],
+          [
+            {
+              "insert": "ref_id",
+              "attributes": {
+                "code": true
+              }
+            },
+            {
+              "insert": " names"
+            }
+          ],
+          "In the knowledge store"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row"
+              }
+            ],
+            "Yes; a real foreign key"
+          ],
+          [
+            [
+              {
+                "insert": "epoch",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The epoch or boundary in run state",
+            "No"
+          ],
+          [
+            [
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A PR in the PR archive",
+            "No"
+          ],
+          [
+            [
+              {
+                "insert": "commit",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "An upstream commit",
+            "No"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-events-writers-heading": {
+      "id": "b-sks-rc-events-writers-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Who appends"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-writers-table": {
+      "id": "b-sks-rc-events-writers-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Party",
+          "Inserts",
+          "When",
+          "Never"
+        ],
+        "rows": [
+          [
+            "Run-loop (boundary)",
+            [
+              {
+                "insert": "regression",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " when an epoch boundary merge conflicts away a previously good result, with "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and "
+              },
+              {
+                "insert": "epoch",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " refs"
+              }
+            ],
+            "At the epoch boundary",
+            [
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " or "
+              },
+              {
+                "insert": "submission",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows; run telemetry"
+              }
+            ]
+          ],
+          [
+            "Checkout reconciliation",
+            [
+              {
+                "insert": "regression",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " when an upstream change breaks a formerly matched target, with a "
+              },
+              {
+                "insert": "commit",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref"
+              }
+            ],
+            [
+              {
+                "insert": "When a new report revision is diffed against "
+              },
+              {
+                "insert": "target",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and a good state no longer stands"
+              }
+            ],
+            "Guesses a mapping"
+          ],
+          [
+            "Human",
+            [
+              {
+                "insert": "note",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Any time",
+            "Removes or rewrites a row; the table is append-only"
+          ],
+          [
+            "Worker summary agent",
+            "Nothing",
+            "—",
+            [
+              {
+                "insert": "A per-run echo row; the "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and "
+              },
+              {
+                "insert": "submission",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows are its whole write"
+              }
+            ]
+          ],
+          [
+            "Librarian",
+            "Nothing",
+            "—",
+            [
+              {
+                "insert": "Writes to the "
+              },
+              {
+                "insert": "event",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " table; it reads it and writes live "
+              },
+              {
+                "insert": "fact",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows instead"
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-events-view": {
+      "id": "b-sks-rc-events-view",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The ledger a worker reads is a derived view, never rows: "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows joined to their "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows, merged with the "
+        },
+        {
+          "insert": "pull_request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows and the "
+        },
+        {
+          "insert": "event",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows, newest first, regressions highlighted. The target card shows this view FIRST. An event is one line — "
+        },
+        {
+          "insert": "created_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "summary",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and its "
+        },
+        {
+          "insert": "event_ref",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ids — and the worker follows a regression's "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ref into the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows when it needs the scored tries. Storing an event does not make it knowledge: what the break taught becomes a live "
+        },
+        {
+          "insert": "fact",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row for the target — the librarian overwrites the row, the prior version lands in "
+        },
+        {
+          "insert": "fact_history",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in the same write, and the fact's "
+        },
+        {
+          "insert": "evidence_ids",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " carry the citations."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-example-heading": {
+      "id": "b-sks-rc-events-example-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Example — 100 % match, then a regression at the boundary"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-example-process": {
+      "id": "b-sks-rc-events-example-process",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "The run closes at 100 % match",
+            "steps": [
+              {
+                "text": "The summary agent inserts `worker_run` A for target X and its `submission` rows; `final_outcome` `match`."
+              },
+              {
+                "text": "No `event` row: the good news is visible in `target_status` and in A's submissions.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "The boundary merge conflicts on X's file",
+            "steps": [
+              {
+                "text": "The run-loop inserts `event` H (`target_id` X, `kind` `regression`, `summary` \"you got 100 % in A, then the epoch-9 boundary merge conflicted on ftcommon.c and undid it; blend A's code back into the current tree\") and `event_ref` rows (H, `worker_run`, A) and (H, `epoch`, epoch-9)."
+              },
+              {
+                "text": "The conflicted hunks, the queue state, and the requeue are run state, not rows here.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "The next scored report upserts `target_status` for X; the ledger view still shows A as the latest run."
+          },
+          {
+            "text": "The next worker reads X's derived ledger first",
+            "steps": [
+              {
+                "text": "Newest entry: H, `regression`, highlighted. It follows the `worker_run` ref into A's `submission` rows, takes the working code, and blends it into the current tree instead of re-deriving it.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "The librarian reads A and H; if the break revealed reusable knowledge, it overwrites the affected live `fact` rows for X and appends each prior version to `fact_history` in the same write. A confident claim about why the match was fragile is a `state_behavior` or `purpose` fact with a rationale and evidence citations. H stays as it is."
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-events-links-heading": {
+      "id": "b-sks-rc-events-links-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Foreign keys out"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-links-table": {
+      "id": "b-sks-rc-events-links-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "From",
+          "To",
+          "Cardinality",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "event.target_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "target",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Exactly one; zero or more events per target",
+            "Whose ledger; the derived view selects the events by this column"
+          ],
+          [
+            [
+              {
+                "insert": "event_ref.event_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "event",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Exactly one; zero or more refs per event",
+            "The event the ref hangs off"
+          ],
+          [
+            [
+              {
+                "insert": "event_ref.ref_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " when "
+              },
+              {
+                "insert": "ref_kind",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " is "
+              },
+              {
+                "insert": "worker_run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "; an epoch, PR, or commit id outside the store otherwise"
+              }
+            ],
+            "Exactly one",
+            "What to open to see the whole story; never used to find the target"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-events-links-in-heading": {
+      "id": "b-sks-rc-events-links-in-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Foreign keys in"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-links-in": {
+      "id": "b-sks-rc-events-links-in",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "From",
+          "To",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "event_ref.event_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "event",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The refs hanging off this event"
+          ],
+          [
+            "No other table",
+            [
+              {
+                "insert": "event",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "Nothing points at an event by id. The events are read through the derived ledger view and, when a librarian cites one, captured as an "
+              },
+              {
+                "insert": "evidence",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row cited in a fact's "
+              },
+              {
+                "insert": "evidence_ids",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-events-open": {
+      "id": "b-sks-rc-events-open",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Open questions",
+        "tone": "warning"
+      },
+      "text": [
+        {
+          "insert": "- Whether "
+        },
+        {
+          "insert": "regression",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " needs a cause enum ("
+        },
+        {
+          "insert": "merge_conflict",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | "
+        },
+        {
+          "insert": "upstream_change",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") or the prose "
+        },
+        {
+          "insert": "summary",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " suffices."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-related-heading": {
+      "id": "b-sks-rc-events-related-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-related-overview": {
+      "id": "b-sks-rc-events-related-overview",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Target Ledger",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-semantic-knowledge-system/30-record-contracts/30-target-ledger",
+              "label": "Target Ledger"
+            }
+          }
+        },
+        {
+          "insert": " — the three entry types and the derived ledger view the events feed."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-related-worker-runs": {
+      "id": "b-sks-rc-events-related-worker-runs",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker Runs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-semantic-knowledge-system/30-record-contracts/30-target-ledger/10-worker-runs",
+              "label": "Worker Runs"
+            }
+          }
+        },
+        {
+          "insert": " — the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows a regression's "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ref opens."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-related-targets": {
+      "id": "b-sks-rc-events-related-targets",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Targets",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-semantic-knowledge-system/30-record-contracts/10-core-objects/10-targets",
+              "label": "Targets"
+            }
+          }
+        },
+        {
+          "insert": " — the identity changes checkout reconciliation detects, and the "
+        },
+        {
+          "insert": "target_status",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row good news shows up in."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-events-related-contracts": {
+      "id": "b-sks-rc-events-related-contracts",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Record Contracts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-semantic-knowledge-system/30-record-contracts",
+              "label": "Record Contracts"
+            }
+          }
+        },
+        {
+          "insert": " — the full table list, the foreign-key table, and the derived views."
+        }
+      ],
+      "children": []
+    }
+  }
+}
