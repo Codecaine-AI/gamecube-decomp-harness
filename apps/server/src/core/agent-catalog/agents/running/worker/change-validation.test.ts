@@ -484,6 +484,33 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
     expect(baseline.snapshot?.targetScore).toBe(89);
   });
 
+  test("prefers section match percent over fuzzy match percent", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "section-score-measure-"));
+    const report = JSON.stringify({
+      left: {
+        sections: [{ name: ".bss", match_percent: 100, fuzzy_match_percent: 0, size: 32 }],
+        symbols: [],
+      },
+    });
+    const workspaceExec = fakeWorkspaceExec(async (command) => {
+      if (command[0] === "cat") {
+        return { exitCode: 0, stdout: command[1] === "build.ninja" ? "" : "int data;\n", stderr: "" };
+      }
+      if (command[0] === "build/tools/objdiff-cli") return { exitCode: 0, stdout: report, stderr: "" };
+      return { exitCode: 0, stdout: "", stderr: "" };
+    });
+
+    const baseline = await captureWorkerChangeBaseline({
+      repoRoot: "/workspace/section-target",
+      outputDir,
+      target: { unit: "main/melee/gm/gmclassic", symbol: ".bss", source_path: "src/melee/gm/gmclassic.c" },
+      workspaceExec,
+    });
+
+    expect(baseline.status).toBe("available");
+    expect(baseline.snapshot?.targetScore).toBe(100);
+  });
+
   test("captures undefined symbols only when requested", async () => {
     const report = JSON.stringify({
       left: {

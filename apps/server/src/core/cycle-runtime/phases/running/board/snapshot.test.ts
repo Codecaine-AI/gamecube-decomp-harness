@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import { loadBoardSnapshot, loadExactTargetKeys } from "./snapshot.js";
 
 function writeJson(path: string, value: unknown): void {
@@ -45,7 +46,7 @@ describe("loadBoardSnapshot", () => {
     }
   });
 
-  test("emits no candidates when code and data are exact", () => {
+  test("uses match percent for section discovery and excludes scores at or above exact", () => {
     const root = mkdtempSync(join(tmpdir(), "board-exact-unit-"));
     try {
       writeJson(resolve(root, "build/GALE01/report.json"), {
@@ -57,13 +58,24 @@ describe("loadBoardSnapshot", () => {
             functions: [{ name: "exactFunction", size: 64, fuzzy_match_percent: 100 }],
             sections: [
               { name: ".text", size: 64, fuzzy_match_percent: 100 },
-              { name: ".sdata2", size: 12, fuzzy_match_percent: 99.999995 },
+              { name: ".bss", size: 12, match_percent: EXACT_SCORE, fuzzy_match_percent: 0 },
+              { name: ".data", size: 12, match_percent: 100, fuzzy_match_percent: 0 },
+              { name: ".sdata2", size: 12, match_percent: EXACT_SCORE - 0.000001, fuzzy_match_percent: 100 },
             ],
           },
         ],
       });
 
-      expect(loadBoardSnapshot(root).candidates).toEqual([]);
+      expect(loadBoardSnapshot(root).candidates).toEqual([
+        {
+          unit: "melee/data/exact.c",
+          sourcePath: "src/melee/data/exact.c",
+          symbol: ".sdata2",
+          size: 12,
+          fuzzy: EXACT_SCORE - 0.000001,
+          kind: "section",
+        },
+      ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

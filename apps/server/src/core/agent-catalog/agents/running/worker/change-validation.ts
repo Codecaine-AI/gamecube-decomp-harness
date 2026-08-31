@@ -9,7 +9,7 @@ import {
   type WorkspaceExec,
 } from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
-import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
+import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/constants.js";
 import { resolveHeaderConsumers } from "./consumer-map.js";
 import {
   DEFAULT_WORKER_MICRO_GATE_FLAGS,
@@ -207,7 +207,7 @@ function numberValue(value: unknown, fallback = NaN): number {
 }
 
 function scoreFromRow(row: Record<string, unknown>): number {
-  return numberValue(row.match_percent, numberValue(row.fuzzy_match_percent, NaN));
+  return objdiffRowScore(row);
 }
 
 function objectTargetFromSourcePath(sourcePath: string): string | null {

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import type { BoardMeasures, BoardSnapshot, TargetCandidate } from "@server/core/shared/types/index.js";
-import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
+import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/constants.js";
 import { candidateFromReportFunction, objdiffSourceMap } from "./candidates.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
 
@@ -59,7 +59,7 @@ export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOp
       const section = asObject(sectionValue);
       const symbol = stringValue(section.name);
       const size = numberValue(section.size);
-      const fuzzy = numberValue(section.fuzzy_match_percent, 100);
+      const fuzzy = objdiffRowScore(section, 100);
       if (!symbol || symbol === ".text" || size <= 0 || fuzzy >= EXACT_SCORE) continue;
       candidates.push({
         unit: unitName,
@@ -106,7 +106,7 @@ export function loadExactTargetKeys(repoRoot: string): Set<string> {
     for (const sectionValue of asArray(unit.sections)) {
       const section = asObject(sectionValue);
       const symbol = stringValue(section.name);
-      const fuzzy = numberValue(section.fuzzy_match_percent, 100);
+      const fuzzy = objdiffRowScore(section, 100);
       if (symbol && fuzzy >= EXACT_SCORE) exactKeys.add(`${unitName}::${symbol}`);
     }
   }
