@@ -10,10 +10,13 @@ decomp code — the workers do that. Your job is to keep the machinery moving,
 catch it when it stalls or breaks, repair the mechanical breaks the boundary
 produces, and tell Ford the truth about what happened.
 
-Everything below was learned by running the system live on 2026-08-27..29
-(epochs 3–8, 26 harness fixes, PR doldecomp/melee#3223 from 91.49% to 93.07%).
+Everything below was learned by running the system live on 2026-08-27..31
+(epochs 3–13, 38 harness fixes, PR doldecomp/melee#3223 from 91.49% to 94.47%).
 Commands and paths are exact. Where the system has a known bug, the workaround
 is written down; fix the bug when you can, but never block the run on it.
+Entries marked FIXED describe failure classes that should no longer occur —
+their remedies are kept because a recurrence is a regression worth both
+repairing and reporting.
 
 ## 0. Shape of the system (read once)
 
@@ -45,10 +48,17 @@ is written down; fix the bug when you can, but never block the run on it.
   epoch worktree `games/melee/state/epoch_worktree` (throwaway, rebuilt every
   boundary — never fix things only there).
 - **Run config** — `runs.inputs_json.configuration_snapshot`
-  `{model, provider, thinking_level, desired_workers, sandbox_profile}`. The
-  user sets it by staging the run in the UI. To change it on a paused run:
-  `sqlite3 <db> "UPDATE runs SET inputs_json=json_set(inputs_json,'$.configuration_snapshot.thinking_level','xhigh') WHERE id='<runId>'"`.
-  The next resume spawns with the new values; verify with `ps`.
+  `{model, provider, thinking_level, desired_workers, sandbox_profile,
+  agent_timeout_seconds}`. The user sets it by staging the run in the UI.
+  Resume applies the snapshot, including a changed `desired_workers` (fix 31
+  syncs the column before the scheduler spawns). To change it by hand on a
+  paused run: `sqlite3 <db> "UPDATE runs SET inputs_json=json_set(inputs_json,'$.configuration_snapshot.thinking_level','xhigh') WHERE id='<runId>'"`,
+  then resume; verify with `ps`.
+- **Kernel DB** — `games/melee/state/agent-kernel.sqlite` (bun:sqlite, WAL;
+  override `ORCH_AGENT_KERNEL_DB_PATH`). Worker spawns need it readable. The
+  old `agent-kernel-db` Postgres docker container is DEPRECATED — nothing
+  depends on it; its 37 GB volume is a read-only archive of pre-2026-08-31
+  traces.
 
 Set these once per session:
 
@@ -128,10 +138,13 @@ tail -F "$LOG" | grep -E --line-buffered '\[run-loop\]|\[epoch\]|breakage|micro_
   | grep -vE --line-buffered 'boundary is still failed|displaced by upstream|boundary retry due at'
 ```
 
-What healthy looks like: `busy` ≈ max-workers; `finished_count` rising
-(~4/min at sol/low, ~1/min at xhigh — xhigh attempts run up to the 60-min
-agent timeout and many recycle); `waiting` small and transient; occasional
-`job coverage reconciled (+k / -m)`; `sched=1`.
+What healthy looks like: `busy` ≈ max-workers early, then tracking the
+distinct-file count of open targets (same-file claim exclusivity — one
+worker per .c file); `finished_count` rising (xhigh attempts run up to the
+configured agent timeout, many settle earlier with banked checkpoints);
+`waiting` small and transient; occasional `job coverage reconciled
+(+k / -m)` (claim-aware since fix 30 — endless identical +N lines are a
+regression); `sched=1`.
 
 What is not healthy — act immediately:
 - `sched=0` while `run=active` → §5.7.
@@ -156,16 +169,22 @@ remain. It takes 10–25 min. Verify each step in the log, in order:
 3. `precommit_autofix` — reformats in the cycle worktree; "N file(s)" is fine.
 4. `snapshot_commit` — commits the cycle worktree ("using existing HEAD" when clean).
 5. `configure`, `report_build` — on failure the bounded codex build-fixer runs
-   once and retries; check it *propagated* (a `boundary build-fixer:` commit on
-   the cycle branch). If it says the patch was corrupt → §5.1 by hand.
+   once with the FULL `ninja -k 0` failure list and retries; on a green retry
+   it commits its diff on the cycle branch, on failure it restores a clean
+   worktree (fix 36). A dirty worktree after a fixer run is a regression. If
+   the fixer can't repair it → §5.1 by hand.
 6. `report_read … matched_code X%` — the number to report.
 7. `qa_scan` — known false positives: `mnInfo_803EFC08`
    (address_named_static_data), `lbcollision.c` numeric_literal_to_symbol.
 8. `regression_repair` — findings are deferred with ledger notes; ">12 rows"
    pauses the run on the regression latch at the end of the pass → §5.4.
 9. `save_point`.
-10. `boundary_sync` — merges upstream (`-X theirs`) and rebuilds; a break here
-    runs the sync build-fixer once; if it still fails → §5.1, §5.2.
+10. `boundary_sync` — merges upstream with the per-function POLICY MERGE
+    (`--sync-merge-policy=score`, the default since fix 38: upstream-matched
+    = upstream text; ours-exact = ours; else higher score; per-file decisions
+    in the step log; `theirs` is the escape hatch) and rebuilds; a break here
+    runs the sync build-fixer once (commit-or-revert, full failure list); if
+    it still fails → §5.1, §5.2.
 11. `boundary breakage:` lines = master breakage gate vs upstream CI. Any
     `100% -> <100%` is a real breakage of something upstream matched → §5.3.
     Never let that reach the PR.
@@ -178,8 +197,11 @@ remain. It takes 10–25 min. Verify each step in the log, in order:
     bot comment on the PR (`0 broken matches`, matched-code delta vs master).
 14. Typed close → `full knowledge refresh` (subprocess, ~4 min) →
     `epoch N: admitted K targets`. K should be low hundreds. If admission is
-    refused ("knowledge board provenance…") the board is stale; rebuild it
-    host-side: `bun run kg:rebuild -- --game melee --repo-root $CW`.
+    refused ("knowledge board provenance…" — a CONTENT sha mismatch; a
+    path-only difference is just an info line): first check YOU didn't build
+    in the cycle worktree after `report_publish` (operator builds there
+    poison the check — never build between publish and admission). Otherwise
+    rebuild host-side: `bun run kg:rebuild -- --game melee --repo-root $CW`.
 
 If the pass ends with `paused on regressions` or `boundary retry k/5 scheduled`,
 go to §5.4 / §5.5.
@@ -236,12 +258,12 @@ pre-commit run clang-tidy --files <changed>; pre-commit run clang-format --files
    resume. To hold a retry while you repair: set `boundary_next_attempt_at` to
    a future ISO time; set it NULL to release.
 5. **Reconcile shortcut** (`pending integration attempt reconciled; skipped:
-   … re-ran: none`) — the retry believed gates/PR already ran (evidence is
-   keyed by a restart-relative label and collides across restarts). Delete the
-   epoch's `pending_integrations` row, flip the epoch to error (§5.4), retry.
-   If the next epoch was already admitted on top of the bogus close, roll it
-   back first: cancel its jobs, close active `target_claims`, delete its
-   `epoch_targets` and `epochs` row.
+   … re-ran: none`) — FIXED by fix 36 (evidence keyed by {epoch_id,
+   boundary_attempt}); seeing this with steps actually skipped is a
+   REGRESSION. Remedy if it recurs: delete the epoch's `pending_integrations`
+   row, flip the epoch to error (§5.4), retry. If the next epoch was already
+   admitted on top of the bogus close, roll it back first: cancel its jobs,
+   close active `target_claims`, delete its `epoch_targets` and `epochs` row.
 6. **`resolver_failed` integration blocking the drain** — a timed-out,
    non-exact checkpoint whose patch no longer applies:
    `UPDATE integration_outcomes SET status='rejected',disposition='rejected',resolved_at='<now>',updated_at='<now>' WHERE id='<job-id>' AND status='resolver_failed';`
@@ -249,12 +271,17 @@ pre-commit run clang-tidy --files <changed>; pre-commit run clang-format --files
 7. **Scheduler dead** (`sched=0`, `melee-live.json` `exited`, `Database has
    closed` storm, or silent) — kill orphan `worker-task` processes, recover
    (§2, backdate the lease), resume. Attempts in flight at the crash are lost;
-   their leases expire in ~1 h and the reaper re-dispatches them. If the crash
+   their job leases run the full agent timeout, so REQUEUE the dead
+   scheduler's claimed jobs (§6 step-5 SQL) or the successor treats those
+   slots as occupied for hours. If the crash
    signature is a masked exception, the run-loop now logs the original error
    (fix 25) — read it before resuming.
-8. **Tail livelock** — the last N targets cycle 60-min xhigh timeouts, or
-   admitted targets have no job. Give each remaining target ≥2 xhigh rounds,
-   then close the tail (precedent: Ford, epochs 5–8):
+8. **Tail livelock** — the last N targets cycle full-timeout attempts, or
+   admitted targets have no job (usually same-file exclusivity: open targets
+   clustered behind active claims — check with a distinct-source_path count;
+   that is by design, not a fault). Give each remaining target ≥2 rounds at
+   the configured thinking level, then close the tail (precedent: Ford,
+   epochs 5–12):
    ```bash
    EP=$(sqlite3 $DB "SELECT id FROM epochs WHERE run_id='$RUN' AND ordinal=<N>"); NOW=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
    sqlite3 $DB "BEGIN IMMEDIATE;
@@ -266,10 +293,17 @@ pre-commit run clang-tidy --files <changed>; pre-commit run clang-format --files
    ps aux | grep '[w]orker-task' | grep "$RUN" | awk '{print $2}' | xargs -I{} kill -TERM {}
    ```
    The boundary launches on the next tick.
-9. **Surplus jobs / churn** — more live worker jobs than unfinished targets
-   (duplicates provisioning sandboxes that find no target). Cancel queued and
-   waiting worker jobs beyond `unfinished targets`; newer schedulers trim this
-   automatically (`job coverage reconciled (+0 / -k)`).
+9. **Surplus jobs / churn** — largely FIXED: the coverage reconciler is
+   claim-aware (fix 30, enqueues only claimable uncovered targets) and the
+   trim runs automatically (`job coverage reconciled (+0 / -k)`). If churn
+   still appears (endless identical `+N / -0` lines, or jobs settling
+   `no_target_available` in a loop), that's a regression — cancel the excess
+   queued/waiting jobs by hand and investigate.
+   Related, now-safe: manually requeued jobs no longer poison fresh attempts
+   (fix 35 discards stale payload enrichment at claim), and infra failures
+   (provider errors, kernel DB unreachable, sandbox provision failures)
+   re-admit the target automatically with a 3-strike cap (fix 33) — no manual
+   re-admission needed.
 10. **`Storage schema is not the squashed baseline`** — a newer process
     migrated the DB under an older server. Ford must restart the server on the
     current tree. Do not roll the DB back.
@@ -282,8 +316,8 @@ pre-commit run clang-tidy --files <changed>; pre-commit run clang-format --files
 2. Let the epoch finish or close its tail (§5.8).
 3. Let the FULL boundary run (§4) — gates, PR push, close.
 4. Arm a watcher that fires `POST /api/process/stop` the moment the next
-   ordinal shows `admitted_count > 0` (the scheduler claims 32 jobs within
-   seconds of admission; the stop releases them).
+   ordinal shows `admitted_count > 0` (the scheduler claims up to max-workers
+   jobs within seconds of admission; the stop releases them).
 5. After the stop: reset just-claimed rows
    `UPDATE jobs SET status='queued',revision=revision+1,lease_id=NULL,lease_expires_at=NULL,next_attempt_at=NULL WHERE run_id='$RUN' AND kind='worker' AND status IN ('claimed','running','waiting');`
    kill stray `worker-task` processes, recover the run to `paused` (§2).
@@ -292,7 +326,9 @@ pre-commit run clang-tidy --files <changed>; pre-commit run clang-format --files
    head/CI status. Mark the directive DONE in the same two places.
 
 **"Restart with thinking level X" / config changes**: stop → recover to paused
-→ edit `configuration_snapshot` → resume → verify `ps` on scheduler and workers.
+→ stage the new config in the UI (or edit `configuration_snapshot` by hand) →
+resume (the snapshot is applied, including desired_workers — fix 31) → verify
+`ps` on scheduler and workers.
 
 ## 7. Hard rules
 

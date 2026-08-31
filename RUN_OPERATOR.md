@@ -12,7 +12,8 @@ skill /run-operator (.claude/skills/run-operator/SKILL.md) and follow it.
 Run:        <runId>                         (e.g. 4a45af8a-9f8c-499b-b375-c0d8e93fc8fd)
 Cycle:      games/melee/worktrees/cycles/<cycle>/current
 Config:     model <model>, thinking-level <low|xhigh>, max-workers <N>, sandbox profile <profile>
-            (already staged in runs.inputs_json.configuration_snapshot — do not change it unless I say so)
+            (staged in runs.inputs_json.configuration_snapshot; resume applies it
+            — including a changed worker count — do not change it unless I say so)
 Directive:  <none | "pause after this epoch's boundary" | "restart with thinking level X" | ...>
 
 Do this, in order:
@@ -29,11 +30,15 @@ Do this, in order:
    "Database has closed", or any gate/breakage line.
 4. At each epoch boundary, verify every step in the skill's checklist in order,
    and confirm the draft PR (doldecomp/melee#3223) head, the 10 CI checks and
-   the decomp-dev bot report (must say 0 broken matches). If a gate fails or the
-   post-merge build breaks, repair it per the playbook (upstream-gospel for
-   functions upstream matched; restore our exact matches in Matching units;
-   host-side ninja -k 0 / DOL check / report / clang-tidy before committing on
-   the cycle branch), then retry the boundary. Never push the PR branch by hand.
+   the decomp-dev bot report (must say 0 broken matches). The sync runs a
+   per-function policy merge by default (--sync-merge-policy=score) and the
+   build-fixer self-commits on green with the full failure list, so manual
+   repairs should be rare; when one is still needed, follow the playbook
+   (upstream-gospel for functions upstream matched; restore our exact matches
+   in Matching units; host-side ninja -k 0 / DOL check / report / clang-tidy
+   before committing on the cycle branch), then retry the boundary. Never
+   build in the cycle worktree between report_publish and admission. Never
+   push the PR branch by hand.
 5. Close an epoch tail only after every remaining target has had >=2 attempts
    at the configured thinking level (skill §5.8), and say so.
 6. Honor the Directive exactly as the skill describes (for a pause: full
