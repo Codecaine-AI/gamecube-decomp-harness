@@ -10,6 +10,7 @@ import {
   librarianPrompt,
   workerPrompt,
 } from "@server/core/agent-catalog";
+import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/index.js";
 import { agentRegistry } from "@server/core/agent-catalog/registry";
 import {
   assertMeleeKernelCatalogComplete,
@@ -112,6 +113,24 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
       });
+    case "worker-summarizer":
+      return workerSummarizerPrompt({
+        targetCardReference: {
+          target_key: "src/melee/ft/chara/ftDemo.c:ftDemo_Target",
+        },
+        checkpointSubmissionDigest: {
+          checkpoints: [{ result: "improved but inexact" }],
+          submissions: [{ result: "improved but inexact" }],
+        },
+        transcript: [
+          {
+            role: "assistant",
+            content: "I reordered the guard branches to test whether branch order caused the mismatch.",
+          },
+        ],
+        repoRoot: sampleRepoRoot,
+        stateDir: sampleStateDir,
+      });
   }
 }
 
@@ -134,12 +153,16 @@ describe("meleeKernelAgentCatalog", () => {
     expect(catalog.has("librarian-pr-index-context")).toBeTrue();
   });
 
+  test("registers the worker summarizer context loader kind", () => {
+    expect(createMeleeLoaderCatalog().has("worker-summarizer-context")).toBeTrue();
+  });
+
   test("covers every registered backend agent exactly once", () => {
     const registeredIds = Object.keys(agentRegistry) as KernelAgentId[];
 
     expect(() => assertMeleeKernelCatalogComplete()).not.toThrow();
-    expect(KERNEL_AGENT_IDS).toHaveLength(3);
-    expect(meleeKernelAgentCatalog).toHaveLength(3);
+    expect(KERNEL_AGENT_IDS).toHaveLength(4);
+    expect(meleeKernelAgentCatalog).toHaveLength(4);
     expect([...KERNEL_AGENT_IDS].sort()).toEqual(registeredIds.sort());
     expect(new Set(meleeKernelAgentCatalog.map((entry) => entry.id)).size).toBe(meleeKernelAgentCatalog.length);
   });
@@ -149,7 +172,9 @@ describe("meleeKernelAgentCatalog", () => {
       expect(entry.promptPaths.systemTemplatePath.endsWith("/agent.ts")).toBeTrue();
       expect(entry.promptPaths.promptModulePath.endsWith("/prompt.ts")).toBeTrue();
       expect(entry.promptPaths.contextModulePath.endsWith("/context.ts")).toBeTrue();
-      expect(entry.promptPaths.toolsModulePath.endsWith("/tools.ts")).toBeTrue();
+      if (entry.promptPaths.toolsModulePath) {
+        expect(entry.promptPaths.toolsModulePath.endsWith("/tools.ts")).toBeTrue();
+      }
       expect(entry.tools).toEqual(resolveAgentToolIds(entry.role));
       expect(entry.toolProfile).toBe(entry.role);
     }
@@ -170,6 +195,7 @@ describe("meleeKernelAgentCatalog", () => {
       "smashwiki_get_page",
       "ledger_search",
     ]);
+    expect(meleeKernelAgent("worker-summarizer").tools).toEqual([]);
   });
 
   test("describes worker output as a runner validation handoff in the catalog", () => {
@@ -184,7 +210,9 @@ describe("meleeKernelAgentCatalog", () => {
       expect(existsSync(resolve(repoRoot, entry.promptPaths.systemTemplatePath))).toBeTrue();
       expect(existsSync(resolve(repoRoot, entry.promptPaths.promptModulePath))).toBeTrue();
       expect(existsSync(resolve(repoRoot, entry.promptPaths.contextModulePath))).toBeTrue();
-      expect(existsSync(resolve(repoRoot, entry.promptPaths.toolsModulePath))).toBeTrue();
+      if (entry.promptPaths.toolsModulePath) {
+        expect(existsSync(resolve(repoRoot, entry.promptPaths.toolsModulePath))).toBeTrue();
+      }
       if (entry.promptPaths.schemaPath) {
         expect(existsSync(resolve(repoRoot, entry.promptPaths.schemaPath))).toBeTrue();
       }
@@ -268,7 +296,10 @@ describe("meleeKernelAgentCatalog", () => {
     const librarian = payload.agents.find((agent) => agent.name === "librarian");
     const rendered = `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
 
-    expect(payload.agents).toHaveLength(3);
+    const workerSummarizer = payload.agents.find((agent) => agent.name === "worker-summarizer");
+    const summarizerRendered = `${workerSummarizer?.renderedPrompt?.content ?? ""}\n${workerSummarizer?.context?.renderedContext ?? ""}`;
+
+    expect(payload.agents).toHaveLength(4);
     expect(payload.warnings).toEqual([]);
     expect(librarian?.tools).toEqual([...defaultLibrarianToolProfile]);
     expect(worker).toBeDefined();
@@ -282,6 +313,12 @@ describe("meleeKernelAgentCatalog", () => {
     expect(rendered).toContain('tool name="type_layout_lookup"');
     expect(rendered).toContain('provider="type_layout_lookup" type="diagnostics"');
     expect(rendered).not.toMatch(unresolvedPlaceholderPattern);
+    expect(workerSummarizer?.tools).toEqual([]);
+    expect(summarizerRendered).toContain("narrative fields only");
+    expect(summarizerRendered).toContain("<worker_transcript>");
+    expect(summarizerRendered).toContain("<checkpoint_submission_digest>");
+    expect(summarizerRendered).toContain("<target_card_reference>");
+    expect(summarizerRendered).not.toMatch(unresolvedPlaceholderPattern);
   });
 
 });

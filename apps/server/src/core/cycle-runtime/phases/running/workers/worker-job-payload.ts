@@ -27,7 +27,13 @@ export function workerJobEnrichmentIsLive(
   const workerId = job.payload.worker_id;
   const epochTargetId = job.payload.epoch_target_id;
   const epochId = job.payload.epoch_id;
-  if (![workerStateId, targetClaimId, workerId, epochTargetId, epochId].every((value) => typeof value === "string" && value.length > 0)) {
+  if (
+    typeof workerStateId !== "string" || workerStateId.length === 0
+    || typeof targetClaimId !== "string" || targetClaimId.length === 0
+    || typeof workerId !== "string" || workerId.length === 0
+    || typeof epochTargetId !== "string" || epochTargetId.length === 0
+    || typeof epochId !== "string" || epochId.length === 0
+  ) {
     return false;
   }
   const row = store.db.query(`

@@ -332,7 +332,12 @@ async function readKernelTraceLinkages(
         gameEventIds,
         appSessionIds,
       );
-      const observations = rows.flatMap((row): KernelTraceEventObservation[] => {
+      const observations = rows.flatMap((row: {
+        appSessionId: unknown;
+        containerId: unknown;
+        eventData: unknown;
+        kernelEventId: unknown;
+      }): KernelTraceEventObservation[] => {
         const appSessionId = kernelTraceRowText(row.appSessionId, "app_session_id");
         const containerId = kernelTraceRowText(row.containerId, "container_id");
         const kernelEventId = kernelTraceRowText(row.kernelEventId, "id");

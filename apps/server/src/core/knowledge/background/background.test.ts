@@ -15,6 +15,7 @@ import {
   queryBackgroundKnowledgeSummary,
   startBackgroundKnowledgeProcessor,
   triggerBackgroundKnowledgeProcess,
+  type BackgroundKnowledgePublication,
 } from "./index.js";
 
 const fixtures: Array<{ dir: string; store: StateStore }> = [];
@@ -262,7 +263,7 @@ describe("durable background knowledge queue", () => {
       store,
       async () => {
         entered = true;
-        await new Promise<never>(() => {});
+        return await new Promise<BackgroundKnowledgePublication>(() => {});
       },
       { intervalMs: 1 },
     );

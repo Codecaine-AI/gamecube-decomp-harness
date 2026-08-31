@@ -1138,7 +1138,6 @@ export async function validateWidenedChange(params: {
   };
 
   const resolveConsumers = params.runners?.resolveHeaderConsumers ?? resolveHeaderConsumers;
-  const resolveConfigUnits = params.runners?.resolveConfigUnits ?? resolveConfigUnitsFromHunks;
   for (const entry of params.writeSetEntries) {
     if (entry.category === "target-source") continue;
     if (entry.category === "foreign-source") {
@@ -1187,7 +1186,7 @@ export async function validateWidenedChange(params: {
       let units: string[] = [];
       try {
         units = params.runners?.resolveConfigUnits
-          ? await resolveConfigUnits({ repoRoot: params.repoRoot, baseRev: params.baseRev, metadataPath: entry.path })
+          ? await params.runners.resolveConfigUnits({ repoRoot: params.repoRoot, baseRev: params.baseRev, metadataPath: entry.path })
           : await resolveConfigUnitsFromHunks({
               repoRoot: params.repoRoot,
               baseRev: params.baseRev,

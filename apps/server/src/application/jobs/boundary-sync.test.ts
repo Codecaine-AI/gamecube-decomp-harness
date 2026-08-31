@@ -98,7 +98,7 @@ describe("boundary-sync job", () => {
     let plannerInput: Parameters<typeof import("@server/core/cycle-runtime/phases/running/epochs/boundary-sync").planBoundarySync>[0] | undefined;
     let loadedRunId: string | undefined;
 
-    await boundarySync(globals, new Map([["--dry-run", true], ["--run-id", "stopped-run"]]), {
+    await boundarySync(globals, new Map<string, string | true>([["--dry-run", true], ["--run-id", "stopped-run"]]), {
       loadState: (_stateDir, _gameId, runId) => {
         loadedRunId = runId;
         return {

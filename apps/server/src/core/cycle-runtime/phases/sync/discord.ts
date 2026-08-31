@@ -127,7 +127,9 @@ export function stageDiscordSyncBatches(options: {
 
   for (const batch of batches) {
     const payload = discordPayload(batch);
-    for (const message of payload.messages) {
+    const messages = Array.isArray(payload.messages) ? payload.messages : [];
+    for (const message of messages) {
+      if (typeof message !== "object" || message === null) continue;
       if (typeof message.channel_id === "string") channelIds.add(message.channel_id);
       if (typeof message.timestamp !== "string") continue;
       const timestamp = Date.parse(message.timestamp);

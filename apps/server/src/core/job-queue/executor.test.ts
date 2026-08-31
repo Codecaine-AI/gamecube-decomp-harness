@@ -52,7 +52,8 @@ describe("LocalProcessExecutor", () => {
       stderr: "Process disappeared before its exit status could be collected",
       timedOut: false,
     });
-    process.kill(handle.pid!, "SIGKILL");
+    if (typeof handle.pid !== "number") throw new Error("Expected local process handle to include a pid");
+    process.kill(handle.pid, "SIGKILL");
     await expect(executor.poll(handle)).rejects.toThrow("Unknown local process handle");
   });
 

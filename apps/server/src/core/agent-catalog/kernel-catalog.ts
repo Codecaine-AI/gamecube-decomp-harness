@@ -15,11 +15,13 @@ import {
 import workerKernelAgent from "@server/core/agent-catalog/agents/running/worker/agent.js";
 import integrationResolverKernelAgent from "@server/core/agent-catalog/agents/running/integration-resolver/agent.js";
 import librarianKernelAgent from "@server/core/agent-catalog/agents/knowledge/librarian/agent.js";
+import workerSummarizerKernelAgent from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/agent.js";
 
 export const KERNEL_AGENT_IDS = [
   "worker",
   "integration-resolver",
   "librarian",
+  "worker-summarizer",
 ] as const satisfies readonly RegisteredAgentId[];
 
 export type KernelAgentId = (typeof KERNEL_AGENT_IDS)[number];
@@ -28,7 +30,7 @@ export interface KernelAgentPromptPaths {
   systemTemplatePath: string;
   promptModulePath: string;
   contextModulePath: string;
-  toolsModulePath: string;
+  toolsModulePath: string | null;
   userTemplatePath: string;
   schemaPath: string | null;
 }
@@ -114,6 +116,7 @@ const typedAgentDefinitions = {
   worker: workerKernelAgent,
   "integration-resolver": integrationResolverKernelAgent,
   librarian: librarianKernelAgent,
+  "worker-summarizer": workerSummarizerKernelAgent,
 } as const satisfies Record<KernelAgentId, HarnessAgentDefinition>;
 
 function typedAgentDefinition(id: KernelAgentId): HarnessAgentDefinition {
@@ -175,13 +178,18 @@ function registryEntry(id: KernelAgentId): (typeof agentRegistry)[KernelAgentId]
   return agentRegistry[id];
 }
 
-function promptPaths(systemTemplatePath: string, userTemplatePath: string, schemaPath: string | null = null): KernelAgentPromptPaths {
+function promptPaths(
+  systemTemplatePath: string,
+  userTemplatePath: string,
+  schemaPath: string | null = null,
+  hasTools = true,
+): KernelAgentPromptPaths {
   const moduleRoot = systemTemplatePath.replace(/\/agent\.ts$/, "");
   return {
     systemTemplatePath,
     promptModulePath: `${moduleRoot}/prompt.ts`,
     contextModulePath: `${moduleRoot}/context.ts`,
-    toolsModulePath: `${moduleRoot}/tools.ts`,
+    toolsModulePath: hasTools ? `${moduleRoot}/tools.ts` : null,
     userTemplatePath,
     schemaPath,
   };
@@ -302,6 +310,23 @@ export const meleeKernelAgentCatalog = [
       "apps/server/src/core/agent-catalog/agents/knowledge/librarian/schema.json",
       null,
       "Librarian output is schema-described; learnings and attempt overlays are appended to the knowledge ledger by the harness-owned condense job.",
+    ),
+  }),
+  catalogEntry("worker-summarizer", {
+    group: "knowledge",
+    phase: "worker-summary",
+    promptPaths: promptPaths(
+      "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer/agent.ts",
+      "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer/prompt.ts",
+      "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer/schema.json",
+      false,
+    ),
+    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "worker-summarizer-context"],
+    resultContract: resultContract(
+      null,
+      "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer/schema.json",
+      null,
+      "Worker summarizer output contains narrative fields only. A future job mechanically joins scores, sequence numbers, runtime references, final outcome, and baseline.",
     ),
   }),
 ] as const satisfies readonly KernelAgentCatalogEntry[];

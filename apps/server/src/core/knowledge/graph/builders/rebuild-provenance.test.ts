@@ -30,11 +30,13 @@ describe("knowledge graph report provenance", () => {
     const store = openKnowledgeGraph(dbPath);
     try {
       const provenance = readReportProvenance(store);
+      expect(provenance).not.toBeNull();
+      if (provenance === null) throw new Error("Expected report provenance after rebuild");
       expect(provenance?.path).toBe(reportPath);
       expect(provenance?.sha256).toBe(createHash("sha256").update(readFileSync(reportPath)).digest("hex"));
       expect(provenance?.mtimeMs).toBeGreaterThan(0);
       expect(provenance?.matchedCodePercent).toBe(73.25);
-      expect(provenance?.revision === null || /^[0-9a-f]{40}$/.test(provenance.revision)).toBe(true);
+      expect(provenance.revision === null || /^[0-9a-f]{40}$/.test(provenance.revision)).toBe(true);
     } finally {
       store.db.close();
     }

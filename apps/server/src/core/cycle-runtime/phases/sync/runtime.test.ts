@@ -447,7 +447,12 @@ describe("S4 sync operator runtime", () => {
     }
   });
 
-  test.each([
+  test.each<{
+    ok: boolean;
+    detail: string;
+    staged: number;
+    batchIds: string[];
+  }>([
     { ok: true, detail: "refresh complete", staged: 0, batchIds: [] as string[] },
     { ok: false, detail: "refresh unavailable; using mirror", staged: 1, batchIds: ["discord-fixture"] },
   ])("records the complete Discord observation sequence when refresh ok=$ok", async (scenario) => {
@@ -488,7 +493,7 @@ describe("S4 sync operator runtime", () => {
         "sync.discord_staged",
         "sync.observation_refreshed",
       ]);
-      expect(events[2]?.payload).toMatchObject({ ok: scenario.ok, detail: scenario.detail });
+      expect(events[2]?.payload).toEqual(expect.objectContaining({ ok: scenario.ok, detail: scenario.detail }));
       expect(events[3]?.payload).toMatchObject({
         batches: scenario.staged,
         messages: scenario.staged * 12,

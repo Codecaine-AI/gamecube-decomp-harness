@@ -14,6 +14,7 @@ import {
 } from "@server/core/agent-catalog/kernel-catalog";
 import type { ResolvedGame } from "@server/core/game-registry";
 import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
+import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/index.js";
 
 export interface KernelAgentCatalogContext {
   game: ResolvedGame | null;
@@ -182,6 +183,38 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           ],
           transcripts: [],
         },
+        repoRoot: paths.repoRoot,
+        stateDir: paths.stateDir,
+        game,
+      });
+    case "worker-summarizer":
+      return workerSummarizerPrompt({
+        targetCardReference: {
+          target_key: "src/melee/ft/chara/ftDemo.c:ftDemo_KernelViewerSample",
+          symbol: "ftDemo_KernelViewerSample",
+          source_path: "src/melee/ft/chara/ftDemo.c",
+        },
+        checkpointSubmissionDigest: {
+          checkpoints: [
+            {
+              submission_count: 1,
+              result: "improved but inexact",
+              changed_area: "guard order and loop-carried load placement",
+            },
+          ],
+          submissions: [
+            {
+              result: "improved but inexact",
+              validation_summary: "The mismatch narrowed after the load moved before the loop.",
+            },
+          ],
+        },
+        transcript: [
+          {
+            role: "assistant",
+            content: "The remaining mismatch may come from branch order. I reordered the guard, then moved the damage-vector load above the loop before submitting.",
+          },
+        ],
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
         game,
