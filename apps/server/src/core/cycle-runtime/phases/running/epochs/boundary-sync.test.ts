@@ -23,7 +23,7 @@ function git(cwd: string, args: string[]): string {
   return result.stdout.toString().trim();
 }
 
-function fixtureRepo(): { repo: string; anchor: string; upstreamHead: string } {
+function fixtureRepo(targetSymbol = "Toy_80310324"): { repo: string; anchor: string; upstreamHead: string } {
   const root = mkdtempSync(join(tmpdir(), "boundary-sync-"));
   roots.push(root);
   const remote = join(root, "remote.git");
@@ -46,7 +46,7 @@ function fixtureRepo(): { repo: string; anchor: string; upstreamHead: string } {
   git(repo, ["config", "user.name", "Boundary Test"]);
   writeFileSync(join(repo, "src", "melee", "ty", "toy.c"), "int same(void) { return 1; }\n");
   git(repo, ["add", "."]);
-  git(repo, ["commit", "-m", "worker-integration(job-7b7c): main/melee/ty/toy::Toy_80310324 [checkpoint 77e0e849]"]);
+  git(repo, ["commit", "-m", `worker-integration(job-7b7c): main/melee/ty/toy::${targetSymbol} [checkpoint 77e0e849]`]);
   writeFileSync(join(seed, "src", "melee", "ty", "toy.c"), "int same(void) { return 2; }\n");
   writeFileSync(join(seed, "upstream.c"), "int upstream(void) { return 2; }\n");
   git(seed, ["add", "."]);
@@ -98,6 +98,7 @@ describe("boundary sync", () => {
       ledgerNotes: [{ targetKey: "main/melee/ty/toy::Toy_80310324", verdict: BOUNDARY_OVERRIDE_VERDICT }],
     });
     expect(plan.upstreamChangedFiles).toEqual(["src/melee/ty/toy.c", "upstream.c"]);
+    expect(plan.actions[0]).toBe("merge_upstream_score");
     expect(git(fixture.repo, ["rev-parse", "HEAD"])).toBe(before);
     expect(git(fixture.repo, ["status", "--porcelain"])).toBe("");
   });
@@ -121,9 +122,11 @@ describe("boundary sync", () => {
     })]);
   });
 
-  test("merges with upstream precedence, writes typed save point, and advances anchor and head", async () => {
+  test("uses explicit theirs policy, writes typed save point, and advances anchor and head", async () => {
     const fixture = fixtureRepo();
     const calls: Array<[string, unknown]> = [];
+    let reportPreparations = 0;
+    let upstreamReportFetches = 0;
     const hooks: BoundarySyncHooks = {
       ingestMergedUpstream: async (value) => { calls.push(["ingest", value]); },
       appendOverrideNote: (value) => { calls.push(["note", value]); },
@@ -145,10 +148,16 @@ describe("boundary sync", () => {
     const result = await runBoundarySync({
       repoRoot: fixture.repo,
       anchorSha: fixture.anchor,
+      mergePolicy: "theirs",
+      prepareMergeReport: async () => { reportPreparations += 1; },
+      fetchUpstreamReport: async () => { upstreamReportFetches += 1; return { path: "/unused" }; },
       targets: [{ targetKey: "main/melee/ty/toy::Toy_80310324", sourcePath: "src/melee/ty/toy.c", priorKind: "improvement", priorScore: 80 }],
       hooks,
     });
     expect(result.changed).toBe(true);
+    expect(result.plan.actions[0]).toBe("merge_upstream_theirs");
+    expect(reportPreparations).toBe(0);
+    expect(upstreamReportFetches).toBe(0);
     await expect(Bun.file(join(fixture.repo, "src", "melee", "ty", "toy.c")).text()).resolves.toContain("return 2");
     expect(calls.map(([name]) => name)).toEqual(["ingest", "note", "requeue", "report", "kg", "save", "anchor", "head"]);
     expect(calls.find(([name]) => name === "save")?.[1]).toMatchObject({
@@ -167,6 +176,123 @@ describe("boundary sync", () => {
     expect(calls.find(([name]) => name === "head")?.[1]).toMatchObject({ headSha: result.headSha });
   });
 
+  test("defaults to score policy and protects our exact function", async () => {
+    const fixture = fixtureRepo("same");
+    const reportPath = join(fixture.repo, "build", "GALE01", "report.json");
+    const upstreamReportPath = join(fixture.repo, "upstream-report.json");
+    mkdirSync(join(fixture.repo, "build", "GALE01"), { recursive: true });
+    writeFileSync(upstreamReportPath, JSON.stringify({
+      units: [{
+        name: "main/melee/ty/toy",
+        metadata: { source_path: "src/melee/ty/toy.c" },
+        functions: [{ name: "same", fuzzy_match_percent: 98 }],
+      }],
+    }));
+    let prepared = false;
+    let requeues = 0;
+    const fetchInputs: Array<{ anchorSha: string; version: string }> = [];
+    const policyLogs: string[] = [];
+    const result = await runBoundarySync({
+      repoRoot: fixture.repo,
+      stateDir: join(fixture.repo, ".state"),
+      anchorSha: fixture.anchor,
+      targets: [],
+      prepareMergeReport: async () => {
+        prepared = true;
+        writeFileSync(reportPath, JSON.stringify({
+          units: [{
+            name: "main/melee/ty/toy",
+            metadata: { source_path: "src/melee/ty/toy.c" },
+            functions: [{ name: "same", fuzzy_match_percent: 100 }],
+          }],
+        }));
+      },
+      fetchUpstreamReport: async (input) => {
+        fetchInputs.push({ anchorSha: input.anchorSha, version: input.version });
+        return { path: upstreamReportPath };
+      },
+      onMergePolicyFile: (entry) => { policyLogs.push(entry.message); },
+      hooks: {
+        ingestMergedUpstream: async () => {}, appendOverrideNote: () => { requeues += 1; }, requeueTarget: () => { requeues += 1; },
+        rebuildKnowledgeGraph: async () => {}, recomputeReport: async () => ({ matchedCodePercent: 100 }),
+        writePrSyncSavePoint: () => {}, advanceAnchor: () => {}, advanceCycleHead: () => {},
+      },
+    });
+
+    expect(prepared).toBe(true);
+    expect(result.plan.actions[0]).toBe("merge_upstream_score");
+    expect(fetchInputs).toEqual([{ anchorSha: fixture.upstreamHead, version: "GALE01" }]);
+    await expect(Bun.file(join(fixture.repo, "src", "melee", "ty", "toy.c")).text()).resolves.toContain("return 1");
+    expect(result.policyMergeFiles).toHaveLength(1);
+    expect(result.plan.targetsToRequeue).toEqual([]);
+    expect(requeues).toBe(0);
+    expect(result.policyMergeFiles?.[0]?.result?.decisions).toEqual([
+      expect.objectContaining({ functionName: "same", side: "ours", reason: "ours_exact" }),
+    ]);
+    expect(policyLogs).toEqual([
+      expect.stringContaining("ours=[same(ours_exact)] upstream=[] strategy=reconstructed"),
+    ]);
+  });
+
+  test("uses and logs the upstream-diff fallback when the target report is absent", async () => {
+    const fixture = fixtureRepo();
+    const reportPath = join(fixture.repo, "build", "GALE01", "report.json");
+    mkdirSync(join(fixture.repo, "build", "GALE01"), { recursive: true });
+    const policyLogs: string[] = [];
+    const result = await runBoundarySync({
+      repoRoot: fixture.repo,
+      stateDir: join(fixture.repo, ".state"),
+      anchorSha: fixture.anchor,
+      targets: [],
+      prepareMergeReport: async () => {
+        writeFileSync(reportPath, JSON.stringify({ units: [] }));
+      },
+      fetchUpstreamReport: async () => ({ path: null, reason: "artifact missing for target revision" }),
+      onMergePolicyFile: (entry) => { policyLogs.push(entry.message); },
+      hooks: {
+        ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {},
+        rebuildKnowledgeGraph: async () => {}, recomputeReport: async () => ({ matchedCodePercent: 99 }),
+        writePrSyncSavePoint: () => {}, advanceAnchor: () => {}, advanceCycleHead: () => {},
+      },
+    });
+
+    await expect(Bun.file(join(fixture.repo, "src", "melee", "ty", "toy.c")).text()).resolves.toContain("return 2");
+    expect(result.policyMergeFiles?.[0]?.result?.scoreMode).toBe("upstream-diff-fallback");
+    expect(result.policyMergeFiles?.[0]?.result?.decisions[0]).toEqual(expect.objectContaining({
+      side: "upstream",
+      reason: "upstream_report_fallback_upstream_changed",
+    }));
+    expect(policyLogs[0]).toContain("upstream-report-fallback=artifact missing for target revision");
+  });
+
+  test("advances a stale anchor when the upstream target is already merged", async () => {
+    const fixture = fixtureRepo();
+    git(fixture.repo, ["fetch", "origin"]);
+    git(fixture.repo, ["merge", "--no-edit", "-X", "theirs", "origin/master"]);
+    const before = git(fixture.repo, ["rev-parse", "HEAD"]);
+    let reportPreparations = 0;
+    let advancedHead = "";
+    const result = await runBoundarySync({
+      repoRoot: fixture.repo,
+      anchorSha: fixture.anchor,
+      targets: [],
+      prepareMergeReport: async () => { reportPreparations += 1; },
+      hooks: {
+        ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {},
+        rebuildKnowledgeGraph: async () => {}, recomputeReport: async () => ({ matchedCodePercent: 100 }),
+        writePrSyncSavePoint: () => {}, advanceAnchor: () => {},
+        advanceCycleHead: ({ headSha }) => { advancedHead = headSha; },
+      },
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.headSha).toBe(before);
+    expect(advancedHead).toBe(before);
+    expect(reportPreparations).toBe(0);
+    expect(result.policyMergeFiles).toEqual([]);
+    expect(result.plan.targetsToRequeue).toEqual([]);
+  });
+
   test("runs the fixer with extracted errors and upstream range, retries, and commits its diff", async () => {
     const fixture = fixtureRepo();
     let reportRuns = 0;
@@ -175,6 +301,7 @@ describe("boundary sync", () => {
     const result = await runBoundarySync({
       repoRoot: fixture.repo,
       anchorSha: fixture.anchor,
+      mergePolicy: "theirs",
       targets: [],
       runBuildFixer: async (input) => {
         fixerPrompt = input.prompt;
@@ -222,7 +349,7 @@ describe("boundary sync", () => {
     const fixture = fixtureRepo();
     let reportRuns = 0;
     await expect(runBoundarySync({
-      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [],
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [], mergePolicy: "theirs",
       runBuildFixer: async () => {
         writeFileSync(join(fixture.repo, "src", "melee", "ty", "toy.c"), "int same(void) { return 3; }\n");
         writeFileSync(join(fixture.repo, "new-fixer-file.c"), "int dirty;\n");
@@ -243,7 +370,7 @@ describe("boundary sync", () => {
     const fixture = fixtureRepo();
     let reportRuns = 0;
     await expect(runBoundarySync({
-      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [],
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [], mergePolicy: "theirs",
       runBuildFixer: async () => {
         writeFileSync(join(fixture.repo, "src", "melee", "ty", "toy.c"), "int same(void) { return 3; }\n");
         return { exitCode: 0, timedOut: false, output: "edited" };
@@ -263,7 +390,7 @@ describe("boundary sync", () => {
     const fixture = fixtureRepo();
     let fixerRuns = 0;
     await expect(runBoundarySync({
-      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [], buildFixerEnabled: false,
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [], buildFixerEnabled: false, mergePolicy: "theirs",
       runBuildFixer: async () => { fixerRuns += 1; return { exitCode: 0, timedOut: false, output: "" }; },
       hooks: {
         ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {}, rebuildKnowledgeGraph: async () => {},

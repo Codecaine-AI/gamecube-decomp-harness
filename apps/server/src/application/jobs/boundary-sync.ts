@@ -7,7 +7,7 @@ import {
   type BoundarySyncPlan,
   type BoundaryTargetState,
 } from "@server/core/cycle-runtime/phases/running/epochs/boundary-sync.js";
-import { booleanArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { booleanArg, syncMergePolicyArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
 interface BoundarySyncDryRunState {
   anchorSha: string;
@@ -91,11 +91,13 @@ export async function boundarySync(
   const runIdArg = args.get("--run-id");
   if (runIdArg === true) throw new Error("Missing value for --run-id. Usage: boundary-sync --dry-run [--run-id <id>]");
   const state = loadState(globals.stateDir, globals.game?.gameId ?? globals.gameId, runIdArg);
-  const plan = await (dependencies.plan ?? planBoundarySync)({
+  const planInput: Parameters<PlanBoundarySync>[0] = {
     repoRoot: globals.repoRoot,
     anchorSha: state.anchorSha,
     targets: state.targets,
     dryRun: true,
-  });
+  };
+  if (args.has("--sync-merge-policy")) planInput.mergePolicy = syncMergePolicyArg(args);
+  const plan = await (dependencies.plan ?? planBoundarySync)(planInput);
   (dependencies.print ?? ((value) => console.log(JSON.stringify(value, null, 2))))(plan);
 }

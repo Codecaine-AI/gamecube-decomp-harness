@@ -25,6 +25,8 @@ export interface ParsedArgs {
 
 export const WRITE_SET_WIDENING_MODES = ["off", "shadow", "config", "header"] as const;
 export type WriteSetWideningMode = (typeof WRITE_SET_WIDENING_MODES)[number];
+export const SYNC_MERGE_POLICIES = ["score", "theirs"] as const;
+export type SyncMergePolicy = (typeof SYNC_MERGE_POLICIES)[number];
 
 export interface WriteSetIntegrationFlags {
   /** The highest write-set widening rung enabled for the run. */
@@ -66,6 +68,13 @@ export function parse(argv: string[]): ParsedArgs {
       const value = arg.slice("--write-set-widening=".length);
       if (!value) throw new Error("Missing value for --write-set-widening");
       args.set("--write-set-widening", value);
+      continue;
+    }
+
+    if (arg.startsWith("--sync-merge-policy=")) {
+      const value = arg.slice("--sync-merge-policy=".length);
+      if (!value) throw new Error("Missing value for --sync-merge-policy");
+      args.set("--sync-merge-policy", value);
       continue;
     }
 
@@ -173,6 +182,16 @@ export function writeSetWideningArg(args: Map<string, string | true>): WriteSetW
     throw new Error(`--write-set-widening must be one of: ${WRITE_SET_WIDENING_MODES.join(", ")}`);
   }
   return value as WriteSetWideningMode;
+}
+
+export function syncMergePolicyArg(args: Map<string, string | true>): SyncMergePolicy {
+  const raw = args.get("--sync-merge-policy");
+  if (raw === true) throw new Error("Missing value for --sync-merge-policy");
+  const value = (typeof raw === "string" ? raw : "score").trim().toLowerCase();
+  if (!SYNC_MERGE_POLICIES.includes(value as SyncMergePolicy)) {
+    throw new Error(`--sync-merge-policy must be one of: ${SYNC_MERGE_POLICIES.join(", ")}`);
+  }
+  return value as SyncMergePolicy;
 }
 
 export function writeSetIntegrationFlags(args: Map<string, string | true>): WriteSetIntegrationFlags {

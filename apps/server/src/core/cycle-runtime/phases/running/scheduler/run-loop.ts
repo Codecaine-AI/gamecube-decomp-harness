@@ -32,6 +32,7 @@ import {
   booleanArg,
   numberArg,
   stringArg,
+  syncMergePolicyArg,
   writeSetIntegrationFlags,
   type GlobalArgs,
 } from "@server/core/game-registry/runtime-options.js";
@@ -632,6 +633,7 @@ export async function runRunLoop(
     const preCommitAutofixEnabled = !booleanArg(args, "--no-precommit-autofix");
     const linkCompleteUnitsEnabled = booleanArg(args, "--link-complete-units");
     const boundarySyncEnabled = !booleanArg(args, "--no-boundary-sync");
+    const syncMergePolicy = syncMergePolicyArg(args);
     const breakageGateEnabled = !booleanArg(args, "--no-breakage-gate");
     const boundaryBuildFixerEnabled = !booleanArg(args, "--no-boundary-build-fixer");
     const validation = globals.game?.validation;
@@ -944,6 +946,7 @@ export async function runRunLoop(
             preCommitAutofixEnabled,
             linkCompleteUnitsEnabled,
             boundarySyncEnabled,
+            syncMergePolicy,
             breakageGateEnabled,
             boundaryBuildFixerEnabled,
             fullKgMaintenanceMode,

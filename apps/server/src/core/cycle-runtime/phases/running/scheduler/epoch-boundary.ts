@@ -41,7 +41,7 @@ import {
   type KnowledgeMaintenanceProgressEvent,
 } from "@server/core/knowledge/jobs/kg.js";
 import { ensureSchedulerEpochFromBoard as ensureSchedulerEpochFromBoardDefault } from "./tick.js";
-import type { GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
+import type { GlobalArgs, SyncMergePolicy, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
 
 export type KnowledgeProgressReporter = (
   store: StateStore,
@@ -105,6 +105,7 @@ export interface EpochBoundaryParams {
     preCommitAutofixEnabled: boolean;
     linkCompleteUnitsEnabled?: boolean;
     boundarySyncEnabled: boolean;
+    syncMergePolicy?: SyncMergePolicy;
     breakageGateEnabled: boolean;
     boundaryBuildFixerEnabled: boolean;
     fullKgMaintenanceMode: string;
@@ -207,8 +208,10 @@ async function productionBoundarySync(
   const writeSavePointAnchor = params.dependencies?.recordSavePointAnchor ?? recordSavePointAnchor;
   return runBoundarySync({
     repoRoot: params.globals.repoRoot,
+    stateDir: params.globals.stateDir,
     anchorSha: anchor.upstream_revision,
     upstreamRef: params.globals.game?.baseRef,
+    reportRelPath,
     targets: rows.map((row) => ({
       epochTargetId: String(row.id),
       targetKey: String(row.target_key),
@@ -219,6 +222,32 @@ async function productionBoundarySync(
       priorScore: Number.isFinite(Number(row.baseline_score)) ? Number(row.baseline_score) : null,
     })),
     buildFixerEnabled: params.config.boundaryBuildFixerEnabled,
+    mergePolicy: params.config.syncMergePolicy ?? "score",
+    prepareMergeReport: async () => {
+      await forceReportRun(params.globals.repoRoot, { resetBaseline: false, generateChanges: false });
+    },
+    onMergePolicyFile: (entry) => {
+      console.error(`[run-loop] boundary sync policy: ${entry.message}`);
+      addEvent(params.store, params.runId, "epoch_checkpoint_progress", "epoch-cycle", {
+        epoch: params.epochOrdinal,
+        epoch_id: params.schedulerEpochId ?? null,
+        boundary_attempt: boundaryAttempt,
+        phase: "boundary_sync_policy_merge",
+        status: "finished",
+        path: entry.path,
+        message: entry.message,
+        strategy: entry.result?.strategy ?? "majority_fallback",
+        decisions: entry.result?.decisions.map((decision) => ({
+          function: decision.functionName,
+          side: decision.side,
+          reason: decision.reason,
+        })) ?? [],
+        fallback: entry.result?.fallback ?? null,
+        whole_file_fallback_reason: entry.wholeFileFallbackReason,
+        upstream_report_fallback_reason: entry.upstreamReportFallbackReason,
+        created_by: "epoch-cycle",
+      });
+    },
     onBuildFixerEvent: (status, fixer) => addEvent(params.store, params.runId, "epoch_checkpoint_progress", "epoch-cycle", {
       epoch: params.epochOrdinal,
       epoch_id: params.schedulerEpochId ?? null,
