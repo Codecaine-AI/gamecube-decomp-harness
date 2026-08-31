@@ -31,10 +31,11 @@ function setupRepo(): string {
   const repo = tempDir("worker-integration-repo-");
   mkdirSync(join(repo, "src"), { recursive: true });
   writeFileSync(join(repo, "src/a.c"), "int value = 0;\n");
+  writeFileSync(join(repo, "src/a.h"), "extern int value;\n");
   git(repo, ["init"]);
   git(repo, ["config", "user.email", "test@example.com"]);
   git(repo, ["config", "user.name", "Test User"]);
-  git(repo, ["add", "src/a.c"]);
+  git(repo, ["add", "src/a.c", "src/a.h"]);
   git(repo, ["commit", "-m", "baseline"]);
   return repo;
 }
@@ -56,7 +57,13 @@ function patchFile(dir: string): string {
   return path;
 }
 
-function insertQueued(store: StateStore, patchPath: string, runId: string, id = "integration-1"): string {
+function insertQueued(
+  store: StateStore,
+  patchPath: string,
+  runId: string,
+  id = "integration-1",
+  checkpointMetadata: Record<string, unknown> = {},
+): string {
   const checkpointId = `checkpoint-${id}`;
   store.db
     .query(
@@ -64,12 +71,12 @@ function insertQueued(store: StateStore, patchPath: string, runId: string, id = 
         INSERT INTO worker_checkpoints (
           id, worker_state_id, run_id, epoch_id, epoch_target_id,
           target_claim_id, attempt_index, validation_time, hard_gates_passed,
-          validation_status, validation_state, patch_path, diff_path, write_set_json
+          validation_status, validation_state, patch_path, diff_path, write_set_json, metadata_json
         ) VALUES (?, 'worker-1', ?, 'epoch-1', 'target-1', 'claim-1', 0,
-                  '2026-08-11T00:00:00.000Z', 1, 'passed', 'tentative', ?, ?, '["src/a.c"]')
+                  '2026-08-11T00:00:00.000Z', 1, 'passed', 'tentative', ?, ?, '["src/a.c"]', ?)
       `,
     )
-    .run(checkpointId, runId, patchPath, patchPath);
+    .run(checkpointId, runId, patchPath, patchPath, JSON.stringify(checkpointMetadata));
   return enqueueWorkerOutputIntegration(store, {
     runId,
     epochId: "epoch-1",
@@ -111,7 +118,9 @@ describe("apply-on-accept worker output integration", () => {
       const repo = setupRepo();
       const patchPath = patchFile(stateDir);
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
-      insertQueued(store, patchPath, run.id);
+      insertQueued(store, patchPath, run.id, "integration-1", {
+        out_of_write_set_changes: { paths: [], count: 0, categories: {} },
+      });
       const leaseId = acquireLease(store, "run", run.id);
 
       const result = await processWorkerOutputIntegrationQueue({
@@ -137,6 +146,45 @@ describe("apply-on-accept worker output integration", () => {
         (store.db.query("SELECT validation_state FROM worker_checkpoints WHERE id = 'checkpoint-integration-1'").get() as Record<string, unknown>)
           .validation_state,
       ).toBe("tentative");
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a checkpoint with dropped changed paths conflicts before applying its filtered patch", async () => {
+    const stateDir = tempDir("worker-integration-write-set-state-");
+    const store = openState(stateDir);
+    try {
+      const repo = setupRepo();
+      const patchPath = patchFile(stateDir);
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      insertQueued(store, patchPath, run.id, "integration-1", {
+        out_of_write_set_changes: {
+          paths: [{ path: "src/a.h", category: "owning-header" }],
+          count: 1,
+          categories: { "owning-header": 1 },
+        },
+      });
+      const leaseId = acquireLease(store, "run", run.id);
+
+      const result = await processWorkerOutputIntegrationQueue({
+        dryRun: false,
+        leaseId,
+        repoRoot: repo,
+        runId: run.id,
+        stateDir,
+        store,
+      });
+
+      expect(result.processed[0]).toMatchObject({
+        status: "conflict",
+        disposition: "checkpoint_write_set_mismatch",
+        conflictPaths: ["src/a.h"],
+      });
+      expect(result.processed[0]?.failureReasons[0]).toContain("filtered patch would drop: src/a.h");
+      expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 0;\n");
+      expect(readFileSync(join(repo, "src/a.h"), "utf8")).toBe("extern int value;\n");
+      expect(Number(git(repo, ["rev-list", "--count", "HEAD"]))).toBe(1);
     } finally {
       store.db.close();
     }

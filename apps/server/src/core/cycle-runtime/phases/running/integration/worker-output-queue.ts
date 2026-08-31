@@ -132,6 +132,33 @@ function checkpointSnapshot(store: StateStore, record: WorkerOutputIntegrationRe
   };
 }
 
+function checkpointOutOfWriteSetPaths(store: StateStore, record: WorkerOutputIntegrationRecord): string[] {
+  if (!record.workerCheckpointId) return [];
+  const row = store.db
+    .query("SELECT metadata_json FROM worker_checkpoints WHERE id = ?")
+    .get(record.workerCheckpointId) as Record<string, unknown> | undefined;
+  if (!row) return [];
+  let metadata: Record<string, unknown> = {};
+  try {
+    const parsed = typeof row.metadata_json === "string" ? JSON.parse(row.metadata_json) : row.metadata_json;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed as Record<string, unknown>;
+  } catch {
+    return [];
+  }
+  const changes = metadata.out_of_write_set_changes;
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) return [];
+  const paths = (changes as Record<string, unknown>).paths;
+  if (!Array.isArray(paths)) return [];
+  return uniqueStrings(
+    paths.flatMap((change) => {
+      if (typeof change === "string") return [change];
+      if (!change || typeof change !== "object" || Array.isArray(change)) return [];
+      const path = (change as Record<string, unknown>).path;
+      return typeof path === "string" ? [path] : [];
+    }),
+  );
+}
+
 function conflictItem(params: {
   record: WorkerOutputIntegrationRecord;
   target: Record<string, unknown>;
@@ -445,6 +472,29 @@ async function applyClaimedWorkerOutput(params: {
     });
     addEvent(params.store, params.record.runId, "worker_integration_skipped", "worker-output-integration", result);
     return result;
+  }
+
+  const droppedPaths = checkpointOutOfWriteSetPaths(params.store, params.record);
+  if (droppedPaths.length > 0) {
+    const failureReasons = [
+      `checkpoint validation included paths outside the integration write set; filtered patch would drop: ${droppedPaths.join(", ")}`,
+    ];
+    await writeFile(artifacts.checkStdoutPath, "");
+    await writeFile(artifacts.checkStderrPath, `${failureReasons[0]}\n`);
+    return handleApplyConflict({
+      artifacts,
+      command: ["checkpoint", "write-set-invariant"],
+      exitCode: 1,
+      failureReasons,
+      conflictPaths: droppedPaths,
+      stderr: failureReasons[0],
+      stderrPath: artifacts.checkStderrPath,
+      stdout: "",
+      stdoutPath: artifacts.checkStdoutPath,
+      store: params.store,
+      record: params.record,
+      disposition: "checkpoint_write_set_mismatch",
+    });
   }
 
   const checkCommand = ["git", "apply", "--check", params.record.patchPath];
