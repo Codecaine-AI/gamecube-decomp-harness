@@ -3,8 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, spyOn, test } from "bun:test";
-import type { SQL } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
 
 import type {
   AgentRun,
@@ -18,7 +16,6 @@ import type {
 import { EventType, TraceLevel, TraceSource } from "@agent-kernel/protocol";
 
 import { createMeleeKernelBridgeConfig, MELEE_KERNEL_ID } from "./config.js";
-import { ensureKernelObservabilitySchema } from "./database.js";
 import { createMeleeKernel } from "./kernel.js";
 import { createMeleeLoaderCatalog, MELEE_SESSION_CONTEXT_LOADER_KIND } from "./loaders.js";
 import { createMeleeKernelTraceReadService } from "./read-api.js";
@@ -193,83 +190,6 @@ function fixtureRows(): KernelTraceReadRows {
     events: [event],
   };
 }
-
-describe("Postgres observability schema", () => {
-  test("migrates the legacy schema before creating live-model indexes", async () => {
-    const dialect = new PgDialect();
-    const statements: string[] = [];
-    await ensureKernelObservabilitySchema({
-      async execute(query: SQL) {
-        statements.push(dialect.sqlToQuery(query).sql);
-      },
-    });
-
-    const combined = statements.join("\n");
-    const migrationIndex = combined.indexOf("DO $migration$");
-    const runIndex = combined.indexOf("CREATE INDEX IF NOT EXISTS idx_events_run");
-    expect(migrationIndex).toBeGreaterThan(-1);
-    expect(runIndex).toBeGreaterThan(migrationIndex);
-    expect(combined).toContain("ALTER TABLE trace_events RENAME COLUMN id TO event_id");
-    expect(combined).toContain("ALTER COLUMN run_number DROP NOT NULL");
-    expect(combined).toContain("ALTER COLUMN pi_session_id TYPE TEXT");
-    expect(combined).toContain("DROP CONSTRAINT IF EXISTS trace_events_pi_session_id_fkey");
-    expect(combined).toContain("usage_input_tokens = COALESCE(usage_input_tokens, input_tokens, 0)");
-    expect(combined).toContain("ADD CONSTRAINT pi_agent_sessions_container_id_fkey");
-    expect(combined).toContain("CREATE TABLE IF NOT EXISTS prompt_revisions");
-    expect(combined).toContain("CREATE TABLE IF NOT EXISTS trace_blobs");
-  });
-
-  test("skips all DDL when the schema-current probe passes", async () => {
-    const dialect = new PgDialect();
-    const statements: string[] = [];
-    await ensureKernelObservabilitySchema({
-      async execute(query: SQL) {
-        statements.push(dialect.sqlToQuery(query).sql);
-        return [
-          {
-            containers_kernel_id: true,
-            trace_events_event_id_text: true,
-            trace_events_container_id_not_null: true,
-            agent_runs_parent_run_id_fkey: true,
-            ix_agent_runs_parent_run_id: true,
-          },
-        ];
-      },
-    });
-
-    expect(statements).toHaveLength(1);
-    expect(statements[0]).toContain("information_schema.columns");
-    expect(statements[0]).toContain("ix_agent_runs_parent_run_id");
-    expect(statements[0]).not.toContain("CREATE TABLE");
-    expect(statements[0]).not.toContain("ALTER TABLE");
-  });
-
-  test("runs the full bootstrap when the probe reports a missing sentinel", async () => {
-    const dialect = new PgDialect();
-    const statements: string[] = [];
-    await ensureKernelObservabilitySchema({
-      async execute(query: SQL) {
-        statements.push(dialect.sqlToQuery(query).sql);
-        if (statements.length > 1) return [];
-        return [
-          {
-            containers_kernel_id: true,
-            trace_events_event_id_text: true,
-            trace_events_container_id_not_null: true,
-            agent_runs_parent_run_id_fkey: true,
-            // The final bootstrap statement never ran; schema is not current.
-            ix_agent_runs_parent_run_id: false,
-          },
-        ];
-      },
-    });
-
-    const combined = statements.join("\n");
-    expect(combined).toContain("CREATE TABLE IF NOT EXISTS containers");
-    expect(combined).toContain("DO $migration$");
-    expect(combined).toContain("CREATE INDEX IF NOT EXISTS ix_agent_runs_parent_run_id");
-  });
-});
 
 describe("kernel registration", () => {
   test("builds and upserts the Melee kernel registration payload", async () => {

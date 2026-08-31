@@ -1,7 +1,13 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
+import {
+  ensureKernelObservabilitySchema,
+  insertTraceEventsBatch,
+  openKernelDatabase,
+  upsertContainer,
+} from "@agent-kernel/db";
 import { FINAL_SCHEMA_DDL } from "@server/core/orchestrator-state/storage/ddl";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 
 import {
   buildGameKernelTraceQuery,
@@ -154,23 +160,80 @@ describe("kernel trace game-event projection", () => {
     );
 
     const built = query.toSQL();
-    expect(built.sql).toContain(
+    const normalizedSql = built.sql.replace(/\s+/g, " ");
+    expect(normalizedSql).toContain(
       'inner join "containers" on "trace_events"."container_id" = "containers"."id"',
     );
-    expect(built.sql).toContain(
-      `coalesce(\n    "containers"."metadata"->>'appSessionId',\n    "trace_events"."event_data"->>'appSessionId'\n  ) in ($1)`,
+    expect(normalizedSql).toContain(
+      `coalesce( json_extract("containers"."metadata", '$.appSessionId'), json_extract("trace_events"."event_data", '$.appSessionId') ) in (?)`,
     );
-    expect(built.sql).toContain(`"trace_events"."event_data"->>'gameId' = $2`);
-    expect(built.sql).toContain(`"trace_events"."event_data"->>'game_event_id' in ($3, $4)`);
-    expect(built.sql).toContain(
+    expect(normalizedSql).toContain(
+      `json_extract( "trace_events"."event_data", '$.gameId' ) = ?`,
+    );
+    expect(normalizedSql).toContain(
+      `json_extract( "trace_events"."event_data", '$.game_event_id' ) in (?, ?)`,
+    );
+    expect(normalizedSql).toContain(
+      `json_extract( "trace_events"."event_data", '$.game_id' ) is null or json_extract( "trace_events"."event_data", '$.game_id' ) = ?`,
+    );
+    expect(normalizedSql).toContain(
       'order by "trace_events"."timestamp", "trace_events"."event_id"',
     );
-    expect(built.params.slice(0, 4)).toEqual([
+    expect(built.params).toEqual([
       "11111111-1111-5111-8111-111111111111",
       "melee",
       "event-1",
       "event-2",
+      "melee",
     ]);
+  });
+
+  test("reads game-event linkage rows from the SQLite kernel database", async () => {
+    const handle = openKernelDatabase({ path: ":memory:" });
+    try {
+      await ensureKernelObservabilitySchema(handle.db);
+      const appSessionId = "11111111-1111-5111-8111-111111111111";
+      await upsertContainer(handle.db, {
+        id: "melee:sqlite-link:session",
+        kernelId: "melee-decomp-orchestrator",
+        kind: "session",
+        appKey: ["sqlite-link"],
+        metadata: { appSessionId, gameId: "melee" },
+      });
+      await insertTraceEventsBatch(handle.db, [{
+        eventId: "kernel-event-sqlite",
+        containerId: "melee:sqlite-link:session",
+        eventData: {
+          appSessionId,
+          gameId: "melee",
+          game_event_id: "event-sqlite",
+        },
+        source: "app",
+        timestamp: "2026-08-31T12:00:00.000Z",
+        traceLevel: 1,
+        type: "melee:workflow",
+      } as any]);
+
+      const rows = await buildGameKernelTraceQuery(
+        handle.db,
+        "melee",
+        ["event-sqlite"],
+        [appSessionId],
+      );
+
+      expect(rows).toEqual([{
+        appSessionId,
+        containerId: "melee:sqlite-link:session",
+        eventData: {
+          appSessionId,
+          gameId: "melee",
+          game_event_id: "event-sqlite",
+        },
+        kernelEventId: "kernel-event-sqlite",
+      }]);
+    } finally {
+      handle.close();
+    }
   });
 
   test("reads normalized app-session UUIDs from only the requested game", () => {

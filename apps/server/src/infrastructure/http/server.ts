@@ -291,6 +291,7 @@ const kernelRuntime = createDashboardKernelRuntimeService({
   packageRoot,
   port,
   recordCycleKernelTrace,
+  stateDir: gameContext.defaultGame()?.stateDir ?? defaultStateDir,
 });
 
 function gameKernelTraceHref(

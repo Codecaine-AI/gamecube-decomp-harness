@@ -24,6 +24,7 @@ export const MELEE_INLINE_CONTEXT_LOADER_KINDS = [
   "librarian-context",
   "librarian-curation-context",
   "librarian-pr-index-context",
+  "worker-summarizer-context",
   "qa-repair-item",
   "qa-repair-queue-summary",
 ] as const;

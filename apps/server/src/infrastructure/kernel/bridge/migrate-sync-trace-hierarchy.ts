@@ -1,5 +1,20 @@
-import type { NewContainer } from "@agent-kernel/db";
-import { sql } from "drizzle-orm";
+import {
+  agentRuns as kernelAgentRuns,
+  containers as kernelContainers,
+  piAgentSessions as kernelPiAgentSessions,
+  traceEvents as kernelTraceEvents,
+  type KernelDatabase,
+  type NewContainer,
+} from "@agent-kernel/db";
+import { and, eq, exists, like, not, notExists, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
+
+// The linked package owns a separate Drizzle declaration. Erase that private
+// type identity only at this database adapter boundary.
+const agentRuns = kernelAgentRuns as any;
+const containers = kernelContainers as any;
+const piAgentSessions = kernelPiAgentSessions as any;
+const traceEvents = kernelTraceEvents as any;
 
 import { MELEE_KERNEL_ID } from "./config.js";
 import { getDefaultMeleeKernelRuntime } from "./runtime.js";
@@ -222,7 +237,7 @@ function copiedRow(
   };
 }
 
-/** Pure rewrite planner. It never reads from or writes to Postgres. */
+/** Pure rewrite planner. It never reads from or writes to the database. */
 export function planSyncTraceHierarchyMigration(input: {
   syncId: string;
   refs: MeleeCycleRef[];
@@ -364,18 +379,6 @@ export function planSyncTraceHierarchyMigration(input: {
   };
 }
 
-function queryRows(result: unknown): Record<string, unknown>[] {
-  if (Array.isArray(result)) return result as Record<string, unknown>[];
-  const rows = (result as { rows?: unknown[] } | null)?.rows;
-  return Array.isArray(rows) ? rows as Record<string, unknown>[] : [];
-}
-
-function affectedRows(result: unknown): number {
-  const count = (result as { count?: unknown; rowCount?: unknown } | null)?.count
-    ?? (result as { rowCount?: unknown } | null)?.rowCount;
-  return typeof count === "number" ? count : Number(count ?? 0) || 0;
-}
-
 function databaseRow(row: Record<string, unknown>): SyncTraceMigrationContainerRow {
   return {
     id: String(row.id),
@@ -400,126 +403,111 @@ function databaseRow(row: Record<string, unknown>): SyncTraceMigrationContainerR
   };
 }
 
-function createPostgresPort(db: any): SyncTraceMigrationDatabasePort {
-  const selectColumns = sql.raw(`
-    id,
-    kernel_id AS "kernelId",
-    kind,
-    app_key AS "appKey",
-    label,
-    status,
-    parent_container_id AS "parentContainerId",
-    phase,
-    phase_vocabulary AS "phaseVocabulary",
-    working_dir AS "workingDir",
-    metadata,
-    usage_input_tokens AS "usageInputTokens",
-    usage_output_tokens AS "usageOutputTokens",
-    usage_cache_read AS "usageCacheRead",
-    usage_cache_write AS "usageCacheWrite",
-    usage_cost_estimate AS "usageCostEstimate",
-    created_at AS "createdAt",
-    started_at AS "startedAt",
-    ended_at AS "endedAt"
-  `);
-
+function createSqlitePort(db: KernelDatabase, inTransaction = false): SyncTraceMigrationDatabasePort {
+  const database = db as any;
+  const childContainers = alias(containers, "child") as any;
   const port: SyncTraceMigrationDatabasePort = {
     async transaction(operation) {
-      return db.transaction((tx: unknown) => operation(createPostgresPort(tx)));
+      if (inTransaction) return operation(createSqlitePort(db, true));
+      database.run(sql`BEGIN IMMEDIATE`);
+      try {
+        const result = await operation(createSqlitePort(db, true));
+        database.run(sql`COMMIT`);
+        return result;
+      } catch (error) {
+        database.run(sql`ROLLBACK`);
+        throw error;
+      }
     },
     async findContainersReferencingSync(syncId) {
       const pattern = `%${syncId}%`;
-      const result = await db.execute(sql`
-        SELECT ${selectColumns}
-        FROM containers
-        WHERE kernel_id = ${MELEE_KERNEL_ID}
-          AND (
-            id LIKE ${pattern}
-            OR COALESCE(metadata, '{}'::jsonb)::text LIKE ${pattern}
-            OR EXISTS (
-              SELECT 1
-              FROM trace_events event
-              WHERE event.container_id = containers.id
-                AND (event.run_id = ${syncId} OR event.event_data::text LIKE ${pattern})
-            )
-          )
-        ORDER BY id
-      `);
-      return queryRows(result).map(databaseRow);
+      const eventReferencesSync = database.select({ one: sql<number>`1` })
+        .from(traceEvents)
+        .where(and(
+          eq(traceEvents.containerId, containers.id),
+          or(
+            eq(traceEvents.runId, syncId),
+            sql<boolean>`cast(${traceEvents.eventData} as text) like ${pattern}`,
+          ),
+        ));
+      const rows = database.select().from(containers).where(and(
+        eq(containers.kernelId, MELEE_KERNEL_ID),
+        or(
+          like(containers.id, pattern),
+          sql<boolean>`coalesce(cast(${containers.metadata} as text), '{}') like ${pattern}`,
+          exists(eventReferencesSync),
+        ),
+      )).orderBy(containers.id).all();
+      return rows.map((row: Record<string, unknown>) => databaseRow(row));
     },
     async findContainersUnderRoots(rootIds) {
       if (rootIds.length === 0) return [];
-      const clauses = rootIds.map((rootId) => sql`id = ${rootId} OR id LIKE ${`${rootId}:%`}`);
-      const result = await db.execute(sql`
-        SELECT ${selectColumns}
-        FROM containers
-        WHERE kernel_id = ${MELEE_KERNEL_ID}
-          AND (${sql.join(clauses, sql` OR `)})
-        ORDER BY id
-      `);
-      return queryRows(result).map(databaseRow);
+      const clauses = rootIds.map((rootId) => or(
+        eq(containers.id, rootId),
+        like(containers.id, `${rootId}:%`),
+      ));
+      const rows = database.select().from(containers).where(and(
+        eq(containers.kernelId, MELEE_KERNEL_ID),
+        or(...clauses),
+      )).orderBy(containers.id).all();
+      return rows.map((row: Record<string, unknown>) => databaseRow(row));
     },
     async insertContainers(rows) {
       let inserted = 0;
       for (const row of rows) {
-        const result = await db.execute(sql`
-          INSERT INTO containers (
-            id, kernel_id, kind, app_key, label, status, parent_container_id,
-            phase, phase_vocabulary, working_dir, metadata,
-            usage_input_tokens, usage_output_tokens, usage_cache_read,
-            usage_cache_write, usage_cost_estimate, created_at, started_at, ended_at
-          ) VALUES (
-            ${row.id}, ${row.kernelId}, ${row.kind}, ${JSON.stringify(row.appKey)}::jsonb,
-            ${row.label}, ${row.status}, ${row.parentContainerId}, ${row.phase},
-            ${JSON.stringify(row.phaseVocabulary)}::jsonb, ${row.workingDir},
-            ${JSON.stringify(row.metadata)}::jsonb, ${row.usageInputTokens},
-            ${row.usageOutputTokens}, ${row.usageCacheRead}, ${row.usageCacheWrite},
-            ${row.usageCostEstimate}, ${row.createdAt}, ${row.startedAt}, ${row.endedAt}
-          )
-          ON CONFLICT DO NOTHING
-        `);
-        inserted += affectedRows(result);
+        const result = database.insert(containers)
+          .values(row as unknown as NewContainer)
+          .onConflictDoNothing()
+          .returning({ id: containers.id })
+          .all();
+        inserted += result.length;
       }
       return inserted;
     },
     async repointChildContainers(rewrites) {
       let updated = 0;
       for (const rewrite of rewrites) {
-        updated += affectedRows(await db.execute(sql`
-          UPDATE containers SET parent_container_id = ${rewrite.newId}
-          WHERE parent_container_id = ${rewrite.oldId}
-            AND id <> ${rewrite.newId}
-        `));
+        updated += database.update(containers)
+          .set({ parentContainerId: rewrite.newId })
+          .where(and(
+            eq(containers.parentContainerId, rewrite.oldId),
+            not(eq(containers.id, rewrite.newId)),
+          ))
+          .returning({ id: containers.id })
+          .all().length;
       }
       return updated;
     },
     async repointTraceEvents(rewrites) {
       let updated = 0;
       for (const rewrite of rewrites) {
-        updated += affectedRows(await db.execute(sql`
-          UPDATE trace_events SET container_id = ${rewrite.newId}
-          WHERE container_id = ${rewrite.oldId}
-        `));
+        updated += database.update(traceEvents)
+          .set({ containerId: rewrite.newId })
+          .where(eq(traceEvents.containerId, rewrite.oldId))
+          .returning({ id: traceEvents.eventId })
+          .all().length;
       }
       return updated;
     },
     async repointAgentRuns(rewrites) {
       let updated = 0;
       for (const rewrite of rewrites) {
-        updated += affectedRows(await db.execute(sql`
-          UPDATE agent_runs SET container_id = ${rewrite.newId}
-          WHERE container_id = ${rewrite.oldId}
-        `));
+        updated += database.update(agentRuns)
+          .set({ containerId: rewrite.newId })
+          .where(eq(agentRuns.containerId, rewrite.oldId))
+          .returning({ id: agentRuns.id })
+          .all().length;
       }
       return updated;
     },
     async repointPiAgentSessions(rewrites) {
       let updated = 0;
       for (const rewrite of rewrites) {
-        updated += affectedRows(await db.execute(sql`
-          UPDATE pi_agent_sessions SET container_id = ${rewrite.newId}
-          WHERE container_id = ${rewrite.oldId}
-        `));
+        updated += database.update(piAgentSessions)
+          .set({ containerId: rewrite.newId })
+          .where(eq(piAgentSessions.containerId, rewrite.oldId))
+          .returning({ id: piAgentSessions.id })
+          .all().length;
       }
       return updated;
     },
@@ -527,11 +515,14 @@ function createPostgresPort(db: any): SyncTraceMigrationDatabasePort {
       let updated = 0;
       const pattern = `%${syncId}%`;
       for (const move of moves) {
-        updated += affectedRows(await db.execute(sql`
-          UPDATE trace_events SET container_id = ${move.newContainerId}
-          WHERE container_id = ${move.oldContainerId}
-            AND event_data::text LIKE ${pattern}
-        `));
+        updated += database.update(traceEvents)
+          .set({ containerId: move.newContainerId })
+          .where(and(
+            eq(traceEvents.containerId, move.oldContainerId),
+            sql<boolean>`cast(${traceEvents.eventData} as text) like ${pattern}`,
+          ))
+          .returning({ id: traceEvents.eventId })
+          .all().length;
       }
       return updated;
     },
@@ -539,14 +530,25 @@ function createPostgresPort(db: any): SyncTraceMigrationDatabasePort {
       let deleted = 0;
       const deepestFirst = [...oldIds].sort((a, b) => b.split(":").length - a.split(":").length);
       for (const oldId of deepestFirst) {
-        deleted += affectedRows(await db.execute(sql`
-          DELETE FROM containers AS source
-          WHERE source.id = ${oldId}
-            AND NOT EXISTS (SELECT 1 FROM containers child WHERE child.parent_container_id = source.id)
-            AND NOT EXISTS (SELECT 1 FROM trace_events event WHERE event.container_id = source.id)
-            AND NOT EXISTS (SELECT 1 FROM agent_runs run WHERE run.container_id = source.id)
-            AND NOT EXISTS (SELECT 1 FROM pi_agent_sessions session WHERE session.container_id = source.id)
-        `));
+        deleted += database.delete(containers).where(and(
+          eq(containers.id, oldId),
+          notExists(
+            database.select({ id: childContainers.id }).from(childContainers)
+              .where(eq(childContainers.parentContainerId, containers.id)),
+          ),
+          notExists(
+            database.select({ id: traceEvents.eventId }).from(traceEvents)
+              .where(eq(traceEvents.containerId, containers.id)),
+          ),
+          notExists(
+            database.select({ id: agentRuns.id }).from(agentRuns)
+              .where(eq(agentRuns.containerId, containers.id)),
+          ),
+          notExists(
+            database.select({ id: piAgentSessions.id }).from(piAgentSessions)
+              .where(eq(piAgentSessions.containerId, containers.id)),
+          ),
+        )).returning({ id: containers.id }).all().length;
       }
       return deleted;
     },
@@ -559,7 +561,7 @@ export async function runSyncTraceHierarchyMigration(
 ): Promise<SyncTraceMigrationSummary> {
   const syncId = assertSyncId(options.syncId);
   if (!options.port && !options.db) throw new Error("Migration requires a database or database port");
-  const port = options.port ?? createPostgresPort(options.db);
+  const port = options.port ?? createSqlitePort(options.db as KernelDatabase);
   const discovery = await port.findContainersReferencingSync(syncId);
   const refsByKey = new Map<string, MeleeCycleRef>();
   for (const row of discovery) {

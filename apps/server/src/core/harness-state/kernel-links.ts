@@ -1,26 +1,14 @@
 import type { Database } from "bun:sqlite";
+import {
+  containers as kernelContainers,
+  traceEvents as kernelTraceEvents,
+} from "@agent-kernel/db";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
-import { jsonb, pgTable, text } from "drizzle-orm/pg-core";
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
-/**
- * Read-only Postgres boundary for the live kernel tables used by this
- * projection. Keeping these narrow declarations local avoids combining the
- * harness Drizzle instance with the linked Core package's private Drizzle
- * types. The live package's default schema is SQLite; its Postgres mirror has
- * these same column names.
- */
-const kernelTraceEvents = pgTable("trace_events", {
-  eventId: text("event_id").primaryKey(),
-  containerId: text("container_id").notNull(),
-  eventData: jsonb("event_data").notNull(),
-  timestamp: text("timestamp").notNull(),
-});
-
-const kernelContainers = pgTable("containers", {
-  id: text("id").primaryKey(),
-  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-});
+// The linked package resolves its own Drizzle installation. Erase that private
+// type identity at this query adapter boundary while retaining its live tables.
+const containers = kernelContainers as any;
+const traceEvents = kernelTraceEvents as any;
 
 export interface GameEventTraceLinkage {
   correlationId: string;
@@ -66,7 +54,7 @@ export type KernelTraceLinkageReader = (
   gameEventIds: readonly string[],
 ) => Promise<readonly KernelTraceLinkage[]>;
 
-export type KernelTraceDatabase = PostgresJsDatabase;
+export type KernelTraceDatabase = any;
 
 export class KernelTraceReadError extends Error {
   readonly cause: unknown;
@@ -135,6 +123,7 @@ export function buildGameKernelTraceQuery(
   gameEventIds: readonly string[],
   appSessionIds: readonly string[],
 ) {
+  const database = db as any;
   const requestedGameId = requiredText(gameId, "gameId");
   const requestedEventIds = gameEventIds.map((eventId) =>
     requiredText(eventId, "game event id")
@@ -149,23 +138,29 @@ export function buildGameKernelTraceQuery(
   }
 
   const metadataAppSessionId = sql<string>`coalesce(
-    ${kernelContainers.metadata}->>'appSessionId',
-    ${kernelTraceEvents.eventData}->>'appSessionId'
+    json_extract(${containers.metadata}, '$.appSessionId'),
+    json_extract(${traceEvents.eventData}, '$.appSessionId')
   )`;
-  const metadataEventId = sql<string>`${kernelTraceEvents.eventData}->>'game_event_id'`;
-  const metadataGameId = sql<string>`${kernelTraceEvents.eventData}->>'gameId'`;
-  const canonicalMetadataGameId = sql<string>`${kernelTraceEvents.eventData}->>'game_id'`;
-  return db
+  const metadataEventId = sql<string>`json_extract(
+    ${traceEvents.eventData}, '$.game_event_id'
+  )`;
+  const metadataGameId = sql<string>`json_extract(
+    ${traceEvents.eventData}, '$.gameId'
+  )`;
+  const canonicalMetadataGameId = sql<string>`json_extract(
+    ${traceEvents.eventData}, '$.game_id'
+  )`;
+  return database
     .select({
       appSessionId: metadataAppSessionId,
-      containerId: kernelTraceEvents.containerId,
-      eventData: kernelTraceEvents.eventData,
-      kernelEventId: kernelTraceEvents.eventId,
+      containerId: traceEvents.containerId,
+      eventData: traceEvents.eventData,
+      kernelEventId: traceEvents.eventId,
     })
-    .from(kernelTraceEvents)
+    .from(traceEvents)
     .innerJoin(
-      kernelContainers,
-      eq(kernelTraceEvents.containerId, kernelContainers.id),
+      containers,
+      eq(traceEvents.containerId, containers.id),
     )
     .where(
       and(
@@ -178,7 +173,7 @@ export function buildGameKernelTraceQuery(
         ),
       ),
     )
-    .orderBy(kernelTraceEvents.timestamp, kernelTraceEvents.eventId);
+    .orderBy(traceEvents.timestamp, traceEvents.eventId);
 }
 
 /** Keeps optional telemetry optional, but makes configured reader failures explicit. */

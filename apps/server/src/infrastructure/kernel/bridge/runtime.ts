@@ -3,14 +3,14 @@ import {
   type KernelTraceReadRows,
   type NewContainer,
 } from "@agent-kernel/db";
-import * as schema from "@agent-kernel/db/schema/pg";
+import * as schema from "@agent-kernel/db/schema";
 import { createKernelTraceReadApi } from "@agent-kernel/kernel/read-api";
 import type { TraceEvent } from "@agent-kernel/protocol";
 import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
 
 // The linked Core checkout owns a second physical Drizzle installation. Keep
-// that type-skew contained at the exported Postgres schema boundary.
-const pgSchema = schema as any;
+// that type identity contained at the exported SQLite schema boundary.
+const sqliteSchema = schema as any;
 
 import {
   createMeleeKernelBridgeConfig,
@@ -22,10 +22,9 @@ import {
   ensureKernelObservabilitySchema,
   insertMeleeTraceEventsBatch,
   upsertMeleeContainer,
-  DEFAULT_AGENT_KERNEL_DATABASE_URL,
-  meleeKernelDatabaseUrlFromEnv,
   meleeKernelRuntimeRequiredFromEnv,
   openMeleeKernelDatabase,
+  resolveMeleeKernelDatabasePath,
   type MeleeKernelDatabaseHandle,
   type OpenMeleeKernelDatabaseOptions,
 } from "./database.js";
@@ -60,6 +59,7 @@ export type TraceEventsInsertPort = (
 
 export interface MeleeKernelRuntime {
   config: MeleeKernelBridgeConfig;
+  databasePath: string | null;
   databaseUrl: string | null;
   db: unknown;
   registration: KernelRegistration | null;
@@ -149,32 +149,32 @@ export async function resolveMeleeKernelTraceIdentity(
   id: string,
 ): Promise<string> {
   const [direct] = await (db as any)
-    .select({ id: pgSchema.containers.id, metadata: pgSchema.containers.metadata })
-    .from(pgSchema.containers)
-    .where(eq(pgSchema.containers.id, id))
+    .select({ id: sqliteSchema.containers.id, metadata: sqliteSchema.containers.metadata })
+    .from(sqliteSchema.containers)
+    .where(eq(sqliteSchema.containers.id, id))
     .limit(1);
   if (direct?.id) {
     return direct.id;
   }
 
   const metadataIdentity = or(
-    sql`${pgSchema.containers.metadata}->>'appSessionId' = ${id}`,
-    sql`${pgSchema.containers.metadata}->>'appSessionSlug' = ${id}`,
-    sql`${pgSchema.containers.metadata}->>'sessionId' = ${id}`,
+    sql`json_extract(${sqliteSchema.containers.metadata}, '$.appSessionId') = ${id}`,
+    sql`json_extract(${sqliteSchema.containers.metadata}, '$.appSessionSlug') = ${id}`,
+    sql`json_extract(${sqliteSchema.containers.metadata}, '$.sessionId') = ${id}`,
   );
 
   const [rootByMetadata] = await (db as any)
-    .select({ id: pgSchema.containers.id, metadata: pgSchema.containers.metadata })
-    .from(pgSchema.containers)
-    .where(and(isNull(pgSchema.containers.parentContainerId), metadataIdentity))
+    .select({ id: sqliteSchema.containers.id, metadata: sqliteSchema.containers.metadata })
+    .from(sqliteSchema.containers)
+    .where(and(isNull(sqliteSchema.containers.parentContainerId), metadataIdentity))
     .limit(1);
   if (rootByMetadata?.id) {
     return rootByMetadata.id;
   }
 
   const [byMetadata] = await (db as any)
-    .select({ id: pgSchema.containers.id, metadata: pgSchema.containers.metadata })
-    .from(pgSchema.containers)
+    .select({ id: sqliteSchema.containers.id, metadata: sqliteSchema.containers.metadata })
+    .from(sqliteSchema.containers)
     .where(metadataIdentity)
     .limit(1);
 
@@ -188,16 +188,16 @@ export function createDbMeleeKernelTraceRowsLister(
   return async (query) => {
     const limit = Math.min(Math.max(query.limit ?? 100, 1), 500);
     const roots: Array<{ id: string; metadata: Record<string, unknown> }> = await (db as any)
-      .select({ id: pgSchema.containers.id, metadata: pgSchema.containers.metadata })
-      .from(pgSchema.containers)
+      .select({ id: sqliteSchema.containers.id, metadata: sqliteSchema.containers.metadata })
+      .from(sqliteSchema.containers)
       .where(
         and(
-          isNull(pgSchema.containers.parentContainerId),
-          like(pgSchema.containers.id, "melee:%:session"),
-          sql`${pgSchema.containers.metadata}->>'gameId' IS NOT NULL`,
+          isNull(sqliteSchema.containers.parentContainerId),
+          like(sqliteSchema.containers.id, "melee:%:session"),
+          sql`json_extract(${sqliteSchema.containers.metadata}, '$.gameId') IS NOT NULL`,
         ),
       )
-      .orderBy(desc(pgSchema.containers.endedAt), desc(pgSchema.containers.createdAt))
+      .orderBy(desc(sqliteSchema.containers.endedAt), desc(sqliteSchema.containers.createdAt))
       .limit(limit);
 
     const rows: KernelTraceReadRows[] = [];
@@ -221,9 +221,13 @@ export async function createMeleeKernelRuntime(
   options: CreateMeleeKernelRuntimeOptions = {},
 ): Promise<MeleeKernelRuntime> {
   const config = createMeleeKernelBridgeConfig(options.config);
-  const handle: Pick<MeleeKernelDatabaseHandle, "databaseUrl" | "close"> & { db: unknown } = options.db
+  const handle: Pick<MeleeKernelDatabaseHandle, "databaseUrl" | "close"> & {
+    db: unknown;
+    databasePath: string | null;
+  } = options.db
     ? {
         db: options.db,
+        databasePath: options.database?.databasePath ?? null,
         databaseUrl: options.database?.databaseUrl ?? null,
         close: options.closeDatabase ?? (async () => {}),
       }
@@ -260,6 +264,7 @@ export async function createMeleeKernelRuntime(
 
   return {
     config,
+    databasePath: handle.databasePath,
     databaseUrl: handle.databaseUrl,
     db,
     registration,
@@ -275,10 +280,7 @@ export async function createMeleeKernelRuntime(
 let defaultRuntimePromise: Promise<MeleeKernelRuntime | null> | null = null;
 let defaultRuntimeWarningShown = false;
 
-/** One retry after a short jittered pause. Runtime init can lose a transient
- * race (schema bootstrap DDL queued behind live traffic); by the second
- * attempt another process has usually committed the bootstrap, so the
- * schema-current probe fast-path succeeds without any DDL. */
+/** One retry after a short jittered pause for transient SQLite lock errors. */
 async function createDefaultMeleeKernelRuntimeWithRetry(
   options: GetDefaultMeleeKernelRuntimeOptions,
 ): Promise<MeleeKernelRuntime> {
@@ -300,16 +302,21 @@ export async function getDefaultMeleeKernelRuntime(
   if (options.db) return createMeleeKernelRuntime(options);
 
   const env = options.database?.env ?? process.env;
-  const databaseUrl =
-    options.database?.databaseUrl ?? meleeKernelDatabaseUrlFromEnv(env) ?? DEFAULT_AGENT_KERNEL_DATABASE_URL;
-  if (!databaseUrl) return null;
+  if (/^(1|true|yes)$/i.test(env.ORCH_AGENT_KERNEL_DISABLED ?? env.ORCH_AGENT_KERNEL_DISABLE ?? "")) {
+    return null;
+  }
+  const databasePath = resolveMeleeKernelDatabasePath({
+    ...options.database,
+    env,
+  });
 
   if (!defaultRuntimePromise) {
     defaultRuntimePromise = createDefaultMeleeKernelRuntimeWithRetry({
       ...options,
       database: {
         ...options.database,
-        databaseUrl,
+        databasePath,
+        env,
       },
     }).catch((error) => {
       defaultRuntimePromise = null;

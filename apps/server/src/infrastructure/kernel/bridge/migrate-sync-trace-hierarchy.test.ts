@@ -1,4 +1,15 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
+
+import {
+  ensureKernelObservabilitySchema,
+  openMeleeKernelDatabase,
+  upsertMeleeContainer,
+} from "./database.js";
+import { MELEE_KERNEL_ID } from "./config.js";
 
 import {
   meleeIntakeItemContainerId,
@@ -227,6 +238,64 @@ describe("sync trace hierarchy migration", () => {
     expect(summary.containersPlanned).toBe(1);
     expect(summary.containersInserted).toBe(0);
     expect(port.calls).toEqual(["discover", `load:${meleeRootContainerId(ref)}`]);
+  });
+
+  test("rewrites rows through the SQLite database port", async () => {
+    const root = mkdtempSync(join(tmpdir(), "sync-trace-sqlite-"));
+    const handle = await openMeleeKernelDatabase({
+      databasePath: join(root, "agent-kernel.sqlite"),
+      env: {},
+    });
+    try {
+      await ensureKernelObservabilitySchema(handle.db);
+      const rootContainer = row({
+        id: meleeRootContainerId(ref),
+        kind: "session",
+        metadata: { gameId: ref.gameId, sessionId: ref.sessionId },
+        parentContainerId: null,
+        phase: "session",
+      });
+      const postmortem = row({
+        id: meleePostmortemContainerId({
+          ...ref,
+          runId: syncId,
+          epochId: "epoch",
+          claimId: "pr-77",
+        }),
+        metadata: {
+          gameId: ref.gameId,
+          sessionId: ref.sessionId,
+          runId: syncId,
+          prId: "77",
+        },
+        parentContainerId: rootContainer.id,
+      });
+      await upsertMeleeContainer(handle.db, {
+        ...rootContainer,
+        kernelId: MELEE_KERNEL_ID,
+      } as any);
+      await upsertMeleeContainer(handle.db, {
+        ...postmortem,
+        kernelId: MELEE_KERNEL_ID,
+      } as any);
+
+      const summary = await runSyncTraceHierarchyMigration({
+        db: handle.db,
+        now,
+        syncId,
+      });
+
+      expect(summary).toMatchObject({
+        cycleCount: 1,
+        containersPlanned: 1,
+        containersDeleted: 1,
+        dryRun: false,
+        syncId,
+      });
+    } finally {
+      await handle.close();
+      rmSync(root, { force: true, recursive: true });
+    }
   });
 
   test("rejects a run id that is not sync-scoped", async () => {

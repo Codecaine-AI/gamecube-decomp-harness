@@ -474,7 +474,7 @@ export function createMeleeKernelPiAgentRunner(
               workingDir: piOptions.cwd,
             },
             database: {
-              maxConnections: 1,
+              stateDir: metadataString(context.metadata, "stateDir") ?? undefined,
             },
           })
         : null);

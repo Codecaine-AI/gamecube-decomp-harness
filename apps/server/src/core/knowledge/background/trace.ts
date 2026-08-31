@@ -71,7 +71,9 @@ export function createBackgroundKnowledgeTraceHooks(
         return;
       }
 
-      const runtime = await getDefaultMeleeKernelRuntime();
+      const runtime = await getDefaultMeleeKernelRuntime({
+        database: { stateDir: store.stateDir, env },
+      });
       if (!runtime) return;
 
       await submitMeleeWorkflowTraceEvent({

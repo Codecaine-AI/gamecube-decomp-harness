@@ -1,9 +1,10 @@
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { Database } from "bun:sqlite";
 import {
-  DEFAULT_AGENT_KERNEL_DATABASE_URL,
-  meleeKernelDatabaseUrlFromEnv,
+  meleeKernelDatabasePathFromEnv,
   meleeKernelRuntimeRequiredFromEnv,
+  resolveMeleeKernelDatabasePath,
 } from "@server/infrastructure/kernel/bridge/database";
 import { createMeleeKernelRuntime, type MeleeKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime";
 import { toKernelTraceSessionDetail } from "@server/infrastructure/kernel/bridge/read-api";
@@ -50,6 +51,7 @@ export interface DashboardKernelWorkerTraceInput {
 
 export interface DashboardKernelRuntimeService {
   closeForTests: () => Promise<void>;
+  databasePath: () => string | null;
   databaseUrl: () => string | null;
   enabled: () => Promise<boolean>;
   kernelRuntimeRequired: boolean;
@@ -69,6 +71,7 @@ export interface DashboardKernelRuntimeServiceDeps {
   latestRunId: (stateDir: string) => string;
   packageRoot: string;
   port: number;
+  stateDir?: string;
   createKernelRuntime?: typeof createMeleeKernelRuntime;
   persistCycleKernelTraceLinkage?: (
     stateDir: string,
@@ -246,10 +249,17 @@ export function persistCycleKernelTraceLinkage(
 }
 
 export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntimeServiceDeps): DashboardKernelRuntimeService {
-  const explicitKernelDatabaseUrl = meleeKernelDatabaseUrlFromEnv(deps.env);
+  const explicitKernelDatabasePath = meleeKernelDatabasePathFromEnv(deps.env);
   const kernelRuntimeDisabled = /^(1|true|yes)$/i.test(deps.env.ORCH_AGENT_KERNEL_DISABLED ?? deps.env.ORCH_AGENT_KERNEL_DISABLE ?? "");
-  const kernelDatabaseUrl = kernelRuntimeDisabled ? null : (explicitKernelDatabaseUrl || DEFAULT_AGENT_KERNEL_DATABASE_URL);
-  const kernelDatabaseSource = kernelRuntimeDisabled ? "disabled" : (explicitKernelDatabaseUrl ? "env" : "default-local");
+  const kernelDatabasePath = kernelRuntimeDisabled
+    ? null
+    : resolveMeleeKernelDatabasePath({
+        databasePath: explicitKernelDatabasePath,
+        stateDir: deps.stateDir ?? resolve(deps.packageRoot, "games/melee/state"),
+        env: deps.env,
+      });
+  const kernelDatabaseUrl = kernelDatabasePath ? pathToFileURL(kernelDatabasePath).href : null;
+  const kernelDatabaseSource = kernelRuntimeDisabled ? "disabled" : (explicitKernelDatabasePath ? "env" : "game-state");
   const kernelRuntimeRequired = meleeKernelRuntimeRequiredFromEnv(deps.env);
   const kernelAppBaseUrl = deps.env.ORCH_AGENT_KERNEL_APP_BASE_URL ?? `http://localhost:${deps.port}`;
   const kernelObserverUrl = deps.env.AGENT_KERNEL_OBSERVER_URL ?? null;
@@ -274,7 +284,8 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
           },
         },
         database: {
-          databaseUrl: kernelDatabaseUrl,
+          databasePath: kernelDatabasePath,
+          env: deps.env,
         },
       }).catch((error) => {
         kernelRuntimePromise = null;
@@ -300,9 +311,10 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         enabled: false,
         required: kernelRuntimeRequired,
         disabled: kernelRuntimeDisabled,
+        databasePath: null,
         databaseUrl: null,
         databaseSource: kernelDatabaseSource,
-        env: ["ORCH_AGENT_KERNEL_DATABASE_URL", "AGENT_KERNEL_DATABASE_URL"],
+        env: ["ORCH_AGENT_KERNEL_DB_PATH", "AGENT_KERNEL_DB_PATH"],
       };
     }
 
@@ -312,6 +324,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         configured: true,
         enabled: current !== null,
         required: kernelRuntimeRequired,
+        databasePath: kernelDatabasePath,
         databaseUrl: redactedUrl(kernelDatabaseUrl),
         databaseSource: kernelDatabaseSource,
         kernelId: current?.config.kernelId ?? null,
@@ -330,6 +343,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         configured: true,
         enabled: false,
         required: kernelRuntimeRequired,
+        databasePath: kernelDatabasePath,
         databaseUrl: redactedUrl(kernelDatabaseUrl),
         databaseSource: kernelDatabaseSource,
         error: error instanceof Error ? error.message : String(error),
@@ -348,7 +362,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         {
           error: kernelDatabaseUrl
             ? "Agent Kernel runtime is not available"
-            : "Agent Kernel database URL is not configured",
+            : "Agent Kernel database is disabled",
           status: await status(),
         },
         { status: 503 },
@@ -407,7 +421,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
       if (!current) {
         const message = kernelDatabaseUrl
           ? "Agent Kernel runtime is not available"
-          : "Agent Kernel database URL is not configured";
+          : "Agent Kernel database is disabled";
         if (kernelRuntimeRequired) throw new Error(message);
         return null;
       }
@@ -482,6 +496,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
 
   return {
     closeForTests,
+    databasePath: () => kernelDatabasePath,
     databaseUrl: () => kernelDatabaseUrl,
     enabled,
     kernelRuntimeRequired,

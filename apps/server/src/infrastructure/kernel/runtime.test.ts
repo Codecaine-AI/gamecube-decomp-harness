@@ -60,7 +60,7 @@ describe("dashboard kernel trace linkage persistence", () => {
     } as unknown as MeleeKernelRuntime;
     const service = createDashboardKernelRuntimeService({
       createKernelRuntime: async () => kernelRuntime,
-      env: { ORCH_AGENT_KERNEL_DATABASE_URL: "postgres://kernel.invalid/test" },
+      env: { ORCH_AGENT_KERNEL_DB_PATH: "/tmp/kernel-runtime-test.sqlite" },
       json: (data, init) => Response.json(data, init),
       latestRunId: () => "",
       packageRoot: "/repo",
@@ -263,7 +263,7 @@ describe("dashboard kernel trace linkage persistence", () => {
     } as unknown as MeleeKernelRuntime;
     const service = createDashboardKernelRuntimeService({
       createKernelRuntime: async () => kernelRuntime,
-      env: { ORCH_AGENT_KERNEL_DATABASE_URL: "postgres://kernel.invalid/test" },
+      env: { ORCH_AGENT_KERNEL_DB_PATH: "/tmp/kernel-runtime-test.sqlite" },
       json: (data, init) => Response.json(data, init),
       latestRunId: () => "",
       packageRoot: "/repo",
@@ -337,7 +337,7 @@ describe("dashboard kernel trace linkage persistence", () => {
     } as unknown as MeleeKernelRuntime;
     const service = createDashboardKernelRuntimeService({
       createKernelRuntime: async () => kernelRuntime,
-      env: { ORCH_AGENT_KERNEL_DATABASE_URL: "postgres://kernel.invalid/test" },
+      env: { ORCH_AGENT_KERNEL_DB_PATH: "/tmp/kernel-runtime-test.sqlite" },
       json: (data, init) => Response.json(data, init),
       latestRunId: () => "",
       packageRoot: "/repo",

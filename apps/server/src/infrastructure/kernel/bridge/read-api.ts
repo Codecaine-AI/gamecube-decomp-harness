@@ -6,7 +6,7 @@ import type {
   PiAgentSessionWithEventCount,
   TraceEventRow as KernelTraceEventRow,
 } from "@agent-kernel/db";
-import * as schema from "@agent-kernel/db/schema/pg";
+import { getKernelTraceReadRows } from "@agent-kernel/db";
 import type {
   KernelTraceReadQuery,
   KernelTraceReadService,
@@ -22,13 +22,8 @@ import type {
   TraceEventRow,
   TraceSessionMeta,
 } from "@agent-kernel/viewer-core";
-import { and, asc, count, eq, gt, inArray } from "drizzle-orm";
 
 import type { MeleeKernelDatabase } from "./database.js";
-
-// Core's linked source resolves its own Drizzle declaration. Contain that
-// physical-package type skew at this Postgres port boundary.
-const pgSchema = schema as any;
 
 export type KernelTraceRowsReader = (
   containerId: string,
@@ -81,92 +76,16 @@ function latestTimestamp(rows: Array<{ timestamp?: string | null }>): string | n
   return latest;
 }
 
-function clampLimit(limit: number | undefined, fallback: number, max: number): number {
-  if (limit === undefined || !Number.isFinite(limit)) return fallback;
-  return Math.max(1, Math.min(Math.floor(limit), max));
-}
-
-/**
- * The live db actions are SQLite-first. Melee keeps its shared Postgres plane,
- * so this bridge owns the equivalent read port over the exported pg schema.
- */
 export async function getMeleeKernelTraceReadRows(
   db: unknown,
   rootContainerId: string,
   options: KernelTraceReadOptions = {},
 ): Promise<KernelTraceReadRows | undefined> {
-  const database = db as MeleeKernelDatabase;
-  const maxContainers = clampLimit(options.maxContainers, 500, 5000);
-  const [root] = await database
-    .select()
-    .from(pgSchema.containers)
-    .where(eq(pgSchema.containers.id, rootContainerId))
-    .limit(1);
-  if (!root) return undefined;
-
-  const containers = [root];
-  const seen = new Set<string>([root.id]);
-  let frontier = [root.id];
-  while (frontier.length > 0 && containers.length < maxContainers) {
-    const children = await database
-      .select()
-      .from(pgSchema.containers)
-      .where(inArray(pgSchema.containers.parentContainerId, frontier))
-      .orderBy(asc(pgSchema.containers.createdAt))
-      .limit(maxContainers - containers.length);
-    frontier = [];
-    for (const child of children) {
-      if (seen.has(child.id)) continue;
-      seen.add(child.id);
-      containers.push(child);
-      frontier.push(child.id);
-    }
-  }
-
-  const containerIds = containers.map((container) => container.id);
-  const piSessionRows = await database
-    .select()
-    .from(pgSchema.piAgentSessions)
-    .where(inArray(pgSchema.piAgentSessions.containerId, containerIds))
-    .orderBy(asc(pgSchema.piAgentSessions.createdAt));
-  const piSessionIds = piSessionRows.map((session) => session.id);
-  const eventCountRows = piSessionIds.length > 0
-    ? await database
-        .select({ piSessionId: pgSchema.traceEvents.piSessionId, eventCount: count() })
-        .from(pgSchema.traceEvents)
-        .where(inArray(pgSchema.traceEvents.piSessionId, piSessionIds))
-        .groupBy(pgSchema.traceEvents.piSessionId)
-    : [];
-  const eventCountBySession = new Map<string, number>();
-  for (const row of eventCountRows) {
-    if (row.piSessionId) eventCountBySession.set(row.piSessionId, Number(row.eventCount ?? 0));
-  }
-  const piSessions = piSessionRows.map((session) => ({
-    ...session,
-    eventCount: eventCountBySession.get(session.id) ?? 0,
-  }));
-
-  const agentRuns = await database
-    .select()
-    .from(pgSchema.agentRuns)
-    .where(inArray(pgSchema.agentRuns.containerId, containerIds))
-    .orderBy(asc(pgSchema.agentRuns.startedAt));
-  const eventConditions = [inArray(pgSchema.traceEvents.containerId, containerIds)];
-  if (options.after) eventConditions.push(gt(pgSchema.traceEvents.timestamp, options.after));
-  const events = await database
-    .select()
-    .from(pgSchema.traceEvents)
-    .where(and(...eventConditions))
-    .orderBy(asc(pgSchema.traceEvents.timestamp), asc(pgSchema.traceEvents.eventId))
-    .limit(clampLimit(options.limit, 5000, 10000));
-
-  return {
-    rootContainer: root as KernelContainer,
-    containers: containers as KernelContainer[],
-    piSessions: piSessions as PiAgentSessionWithEventCount[],
-    agentRuns: agentRuns as KernelAgentRun[],
-    events: events as KernelTraceEventRow[],
-  };
+  return getKernelTraceReadRows(
+    db as MeleeKernelDatabase,
+    rootContainerId,
+    options,
+  );
 }
 
 export function createDbKernelTraceRowsReader({

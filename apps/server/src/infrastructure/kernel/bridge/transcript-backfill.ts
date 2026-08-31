@@ -2,8 +2,12 @@ import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { NewAgentRun, NewPiAgentSession } from "@agent-kernel/db";
-import * as schema from "@agent-kernel/db/schema/pg";
+import {
+  agentRuns as kernelAgentRuns,
+  piAgentSessions as kernelPiAgentSessions,
+  type NewAgentRun,
+  type NewPiAgentSession,
+} from "@agent-kernel/db";
 import {
   EventMapper,
   readJsonlFile,
@@ -16,7 +20,11 @@ import { eq } from "drizzle-orm";
 
 import { MELEE_KERNEL_MARKER_CONFIG } from "./config.js";
 
-const pgSchema = schema as any;
+// The linked package owns a separate Drizzle declaration. Keep its private
+// type identity out of this narrow storage adapter.
+const agentRuns = kernelAgentRuns as any;
+const piAgentSessions = kernelPiAgentSessions as any;
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MELEE_AGENT_RUN_NAMESPACE = "56de4ed7-1d44-47ff-8f3b-c5e1b9071f25";
 
@@ -204,23 +212,23 @@ function recoverIdentity(events: PiEvent[]): RecoveredIdentity | null {
 
 const defaultIdentityStore: MeleeTranscriptBackfillIdentityStore = {
   async hasPiSession(db, id) {
-    const rows = await (db as any).select({ id: pgSchema.piAgentSessions.id })
-      .from(pgSchema.piAgentSessions).where(eq(pgSchema.piAgentSessions.id, id)).limit(1);
+    const rows = await (db as any).select({ id: piAgentSessions.id })
+      .from(piAgentSessions).where(eq(piAgentSessions.id, id)).limit(1);
     return rows.length > 0;
   },
   async hasAgentRun(db, id) {
-    const rows = await (db as any).select({ id: pgSchema.agentRuns.id })
-      .from(pgSchema.agentRuns).where(eq(pgSchema.agentRuns.id, id)).limit(1);
+    const rows = await (db as any).select({ id: agentRuns.id })
+      .from(agentRuns).where(eq(agentRuns.id, id)).limit(1);
     return rows.length > 0;
   },
   async insertPiSession(db, row) {
-    const inserted = await (db as any).insert(pgSchema.piAgentSessions).values(row)
-      .onConflictDoNothing({ target: pgSchema.piAgentSessions.id }).returning({ id: pgSchema.piAgentSessions.id });
+    const inserted = await (db as any).insert(piAgentSessions).values(row)
+      .onConflictDoNothing({ target: piAgentSessions.id }).returning({ id: piAgentSessions.id });
     return inserted.length > 0;
   },
   async insertAgentRun(db, row) {
-    const inserted = await (db as any).insert(pgSchema.agentRuns).values(row)
-      .onConflictDoNothing({ target: pgSchema.agentRuns.id }).returning({ id: pgSchema.agentRuns.id });
+    const inserted = await (db as any).insert(agentRuns).values(row)
+      .onConflictDoNothing({ target: agentRuns.id }).returning({ id: agentRuns.id });
     return inserted.length > 0;
   },
 };

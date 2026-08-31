@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { librarianPrompt } from "@server/core/agent-catalog/agents/knowledge/librarian";
@@ -147,9 +148,13 @@ async function runKnowledgeStep<T>(
 }
 
 function configureKernelDatabaseFromArgs(args: Map<string, string | true>): void {
-  const kernelDatabaseUrl = stringArg(args, "--orchestrator-kernel-database-url", "");
-  if (!kernelDatabaseUrl) return;
-  process.env.ORCH_AGENT_KERNEL_DATABASE_URL = kernelDatabaseUrl;
+  const kernelDatabasePath = stringArg(args, "--orchestrator-kernel-db-path", "");
+  const compatibilityUrl = stringArg(args, "--orchestrator-kernel-database-url", "");
+  if (!kernelDatabasePath && !compatibilityUrl) return;
+  if (compatibilityUrl && !compatibilityUrl.startsWith("file:")) {
+    throw new Error("--orchestrator-kernel-database-url only accepts a SQLite file: URL");
+  }
+  process.env.ORCH_AGENT_KERNEL_DB_PATH = kernelDatabasePath || fileURLToPath(compatibilityUrl);
   process.env.ORCH_AGENT_KERNEL_REQUIRED ||= "1";
 }
 
@@ -888,8 +893,8 @@ async function runPrPostmortemIndex(globals: GlobalArgs, args: Map<string, strin
   if (runId) command.push("--orchestrator-run-id", runId);
   const gameId = globals.game?.gameId ?? globals.gameId;
   if (gameId) command.push("--orchestrator-project-id", gameId);
-  const kernelDatabaseUrl = Bun.env.ORCH_AGENT_KERNEL_DATABASE_URL ?? Bun.env.AGENT_KERNEL_DATABASE_URL;
-  if (kernelDatabaseUrl) command.push("--orchestrator-kernel-database-url", kernelDatabaseUrl);
+  const kernelDatabasePath = Bun.env.ORCH_AGENT_KERNEL_DB_PATH ?? Bun.env.AGENT_KERNEL_DB_PATH;
+  if (kernelDatabasePath) command.push("--orchestrator-kernel-db-path", kernelDatabasePath);
   const prIndexerServerJobEntry = Bun.env.ORCH_PR_INDEXER_SERVER_JOB_ENTRY;
   if (prIndexerServerJobEntry) command.push("--orchestrator-server-job-entry", prIndexerServerJobEntry);
   if (globals.agentTimeoutSeconds && globals.agentTimeoutSeconds > 0) {

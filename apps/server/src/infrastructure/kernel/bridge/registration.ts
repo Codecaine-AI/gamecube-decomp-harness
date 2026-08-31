@@ -33,8 +33,8 @@ async function snapshotKernelRegistration(
   data: NewKernelRegistration,
 ): Promise<KernelRegistration> {
   // Live kernels advertise through a local manifest instead of the removed
-  // shared registration table. The Postgres-backed Melee runtime retains this
-  // in-memory snapshot for its existing status endpoint.
+  // shared registration table. The Melee runtime retains this in-memory
+  // snapshot for its existing status endpoint.
   const now = new Date().toISOString();
   return {
     ...data,
