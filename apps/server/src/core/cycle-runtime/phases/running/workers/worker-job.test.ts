@@ -149,6 +149,53 @@ describe("worker job kind", () => {
     } finally { f.store.db.close(); }
   });
 
+  test("drops stale enrichment before claiming a fresh worker attempt", () => {
+    const f = fixture();
+    const log = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const first = claim(f);
+      const staleWorkerStateId = String(first.job.payload.worker_state_id);
+      const staleTargetClaimId = String(first.job.payload.target_claim_id);
+      const staleWorkerId = String(first.job.payload.worker_id);
+      attachJobPayload(f.store, first.token, { sandbox_id: "sandbox-dead", task_handle: { executorId: "dead", handleId: "dead" } });
+      f.store.db.query("UPDATE worker_state SET lifecycle_status = 'error', ended_at = datetime('now') WHERE id = ?").run(staleWorkerStateId);
+      f.store.db.query("UPDATE target_claims SET status = 'closed', closed_at = datetime('now') WHERE id = ?").run(staleTargetClaimId);
+      f.store.db.query("UPDATE epoch_targets SET status = 'admitted' WHERE id = ?").run(f.epochTargetId);
+      f.store.db.query("UPDATE jobs SET status = 'queued', lease_id = NULL, lease_expires_at = NULL WHERE job_id = ?").run(first.job.jobId);
+
+      const fresh = claim(f);
+
+      expect(fresh.job.payload.worker_id).not.toBe(staleWorkerId);
+      expect(fresh.job.payload.worker_state_id).toBe(staleWorkerStateId);
+      expect(fresh.job.payload.target_claim_id).toBe(staleTargetClaimId);
+      expect(fresh.job.payload.sandbox_id).toBeUndefined();
+      expect(fresh.job.payload.task_handle).toBeUndefined();
+      expect(log).toHaveBeenCalledWith(`[run-loop] worker job ${fresh.job.jobId}: stale enrichment dropped`);
+    } finally {
+      log.mockRestore();
+      f.store.db.close();
+    }
+  });
+
+  test("preserves enrichment for a matching active worker attempt", () => {
+    const f = fixture();
+    try {
+      const first = claim(f);
+      attachJobPayload(f.store, first.token, { sandbox_id: "sandbox-live" });
+      f.store.db.query("UPDATE jobs SET status = 'queued', lease_id = NULL, lease_expires_at = NULL WHERE job_id = ?").run(first.job.jobId);
+
+      const resumed = claim(f);
+
+      expect(resumed.job.payload).toMatchObject({
+        worker_state_id: first.job.payload.worker_state_id,
+        target_claim_id: first.job.payload.target_claim_id,
+        worker_id: first.job.payload.worker_id,
+        sandbox_id: "sandbox-live",
+      });
+      expect(f.store.db.query("SELECT COUNT(*) AS count FROM worker_state WHERE epoch_target_id = ?").get(f.epochTargetId)).toEqual({ count: 1 });
+    } finally { f.store.db.close(); }
+  });
+
   test("does not create a replacement job when admission ordering keeps the original target", () => {
     const f = fixture();
     try {

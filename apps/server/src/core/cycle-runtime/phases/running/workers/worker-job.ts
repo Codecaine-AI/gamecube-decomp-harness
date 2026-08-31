@@ -50,7 +50,11 @@ import type {
   TaskSpec,
   WorkerExecutor,
 } from "@server/core/job-queue/types.js";
-import { enqueuePayloadForWorkerJob } from "./worker-job-payload.js";
+import {
+  enqueuePayloadForWorkerJob,
+  workerJobEnrichmentIsLive,
+  workerJobHasEnrichment,
+} from "./worker-job-payload.js";
 
 export interface WorkerJobRunContext {
   store: StateStore;
@@ -80,6 +84,18 @@ export function workerKernelOps(ctx: WorkerJobRunContext): JobQueueKernelOps {
           requireActiveLease(store, ctx.dispatchLeaseId);
           const claimedJob = claimNextJob(store, { ...input, kind: "worker" });
           if (!claimedJob) return null;
+          if (workerJobHasEnrichment(claimedJob.job.payload)) {
+            const claimAt = input.at ?? new Date().toISOString();
+            if (workerJobEnrichmentIsLive(store, claimedJob.job, ctx.runId, claimAt)) {
+              return { kind: "claimed" as const, claimed: claimedJob };
+            }
+            const cleanPayload = enqueuePayloadForWorkerJob(claimedJob.job.payload);
+            store.db.query(`UPDATE jobs SET payload_json = ?, revision = revision + 1, updated_at = ?
+              WHERE job_id = ? AND lease_id = ? AND status = 'claimed'`)
+              .run(JSON.stringify(cleanPayload), claimAt, claimedJob.job.jobId, claimedJob.token.leaseId);
+            claimedJob.job = getJob(store, claimedJob.job.jobId)!;
+            console.log(`[run-loop] worker job ${claimedJob.job.jobId}: stale enrichment dropped`);
+          }
           const workerId = `${ctx.workerIdPrefix ?? "jobq"}-${process.pid}-${randomUUID().slice(0, 8)}`;
           // Capture baseRev exactly once at claim time. Provisioning and the
           // task file must see this same value: ctx.baseRev advances on every
