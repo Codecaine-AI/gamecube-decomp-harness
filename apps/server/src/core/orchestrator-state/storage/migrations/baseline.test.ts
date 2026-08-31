@@ -44,6 +44,7 @@ describe("squashed storage baseline", () => {
       { version: 1, name: "baseline" },
       { version: 2, name: "drop_legacy_epoch_columns" },
       { version: 3, name: "add_epoch_boundary_retry" },
+      { version: 4, name: "add_target_infra_failure_count" },
     ]);
     expect(db.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -118,7 +119,7 @@ describe("squashed storage baseline", () => {
     ensureSchema(db);
     db.exec("ALTER TABLE epochs ADD COLUMN future_additive_value TEXT");
     db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
-      4,
+      5,
       "future_additive_migration",
       "2026-08-27T23:09:00.000Z",
     );
@@ -128,7 +129,7 @@ describe("squashed storage baseline", () => {
       runStorageMigrations(db);
 
       expect(warning).toHaveBeenCalledWith(
-        "schema is ahead of this process: applied through v4, this build knows v3",
+        "schema is ahead of this process: applied through v5, this build knows v4",
       );
       expect(
         db
@@ -141,7 +142,8 @@ describe("squashed storage baseline", () => {
         { version: 1, name: "baseline" },
         { version: 2, name: "drop_legacy_epoch_columns" },
         { version: 3, name: "add_epoch_boundary_retry" },
-        { version: 4, name: "future_additive_migration" },
+        { version: 4, name: "add_target_infra_failure_count" },
+        { version: 5, name: "future_additive_migration" },
       ]);
     } finally {
       warning.mockRestore();
@@ -211,6 +213,7 @@ describe("legacy epoch column migration", () => {
       { version: 1, name: "baseline" },
       { version: 2, name: "drop_legacy_epoch_columns" },
       { version: 3, name: "add_epoch_boundary_retry" },
+      { version: 4, name: "add_target_infra_failure_count" },
     ]);
   });
 

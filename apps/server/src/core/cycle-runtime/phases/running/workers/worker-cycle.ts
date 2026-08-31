@@ -41,6 +41,7 @@ import {
 } from "@server/infrastructure/shell";
 import { addPiSession } from "@server/core/cycle-runtime/run-state";
 import { canonicalCycleSessionId } from "@server/core/cycle/session.js";
+import { infrastructureFailureReason } from "@server/core/cycle-runtime/run-state/infrastructure-failure.js";
 import {
   addEvent,
   appendWorkerSessionId,
@@ -2315,12 +2316,15 @@ async function executeClaimedWorker(params: {
     }
 
     closeWorkerState(store, {
-        authority: token,
+      authority: token,
       workerStateId: claimed.workerStateId,
       lifecycleStatus,
       timeoutSummary: lifecycleStatus === "timeout" ? summaryText : null,
       errorSummary: lifecycleStatus === "error" ? summaryText : null,
       summary: workerStateSummary,
+      infrastructureFailure: lifecycleStatus === "error" && infrastructureFailureReason(summaryText)
+        ? { reason: summaryText }
+        : null,
     });
     const wakeEvent = addEvent(store, runId, lifecycleStatus === "error" ? "worker_error" : "worker_finished", "worker", {
       worker_state_id: claimed.workerStateId,

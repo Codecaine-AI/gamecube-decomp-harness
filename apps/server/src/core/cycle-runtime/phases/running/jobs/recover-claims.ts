@@ -14,6 +14,7 @@ import {
   type ActiveClaimRecord,
   type StateStore,
 } from "@server/core/cycle-runtime/run-state";
+import { infrastructureFailureReason } from "@server/core/cycle-runtime/run-state/infrastructure-failure.js";
 import { immediateTransaction, now as currentTime } from "@server/core/orchestrator-state";
 import { processWorkerOutputIntegrationQueue, type WorkerOutputIntegrationApplyResult } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import { booleanArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
@@ -476,6 +477,9 @@ export async function recoverActiveClaims(params: RecoverActiveClaimsParams): Pr
       lifecycleStatus: "error",
       epochTargetStatus: requeued ? "admitted" : "finished",
       errorSummary: `Recovered interrupted active worker: ${params.reason}`,
+      infrastructureFailure: infrastructureFailureReason(params.reason)
+        ? { reason: params.reason }
+        : null,
       summary: {
         run_id: params.runId,
         epoch_id: claim.epochId,

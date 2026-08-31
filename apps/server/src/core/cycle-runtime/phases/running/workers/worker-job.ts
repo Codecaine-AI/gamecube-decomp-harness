@@ -343,7 +343,8 @@ export function buildWorkerTask(
           } catch {}
         }
       }
-      throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Sandbox provisioning failed before worker execution: ${message}`, { cause: error });
     }
   };
 }
@@ -374,19 +375,21 @@ export function onWorkerJobComplete(
   }
   const epochTargetId = job.payload.claimed_epoch_target_id;
   if (typeof epochTargetId === "string" && epochTargetId) {
-    const target = ctx.store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(epochTargetId) as { status: string } | null;
-    if (target?.status === "admitted") {
-      const slot = getJobByDedupeKey(ctx.store, "worker", epochTargetId);
-      if (slot && ["succeeded", "failed", "cancelled"].includes(slot.status)) {
-        requeueJob(ctx.store, {
-          kind: "worker",
-          dedupeKey: epochTargetId,
-          payload: enqueuePayloadForWorkerJob(slot.payload),
-        });
-      }
-    }
+    requeueAdmittedWorkerJob(ctx.store, epochTargetId);
   }
   return sandboxDeletion;
+}
+
+export function requeueAdmittedWorkerJob(store: StateStore, epochTargetId: string): JobRecord | null {
+  const target = store.db.query("SELECT status FROM epoch_targets WHERE id = ?").get(epochTargetId) as { status: string } | null;
+  if (target?.status !== "admitted") return null;
+  const slot = getJobByDedupeKey(store, "worker", epochTargetId);
+  if (!slot || !["succeeded", "failed", "cancelled"].includes(slot.status)) return null;
+  return requeueJob(store, {
+    kind: "worker",
+    dedupeKey: epochTargetId,
+    payload: enqueuePayloadForWorkerJob(slot.payload),
+  });
 }
 
 export function workerJobDescriptor(

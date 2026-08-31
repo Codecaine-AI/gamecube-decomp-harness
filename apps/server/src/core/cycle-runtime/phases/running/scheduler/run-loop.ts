@@ -53,6 +53,7 @@ import type { JobRecord, TaskOutcome } from "@server/core/job-queue/types.js";
 import {
   DEFAULT_SANDBOX_SLEEP_DEBOUNCE_MS,
   reapWorkerJobs,
+  requeueAdmittedWorkerJob,
   workerJobDescriptor,
   workerKernelOps,
   type WorkerJobRunContext,
@@ -716,6 +717,10 @@ export async function runRunLoop(
           reason: `run-loop recovered failed worker job ${job.jobId}: ${(error ?? "unknown failure").slice(0, 500)}`,
           processIntegrations: false,
         }).then((recovery) => {
+          const epochTargetId = typeof job.payload.claimed_epoch_target_id === "string"
+            ? job.payload.claimed_epoch_target_id
+            : "";
+          if (epochTargetId) requeueAdmittedWorkerJob(store, epochTargetId);
           const ownershipSkip = recovery.skippedActiveClaims.find((claim) =>
             claim.claimId === recoveryFilters.claimIdFilter && claim.reason === "worker_id_filter"
           );

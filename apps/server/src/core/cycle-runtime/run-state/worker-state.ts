@@ -5,6 +5,7 @@ import type { WriteSetEntry } from "./write-set-categories.js";
 import { enqueueBackgroundKnowledgeForWorker } from "@server/core/knowledge/background/index.js";
 import { verifyClaimToken } from "@server/core/job-queue/kernel.js";
 import type { ClaimToken } from "@server/core/job-queue/types.js";
+import { MAX_CONSECUTIVE_TARGET_INFRA_FAILURES } from "./infrastructure-failure.js";
 
 export type EpochTargetStatus = "admitted" | "claimed" | "finished";
 export type TargetClaimStatus = "active" | "closed";
@@ -75,6 +76,7 @@ export interface WorkerStateCloseInput {
   summary?: Record<string, unknown>;
   timeoutSummary?: string | null;
   errorSummary?: string | null;
+  infrastructureFailure?: { reason: string } | null;
   authority: WorkerWriteAuthority;
 }
 
@@ -760,7 +762,6 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
 
 export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput): void {
   const endedAt = now();
-  const epochTargetStatus = input.epochTargetStatus ?? "finished";
   immediateTransaction(store.db, () => {
     verifyWorkerWriteAuthority(store, input.authority);
     const row = store.db
@@ -773,6 +774,36 @@ export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput
       )
       .get(input.workerStateId) as Record<string, unknown> | undefined;
     if (!row) throw new Error(`Worker state not found: ${input.workerStateId}`);
+
+    let summary = input.summary ?? {};
+    let errorSummary = input.errorSummary ?? null;
+    let epochTargetStatus = input.epochTargetStatus ?? "finished";
+    if (input.infrastructureFailure) {
+      const target = store.db
+        .query("SELECT infra_failure_count FROM epoch_targets WHERE id = ?")
+        .get(String(row.epoch_target_id)) as { infra_failure_count?: unknown } | undefined;
+      const consecutiveCount = Number(target?.infra_failure_count ?? 0) + 1;
+      const capped = consecutiveCount >= MAX_CONSECUTIVE_TARGET_INFRA_FAILURES;
+      summary = {
+        ...summary,
+        infrastructure_failure: {
+          classified: true,
+          consecutive_count: consecutiveCount,
+          max_consecutive_failures: MAX_CONSECUTIVE_TARGET_INFRA_FAILURES,
+          capped,
+          reason: input.infrastructureFailure.reason,
+        },
+      };
+      epochTargetStatus = capped ? "finished" : "admitted";
+      if (capped) {
+        errorSummary = `Infrastructure failure retry cap reached (${consecutiveCount}/${MAX_CONSECUTIVE_TARGET_INFRA_FAILURES}): ${input.infrastructureFailure.reason}`;
+      }
+      store.db.query("UPDATE epoch_targets SET infra_failure_count = ? WHERE id = ?")
+        .run(consecutiveCount, String(row.epoch_target_id));
+    } else {
+      store.db.query("UPDATE epoch_targets SET infra_failure_count = 0 WHERE id = ?")
+        .run(String(row.epoch_target_id));
+    }
 
     store.db
       .query(
@@ -790,8 +821,8 @@ export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput
         input.lifecycleStatus,
         endedAt,
         input.timeoutSummary ?? null,
-        input.errorSummary ?? null,
-        jsonObject(input.summary ?? {}),
+        errorSummary,
+        jsonObject(summary),
         input.workerStateId,
       );
     store.db

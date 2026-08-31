@@ -112,6 +112,7 @@ CREATE TABLE epoch_targets (
         admitted_at TEXT NOT NULL,
         claimed_at TEXT,
         finished_at TEXT,
+        infra_failure_count INTEGER NOT NULL DEFAULT 0,
         UNIQUE(epoch_id, target_key)
       );
 

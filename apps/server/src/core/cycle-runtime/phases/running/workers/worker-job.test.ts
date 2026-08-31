@@ -686,8 +686,13 @@ describe("worker job kind", () => {
       attachJobPayload(open.store, result.token, {
         sandbox_id: "sandbox-dead",
         task_handle: { executorId: "executor-dead", handleId: "task-dead" },
+        previous_response_id: "response-dead",
       });
+      open.store.db.query("UPDATE worker_state SET worker_session_ids_json = '[\"session-dead\"]' WHERE id = ?")
+        .run(String(result.job.payload.worker_state_id));
       open.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
+      open.store.db.query("UPDATE target_claims SET status = 'closed', closed_at = datetime('now') WHERE id = ?")
+        .run(String(result.job.payload.target_claim_id));
       open.store.db.query("UPDATE epoch_targets SET status = 'admitted' WHERE id = ?").run(open.epochTargetId);
       open.store.db.query("UPDATE jobs SET status = 'succeeded', completed_at = datetime('now') WHERE job_id = ?").run(result.job.jobId);
       onWorkerJobComplete(getJob(open.store, result.job.jobId)!, {}, open.ctx);
@@ -699,9 +704,13 @@ describe("worker job kind", () => {
         epoch_id: open.epochId,
         target_key: "unit::fn",
       });
-      for (const key of ["worker_state_id", "target_claim_id", "worker_id", "sandbox_id", "task_handle"]) {
+      for (const key of ["worker_state_id", "target_claim_id", "worker_id", "sandbox_id", "task_handle", "previous_response_id"]) {
         expect(requeued?.payload[key]).toBeUndefined();
       }
+      const fresh = claim(open);
+      expect(open.store.db.query("SELECT worker_session_ids_json FROM worker_state WHERE id = ?").get(String(fresh.job.payload.worker_state_id)))
+        .toEqual({ worker_session_ids_json: "[]" });
+      expect(fresh.job.payload.previous_response_id).toBeUndefined();
     } finally { open.store.db.close(); }
   });
 

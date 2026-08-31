@@ -476,6 +476,61 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
+  test("infrastructure failures re-admit a target until the retry cap, then finish it", () => {
+    const { store } = tempState();
+    try {
+      const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")]);
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const claim = claimNextEpochTarget({ store, runId: run.id, workerId: `worker-${attempt}`, baseRev: "base" });
+        expect(claim).not.toBeNull();
+        closeWorkerState(store, {
+          workerStateId: claim!.workerStateId,
+          lifecycleStatus: "error",
+          errorSummary: "LLM provider failed before the runner could continue the worker: server_is_overloaded",
+          infrastructureFailure: { reason: "server_is_overloaded" },
+          summary: { attempt },
+        });
+        const target = store.db
+          .query("SELECT status, infra_failure_count FROM epoch_targets WHERE id = ?")
+          .get(claim!.epochTargetId);
+        expect(target).toEqual({
+          status: attempt < 3 ? "admitted" : "finished",
+          infra_failure_count: attempt,
+        });
+      }
+      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ claimed: 0, finished: 1, remaining: 0 });
+      const worker = store.db
+        .query("SELECT error_summary, summary_json FROM worker_state WHERE epoch_target_id = ?")
+        .get((store.db.query("SELECT id FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string }).id) as {
+          error_summary: string;
+          summary_json: string;
+        };
+      expect(worker.error_summary).toContain("Infrastructure failure retry cap reached (3/3)");
+      expect(JSON.parse(worker.summary_json).infrastructure_failure).toMatchObject({ capped: true, consecutive_count: 3 });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("non-infrastructure errors finish the target immediately", () => {
+    const { store } = tempState();
+    try {
+      const { run, epoch } = setupEpoch(store, [candidate(1, "src/a.c")]);
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
+      closeWorkerState(store, {
+        workerStateId: claim!.workerStateId,
+        lifecycleStatus: "error",
+        errorSummary: "Worker note describes a source validation failure",
+        summary: { source: "test" },
+      });
+      expect(store.db.query("SELECT status, infra_failure_count FROM epoch_targets WHERE id = ?").get(claim!.epochTargetId))
+        .toEqual({ status: "finished", infra_failure_count: 0 });
+      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ finished: 1, remaining: 0 });
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("availability refresh retires exact targets, cancelling queued jobs but preserving claimed jobs", () => {
     const { store } = tempState();
     try {

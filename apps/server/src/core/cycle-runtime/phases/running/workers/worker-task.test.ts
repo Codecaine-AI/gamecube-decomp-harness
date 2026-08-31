@@ -121,7 +121,7 @@ describe("worker task file", () => {
 
     await expect(
       runWorkerCycleFromTask(f.globals, new Map([["--task-file", taskPath]])),
-    ).rejects.toThrow("schema is behind this process: applied through v1, this build requires v3");
+    ).rejects.toThrow("schema is behind this process: applied through v1, this build requires v4");
 
     const db = new Database(join(f.globals.stateDir, "orchestrator.sqlite"));
     try {
