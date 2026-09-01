@@ -60,6 +60,9 @@ interface TextCorpusEntry {
   author: string;
   created_at: string;
   body: string;
+  path?: string;
+  line?: string;
+  diff_hunk?: string;
 }
 
 function readJsonLines<T>(path: string): T[] {
@@ -337,6 +340,9 @@ export interface ResolvedPrComment {
   author: string;
   createdAt: string;
   body: string;
+  path?: string;
+  line?: string;
+  diffHunk?: string;
 }
 
 export function listPrComments(prsRoot: string, prNumber: number): ResolvedPrComment[] {
@@ -356,6 +362,9 @@ export function listPrComments(prsRoot: string, prNumber: number): ResolvedPrCom
     author: entry.author,
     createdAt: entry.created_at,
     body: entry.body,
+    ...(typeof entry.path === "string" && entry.path !== "None" ? { path: entry.path } : {}),
+    ...(typeof entry.line === "string" && entry.line !== "None" ? { line: entry.line } : {}),
+    ...(typeof entry.diff_hunk === "string" && entry.diff_hunk !== "None" ? { diffHunk: entry.diff_hunk } : {}),
   }));
 }
 

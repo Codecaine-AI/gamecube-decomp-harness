@@ -25,6 +25,7 @@ import {
   createKnowledgeMaintenanceClock,
   sandboxSleepConfigFromArgs,
   selectRunLoopSchedulerCondition,
+  startLibrarianConsumerIfEnabled,
   startWorkerSummaryIfEnabled,
   shouldEvaluateEpochBoundary,
   waitForRestingTrigger,
@@ -139,6 +140,52 @@ describe("startWorkerSummaryIfEnabled", () => {
         "SELECT event_type, handled_at FROM events WHERE run_id = ? AND event_type = 'worker_summary_flag_recorded'",
       ).get(run.id)).toMatchObject({
         event_type: "worker_summary_flag_recorded",
+        handled_at: expect.any(String),
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+});
+
+describe("startLibrarianConsumerIfEnabled", () => {
+  test("has zero footprint when the flag is off", () => {
+    const start = jest.fn();
+    const store = new Proxy({} as StateStore, {
+      get() {
+        throw new Error("flag-off path accessed the store");
+      },
+    });
+
+    expect(startLibrarianConsumerIfEnabled({
+      args: new Map(),
+      store,
+      runId: "run-off",
+      globals: {} as never,
+      start,
+    })).toBeNull();
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  test("records and handles the enabled flag before starting the consumer", () => {
+    const { store } = tempState();
+    try {
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      const stop = async () => {};
+      const start = jest.fn(() => stop);
+
+      expect(startLibrarianConsumerIfEnabled({
+        args: new Map([["--librarian-consumer", true]]),
+        store,
+        runId: run.id,
+        globals: {} as never,
+        start,
+      })).toBe(stop);
+      expect(start).toHaveBeenCalledTimes(1);
+      expect(store.db.query<{ event_type: string; handled_at: string | null }, [string]>(
+        "SELECT event_type, handled_at FROM events WHERE run_id = ? AND event_type = 'librarian_consumer_flag_recorded'",
+      ).get(run.id)).toMatchObject({
+        event_type: "librarian_consumer_flag_recorded",
         handled_at: expect.any(String),
       });
     } finally {

@@ -643,6 +643,56 @@ No table here.
 });
 
 describe("PR comment readers", () => {
+  test("includes review location fields and omits absent or None values", () => {
+    const root = mkdtempSync(join(tmpdir(), "knowledge-v2-pr-comments-"));
+    temporaryDirectories.push(root);
+    const prsRoot = join(root, "prs");
+    writePr(prsRoot, 2130, {
+      title: "Review locations",
+      state: "MERGED",
+      mergedAt: "2025-01-01T00:00:00Z",
+    }, [], [
+      {
+        kind: "review_comment",
+        author: "reviewer",
+        created_at: "2025-01-01T01:00:00Z",
+        body: "This is attached to the function.",
+        path: "src/melee/it/items/itbox.c",
+        line: "42",
+        diff_hunk: "@@ -38,4 +38,5 @@\n+void itBox_Spawn(void)",
+      },
+      {
+        kind: "comment",
+        author: "reviewer",
+        created_at: "2025-01-01T02:00:00Z",
+        body: "No source location.",
+        path: "None",
+        line: "None",
+        diff_hunk: "None",
+      },
+    ]);
+
+    expect(listPrComments(prsRoot, 2130)).toEqual([
+      {
+        locator: "pr://2130/comment/0",
+        kind: "review_comment",
+        author: "reviewer",
+        createdAt: "2025-01-01T01:00:00Z",
+        body: "This is attached to the function.",
+        path: "src/melee/it/items/itbox.c",
+        line: "42",
+        diffHunk: "@@ -38,4 +38,5 @@\n+void itBox_Spawn(void)",
+      },
+      {
+        locator: "pr://2130/comment/1",
+        kind: "comment",
+        author: "reviewer",
+        createdAt: "2025-01-01T02:00:00Z",
+        body: "No source location.",
+      },
+    ]);
+  });
+
   test("puts the PR body first and sorts the remaining archive records", () => {
     const { prsRoot } = createFixture();
     expect(listPrComments(prsRoot, 1000)).toEqual([

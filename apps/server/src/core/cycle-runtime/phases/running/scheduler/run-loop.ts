@@ -30,6 +30,7 @@ import {
   numberArg,
   stringArg,
   syncMergePolicyArg,
+  librarianConsumerFlag,
   workerSummaryFlag,
   writeSetIntegrationFlags,
   type GlobalArgs,
@@ -59,6 +60,7 @@ import {
 } from "@server/core/cycle-runtime/phases/running/workers/worker-job.js";
 import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
 import { startWorkerSummaryProcessor } from "@server/core/knowledge-v2/summarizer-job/index.js";
+import { startLibrarianConsumerLane } from "@server/core/knowledge-v2/librarian/lane.js";
 import { recoverActiveClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { workerTtlSeconds } from "@server/core/cycle-runtime/phases/running/worker-ttl.js";
 import { runEpochBoundary } from "./epoch-boundary.js";
@@ -183,6 +185,25 @@ export function startWorkerSummaryIfEnabled(params: {
     onFatalError,
     onShutdownAbandoned,
   });
+}
+
+export function startLibrarianConsumerIfEnabled(params: {
+  args: Map<string, string | true>;
+  store: StateStore;
+  runId: string;
+  globals: GlobalArgs;
+  gameId?: string;
+  shouldClaim?: () => boolean;
+  start?: typeof startLibrarianConsumerLane;
+}): ((options?: { maxWaitMs?: number }) => Promise<void>) | null {
+  if (!librarianConsumerFlag(params.args)) return null;
+  const { store, runId, globals, gameId, shouldClaim } = params;
+  const flagEvent = addEvent(store, runId, "librarian_consumer_flag_recorded", "run-loop", {
+    librarian_consumer: true,
+    created_by: "run-loop",
+  });
+  markEventHandled(store, flagEvent);
+  return (params.start ?? startLibrarianConsumerLane)({ runId, globals, gameId, shouldClaim });
 }
 
 function sleep(ms: number): Promise<void> {
@@ -479,6 +500,7 @@ export async function runRunLoop(
   let fatalStateError: unknown = null;
   let abandonedBackgroundBorrowers = 0;
   let stopWorkerSummary: ((options?: { maxWaitMs?: number }) => Promise<void>) | null = null;
+  let stopLibrarianConsumer: ((options?: { maxWaitMs?: number }) => Promise<void>) | null = null;
   let runLoopWakeResolve: (() => void) | null = null;
   const stop = () => {
     stopRequested = true;
@@ -540,7 +562,9 @@ export async function runRunLoop(
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const writeSetFlags = writeSetIntegrationFlags(args);
-    if (writeSetFlags.writeSetWidening !== "off") {
+    {
+      // Always record the effective mode so a run's widening policy is auditable
+      // even when it is the default.
       const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
         write_set_widening: writeSetFlags.writeSetWidening,
         created_by: "run-loop",
@@ -558,6 +582,14 @@ export async function runRunLoop(
       onShutdownAbandoned: (count) => {
         abandonedBackgroundBorrowers = Math.max(abandonedBackgroundBorrowers, count);
       },
+    });
+    stopLibrarianConsumer = startLibrarianConsumerIfEnabled({
+      args,
+      store: borrowedStore,
+      runId,
+      globals,
+      gameId,
+      shouldClaim: () => getHarnessState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
     });
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
     const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
@@ -1119,6 +1151,7 @@ export async function runRunLoop(
       }
     }
     if (stopWorkerSummary) await stopWorkerSummary({ maxWaitMs: 15_000 });
+    if (stopLibrarianConsumer) await stopLibrarianConsumer({ maxWaitMs: 15_000 });
     const closed = stateStoreCloseInfo(store);
     if (observedRunId && !closed) {
       try {

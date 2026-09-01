@@ -113,6 +113,11 @@ export interface LibrarianRunOptions {
   limit?: number;
   concurrency?: number;
   pathway?: LibrarianPathway;
+  taskId?: string;
+  exclude?: Iterable<string>;
+  signal?: AbortSignal;
+  shouldClaim?: () => boolean;
+  quiet?: boolean;
   dryRun?: boolean;
   stopFile?: string;
   checkoutRoot?: string;
@@ -140,11 +145,13 @@ export interface LibrarianSummary {
   itemsRejected: number;
   itemsSkipped: number;
   passesFailed: number;
+  failedTaskIds: string[];
   tasksSplit: number;
   childrenEnqueued: number;
   tasksRemaining: number;
   aborted: boolean;
   stopped: boolean;
+  paused: boolean;
   wallMs: number;
   perPassMs: LibrarianDurationSummary;
 }
@@ -387,6 +394,15 @@ export async function runLibrarianPass(
     contextMs = clockMs() - contextStarted;
     const failure = contextFailure(context);
     if (failure !== null) throw new Error(`context assembly failed: ${failure}`);
+    let requiredCitation: { kind: "pr"; prNumber: string } | undefined;
+    if (task.pathway === "pr_imported") {
+      if (!record(context.object)
+        || typeof context.object.pr_number !== "number"
+        || !Number.isSafeInteger(context.object.pr_number)) {
+        throw new Error("pr_imported context is missing a valid pr_number");
+      }
+      requiredCitation = { kind: "pr", prNumber: String(context.object.pr_number) };
+    }
 
     const modelStarted = clockMs();
     const proposal = await modelProposal(
@@ -406,6 +422,7 @@ export async function runLibrarianPass(
       prsRoot: deps.prsRoot,
       dryRun,
       now: () => indexedAt,
+      ...(requiredCitation === undefined ? {} : { requiredCitation }),
     });
     let stamped = { targetIds: [] as string[], entityIds: [] as string[] };
     if (dryRun) {
@@ -475,12 +492,13 @@ export async function runLibrarianPass(
 
 interface ClaimResult {
   task: LibrarianTaskRow;
-  split?: { children: string[] };
+  split?: { children: string[]; enqueued: boolean; childPayloads: string[] };
 }
 
 function queuedCandidates(
   store: KnowledgeStoreHandle,
   pathway: LibrarianPathway | undefined,
+  taskId: string | undefined,
   exclude: ReadonlySet<string>,
 ): LibrarianTaskRow[] {
   const excluded = [...exclude];
@@ -489,6 +507,7 @@ function queuedCandidates(
     "started_at IS NULL",
     "done_at IS NULL",
     ...(pathway === undefined ? [] : ["pathway = ?"]),
+    ...(taskId === undefined ? [] : ["id = ?"]),
     ...(excluded.length === 0 ? [] : [`id NOT IN (${placeholders})`]),
   ];
   return store.db.query<LibrarianTaskRow, Array<string | number>>(`
@@ -507,7 +526,12 @@ function queuedCandidates(
       enqueued_at,
       id
     LIMIT ?
-  `).all(...(pathway === undefined ? [] : [pathway]), ...excluded, CLAIM_CANDIDATE_BATCH);
+  `).all(
+    ...(pathway === undefined ? [] : [pathway]),
+    ...(taskId === undefined ? [] : [taskId]),
+    ...excluded,
+    CLAIM_CANDIDATE_BATCH,
+  );
 }
 
 export function countQueuedTasks(
@@ -525,14 +549,16 @@ export function countQueuedTasks(
 }
 
 /**
- * Split an oversized archival slice into bounded children that inherit the parent's queue position
- * (same enqueued_at, ids ordered after the parent), and complete the parent in the same transaction.
+ * Split an oversized archival slice into bounded children that inherit the parent's queue position.
+ * Real claims enqueue the children and complete the parent. Dry-run claims only compute the split
+ * and release the parent.
  */
 function splitOversizedSlice(
   store: KnowledgeStoreHandle,
   task: LibrarianTaskRow,
   doneAt: string,
-): string[] | null {
+  dryRun: boolean,
+): ClaimResult["split"] | null {
   if (task.pathway !== "archival_ingest") return null;
   const slice = parseSlicePayload(task.payload);
   if (slice === null) return null;
@@ -541,6 +567,11 @@ function splitOversizedSlice(
   const width = String(children.length).length;
   const childIds = children.map((_, index) =>
     `${task.id}/${String(index + 1).padStart(width, "0")}`);
+  const childPayloads = [...children];
+  if (dryRun) {
+    releaseIndexTask(store, task.id);
+    return { children: childIds, enqueued: false, childPayloads };
+  }
   immediateTransaction(store.db, () => {
     children.forEach((payload, index) => {
       enqueueIndexTask(store, {
@@ -552,17 +583,19 @@ function splitOversizedSlice(
     });
     completeIndexTask(store, task.id, doneAt);
   });
-  return childIds;
+  return { children: childIds, enqueued: true, childPayloads };
 }
 
 /**
  * Claim the next queued task in priority order. Returns the task to run, or a split record when the
- * claimed task was an oversized archival slice that has been re-chunked and completed instead.
+ * claimed task was an oversized archival slice. Real claims enqueue its children and complete it;
+ * dry-run claims return the projected children and release it.
  */
 export function claimNextLibrarianTask(
   store: KnowledgeStoreHandle,
   options: {
     pathway?: LibrarianPathway;
+    taskId?: string;
     exclude?: ReadonlySet<string>;
     dryRun?: boolean;
     now?: () => string;
@@ -571,7 +604,7 @@ export function claimNextLibrarianTask(
   const now = options.now ?? (() => new Date().toISOString());
   const exclude = new Set(options.exclude ?? []);
   for (;;) {
-    const candidates = queuedCandidates(store, options.pathway, exclude);
+    const candidates = queuedCandidates(store, options.pathway, options.taskId, exclude);
     if (candidates.length === 0) return undefined;
     for (const candidate of candidates) {
       const claimedAt = now();
@@ -580,10 +613,9 @@ export function claimNextLibrarianTask(
         continue;
       }
       const task: LibrarianTaskRow = { ...candidate, started_at: claimedAt };
-      if (options.dryRun === true) return { task };
-      const children = splitOversizedSlice(store, task, claimedAt);
-      if (children === null) return { task };
-      return { task, split: { children } };
+      const split = splitOversizedSlice(store, task, claimedAt, options.dryRun === true);
+      if (split === null) return { task };
+      return { task, split };
     }
   }
 }
@@ -631,17 +663,21 @@ export async function runLibrarianConsumer(
   );
 
   // Tasks this run already touched: a released claim (dry run, failure) must not be re-claimed here.
-  const seen = new Set<string>();
+  const seen = new Set(options.exclude ?? []);
   let claimedPasses = 0;
   let consecutiveFailures = 0;
   let aborted = false;
   let stopped = false;
+  let paused = false;
+  let selectedTaskClaimed = false;
+  let selectorNotePrinted = false;
   let passesRun = 0;
   let passesApplied = 0;
   let itemsApplied = 0;
   let itemsRejected = 0;
   let itemsSkipped = 0;
   let passesFailed = 0;
+  const failedTaskIds: string[] = [];
   let tasksSplit = 0;
   let childrenEnqueued = 0;
   const passDurations: number[] = [];
@@ -654,25 +690,56 @@ export async function runLibrarianConsumer(
         stopped = true;
         return undefined;
       }
+      if (options.signal?.aborted === true) {
+        stopped = true;
+        return undefined;
+      }
+      if (options.shouldClaim !== undefined && !options.shouldClaim()) {
+        paused = true;
+        return undefined;
+      }
       const claimed = claimNextLibrarianTask(store, {
         pathway: options.pathway,
+        taskId: options.taskId,
         exclude: seen,
         dryRun,
         now,
       });
-      if (claimed === undefined) return undefined;
+      if (claimed === undefined) {
+        if (options.taskId !== undefined
+          && !seen.has(options.taskId)
+          && !selectedTaskClaimed
+          && !selectorNotePrinted
+          && !options.quiet) {
+          selectorNotePrinted = true;
+          console.error(`kg2-librarian: task ${options.taskId} is not queued (missing, claimed, or done)`);
+        }
+        return undefined;
+      }
+      selectedTaskClaimed = true;
       seen.add(claimed.task.id);
       if (claimed.split !== undefined) {
         tasksSplit += 1;
-        childrenEnqueued += claimed.split.children.length;
+        if (claimed.split.enqueued) childrenEnqueued += claimed.split.children.length;
+        const childCounts = claimed.split.childPayloads.map((payload) => {
+          const parsed: unknown = JSON.parse(payload);
+          if (!record(parsed)) return 0;
+          if (parsed.source === "discord" && typeof parsed.count === "number") return parsed.count;
+          if (parsed.source === "wiki" && Array.isArray(parsed.pages)) return parsed.pages.length;
+          return 0;
+        });
         await runLog.append({
           run_id: options.runId,
           task_id: claimed.task.id,
           pathway: claimed.task.pathway,
           status: "split",
           dry_run: dryRun,
-          note: `oversized archival slice re-chunked into ${claimed.split.children.length} child tasks; parent completed without a model pass`,
+          claim: claimed.split.enqueued ? "completed" : "released",
+          note: claimed.split.enqueued
+            ? `oversized archival slice re-chunked into ${claimed.split.children.length} child tasks; parent completed without a model pass`
+            : `dry run: oversized archival slice would be re-chunked into ${claimed.split.children.length} child tasks; nothing enqueued, parent released`,
           children: claimed.split.children,
+          child_counts: childCounts,
         });
         continue;
       }
@@ -709,6 +776,7 @@ export async function runLibrarianConsumer(
         itemsSkipped += counts.skipped;
       } catch {
         passesFailed += 1;
+        failedTaskIds.push(task.id);
         consecutiveFailures += 1;
         if (consecutiveFailures > MAX_CONSECUTIVE_FAILURES) aborted = true;
       } finally {
@@ -728,14 +796,16 @@ export async function runLibrarianConsumer(
     itemsRejected,
     itemsSkipped,
     passesFailed,
+    failedTaskIds,
     tasksSplit,
     childrenEnqueued,
     tasksRemaining: countQueuedTasks(store, options.pathway),
     aborted,
     stopped,
+    paused,
     wallMs: clockMs() - startedMs,
     perPassMs: durationSummary(passDurations),
   };
-  console.log(JSON.stringify(summary));
+  if (!options.quiet) console.log(JSON.stringify(summary));
   return summary;
 }

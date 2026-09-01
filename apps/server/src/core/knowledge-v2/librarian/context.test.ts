@@ -186,6 +186,7 @@ function writePrArchive(): string {
   const prsRoot = join(root, "prs");
   const extracted = join(prsRoot, "pr-1533", "extracted");
   mkdirSync(extracted, { recursive: true });
+  const longDiffHunk = `discarded-prefix-${"x".repeat(1600)}commented-line-at-end`;
   const rows = [
     {
       pr: 1533,
@@ -203,6 +204,8 @@ function writePrArchive(): string {
       author: "late",
       created_at: "2026-01-02T00:00:00.000Z",
       path: "src/main.c",
+      line: "42",
+      diff_hunk: longDiffHunk,
       body: "Late review",
     },
     {
@@ -338,7 +341,13 @@ describe("buildTaskContext", () => {
       pr_number: number;
       title: string | null;
       body: string | null;
-      discussion: Array<{ locator: string; body: string }>;
+      discussion: Array<{
+        locator: string;
+        body: string;
+        path?: string;
+        line?: string;
+        diff_hunk?: string;
+      }>;
       ci_rows: Array<Record<string, unknown>>;
       unit_rows: Array<Record<string, unknown>>;
     };
@@ -349,6 +358,9 @@ describe("buildTaskContext", () => {
       title: "Fixture guard work",
       body: "Archived PR body",
     });
+    expect(context.task.instruction).toContain(
+      "Each discussion record carries its path, line, and attached diff hunk; cite the comment that names or is attached to the subject (pr://<n>/comment/<i>), never a CI or unit row, and propose nothing for subjects the discussion never touches.",
+    );
     expect(object.ci_rows).toHaveLength(13);
     expect(object.unit_rows).toEqual([{
       locator: "pr://pr-1533--unit-main",
@@ -374,6 +386,17 @@ describe("buildTaskContext", () => {
       resolvePrComment(prsRoot, 1533, 1)!.body,
       resolvePrComment(prsRoot, 1533, 2)!.body,
     ]);
+    const review = object.discussion[2]!;
+    const sourceDiffHunk = resolvePrComment(prsRoot, 1533, 2)!.diffHunk!;
+    expect(review).toMatchObject({
+      path: "src/main.c",
+      line: "42",
+      diff_hunk: `…${sourceDiffHunk.slice(-1500)}`,
+    });
+    expect(review.diff_hunk).toHaveLength(1501);
+    expect(object.discussion[0]).not.toHaveProperty("path");
+    expect(object.discussion[0]).not.toHaveProperty("line");
+    expect(object.discussion[0]).not.toHaveProperty("diff_hunk");
 
     const touchedTargets = context.touched.filter((subject) => subject.kind === "target");
     expect(touchedTargets).toHaveLength(12);

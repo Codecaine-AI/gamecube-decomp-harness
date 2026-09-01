@@ -175,15 +175,13 @@ function createPrArchive(name: string): string {
   const root = makeTempDir(name);
   const extracted = join(root, "pr-42", "extracted");
   mkdirSync(extracted, { recursive: true });
-  writeFileSync(
-    join(extracted, "text_corpus.jsonl"),
-    `${JSON.stringify({
-      kind: "pr_body",
-      author: "author",
-      created_at: "2026-01-01T00:00:00.000Z",
-      body: "PR body",
-    })}\n`,
-  );
+  const rows = [
+    { kind: "pr_body", author: "author", created_at: "2026-01-01T00:00:00.000Z", body: "The func_one naming decision came from the command handler." },
+    { kind: "review_comment", author: "reviewer", created_at: "2026-01-02T00:00:00.000Z", body: "Use the established branch shape.", diff_hunk: "@@ source context @@\n static void func_one(void)" },
+    { kind: "review_comment", author: "reviewer", created_at: "2026-01-03T00:00:00.000Z", body: "This is unrelated.", diff_hunk: "@@ source context @@\n static void other_function(void)" },
+    { kind: "review_comment", author: "reviewer", created_at: "2026-01-04T00:00:00.000Z", body: "Keep this declaration local.", path: "src/unit-one.c" },
+  ];
+  writeFileSync(join(extracted, "text_corpus.jsonl"), `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`);
   return root;
 }
 
@@ -320,6 +318,196 @@ describe("full happy path", () => {
       to_entity_id: "concept-winner",
       role: "implements",
     });
+  });
+});
+
+describe("required PR citations", () => {
+  test("rejects a fact with only code evidence", async () => {
+    const store = openStore("required-pr-code-only");
+    seedMechanicalSubjects(store);
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "code-only claim", rationale: "source reading", confidence: 0.8,
+      evidence: [{
+        kind: "code",
+        locator: "code://deadbeef/src/missing.c#L1-L1",
+        why: "Code evidence alone is insufficient for this pass.",
+      }],
+    };
+
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(
+      makeTempDir("required-pr-code-only-checkout"),
+      { requiredCitation: { kind: "pr", prNumber: "42" } },
+    ));
+
+    expect(report.items[0]).toMatchObject({ action: "rejected", reason: "missing_pr_citation" });
+    expect(rowCount(store, "fact")).toBe(0);
+  });
+
+  test("rejects a fact citing another PR", async () => {
+    const store = openStore("required-pr-wrong-pr");
+    seedMechanicalSubjects(store);
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "wrong PR claim", rationale: "different pull request", confidence: 0.8,
+      evidence: [{ kind: "pr", locator: "pr://41/comment/0", why: "Another PR's discussion." }],
+    };
+
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(
+      makeTempDir("required-pr-wrong-pr-checkout"),
+      { requiredCitation: { kind: "pr", prNumber: "42" } },
+    ));
+
+    expect(report.items[0]).toMatchObject({ action: "rejected", reason: "missing_pr_citation" });
+    expect(rowCount(store, "fact")).toBe(0);
+  });
+
+  test("applies a fact when the PR body names its target symbol", async () => {
+    const store = openStore("required-pr-comment");
+    seedMechanicalSubjects(store);
+    seedResolvableSources(store);
+    const git = createGitFixture("required-pr-comment-git");
+    const prsRoot = createPrArchive("required-pr-comment-archive");
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "PR-supported claim", rationale: "discussion plus implementation", confidence: 0.8,
+      evidence: [
+        { kind: "pr", locator: "pr://42/comment/0", why: "The PR body explains the func_one naming decision." },
+        { kind: "code", locator: git.locator, why: "The source confirms the implementation." },
+      ],
+    };
+
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(git.root, {
+      prsRoot,
+      requiredCitation: { kind: "pr", prNumber: "42" },
+    }));
+
+    expect(report.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(store.db.query("SELECT kind FROM evidence ORDER BY kind").all()).toEqual([
+      { kind: "code" },
+      { kind: "pr" },
+    ]);
+  });
+
+  test("applies a fact when the attached diff hunk names its target symbol", async () => {
+    const store = openStore("required-pr-diff-hunk");
+    seedMechanicalSubjects(store);
+    seedResolvableSources(store);
+    const prsRoot = createPrArchive("required-pr-diff-hunk-archive");
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "review-supported claim", rationale: "attached diff hunk", confidence: 0.8,
+      evidence: [{ kind: "pr", locator: "pr://42/comment/1", why: "The review is attached to func_one." }],
+    };
+
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(
+      makeTempDir("required-pr-diff-hunk-checkout"),
+      { prsRoot, requiredCitation: { kind: "pr", prNumber: "42" } },
+    ));
+
+    expect(report.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+  });
+
+  test("rejects an unrelated PR comment", async () => {
+    const store = openStore("required-pr-unrelated");
+    seedMechanicalSubjects(store);
+    seedResolvableSources(store);
+    const prsRoot = createPrArchive("required-pr-unrelated-archive");
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "unrelated claim", rationale: "unrelated review", confidence: 0.8,
+      evidence: [{ kind: "pr", locator: "pr://42/comment/2", why: "An unrelated review comment." }],
+    };
+
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(
+      makeTempDir("required-pr-unrelated-checkout"),
+      { prsRoot, requiredCitation: { kind: "pr", prNumber: "42" } },
+    ));
+
+    expect(report.items[0]).toMatchObject({ action: "rejected", reason: "irrelevant_pr_citation" });
+  });
+
+  test("rejects a CI row as the only PR evidence", async () => {
+    const store = openStore("required-pr-row");
+    seedMechanicalSubjects(store);
+    store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-42--fn--func-one', 'target-1', NULL, 'melee#42', 'Matched CI row', 'match',
+        '2026-01-02T00:00:00.000Z')`).run();
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "CI-supported claim", rationale: "matching CI row", confidence: 0.8,
+      evidence: [{
+        kind: "pr",
+        locator: "pr://pr-42--fn--func-one",
+        why: "The triggering PR's CI row records the match.",
+      }],
+    };
+
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(
+      makeTempDir("required-pr-row-checkout"),
+      { requiredCitation: { kind: "pr", prNumber: "42" } },
+    ));
+
+    expect(report.items[0]).toMatchObject({ action: "rejected", reason: "missing_pr_citation" });
+  });
+
+  test("applies a link when its comment references either endpoint", async () => {
+    const store = openStore("required-pr-link");
+    seedMechanicalSubjects(store);
+    seedResolvableSources(store);
+    const prsRoot = createPrArchive("required-pr-link-archive");
+    const matchingPr = {
+      from: { target_stable_key: "unit-one:func_one" },
+      to: { entity_locator: "src/unit-one.c" },
+      role: "discussed_in", why: "Triggering PR discussion", kind: "pr",
+      locator: "pr://42/comment/1",
+    };
+
+    const report = await applyLibrarianPass(store, {
+      links: [matchingPr],
+    }, applyOptions(makeTempDir("required-pr-link-checkout"), {
+      prsRoot,
+      requiredCitation: { kind: "pr", prNumber: "42" },
+    }));
+
+    expect(report.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(rowCount(store, "link")).toBe(1);
+  });
+
+  test("applies an entity fact when the comment path names its locator basename", async () => {
+    const store = openStore("required-pr-entity-path");
+    seedMechanicalSubjects(store);
+    seedResolvableSources(store);
+    const prsRoot = createPrArchive("required-pr-entity-path-archive");
+    const fact = {
+      subject: { entity_locator: "src/unit-one.c" }, type: "purpose", op: "write",
+      value: "translation unit claim", rationale: "review path", confidence: 0.8,
+      evidence: [{ kind: "pr", locator: "pr://42/comment/3", why: "The review is on unit-one.c." }],
+    };
+
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(
+      makeTempDir("required-pr-entity-path-checkout"),
+      { prsRoot, requiredCitation: { kind: "pr", prNumber: "42" } },
+    ));
+
+    expect(report.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+  });
+
+  test("keeps code-only behavior unchanged without a required citation", async () => {
+    const store = openStore("optional-pr-gate");
+    seedMechanicalSubjects(store);
+    const git = createGitFixture("optional-pr-gate-git");
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "ordinary code claim", rationale: "source reading", confidence: 0.8,
+      evidence: [{ kind: "code", locator: git.locator, why: "The implementation supports the claim." }],
+    };
+
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(git.root));
+
+    expect(report.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(rowCount(store, "fact")).toBe(1);
   });
 });
 

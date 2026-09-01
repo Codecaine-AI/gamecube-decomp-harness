@@ -134,6 +134,7 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
 describe("meleeKernelAgentCatalog", () => {
   test("keeps librarian sample locators in canonical format", () => {
     const locatorPattern = /(?:discord|wiki|pr|attempt|code):[^\s"'<>\\]+/gu;
+    const documentedLocatorPattern = /&lt;[^&]+&gt;|:\/\/`$/u;
     const locators: string[] = [];
     const visit = (value: unknown): void => {
       if (typeof value === "string") {
@@ -154,6 +155,7 @@ describe("meleeKernelAgentCatalog", () => {
 
     expect(locators.length).toBeGreaterThan(0);
     for (const locator of locators) {
+      if (documentedLocatorPattern.test(locator)) continue;
       expect(formatLocator(parseLocator(locator))).toBe(locator);
     }
   });
@@ -388,6 +390,9 @@ describe("meleeKernelAgentCatalog", () => {
     expect(librarianV2Rendered).toContain("<supporting_subjects>");
     expect(librarianV2Rendered).toContain("<output_contract>");
     expect(librarianV2Rendered).toContain("librarian_pass_v1");
+    expect(librarianV2Rendered).toContain(
+      "In a pr_imported pass every fact and link cites at least one discussion comment of the triggering PR that references its subject",
+    );
     expect(librarianV2Rendered).not.toMatch(unresolvedPlaceholderPattern);
     expect(backfillLibrarian?.tools).toEqual([...defaultLibrarianToolProfile]);
     expect(backfillRendered).toContain("<fill_out_subjects>");

@@ -25,6 +25,13 @@ export interface ParsedArgs {
 
 export const WRITE_SET_WIDENING_MODES = ["off", "shadow", "config", "header"] as const;
 export type WriteSetWideningMode = (typeof WRITE_SET_WIDENING_MODES)[number];
+/**
+ * Owning-header widening is on by default: the rung ladder (target source ->
+ * config metadata -> one owning header) plus consumer-scoped validation and
+ * boundary confirmation is the safety mechanism. `off` and `shadow` remain as
+ * debugging escape hatches, not as the normal operating mode.
+ */
+export const DEFAULT_WRITE_SET_WIDENING_MODE: WriteSetWideningMode = "header";
 export const SYNC_MERGE_POLICIES = ["score", "theirs"] as const;
 export type SyncMergePolicy = (typeof SYNC_MERGE_POLICIES)[number];
 
@@ -179,9 +186,13 @@ export function workerSummaryFlag(args: Map<string, string | true>): boolean {
   return booleanArg(args, "--worker-summary");
 }
 
+export function librarianConsumerFlag(args: Map<string, string | true>): boolean {
+  return booleanArg(args, "--librarian-consumer");
+}
+
 export function writeSetWideningArg(args: Map<string, string | true>): WriteSetWideningMode {
   const raw = args.get("--write-set-widening");
-  const value = (raw === true ? "shadow" : typeof raw === "string" ? raw : "off").trim().toLowerCase();
+  const value = (raw === true ? "shadow" : typeof raw === "string" ? raw : DEFAULT_WRITE_SET_WIDENING_MODE).trim().toLowerCase();
   if (!WRITE_SET_WIDENING_MODES.includes(value as WriteSetWideningMode)) {
     throw new Error(`--write-set-widening must be one of: ${WRITE_SET_WIDENING_MODES.join(", ")}`);
   }

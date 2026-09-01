@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parse, workerSummaryFlag } from "./runtime-options.js";
+import { librarianConsumerFlag, parse, workerSummaryFlag } from "./runtime-options.js";
 
 describe("game CLI options", () => {
   test("preserves canonical cycle flags", () => {
@@ -38,5 +38,10 @@ describe("game CLI options", () => {
 
   test("enables worker summaries with --worker-summary", () => {
     expect(workerSummaryFlag(parse(["status", "--worker-summary"]).args)).toBe(true);
+  });
+
+  test("enables the librarian consumer with --librarian-consumer", () => {
+    expect(librarianConsumerFlag(parse(["status"]).args)).toBe(false);
+    expect(librarianConsumerFlag(parse(["status", "--librarian-consumer"]).args)).toBe(true);
   });
 });

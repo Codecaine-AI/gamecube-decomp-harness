@@ -236,7 +236,7 @@ function instructionFor(pathway: LibrarianPathway): string {
     case "run_closed":
       return "Work the closed run subjects in order — linked entities first, the target last — researching the submissions and stored narrative across every resource before devising facts.";
     case "pr_imported":
-      return "Work the imported PR subjects in order — attributed entities first, attributed targets last — researching the archived discussion and ledgers across every resource before devising facts.";
+      return "Work the imported PR subjects in order — attributed entities first, attributed targets last — researching the archived discussion and ledgers across every resource before devising facts. Each discussion record carries its path, line, and attached diff hunk; cite the comment that names or is attached to the subject (pr://<n>/comment/<i>), never a CI or unit row, and propose nothing for subjects the discussion never touches.";
     case "regression":
       return "Work the regression subjects in order — linked entities first, the target last — researching the event and every resolved reference before devising facts.";
     case "archival_ingest":
@@ -522,6 +522,9 @@ function cappedDiscussion(comments: ResolvedPrComment[]): {
     created_at: string;
     kind: string;
     body: string;
+    path?: string;
+    line?: string;
+    diff_hunk?: string;
   }>;
   discussion_truncated?: { total: number; kept: number };
 } {
@@ -539,13 +542,23 @@ function cappedDiscussion(comments: ResolvedPrComment[]): {
     const selected = new Set([...mandatory, ...ranked]);
     kept = comments.filter((_, index) => selected.has(index));
   }
-  const discussion = kept.map((comment) => ({
-    locator: comment.locator,
-    author: comment.author,
-    created_at: comment.createdAt,
-    kind: comment.kind,
-    body: comment.body,
-  }));
+  const discussion = kept.map((comment) => {
+    const diffHunk = comment.diffHunk === undefined
+      ? undefined
+      : comment.diffHunk.length > 1500
+        ? `…${comment.diffHunk.slice(-1500)}`
+        : comment.diffHunk;
+    return {
+      locator: comment.locator,
+      author: comment.author,
+      created_at: comment.createdAt,
+      kind: comment.kind,
+      body: comment.body,
+      ...(comment.path === undefined ? {} : { path: comment.path }),
+      ...(comment.line === undefined ? {} : { line: comment.line }),
+      ...(diffHunk === undefined ? {} : { diff_hunk: diffHunk }),
+    };
+  });
   return {
     discussion,
     ...(comments.length > 40

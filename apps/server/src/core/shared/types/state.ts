@@ -11,6 +11,7 @@ export type EventType =
   | "worker_integration_skipped"
   | "write_set_integration_flags"
   | "worker_summary_flag_recorded"
+  | "librarian_consumer_flag_recorded"
   | "pool_below_target"
   | "boundary_breakage_gate"
   | "boundary_sync"

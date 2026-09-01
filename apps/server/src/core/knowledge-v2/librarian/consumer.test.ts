@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { createSharedGate } from "../apply/index.js";
@@ -122,6 +122,17 @@ function modelResult(value: unknown): ReturnType<FakeRunPiAgent> {
   });
 }
 
+function runGit(repoRoot: string, ...args: string[]): string {
+  const result = Bun.spawnSync(["git", "-C", repoRoot, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(" ")} failed: ${result.stderr.toString()}`);
+  }
+  return result.stdout.toString().trim();
+}
+
 function requestedTaskId(options: Parameters<FakeRunPiAgent>[0]): string {
   const taskId = options.kernelContext?.metadata?.taskId;
   if (typeof taskId !== "string") throw new Error("fake agent call has no task id");
@@ -225,6 +236,16 @@ describe("claimNextLibrarianTask", () => {
     expect(taskState(f.store, "pr-1").started_at).toBeNull();
   });
 
+  test("claims only the selected queued task", () => {
+    const f = fixture("task-selector");
+    enqueueIndexTask(f.store, { id: "run-1", pathway: "run_closed", payload: "x", enqueuedAt: FIXED_NOW });
+    enqueueIndexTask(f.store, { id: "pr-1", pathway: "pr_imported", payload: "x", enqueuedAt: FIXED_NOW });
+
+    expect(claimNextLibrarianTask(f.store, { taskId: "pr-1" })?.task.id).toBe("pr-1");
+    expect(claimNextLibrarianTask(f.store, { taskId: "pr-1" })).toBeUndefined();
+    expect(taskState(f.store, "run-1").started_at).toBeNull();
+  });
+
   test("splits an oversized Discord slice into 40/40/20 children and completes the parent", () => {
     const f = fixture("split");
     const range = insertDiscordMessages(f.store, 100);
@@ -238,6 +259,8 @@ describe("claimNextLibrarianTask", () => {
       "task:archival_ingest:big/2",
       "task:archival_ingest:big/3",
     ]);
+    expect(claimed?.split?.enqueued).toBeTrue();
+    expect(claimed?.split?.childPayloads.map((value) => (JSON.parse(value) as { count: number }).count)).toEqual([40, 40, 20]);
     expect(taskState(f.store, "task:archival_ingest:big")).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
     const counts = claimed!.split!.children.map((id) => {
       const state = taskState(f.store, id);
@@ -250,14 +273,17 @@ describe("claimNextLibrarianTask", () => {
     expect(claimNextLibrarianTask(f.store)?.task.id).toBe("task:archival_ingest:big/1");
   });
 
-  test("does not split during a dry run", () => {
+  test("computes a dry-run split without enqueueing children and releases the parent", () => {
     const f = fixture("split-dry");
     const range = insertDiscordMessages(f.store, 41);
     const payload = JSON.stringify({ source: "discord", channel_id: "chan", from_id: range.from, to_id: range.to, count: 41 });
     enqueueIndexTask(f.store, { id: "big", pathway: "archival_ingest", payload, enqueuedAt: FIXED_NOW });
     const claimed = claimNextLibrarianTask(f.store, { dryRun: true });
-    expect(claimed?.split).toBeUndefined();
+    expect(claimed?.split?.children).toEqual(["big/1", "big/2"]);
+    expect(claimed?.split?.enqueued).toBeFalse();
+    expect(claimed?.split?.childPayloads.map((value) => (JSON.parse(value) as { count: number }).count)).toEqual([40, 1]);
     expect(rowCount(f.store, "index_task")).toBe(1);
+    expect(taskState(f.store, "big")).toMatchObject({ started_at: null, done_at: null });
   });
 });
 
@@ -309,6 +335,98 @@ describe("runLibrarianPass", () => {
     expect(logEntries(f, "happy-run")).toEqual([
       expect.objectContaining({ task_id: id, status: "completed", claim: "completed" }),
     ]);
+  });
+
+  test("requires the triggering PR citation for pr_imported facts", async () => {
+    const f = fixture("pr-citation", 1);
+    const prsRoot = join(f.root, "prs");
+    const extracted = join(prsRoot, "pr-101", "extracted");
+    mkdirSync(extracted, { recursive: true });
+    writeFileSync(join(extracted, "text_corpus.jsonl"), `${JSON.stringify({
+      kind: "review_comment",
+      author: "reviewer",
+      created_at: "2026-08-21T00:00:00.000Z",
+      body: "The fixture_func_1 name reflects the reviewed command behavior.",
+    })}\n`);
+    writeFileSync(join(f.root, "sample.c"), "fixture implementation\n");
+    runGit(f.root, "init");
+    runGit(f.root, "config", "user.email", "consumer-test@example.com");
+    runGit(f.root, "config", "user.name", "Consumer Test");
+    runGit(f.root, "add", "sample.c");
+    runGit(f.root, "commit", "-m", "fixture");
+    const revision = runGit(f.root, "rev-parse", "HEAD");
+    f.store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-101--target-1', 'target-1', NULL, 'melee#101',
+        'Fixture CI row for target 1', 'improvement', '2026-08-21T00:00:00.000Z')`).run();
+    const payload = JSON.stringify(["pr-101--target-1"]);
+    const codeOnlyFact = {
+      ...fact(1),
+      evidence: [{
+        kind: "code",
+        locator: `code://${revision}/sample.c#L1-L1`,
+        why: "The source shows the implementation.",
+      }],
+    };
+
+    enqueueIndexTask(f.store, {
+      id: "task:pr_imported:code-only",
+      pathway: "pr_imported",
+      payload,
+      enqueuedAt: FIXED_NOW,
+    });
+    const codeOnlyTask = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    const rejected = await runLibrarianPass(f.store, codeOnlyTask, {
+      runId: "pr-code-only-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      prsRoot,
+      runPiAgent: () => modelResult({ facts: [codeOnlyFact], links: [], entities: [], merges: [] }),
+      now: () => FIXED_NOW,
+    });
+
+    expect(rejected.context.object).toMatchObject({ pr_number: 101 });
+    expect(rejected.applyReport.counts).toEqual({ applied: 0, rejected: 1, skipped: 0 });
+    expect(rejected.applyReport.items).toEqual([
+      expect.objectContaining({ itemKind: "fact", action: "rejected", reason: "missing_pr_citation" }),
+    ]);
+    expect(JSON.parse(readFileSync(rejected.artifactPath, "utf8"))).toMatchObject({
+      apply_report: {
+        counts: { applied: 0, rejected: 1, skipped: 0 },
+        items: [expect.objectContaining({ reason: "missing_pr_citation" })],
+      },
+    });
+
+    enqueueIndexTask(f.store, {
+      id: "task:pr_imported:matching-pr",
+      pathway: "pr_imported",
+      payload,
+      enqueuedAt: FIXED_NOW,
+    });
+    const matchingTask = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    const applied = await runLibrarianPass(f.store, matchingTask, {
+      runId: "pr-matching-citation-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      prsRoot,
+      runPiAgent: () => modelResult({
+        facts: [{
+          ...codeOnlyFact,
+          evidence: [...codeOnlyFact.evidence, {
+            kind: "pr",
+            locator: "pr://101/comment/0",
+            why: "The reviewer explains the fixture_func_1 naming decision.",
+          }],
+        }],
+        links: [],
+        entities: [],
+        merges: [],
+      }),
+      now: () => FIXED_NOW,
+    });
+
+    expect(applied.applyReport.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(rowCount(f.store, "fact")).toBe(1);
   });
 
   test("rejects a malformed envelope, releases the claim, and writes nothing", async () => {
@@ -441,6 +559,167 @@ describe("runLibrarianConsumer", () => {
     ]);
   });
 
+  test("dry-run drain logs a virtual split and continues to the next queued task", async () => {
+    const f = fixture("dry-split-drain", 1);
+    const range = insertDiscordMessages(f.store, 41);
+    enqueueIndexTask(f.store, {
+      id: "task:archival_ingest:big",
+      pathway: "archival_ingest",
+      payload: JSON.stringify({ source: "discord", channel_id: "chan", from_id: range.from, to_id: range.to, count: 41 }),
+      enqueuedAt: "2026-08-01T00:00:00.000Z",
+    });
+    enqueueIndexTask(f.store, {
+      id: "task:archival_ingest:small",
+      pathway: "archival_ingest",
+      payload: JSON.stringify({ source: "discord", channel_id: "chan", from_id: range.to, to_id: range.to, count: 1 }),
+      enqueuedAt: "2026-08-02T00:00:00.000Z",
+    });
+    const before = rowCount(f.store, "index_task");
+    const calls: string[] = [];
+
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "dry-split-drain-run",
+      globals: f.globals,
+      concurrency: 1,
+      dryRun: true,
+      runPiAgent: (options) => {
+        calls.push(requestedTaskId(options));
+        return modelResult(emptyProposal);
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toEqual(["task:archival_ingest:small"]);
+    expect(rowCount(f.store, "index_task")).toBe(before);
+    expect(taskState(f.store, "task:archival_ingest:big")).toMatchObject({ started_at: null, done_at: null });
+    expect(summary).toMatchObject({ passesRun: 1, tasksSplit: 1, childrenEnqueued: 0, tasksRemaining: 2 });
+    expect(logEntries(f, "dry-split-drain-run")).toEqual([
+      expect.objectContaining({
+        task_id: "task:archival_ingest:big",
+        status: "split",
+        dry_run: true,
+        claim: "released",
+        children: ["task:archival_ingest:big/1", "task:archival_ingest:big/2"],
+        child_counts: [40, 1],
+        note: "dry run: oversized archival slice would be re-chunked into 2 child tasks; nothing enqueued, parent released",
+      }),
+      expect.objectContaining({ task_id: "task:archival_ingest:small", status: "completed", dry_run: true }),
+    ]);
+  });
+
+  test("task selector runs only the requested queued task", async () => {
+    const f = fixture("consumer-task", 2);
+    enqueueRunClosed(f, 1);
+    enqueueRunClosed(f, 2);
+    const calls: string[] = [];
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "consumer-task-run",
+      globals: f.globals,
+      concurrency: 1,
+      taskId: "task:run_closed:2",
+      quiet: true,
+      runPiAgent: (options) => {
+        calls.push(requestedTaskId(options));
+        return modelResult(proposal(2));
+      },
+      now: () => FIXED_NOW,
+    });
+    expect(calls).toEqual(["task:run_closed:2"]);
+    expect(summary).toMatchObject({ passesRun: 1, tasksRemaining: 1 });
+    expect(taskState(f.store, "task:run_closed:1").started_at).toBeNull();
+  });
+
+  test("task selector reports an unavailable task unless quiet", async () => {
+    const f = fixture("consumer-task-missing", 1);
+    const error = spyOn(console, "error").mockImplementation(() => undefined);
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "consumer-task-missing-run",
+      globals: f.globals,
+      taskId: "missing",
+      quiet: false,
+    });
+    expect(summary.passesRun).toBe(0);
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith("kg2-librarian: task missing is not queued (missing, claimed, or done)");
+    error.mockClear();
+    await runLibrarianConsumer(f.store, {
+      runId: "consumer-task-missing-quiet-run",
+      globals: f.globals,
+      taskId: "missing",
+      quiet: true,
+    });
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  test("quiet suppresses the JSON summary", async () => {
+    const f = fixture("quiet");
+    const log = spyOn(console, "log").mockImplementation(() => undefined);
+    await runLibrarianConsumer(f.store, { runId: "quiet-run", globals: f.globals, quiet: true });
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  test("exclude seeds the seen set", async () => {
+    const f = fixture("exclude", 2);
+    enqueueRunClosed(f, 1);
+    enqueueRunClosed(f, 2);
+    const calls: string[] = [];
+    await runLibrarianConsumer(f.store, {
+      runId: "exclude-run",
+      globals: f.globals,
+      concurrency: 1,
+      exclude: ["task:run_closed:1"],
+      quiet: true,
+      runPiAgent: (options) => {
+        calls.push(requestedTaskId(options));
+        return modelResult(proposal(2));
+      },
+    });
+    expect(calls).toEqual(["task:run_closed:2"]);
+    expect(taskState(f.store, "task:run_closed:1").started_at).toBeNull();
+  });
+
+  test("abort signal stops claims after the in-flight pass", async () => {
+    const f = fixture("signal", 2);
+    enqueueRunClosed(f, 1);
+    enqueueRunClosed(f, 2);
+    const controller = new AbortController();
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "signal-run",
+      globals: f.globals,
+      concurrency: 1,
+      signal: controller.signal,
+      quiet: true,
+      runPiAgent: (options) => {
+        controller.abort();
+        return modelResult(proposal(Number(requestedTaskId(options).split(":").at(-1))));
+      },
+    });
+    expect(summary).toMatchObject({ passesRun: 1, stopped: true, paused: false, tasksRemaining: 1 });
+    expect(taskState(f.store, "task:run_closed:2").started_at).toBeNull();
+  });
+
+  test("shouldClaim pauses before claiming another task", async () => {
+    const f = fixture("pause", 2);
+    enqueueRunClosed(f, 1);
+    enqueueRunClosed(f, 2);
+    let allowed = true;
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "pause-run",
+      globals: f.globals,
+      concurrency: 1,
+      shouldClaim: () => allowed,
+      quiet: true,
+      runPiAgent: (options) => {
+        allowed = false;
+        return modelResult(proposal(Number(requestedTaskId(options).split(":").at(-1))));
+      },
+    });
+    expect(summary).toMatchObject({ passesRun: 1, stopped: false, paused: true, tasksRemaining: 1 });
+    expect(taskState(f.store, "task:run_closed:2").started_at).toBeNull();
+  });
+
   test("limit caps the number of model passes", async () => {
     const f = fixture("limit", 2);
     enqueueRunClosed(f, 1);
@@ -519,7 +798,14 @@ describe("runLibrarianConsumer", () => {
       now: () => FIXED_NOW,
     });
 
-    expect(summary).toMatchObject({ passesRun: 2, passesApplied: 1, passesFailed: 1, aborted: false, tasksRemaining: 1 });
+    expect(summary).toMatchObject({
+      passesRun: 2,
+      passesApplied: 1,
+      passesFailed: 1,
+      failedTaskIds: ["task:run_closed:1"],
+      aborted: false,
+      tasksRemaining: 1,
+    });
     expect(taskState(f.store, "task:run_closed:1")).toMatchObject({ started_at: null, done_at: null });
     expect(taskState(f.store, "task:run_closed:2")).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
     expect(indexedAt(f.store, "target-1")).toBeNull();
@@ -546,7 +832,15 @@ describe("runLibrarianConsumer", () => {
     });
 
     expect(calls).toBe(6);
-    expect(summary).toMatchObject({ passesRun: 6, passesApplied: 0, passesFailed: 6, aborted: true, stopped: false, tasksRemaining: 8 });
+    expect(summary).toMatchObject({
+      passesRun: 6,
+      passesApplied: 0,
+      passesFailed: 6,
+      failedTaskIds: Array.from({ length: 6 }, (_, index) => `task:run_closed:${index + 1}`),
+      aborted: true,
+      stopped: false,
+      tasksRemaining: 8,
+    });
     expect(rowCount(f.store, "subject_index_state")).toBe(0);
     expect(f.store.db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM index_task WHERE started_at IS NOT NULL").get()!.n).toBe(0);
     expect(logEntries(f, "failure-abort-run")).toHaveLength(6);
@@ -561,6 +855,7 @@ describe("parseLibrarianArgs", () => {
       ["--concurrency", "2"],
       ["--dry-run", true],
       ["--pathway", "pr_imported"],
+      ["--task", "pr-123"],
       ["--json", true],
     ]));
     expect(parsed).toEqual({
@@ -572,6 +867,7 @@ describe("parseLibrarianArgs", () => {
       limit: 1,
       concurrency: 2,
       pathway: "pr_imported",
+      taskId: "pr-123",
       knowledgeRoot: undefined,
     });
   });
@@ -582,5 +878,7 @@ describe("parseLibrarianArgs", () => {
     expect(() => parseLibrarianArgs(new Map([["--run-id", "r"], ["--pathway", "bogus"]]))).toThrow("--pathway must be one of");
     expect(() => parseLibrarianArgs(new Map([["--run-id", "r"], ["--limit", "-1"]]))).toThrow("--limit requires a non-negative integer");
     expect(() => parseLibrarianArgs(new Map([["--run-id", "r"], ["--concurrency", "0"]]))).toThrow("--concurrency requires a positive integer");
+    expect(() => parseLibrarianArgs(new Map<string, string | true>([["--run-id", "r"], ["--task", true]]))).toThrow("--task requires a value");
+    expect(() => parseLibrarianArgs(new Map([["--run-id", "r"], ["--task", "   "]]))).toThrow("--task requires a value");
   });
 });

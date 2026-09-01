@@ -20,6 +20,7 @@ export interface LibrarianCliArgs {
   limit?: number;
   concurrency: number;
   pathway?: LibrarianPathway;
+  taskId?: string;
   knowledgeRoot?: string;
 }
 
@@ -67,6 +68,7 @@ export function parseLibrarianArgs(args: Map<string, string | true>): LibrarianC
     limit: optionalNonNegativeIntegerArg(args, "--limit"),
     concurrency: positiveIntegerArg(args, "--concurrency", 4),
     pathway,
+    taskId: optionalStringArg(args, "--task"),
     knowledgeRoot: optionalStringArg(args, "--knowledge-root"),
   };
 }
@@ -112,6 +114,7 @@ export async function kg2Librarian(globals: GlobalArgs, args: Map<string, string
       limit: parsed.limit,
       concurrency: parsed.concurrency,
       pathway: parsed.pathway,
+      taskId: parsed.taskId,
       dryRun: parsed.dryRun,
       stopFile,
       globals,
@@ -215,7 +218,7 @@ function requiredStringArg(args: Map<string, string | true>, name: string): stri
 function optionalStringArg(args: Map<string, string | true>, name: string): string | undefined {
   const value = args.get(name);
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || value.length === 0) throw new Error(`${name} requires a value`);
+  if (typeof value !== "string" || value.trim().length === 0) throw new Error(`${name} requires a value`);
   return value;
 }
 

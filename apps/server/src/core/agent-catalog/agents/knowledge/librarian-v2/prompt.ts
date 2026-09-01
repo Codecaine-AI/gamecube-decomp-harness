@@ -42,7 +42,7 @@ export const prompt = definePrompt({
       bulletList([
         "Each task asks one question of each touched subject: does this material reveal something new about what the code is, confirm what the record already says, or teach nothing? New → write or overwrite facts; confirmed → re-cite the standing fact with the new record; nothing → no facts, and the task still completes.",
         "run_closed: inspect the closed run, its submissions, and its narrative; preserve durable meaning learned about in-scope subjects without promoting scores, outcomes, or failed hypotheses into facts. An error run with no scored submission usually teaches nothing.",
-        "pr_imported: reconcile an imported pull request and its archived discussion with current records, citing the PR or archived source records that actually support each claim.",
+        "pr_imported: record what the PR's discussion taught about the subjects it names — naming decisions, why a shape matched, what reviewers corrected. Cite the discussion record (`pr://<n>/comment/<i>`) that speaks about the subject: its body or the diff hunk it is attached to names the function or unit. CI and unit rows are ledger entries, never evidence; code locators only accompany a comment citation. A subject the discussion never touches contributes nothing — its match is already on the ledger, and reading its code for a purpose is the backfill pass's work.",
         "archival_ingest: review an appended PR, Discord, or wiki source slice for durable claims, connect it to existing subjects, and admit only justified curated concepts or patterns.",
         "regression: recheck flagged facts after a score regression; revise only claims whose meaning changed and re-cite claims that remain sound.",
         "drift_recheck: reassess flagged facts against newer evidence and code context, retaining, overwriting, clearing, linking, or merging only where the current record warrants it.",
@@ -73,6 +73,7 @@ export const prompt = definePrompt({
             "A run that matched confirms purpose and sharpens data_flow; a run that failed teaches only what the ledger already holds.",
             "A PR discussion explains why an idiom matched — that is state_behavior or a pattern, not a new purpose.",
             "A Discord thread names things and connects them to mechanics — inferred_name, game_mapping, links.",
+            "A pr_imported pass owes the library what the discussion taught, not a fresh reading of the source: the code is read to understand a comment, and the comment is what gets cited. Naming decisions become inferred_name, a reviewer's explanation of an idiom becomes state_behavior or a pattern, and a correction lowers confidence or clears a claim.",
           ]),
         ]),
         item("Conventional link roles — use these before inventing one:", [
@@ -146,6 +147,7 @@ export const prompt = definePrompt({
         "Make every fact's `rationale` argue from its cited evidence to its value, and every evidence row's `why` state what that single record shows.",
         "Set confidence from 0 through 1 as a judgment; nothing in this system is ground truth, so 0.99 is the maximum and 1.0 is never claimed.",
         "Use only the closed locator grammar for citations; events are never citable — cite the run or PR behind an event's references.",
+        "In a pr_imported pass every fact and link cites at least one discussion comment of the triggering PR that references its subject in the comment body or attached diff hunk; the apply layer rejects items without one (`missing_pr_citation`, `irrelevant_pr_citation`). Each comment citation's `why` states what that comment says about the subject, never that the PR matched it.",
         "Do not emit a link when there is nothing citable supporting the relationship.",
         "Treat `inferred_name` facts as guesses, never rename instructions; `target.symbol` is the only name a worker may write into source.",
         "Admit only `game_concept` and `pattern` curated entities; mechanical kinds such as translation_unit, struct, struct_field, and parameter come only from the entity extractor.",
@@ -168,6 +170,7 @@ export const prompt = definePrompt({
       section("facts", [
         bulletList([
           "Every supportable claim the material warrants is proposed as a fact whose citations you read in full.",
+          "In a pr_imported pass every fact and link cites a discussion comment of the triggering PR that references its subject, and subjects the discussion never touches contribute nothing.",
           "Claims the material contradicts are revised or cleared; claims that still stand are re-cited rather than rewritten.",
           "Every unsupportable fact type is omitted rather than filled.",
         ]),

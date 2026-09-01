@@ -18,6 +18,8 @@ import {
   type SourceKind,
   type SubjectRef,
 } from "../records/index.js";
+import { parseLocator } from "../locator.js";
+import { resolvePrComment } from "../ingest/prs.js";
 import { resolveCitation } from "./resolver.js";
 
 export interface SharedGate {
@@ -43,6 +45,7 @@ export interface ApplyOptions {
   sharedWriteGate: SharedGate;
   checkoutRoot: string;
   prsRoot?: string;
+  requiredCitation?: { kind: "pr"; prNumber: string };
   dryRun?: boolean;
   now?: () => string;
 }
@@ -388,6 +391,63 @@ function subjectIsInScope(subject: ResolvedSubject, options: ApplyOptions): bool
     || (subject.entityLocator !== undefined && options.scope.entityLocators.includes(subject.entityLocator));
 }
 
+type RequiredCitationResult = { ok: true } | { ok: false; reason: string };
+
+function subjectTerms(store: KnowledgeStoreHandle, subject: ResolvedSubject): string[] {
+  if (subject.ref.targetId !== undefined) {
+    const target = store.db.query<{ symbol: string; address: string }, [string]>(
+      "SELECT symbol, address FROM target WHERE id = ?",
+    ).get(subject.ref.targetId);
+    if (target === null || target === undefined) return [];
+    const addressWithoutPrefix = target.address.replace(/^0x/iu, "");
+    return [target.symbol, target.address, addressWithoutPrefix];
+  }
+  if (subject.entityLocator === undefined) return [];
+  const basename = subject.entityLocator.split("/").at(-1) ?? subject.entityLocator;
+  return [subject.entityLocator, basename];
+}
+
+function checkRequiredCitation(
+  store: KnowledgeStoreHandle,
+  citations: ReadonlyArray<{ kind: SourceKind; locator: string }>,
+  requiredCitation: ApplyOptions["requiredCitation"],
+  options: ApplyOptions,
+  subjects: readonly ResolvedSubject[],
+): RequiredCitationResult {
+  if (requiredCitation === undefined) return { ok: true };
+  const comments = citations.flatMap((citation) => {
+    if (citation.kind !== "pr") return [];
+    try {
+      const parsed = parseLocator(citation.locator);
+      return parsed.kind === "pr"
+        && parsed.pullRequestId === requiredCitation.prNumber
+        && parsed.commentNumber !== undefined
+        ? [parsed.commentNumber]
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  if (comments.length === 0) return { ok: false, reason: "missing_pr_citation" };
+  if (options.prsRoot === undefined) return { ok: false, reason: "pr_comments_unavailable" };
+
+  for (const commentNumber of comments) {
+    const comment = resolvePrComment(options.prsRoot, Number(requiredCitation.prNumber), commentNumber);
+    if (comment === null) return { ok: false, reason: "pr_comment_not_found" };
+    const targetText = `${comment.body}\n${comment.diffHunk ?? ""}`.toLocaleLowerCase();
+    const entityPath = (comment.path ?? "").toLocaleLowerCase();
+    if (subjects.some((subject) => {
+      const termsForSubject = subjectTerms(store, subject);
+      return termsForSubject.some((term) => {
+        const normalized = term.toLocaleLowerCase();
+        return targetText.includes(normalized)
+          || (subject.ref.entityId !== undefined && entityPath.includes(normalized));
+      });
+    })) return { ok: true };
+  }
+  return { ok: false, reason: "irrelevant_pr_citation" };
+}
+
 async function applyEntityItem(
   store: KnowledgeStoreHandle,
   item: IndexedItem,
@@ -450,6 +510,10 @@ async function applyFactItem(
   const subject = resolveSubject(store, fact.subject, virtualEntities);
   if (!subject.ok) return rejected(item, subject.reason);
   if (!subjectIsInScope(subject.value, options)) return rejected(item, "out_of_scope");
+  const requiredCitation = checkRequiredCitation(
+    store, fact.evidence, options.requiredCitation, options, [subject.value],
+  );
+  if (!requiredCitation.ok) return rejected(item, requiredCitation.reason);
 
   const evidence: EvidenceInput[] = [];
   for (const citation of fact.evidence) {
@@ -526,6 +590,10 @@ async function applyLinkItem(
   if (!subjectIsInScope(from.value, options) || !subjectIsInScope(to.value, options)) {
     return rejected(item, "out_of_scope");
   }
+  const requiredCitation = checkRequiredCitation(
+    store, [link], options.requiredCitation, options, [from.value, to.value],
+  );
+  if (!requiredCitation.ok) return rejected(item, requiredCitation.reason);
   const citation = resolveCitation(store, link, {
     checkoutRoot: options.checkoutRoot,
     prsRoot: options.prsRoot,
